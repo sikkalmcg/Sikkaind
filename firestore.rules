@@ -1,0 +1,102 @@
+/**
+ * Sikka Logistics Security Rules - V2 Hardened
+ *
+ * This ruleset has been updated to synchronize with the current application 
+ * path architecture (/plants/{id}/...) and to resolve administrative 
+ * permission conflicts reported during registry purges.
+ */
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- HELPER FUNCTIONS ---
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** 
+     * Enhanced Admin Check:
+     * Recognizes DBAC (global_admins collection), Hardcoded UIDs, and Admin Identity Nodes.
+     * Hardened to handle unverified emails where token.email might be null.
+     */
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/global_admins/$(request.auth.uid)) ||
+        request.auth.uid == 'ABeeeMnzPhRMCR9X3vmhuw7Ztto1' ||
+        request.auth.token.email == 'sikkaind.admin@sikka.com' ||
+        request.auth.token.email == 'sikkalmcg@gmail.com'
+      );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- CATCH-ALL REGISTRY RULE ---
+    // Ensuring all mission nodes are readable by signed-in operators and writable by admins
+    match /{document=**} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- GRANULAR COLLECTION RULES ---
+
+    /** User Profile Registry */
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId) || isAdmin();
+      
+      match /notifications/{id} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    /** Master Data Registries */
+    match /logistics_plants/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /accounts_plants/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /vehicles/{id} { allow read: if isSignedIn(); allow write: if isSignedIn(); }
+    match /drivers/{id} { allow read: if isSignedIn(); allow write: if isSignedIn(); }
+    match /fuel_pumps/{id} { allow read: if isSignedIn(); allow write: if isSignedIn(); }
+    match /material_types/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /shipment_status_masters/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    
+    /** Accounts ERP Master Data */
+    match /logistics_parties/{id} { allow read, create, update: if isSignedIn(); allow delete: if isAdmin(); }
+    match /accounts_parties/{id} { allow read, create, update: if isSignedIn(); allow delete: if isAdmin(); }
+    match /employees/{id} { allow read, create, update: if isSignedIn(); allow delete: if isAdmin(); }
+    match /master_items/{id} { allow read, create, update: if isSignedIn(); allow delete: if isAdmin(); }
+    match /master_invoice_types/{id} { allow read, create, update: if isSignedIn(); allow delete: if isAdmin(); }
+    match /master_charge_types/{id} { allow read, create, update: if isSignedIn(); allow delete: if isAdmin(); }
+    match /master_unit_types/{id} { allow read, create, update: if isSignedIn(); allow delete: if isAdmin(); }
+    match /carriers/{id} { allow read, create, update: if isSignedIn(); allow delete: if isAdmin(); }
+
+    /** Transactional Registries */
+    match /attendanceRecords/{id} { allow read, create, update: if isSignedIn(); allow delete: if isAdmin(); }
+    match /invoices/{id} { allow read, create, update: if isSignedIn(); allow delete: if isAdmin(); }
+    match /vendor_invoices/{id} { allow read, create, update: if isSignedIn(); allow delete: if isAdmin(); }
+
+    /** Gate Control Registry */
+    match /vehicleEntries/{id} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn(); // Gate operators need write access
+      allow delete: if isAdmin();           // Purge restricted to Admin
+    }
+
+    /** Audit & Archive Nodes */
+    match /activity_logs/{id} { allow read: if isSignedIn(); allow create: if isSignedIn(); allow delete: if isAdmin(); }
+    match /recycle_bin/{id} { allow read: if isSignedIn(); allow create: if isSignedIn(); allow delete: if isAdmin(); }
+    match /counters/{id} { allow read, write: if isSignedIn(); }
+
+    /** Multi-Node Plant Partitions */
+    match /plants/{plantId}/{collectionId}/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // Operators need to create/update mission nodes
+    }
+
+    /** Legacy / Flat Node Support */
+    match /trips/{id} { allow read: if isSignedIn(); allow write: if isSignedIn(); }
+    match /shipments/{id} { allow read: if isSignedIn(); allow write: if isSignedIn(); }
+  }
+}
