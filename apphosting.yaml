@@ -1,4 +1,9 @@
 kind: "AppHostingConfig"
 schemaVersion: "v1"
+# App ko chalane ke liye commands
+scripts:
+  build: "npm run build"
+  run: "npm start"
+# Node version 20 hi rakho, 24 experimental hai
 runtimeConfig:
   nodeVersion: "20"
