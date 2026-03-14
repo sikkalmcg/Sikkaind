@@ -1,9 +1,9 @@
 # Settings for Backend (on Cloud Run).
 # See https://firebase.google.com/docs/app-hosting/configure#cloud-run
-runConfig:
-  minInstances: 0
-  runtimeConfig:
-  nodeVersion: "20" # Stable version use karein deployment ke liye
+cat <<EOF > apphosting.yaml
+runtimeConfig:
+  nodeVersion: "20"
+EOF # Stable version use karein deployment ke liye
   # maxInstances: 100
   # concurrency: 80
   # cpu: 1
