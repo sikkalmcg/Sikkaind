@@ -9,11 +9,10 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+"scripts": {
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.28.0",
