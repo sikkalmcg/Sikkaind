@@ -10,7 +10,7 @@
     "dev": "next dev --turbopack",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
-    "build": "NODE_ENV=production next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
@@ -49,6 +49,7 @@
     "embla-carousel-react": "^8.6.0",
     "eslint-config-next": "^16.1.6",
     "firebase": "^12.10.0",
+    "firebase-admin": "^13.7.0",
     "genkit": "^1.28.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.475.0",

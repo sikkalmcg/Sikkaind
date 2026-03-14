@@ -1,0 +1,1 @@
+(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,26219,t=>{"use strict";var c=t.i(29056);function o(){(0,c.redirect)("/sikka-accounts/dashboard")}t.s(["default",()=>o])}]);
