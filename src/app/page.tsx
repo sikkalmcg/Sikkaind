@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import "./globals.css"; // Path sahi hona chahiye
 import Image from 'next/image';
 import Autoplay from 'embla-carousel-autoplay';
 import herotruck from '@/assets/hero-trucks.jpg';

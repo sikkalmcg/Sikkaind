@@ -10,7 +10,8 @@
   "apphosting": [
     {
       "backendId": "sikkaind",
-      "rootDir": "./"
+      "rootDir": "./",
+      "alwaysDeployFromSource": false
     },
     {
       "backendId": "sikkaind",
@@ -21,7 +22,14 @@
         "firebase-debug.log",
         "firebase-debug.*.log",
         "functions"
-      ]
+      ],
+      "alwaysDeployFromSource": false
+    }
+  ],
+  "functions": [
+    {
+      "source": ".firebase/studio-2134942499-abd6c/functions",
+      "codebase": "firebase-frameworks-studio-2134942499-abd6c"
     }
   ]
 }
