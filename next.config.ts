@@ -11,7 +11,6 @@ const nextConfig: NextConfig = {
     remotePatterns: [{ protocol: 'https', hostname: '**' }],
   },
   // Firebase App Hosting ke liye standalone compulsory hai
-  output: 'standalone', 
 };
 
 export default nextConfig;
