@@ -1,6 +1,4 @@
-cat <<EOF > apphosting.yaml
 kind: "AppHostingConfig"
 schemaVersion: "v1"
 runtimeConfig:
   nodeVersion: "20"
-EOF
