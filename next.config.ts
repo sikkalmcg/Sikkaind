@@ -1,22 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Build errors ignore karne ke liye (Aapne sahi likha hai)
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Build errors ignore karne ka sahi tarika
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Images config
+  output: 'standalone',
   images: {
     unoptimized: true,
     remotePatterns: [{ protocol: 'https', hostname: '**' }],
   },
-  // Firebase compatibility ke liye
-  transpilePackages: ['firebase', '@firebase/auth', '@firebase/app'],
-  
-  // YE LINE ZAROORI HAI FIREBASE APP HOSTING KE LIYE
+  // Firebase App Hosting ke liye standalone compulsory hai
   output: 'standalone', 
 };
 
