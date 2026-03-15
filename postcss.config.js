@@ -1,4 +1,6 @@
-export const plugins = {
-  tailwindcss: {},
-  autoprefixer: {},
-};
+echo "module.exports = {
+    plugins: {
+      tailwindcss: {},
+      autoprefixer: {},
+    },
+  };" > postcss.config.js
