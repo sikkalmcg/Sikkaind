@@ -1,35 +1,14 @@
 {
   "hosting": {
     "source": ".",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ]
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "frameworksBackend": {}
   },
   "apphosting": [
     {
       "backendId": "sikkaind",
       "rootDir": "./",
-      "alwaysDeployFromSource": false
-    },
-    {
-      "backendId": "sikkaind",
-      "rootDir": ".",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "functions"
-      ],
-      "alwaysDeployFromSource": false
-    }
-  ],
-  "functions": [
-    {
-      "source": ".firebase/studio-2134942499-abd6c/functions",
-      "codebase": "firebase-frameworks-studio-2134942499-abd6c"
+      "alwaysDeployFromSource": true
     }
   ]
 }
