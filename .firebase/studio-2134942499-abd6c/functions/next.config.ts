@@ -1,10 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // eslint block ko is tarah likhein
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -12,7 +8,7 @@ const nextConfig: NextConfig = {
     unoptimized: true,
     remotePatterns: [{ protocol: 'https', hostname: '**' }],
   },
-  transpilePackages: ['firebase', '@firebase/auth', '@firebase/app'],
+  output: 'standalone', 
 };
 
 export default nextConfig;
