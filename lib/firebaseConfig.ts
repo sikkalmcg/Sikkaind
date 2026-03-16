@@ -1,5 +1,5 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+import { getAuth, Auth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,7 +11,19 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+// Singleton pattern: Check if app exists, if not initialize it
+let app: FirebaseApp;
+if (!getApps().length) {
+  // Check if we have at least the API Key before initializing
+  if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    // This prevents the "default app does not exist" error during build
+    app = {} as FirebaseApp; 
+  }
+} else {
+  app = getApp();
+}
 
-// Ye line honi bahut zaroori hai:
-export const auth = getAuth(app);
+export const auth: Auth = getAuth(app);
+export { app };

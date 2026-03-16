@@ -1,4 +1,3 @@
-export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
@@ -74,3 +73,4 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+export const dynamic = 'force-dynamic';
