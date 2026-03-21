@@ -40,7 +40,6 @@ import {
     Sparkles,
     Smartphone
 } from 'lucide-react';
-import { fetchFleetLocation } from '@/app/actions/wheelseye';
 import { cn } from '@/lib/utils';
 import { format, differenceInMinutes, isValid, subHours } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -48,6 +47,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRouter } from 'next/navigation';
 import { useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import type { Vehicle } from '@/types';
 
 const GOOGLE_MAPS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
 const DEFAULT_TRUCK_ICON = "https://png.pngtree.com/png-vector/20250122/ourlarge/pngtree-colorful-delivery-truck-icon-png-image_15301010.png";
@@ -76,7 +76,7 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
         libraries: ['places']
     });
 
-    const [fleet, setFleet] = useState<any[]>([]);
+    const [fleet, setFleet] = useState<Vehicle[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
     const [hoveredVehicle, setHoveredVehicle] = useState<any>(null);
@@ -171,9 +171,17 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
     const refreshFleet = async () => {
         setIsLoading(true);
         try {
-            const res = await fetchFleetLocation();
-            if (res.data) {
-                const enriched = res.data.map((v: any) => {
+            const response = await fetch('/api/track', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ apiKey: 'dummy-api-key' }), // Sending a dummy key for now
+            }); 
+            const result = await response.json();
+
+            if (Array.isArray(result)) {
+                const enriched = result.map((v: any) => {
                     return {
                         ...v,
                         locationDisplay: v.location || 'Location Syncing...',
@@ -208,7 +216,7 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
         if (map && fleet.length > 0 && !selectedVehicle) {
             const bounds = new window.google.maps.LatLngBounds();
             fleet.forEach(v => {
-                if (v.lat && v.lng) bounds.extend({ lat: v.lat, lng: v.lng });
+                if (v.latitude && v.longitude) bounds.extend({ lat: v.latitude, lng: v.longitude });
             });
             map.fitBounds(bounds);
         }
@@ -232,7 +240,7 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
     const handleVehicleFocus = (vehicle: any) => {
         setSelectedVehicle(vehicle);
         if (map) {
-            map.panTo({ lat: vehicle.lat, lng: vehicle.lng });
+            map.panTo({ lat: vehicle.latitude, lng: vehicle.longitude });
             map.setZoom(14);
         }
     };
@@ -362,7 +370,7 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
                                 {filteredFleet.map((v, i) => (
                                     <Marker 
                                         key={i}
-                                        position={{ lat: v.lat, lng: v.lng }} 
+                                        position={{ lat: v.latitude, lng: v.longitude }} 
                                         onClick={() => setSelectedVehicle(v)}
                                         onMouseOver={() => setHoveredVehicle(v)}
                                         onMouseOut={() => setHoveredVehicle(null)}
@@ -376,7 +384,7 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
 
                                 {hoveredVehicle && (
                                     <InfoWindow
-                                        position={{ lat: hoveredVehicle.lat, lng: hoveredVehicle.lng }}
+                                        position={{ lat: hoveredVehicle.latitude, lng: hoveredVehicle.longitude }}
                                         options={{ pixelOffset: new google.maps.Size(0, -20) }}
                                     >
                                         <div className="p-3 min-w-[200px] space-y-2 text-slate-900 bg-white">
@@ -402,7 +410,7 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
 
                                 {selectedVehicle && (
                                     <InfoWindow
-                                        position={{ lat: selectedVehicle.lat, lng: selectedVehicle.lng }}
+                                        position={{ lat: selectedVehicle.latitude, lng: selectedVehicle.longitude }}
                                         onCloseClick={() => setSelectedVehicle(null)}
                                     >
                                         <div className="p-5 min-w-[360px] space-y-5 text-slate-900 bg-white rounded-2xl shadow-none">

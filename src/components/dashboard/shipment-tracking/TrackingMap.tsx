@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -14,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import type { Vehicle } from '@/types';
 
 const GOOGLE_MAPS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
 const DEFAULT_TRUCK_ICON = "https://png.pngtree.com/png-vector/20250122/ourlarge/pngtree-colorful-delivery-truck-icon-png-image_15301010.png";
@@ -32,12 +32,12 @@ interface TrackingMapProps {
     livePos?: { lat: number; lng: number; speed: number; ignition: boolean; vehicleNumber?: string };
     origin?: { lat: number; lng: number; name?: string };
     destination?: { lat: number; lng: number; name?: string };
-    fleet?: any[]; 
+    vehicles?: Vehicle[]; 
     tripId?: string;
     height?: string;
 }
 
-export default function TrackingMap({ livePos, origin, destination, fleet, tripId, height = "500px" }: TrackingMapProps) {
+export default function TrackingMap({ livePos, origin, destination, vehicles, tripId, height = "500px" }: TrackingMapProps) {
     const firestore = useFirestore();
     const { isLoaded, loadError } = useJsApiLoader({
         id: 'google-map-script',
@@ -90,9 +90,9 @@ export default function TrackingMap({ livePos, origin, destination, fleet, tripI
 
     const zoomLevel = useMemo(() => {
         if (livePos) return 15;
-        if (fleet && fleet.length > 0) return 5;
+        if (vehicles && vehicles.length > 0) return 5;
         return 8;
-    }, [livePos, fleet]);
+    }, [livePos, vehicles]);
 
     if (loadError || isApiBlocked) {
         return (
@@ -145,7 +145,7 @@ export default function TrackingMap({ livePos, origin, destination, fleet, tripI
                     )}
 
                     {/* V = VEHICLE (SINGLE TRIP) */}
-                    {livePos && !fleet && (
+                    {livePos && !vehicles && (
                         <Marker 
                             position={livePos} 
                             icon={{
@@ -159,7 +159,7 @@ export default function TrackingMap({ livePos, origin, destination, fleet, tripI
                     )}
 
                     {/* FLEET VIEW (DASHBOARD) */}
-                    {fleet && fleet.map((v, i) => {
+                    {vehicles && vehicles.map((v, i) => {
     // Sahi keys 'latitude' aur 'longitude' use karein aur Number mein badlein
     const lat = parseFloat(v.latitude);
     const lng = parseFloat(v.longitude);
@@ -180,6 +180,7 @@ export default function TrackingMap({ livePos, origin, destination, fleet, tripI
                 scale: 1.5,
                 rotation: parseInt(v.angle) || 0 // Vehicle direction
             }}
+            onClick={() => setSelectedMarker(v)}
         />
     );
 })}

@@ -21,7 +21,7 @@ import type { WithId, OwnVehicle, Plant, SubUser } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import Pagination from './Pagination';
 import EditOwnVehicleModal from './EditOwnVehicleModal';
-import { useFirestore, useUser, useCollection } from "@/firebase";
+import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, getDoc, Timestamp, getDocs, limit, orderBy } from "firebase/firestore";
 import { normalizePlantId } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -52,10 +52,7 @@ export default function OwnVehicleTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [editingVehicle, setEditingVehicle] = useState<WithId<OwnVehicle> | null>(null);
-  const [authorizedPlants, setAuthorizedPlants] = useState<WithId<Plant>[]>([]);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
-  // Registry Sanitization Logic Node
   const sanitize = (obj: any): any => {
     if (Array.isArray(obj)) return obj.map(sanitize);
     if (obj !== null && typeof obj === 'object' && !(obj instanceof Date) && obj.constructor?.name !== 'FieldValue') {
@@ -68,58 +65,7 @@ export default function OwnVehicleTab() {
     return obj;
   };
 
-  // 1. Fetch Master Registry of Logistics Plants
-  const allPlantsQuery = useMemo(() => 
-    firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
-    [firestore]
-  );
-  const { data: allPlants, isLoading: isLoadingPlants } = useCollection<Plant>(allPlantsQuery);
-
-  // 2. Resolve Authorized Plant Nodes for the current user
-  useEffect(() => {
-    if (!firestore || !user || isLoadingPlants || !allPlants) return;
-
-    const fetchAuthPlants = async () => {
-        setIsAuthLoading(true);
-        try {
-            const lastIdentity = localStorage.getItem('slmc_last_identity');
-            const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
-            
-            let userDocSnap = null;
-            const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
-            const qSnap = await getDocs(q);
-            if (!qSnap.empty) {
-                userDocSnap = qSnap.docs[0];
-            } else {
-                const uidSnap = await getDoc(doc(firestore, "users", user.uid));
-                if (uidSnap.exists()) userDocSnap = uidSnap;
-            }
-
-            let authIds: string[] = [];
-            const isAdminSession = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
-
-            if (userDocSnap) {
-                const userData = userDocSnap.data() as SubUser;
-                const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
-                authIds = isRoot ? allPlants.map(p => p.id) : (userData.plantIds || []);
-            } else if (isAdminSession) {
-                authIds = allPlants.map(p => p.id);
-            }
-
-            const filtered = allPlants.filter(p => authIds.includes(p.id));
-            setAuthorizedPlants(filtered);
-        } catch (e) {
-            console.error("Vehicle Auth Sync Error:", e);
-            setAuthorizedPlants(allPlants);
-        } finally {
-            setIsAuthLoading(false);
-        }
-    };
-    fetchAuthPlants();
-  }, [firestore, user, allPlants, isLoadingPlants]);
-
-  // 3. Fetch Registered Vehicles
-  const vehiclesQuery = useMemo(() => 
+  const vehiclesQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, 'vehicles'), where('vehicleType', '==', 'Own Vehicle')) : null,
     [firestore]
   );

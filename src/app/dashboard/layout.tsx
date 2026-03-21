@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { ReactNode, useEffect, useState, Suspense } from "react";
 import { useUser, useFirestore } from "@/firebase";
@@ -6,9 +6,9 @@ import { useRouter, usePathname } from "next/navigation";
 import LogisticsHeader from "@/components/dashboard/layout/LogisticsHeader";
 import LogisticsSidebar from "@/components/dashboard/layout/LogisticsSidebar";
 import { useLoading } from "@/context/LoadingContext";
-import { doc, query, collection, where, limit, getDocs, getDoc } from "firebase/firestore";
+import { doc, getDoc, query, collection, where, getDocs, limit } from "firebase/firestore";
 import type { SubUser } from "@/types";
-import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions, JobRoles } from "@/lib/constants";
+import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions } from "@/lib/constants";
 import { Loader2 } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -36,23 +36,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         if (!firestore) return;
         setIsVerifying(true);
         try {
-            const lastIdentity = localStorage.getItem('slmc_last_identity');
-            const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
-            
-            let userDocSnap = null;
-            const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
-            const qSnap = await getDocs(q);
-            if (!qSnap.empty) {
-                userDocSnap = qSnap.docs[0];
-            } else {
-                const directRef = doc(firestore, "users", user.uid);
-                const directSnap = await getDoc(directRef);
-                if (directSnap.exists()) userDocSnap = directSnap;
-            }
-
             const isRoot = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
 
-            if (!userDocSnap) {
+            // --- UNIFIED USER LOOKUP (SAME AS MODULES PAGE) ---
+            const searchEmail = user.email;
+            if (!searchEmail) {
+                throw new Error("User email not available for access verification.");
+            }
+            
+            const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
+            const userQuerySnap = await getDocs(q);
+
+            if (userQuerySnap.empty) {
                 if (!isRoot) {
                     router.replace('/modules');
                 } else {
@@ -62,6 +57,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 return;
             }
 
+            const userDocSnap = userQuerySnap.docs[0];
             const profile = userDocSnap.data() as SubUser;
             const isFullAdmin = isRoot || profile.username?.toLowerCase() === 'sikkaind';
 
@@ -71,22 +67,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 return;
             }
 
-            // --- STRICT ACCESS CONTROL PROTOCOL ---
-            
-            // 1. PRIMARY MODULE AUTHORIZATION (LOGISTICS)
-            if (!profile.access_logistics) {
-                router.replace('/modules');
-                return;
-            }
-
-            // 2. DASHBOARD AUTHORIZATION RULE
-            // If user doesn't have 'live-dashboard' permission, they can't see the /dashboard page.
-            if (pathname === '/dashboard' && !profile.permissions?.includes('live-dashboard')) {
-                router.replace('/modules');
-                return;
-            }
-
-            // 3. SUB-PAGE REGISTRY VALIDATION
+            // 2. SUB-PAGE REGISTRY VALIDATION
             const currentSubPage = pathname.split('/').pop();
             const allPerms = [
                 ...SikkaLogisticsPagePermissions, 
@@ -97,12 +78,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             const matchingPerm = allPerms.find(p => p.id === currentSubPage || pathname.endsWith(`/${p.id}`));
             
             if (matchingPerm && !profile.permissions?.includes(matchingPerm.id)) {
-                // Determine graceful redirect node
-                if (profile.permissions?.includes('live-dashboard')) {
-                    router.replace('/dashboard');
-                } else {
-                    router.replace('/modules');
-                }
+                router.replace('/dashboard');
                 return;
             }
 

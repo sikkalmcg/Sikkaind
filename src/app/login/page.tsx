@@ -232,12 +232,9 @@ export default function LoginPage() {
             await signInWithEmailAndPassword(auth, email, password);
             setIsRedirecting(true);
             
-            // Redirect based on user type
-            if (identity.toLowerCase() === 'sikkaind') {
-                router.push('/dashboard');
-            } else {
-                router.push('/modules');
-            }
+            // ALL users are redirected to the modules page
+            router.push('/modules');
+
         } catch (err: any) {
             console.error("Login failed:", err);
             if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
@@ -324,7 +321,7 @@ export default function LoginPage() {
                     </div>
                     <div className="flex justify-between items-center pt-8 pb-2 px-4">
                         <p className="text-[9px] text-gray-400 font-bold">© SIKKA INDUSTRIES & LOGISTICS. SECURITY NODE 04.</p>
-                        <Image src={logoimg} alt="Logo" width={100} height={28} />
+                        <Image src={logoimg} alt="Logo" width={100} height={28} style={{ height: 'auto' }} />
                     </div>
                 </div>
             </div>

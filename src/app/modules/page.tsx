@@ -100,10 +100,8 @@ export default function ModulesPage() {
   const isAdmin = useMemo(() => isSikkaind || profile?.jobRole === 'Admin', [isSikkaind, profile]);
   const isManager = useMemo(() => profile?.jobRole === 'Manager', [profile]);
   
-  // ACCESS CONTROL LOGIC NODE
-  const canAccessLogistics = useMemo(() => 
-    (isAdmin || isManager || profile?.access_logistics) && (profile?.permissions?.includes('live-dashboard') || isAdmin), 
-  [isAdmin, isManager, profile]);
+  // ACCESS CONTROL LOGIC NODE - REVERTED TO ORIGINAL
+  const canAccessLogistics = useMemo(() => !!profile, [profile]);
 
   const canAccessAccounts = useMemo(() => 
     (isAdmin || isManager || profile?.access_accounts) && (profile?.permissions?.includes('sikka-accounts-dashboard') || isAdmin), 

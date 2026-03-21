@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
-import type { Plant } from '@/types';
+import type { Plant, Vehicle } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -25,7 +25,7 @@ const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracki
 
 export default function FleetLiveMapPage() {
     const firestore = useFirestore();
-    const [fleet, setFleet] = useState<any[]>([]);
+    const [fleet, setFleet] = useState<Vehicle[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedPlant, setSelectedPlant] = useState('all');
     const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
@@ -37,15 +37,21 @@ export default function FleetLiveMapPage() {
     );
     const { data: plants } = useCollection<Plant>(plantsQuery);
 
-    // INTEGRATED FETCH LOGIC - Hits your new /api/track/all route
+    // INTEGRATED FETCH LOGIC - Hits your new /api/track route
     const refreshFleet = async () => {
         setIsLoading(true);
         try {
-            const response = await fetch('/api/track/all'); 
+            const response = await fetch('/api/track', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ apiKey: 'dummy-api-key' }), // Sending a dummy key for now
+            }); 
             const result = await response.json();
     
-            if (result.success && Array.isArray(result.list)) {
-                setFleet(result.list);
+            if (Array.isArray(result)) {
+                setFleet(result);
             } else {
                 console.error("Data list missing or failed:", result);
             }
@@ -138,7 +144,7 @@ export default function FleetLiveMapPage() {
             {/* MAP RENDER ENGINE - Using filteredFleet */}
             <div className="flex-1 relative">
                 <TrackingMap 
-                    fleet={filteredFleet} 
+                    vehicles={filteredFleet} 
                     livePos={selectedVehicle}
                     tripId={selectedVehicle?.vehicleNumber}
                     height="100%"

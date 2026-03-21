@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, Suspense } from 'react';
@@ -32,12 +31,12 @@ import { format, addHours, addSeconds, isValid } from 'date-fns';
 import { cn, normalizePlantId } from '@/lib/utils';
 import { useJsApiLoader, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
 import { useToast } from '@/hooks/use-toast';
-import { fetchWheelseyeLocation } from '@/app/actions/wheelseye';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+import type { Vehicle } from '@/types';
 
 const MAPS_JS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
 const DEFAULT_TRUCK_ICON = "https://png.pngtree.com/png-vector/20250122/ourlarge/pngtree-colorful-delivery-truck-icon-png-image_15301010.png";
@@ -69,10 +68,21 @@ function TrackConsignmentContent() {
     const refreshTelemetry = useCallback(async (vNo: string) => {
         if (!vNo) return;
         try {
-            const gpsRes = await fetchWheelseyeLocation(vNo);
-            if (gpsRes.data) {
-                setLivePos(gpsRes.data);
-                setIsGpsEnabled(true);
+            const response = await fetch('/api/track', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ apiKey: 'dummy-api-key' }), // Sending a dummy key for now
+            }); 
+            const result = await response.json();
+    
+            if (Array.isArray(result) && result.length > 0) {
+                const vehicleData = result.find(v => v.vehicleNumber === vNo);
+                if (vehicleData) {
+                    setLivePos(vehicleData);
+                    setIsGpsEnabled(true);
+                }
             }
         } catch (e) {
             console.warn("Registry handshake failed during refresh pulse.");
@@ -144,12 +154,22 @@ function TrackConsignmentContent() {
             if (!trip.loadingPoint) trip.loadingPoint = trip.plantName;
 
             // 3. GIS HANDSHAKE (Primary Authorization)
-            const gpsRes = await fetchWheelseyeLocation(trip.vehicleNumber);
+            const response = await fetch('/api/track', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ apiKey: 'dummy-api-key' }), // Sending a dummy key for now
+            }); 
+            const result = await response.json();
             
-            if (gpsRes.data) {
-                setLivePos(gpsRes.data);
-                setIsGpsEnabled(true);
-                toast({ title: "Signal Established", description: `Live telemetry node linked for ${trip.vehicleNumber}.` });
+            if (Array.isArray(result) && result.length > 0) {
+                const vehicleData = result.find(v => v.vehicleNumber === trip.vehicleNumber);
+                if (vehicleData) {
+                    setLivePos(vehicleData);
+                    setIsGpsEnabled(true);
+                    toast({ title: "Signal Established", description: `Live telemetry node linked for ${trip.vehicleNumber}.` });
+                }
             } else {
                 const vNoClean = trip.vehicleNumber?.toUpperCase().replace(/\s/g, '');
                 const vRef = query(collection(firestore, "vehicles"), where("vehicleNumber", "==", vNoClean), limit(1));
@@ -426,7 +446,7 @@ function TrackingPopup({ isOpen, onClose, consignment, livePos, onEtaResolved }:
         lng: consignment.plantLng || 77.2090
     }), [consignment.plantLat, consignment.plantLng]);
 
-    const origin = livePos ? { lat: livePos.lat, lng: livePos.lng } : dispatchCoord;
+    const origin = livePos ? { lat: livePos.latitude, lng: livePos.longitude } : dispatchCoord;
     const destination = consignment.unloadingPoint || "";
 
     const onMapLoad = useCallback((map: google.maps.Map) => {

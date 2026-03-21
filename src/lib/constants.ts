@@ -92,15 +92,14 @@ export const AdminPagePermissionsList = [
 ];
 
 const allPerms = [
-    ...SikkaLogisticsPagePermissions.map(p => p.id),
-    ...SikkaAccountsPagePermissions.map(p => p.id),
-    ...AdminPagePermissionsList.map(p => p.id)
-];
+    ...SikkaLogisticsPagePermissions,
+    ...SikkaAccountsPagePermissions,
+    ...AdminPagePermissionsList
+].map(p => p.id);
 
 export const rolePermissions: Record<typeof JobRoles[number], string[]> = {
     'System Administrator': allPerms,
     'Manager': allPerms,
-    'Admin': allPerms,
     'Supervisor': ['live-dashboard', 'supervisor-task', 'status-management', 'shipment-tracking'],
     'Order Planner': ['live-dashboard', 'shipment-plan'],
     'Vehicle Planner': ['live-dashboard', 'vehicle-assign', 'vehicle-entry', 'trip-board'],

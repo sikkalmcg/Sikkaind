@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { useLoading } from '@/context/LoadingContext';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import { normalizePlantId } from '@/lib/utils';
 
 export default function ShipmentPlanPage() {
   const { toast } = useToast();
@@ -96,7 +97,7 @@ export default function ShipmentPlanPage() {
             } as WithId<Shipment>));
             
             setAllShipments(prev => {
-                const otherPlants = prev.filter(s => s.originPlantId !== pId);
+                const otherPlants = prev.filter(s => normalizePlantId(s.originPlantId) !== normalizePlantId(pId));
                 const combined = [...otherPlants, ...plantShipments];
                 return combined.sort((a, b) => {
                     const dateA = a.creationDate instanceof Date ? a.creationDate : (a.creationDate as any)?.toDate() || new Date();

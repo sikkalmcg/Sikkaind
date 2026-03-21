@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,7 +19,7 @@ import type { WithId, ContractVehicle, Plant, SubUser } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import Pagination from './Pagination';
 import EditContractVehicleModal from './EditContractVehicleModal';
-import { useFirestore, useUser, useCollection } from "@/firebase";
+import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, getDoc, Timestamp, getDocs, limit, orderBy } from "firebase/firestore";
 import { normalizePlantId } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -70,7 +68,7 @@ export default function ContractVehicleTab() {
   };
 
   // 1. Fetch Master Registry of Logistics Plants
-  const allPlantsQuery = useMemo(() => 
+  const allPlantsQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
     [firestore]
   );
@@ -120,7 +118,7 @@ export default function ContractVehicleTab() {
   }, [firestore, user, allPlants, isLoadingPlants]);
 
   // 3. Fetch Registered Contract Vehicles
-  const vehiclesQuery = useMemo(() => 
+  const vehiclesQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, 'vehicles'), where('vehicleType', '==', 'Contract Vehicle')) : null,
     [firestore]
   );

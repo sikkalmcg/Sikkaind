@@ -11,7 +11,7 @@ import { DatePicker } from '@/components/date-picker';
 import type { Plant, VehicleEntryExit, WithId, SubUser, LR } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, FileDown, Search, Trash2, Edit2, Save, X, History, ShieldCheck, WifiOff, Clock, Factory, AlertTriangle, Plus } from 'lucide-react';
-import { format, startOfDay, endOfDay, subDays } from 'date-fns';
+import { format, startOfDay, endOfDay, subDays, isValid } from 'date-fns';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, query, onSnapshot, doc, serverTimestamp, updateDoc, deleteDoc, getDoc, Timestamp, getDocs, where, limit, addDoc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +46,14 @@ const editFormSchema = z.object({
     lrDate: z.date().nullable().optional(),
     totalUnits: z.coerce.number().optional().default(0),
 });
+
+// Helper to safely format dates
+const safeFormat = (date: any, formatString: string) => {
+    if (!date) return '--';
+    const d = date instanceof Date ? date : date?.toDate ? date.toDate() : new Date(date);
+    return isValid(d) ? format(d, formatString) : 'Invalid Date';
+};
+
 
 function EditRegistryModal({ 
     isOpen, 
@@ -223,13 +231,34 @@ export default function GateRegister({ plants: initialPlantsList }: { plants: Wi
 
   const isReadOnlyPlant = !isAdmin && authorizedPlantIds.length === 1;
 
+  useEffect(() => {
+    if (isAuthLoading) return; // Wait for auth check to complete
+
+    if (isAdmin) {
+        if (selectedPlant !== 'all-plants') {
+            setSelectedPlant('all-plants');
+        }
+    } else if (authorizedPlantIds.length > 0) {
+        const isSelectedPlantValid = authorizedPlantIds.some(id => normalizePlantId(id) === normalizePlantId(selectedPlant));
+        if (!selectedPlant || !isSelectedPlantValid) {
+            setSelectedPlant(authorizedPlantIds[0]);
+        }
+    } else {
+        // No plants authorized, maybe set to a specific state or empty
+        setSelectedPlant('');
+    }
+  }, [isAuthLoading, authorizedPlantIds, isAdmin]); // Removed selectedPlant from dependencies
+
+
   const filteredData = useMemo(() => {
     return data.filter(e => {
-        const entryTime = e.entryTimestamp;
-        if (fromDate && entryTime < startOfDay(fromDate)) return false;
-        if (toDate && entryTime > endOfDay(toDate)) return false;
+        const entryTimestampDate = e.entryTimestamp?.toDate ? e.entryTimestamp.toDate() : null;
+        if (!entryTimestampDate || !isValid(entryTimestampDate)) return false;
 
-        if (selectedPlant !== 'all-plants' && normalizePlantId(e.plantId) !== normalizePlantId(selectedPlant)) return false;
+        if (fromDate && entryTimestampDate < startOfDay(fromDate)) return false;
+        if (toDate && entryTimestampDate > endOfDay(toDate)) return false;
+
+        if (selectedPlant && selectedPlant !== 'all-plants' && normalizePlantId(e.plantId) !== normalizePlantId(selectedPlant)) return false;
 
         const targetPurpose = filterType === 'Inward' ? 'Unloading' : 'Loading';
         if (e.purpose !== targetPurpose) return false;
@@ -257,8 +286,8 @@ export default function GateRegister({ plants: initialPlantsList }: { plants: Wi
         'Purpose': e.purpose,
         'Status': e.status,
         'Remarks': e.remarks || '--',
-        'In Time': format(e.entryTimestamp, 'dd-MM-yyyy HH:mm'),
-        'Out Time': e.exitTimestamp ? format(e.exitTimestamp, 'dd-MM-yyyy HH:mm') : '--',
+        'In Time': safeFormat(e.entryTimestamp, 'dd-MM-yyyy HH:mm'),
+        'Out Time': safeFormat(e.exitTimestamp, 'dd-MM-yyyy HH:mm'),
         'Out Type': e.outType || '--',
         'LR Number': e.lrNumber || '--',
         'Invoice Number': e.documentNo || '--',
@@ -302,12 +331,6 @@ export default function GateRegister({ plants: initialPlantsList }: { plants: Wi
             }
 
             setAuthorizedPlantIds(authPlantIds);
-            
-            if (isAdmin) {
-                setSelectedPlant('all-plants');
-            } else if (authPlantIds.length > 0) {
-                setSelectedPlant(authPlantIds[0]);
-            }
         } catch (e) {
             // Handle error silently
         } finally {
@@ -331,8 +354,9 @@ export default function GateRegister({ plants: initialPlantsList }: { plants: Wi
                 const entry = {
                     id: d.id,
                     ...docData,
-                    entryTimestamp: docData.entryTimestamp instanceof Timestamp ? docData.entryTimestamp.toDate() : new Date(docData.entryTimestamp),
-                    exitTimestamp: docData.exitTimestamp instanceof Timestamp ? docData.exitTimestamp.toDate() : (docData.exitTimestamp ? new Date(docData.exitTimestamp) : undefined),
+                    // Keep as Timestamps for now
+                    entryTimestamp: docData.entryTimestamp,
+                    exitTimestamp: docData.exitTimestamp,
                 } as any;
 
                 const normalizedEntryPlantId = normalizePlantId(entry.plantId);
@@ -341,20 +365,30 @@ export default function GateRegister({ plants: initialPlantsList }: { plants: Wi
                 if (!isAuthorized) return null;
 
                 if (entry.purpose === 'Loading' && entry.tripId && entry.plantId) {
-                    const lrSnap = await getDocs(query(collection(firestore, `plants/${entry.plantId}/lrs`), where("tripId", "==", entry.tripId), limit(1)));
-                    if (!lrSnap.empty) {
-                        const lr = lrSnap.docs[0].data() as LR;
-                        entry.lrUnit = lr.items?.[0]?.unitType || 'Unit';
-                        entry.lrWeight = lr.assignedTripWeight || entry.billedQty;
-                        entry.lrDate = lr.date instanceof Timestamp ? lr.date.toDate() : new Date(lr.date);
-                        entry.totalUnits = lr.items?.reduce((sum, item) => sum + (Number(item.units) || 0), 0) || 0;
+                    try {
+                        const lrSnap = await getDocs(query(collection(firestore, `plants/${entry.plantId}/lrs`), where("tripId", "==", entry.tripId), limit(1)));
+                        if (!lrSnap.empty) {
+                            const lr = lrSnap.docs[0].data() as LR;
+                            entry.lrUnit = lr.items?.[0]?.unitType || 'Unit';
+                            entry.lrWeight = lr.assignedTripWeight || entry.billedQty;
+                            entry.lrDate = lr.date; // Keep as timestamp
+                            entry.totalUnits = lr.items?.reduce((sum, item) => sum + (Number(item.units) || 0), 0) || 0;
+                        }
+                    } catch (lrError) {
+                        // console.error("Error fetching LR data:", lrError);
                     }
                 }
 
                 return entry;
             }));
 
-            const filtered = results.filter(r => r !== null).sort((a, b) => b.entryTimestamp.getTime() - a.entryTimestamp.getTime());
+            const filtered = results
+                .filter(r => r !== null)
+                .sort((a, b) => {
+                    const timeA = a.entryTimestamp?.toDate ? a.entryTimestamp.toDate().getTime() : 0;
+                    const timeB = b.entryTimestamp?.toDate ? b.entryTimestamp.toDate().getTime() : 0;
+                    return timeB - timeA;
+                });
             setData(filtered);
         } catch (e) {
             setDbError(true);
@@ -372,7 +406,7 @@ export default function GateRegister({ plants: initialPlantsList }: { plants: Wi
     });
 
     return () => unsubscribe();
-  }, [firestore, user, isAdmin, authorizedPlantIds, isAuthLoading, masterPlants]);
+  }, [firestore, user, isAdmin, authorizedPlantIds, isAuthLoading]);
 
   const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
   const paginated = filteredData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -630,16 +664,16 @@ export default function GateRegister({ plants: initialPlantsList }: { plants: Wi
                                     {isOutwardMode && (
                                         <>
                                             <TableCell className="px-4 text-center whitespace-nowrap text-slate-500 font-mono">
-                                                {e.lrDate ? format(e.lrDate, 'dd/MM/yy') : '--'}
+                                                {safeFormat(e.lrDate, 'dd/MM/yy')}
                                             </TableCell>
                                             <TableCell className="px-4 text-center font-black text-slate-900">
                                                 {e.totalUnits || '--'}
                                             </TableCell>
                                         </>
                                     )}
-                                    <TableCell className="px-4 text-center whitespace-nowrap text-slate-500 font-mono">{format(e.entryTimestamp, 'dd/MM/yy HH:mm')}</TableCell>
+                                    <TableCell className="px-4 text-center whitespace-nowrap text-slate-500 font-mono">{safeFormat(e.entryTimestamp, 'dd/MM/yy HH:mm')}</TableCell>
                                     <TableCell className="px-4 text-center whitespace-nowrap text-blue-700 font-black font-mono text-[11px]">
-                                        {e.exitTimestamp ? format(e.exitTimestamp, 'dd/MM/yy HH:mm') : '--:--'}
+                                        {safeFormat(e.exitTimestamp, 'dd/MM/yy HH:mm')}
                                     </TableCell>
                                     <TableCell className="px-4 text-center">
                                         <Badge variant="secondary" className="text-[9px] uppercase font-black px-2 py-0.5 bg-slate-100 text-slate-600 min-w-[80px] justify-center">
@@ -653,7 +687,7 @@ export default function GateRegister({ plants: initialPlantsList }: { plants: Wi
                                         }
                                     </TableCell>
                                     <TableCell className="px-4 text-center">
-                                        <div className="flex justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex justify-center gap-1.5 transition-opacity">
                                             {isAdmin && (
                                                 <>
                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => setEditingItem(e)}><Edit2 className="h-4 w-4" /></Button>
@@ -691,7 +725,7 @@ export default function GateRegister({ plants: initialPlantsList }: { plants: Wi
                     <div className="grid grid-cols-2 gap-4 p-6 bg-slate-50 rounded-2xl border border-slate-200 text-sm">
                         <div className="space-y-1"><p className="text-[9px] font-black uppercase text-slate-400">Vehicle No</p><p className="font-black text-slate-900">{deleteModalItem.vehicleNumber}</p></div>
                         <div className="space-y-1"><p className="text-[9px] font-black uppercase text-slate-400">Registry Ref</p><p className="font-bold text-blue-700">{deleteModalItem.lrNumber || deleteModalItem.documentNo || '--'}</p></div>
-                        <div className="space-y-1"><p className="text-[9px] font-black uppercase text-slate-400">In Date</p><p className="font-bold text-slate-700">{format(deleteModalItem.entryTimestamp, 'dd MMM yy')}</p></div>
+                        <div className="space-y-1"><p className="text-[9px] font-black uppercase text-slate-400">In Date</p><p className="font-bold text-slate-700">{safeFormat(deleteModalItem.entryTimestamp, 'dd MMM yy')}</p></div>
                         <div className="space-y-1"><p className="text-[9px] font-black uppercase text-slate-400">Plant Node</p><p className="font-black text-slate-900 uppercase">{deleteModalItem.plantId}</p></div>
                     </div>
                     <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3 shadow-inner">
