@@ -1,0 +1,20 @@
+{
+  "hosting": {
+    "source": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "backend": {
+      "id": "sikkaind"
+    }
+  },
+  "apphosting": [
+    {
+      "backendId": "sikkaind",
+      "rootDir": "./",
+      "alwaysDeployFromSource": true
+    }
+  ]
+}

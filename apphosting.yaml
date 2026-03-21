@@ -1,0 +1,17 @@
+# Settings for Backend (on Cloud Run).
+# See https://firebase.google.com/docs/app-hosting/configure#cloud-run
+runConfig:
+  minInstances: 0
+  maxInstances: 10
+  concurrency: 80
+  cpu: 1            # CPU ko 1 kar diya taaki performance achhi rahe
+  memoryMiB: 1024   # RAM ko 512 se badha kar 1024 (1GB) kar diya hai
+
+# Environment variables and secrets.
+# Agar aapko API Keys use karni hain toh yahan uncomment karke likh sakte hain.
+# env:
+#   - variable: API_URL
+#     value: https://your-api-link.com
+#     availability:
+#       - BUILD
+#       - RUNTIME

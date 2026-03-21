@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- HELPER FUNCTIONS ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/global_admins/$(request.auth.uid)) ||
+        request.auth.uid == 'ABeeeMnzPhRMCR9X3vmhuw7Ztto1' ||
+        request.auth.token.email == 'sikkaind.admin@sikka.com' ||
+        request.auth.token.email == 'sikkalmcg@gmail.com'
+      );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // 1. USER PROFILE REGISTRY
+    match /users/{userId} {
+      allow read: if true; 
+      allow write: if isOwner(userId) || isAdmin();
+      
+      match /notifications/{id} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // 2. MASTER DATA
+    match /logistics_plants/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /accounts_plants/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /vehicles/{id} { allow read: if isSignedIn(); allow write: if isSignedIn(); }
+    match /drivers/{id} { allow read: if isSignedIn(); allow write: if isSignedIn(); }
+    match /fuel_pumps/{id} { allow read: if isSignedIn(); allow write: if isSignedIn(); }
+    match /material_types/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /shipment_status_masters/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+
+    // 3. TRANSACTIONAL DATA
+    match /vehicleEntries/{id} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+    match /activity_logs/{id} { allow read, create: if isSignedIn(); allow delete: if isAdmin(); }
+    match /recycle_bin/{id} { allow read, create: if isSignedIn(); allow delete: if isAdmin(); }
+    match /counters/{id} { allow read, write: if isSignedIn(); }
+
+    // 4. PLANT SPECIFIC DATA
+    match /plants/{plantId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin(); // Only admins can edit plant master data
+        
+        match /shipments/{shipmentId} {
+            allow read, create, update: if isSignedIn();
+            allow delete: if isAdmin();
+        }
+        
+        match /trips/{tripId} {
+            allow read, create, update: if isSignedIn();
+            allow delete: if isAdmin();
+        }
+
+        match /lrs/{lrId} {
+            allow read, create, update: if isSignedIn();
+            allow delete: if isAdmin();
+        }
+    }
+
+    // 5. LEGACY NODES
+    match /trips/{id} { allow read, write: if isSignedIn(); }
+    match /shipments/{id} { allow read, write: if isSignedIn(); }
+
+    // 6. GLOBAL FALLBACK
+    match /{document=**} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}
