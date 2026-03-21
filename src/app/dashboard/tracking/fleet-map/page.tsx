@@ -12,12 +12,12 @@ import {
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, doc, getDoc } from 'firebase/firestore';
 import type { Plant, Vehicle } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
-// Leaflet/Map components dynamic import
 const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracking/TrackingMap'), { 
     ssr: false,
     loading: () => <div className="w-full h-full bg-slate-900 animate-pulse rounded-[3rem]" />
@@ -25,20 +25,45 @@ const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracki
 
 export default function FleetLiveMapPage() {
     const firestore = useFirestore();
+    const { toast } = useToast();
+
+    const [apiKey, setApiKey] = useState<string | null>(null);
     const [fleet, setFleet] = useState<Vehicle[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedPlant, setSelectedPlant] = useState('all');
     const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
 
-    // Firebase Plants Data
     const plantsQuery = useMemoFirebase(() => 
         firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
         [firestore]
     );
     const { data: plants } = useCollection<Plant>(plantsQuery);
 
-    // INTEGRATED FETCH LOGIC - Hits your new /api/track route
+    // 1. FETCH API KEY from Firestore
+    useEffect(() => {
+        const fetchApiKey = async () => {
+            if (!firestore) return;
+            const settingsDoc = doc(firestore, 'gps_settings', 'api_config');
+            const docSnap = await getDoc(settingsDoc);
+            if (docSnap.exists() && docSnap.data().apiKey) {
+                setApiKey(docSnap.data().apiKey);
+            } else {
+                console.log("No API Key configured in Firestore!");
+                toast({
+                    variant: 'destructive',
+                    title: 'Configuration Missing',
+                    description: 'Please configure your GPS API key in the settings first.',
+                });
+                setIsLoading(false);
+            }
+        };
+        fetchApiKey();
+    }, [firestore, toast]);
+
+    // 2. REFRESH FLEET using the fetched API Key
     const refreshFleet = async () => {
+        if (!apiKey) return; // Don't run if there is no key
+
         setIsLoading(true);
         try {
             const response = await fetch('/api/track', {
@@ -46,7 +71,7 @@ export default function FleetLiveMapPage() {
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ apiKey: 'dummy-api-key' }), // Sending a dummy key for now
+              body: JSON.stringify({ apiKey: apiKey }), // Use the REAL API key from state
             }); 
             const result = await response.json();
     
@@ -54,28 +79,31 @@ export default function FleetLiveMapPage() {
                 setFleet(result);
             } else {
                 console.error("Data list missing or failed:", result);
+                toast({ variant: 'destructive', title: 'Sync Error', description: result.message || 'Failed to sync fleet data.' })
+                setFleet([]); // Clear fleet on error
             }
         } catch (error) {
             console.error("GIS Registry Sync Error:", error);
+            toast({ variant: 'destructive', title: 'Sync Error', description: 'An unexpected error occurred.' })
         } finally {
             setIsLoading(false);
         }
     };
 
+    // 3. AUTO-REFRESH when API key is loaded
     useEffect(() => {
-        refreshFleet();
-        const interval = setInterval(refreshFleet, 30000); // Auto-sync every 30s
-        return () => clearInterval(interval);
-    }, []);
+        if (apiKey) {
+            refreshFleet(); // Initial fetch
+            const interval = setInterval(refreshFleet, 30000); // Auto-sync every 30s
+            return () => clearInterval(interval);
+        }
+    }, [apiKey]); // Dependency on apiKey
 
-    // FILTER LOGIC: Sirf select kiye hue plant ke trucks dikhane ke liye
     const filteredFleet = useMemo(() => {
         if (selectedPlant === 'all') return fleet;
-        // Humein backend/Wheelseye data mein plantId assign karna hoga
         return fleet.filter(v => v.plantId === selectedPlant);
     }, [fleet, selectedPlant]);
 
-    // STATS logic using filtered fleet
     const stats = useMemo(() => {
         return filteredFleet.reduce((acc, v) => {
             if (v.speed > 5) acc.moving++;
@@ -158,7 +186,9 @@ export default function FleetLiveMapPage() {
                     <Badge className="bg-emerald-600/20 text-emerald-400 border-emerald-500/20 text-[8px] font-black uppercase">Sync Active</Badge>
                 </div>
                 <div className="flex-1 overflow-auto p-2">
-                    {filteredFleet.length === 0 ? (
+                    {isLoading ? (
+                         <p className="p-4 text-center text-[10px] text-slate-500 uppercase font-bold">Loading Fleet Data...</p>
+                    ) : filteredFleet.length === 0 ? (
                         <p className="p-4 text-center text-[10px] text-slate-500 uppercase font-bold">No vehicles found</p>
                     ) : (
                         filteredFleet.map((v, i) => (
