@@ -39,7 +39,7 @@
     "date-fns": "^3.6.0",
     "embla-carousel-autoplay": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
-    "firebase": "^10.14.1",
+    "firebase": "^12.11.0",
     "firebase-admin": "^13.7.0",
     "framer-motion": "^11.0.25",
     "leaflet": "^1.9.4",
