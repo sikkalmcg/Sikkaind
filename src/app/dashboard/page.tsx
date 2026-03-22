@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { 
+import {
     RefreshCcw, 
     LayoutDashboard, 
     ShieldCheck, 
@@ -184,7 +184,7 @@ export default function DashboardPage() {
 
           <div className="grid gap-1.5">
             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Period To</label>
-            <DatePicker date={toDate} setDate={setToDate} className="h-10 rounded-xl bg-slate-100 border-none" />
+            <DatePicker date={toDate} setToDate={setToDate} className="h-10 rounded-xl bg-slate-100 border-none" />
           </div>
 
           <Button onClick={() => setRefreshKey(k => k + 1)} variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-blue-900 hover:bg-blue-50">
@@ -193,7 +193,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="p-8 space-y-10">
+      <div className="p-8">
         <DashboardCards 
           selectedPlant={selectedPlant} 
           authorizedPlantIds={authorizedPlantIds}
@@ -311,7 +311,7 @@ export default function DashboardPage() {
           plantId={selectedPlant}
           plantName={activePlantName}
           authorizedPlantIds={authorizedPlantIds}
-          fromDate={fromDate}
+          fromDate={fromData}
           toDate={toDate}
         />
       )}

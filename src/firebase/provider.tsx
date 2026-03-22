@@ -6,6 +6,13 @@ import { Firestore } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { Functions } from 'firebase/functions';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
+// --- CORE HOOK CHANGE --- 
+// Import the correct hook. `useFirestoreCollectionData` returns a simple array of objects,
+// which is what the dashboard code expects. `useFirestoreCollection` returns a complex QuerySnapshot object.
+import { useFirestoreCollectionData } from 'reactfire';
+
+// Re-export `useFirestoreCollectionData` under the alias `useCollection` for use in the dashboard.
+export { useFirestoreCollectionData as useCollection };
 
 interface FirebaseProviderProps {
   children: ReactNode;

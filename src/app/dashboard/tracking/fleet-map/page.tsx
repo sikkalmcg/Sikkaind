@@ -173,8 +173,6 @@ export default function FleetLiveMapPage() {
             <div className="flex-1 relative">
                 <TrackingMap 
                     vehicles={filteredFleet} 
-                    livePos={selectedVehicle}
-                    tripId={selectedVehicle?.vehicleNumber}
                     height="100%"
                 />
             </div>

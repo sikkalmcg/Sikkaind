@@ -1,5 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Helper function to format the address into Street -> City format
+const formatAddress = (address: any): string => {
+  if (typeof address !== 'string' || !address.trim()) {
+    return 'Location Syncing...';
+  }
+  const parts = address.split(',').map(part => part.trim());
+  if (parts.length >= 2) {
+    const street = parts[0];
+    const city = parts[1];
+    // Avoid redundant formats like "Ghaziabad -> Ghaziabad"
+    if (street && city && !city.includes(street)) {
+      return `${street} → ${city}`;
+    }
+  }
+  // Fallback to the most significant part of the address if format is unexpected
+  return parts[0] || address;
+};
+
 export async function POST(req: NextRequest) {
   try {
     const { apiKey } = await req.json();
@@ -8,36 +26,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'API key is required.' }, { status: 400 });
     }
 
-    // Use the new endpoint provided by the user with accessToken
     const url = `https://api.wheelseye.com/currentLoc?accessToken=${apiKey}`;
 
     const wheelseyeResponse = await fetch(url, {
-        method: 'GET', // Changed to GET as per the new endpoint structure
-        headers: {
-            'accept': 'application/json',
-        },
+        method: 'GET',
+        headers: { 'accept': 'application/json' },
         cache: 'no-store',
     });
 
     if (!wheelseyeResponse.ok) {
-        if (wheelseyeResponse.status === 503) {
-            return NextResponse.json({ message: "The GPS provider\'s service is temporarily unavailable (Error 503). Please try again later." }, { status: 503 });
-        }
         const errorBody = await wheelseyeResponse.text();
         console.error("WheelsEye API Error:", errorBody);
-        return NextResponse.json({ message: `Failed to fetch from GPS provider. Details: ${errorBody}` }, { status: wheelseyeResponse.status });
+        return NextResponse.json({ message: `Failed to fetch from GPS provider. Status: ${wheelseyeResponse.status}` }, { status: wheelseyeResponse.status });
     }
 
     const result = await wheelseyeResponse.json();
 
-    // Flexibly find the vehicle list in the response
     let vehicleList: any[] = [];
     if (result && result.success && Array.isArray(result.data)) {
-        vehicleList = result.data; // Handles { success: true, data: [...] }
+        vehicleList = result.data;
     } else if (Array.isArray(result)) {
-        vehicleList = result; // Handles [...] directly
+        vehicleList = result;
     } else if (result && result.data && Array.isArray(result.data.list)) {
-        vehicleList = result.data.list; // Handles the old structure { data: { list: [...] } }
+        vehicleList = result.data.list; // Legacy support
     } else {
         console.error("Unexpected data structure from WheelsEye:", result);
         return NextResponse.json({ message: 'Received invalid data structure from GPS provider.' }, { status: 500 });
@@ -51,9 +62,11 @@ export async function POST(req: NextRequest) {
         speed: vehicle.speed || 0,
         ignition: vehicle.ignition || false,
         angle: vehicle.angle || 0,
-        location: vehicle.address || 'Location Syncing...',
-        driverName: vehicle.venndorName || vehicle.driverName || 'N/A',
+        location: formatAddress(vehicle.address),
+        driverName: vehicle.vendorName || vehicle.driverName || 'N/A',
         driverMobile: vehicle.driverMobile || 'N/A',
+        lastUpdateRaw: vehicle.updatedAt || new Date().toISOString(),
+        lastUpdate: vehicle.updatedAt ? formatDistanceToNow(new Date(vehicle.updatedAt), { addSuffix: true }) : 'just now',
     }));
 
     return NextResponse.json(transformedData);

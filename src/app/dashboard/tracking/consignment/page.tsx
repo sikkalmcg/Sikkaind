@@ -16,7 +16,7 @@ import {
     ChevronRight,
     Loader2,
     Calendar,
-    ArrowRightLeft,
+    User,
     Clock,
     Navigation,
     CircleDot,
@@ -25,18 +25,16 @@ import {
     Smartphone,
     RefreshCcw
 } from 'lucide-react';
-import { useFirestore, useUser } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp } from 'firebase/firestore';
-import { format, addHours, addSeconds, isValid } from 'date-fns';
-import { cn, normalizePlantId } from '@/lib/utils';
+import { format, addSeconds, isValid } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { useJsApiLoader, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useSearchParams } from 'next/navigation';
-import Image from 'next/image';
-import type { Vehicle } from '@/types';
 
 const MAPS_JS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
 const DEFAULT_TRUCK_ICON = "https://png.pngtree.com/png-vector/20250122/ourlarge/pngtree-colorful-delivery-truck-icon-png-image_15301010.png";
@@ -47,12 +45,7 @@ function TrackConsignmentContent() {
     const searchParams = useSearchParams();
     const urlSearch = searchParams.get('search');
 
-    const { isLoaded } = useJsApiLoader({
-        id: 'google-map-script',
-        googleMapsApiKey: MAPS_JS_KEY,
-        libraries: ['places']
-    });
-
+    const [apiKey, setApiKey] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState(urlSearch || '');
     const [isSearching, setIsSearching] = useState(false);
     const [consignment, setConsignment] = useState<any>(null);
@@ -61,19 +54,40 @@ function TrackConsignmentContent() {
     const [isMapModalOpen, setIsMapModalOpen] = useState(false);
     const [eta, setEta] = useState<Date | null>(null);
 
-    /**
-     * REGISTRY REFRESH NODE
-     * Synchronizes live telemetry signal with the dashboard state.
-     */
+    // Fetch API Key from Firestore
+    useEffect(() => {
+        const fetchApiKey = async () => {
+            if (!firestore) return;
+            const settingsDoc = doc(firestore, 'gps_settings', 'api_config');
+            try {
+                const docSnap = await getDoc(settingsDoc);
+                if (docSnap.exists() && docSnap.data().apiKey) {
+                    setApiKey(docSnap.data().apiKey);
+                } else {
+                    toast({ variant: 'destructive', title: 'API Key Missing', description: 'GPS API key is not configured.' });
+                }
+            } catch (error) {
+                toast({ variant: 'destructive', title: 'Config Error', description: 'Could not fetch API key.' });
+            }
+        };
+        fetchApiKey();
+    }, [firestore, toast]);
+
+    const { isLoaded } = useJsApiLoader({
+        id: 'google-map-script',
+        googleMapsApiKey: MAPS_JS_KEY,
+        libraries: ['places']
+    });
+
     const refreshTelemetry = useCallback(async (vNo: string) => {
-        if (!vNo) return;
+        if (!vNo || !apiKey) return;
         try {
             const response = await fetch('/api/track', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ apiKey: 'dummy-api-key' }), // Sending a dummy key for now
+              body: JSON.stringify({ apiKey }),
             }); 
             const result = await response.json();
     
@@ -87,9 +101,8 @@ function TrackConsignmentContent() {
         } catch (e) {
             console.warn("Registry handshake failed during refresh pulse.");
         }
-    }, []);
+    }, [apiKey]);
 
-    // AUTO-REFRESH PULSE: 30s interval for active consignment
     useEffect(() => {
         if (!consignment?.vehicleNumber) return;
         const interval = setInterval(() => {
@@ -99,9 +112,12 @@ function TrackConsignmentContent() {
     }, [consignment?.vehicleNumber, refreshTelemetry]);
 
     const handleSearch = useCallback(async (overriddenQuery?: string) => {
-        if (!firestore) return;
         const term = (overriddenQuery || searchQuery).trim().toUpperCase();
         if (!term) return;
+        if (!firestore || !apiKey) {
+            toast({ variant: 'destructive', title: "Service Unavailable", description: "Required services are not ready." });
+            return;
+        }
 
         setIsSearching(true);
         setConsignment(null);
@@ -111,8 +127,6 @@ function TrackConsignmentContent() {
 
         try {
             const tripsRef = collection(firestore, "trips");
-            
-            // 1. Resolve Trip ID or LR Number
             let q = query(tripsRef, where("tripId", "==", term), limit(1));
             let snap = await getDocs(q);
             
@@ -122,44 +136,22 @@ function TrackConsignmentContent() {
             }
 
             if (snap.empty) {
-                toast({ variant: 'destructive', title: "Registry Conflict", description: "Consignment ID not recognized in mission database." });
+                toast({ variant: 'destructive', title: "Registry Conflict", description: "Consignment ID not recognized." });
                 setIsSearching(false);
                 return;
             }
 
             const trip = { id: snap.docs[0].id, ...snap.docs[0].data() } as any;
             
-            // 2. Cross-reference Plant and Shipment data for Dynamic Location
             const plantSnap = await getDoc(doc(firestore, "logistics_plants", trip.originPlantId));
-            if (plantSnap.exists()) {
-                const pData = plantSnap.data();
-                trip.plantName = pData.name;
-                trip.plantLat = pData.latitude;
-                trip.plantLng = pData.longitude;
-            } else {
-                trip.plantName = trip.originPlantId;
-            }
-
-            const shipId = trip.shipmentIds?.[0];
-            if (shipId) {
-                const shipRef = doc(firestore, `plants/${trip.originPlantId}/shipments`, shipId);
-                const shipSnap = await getDoc(shipRef);
-                if (shipSnap.exists()) {
-                    const shipData = shipSnap.data();
-                    trip.shipmentInfo = shipData;
-                    trip.loadingPoint = trip.loadingPoint || shipData.loadingPoint || trip.plantName;
-                }
-            }
+            trip.plantName = plantSnap.exists() ? plantSnap.data().name : trip.originPlantId;
+            trip.plantLat = plantSnap.exists() ? plantSnap.data().latitude : null;
+            trip.plantLng = plantSnap.exists() ? plantSnap.data().longitude : null;
             
-            if (!trip.loadingPoint) trip.loadingPoint = trip.plantName;
-
-            // 3. GIS HANDSHAKE (Primary Authorization)
             const response = await fetch('/api/track', {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ apiKey: 'dummy-api-key' }), // Sending a dummy key for now
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ apiKey }),
             }); 
             const result = await response.json();
             
@@ -168,14 +160,8 @@ function TrackConsignmentContent() {
                 if (vehicleData) {
                     setLivePos(vehicleData);
                     setIsGpsEnabled(true);
-                    toast({ title: "Signal Established", description: `Live telemetry node linked for ${trip.vehicleNumber}.` });
+                    toast({ title: "Signal Established", description: `Live telemetry linked for ${trip.vehicleNumber}.` });
                 }
-            } else {
-                const vNoClean = trip.vehicleNumber?.toUpperCase().replace(/\s/g, '');
-                const vRef = query(collection(firestore, "vehicles"), where("vehicleNumber", "==", vNoClean), limit(1));
-                const vSnap = await getDocs(vRef);
-                const internalGpsStatus = !vSnap.empty && vSnap.docs[0].data().gps_enabled === true;
-                setIsGpsEnabled(internalGpsStatus);
             }
             
             setConsignment({ 
@@ -189,19 +175,17 @@ function TrackConsignmentContent() {
         } finally {
             setIsSearching(false);
         }
-    }, [firestore, searchQuery, toast]);
+    }, [firestore, searchQuery, toast, apiKey]);
 
-    // MISSION HANDSHAKE: Auto-resolve from URL
     useEffect(() => {
-        if (urlSearch && firestore) {
+        if (urlSearch && firestore && apiKey) {
             handleSearch(urlSearch);
         }
-    }, [urlSearch, firestore, handleSearch]);
+    }, [urlSearch, firestore, apiKey, handleSearch]);
 
     return (
         <main className="flex flex-1 flex-col h-full bg-[#f8fafc] animate-in fade-in duration-500 overflow-y-auto">
             <div className="p-8 space-y-10 max-w-7xl mx-auto w-full">
-                {/* SEARCH INTERFACE */}
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-b pb-8">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-blue-900 text-white rounded-2xl shadow-xl rotate-3">
@@ -226,7 +210,7 @@ function TrackConsignmentContent() {
                             />
                         </div>
                         <Button 
-                            disabled={isSearching} 
+                            disabled={isSearching || !apiKey}
                             onClick={() => handleSearch()}
                             className="bg-blue-900 hover:bg-slate-900 text-white h-12 px-12 rounded-xl font-black uppercase text-[11px] tracking-widest shadow-xl transition-all active:scale-95 border-none"
                         >
@@ -238,7 +222,6 @@ function TrackConsignmentContent() {
 
                 {consignment && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 pb-20">
-                        {/* 1. TOP HEADER SECTION (Consignment Summary) */}
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-6 p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 transition-transform duration-1000 group-hover:scale-110">
                                 <ShieldCheck className="h-64 w-64" />
@@ -257,18 +240,11 @@ function TrackConsignmentContent() {
                                     <p className="text-[8px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-1.5">
                                         {item.icon && <item.icon className="h-2.5 w-2.5" />} {item.label}
                                     </p>
-                                    <p className={cn(
-                                        "text-xs font-bold uppercase", 
-                                        item.bold && "font-black text-[13px]", 
-                                        item.mono && "font-mono tracking-tighter",
-                                        item.color || "text-white",
-                                        item.truncate && "truncate"
-                                    )} title={item.value}>{item.value}</p>
+                                    <p className={cn("text-xs font-bold uppercase", item.bold && "font-black text-[13px]", item.mono && "font-mono tracking-tighter", item.color || "text-white", item.truncate && "truncate")} title={item.value}>{item.value}</p>
                                 </div>
                             ))}
                         </div>
 
-                        {/* 2. CENTRE SECTION (Shipment Tracking Details) */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             <Card className="lg:col-span-2 border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
                                 <CardHeader className="bg-slate-50 border-b p-8">
@@ -287,20 +263,6 @@ function TrackConsignmentContent() {
                                                     </p>
                                                 </div>
                                             </div>
-
-                                            <div className="flex gap-6 items-start">
-                                                <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100 shadow-sm"><Navigation className="h-6 w-6 text-emerald-600" /></div>
-                                                <div>
-                                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Current Status Node</p>
-                                                    <Badge className={cn(
-                                                        "font-black uppercase text-[10px] px-4 py-1 border-none shadow-md h-7",
-                                                        consignment.currentStatusId?.toLowerCase() === 'delivered' ? "bg-emerald-600 text-white" : "bg-blue-600 text-white"
-                                                    )}>
-                                                        {consignment.currentStatusId}
-                                                    </Badge>
-                                                </div>
-                                            </div>
-
                                             <div className="flex gap-6 items-start">
                                                 <div className="p-3 bg-red-50 rounded-2xl border border-red-100 shadow-sm"><CircleDot className="h-6 w-6 text-red-600" /></div>
                                                 <div>
@@ -311,29 +273,6 @@ function TrackConsignmentContent() {
                                         </div>
 
                                         <div className="space-y-10">
-                                            <div className="p-8 bg-slate-900 text-white rounded-[2rem] shadow-2xl relative overflow-hidden group/loc">
-                                                <div className="absolute top-0 right-0 p-6 opacity-5 rotate-12 transition-transform duration-700 group-hover/loc:scale-110"><Radar className="h-24 w-24" /></div>
-                                                <div className="text-[9px] font-black uppercase text-blue-400 tracking-widest mb-3 flex items-center gap-2">
-                                                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                    Current Location Registry
-                                                </div>
-                                                <p className="text-sm font-black uppercase leading-relaxed relative z-10">
-                                                    {livePos?.location || 'Handshaking Satellite Registry...'}
-                                                </p>
-                                                {livePos && (
-                                                    <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-4">
-                                                        <div className="text-left">
-                                                            <p className="text-[8px] font-black uppercase text-slate-500">Telemetry Pulse</p>
-                                                            <p className="text-[10px] font-bold text-blue-300 font-mono">{livePos.lastUpdate || 'LIVE'}</p>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <p className="text-[8px] font-black uppercase text-slate-500">Speed node</p>
-                                                            <p className="text-[10px] font-black text-emerald-400">{livePos.speed} KM/H</p>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-
                                             <div className="p-8 bg-blue-50 rounded-[2rem] border-2 border-blue-100 flex flex-col justify-center items-center text-center shadow-inner">
                                                 <Calendar className="h-10 w-10 text-blue-600 mb-4" />
                                                 <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Expected Delivery Node</p>
@@ -346,48 +285,50 @@ function TrackConsignmentContent() {
                                     </div>
                                 </CardContent>
                             </Card>
-
+                            
                             <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden flex flex-col">
                                 <CardHeader className="bg-slate-50 border-b p-8">
-                                    <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-700">Fleet Authorization</CardTitle>
+                                    <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-700">Fleet Authorization & Location Registry</CardTitle>
                                 </CardHeader>
-                                <CardContent className="p-10 flex-1 flex flex-col justify-center items-center gap-8">
-                                    <div className={cn(
-                                        "p-10 rounded-full border-4 transition-all duration-500",
-                                        isGpsEnabled ? "bg-emerald-50 border-emerald-100 text-emerald-600 shadow-emerald-100 shadow-2xl" : "bg-slate-50 border-slate-100 text-slate-300"
-                                    )}>
-                                        <Smartphone className="h-20 w-20" />
-                                    </div>
-                                    
-                                    <div className="text-center space-y-2">
-                                        <h4 className="text-sm font-black uppercase tracking-tight text-slate-900">
-                                            {isGpsEnabled ? 'Satellite Registry Linked' : 'GPS Node Not Linked'}
-                                        </h4>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed max-w-[200px]">
-                                            {isGpsEnabled ? 'Telemetry signal detected for this vehicle node.' : 'This vehicle number is not registered or signal is inactive.'}
-                                        </p>
+                                <CardContent className="p-8 flex-1 flex flex-col justify-between">
+                                    <div className="space-y-6">
+                                        <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border">
+                                            <div className={cn("p-3 rounded-full border-4", isGpsEnabled ? "bg-emerald-100 border-emerald-200 text-emerald-600" : "bg-slate-100 border-slate-200 text-slate-400")}>
+                                                <Smartphone className="h-8 w-8" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <h4 className="font-black uppercase text-slate-900">{isGpsEnabled ? 'Satellite Link Active' : 'GPS Signal Offline'}</h4>
+                                                <p className="text-[9px] font-bold text-slate-400 uppercase leading-tight">
+                                                    {isGpsEnabled ? 'Live telemetry signal is active.' : 'Vehicle is not registered or signal is inactive.'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="space-y-4">
+                                            <InfoRow icon={Truck} label="Vehicle Number" value={consignment.vehicleNumber} />
+                                            <InfoRow icon={FileText} label="Authorized Trip ID" value={consignment.tripId} />
+                                            <InfoRow icon={User} label="Driver" value={livePos?.driverName || 'N/A'} />
+                                            <InfoRow icon={MapPin} label="Live Location" value={livePos?.location || 'Syncing...'} isLocation={true} />
+                                        </div>
                                     </div>
 
-                                    <div className="flex flex-col w-full gap-3">
+                                    <div className="flex flex-col w-full gap-3 mt-6">
                                         <Button 
                                             onClick={() => setIsMapModalOpen(true)}
                                             disabled={!isGpsEnabled}
-                                            className={cn(
-                                                "w-full h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none",
-                                                isGpsEnabled ? "bg-blue-900 hover:bg-slate-900 text-white shadow-blue-100" : "bg-slate-100 text-slate-300 opacity-50"
-                                            )}
+                                            className="w-full h-12 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg"
                                         >
-                                            Track Consignment Mission
-                                            <ChevronRight className="ml-2 h-4 w-4" />
+                                            <Radar className="mr-2 h-4 w-4" />
+                                            Track Mission
                                         </Button>
                                         <Button 
                                             variant="outline"
                                             onClick={() => refreshTelemetry(consignment.vehicleNumber)}
                                             disabled={isSearching}
-                                            className="w-full h-10 rounded-xl font-black uppercase text-[9px] tracking-widest border-slate-200 gap-2"
+                                            className="w-full h-10 rounded-xl font-black uppercase text-[9px] tracking-widest gap-2"
                                         >
                                             <RefreshCcw className={cn("h-3 w-3", isSearching && "animate-spin")} />
-                                            Force Registry Sync
+                                            Force Sync
                                         </Button>
                                     </div>
                                 </CardContent>
@@ -397,7 +338,6 @@ function TrackConsignmentContent() {
                 )}
             </div>
 
-            {/* LIVE TRACKING POPUP MODAL */}
             {isMapModalOpen && consignment && (
                 <TrackingPopup 
                     isOpen={isMapModalOpen}
@@ -410,6 +350,16 @@ function TrackConsignmentContent() {
         </main>
     );
 }
+
+const InfoRow = ({ icon: Icon, label, value, isLocation = false }: { icon: React.ElementType, label: string, value: string, isLocation?: boolean }) => (
+    <div className="flex items-start gap-3">
+        <Icon className="h-4 w-4 text-slate-400 mt-1" />
+        <div className="flex-1">
+            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">{label}</p>
+            <p className={cn("text-sm font-bold uppercase", isLocation ? "text-blue-600 animate-pulse" : "text-slate-800")}>{value}</p>
+        </div>
+    </div>
+);
 
 function TrackingPopup({ isOpen, onClose, consignment, livePos, onEtaResolved }: { 
     isOpen: boolean; 
@@ -428,7 +378,6 @@ function TrackingPopup({ isOpen, onClose, consignment, livePos, onEtaResolved }:
     const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
     const [customIcon, setCustomIcon] = useState<string>(DEFAULT_TRUCK_ICON);
 
-    // Registry Handshake: Fetch Custom Asset Icon from Firestore
     useEffect(() => {
         if (!firestore) return;
         const fetchSettings = async () => {
@@ -440,7 +389,6 @@ function TrackingPopup({ isOpen, onClose, consignment, livePos, onEtaResolved }:
         fetchSettings();
     }, [firestore]);
 
-    // Registry Node: Fixed Dispatch Point from actual plant coordinates
     const dispatchCoord = useMemo(() => ({
         lat: consignment.plantLat || 28.6139,
         lng: consignment.plantLng || 77.2090
@@ -490,9 +438,8 @@ function TrackingPopup({ isOpen, onClose, consignment, livePos, onEtaResolved }:
                             center={origin}
                             zoom={12}
                             onLoad={onMapLoad}
-                            options={{
-                                disableDefaultUI: false,
-                                zoomControl: true,
+                            options={{ 
+                                disableDefaultUI: true, 
                                 styles: [
                                     { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
                                     { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
@@ -501,10 +448,9 @@ function TrackingPopup({ isOpen, onClose, consignment, livePos, onEtaResolved }:
                                 ]
                             }}
                         >
-                            {/* Corrected Dispatch Marker: Anchored to actual Plant Registry Coordinates */}
                             <Marker 
                                 position={dispatchCoord} 
-                                label={{ text: "Dispatch", color: "white", fontWeight: "900" }}
+                                label={{ text: "Dispatch", color: "white", fontWeight: "bold" }}
                                 icon="http://maps.google.com/mapfiles/ms/icons/green-dot.png"
                             />
                             

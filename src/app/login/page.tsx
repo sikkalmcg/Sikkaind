@@ -123,7 +123,7 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void; }) {
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
                                     className="w-full p-2 border border-gray-300 rounded bg-slate-50 text-sm focus:outline-blue-500"
-                                    placeholder="operator_id"
+                                    placeholder=""
                                 />
                             </div>
                             <div>
@@ -277,7 +277,7 @@ export default function LoginPage() {
                                         value={identity}
                                         onChange={(e) => setIdentity(e.target.value)}
                                         className="flex-1 p-1 border border-gray-400 bg-white text-sm"
-                                        placeholder="sikkaind"
+                                        placeholder=""
                                     />
                                 </div>
                                 <div className="flex items-center space-x-4">
@@ -288,7 +288,7 @@ export default function LoginPage() {
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
                                             className="flex-1 p-1 bg-transparent text-sm focus:outline-none"
-                                            placeholder="Sikka@lmc2105"
+                                            placeholder=""
                                         />
                                         <button 
                                             type="button" 
