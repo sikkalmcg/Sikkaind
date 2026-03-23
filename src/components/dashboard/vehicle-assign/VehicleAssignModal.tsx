@@ -267,6 +267,23 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   const assignQty = watch('assignQty');
   const vehicleNumber = watch('vehicleNumber');
   const currentDistance = watch('distance');
+
+  useEffect(() => {
+    if (vehicleType === 'Market Vehicle') {
+      if (!registryMatch) {
+        setValue('driverName', '');
+        setValue('driverMobile', '');
+      }
+    } else if (vehicleType === 'Own Vehicle') {
+      if (registryMatch) {
+        setValue('driverName', registryMatch.driverName || '');
+        setValue('driverMobile', registryMatch.driverMobile || '');
+      } else {
+        setValue('driverName', '');
+        setValue('driverMobile', '');
+      }
+    }
+  }, [vehicleType, registryMatch, setValue]);
   
   useEffect(() => {
     if (!isLoaded || !isOpen || hasCalculatedDistance.current || !shipment.loadingPoint || !shipment.unloadingPoint) return;
@@ -629,8 +646,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                     </TableCell>
                                     <TableCell className="min-w-[320px] px-4">
                                         <div className="grid grid-cols-2 gap-3">
-                                            <FormField control={form.control} name="driverName" render={({ field }) => (<Input {...field} placeholder="Pilot Name" className="h-11 text-xs font-bold uppercase" />)} />
-                                            <FormField control={form.control} name="driverMobile" render={({ field }) => (<Input {...field} placeholder="10 Digits" className="h-11 text-xs font-mono font-black text-blue-900" />)} />
+                                            <FormField control={form.control} name="driverName" render={({ field }) => (<Input {...field} placeholder="Pilot Name" className="h-11 text-xs font-bold uppercase" disabled={vehicleType === 'Own Vehicle'} />)} />
+                                            <FormField control={form.control} name="driverMobile" render={({ field }) => (<Input {...field} placeholder="10 Digits" className="h-11 text-xs font-mono font-black text-blue-900" disabled={vehicleType === 'Own Vehicle'} />)} />
                                         </div>
                                     </TableCell>
                                     <TableCell className="min-w-[240px] px-4">
@@ -664,6 +681,44 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                 </TableRow>
                             </TableBody>
                         </Table>
+                        {vehicleType === 'Market Vehicle' && (
+                            <div className="p-8 border-t border-slate-200 animate-in fade-in duration-300">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <Sparkles className="h-5 w-5 text-amber-500" />
+                                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+                                        Market Vehicle Particulars
+                                    </h3>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                    <FormField
+                                        control={control}
+                                        name="transporterName"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Transporter / Broker Name *</FormLabel>
+                                                <FormControl>
+                                                    <Input {...field} placeholder="Enter name" className="h-11 font-bold" />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={control}
+                                        name="transporterMobile"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Contact Mobile *</FormLabel>
+                                                <FormControl>
+                                                    <Input {...field} placeholder="10 Digits" className="h-11 font-mono font-bold" />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </form>
                 </Form>
             </div>
