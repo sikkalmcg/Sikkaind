@@ -78,6 +78,7 @@ const formSchema = z.object({
   transporterName: z.string().optional(),
   ownerName: z.string().optional(),
   ownerPan: z.string().optional(),
+  freightAmount: z.coerce.number().optional(),
   shipments: z.array(shipmentItemSchema).min(1, "At least one shipment must be linked."),
 }).superRefine((data, ctx) => {
   const totalAssigned = data.shipments.reduce((sum, s) => sum + s.assignedQty, 0);
@@ -107,10 +108,15 @@ const formSchema = z.object({
   if (data.vehicleType === 'Market') {
       if (!data.transporterName) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Transporter name is mandatory for market vehicles.", path: ['transporterName'] });
       if (!data.ownerName) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Owner name is mandatory.", path: ['ownerName'] });
+      if (!data.freightAmount || data.freightAmount <= 0) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Freight amount is required for market vehicles.",
+            path: ['freightAmount']
+        });
+      }
   }
 });
-
-
 
 export default function VehicleIn({ plantId, onTripCreated }: VehicleInProps) {
   const { toast } = useToast();
@@ -132,6 +138,7 @@ export default function VehicleIn({ plantId, onTripCreated }: VehicleInProps) {
       transporterName: '',
       ownerName: '',
       ownerPan: '',
+      freightAmount: 0,
       shipments: [],
     },
   });
@@ -232,6 +239,7 @@ export default function VehicleIn({ plantId, onTripCreated }: VehicleInProps) {
             ownerName: values.ownerName,
             ownerPan: values.ownerPan,
             transporterName: values.transporterName,
+            freightAmount: values.freightAmount,
         };
         
         batch.set(tripDocRef, tripData);
@@ -349,7 +357,7 @@ export default function VehicleIn({ plantId, onTripCreated }: VehicleInProps) {
                 </div>
                 
                 {vehicleType === 'Market' && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-slate-200">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6 pt-6 border-t border-slate-200">
                          <FormField control={control} name="carrierId" render={({ field }) => (
                             <FormItem>
                                 <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">Carrier Agent *</FormLabel>
@@ -376,6 +384,13 @@ export default function VehicleIn({ plantId, onTripCreated }: VehicleInProps) {
                                 <FormMessage />
                             </FormItem>
                         )} />
+                        <FormField control={control} name="freightAmount" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">Freight Amount *</FormLabel>
+                                <FormControl><Input type="number" {...field} placeholder="0.00" className='h-12 bg-white font-black text-lg' /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
                     </div>
                 )}
             </section>
@@ -391,7 +406,7 @@ export default function VehicleIn({ plantId, onTripCreated }: VehicleInProps) {
                         <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                         <select 
                             onChange={(e) => {
-                                const shipId = e.target.value;
+                                const shipId = e.target..value;
                                 const ship = availableShipments.find(s => s.id === shipId);
                                 if (ship) handleAddShipment(ship);
                                 e.target.value = ''; // Reset select
