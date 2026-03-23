@@ -1,0 +1,82 @@
+{
+  "placeholderImages": [
+    {
+      "id": "avatar-sikka-admin",
+      "description": "Avatar for Sikka Admin user",
+      "imageUrl": "https://picsum.photos/seed/admin/200/200",
+      "imageHint": "profile portrait"
+    },
+    {
+      "id": "sikka-logo-small",
+      "description": "Small Sikka LMC logo for header",
+      "imageUrl": "https://picsum.photos/seed/sikka-logo/200/200",
+      "imageHint": "logistics logo"
+    },
+    {
+      "id": "sikka-logo-large",
+      "description": "Large Sikka LMC logo for module selection",
+      "imageUrl": "https://picsum.photos/seed/sikka-logo-lg/400/400",
+      "imageHint": "logistics company logo"
+    },
+    {
+      "id": "about-transport",
+      "description": "Logistics transportation network for about page",
+      "imageUrl": "https://picsum.photos/seed/transport/800/600",
+      "imageHint": "container trucks"
+    },
+    {
+      "id": "about-team",
+      "description": "Professional team portrait for about page",
+      "imageUrl": "https://picsum.photos/seed/team/800/600",
+      "imageHint": "professional portrait"
+    },
+    {
+      "id": "hero-trucks",
+      "description": "Sikka Logistics branded truck and professional driver representing domestic transportation.",
+      "imageUrl": "https://picsum.photos/seed/trucks/1200/800",
+      "imageHint": "truck driver"
+    },
+    {
+      "id": "hero-warehouse",
+      "description": "Modern warehouse with organized shelving representing storage facilities.",
+      "imageUrl": "https://picsum.photos/seed/warehouse/1200/800",
+      "imageHint": "modern warehouse"
+    },
+    {
+      "id": "hero-ai-analytics",
+      "description": "AI-powered video analytics for warehouse loading and unloading monitoring.",
+      "imageUrl": "https://picsum.photos/seed/ai/1200/800",
+      "imageHint": "warehouse technology"
+    },
+    {
+      "id": "hero-rake",
+      "description": "Industrial rake unloading or cargo handling at a railhead.",
+      "imageUrl": "https://picsum.photos/seed/rake/1200/800",
+      "imageHint": "industrial cargo"
+    },
+    {
+      "id": "hero-freight",
+      "description": "Global cargo ship representing international freight forwarding.",
+      "imageUrl": "https://picsum.photos/seed/freight/1200/800",
+      "imageHint": "cargo ship"
+    },
+    {
+      "id": "hero-tracking",
+      "description": "GPS tracking dashboard and logistics technology.",
+      "imageUrl": "https://picsum.photos/seed/tracking/1200/800",
+      "imageHint": "logistics technology"
+    },
+    {
+      "id": "contact-bg",
+      "description": "Background for contact page",
+      "imageUrl": "https://picsum.photos/seed/contact/1200/800",
+      "imageHint": "warehouse office"
+    },
+    {
+      "id": "services-bg",
+      "description": "Background for services page",
+      "imageUrl": "https://picsum.photos/seed/services/1200/800",
+      "imageHint": "logistics background"
+    }
+  ]
+}

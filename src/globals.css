@@ -1,0 +1,370 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root,
+  [data-theme="signature"] {
+    --background: 220 13% 97%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 217 91% 60%;
+    --chart-1: 224 100% 58%;
+    --chart-2: 160.1 50% 45.1%;
+    --chart-3: 30.1 80% 55.1%;
+    --chart-4: 280.1 65% 60.1%;
+    --chart-5: 340.1 75% 55.1%;
+    --radius: 0.5rem;
+
+    /* Sikka Logistics Sidebar Theme */
+    --sidebar-background: 222.2 84% 4.9%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 210 40% 98%;
+    --sidebar-primary-foreground: 222.2 84% 4.9%;
+    --sidebar-accent: 224 100% 58%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 224 100% 58%;
+
+    /* Font Variables */
+    --font-family: "Inter", sans-serif;
+    --font-weight: 400;
+    --font-style: normal;
+    --font-size-base: 14px;
+  }
+
+  [data-theme="blue-crystal"] {
+    --background: 210 100% 98%;
+    --foreground: 215 28% 17%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 216 34% 91%;
+    --accent: 216 34% 93%;
+    --card: 220 13% 100%;
+  }
+
+  [data-theme="green"] {
+    --background: 120 20% 98%;
+    --foreground: 120 25% 15%;
+    --primary: 140 60% 35%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 130 20% 94%;
+    --accent: 130 20% 96%;
+    --card: 120 20% 100%;
+  }
+
+  [data-theme="golden"] {
+    --background: 45 60% 97%;
+    --foreground: 35 30% 20%;
+    --primary: 45 95% 51%;
+    --primary-foreground: 35 50% 10%;
+    --secondary: 40 50% 94%;
+    --accent: 40 50% 96%;
+    --card: 45 60% 100%;
+  }
+
+  [data-theme="purple"] {
+    --background: 270 60% 98%;
+    --foreground: 270 25% 15%;
+    --primary: 260 70% 55%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 270 50% 95%;
+    --accent: 270 50% 97%;
+    --card: 270 60% 100%;
+  }
+
+  [data-theme="pink"] {
+    --background: 340 60% 98%;
+    --foreground: 340 25% 15%;
+    --primary: 340 82% 52%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 340 50% 95%;
+    --accent: 340 50% 97%;
+    --card: 340 60% 100%;
+  }
+
+  [data-theme="belize-plus"] {
+    --background: 190 40% 96%;
+    --foreground: 195 35% 18%;
+    --primary: 200 85% 45%;
+    --primary-foreground: 190 40% 98%;
+    --secondary: 190 30% 92%;
+    --accent: 190 30% 94%;
+    --card: 190 40% 100%;
+  }
+
+  [data-theme="high-contrast-black"] {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --primary: 60 100% 50%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 0 0% 15%;
+    --accent: 0 0% 25%;
+    --card: 0 0% 10%;
+    --border: 0 0% 40%;
+    --input: 0 0% 20%;
+    --ring: 60 100% 50%;
+  }
+
+  [data-theme="high-contrast-white"] {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --primary: 240 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 92%;
+    --accent: 0 0% 95%;
+    --card: 0 0% 98%;
+    --border: 0 0% 60%;
+    --input: 0 0% 88%;
+    --ring: 240 100% 50%;
+  }
+
+  [data-theme="horizon-dark"] {
+    --background: 223 30% 12%;
+    --foreground: 216 20% 92%;
+    --primary: 210 90% 60%;
+    --primary-foreground: 223 30% 12%;
+    --secondary: 220 25% 18%;
+    --accent: 220 25% 22%;
+    --card: 220 25% 15%;
+    --border: 220 20% 30%;
+    --input: 220 20% 25%;
+  }
+
+  [data-theme="day"] {
+    --background: 200 20% 98%;
+    --foreground: 200 15% 20%;
+    --primary: 195 85% 40%;
+    --primary-foreground: 200 20% 98%;
+    --secondary: 200 20% 94%;
+    --accent: 200 20% 96%;
+    --card: 200 20% 100%;
+  }
+
+  [data-theme="night"] {
+    --background: 240 10% 10%;
+    --foreground: 240 5% 90%;
+    --primary: 260 70% 65%;
+    --primary-foreground: 240 5% 90%;
+    --secondary: 240 10% 18%;
+    --accent: 240 10% 22%;
+    --card: 240 10% 15%;
+    --border: 240 5% 30%;
+    --input: 240 5% 25%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --chart-1: 221.2 83.2% 53.3%;
+    --chart-2: 160.1 50% 45.1%;
+    --chart-3: 30.1 80% 55.1%;
+    --chart-4: 280.1 65% 60.1%;
+    --chart-5: 340.1 75% 55.1%;
+
+    --sidebar-background: 222.2 84% 4.9%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 210 40% 98%;
+    --sidebar-primary-foreground: 222.2 84% 4.9%;
+    --sidebar-accent: 217.2 91.2% 59.8%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --font-family: "Inter", sans-serif;
+    --font-weight: 400;
+    --font-style: normal;
+    --font-size-base: 14px;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-family);
+    font-weight: var(--font-weight);
+    font-style: var(--font-style);
+    font-size: var(--font-size-base);
+  }
+}
+
+@layer utilities {
+  .text-shadow {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  }
+  .animation-delay-300 {
+    animation-delay: 300ms;
+  }
+  .animation-delay-500 {
+    animation-delay: 500ms;
+  }
+
+  @keyframes slide-down {
+    from {
+      transform: translateY(-20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  .animate-slide-down {
+    animation: slide-down 0.5s ease-out forwards;
+  }
+
+  @keyframes slide-up {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  .animate-slide-up {
+    animation: slide-up 0.5s ease-out forwards 0.2s;
+    opacity: 0;
+  }
+  
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-out forwards;
+  }
+  
+  @keyframes slide-in-right {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  .animate-slide-in-right {
+    animation: slide-in-right 0.3s ease-out forwards;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print\:hidden {
+    display: none;
+  }
+  .print\:p-0 {
+    padding: 0;
+  }
+  .A4-page {
+    box-shadow: none;
+    border: none;
+    margin: 0;
+    width: 100%;
+    min-height: auto;
+  }
+  .page-break-after-always {
+    page-break-after: always;
+  }
+}
+
+
+
+@media print {
+  /* 1. Page Settings */
+  @page {
+    size: A4 portrait;
+    margin: 0; /* Margin modal handle karega */
+  }
+
+  /* 2. Force Content Visibility */
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    background-color: white !important;
+  }
+
+  /* 3. Modal/Dialog Specific Fixes */
+  /* Radix/Shadcn UI portals print par aksar hidden rehte hain */
+  [role="dialog"], 
+  .fixed, 
+  [data-state="open"] {
+    position: relative !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Dashboard background aur baki cheezein chhupao */
+  header, footer, nav, aside, .print\:hidden {
+    display: none !important;
+  }
+
+  /* 4. Content Container Fix */
+  #printable-area {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+  }
+
+  /* 5. Page Breaks */
+  .page-break-after-always {
+    page-break-after: always !important;
+    display: block !important;
+    clear: both !important;
+  }
+
+  /* Tables aur Images blank na aayein */
+  table, img, svg {
+    break-inside: avoid !important;
+    visibility: visible !important;
+  }
+}

@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // TEMPORARY DEBUGGING RULE: Allow public read and write access to gps_settings.
+    // This is to isolate whether the issue is with authentication or something else.
+    match /gps_settings/{document=**} {
+      allow read, write: if true;
+    }
+
+    // Default rule: All other documents require authentication
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
