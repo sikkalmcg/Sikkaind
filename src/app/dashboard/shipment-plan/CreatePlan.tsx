@@ -846,7 +846,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                                             <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl><SelectTrigger className="h-12 border-blue-200 font-bold"><SelectValue placeholder="Select Carrier" /></SelectTrigger></FormControl>
                                                 <SelectContent className="rounded-xl">
-                                                    {carriers?.map(c => <SelectItem key={c.id} value={c.id} className="font-bold py-3">{c.name}</SelectItem>)}
+                                                    {carriers?.filter(c => c && c.id && c.name).map(c => <SelectItem key={c.id} value={c.id} className="font-bold py-3">{c.name}</SelectItem>)}
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />

@@ -55,16 +55,16 @@ export default function EditCarrierModal({ isOpen, onClose, carrier, onCarrierUp
     resolver: zodResolver(formSchema),
     defaultValues: {
       plantId: carrier.plantId || '',
-      name: carrier.name,
-      address: carrier.address,
-      gstin: carrier.gstin,
-      pan: carrier.pan,
-      stateName: carrier.stateName,
-      stateCode: carrier.stateCode,
-      email: carrier.email,
-      mobile: carrier.mobile,
+      name: carrier.name || '',
+      address: carrier.address || '',
+      gstin: carrier.gstin || '',
+      pan: carrier.pan || '',
+      stateName: carrier.stateName || '',
+      stateCode: carrier.stateCode || '',
+      email: carrier.email || '',
+      mobile: carrier.mobile || '',
       website: carrier.website || '',
-      terms: carrier.terms.map(t => ({ value: t })),
+      terms: Array.isArray(carrier.terms) ? carrier.terms.map(t => ({ value: t })) : [],
     },
   });
 
@@ -77,16 +77,16 @@ export default function EditCarrierModal({ isOpen, onClose, carrier, onCarrierUp
     if (isOpen) {
         form.reset({
             plantId: carrier.plantId || '',
-            name: carrier.name,
-            address: carrier.address,
-            gstin: carrier.gstin,
-            pan: carrier.pan,
-            stateName: carrier.stateName,
-            stateCode: carrier.stateCode,
-            email: carrier.email,
-            mobile: carrier.mobile,
+            name: carrier.name || '',
+            address: carrier.address || '',
+            gstin: carrier.gstin || '',
+            pan: carrier.pan || '',
+            stateName: carrier.stateName || '',
+            stateCode: carrier.stateCode || '',
+            email: carrier.email || '',
+            mobile: carrier.mobile || '',
             website: carrier.website || '',
-            terms: carrier.terms.map(t => ({ value: t })),
+            terms: Array.isArray(carrier.terms) ? carrier.terms.map(t => ({ value: t })) : [],
         });
     }
   }, [carrier, isOpen, form]);
@@ -228,7 +228,7 @@ export default function EditCarrierModal({ isOpen, onClose, carrier, onCarrierUp
                                             <div className="h-10 w-10 shrink-0 bg-slate-100 rounded-xl flex items-center justify-center font-black text-xs text-slate-400">{index + 1}</div>
                                             <FormControl className="flex-1"><Textarea {...field} className="min-h-[80px] rounded-2xl bg-slate-50 border-slate-200 font-medium" /></FormControl>
                                             <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1} className="text-slate-300 hover:text-red-600">
-                                                <Trash2 className="h-4 w-4" />
+                                                <Trash2 className.tsx="h-4 w-4" />
                                             </Button>
                                         </div>
                                     )} />
