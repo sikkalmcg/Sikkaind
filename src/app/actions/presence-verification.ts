@@ -1,62 +1,54 @@
-'use server';
+"use server";
 
-/**
- * @fileOverview Server Action for Presence Verification via Maple API.
- * Translates the provided Java OkHttpClient logic to a secure Node.js fetch implementation.
- */
+import { z } from "zod";
 
-export async function verifyPresence(data: {
-  userId: string;
-  facilityId: string;
-  nfcHash?: string;
-}) {
-  const API_KEY = process.env.MAPLE_API_KEY || '<API_KEY_VALUE>';
-  const url = "https://api.maple.com/api/v1/presence-verification";
+const PresenceVerificationSchema = z.object({
+  latitude: z.string(),
+  longitude: z.string(),
+  place_id: z.string(),
+});
 
-  // Mapping the application data to the Maple API expected schema
-  const payload = {
-    data: {
-      attributes: {
-        externalUserId: data.userId,
-        nfcHash: data.nfcHash || "simulated-nfc-hash-" + Math.random().toString(36).substring(7),
-        externalFacilityId: data.facilityId
-      },
-      type: "presence_verification"
-    }
+const searchNearby = async (
+  latitude: string,
+  longitude: string,
+  place_id: string,
+) => {
+  // This functionality is disabled as per user request.
+  // The original implementation used a Maple API key which is no longer desired.
+  return {
+    success: false,
+    message: "Nearby search functionality is currently disabled.",
   };
+};
+
+export const presenceVerification = async (
+  prevState: any,
+  formData: FormData,
+) => {
+  const validatedFields = PresenceVerificationSchema.safeParse({
+    latitude: formData.get("latitude"),
+    longitude: formData.get("longitude"),
+    place_id: formData.get("place_id"),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      success: false,
+      message: "Invalid form data.",
+      errors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  const { latitude, longitude, place_id } = validatedFields.data;
 
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'x-api-key': API_KEY,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    // Handle non-200 responses
-    if (!response.ok) {
-      const errorBody = await response.text();
-      let errorMessage = `API Error (${response.status})`;
-      try {
-        const parsed = JSON.parse(errorBody);
-        errorMessage = parsed.message || parsed.errors?.[0]?.detail || errorMessage;
-      } catch (e) {
-        // Fallback to raw text
-      }
-      throw new Error(errorMessage);
-    }
-
-    return await response.json();
+    const results = await searchNearby(latitude, longitude, place_id);
+    return results;
   } catch (error: any) {
-    console.error("Maple API Error:", error);
-    // For demo purposes, we'll return a simulated success if we're in a disconnected state
-    if (process.env.NODE_ENV === 'development' || error.message.includes('fetch')) {
-        console.log("Simulating Maple API Success for development...");
-        return { data: { id: "verified-" + Date.now(), status: "success" } };
-    }
-    throw new Error(error.message || "Connection to Maple API failed.");
+    console.error("Error during presence verification:", error);
+    return {
+      success: false,
+      message: `An unexpected error occurred: ${error.message}`,
+    };
   }
-}
+};
