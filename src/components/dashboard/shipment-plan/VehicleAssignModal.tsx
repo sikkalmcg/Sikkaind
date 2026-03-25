@@ -63,6 +63,7 @@ import { normalizePlantId, generateRandomTripId } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import { useJsApiLoader } from '@react-google-maps/api';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 interface VehicleAssignModalProps {
   isOpen: boolean;
@@ -342,6 +343,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
         hideLoader();
     }
   };
+  
+  const carrierOptions = useMemo(() => carriers.map(c => ({ value: c.id, label: c.name })), [carriers]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -410,9 +413,14 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                     <TableCell><FormField control={control} name="driverMobile" render={({ field }) => (<Input placeholder="Driver Mobile" {...field} />)} /></TableCell>
                                     <TableCell>
                                         <FormField control={control} name="carrierId" render={({ field }) => (
-                                            <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select Carrier" /></SelectTrigger></FormControl>
-                                                <SelectContent>{carriers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                                            </Select>
+                                            <SearchableSelect 
+                                                options={carrierOptions} 
+                                                onChange={field.onChange} 
+                                                value={field.value} 
+                                                placeholder="Select a carrier..."
+                                                searchPlaceholder="Search carriers..."
+                                                emptyPlaceholder="No carriers found."
+                                            />
                                         )} />
                                     </TableCell>
                                     <TableCell>
