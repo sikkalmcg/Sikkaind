@@ -611,22 +611,21 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                             <TableCell className="min-w-[240px] px-4">
                                                 <FormField
                                                     control={control}
-                                                    name="carrierId"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                                <FormControl>
-                                                                    <SelectTrigger className="h-11 font-bold text-xs">
-                                                                        <SelectValue placeholder="Pick Carrier" />
-                                                                    </SelectTrigger>
-                                                                </FormControl>
-                                                                <SelectContent className="rounded-xl">
-                                                                    {carriers.map(c => <SelectItem key={c.id} value={c.id} className="font-bold py-3">{c.name}</SelectItem>)}
-                                                                </SelectContent>
-                                                            </Select>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
+                                                    name="carrierId" render={({ field }) => (
+                                                    <FormItem>
+                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                            <FormControl>
+                                                                <SelectTrigger className="h-11 font-bold text-xs">
+                                                                    <SelectValue placeholder="Pick Carrier" />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent className="rounded-xl w-auto min-w-[300px]">
+                                                                {carriers.map(c => <SelectItem key={c.id} value={c.id} className="font-bold py-3">{c.name}</SelectItem>)}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
                                                 />
                                             </TableCell>
                                             <TableCell className="min-w-[220px] px-4">

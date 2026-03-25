@@ -363,18 +363,11 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
 
   const showLrSection = useMemo(() => lrNumberValue && lrNumberValue.trim() !== '', [lrNumberValue]);
 
-  const plantCarrier = useMemo(() => {
-    if (!originPlantId || !carriers) return null;
-    return carriers.find(c => normalizePlantId(c.plantId) === normalizePlantId(originPlantId));
+  const plantCarriers = useMemo(() => {
+    if (!originPlantId || !carriers) return [];
+    const targetPlantId = normalizePlantId(originPlantId);
+    return carriers.filter(c => normalizePlantId(c.plantId) === targetPlantId);
   }, [originPlantId, carriers]);
-
-  useEffect(() => {
-    if (plantCarrier) {
-      setValue('carrierId', plantCarrier.id, { shouldValidate: true });
-    } else {
-      setValue('carrierId', '', { shouldValidate: true });
-    }
-  }, [plantCarrier, setValue]);
 
   useEffect(() => {
     if (materialTypeId === 'FTL') {
@@ -419,6 +412,32 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
   }, [firestore, user, allPlants, isLoadingPlants, isAdminSession, setValue, originPlantId]);
 
   useEffect(() => { fetchAuthorizedPlants(); }, [fetchAuthorizedPlants]);
+  
+  useEffect(() => {
+    if (originPlantId && authorizedPlants.length > 0 && carriers) {
+        const plant = authorizedPlants.find(p => p.id === originPlantId);
+        
+        if (plant) {
+            if (plant.address && plant.address !== 'N/A') {
+                setValue('loadingPoint', plant.address, { shouldValidate: true });
+            }
+
+            const plantCarriersForNode = carriers.filter(c => normalizePlantId(c.plantId) === normalizePlantId(originPlantId));
+
+            if (plantCarriersForNode.length > 0) {
+                const defaultCarrier = plantCarriersForNode[0]; 
+                setValue('consignor', defaultCarrier.name, { shouldValidate: true });
+                setValue('consignorGtin', defaultCarrier.gstin || '', { shouldValidate: true });
+                setValue('carrierId', defaultCarrier.id, { shouldValidate: true });
+            } else {
+                setValue('consignor', '', { shouldValidate: true });
+                setValue('consignorGtin', '', { shouldValidate: true });
+                setValue('carrierId', '', { shouldValidate: true });
+            }
+        }
+    }
+}, [originPlantId, authorizedPlants, carriers, setValue]);
+
 
   const partiesQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, "logistics_parties"), where("isDeleted", "==", false)) : null, 
@@ -433,16 +452,6 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
   const consigneeRegistry = useMemo(() => {
     return (parties || []).filter(p => p.type === 'Consignee & Ship to');
   }, [parties]);
-
-  const availableConsignors = useMemo(() => {
-    if (!parties || !originPlantId) return [];
-    const targetPlantId = normalizePlantId(originPlantId).toLowerCase();
-    return (parties || []).filter(p => 
-        p.type === 'Consignor' && 
-        !p.isDeleted &&
-        normalizePlantId(p.plantId).toLowerCase() === targetPlantId
-    );
-  }, [parties, originPlantId]);
 
   const handleConsignorSelect = useCallback((p: Party) => {
     setValue('consignor', p.name, { shouldValidate: true });
@@ -469,21 +478,6 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
         }
     }
   }, [setValue, lrNumberValue]);
-
-  useEffect(() => {
-    if (originPlantId && authorizedPlants.length > 0) {
-        const plant = authorizedPlants.find(p => p.id === originPlantId);
-        if (plant?.address && plant.address !== 'N/A' && !watch('consignor')) {
-            setValue('loadingPoint', plant.address, { shouldValidate: true });
-        }
-    }
-  }, [originPlantId, authorizedPlants, setValue, watch]);
-
-  useEffect(() => {
-    if (availableConsignors.length === 1) {
-        handleConsignorSelect(availableConsignors[0]);
-    }
-  }, [availableConsignors, handleConsignorSelect]);
 
   const handleRegistrySelect = useCallback((party: Party) => {
     if (!helpModal) return;
@@ -906,19 +900,18 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                                             <FormMessage />
                                         </FormItem>
                                     )} />
-                                    <FormItem className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                        <Link href={`/dashboard/carrier-management?plantId=${originPlantId}`} passHref>
-                                            <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-[0.2em] cursor-pointer">Carrier Registry *</FormLabel>
-                                        </Link>
-                                        <div className="h-12 flex items-center px-4 rounded-xl border border-blue-200 bg-blue-50/50">
-                                            <span className="font-bold text-slate-700">{plantCarrier?.name || '-'}</span>
-                                        </div>
-                                        {carriersError && (
-                                            <p className="text-[10px] font-bold uppercase tracking-widest text-red-600">
-                                                Carrier registry sync failed.
-                                            </p>
-                                        )}
-                                    </FormItem>
+                                    <FormField control={control} name="carrierId" render={({ field }) => (
+                                        <FormItem className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-[0.2em]">Carrier Registry *</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value} disabled={plantCarriers.length === 0}>
+                                                <FormControl><SelectTrigger className="h-12 border-blue-200 font-bold"><SelectValue placeholder="Select from registry" /></SelectTrigger></FormControl>
+                                                <SelectContent className="rounded-xl">
+                                                    {plantCarriers.map(c => <SelectItem key={c.id} value={c.id} className="font-bold py-3">{c.name}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
                                     <FormField control={control} name="paymentTerm" render={({ field }) => (
                                         <FormItem className="animate-in fade-in slide-in-from-top-2 duration-300">
                                             <FormLabel className="text-[10px] font-black uppercase text-blue-600">Payment Term *</FormLabel>
