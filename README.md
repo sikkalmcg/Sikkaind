@@ -7,7 +7,6 @@ Enterprise-grade logistics and supply chain management system built with Next.js
 
 ## Core Modules
 - **Logistics Hub**: Live Dashboard, Gate Control, Shipment Planning, GIS Tracking.
-- **Accounts ERP**: Financial Dashboard, Material Master, Invoicing (VF01/VF02), Payment Receipts (MIGO).
 - **Security Node**: Identity Management, Role-Based Access Control, Activity Logs.
 
 ## Tech Stack

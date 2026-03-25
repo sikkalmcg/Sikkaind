@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { 
   GoogleMap, 
   useJsApiLoader, 
-  Marker, 
+  Marker,
   DirectionsRenderer,
   InfoWindow
 } from '@react-google-maps/api';
@@ -28,6 +28,8 @@ const defaultCenter = {
   lng: 77.2090,
 };
 
+const libraries: ("places" | "marker")[] = ['places', 'marker'];
+
 interface TrackingMapProps {
     livePos?: { lat: number; lng: number; speed: number; ignition: boolean; vehicleNumber?: string };
     origin?: { lat: number; lng: number; name?: string };
@@ -35,41 +37,37 @@ interface TrackingMapProps {
     vehicles?: Vehicle[]; 
     tripId?: string;
     height?: string;
+    runningIconUrl?: string | null;
+    stoppedIconUrl?: string | null;
 }
 
-export default function TrackingMap({ livePos, origin, destination, vehicles, tripId, height = "500px" }: TrackingMapProps) {
+export default function TrackingMap({
+    livePos,
+    origin,
+    destination,
+    vehicles,
+    tripId,
+    height = "500px",
+    runningIconUrl,
+    stoppedIconUrl
+}: TrackingMapProps) {
     const firestore = useFirestore();
     const { isLoaded, loadError } = useJsApiLoader({
         id: 'google-map-script',
         googleMapsApiKey: GOOGLE_MAPS_KEY,
-        libraries: ['places']
+        libraries
     });
 
     const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
     const [isApiBlocked, setIsApiBlocked] = useState(false);
     const [selectedMarker, setSelectedMarker] = useState<any>(null);
-    const [customIcon, setCustomIcon] = useState<string>(DEFAULT_TRUCK_ICON);
 
-    // REGISTRY HANDSHAKE: Logic for single vehicle vs fleet view
     useEffect(() => {
         if (livePos) {
             setSelectedMarker(livePos);
         }
     }, [livePos]);
 
-    // Registry Handshake: Fetch Custom Asset Icon
-    useEffect(() => {
-        if (!firestore) return;
-        const fetchSettings = async () => {
-            const snap = await getDoc(doc(firestore, "gps_settings", "wheelseye"));
-            if (snap.exists() && snap.data().iconUrl) {
-                setCustomIcon(snap.data().iconUrl);
-            }
-        };
-        fetchSettings();
-    }, [firestore]);
-
-    // Initial Handshake Node
     useEffect(() => {
         if (!origin || !destination || !isLoaded || !window.google) return;
 
@@ -108,48 +106,25 @@ export default function TrackingMap({ livePos, origin, destination, vehicles, tr
         <div className="relative w-full rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white bg-slate-100" style={{ height }}>
             {isLoaded ? (
                 <GoogleMap
-                mapContainerStyle={containerStyle}
-                center={
-                    livePos?.latitude && livePos?.longitude 
-                        ? { 
-                            lat: Number(livePos.latitude), 
-                            lng: Number(livePos.longitude) 
-                          } 
-                        : (origin?.lat ? origin : defaultCenter)
-                }
-                zoom={zoomLevel}
-                options={{
-                    disableDefaultUI: false,
-                    zoomControl: true,
-                    mapTypeControl: false,
-                    streetViewControl: false,
-                    fullscreenControl: true
-                }}
-            >
-                    {/* F = FROM LOCATION */}
-                    {origin && (
-                        <Marker 
-                            position={origin} 
-                            label={{ text: "F", color: "white", fontWeight: "900" }}
-                            title="Lifting Node (FROM)"
-                        />
-                    )}
-                    
-                    {/* D = DESTINATION */}
-                    {destination && (
-                        <Marker 
-                            position={destination} 
-                            label={{ text: "D", color: "white", fontWeight: "900" }}
-                            title="Drop Destination (TO)"
-                        />
-                    )}
+                    mapContainerStyle={containerStyle}
+                    center={livePos ? { lat: livePos.lat, lng: livePos.lng } : (origin || defaultCenter)}
+                    zoom={zoomLevel}
+                    options={{
+                        disableDefaultUI: false,
+                        zoomControl: true,
+                        mapTypeControl: false,
+                        streetViewControl: false,
+                        fullscreenControl: true
+                    }}
+                >
+                    {origin && <Marker position={origin} label={{ text: "F", color: "white", fontWeight: "900" }} title="Lifting Node (FROM)" />}
+                    {destination && <Marker position={destination} label={{ text: "D", color: "white", fontWeight: "900" }} title="Drop Destination (TO)" />}
 
-                    {/* V = VEHICLE (SINGLE TRIP) */}
                     {livePos && !vehicles && (
                         <Marker 
                             position={livePos} 
                             icon={{
-                                url: customIcon,
+                                url: livePos.speed > 5 && livePos.ignition ? (runningIconUrl || DEFAULT_TRUCK_ICON) : (stoppedIconUrl || DEFAULT_TRUCK_ICON),
                                 scaledSize: new google.maps.Size(45, 45),
                                 anchor: new google.maps.Point(22, 22),
                             }}
@@ -158,61 +133,42 @@ export default function TrackingMap({ livePos, origin, destination, vehicles, tr
                         />
                     )}
 
-                    {/* FLEET VIEW (DASHBOARD) */}
                     {vehicles && vehicles.map((v, i) => {
-    // Sahi keys 'latitude' aur 'longitude' use karein aur Number mein badlein
-    const lat = parseFloat(v.latitude);
-    const lng = parseFloat(v.longitude);
+                        const lat = parseFloat(v.latitude);
+                        const lng = parseFloat(v.longitude);
+                        if (isNaN(lat) || isNaN(lng)) return null;
 
-    // Agar data invalid hai toh render skip karein taaki map crash na ho
-    if (isNaN(lat) || isNaN(lng)) return null;
+                        const isMoving = v.ignition && v.speed > 5;
+                        const iconUrl = isMoving ? (runningIconUrl || DEFAULT_TRUCK_ICON) : (stoppedIconUrl || DEFAULT_TRUCK_ICON);
 
-    return (
-        <Marker 
-            key={`${v.vehicleNumber}-${i}`} // Unique key for better performance
-            position={{ lat, lng }} 
-            icon={{
-                path: "M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z", // Truck/Arrow shape
-                fillColor: v.speed > 5 ? "#10b981" : "#ef4444", // Moving: Green, Idle: Red
-                fillOpacity: 1,
-                strokeWeight: 2,
-                strokeColor: "#ffffff",
-                scale: 1.5,
-                rotation: parseInt(v.angle) || 0 // Vehicle direction
-            }}
-            onClick={() => setSelectedMarker(v)}
-        />
-    );
-})}
+                        return (
+                            <Marker 
+                                key={`${v.vehicleNumber}-${i}`}
+                                position={{ lat, lng }} 
+                                icon={{
+                                    url: iconUrl,
+                                    scaledSize: new google.maps.Size(45, 45),
+                                    anchor: new google.maps.Point(22, 22),
+                                    rotation: parseInt(v.angle) || 0
+                                }}
+                                onClick={() => setSelectedMarker(v)}
+                            />
+                        );
+                    })}
 
-                    {directions && (
-                        <DirectionsRenderer 
-                            directions={directions} 
-                            options={{
-                                suppressMarkers: true,
-                                polylineOptions: {
-                                    strokeColor: "#3b82f6",
-                                    strokeWeight: 5,
-                                    strokeOpacity: 0.8
-                                }
-                            }} 
-                        />
+                    {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: true, polylineOptions: { strokeColor: "#3b82f6", strokeWeight: 5, strokeOpacity: 0.8 } }} />}
+
+                    {selectedMarker && (
+                        <InfoWindow
+                            position={{ lat: parseFloat(selectedMarker.latitude), lng: parseFloat(selectedMarker.longitude) }}
+                            onCloseClick={() => setSelectedMarker(null)}
+                        >
+                            <div className="p-2 text-slate-900">
+                                <p className="font-bold text-xs uppercase">{selectedMarker.vehicleNumber}</p>
+                                <p className="text-[10px] text-slate-500">{selectedMarker.location}</p>
+                            </div>
+                        </InfoWindow>
                     )}
-
-{selectedMarker && (
-    <InfoWindow
-        position={{ 
-            lat: Number(selectedMarker.latitude), 
-            lng: Number(selectedMarker.longitude) 
-        }}
-        onCloseClick={() => setSelectedMarker(null)}
-    >
-        <div className="p-2 text-slate-900">
-            <p className="font-bold text-xs uppercase">{selectedMarker.vehicleNumber}</p>
-            <p className="text-[10px] text-slate-500">{selectedMarker.location}</p>
-        </div>
-    </InfoWindow>
-)}
                 </GoogleMap>
             ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-50 opacity-40">

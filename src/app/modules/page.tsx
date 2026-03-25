@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -9,13 +8,13 @@ import { useUser, useAuth, useFirestore } from '@/firebase';
 import { doc, query, collection, where, limit, getDocs } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
-  Briefcase, 
   Loader2, 
   LogOut, 
   Truck, 
   Users, 
   User as UserIcon,
-  AlertCircle
+  AlertCircle,
+  ShieldCheck
 } from 'lucide-react';
 import type { SubUser, WithId } from '@/types';
 import sikkalogolarge from '@/assets/logo.png';
@@ -98,18 +97,9 @@ export default function ModulesPage() {
 
   const isSikkaind = useMemo(() => profile?.username?.toLowerCase() === 'sikkaind' || user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com', [profile, user]);
   const isAdmin = useMemo(() => isSikkaind || profile?.jobRole === 'Admin', [isSikkaind, profile]);
-  const isManager = useMemo(() => profile?.jobRole === 'Manager', [profile]);
   
-  // ACCESS CONTROL LOGIC NODE - REVERTED TO ORIGINAL
   const canAccessLogistics = useMemo(() => !!profile, [profile]);
-
-  const canAccessAccounts = useMemo(() => 
-    (isAdmin || isManager || profile?.access_accounts) && (profile?.permissions?.includes('sikka-accounts-dashboard') || isAdmin), 
-  [isAdmin, isManager, profile]);
-
-  const canAccessSecurity = useMemo(() => 
-    isAdmin || isManager, 
-  [isAdmin, isManager]);
+  const canAccessUserManagement = useMemo(() => isAdmin, [isAdmin]);
 
   if (isUserLoading || isLoadingProfile || !profile) {
     if (profileError) {
@@ -136,9 +126,6 @@ export default function ModulesPage() {
   const displayName = profile.fullName;
   const username = profile.username;
   const finalAvatarUrl = avatarUrl || profile?.photoURL || user?.photoURL;
-
-  const logoSrc = sikkalogolarge;
-  const bgUrl = backmoduleimg;
 
   return (
     <>
@@ -185,7 +172,7 @@ export default function ModulesPage() {
           </DropdownMenu>
         </header>
 
-        <div className="relative z-10 flex min-h-screen flex-col items-center justify-center p-4">
+        <div className="relative z-10 flex min-h-.screen flex-col items-center justify-center p-4">
           <div className="text-center">
             <div className="relative w-[500px] h-[200px] md:w-[700px] md:h-[300px] mx-auto mb-10 p-4 transition-all duration-500 filter brightness-[1.75] contrast-[1.1] drop-shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:brightness-[2] hover:scale-105 overflow-hidden">
               <Image
@@ -198,61 +185,45 @@ export default function ModulesPage() {
             </div>
           </div>
 
-          <div className="grid w-full max-w-6xl grid-cols-1 gap-8 md:grid-cols-3">
+          <div className="grid w-full max-w-4xl grid-cols-1 gap-8 md:grid-cols-2">
             {canAccessLogistics && (
               <Link href="/dashboard">
-                <Card className="group flex h-full transform cursor-pointer flex-col border-white/30 bg-white/80 text-gray-800 transition-all duration-300 hover:scale-105 hover:border-blue-400 hover:shadow-2xl">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-2xl font-black text-slate-800 uppercase italic">Logistics Hub</CardTitle>
-                    <Truck className="h-8 w-8 text-blue-600 transition-transform group-hover:translate-x-1" />
+                <Card className="group flex h-full flex-col justify-between overflow-hidden rounded-xl border-2 border-transparent bg-slate-800/50 shadow-lg transition-all duration-300 hover:border-blue-500/50 hover:bg-slate-800 hover:shadow-blue-500/20">
+                  <CardHeader>
+                    <CardTitle className='flex items-center gap-3 text-blue-400'>
+                      <Truck />
+                      <span className='text-2xl font-bold'>Logistics Hub</span>
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="flex-grow">
-                    <p className="text-gray-700 font-medium text-xs font-black uppercase tracking-wider">Access Authorized Logistics Management Registry</p>
+                  <CardContent>
+                    <p className='text-slate-400'>Manage and track all logistics operations.</p>
                   </CardContent>
                 </Card>
               </Link>
             )}
-            
-            {canAccessAccounts && (
-              <Link href="/sikka-accounts/dashboard">
-                <Card className="group flex h-full transform cursor-pointer flex-col border-white/30 bg-white/80 text-gray-800 transition-all duration-300 hover:scale-105 hover:border-blue-400 hover:shadow-2xl">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-2xl font-black text-slate-800 uppercase italic">Accounts ERP</CardTitle>
-                    <Briefcase className="h-8 w-8 text-blue-600 transition-transform group-hover:translate-x-1" />
+            {canAccessUserManagement && (
+              <Link href="/admin/users">
+                <Card className="group flex h-full flex-col justify-between overflow-hidden rounded-xl border-2 border-transparent bg-slate-800/50 shadow-lg transition-all duration-300 hover:border-purple-500/50 hover:bg-slate-800 hover:shadow-purple-500/20">
+                  <CardHeader>
+                    <CardTitle className='flex items-center gap-3 text-purple-400'>
+                      <Users />
+                      <span className='text-2xl font-bold'>User Management</span>
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="flex-grow">
-                    <p className="text-gray-700 font-medium text-xs font-black uppercase tracking-wider">Financial Control & Invoicing Registry Module</p>
+                  <CardContent>
+                    <p className='text-slate-400'>Administer user accounts and permissions.</p>
                   </CardContent>
                 </Card>
               </Link>
             )}
-            
-            {canAccessSecurity && (
-              <Link href="/user-management">
-                <Card className="group flex h-full transform cursor-pointer flex-col border-white/30 bg-white/80 text-gray-800 transition-all duration-300 hover:scale-105 hover:border-blue-400 hover:shadow-2xl">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-2xl font-black text-slate-800 uppercase italic">Security Node</CardTitle>
-                    <Users className="h-8 w-8 text-blue-600 transition-transform group-hover:translate-x-1" />
-                  </CardHeader>
-                  <CardContent className="flex-grow">
-                    <p className="text-gray-700 font-medium text-xs font-black uppercase tracking-wider">Identity Control & Authorization Registry</p>
-                  </CardContent>
-                </Card>
-              </Link>
-            )}
-          </div>
-
-          <div className="absolute bottom-4 right-4 text-xs text-white/50 font-black uppercase tracking-widest">
-            <p>Copyright © 2025 Sikka Industries & Logistics. All Rights Reserved.</p>
           </div>
         </div>
       </div>
-
       <UserProfileModal 
         isOpen={isProfileModalOpen} 
-        onClose={() => setProfileModalOpen(false)}
-        onPhotoUpdate={(url) => setAvatarUrl(url)}
-        currentAvatar={finalAvatarUrl}
+        onClose={() => setProfileModalOpen(false)} 
+        userProfile={profile} 
+        setUserProfile={setProfile} 
       />
     </>
   );

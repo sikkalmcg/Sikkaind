@@ -356,6 +356,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
   const billToGtin = watch('billToGtin');
   const shipToParty = watch('shipToParty');
   const originPlantId = watch('originPlantId');
+  const carrierId = watch('carrierId');
   const materialTypeId = watch('materialTypeId');
   const quantity = watch('quantity');
   const lrNumberValue = watch('lrNumber');
@@ -429,6 +430,25 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
         normalizePlantId(p.plantId).toLowerCase() === targetPlantId
     );
   }, [parties, originPlantId]);
+
+  const availableCarriers = useMemo(() => {
+    if (!carriers || !originPlantId) return [];
+    const targetPlantId = normalizePlantId(originPlantId).toLowerCase();
+    return carriers.filter(c => normalizePlantId(c.plantId).toLowerCase() === targetPlantId);
+  }, [carriers, originPlantId]);
+
+  const selectedCarrier = useMemo(() => {
+    if (!carrierId || !carriers) return null;
+    return carriers.find(c => c.id === carrierId);
+  }, [carrierId, carriers]);
+
+  useEffect(() => {
+    if (availableCarriers.length > 0) {
+      setValue('carrierId', availableCarriers[0].id);
+    } else {
+      setValue('carrierId', '');
+    }
+  }, [availableCarriers, setValue]);
 
   const handleConsignorSelect = useCallback((p: Party) => {
     setValue('consignor', p.name, { shouldValidate: true });
@@ -827,17 +847,17 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                                     </FormControl>
                                     <SelectContent className="rounded-xl">
                                         {qtyTypes && qtyTypes.length > 0 ? (
-                                            qtyTypes.map(t => <SelectItem key={t.id} value={t.name} className="font-bold py-3 uppercase italic">{t.name}</SelectItem>)
+                                            qtyTypes.map((t, i) => <SelectItem key={t.id || i} value={t.name} className="font-bold py-3 uppercase italic">{t.name}</SelectItem>)
                                         ) : (
                                             <>
-                                                <SelectItem value="MT" className="font-bold py-3 uppercase italic">Metric Ton (MT)</SelectItem>
-                                                <SelectItem value="BAG" className="font-bold py-3 uppercase italic">Bag</SelectItem>
-                                                <SelectItem value="BOX" className="font-bold py-3 uppercase italic">Box</SelectItem>
-                                                <SelectItem value="DRUM" className="font-bold py-3 uppercase italic">Drum</SelectItem>
-                                                <SelectItem value="PCS" className="font-bold py-3 uppercase italic">PCS</SelectItem>
-                                                <SelectItem value="PALLET" className="font-bold py-3 uppercase italic">Pallet</SelectItem>
-                                                <SelectItem value="FTL" className="font-bold py-3 uppercase italic">Full Truck Load (FTL)</SelectItem>
-                                                <SelectItem value="Others" className="font-bold py-3 uppercase italic">Others</SelectItem>
+                                                <SelectItem key="MT" value="MT" className="font-bold py-3 uppercase italic">Metric Ton (MT)</SelectItem>
+                                                <SelectItem key="BAG" value="BAG" className="font-bold py-3 uppercase italic">Bag</SelectItem>
+                                                <SelectItem key="BOX" value="BOX" className="font-bold py-3 uppercase italic">Box</SelectItem>
+                                                <SelectItem key="DRUM" value="DRUM" className="font-bold py-3 uppercase italic">Drum</SelectItem>
+                                                <SelectItem key="PCS" value="PCS" className="font-bold py-3 uppercase italic">PCS</SelectItem>
+                                                <SelectItem key="PALLET" value="PALLET" className="font-bold py-3 uppercase italic">Pallet</SelectItem>
+                                                <SelectItem key="FTL" value="FTL" className="font-bold py-3 uppercase italic">Full Truck Load (FTL)</SelectItem>
+                                                <SelectItem key="Others" value="Others" className="font-bold py-3 uppercase italic">Others</SelectItem>
                                             </>
                                         )}
                                     </SelectContent>
@@ -895,12 +915,11 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                                     <FormField control={control} name="carrierId" render={({ field }) => (
                                         <FormItem className="animate-in fade-in slide-in-from-top-2 duration-300">
                                             <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-[0.2em]">Carrier Registry *</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl><SelectTrigger className="h-12 border-blue-200 font-bold"><SelectValue placeholder="Select Carrier" /></SelectTrigger></FormControl>
-                                                <SelectContent className="rounded-xl">
-                                                    {carriers?.map(c => <SelectItem key={c.id} value={c.id} className="font-bold py-3">{c.name}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
+                                            <FormControl>
+                                              <div className="h-12 flex items-center justify-start rounded-md border border-blue-200 bg-slate-100 px-3 py-2 text-sm font-bold text-slate-800">
+                                                { selectedCarrier?.name || "-" }
+                                              </div>
+                                            </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />

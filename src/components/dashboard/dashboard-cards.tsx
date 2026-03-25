@@ -16,10 +16,10 @@ import {
   ClipboardCheck,
   Timer,
   Wrench,
-  Radar,
   CircleDot,
   MapPin,
-  ClipboardCheck as LoadedIcon
+  ClipboardCheck as LoadedIcon,
+  BarChart3
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ModalId } from "@/app/dashboard/page";
@@ -137,6 +137,7 @@ export function DashboardCards({
   const firestore = useFirestore();
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [gpsStats, setGpsStats] = useState({ moving: 0, stopped: 0, total: 0 });
+  const [tripsByType, setTripsByType] = useState({ own: 0, contract: 0, market: 0 });
   const [categoryGps, setCategoryGps] = useState<Record<string, { moving: number, stopped: number }>>({
     assigned: { moving: 0, stopped: 0 },
     active: { moving: 0, stopped: 0 },
@@ -182,6 +183,7 @@ export function DashboardCards({
         }
 
         let pending = 0, assigned = 0, transit = 0, arrived = 0, maintenance = 0, loadedTrips = 0, completed = 0;
+        let ownTrips = 0, contractTrips = 0, marketTrips = 0;
         const catStats = {
             assigned: { moving: 0, stopped: 0 },
             transit: { moving: 0, stopped: 0 },
@@ -231,6 +233,14 @@ export function DashboardCards({
                 const isDelivered = s === 'delivered';
                 const isLoaded = s === 'loading-complete' || s === 'loaded';
 
+                // Count trips by vehicle type (within selected date range)
+                if (isDateMatch) {
+                    const vType = (t.vehicleType || '').toLowerCase();
+                    if (vType.includes('own')) ownTrips++;
+                    else if (vType.includes('contract')) contractTrips++;
+                    else if (vType.includes('market')) marketTrips++;
+                }
+
                 if (isAssigned) {
                     assigned++;
                     if (isMoving) catStats.assigned.moving++; else catStats.assigned.stopped++;
@@ -272,6 +282,7 @@ export function DashboardCards({
 
         setCategoryLocations(catLocations);
         setCategoryGps(catStats);
+        setTripsByType({ own: ownTrips, contract: contractTrips, market: marketTrips });
         setCounts({
             'pending-shipments': pending,
             'assigned-vehicles': assigned,
@@ -311,18 +322,38 @@ export function DashboardCards({
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-      <DashboardCard
-        title="Fleet GIS Monitor"
-        icon={Radar}
-        value={`${gpsStats.total}`}
-        description="Active GPS nodes in registry"
-        onClick={() => onCardClick('gis-monitor')}
-        isLoading={isLoading}
-        isError={isError}
-        showGpsStats={true}
-        gpsMoving={gpsStats.moving}
-        gpsStop={gpsStats.stopped}
-      />
+      {/* Trips by Vehicle Type Card */}
+      <Card className="relative overflow-hidden group min-h-[160px] cursor-default">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-500 leading-tight">Trips by Vehicle Type</CardTitle>
+          <BarChart3 className="h-4 w-4 text-muted-foreground shrink-0" />
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-2">
+              <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
+              <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
+              <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
+            </div>
+          ) : (
+            <div className="space-y-2 mt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase text-blue-700 tracking-wide">Own</span>
+                <span className="text-sm font-black text-blue-700">{tripsByType.own}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase text-violet-700 tracking-wide">Contract</span>
+                <span className="text-sm font-black text-violet-700">{tripsByType.contract}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase text-amber-600 tracking-wide">Market</span>
+                <span className="text-sm font-black text-amber-600">{tripsByType.market}</span>
+              </div>
+            </div>
+          )}
+          <p className="text-[10px] font-medium text-slate-400 mt-2">Trip count within selected period</p>
+        </CardContent>
+      </Card>
       
       <DashboardCard
         title="Pending Orders"

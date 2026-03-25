@@ -31,6 +31,7 @@ export default function AddedCarriersTable({ carriers, plants, onEdit, onDelete 
   const [searchTerm, setSearchTerm] = useState('');
   
   const resolvedCarriers = useMemo(() => {
+    if (!Array.isArray(carriers)) return [];
     return carriers.map(carrier => {
         const normalizedCarrierPlantId = normalizePlantId(carrier.plantId);
         const plant = plants.find(p => 
@@ -44,12 +45,20 @@ export default function AddedCarriersTable({ carriers, plants, onEdit, onDelete 
     });
   }, [carriers, plants]);
 
-  const filteredCarriers = resolvedCarriers.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.gstin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.resolvedPlantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.pan.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCarriers = useMemo(() => {
+    if (!searchTerm) {
+      return resolvedCarriers;
+    }
+    const term = searchTerm.toLowerCase();
+    return resolvedCarriers.filter(c => {
+      // Defensively check if a field is a searchable string
+      const check = (field: any) => {
+        return field && typeof field === 'string' && field.toLowerCase().includes(term);
+      };
+      // Return true if any of the fields match the search term
+      return check(c.name) || check(c.gstin) || check(c.resolvedPlantName) || check(c.pan);
+    });
+  }, [resolvedCarriers, searchTerm]);
   
   return (
     <div className="space-y-4">
@@ -81,25 +90,25 @@ export default function AddedCarriersTable({ carriers, plants, onEdit, onDelete 
                         {filteredCarriers.length === 0 ? (
                             <TableRow><TableCell colSpan={7} className="text-center h-48 text-slate-400 italic">No carriers detected in mission registry.</TableCell></TableRow>
                         ) : (
-                            filteredCarriers.map(carrier => {
+                            filteredCarriers.map((carrier, index) => {
                                 return (
-                                    <TableRow key={carrier.id} className="hover:bg-blue-50/20 transition-colors h-16 border-b border-slate-50 last:border-0 group">
+                                    <TableRow key={`${carrier.id}-${index}`} className="hover:bg-blue-50/20 transition-colors h-16 border-b border-slate-50 last:border-0 group">
                                         <TableCell className="px-6">
                                             <div className="h-10 w-10 relative border rounded-lg bg-white p-1 shadow-sm">
-                                                <Image src={carrier.logoUrl || '/placeholder.svg'} alt={`${carrier.name}`} fill className="object-contain" />
+                                                <Image src={carrier.logoUrl || '/placeholder.svg'} alt={`${carrier.name || 'Carrier'}`} fill className="object-contain" />
                                             </div>
                                         </TableCell>
                                         <TableCell className="px-4">
                                             <div className="flex items-center gap-2">
                                                 <div className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-                                                <span className="font-black text-blue-900 uppercase text-[11px] tracking-tight">{carrier.resolvedPlantName}</span>
+                                                <span className="font-black text-blue-900 uppercase text-[11px] tracking-tight">{carrier.resolvedPlantName || 'N/A'}</span>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="px-4 font-black text-slate-800 uppercase text-xs truncate max-w-[200px]">{carrier.name}</TableCell>
-                                        <TableCell className="px-4 font-mono text-[11px] font-bold text-slate-500 tracking-widest">{carrier.gstin}</TableCell>
-                                        <TableCell className="px-4 font-mono text-[11px] font-bold text-slate-500">{carrier.pan}</TableCell>
+                                        <TableCell className="px-4 font-black text-slate-800 uppercase text-xs truncate max-w-[200px]">{carrier.name || 'N/A'}</TableCell>
+                                        <TableCell className="px-4 font-mono text-[11px] font-bold text-slate-500 tracking-widest">{carrier.gstin || 'N/A'}</TableCell>
+                                        <TableCell className="px-4 font-mono text-[11px] font-bold text-slate-500">{carrier.pan || 'N/A'}</TableCell>
                                         <TableCell className="px-4 text-center">
-                                            <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 font-black uppercase text-[9px] px-3">{carrier.stateName}</Badge>
+                                            <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 font-black uppercase text-[9px] px-3">{carrier.stateName || 'N/A'}</Badge>
                                         </TableCell>
                                         <TableCell className="px-6 text-right sticky right-0 bg-white/80 group-hover:bg-blue-50/80 backdrop-blur-sm shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
                                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
@@ -119,7 +128,7 @@ export default function AddedCarriersTable({ carriers, plants, onEdit, onDelete 
                                                                 <AlertDialogTitle className="font-black uppercase tracking-tight text-red-900">Revoke Carrier node?</AlertDialogTitle>
                                                             </div>
                                                             <AlertDialogDescription className="text-sm font-medium">
-                                                                This will permanently erase **{carrier.name}** from the registry. This action cannot be reversed by mission control.
+                                                                This will permanently erase **{carrier.name || 'this carrier'}** from the registry. This action cannot be reversed by mission control.
                                                             </AlertDialogDescription>
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter className="bg-slate-50 -mx-6 -mb-6 p-6 flex-row justify-end gap-3 border-t mt-4">

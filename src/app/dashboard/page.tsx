@@ -74,6 +74,9 @@ export default function DashboardPage() {
   const [authorizedPlantIds, setAuthorizedPlantIds] = useState<string[]>([]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  
+  const [runningIconUrl, setRunningIconUrl] = useState<string | null>(null);
+  const [stoppedIconUrl, setStoppedIconUrl] = useState<string | null>(null);
 
   // Modal State Control
   const [selectedModal, setSelectedModal] = useState<ModalId>(null);
@@ -128,8 +131,19 @@ export default function DashboardPage() {
             setIsAuthLoading(false);
         }
     };
+    
+    const fetchIconUrls = async () => {
+        const settingsDoc = doc(firestore, 'gps_settings', 'api_config');
+        const docSnap = await getDoc(settingsDoc);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            setRunningIconUrl(data.runningIconUrl || null);
+            setStoppedIconUrl(data.stoppedIconUrl || null);
+        }
+    };
 
     fetchAuthorizedPlants();
+    fetchIconUrls();
   }, [firestore, user, allMasterPlants, refreshKey]);
 
   const plantsList = useMemo(() => {
@@ -319,6 +333,8 @@ export default function DashboardPage() {
         <GISMonitor
           isOpen={true}
           onClose={() => setSelectedModal(null)}
+          runningIconUrl={runningIconUrl}
+          stoppedIconUrl={stoppedIconUrl}
         />
       )}
     </main>

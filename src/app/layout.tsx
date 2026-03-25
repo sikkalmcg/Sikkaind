@@ -1,5 +1,5 @@
 'use client';
-import '../globals.css';
+import './globals.css';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
@@ -26,7 +26,6 @@ export default function RootLayout({
                         !pathname.startsWith('/login') && 
                         !pathname.startsWith('/dashboard') && 
                         !pathname.startsWith('/modules') && 
-                        !pathname.startsWith('/sikka-accounts') && 
                         !pathname.startsWith('/user-management'));
 
   return (

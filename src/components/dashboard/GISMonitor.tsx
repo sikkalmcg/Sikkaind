@@ -51,6 +51,9 @@ import type { Vehicle } from '@/types';
 
 const GOOGLE_MAPS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
 const DEFAULT_TRUCK_ICON = "https://png.pngtree.com/png-vector/20250122/ourlarge/pngtree-colorful-delivery-truck-icon-png-image_15301010.png";
+const DEFAULT_STOPPED_ICON = "https://cdn-icons-png.flaticon.com/512/2555/2555013.png";
+
+const libraries: ("places")[] = ['places'];
 
 const containerStyle = {
   width: "100%",
@@ -73,7 +76,7 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
         googleMapsApiKey: GOOGLE_MAPS_KEY,
-        libraries: ['places']
+        libraries
     });
 
     const [fleet, setFleet] = useState<Vehicle[]>([]);
@@ -84,18 +87,23 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
     const [map, setMap] = useState<google.maps.Map | null>(null);
     const [vehicleSearch, setVehicleSearch] = useState('');
     const [showTraffic, setShowTraffic] = useState(false);
-    const [customIcon, setCustomIcon] = useState<string>(DEFAULT_TRUCK_ICON);
+    const [runningIcon, setRunningIcon] = useState<string>(DEFAULT_TRUCK_ICON);
+    const [stoppedIcon, setStoppedIcon] = useState<string>(DEFAULT_STOPPED_ICON);
+    const [apiKey, setApiKey] = useState<string | null>(null);
     
     const [isLedgerView, setIsLedgerView] = useState(false);
     const [ledgerData, setLedgerData] = useState<any[]>([]);
 
-    // Registry Handshake: Fetch Custom Asset Icon
+    // Registry Handshake: Fetch Custom Asset Icons + API Key
     useEffect(() => {
         if (!firestore) return;
         const fetchSettings = async () => {
-            const snap = await getDoc(doc(firestore, "gps_settings", "wheelseye"));
-            if (snap.exists() && snap.data().iconUrl) {
-                setCustomIcon(snap.data().iconUrl);
+            const snap = await getDoc(doc(firestore, "gps_settings", "api_config"));
+            if (snap.exists()) {
+                const data = snap.data();
+                if (data.runningIconUrl) setRunningIcon(data.runningIconUrl);
+                if (data.stoppedIconUrl) setStoppedIcon(data.stoppedIconUrl);
+                if (data.apiKey) setApiKey(data.apiKey);
             }
         };
         fetchSettings();
@@ -169,6 +177,7 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
     };
 
     const refreshFleet = async () => {
+        if (!apiKey) return;
         setIsLoading(true);
         try {
             const response = await fetch('/api/track', {
@@ -176,7 +185,7 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ apiKey: 'dummy-api-key' }), // Sending a dummy key for now
+              body: JSON.stringify({ apiKey }),
             }); 
             const result = await response.json();
 
@@ -184,7 +193,7 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
                 const enriched = result.map((v: any) => {
                     return {
                         ...v,
-                        locationDisplay: v.location || 'Location Syncing...',
+                        locationDisplay: v.location || 'Location Unavailable',
                         lastUpdateFormatted: v.lastUpdateRaw ? format(new Date(v.lastUpdateRaw), 'HH:mm:ss') : '--:--:--'
                     };
                 });
@@ -205,12 +214,12 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
     };
 
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && apiKey) {
             refreshFleet();
             const interval = setInterval(refreshFleet, 30000); 
             return () => clearInterval(interval);
         }
-    }, [isOpen]);
+    }, [isOpen, apiKey]);
 
     useEffect(() => {
         if (map && fleet.length > 0 && !selectedVehicle) {
@@ -375,9 +384,9 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
                                         onMouseOver={() => setHoveredVehicle(v)}
                                         onMouseOut={() => setHoveredVehicle(null)}
                                         icon={{
-                                            url: customIcon,
-                                            scaledSize: new google.maps.Size(45, 45),
-                                            anchor: new google.maps.Point(22, 22),
+                                            url: v.speed > 5 ? runningIcon : stoppedIcon,
+                                            scaledSize: new google.maps.Size(40, 40),
+                                            anchor: new google.maps.Point(20, 20),
                                         }}
                                     />
                                 ))}

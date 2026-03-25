@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -11,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
@@ -46,9 +47,11 @@ import {
   Plus,
   History,
   ListTree,
-  Trash2
+  Trash2,
+  Phone,
+  Layers
 } from 'lucide-react';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, query, doc, runTransaction, where, getDocs, limit, serverTimestamp, orderBy, getDoc, writeBatch } from "firebase/firestore";
 import { cn, normalizePlantId, formatSequenceId, generateRandomTripId, incrementSerial } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
@@ -71,16 +74,15 @@ const formSchema = z.object({
   originPlantId: z.string().min(1, 'Plant node selection is required.'),
   consignor: z.string().min(1, 'Consignor is mandatory.'),
   consignorGtin: z.string().optional(),
-  loadingPoint: z.string().min(1, 'Lifting node address is required.'),
+  loadingPoint: z.string().min(1, 'Lifting city is required.'),
   billToParty: z.string().min(1, 'Consignee is mandatory.'),
   billToGtin: z.string().optional(),
   isSameAsBillTo: z.boolean().default(false),
   shipToParty: z.string().optional(),
   shipToGtin: z.string().optional(),
-  unloadingPoint: z.string().min(1, 'Destination address is mandatory.'),
+  unloadingPoint: z.string().min(1, 'Destination city is mandatory.'),
   quantity: z.coerce.number().optional().default(0),
   materialTypeId: z.string().min(1, 'UOM is required.'),
-  // Optional LR Fields
   lrNumber: z.string().optional().or(z.literal('')),
   lrDate: z.date().optional().nullable(),
   carrierId: z.string().optional().or(z.literal('')),
@@ -97,7 +99,6 @@ const formSchema = z.object({
             });
         }
     }
-    // Mandatory LR Fields if LR Number provided
     if (data.lrNumber?.trim()) {
         if (!data.lrDate) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'LR Date mandatory.', path: ['lrDate'] });
@@ -118,6 +119,173 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+const groupDescriptions = (descriptions: string[]): string => {
+    const unique = Array.from(new Set(descriptions.map(d => d.trim()).filter(Boolean)));
+    if (unique.length === 0) return '';
+    if (unique.length === 1) return unique[0]; 
+
+    let prefix = unique[0];
+    for (let i = 1; i < unique.length; i++) {
+        while (unique[i].toLowerCase().indexOf(prefix.toLowerCase()) !== 0 && prefix.length > 0) {
+            prefix = prefix.substring(0, prefix.length - 1);
+        }
+    }
+    prefix = prefix.trim();
+
+    if (prefix && prefix.split(/\s+/).length > 1) {
+        return prefix.toUpperCase();
+    }
+
+    const firstWord = unique[0].split(/\s+/)[0];
+    const allShareFirstWord = unique.every(d => d.split(/\s+/)[0].toLowerCase() === firstWord.toLowerCase());
+
+    if (allShareFirstWord && firstWord.length > 1) {
+        const brand = firstWord.toUpperCase();
+        const suffixes = unique.map(d => {
+            const s = d.substring(firstWord.length).trim();
+            return s.replace(/^[\s\-\–\—\:\,]+/, '').trim();
+        }).filter(Boolean);
+        
+        if (suffixes.length > 0) {
+            return `${brand} – ${suffixes.join(', ')}`;
+        }
+        return brand;
+    }
+
+    return unique.join(', ');
+};
+
+function AutocompleteInput({ 
+    value, 
+    onChange, 
+    onSearchClick, 
+    suggestions, 
+    placeholder, 
+    label, 
+    error,
+    disabled = false,
+    onSelect
+}: { 
+    value: string; 
+    onChange: (val: string) => void; 
+    onSearchClick: () => void; 
+    suggestions: Party[]; 
+    placeholder: string; 
+    label: string;
+    error?: string;
+    disabled?: boolean;
+    onSelect?: (party: Party) => void;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [focusedIndex, setFocusedIndex] = useState(-1);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    const filteredSuggestions = useMemo(() => {
+        if (!value) return [];
+        return suggestions.filter(s => s.name.toLowerCase().includes(value.toLowerCase())).slice(0, 8);
+    }, [value, suggestions]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (filteredSuggestions.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setIsOpen(true);
+            setFocusedIndex(prev => (prev < filteredSuggestions.length - 1 ? prev + 1 : prev));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            if (isOpen && focusedIndex >= 0) {
+                const selected = filteredSuggestions[focusedIndex];
+                if (onSelect) {
+                    onSelect(selected);
+                } else {
+                    onChange(selected.name);
+                }
+                setIsOpen(false);
+                setFocusedIndex(-1);
+                if (e.key === 'Enter') e.preventDefault();
+            }
+        } else if (e.key === 'Escape') {
+            setIsOpen(false);
+        }
+    };
+
+    return (
+        <FormItem className="relative" ref={wrapperRef}>
+            <FormLabel className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 px-1 flex items-center gap-2">
+                {label}
+            </FormLabel>
+            <div className="flex gap-3">
+                <FormControl>
+                    <div className="relative flex-1">
+                        <Input 
+                            placeholder={placeholder}
+                            value={value}
+                            onChange={(e) => {
+                                onChange(e.target.value);
+                                setIsOpen(true);
+                                setFocusedIndex(-1);
+                            }}
+                            onFocus={() => setIsOpen(true)}
+                            onKeyDown={handleKeyDown}
+                            className="h-14 rounded-2xl font-black text-slate-900 border-slate-200 bg-slate-50/30 focus-visible:ring-blue-900"
+                            disabled={disabled}
+                        />
+                        {isOpen && filteredSuggestions.length > 0 && (
+                            <div className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                {filteredSuggestions.map((suggestion, idx) => (
+                                    <div 
+                                        key={suggestion.id}
+                                        onClick={() => {
+                                            if (onSelect) onSelect(suggestion);
+                                            else onChange(suggestion.name);
+                                            setIsOpen(false);
+                                        }}
+                                        className={cn(
+                                            "px-5 py-3 cursor-pointer transition-colors border-b last:border-0",
+                                            focusedIndex === idx ? "bg-blue-900 text-white" : "hover:bg-blue-50 text-slate-700"
+                                        )}
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-black uppercase tracking-tight">{suggestion.name}</span>
+                                            <span className={cn("text-[9px] font-bold uppercase opacity-60", focusedIndex === idx ? "text-blue-100" : "text-slate-400")}>
+                                                {suggestion.city} | {suggestion.gstin || 'No GSTIN'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </FormControl>
+                <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="icon" 
+                    disabled={disabled}
+                    className="h-14 w-14 rounded-2xl shrink-0 shadow-lg hover:bg-blue-50 transition-all active:scale-95" 
+                    onClick={onSearchClick}
+                >
+                    <Search className="h-6 w-6 text-blue-600" />
+                </Button>
+            </div>
+            {error && <p className="text-[10px] font-bold text-red-600 mt-1">{error}</p>}
+        </FormItem>
+    );
+}
 
 export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
   const { toast } = useToast();
@@ -148,7 +316,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
     firestore ? query(collection(firestore, "carriers")) : null, 
     [firestore]
   );
-  const { data: carriers } = useCollection<Carrier>(carriersQuery);
+  const { data: carriers, isLoading: isLoadingCarriers, error: carriersError } = useCollection<Carrier>(carriersQuery);
 
   const qtyTypesQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, "material_types")) : null, 
@@ -180,18 +348,33 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
     },
   });
 
-  const { watch, setValue, control, handleSubmit, register } = form;
+  const { watch, setValue, control, handleSubmit, register, formState: { errors } } = form;
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
   
   const isSameAsBillTo = watch('isSameAsBillTo');
+  const consignor = watch('consignor');
   const billToParty = watch('billToParty');
   const billToGtin = watch('billToGtin');
+  const shipToParty = watch('shipToParty');
   const originPlantId = watch('originPlantId');
   const materialTypeId = watch('materialTypeId');
   const quantity = watch('quantity');
   const lrNumberValue = watch('lrNumber');
 
   const showLrSection = useMemo(() => lrNumberValue && lrNumberValue.trim() !== '', [lrNumberValue]);
+
+  const plantCarrier = useMemo(() => {
+    if (!originPlantId || !carriers) return null;
+    return carriers.find(c => normalizePlantId(c.plantId) === normalizePlantId(originPlantId));
+  }, [originPlantId, carriers]);
+
+  useEffect(() => {
+    if (plantCarrier) {
+      setValue('carrierId', plantCarrier.id, { shouldValidate: true });
+    } else {
+      setValue('carrierId', '', { shouldValidate: true });
+    }
+  }, [plantCarrier, setValue]);
 
   useEffect(() => {
     if (materialTypeId === 'FTL') {
@@ -203,8 +386,8 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
     if (!firestore || !user || isLoadingPlants || !allPlants) return;
     setIsAuthLoading(true);
     try {
-        const lastIdentity = localStorage.getItem('slmc_last_identity');
-        const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
+        const lastIdentity = localStorage.getItem('slmc_last_identity')?.trim();
+        const searchEmail = user.email || (lastIdentity ? (lastIdentity.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`) : null);
         
         let userDocSnap = null;
         const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
@@ -243,6 +426,14 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
   );
   const { data: parties } = useCollection<Party>(partiesQuery);
 
+  const consignorRegistry = useMemo(() => {
+    return (parties || []).filter(p => p.type === 'Consignor');
+  }, [parties]);
+
+  const consigneeRegistry = useMemo(() => {
+    return (parties || []).filter(p => p.type === 'Consignee & Ship to');
+  }, [parties]);
+
   const availableConsignors = useMemo(() => {
     if (!parties || !originPlantId) return [];
     const targetPlantId = normalizePlantId(originPlantId).toLowerCase();
@@ -253,211 +444,159 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
     );
   }, [parties, originPlantId]);
 
-  useEffect(() => {
-    if (availableConsignors.length === 1) {
-        const c = availableConsignors[0];
-        setValue('consignor', c.name, { shouldValidate: true });
-        setValue('consignorGtin', c.gstin || '', { shouldValidate: true });
-        if (c.address && c.address !== 'N/A') {
-            setValue('loadingPoint', c.address, { shouldValidate: true });
+  const handleConsignorSelect = useCallback((p: Party) => {
+    setValue('consignor', p.name, { shouldValidate: true });
+    setValue('consignorGtin', p.gstin || '', { shouldValidate: true });
+    if (p.address && p.address !== 'N/A') {
+        setValue('loadingPoint', p.address, { shouldValidate: true });
+    } else if (p.city && p.city !== 'N/A') {
+        setValue('loadingPoint', p.city, { shouldValidate: true });
+    }
+  }, [setValue]);
+
+  const handleShipToSelect = useCallback((p: Party) => {
+    setValue('shipToParty', p.name, { shouldValidate: true });
+    setValue('shipToGtin', p.gstin || '', { shouldValidate: true });
+    if (p.address && p.address !== 'N/A') {
+        setValue('unloadingPoint', p.address, { shouldValidate: true });
+        if (lrNumberValue && lrNumberValue.trim()) {
+            setValue('deliveryAddress', p.address, { shouldValidate: true });
         }
-    } else if (availableConsignors.length === 0 && originPlantId) {
+    } else if (p.city && p.city !== 'N/A') {
+        setValue('unloadingPoint', p.city, { shouldValidate: true });
+        if (lrNumberValue && lrNumberValue.trim()) {
+            setValue('deliveryAddress', p.city, { shouldValidate: true });
+        }
+    }
+  }, [setValue, lrNumberValue]);
+
+  useEffect(() => {
+    if (originPlantId && authorizedPlants.length > 0) {
         const plant = authorizedPlants.find(p => p.id === originPlantId);
-        if (plant?.address && plant.address !== 'N/A') {
+        if (plant?.address && plant.address !== 'N/A' && !watch('consignor')) {
             setValue('loadingPoint', plant.address, { shouldValidate: true });
         }
     }
-  }, [availableConsignors, setValue, originPlantId, authorizedPlants]);
+  }, [originPlantId, authorizedPlants, setValue, watch]);
+
+  useEffect(() => {
+    if (availableConsignors.length === 1) {
+        handleConsignorSelect(availableConsignors[0]);
+    }
+  }, [availableConsignors, handleConsignorSelect]);
+
+  const handleRegistrySelect = useCallback((party: Party) => {
+    if (!helpModal) return;
+    const type = helpModal.type;
+    
+    if (type === 'consignor') {
+        handleConsignorSelect(party);
+    } else if (type === 'billToParty') {
+        setValue('billToParty', party.name, { shouldValidate: true });
+        setValue('billToGtin', party.gstin || '', { shouldValidate: true });
+        if (isSameAsBillTo) handleShipToSelect(party);
+    } else if (type === 'shipToParty') {
+        handleShipToSelect(party);
+    }
+
+    setHelpModal(null);
+  }, [helpModal, handleConsignorSelect, handleShipToSelect, isSameAsBillTo, setValue]);
 
   useEffect(() => { 
     if (isSameAsBillTo) {
         setValue('shipToParty', billToParty); 
         setValue('shipToGtin', billToGtin);
+        const party = consigneeRegistry.find(p => p.name === billToParty);
+        if (party) {
+            handleShipToSelect(party);
+        }
     }
-  }, [isSameAsBillTo, billToParty, billToGtin, setValue]);
+  }, [isSameAsBillTo, billToParty, billToGtin, setValue, consigneeRegistry, handleShipToSelect]);
 
-  const consignorRegistry = useMemo(() => {
-    const list = (parties || []).filter(p => p.type === 'Consignor');
-    return Array.from(new Map(list.map(p => [p.name, p])).values());
-  }, [parties]);
-
-  const consigneeRegistry = useMemo(() => {
-    const list = (parties || []).filter(p => p.type === 'Consignee & Ship to');
-    return Array.from(new Map(list.map(p => [p.name, p])).values());
-  }, [parties]);
+  const parseRegistryDate = (val: any): Date => {
+    if (!val) return new Date();
+    if (val instanceof Date) return val;
+    const str = String(val).trim();
+    const match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (match) {
+        const day = parseInt(match[1], 10);
+        const month = parseInt(match[2], 10) - 1;
+        const year = parseInt(match[3], 10);
+        const d = new Date(year, month, day);
+        if (!isNaN(d.getTime())) return d;
+    }
+    const dFallback = new Date(val);
+    return isNaN(dFallback.getTime()) ? new Date() : dFallback;
+  };
 
   const handlePost = async (values: FormValues) => {
     if (!firestore || !user) return;
 
-    // 1. REGISTRY DUPLICATE CHECK: LR Number node uniqueness
-    if (values.lrNumber?.trim()) {
-        const plantId = normalizePlantId(values.originPlantId);
-        const lrRefCol = collection(firestore, `plants/${plantId}/lrs`);
-        const q = query(lrRefCol, where("lrNumber", "==", values.lrNumber.trim()), where("carrierId", "==", values.carrierId));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-            toast({ 
-                variant: 'destructive', 
-                title: "Registry Conflict", 
-                description: `Duplicate LR Number - This LR Number ${values.lrNumber} already exists for the selected Carrier.` 
-            });
-            return;
-        }
-    }
-
     showLoader();
     try {
         await runTransaction(firestore, async (transaction) => {
-            // A. COUNTER LOGIC
             const counterRef = doc(firestore, "counters", "shipments");
             const counterSnap = await transaction.get(counterRef);
             const currentCount = counterSnap.exists() ? counterSnap.data().count : 0;
             const newCount = currentCount + 1;
             const shipmentId = formatSequenceId("S", newCount);
             
-            // FIX: Robust Name Check (Prevent undefined)
-            const currentName = isAdminSession 
-                ? 'AJAY SOMRA' 
-                : (user.displayName || user.email?.split('@')[0] || 'System Operator');
-            
-            const userId = user.uid || 'unknown_id';
-            const ts = serverTimestamp();
+            const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0]);
 
             transaction.set(counterRef, { count: newCount }, { merge: true });
 
-            // B. SHIPMENT PREPARATION
             const plantId = normalizePlantId(values.originPlantId);
             const shipmentDocId = `ship-${Date.now()}`;
             const shipRef = doc(firestore, `plants/${plantId}/shipments`, shipmentDocId);
 
-            let assignedQty = 0;
-            let currentStatusId = 'Planned'; // Default status according to your lifecycle
+            const groupedInvoices = new Map<string, any>();
+            values.items.forEach(item => {
+                const invKey = item.invoiceNumber.trim().toUpperCase();
+                if (!groupedInvoices.has(invKey)) {
+                    groupedInvoices.set(invKey, {
+                        invoiceNumber: item.invoiceNumber,
+                        ewaybillNumber: item.ewaybillNumber || '',
+                        units: 0,
+                        weight: 0,
+                        descriptions: new Set<string>()
+                    });
+                }
+                const g = groupedInvoices.get(invKey);
+                g.units += Number(item.units) || 0;
+                g.weight += Number(item.weight) || 0;
+                g.descriptions.add(item.itemDescription);
+            });
 
-            if (values.lrNumber) {
-                assignedQty = values.quantity;
-                currentStatusId = 'Assigned';
-            }
+            const finalItemsManifest = Array.from(groupedInvoices.values()).map(g => ({
+                invoiceNumber: g.invoiceNumber,
+                ewaybillNumber: g.ewaybillNumber,
+                units: g.units,
+                weight: g.weight,
+                itemDescription: groupDescriptions(Array.from(g.descriptions))
+            }));
 
+            // REGISTRY RULE: Orders created here are always 'pending' until a vehicle is assigned via Open Order node.
             const docData: any = {
                 ...values,
+                items: finalItemsManifest,
                 shipmentId,
-                currentStatusId,
-                creationDate: ts,
-                lastUpdateDate: ts,
-                assignedQty,
-                balanceQty: values.lrNumber ? 0 : values.quantity,
+                currentStatusId: 'pending', 
+                creationDate: serverTimestamp(),
+                assignedQty: 0, 
+                balanceQty: values.quantity,
                 userName: currentName,
-                userId: userId,
+                userId: user.uid,
             };
 
             transaction.set(shipRef, docData);
-
-            // C. TRIP & LR LOGIC (Only if LR exists)
-            if (values.lrNumber) {
-                const tripDocId = `trip-${Date.now()}`;
-                const tripRef = doc(firestore, `plants/${plantId}/trips`, tripDocId);
-                const globalTripRef = doc(firestore, 'trips', tripDocId);
-                const generatedTripId = generateRandomTripId();
-
-                const tripData = {
-                    tripId: generatedTripId,
-                    vehicleId: null,
-                    vehicleNumber: '', 
-                    driverName: '',
-                    driverMobile: '',
-                    vehicleType: 'Market Vehicle',
-                    carrierId: values.carrierId,
-                    assignedTripWeight: values.quantity,
-                    assignedQtyInTrip: values.quantity,
-                    originPlantId: plantId,
-                    destination: values.unloadingPoint || 'N/A',
-                    shipmentIds: [shipmentDocId],
-                    tripStatus: 'Assigned',
-                    podStatus: 'Missing',
-                    freightStatus: 'Unpaid',
-                    vehicleStatus: 'Available',
-                    currentStatusId: 'Assigned',
-                    startDate: ts,
-                    lrGenerated: true,
-                    lrNumber: values.lrNumber,
-                    lrDate: values.lrDate,
-                    userName: currentName,
-                    userId: userId,
-                    shipToParty: values.shipToParty || values.billToParty,
-                    unloadingPoint: values.unloadingPoint,
-                    podReceived: false,
-                    isFreightPosted: false
-                };
-
-                transaction.set(tripRef, tripData);
-                transaction.set(globalTripRef, tripData);
-
-                const lrId = `lr-${Date.now()}`;
-                const lrRef = doc(firestore, `plants/${plantId}/lrs`, lrId);
-                const lrData = {
-                    lrNumber: values.lrNumber,
-                    date: values.lrDate,
-                    tripId: generatedTripId,
-                    tripDocId: tripDocId,
-                    carrierId: values.carrierId,
-                    originPlantId: plantId,
-                    consignorName: values.consignor,
-                    consignorGtin: values.consignorGtin,
-                    buyerName: values.billToParty,
-                    buyerGtin: values.billToGtin,
-                    shipToParty: values.shipToParty || values.billToParty,
-                    shipToGtin: values.shipToGtin || values.billToGtin,
-                    deliveryAddress: values.deliveryAddress || values.unloadingPoint,
-                    items: values.items,
-                    weightSelection: 'Assigned Weight',
-                    assignedTripWeight: values.quantity,
-                    paymentTerm: values.paymentTerm,
-                    from: values.loadingPoint,
-                    to: values.unloadingPoint,
-                    createdAt: ts,
-                    userName: currentName,
-                    userId: userId
-                };
-                transaction.set(lrRef, lrData);
-            }
-
-            // D. ACTIVITY LOG (Important for tracking)
-            const logRef = doc(collection(firestore, "activity_logs"));
-            transaction.set(logRef, {
-                userId: userId,
-                userName: currentName,
-                action: 'Create Order',
-                tcode: 'Order Plan',
-                pageName: 'LMC Registry',
-                timestamp: ts,
-                description: `Generated Sale Order ${shipmentId} for ${values.billToParty}. [Qty: ${values.quantity}]`
-            });
-
-            // E. NOTIFICATION ENTRY
-            const notifRef = doc(collection(firestore, `users/${userId}/notifications`));
-            transaction.set(notifRef, {
-                userId: userId,
-                userName: currentName,
-                actionType: 'Created',
-                module: 'Order Plan',
-                message: `${currentName} – Created Order – ${shipmentId} – ${format(new Date(), 'dd MMM yyyy p')}`,
-                plantId: plantId,
-                timestamp: ts,
-                isRead: false
-            });
         });
 
         toast({ title: 'Plan Committed', description: `Sale Order committed to lifting node registry.` });
         form.reset();
         setShowConfirmModal(false);
-        onShipmentCreated({ id: 'new' } as any); // Trigger parent refresh
+        onShipmentCreated({ id: 'new' } as any);
     } catch (e: any) {
-        console.error("Transaction Error:", e);
-        toast({ 
-            variant: 'destructive', 
-            title: "Commit Failed", 
-            description: e.message || "An unexpected error occurred during registry sync." 
-        });
+        toast({ variant: 'destructive', title: "Commit Failed", description: e.message });
     } finally {
         hideLoader();
     }
@@ -465,15 +604,15 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
 
   const handleTemplateDownload = () => {
     const headers = [
-        "Plant ID", "Consignor", "Loading Point", "Consignee", "Ship To", 
-        "Unloading Point", "Quantity", "UOM", "Invoice Number", 
-        "E-Waybill Number", "Item Description", "Total Units", "Delivery Address",
-        "LR Number", "LR Date", "Carrier ID", "Payment Term"
+        "Plant ID", "Consignor", "Loading Point (Address)", "Consignee", "Ship To", 
+        "Unloading Point (Address)", "Quantity", "UOM", "Invoice Number", 
+        "E-Waybill Number", "Item Description", "Package", "Delivery Address",
+        "LR Number", "LR Date (DD/MM/YYYY)", "Carrier ID", "Payment Term"
     ];
     const sample = [
-        "1426", "Consignor Name", "Dispatch Address", "Consignee Name", "Ship To Name",
+        "1426", "Consignor Name", "C-17, UPSIDC SOUTH SIDE, G.T. ROAD, GHAZIABAD", "Consignee Name", "Ship To Name",
         "Dest Address", "25", "MT", "INV-001", "EWB-001", "Salt Bags", "500", "Warehouse 14, Plot 22, Mumbai",
-        "LR-1001", "2024-05-20", "carrier-123", "Paid"
+        "LR-1001", "20/05/2024", "carrier-123", "Paid"
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers, sample]);
     const wb = XLSX.utils.book_new();
@@ -503,187 +642,116 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
             const counterSnap = await getDoc(counterRef);
             let currentCount = counterSnap.exists() ? counterSnap.data().count : 0;
 
-            const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || 'System Operator');
-            let successCount = 0;
-            let errorsArr: string[] = [];
+            const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0]);
+            
+            const registryGroups = new Map<string, any>();
+            const validationErrors: string[] = [];
 
-            for (let i = 0; i < jsonData.length; i++) {
-                const row = jsonData[i];
+            jsonData.forEach((row, i) => {
                 const rowNum = i + 2;
-                try {
-                    const plantIdRaw = row["Plant ID"]?.toString().trim();
-                    const qty = Number(row["Quantity"]);
-                    const uom = row["UOM"]?.toString().trim()?.toUpperCase();
-                    const lrNumber = row["LR Number"]?.toString().trim();
-
-                    if (!plantIdRaw || !row["Consignor"] || !row["Consignee"] || !row["Unloading Point"]) {
-                        throw new Error(`Row ${rowNum}: Missing mandatory fields (Plant, Consignor, Consignee, Unloading Point).`);
-                    }
-                    if (uom !== 'FTL' && (isNaN(qty) || qty <= 0)) {
-                        throw new Error(`Row ${rowNum}: Invalid numeric quantity.`);
-                    }
-
-                    if (lrNumber) {
-                        if (!row["LR Date"] || !row["Carrier ID"] || !row["Delivery Address"]) {
-                            throw new Error(`Row ${rowNum}: LR provided but missing mandatory LR particulars (Date, Carrier, Delivery Address).`);
-                        }
-                    }
-
-                    const plantId = normalizePlantId(plantIdRaw);
-                    currentCount++;
-                    const shipmentId = formatSequenceId("S", currentCount);
-                    const shipmentDocId = `ship-${Date.now()}-${i}`;
-                    const shipRef = doc(firestore, `plants/${plantId}/shipments`, shipmentDocId);
-
-                    const docData: any = {
-                        originPlantId: plantId,
-                        consignor: row["Consignor"]?.toString().trim(),
-                        loadingPoint: row["Loading Point"]?.toString().trim(),
-                        billToParty: row["Consignee"]?.toString().trim(),
-                        shipToParty: row["Ship To"]?.toString().trim() || row["Consignee"]?.toString().trim(),
-                        unloadingPoint: row["Unloading Point"]?.toString().trim(),
-                        quantity: qty,
-                        materialTypeId: uom,
-                        invoiceNumber: row["Invoice Number"]?.toString().trim() || '',
-                        ewaybillNumber: row["E-Waybill Number"]?.toString().trim() || '',
-                        itemDescription: row["Item Description"]?.toString().trim() || '',
-                        totalUnits: Number(row["Total Units"]) || 0,
-                        deliveryAddress: row["Delivery Address"]?.toString().trim() || row["Unloading Point"]?.toString().trim(),
-                        shipmentId,
-                        currentStatusId: lrNumber ? 'Assigned' : 'Planned',
-                        creationDate: new Date(),
-                        assignedQty: lrNumber ? qty : 0,
-                        balanceQty: lrNumber ? 0 : qty,
-                        userName: currentName,
-                        userId: user.uid,
-                    };
-
-                    batch.set(shipRef, docData);
-
-                    if (lrNumber) {
-                        const tripDocId = `trip-${Date.now()}-${i}`;
-                        const tripRef = doc(firestore, `plants/${plantId}/trips`, tripDocId);
-                        const globalTripRef = doc(firestore, 'trips', tripDocId);
-                        const generatedTripId = generateRandomTripId();
-
-                        const tripData = {
-                            tripId: generatedTripId,
-                            vehicleNumber: '', 
-                            driverName: '',
-                            driverMobile: '',
-                            vehicleType: 'Market Vehicle',
-                            carrierId: row["Carrier ID"]?.toString().trim(),
-                            assignedTripWeight: qty,
-                            assignedQtyInTrip: qty,
-                            originPlantId: plantId,
-                            destination: row["Unloading Point"]?.toString().trim(),
-                            shipmentIds: [shipmentDocId],
-                            tripStatus: 'Assigned',
-                            podStatus: 'Missing',
-                            freightStatus: 'Unpaid',
-                            vehicleStatus: 'Available',
-                            currentStatusId: 'Assigned',
-                            startDate: new Date(),
-                            lastUpdated: new Date(),
-                            lrGenerated: true,
-                            lrNumber: lrNumber,
-                            lrDate: new Date(row["LR Date"]),
-                            userName: currentName,
-                            userId: user.uid,
-                            shipToParty: row["Ship To"]?.toString().trim() || row["Consignee"]?.toString().trim(),
-                            unloadingPoint: row["Unloading Point"]?.toString().trim(),
-                            podReceived: false,
-                            isFreightPosted: false
-                        };
-
-                        batch.set(tripRef, tripData);
-                        batch.set(globalTripRef, tripData);
-
-                        const lrDocId = `lr-${Date.now()}-${i}`;
-                        const lrRef = doc(firestore, `plants/${plantId}/lrs`, lrDocId);
-                        const lrData = {
-                            lrNumber: lrNumber,
-                            date: new Date(row["LR Date"]),
-                            tripId: generatedTripId,
-                            tripDocId: tripDocId,
-                            carrierId: row["Carrier ID"]?.toString().trim(),
-                            originPlantId: plantId,
-                            consignorName: row["Consignor"]?.toString().trim(),
-                            buyerName: row["Consignee"]?.toString().trim(),
-                            shipToParty: row["Ship To"]?.toString().trim() || row["Consignee"]?.toString().trim(),
-                            deliveryAddress: row["Delivery Address"]?.toString().trim(),
-                            items: [{
-                                invoiceNumber: row["Invoice Number"]?.toString().trim() || 'N/A',
-                                ewaybillNumber: row["E-Waybill Number"]?.toString().trim() || '',
-                                itemDescription: row["Item Description"]?.toString().trim() || 'Cargo',
-                                units: Number(row["Total Units"]) || 1,
-                                weight: qty
-                            }],
-                            weightSelection: 'Assigned Weight',
-                            assignedTripWeight: qty,
-                            paymentTerm: row["Payment Term"] || 'Paid',
-                            from: row["Loading Point"]?.toString().trim(),
-                            to: row["Unloading Point"]?.toString().trim(),
-                            createdAt: new Date(),
-                            userName: currentName,
-                            userId: user.uid
-                        };
-                        batch.set(lrRef, lrData);
-                    }
-
-                    successCount++;
-                } catch (err: any) {
-                    errorsArr.push(err.message);
+                const lrNo = row["LR Number"]?.toString().trim() || "NA";
+                const invNo = row["Invoice Number"]?.toString().trim();
+                const plantId = row["Plant ID"]?.toString().trim();
+                
+                if (!invNo || !plantId) {
+                    validationErrors.push(`Row ${rowNum}: Missing Invoice or Plant ID.`);
+                    return;
                 }
+
+                const lrKey = lrNo.toUpperCase();
+                const invKey = invNo.toUpperCase();
+                
+                const headerData = {
+                    originPlantId: normalizePlantId(plantId),
+                    consignor: row["Consignor"]?.toString().trim(),
+                    loadingPoint: row["Loading Point (Address)"]?.toString().trim(),
+                    billToParty: row["Consignee"]?.toString().trim(),
+                    shipToParty: row["Ship To"]?.toString().trim() || row["Consignee"]?.toString().trim(),
+                    unloadingPoint: row["Unloading Point (Address)"]?.toString().trim(),
+                    deliveryAddress: row["Delivery Address"]?.toString().trim() || row["Unloading Point (Address)"]?.toString().trim(),
+                    carrierId: row["Carrier ID"]?.toString().trim(),
+                    lrDate: row["LR Date (DD/MM/YYYY)"] ? parseRegistryDate(row["LR Date (DD/MM/YYYY)"]) : null,
+                    paymentTerm: row["Payment Term"] || 'Paid'
+                };
+
+                if (registryGroups.has(invKey)) {
+                    // Logic: Group items by Invoice Number
+                } else {
+                    registryGroups.set(invKey, { header: headerData, lrNo: lrNo === "NA" ? "" : lrNo, items: new Map() });
+                }
+
+                const group = registryGroups.get(invKey);
+                const desc = row["Item Description"]?.toString().trim() || 'GENERAL CARGO';
+                const units = Number(row["Package"] || row["Total Units"] || 0);
+                const weight = Number(row["Quantity"]) || 0;
+
+                group.items.set(`${desc}-${units}`, {
+                    invoiceNumber: invKey,
+                    ewaybillNumber: row["E-Waybill Number"]?.toString().trim() || '',
+                    itemDescription: desc,
+                    units,
+                    weight
+                });
+            });
+
+            if (validationErrors.length > 0) {
+                toast({ variant: 'destructive', title: "Registry Conflict", description: validationErrors[0] });
+                hideLoader();
+                setIsBulkUploading(false);
+                return;
+            }
+
+            let successCount = 0;
+            for (const [invNo, group] of Array.from(registryGroups.entries())) {
+                const { header, lrNo, items } = group;
+                
+                currentCount++;
+                const shipmentId = formatSequenceId("S", currentCount);
+                const shipmentDocId = `ship-${Date.now()}-${successCount}`;
+                const shipRef = doc(firestore, `plants/${header.originPlantId}/shipments`, shipmentDocId);
+
+                const finalItemsManifest = Array.from(items.values());
+                const totalWeight = finalItemsManifest.reduce((s, i: any) => s + i.weight, 0);
+
+                const shipmentData = {
+                    ...header,
+                    shipmentId,
+                    currentStatusId: 'pending', // ALWAYS PENDING AT CREATION
+                    creationDate: new Date(),
+                    assignedQty: 0,
+                    balanceQty: totalWeight,
+                    quantity: totalWeight,
+                    materialTypeId: 'MT',
+                    userName: currentName,
+                    userId: user.uid,
+                    lrNumber: lrNo,
+                    items: finalItemsManifest
+                };
+
+                batch.set(shipRef, shipmentData);
+                successCount++;
             }
 
             if (successCount > 0) {
                 batch.set(counterRef, { count: currentCount }, { merge: true });
                 await batch.commit();
-                toast({ title: "Bulk Upload Complete", description: `${successCount} records successfully committed to mission registry.` });
+                toast({ title: "Bulk Upload Complete", description: `${successCount} order(s) established in registry.` });
                 onShipmentCreated({ id: 'new' } as any);
-            }
-
-            if (errorsArr.length > 0) {
-                toast({ 
-                    variant: 'destructive', 
-                    title: "Registry Discrepancies", 
-                    description: `Total Success: ${successCount} | Total Failed: ${errorsArr.length}. Review error manifest for details.` 
-                });
-                console.error("Bulk Upload Error Manifest:", errorsArr);
             }
         } catch (error: any) {
             toast({ variant: 'destructive', title: "Bulk Error", description: error.message });
         } finally {
-            setIsBulkUploading(false);
             hideLoader();
+            setIsBulkUploading(false);
             event.target.value = '';
         }
     };
     reader.readAsArrayBuffer(file);
   };
 
-  const handleRegistrySelect = (party: Party) => {
-    if (!helpModal) return;
-    setValue(helpModal.type as any, party.name, { shouldValidate: true });
-    
-    if (helpModal.type === 'consignor') {
-        setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
-    } else if (helpModal.type === 'billToParty') {
-        setValue('billToGtin', party.gstin || '', { shouldValidate: true });
-        if (isSameAsBillTo) {
-            setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-        }
-    } else if (helpModal.type === 'shipToParty') {
-        setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-    }
-
-    setHelpModal(null);
-  };
-
-  const openSearchHelp = (type: 'consignor' | 'billToParty' | 'shipToParty') => {
+  const handleSearchHelpClick = (type: 'consignor' | 'billToParty' | 'shipToParty') => {
     const registryData = type === 'consignor' ? consignorRegistry : consigneeRegistry;
-    const registryTitle = type === 'consignor' ? 'Select Consignor Node' : 'Select Consignee Node';
+    const registryTitle = type === 'consignor' ? 'Select Consignor Node' : 'Select Party Node';
     setHelpModal({ type, title: registryTitle, data: registryData });
   };
 
@@ -735,7 +803,6 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
             <CardContent className="pt-12 px-10 pb-12 space-y-16">
                 <Form {...form}>
                 <form className="space-y-16">
-                    {/* TOP SECTION: SYSTEM META */}
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-10 items-start bg-slate-50/50 p-10 rounded-[3rem] border border-slate-100 shadow-inner">
                         <div className="md:col-span-3 space-y-3">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Registry Timestamp</label>
@@ -797,7 +864,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                             <FormField control={control} name="quantity" render={({ field }) => (
                                 <FormItem>
                                     <FormLabel className={cn("text-[10px] font-black uppercase tracking-[0.2em] px-1", materialTypeId === 'FTL' ? "text-slate-200" : "text-slate-400")}>
-                                        Total Quantity {materialTypeId !== 'FTL' && ''}
+                                        Total Quantity {materialTypeId !== 'FTL' && '*'}
                                     </FormLabel>
                                     <FormControl>
                                         <Input 
@@ -817,7 +884,6 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                         </div>
                     </div>
 
-                    {/* OPTIONAL LR SECTION (TOP HEADER) */}
                     <div className="p-10 rounded-[3rem] border-2 border-blue-100 bg-white shadow-xl space-y-10">
                         <div className="flex items-center gap-3 border-b pb-4">
                             <FileText className="h-6 w-6 text-blue-600" />
@@ -826,7 +892,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
                             <FormField control={control} name="lrNumber" render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">LR Number</FormLabel>
+                                    <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">LR Number</FormLabel>
                                     <FormControl><Input placeholder="Enter LR Number" {...field} className="h-12 rounded-xl font-black text-blue-900 uppercase" /></FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -835,26 +901,27 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                                 <>
                                     <FormField control={control} name="lrDate" render={({ field }) => (
                                         <FormItem className="flex flex-col animate-in fade-in slide-in-from-top-2 duration-300">
-                                            <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">LR Date *</FormLabel>
+                                            <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-[0.2em]">LR Date *</FormLabel>
                                             <FormControl><DatePicker date={field.value || undefined} setDate={(d) => field.onChange(d || null)} className="h-12 border-blue-200" placeholder="Select LR Date" /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
-                                    <FormField control={control} name="carrierId" render={({ field }) => (
-                                        <FormItem className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                            <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">Carrier Registry *</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl><SelectTrigger className="h-12 border-blue-200 font-bold"><SelectValue placeholder="Select Carrier" /></SelectTrigger></FormControl>
-                                                <SelectContent className="rounded-xl">
-                                                    {carriers?.filter(c => c && c.id && c.name).map(c => <SelectItem key={c.id} value={c.id} className="font-bold py-3">{c.name}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
+                                    <FormItem className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <Link href={`/dashboard/carrier-management?plantId=${originPlantId}`} passHref>
+                                            <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-[0.2em] cursor-pointer">Carrier Registry *</FormLabel>
+                                        </Link>
+                                        <div className="h-12 flex items-center px-4 rounded-xl border border-blue-200 bg-blue-50/50">
+                                            <span className="font-bold text-slate-700">{plantCarrier?.name || '-'}</span>
+                                        </div>
+                                        {carriersError && (
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-red-600">
+                                                Carrier registry sync failed.
+                                            </p>
+                                        )}
+                                    </FormItem>
                                     <FormField control={control} name="paymentTerm" render={({ field }) => (
                                         <FormItem className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                            <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">Payment Term *</FormLabel>
+                                            <FormLabel className="text-[10px] font-black uppercase text-blue-600">Payment Term *</FormLabel>
                                             <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl><SelectTrigger className="h-12 border-blue-200 font-bold"><SelectValue placeholder="Pick Term" /></SelectTrigger></FormControl>
                                                 <SelectContent className="rounded-xl">
@@ -869,61 +936,20 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                         </div>
                     </div>
 
-                    {/* CENTRE SECTION: CONSIGNOR & CONSIGNEE */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                        {/* CONSIGNOR BLOCK */}
                         <div className="space-y-10 p-10 rounded-[3.5rem] border border-slate-100 bg-white shadow-2xl relative overflow-hidden group/con">
                             <div className="absolute top-0 left-0 w-2 h-full bg-blue-900 transition-all duration-500 group-hover/con:w-3" />
                             
-                            <FormField control={control} name="consignor" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 px-1 flex items-center gap-2">
-                                        <Factory className="h-3.5 w-3.5" /> Consignor Entity *
-                                    </FormLabel>
-                                    <div className="flex gap-3">
-                                        {availableConsignors.length > 1 ? (
-                                            <Select onValueChange={(val) => {
-                                                field.onChange(val);
-                                                const match = availableConsignors.find(c => c.name === val);
-                                                if (match) {
-                                                    setValue('consignorGtin', match.gstin || '', { shouldValidate: true });
-                                                    if (match.address && match.address !== 'N/A') {
-                                                        setValue('loadingPoint', match.address, { shouldValidate: true });
-                                                    }
-                                                }
-                                            }} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger className="h-14 rounded-2xl font-black text-slate-900 border-slate-200 bg-white shadow-sm focus:ring-blue-900">
-                                                        <SelectValue placeholder="Select Consignor Node" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent className="rounded-xl">
-                                                    {availableConsignors.map(c => (
-                                                        <SelectItem key={c.id} value={c.name} className="font-bold py-3 uppercase italic">
-                                                            {c.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        ) : (
-                                            <FormControl>
-                                                <Input 
-                                                    placeholder="Type legal name or resolve from handbook..." 
-                                                    {...field} 
-                                                    className="h-14 rounded-2xl font-black text-slate-900 border-slate-200 bg-slate-50/30 focus-visible:ring-blue-900"
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'F4') { e.preventDefault(); openSearchHelp('billToParty'); }
-                                                    }}
-                                                />
-                                            </FormControl>
-                                        )}
-                                        <Button type="button" variant="outline" size="icon" className="h-14 w-14 rounded-2xl shrink-0 shadow-lg hover:bg-blue-50 transition-all active:scale-95" onClick={() => openSearchHelp('consignor')}>
-                                            <Search className="h-6 w-6 text-blue-600" />
-                                        </Button>
-                                    </div>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
+                            <AutocompleteInput 
+                                label="Consignor Entity *"
+                                placeholder="Type name or search handbook..."
+                                value={consignor}
+                                onChange={(val) => setValue('consignor', val, { shouldValidate: true })}
+                                suggestions={consignorRegistry}
+                                onSearchClick={() => handleSearchHelpClick('consignor')}
+                                onSelect={handleConsignorSelect}
+                                error={errors.consignor?.message}
+                            />
 
                             <FormField control={control} name="loadingPoint" render={({ field }) => (
                                 <FormItem>
@@ -933,7 +959,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                                     <FormControl>
                                         <div className="relative group/map">
                                             <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within/map:text-blue-600 transition-colors" />
-                                            <Input {...field} placeholder="Enter verified physical loading node address..." className="pl-12 h-14 rounded-2xl font-bold border-slate-200 bg-white focus-visible:ring-blue-900 shadow-sm" />
+                                            <Input {...field} placeholder="Enter verified physical lifting city..." className="pl-12 h-14 rounded-2xl font-bold border-slate-200 bg-white focus-visible:ring-blue-900 shadow-sm" />
                                         </div>
                                     </FormControl>
                                     <FormMessage />
@@ -941,67 +967,46 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                             )} />
                         </div>
 
-                        {/* CONSIGNEE BLOCK */}
                         <div className="space-y-10 p-10 rounded-[3.5rem] border border-slate-100 bg-white shadow-2xl relative overflow-hidden group/cnee">
                             <div className="absolute top-0 left-0 w-2 h-full bg-emerald-600 transition-all duration-500 group-hover/cnee:w-3" />
                             
                             <div className="space-y-8">
                                 <div className="space-y-2">
-                                    <FormField control={control} name="billToParty" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 px-1 flex items-center gap-2">
-                                                <User className="h-3.5 w-3.5" /> Consignee / Bill to *
-                                            </FormLabel>
-                                            <div className="flex gap-3">
-                                                <FormControl>
-                                                    <Input 
-                                                        placeholder="Type name or search buyer registry..." 
-                                                        {...field} 
-                                                        className="h-14 rounded-2xl font-black text-slate-900 border-slate-200 bg-slate-50/30 focus-visible:ring-emerald-600"
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'F4') { e.preventDefault(); openSearchHelp('billToParty'); }
-                                                        }}
-                                                    />
-                                                </FormControl>
-                                                <Button type="button" variant="outline" size="icon" className="h-14 w-14 rounded-2xl shrink-0 shadow-lg hover:bg-emerald-50 transition-all active:scale-95" onClick={() => openSearchHelp('billToParty')}>
-                                                    <Search className="h-6 w-6 text-emerald-600" />
-                                                </Button>
-                                            </div>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
+                                    <AutocompleteInput 
+                                        label="Consignee / Bill To *"
+                                        placeholder="Type name or search buyer registry..."
+                                        value={billToParty}
+                                        onChange={(val) => setValue('billToParty', val, { shouldValidate: true })}
+                                        suggestions={consigneeRegistry}
+                                        onSearchClick={() => handleSearchHelpClick('billToParty')}
+                                        onSelect={(p) => {
+                                            setValue('billToParty', p.name, { shouldValidate: true });
+                                            setValue('billToGtin', p.gstin || '', { shouldValidate: true });
+                                            if (isSameAsBillTo) handleShipToSelect(p);
+                                        }}
+                                        error={errors.billToParty?.message}
+                                    />
                                     <div className="flex justify-end">
                                         <FormField control={control} name="isSameAsBillTo" render={({ field }) => (
-                                            <FormItem className="flex items-center space-x-3">
-                                                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 data-[state=checked]:bg-blue-900 data-[state=checked]:border-blue-900" /></FormControl>
-                                                <FormLabel className="text-[10px] font-black uppercase cursor-pointer text-slate-400 tracking-widest !mt-0">Same</FormLabel>
+                                            <FormItem className="flex items-center space-x-4 space-y-0 bg-white p-2 px-4 rounded-xl border border-slate-100 shadow-sm w-fit">
+                                                <FormControl><Checkbox id="same_as_consignee" checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 data-[state=checked]:bg-blue-900 data-[state=checked]:border-blue-900" /></FormControl>
+                                                <FormLabel htmlFor="same_as_consignee" className="text-[10px] font-black uppercase cursor-pointer text-slate-400 tracking-widest !mt-0">Same as Consignee</FormLabel>
                                             </FormItem>
                                         )} />
                                     </div>
                                 </div>
 
-                                <FormField control={control} name="shipToParty" render={({ field }) => (
-                                    <FormItem className="w-full">
-                                        <FormLabel className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Ship to Node *</FormLabel>
-                                        <div className="flex gap-3">
-                                            <FormControl>
-                                                <Input 
-                                                    placeholder="Target node..." 
-                                                    {...field} 
-                                                    className="h-12 rounded-xl font-bold border-slate-200"
-                                                    disabled={isSameAsBillTo}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'F4') { e.preventDefault(); openSearchHelp('shipToParty'); }
-                                                    }}
-                                                />
-                                            </FormControl>
-                                            <Button type="button" variant="outline" size="icon" className="h-12 w-12 rounded-xl shrink-0" disabled={isSameAsBillTo} onClick={() => openSearchHelp('shipToParty')}>
-                                                <Search className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
+                                <AutocompleteInput 
+                                    label="Ship To Node *"
+                                    placeholder="Target node..."
+                                    value={shipToParty || ''}
+                                    onChange={(val) => setValue('shipToParty', val, { shouldValidate: true })}
+                                    suggestions={consigneeRegistry}
+                                    onSearchClick={() => handleSearchHelpClick('shipToParty')}
+                                    onSelect={handleShipToSelect}
+                                    disabled={isSameAsBillTo}
+                                    error={errors.shipToParty?.message}
+                                />
 
                                 <FormField control={control} name="unloadingPoint" render={({ field }) => (
                                     <FormItem>
@@ -1011,7 +1016,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                                         <FormControl>
                                             <div className="relative group/map">
                                                 <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within/map:text-blue-600 transition-colors" />
-                                                <Input {...field} placeholder="Final mission delivery address node..." className="pl-12 h-14 rounded-2xl font-bold border-slate-200 bg-white focus-visible:ring-blue-900 shadow-sm" />
+                                                <Input {...field} placeholder="Final mission delivery city node..." className="pl-12 h-14 rounded-2xl font-bold border-slate-200 bg-white focus-visible:ring-blue-900 shadow-sm" />
                                             </div>
                                         </FormControl>
                                         <FormMessage />
@@ -1021,10 +1026,9 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                         </div>
                     </div>
 
-                    {/* CONSIGNMENT MANIFEST (MULTI-ROW) SECTION */}
                     <section className={cn("space-y-6 transition-all duration-500", !showLrSection && "opacity-30 grayscale pointer-events-none")}>
                         <div className="flex items-center justify-between px-1">
-                            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-2">
+                            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-2 px-1">
                                 <ListTree className="h-4 w-4 text-blue-600" /> 3. Item Description Manifest
                             </h3>
                             {showLrSection && (
@@ -1032,7 +1036,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                                     type="button" 
                                     variant="outline" 
                                     size="sm" 
-                                    className="gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white hover:bg-blue-50" 
+                                    className="gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white hover:bg-blue-50 shadow-sm" 
                                     onClick={() => append({ invoiceNumber: '', ewaybillNumber: '', itemDescription: '', units: 1, weight: 0 })}
                                 >
                                     <PlusCircle className="h-3.5 w-3.5" /> Add Row
@@ -1047,7 +1051,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                                         <TableHead className="text-[10px] font-black uppercase text-white px-6 w-40">Invoice Number *</TableHead>
                                         <TableHead className="text-[10px] font-black uppercase text-white px-4 w-40">E-Waybill No</TableHead>
                                         <TableHead className="text-[10px] font-black uppercase text-white px-4">Item Description *</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase text-white px-4 text-center w-24">Units *</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase text-white px-4 text-center">Package *</TableHead>
                                         <TableHead className="text-[10px] font-black uppercase text-white px-6 text-right w-32">Weight (Opt)</TableHead>
                                         <TableHead className="w-16"></TableHead>
                                     </TableRow>
@@ -1060,7 +1064,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                                             <TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/10 group transition-colors">
                                                 <TableCell className="px-6 py-2">
                                                     <FormField name={`items.${idx}.invoiceNumber`} control={control} render={({ field: itm }) => (
-                                                        <FormControl><Input placeholder="Invoice #" className="h-10 border-slate-200 font-bold" {...itm} /></FormControl>
+                                                        <FormControl><Input placeholder="Invoice #" className="h-10 border-slate-200 font-bold focus-visible:ring-blue-900" {...itm} /></FormControl>
                                                     )} />
                                                 </TableCell>
                                                 <TableCell className="px-4 py-2">
@@ -1070,21 +1074,21 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                                                 </TableCell>
                                                 <TableCell className="px-4 py-2">
                                                     <FormField name={`items.${idx}.itemDescription`} control={control} render={({ field: itm }) => (
-                                                        <FormControl><Input placeholder="Cargo particulars" className="h-10 font-medium" {...itm} /></FormControl>
+                                                        <FormControl><Input placeholder="Cargo particulars" className="h-10 border-slate-200 font-medium" {...itm} /></FormControl>
                                                     )} />
                                                 </TableCell>
                                                 <TableCell className="px-4 py-2">
                                                     <FormField name={`items.${idx}.units`} control={control} render={({ field: itm }) => (
-                                                        <FormControl><Input type="number" className="h-10 text-center font-black text-blue-900" {...itm} /></FormControl>
+                                                        <FormControl><Input type="number" className="h-10 text-center font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" {...itm} /></FormControl>
                                                     )} />
                                                 </TableCell>
                                                 <TableCell className="px-6 py-2">
                                                     <FormField name={`items.${idx}.weight`} control={control} render={({ field: itm }) => (
-                                                        <FormControl><Input type="number" step="0.001" className="h-10 text-right font-bold" {...itm} /></FormControl>
+                                                        <FormControl><Input type="number" step="0.001" className="h-10 text-right font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" {...itm} /></FormControl>
                                                     )} />
                                                 </TableCell>
-                                                <TableCell className="pr-6 text-right">
-                                                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-slate-200 hover:text-red-600" onClick={() => remove(idx)}>
+                                                <TableCell className="pr-6 py-2 text-right">
+                                                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-slate-200 group-hover:text-red-600" onClick={() => remove(idx)}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </TableCell>
@@ -1096,21 +1100,23 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                         </div>
                     </section>
 
-                    {/* NEW SECTION: DELIVERY ADDRESS REGISTRY */}
                     {showLrSection && (
                         <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-2 px-1">
-                                <MapPin className="h-4 w-4 text-blue-600"/> 4. Delivery Address Registry
+                                <MapPin className="h-4 w-4 text-blue-600" /> 4. Delivery Address Registry
                             </h3>
                             <FormField control={control} name="deliveryAddress" render={({ field }) => (
                                 <FormItem>
                                     <FormControl>
-                                        <Textarea 
-                                            rows={3} 
-                                            placeholder="Provide verified delivery address particulars for LR document..." 
-                                            className="resize-none bg-white border-slate-200 rounded-3xl p-8 font-bold shadow-sm focus-visible:ring-blue-900 transition-all" 
-                                            {...field} 
-                                        />
+                                        <div className="relative group">
+                                            <Textarea 
+                                                rows={3} 
+                                                placeholder="Provide verified physical delivery address for LR document..." 
+                                                className="resize-none bg-white border-slate-200 rounded-3xl p-8 font-bold shadow-sm focus-visible:ring-blue-900 transition-all" 
+                                                {...field} 
+                                            />
+                                            <MapPin className="absolute top-8 right-8 h-6 w-6 text-slate-200 group-focus-within:text-blue-600 transition-colors" />
+                                        </div>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -1118,14 +1124,13 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                         </section>
                     )}
 
-                    {/* BOTTOM ACTION BAR */}
                     <div className="flex flex-col md:flex-row items-center justify-between gap-8 pt-12 border-t border-slate-100">
                         <div className="p-6 bg-blue-50 rounded-[2rem] border border-blue-100 flex items-start gap-5 shadow-sm max-w-2xl">
                             <AlertCircle className="h-8 w-8 text-blue-600 shrink-0" />
                             <div className="space-y-1">
                                 <p className="text-xs font-black text-blue-900 uppercase">Commitment Protocol Active</p>
                                 <p className="text-[10px] font-bold text-blue-700 leading-normal uppercase">
-                                    Submitting this form will create a persistent Sale Order node in the lifting registry. Verify all party nodes and address identifiers before final commit.
+                                    Submitting this form will create a persistent Sale Order node in the lifting registry. Verify all party nodes and city identifiers before final commit.
                                 </p>
                             </div>
                         </div>
@@ -1150,14 +1155,14 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                     </div>
                     <div>
                         <DialogTitle className="text-xl font-black uppercase tracking-tight italic">Registry Commitment</DialogTitle>
-                        <DialogDescription className="text-blue-200 font-bold uppercase text-[9px] mt-2 tracking-widest">Authorized Identity Handshake Required</DialogDescription>
+                        <DialogDescription className="text-blue-200 font-bold uppercase text-[9px] mt-1 tracking-widest">Authorized Identity Handshake Required</DialogDescription>
                     </div>
                 </DialogHeader>
                 <div className="p-10 space-y-8">
                     <div className="space-y-4">
                         <p className="text-sm font-medium text-slate-600 leading-relaxed italic">
                             "You are about to establish a permanent mission node in the Logistics Registry for 
-                            **{materialTypeId === 'FTL' ? 'FTL' : `${quantity} ${materialTypeId}`}** cargo."
+                            **{materialTypeId === 'FTL' ? 'FTL' : `${quantity} ${quantity} ${materialTypeId}`}** cargo."
                         </p>
                         <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                             <div className="flex flex-col"><span className="text-[8px] font-black uppercase text-slate-400">Node</span> <span className="text-xs font-black text-blue-900 uppercase">{form.watch('originPlantId')}</span></div>
@@ -1167,7 +1172,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                     <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100 flex items-start gap-3 shadow-inner">
                         <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                         <p className="text-[10px] font-bold text-amber-800 leading-normal uppercase">
-                            Authorized Data Capture: Verify weights and party nodes.
+                            Authorized Data Capture: Verify weights and city nodes.
                         </p>
                     </div>
                 </div>

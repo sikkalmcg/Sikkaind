@@ -150,7 +150,7 @@ function SettingsContent() {
 
                             {selectedRunningIcon && (
                                 <div className='relative p-4 border-2 rounded-2xl flex items-center justify-center h-32 w-32 border-green-600 ring-4 ring-green-100'>
-                                    <Image src={selectedRunningIcon} alt="Running Icon" width={80} height={80} className="object-contain" />
+                                    <Image src={selectedRunningIcon} alt="Running Icon" width={80} height={80} className="object-contain w-auto h-auto" />
                                     <CheckCircle2 className="absolute -top-3 -right-3 h-7 w-7 text-white bg-green-600 rounded-full p-1" />
                                 </div>
                             )}
@@ -176,7 +176,7 @@ function SettingsContent() {
 
                             {selectedStoppedIcon && (
                                 <div className='relative p-4 border-2 rounded-2xl flex items-center justify-center h-32 w-32 border-red-600 ring-4 ring-red-100'>
-                                    <Image src={selectedStoppedIcon} alt="Stopped Icon" width={80} height={80} className="object-contain" />
+                                    <Image src={selectedStoppedIcon} alt="Stopped Icon" width={80} height={80} className="object-contain w-auto h-auto" />
                                     <CheckCircle2 className="absolute -top-3 -right-3 h-7 w-7 text-white bg-red-600 rounded-full p-1" />
                                 </div>
                             )}

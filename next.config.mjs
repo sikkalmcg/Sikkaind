@@ -10,6 +10,7 @@ const nextConfig = {
             'https-3005-firebase-sikkaind-new-1773476678963.cluster-osvg2nzmmzhzqqjio6oojllbg4.cloudworkstations.dev',
         ],
     },
+    turbopack: {},
 };
 
 export default nextConfig;

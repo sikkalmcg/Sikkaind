@@ -2,9 +2,11 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Printer, FileDown, ShieldCheck, X } from 'lucide-react';
+import { Printer, FileDown, ShieldCheck } from 'lucide-react';
 import PrintableVoucher from './PrintableVoucher';
 import { useToast } from '@/hooks/use-toast';
+import { renderToStaticMarkup } from 'react-dom/server';
+import PrintableVoucherWrapper from './PrintableVoucherWrapper';
 
 interface PrintVoucherModalProps {
   isOpen: boolean;
@@ -17,13 +19,23 @@ export default function PrintVoucherModal({ isOpen, onClose, trip }: PrintVouche
 
     const handlePrint = () => {
         if (typeof window === 'undefined') return;
-        const originalTitle = document.title;
-        document.title = `Payment_Voucher_${trip.tripId}`;
-        window.print();
-        setTimeout(() => {
-            document.title = originalTitle;
-        }, 1000);
-        toast({ title: "Print Node Initialized", description: "Voucher extraction successful." });
+
+        const printWindow = window.open('', '', 'height=800,width=1200');
+        if (printWindow) {
+            const markup = renderToStaticMarkup(<PrintableVoucherWrapper trip={trip} />);
+            printWindow.document.write(markup);
+            printWindow.document.close();
+            printWindow.focus();
+
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 250); // Small delay to ensure content loads
+
+            toast({ title: "Print Node Initialized", description: "Voucher extraction successful." });
+        } else {
+            toast({ variant: 'destructive', title: "Error", description: "Could not open print window. Please disable your pop-up blocker." });
+        }
     };
 
     if (!trip) return null;
@@ -55,8 +67,8 @@ export default function PrintVoucherModal({ isOpen, onClose, trip }: PrintVouche
                     </div>
                 </DialogHeader>
 
-                <div className="flex-1 overflow-y-auto p-12 flex flex-col items-center print:p-0 print:m-0 print:bg-white">
-                    <div className="print:m-0 print:p-0">
+                <div className="flex-1 overflow-y-auto p-12 flex flex-col items-center">
+                    <div className="print-container">
                         <PrintableVoucher trip={trip} />
                     </div>
                 </div>

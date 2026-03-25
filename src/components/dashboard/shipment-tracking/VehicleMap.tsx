@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { 
   GoogleMap, 
   useJsApiLoader, 
-  Marker, 
+  AdvancedMarkerElement, 
   InfoWindow,
   DirectionsRenderer
 } from '@react-google-maps/api';
@@ -21,14 +21,22 @@ interface MapProps {
   vehicleNo: string;
   origin?: { lat: number; lng: number; name?: string };
   destination?: { lat: number; lng: number; name?: string };
+  runningIconUrl?: string | null;
+  stoppedIconUrl?: string | null;
 }
 
-export default function VehicleMap({ vehicleNo, origin, destination }: MapProps) {
+export default function VehicleMap({ 
+    vehicleNo, 
+    origin, 
+    destination, 
+    runningIconUrl,
+    stoppedIconUrl
+}: MapProps) {
   const firestore = useFirestore();
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: GOOGLE_MAPS_KEY,
-    libraries: ['places']
+    libraries: ['places', 'marker']
   });
 
   const [liveData, setLiveData] = useState<any>(null);
@@ -36,18 +44,6 @@ export default function VehicleMap({ vehicleNo, origin, destination }: MapProps)
   const [infoOpen, setInfoOpen] = useState(false);
   const [isApiInvalid, setIsApiInvalid] = useState(false);
   const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
-  const [customIcon, setCustomIcon] = useState<string>(DEFAULT_TRUCK_ICON);
-
-  useEffect(() => {
-    if (!firestore) return;
-    const fetchSettings = async () => {
-        const snap = await getDoc(doc(firestore, "gps_settings", "wheelseye"));
-        if (snap.exists() && snap.data().iconUrl) {
-            setCustomIcon(snap.data().iconUrl);
-        }
-    };
-    fetchSettings();
-  }, [firestore]);
 
   const fetchLocation = async () => {
     try {
@@ -110,20 +106,24 @@ export default function VehicleMap({ vehicleNo, origin, destination }: MapProps)
           center={vehiclePos || origin || { lat: 28.6139, lng: 77.2090 }}
           zoom={10}
           options={{ disableDefaultUI: false, gestureHandling: 'greedy' }}
+          mapId="8a76e73364223c34"
         >
-          {origin && <Marker position={origin} title="Lifting Source" label="F" />}
-          {destination && <Marker position={destination} title="Drop Destination" label="D" />}
+          {origin && <AdvancedMarkerElement position={origin} title="Lifting Source" />}
+          {destination && <AdvancedMarkerElement position={destination} title="Drop Destination" />}
+          
           {vehiclePos && (
-            <Marker 
+            <AdvancedMarkerElement 
                 position={vehiclePos} 
-                onClick={() => setInfoOpen(true)} 
-                icon={{
-                    url: customIcon,
-                    scaledSize: new google.maps.Size(45, 45),
-                    anchor: new google.maps.Point(22, 22),
-                }}
-            />
+                onClick={() => setInfoOpen(true)}
+            >
+                <img 
+                    src={isMoving ? runningIconUrl : stoppedIconUrl || DEFAULT_TRUCK_ICON} 
+                    alt="Vehicle" 
+                    className="w-12 h-12 object-contain"
+                />
+            </AdvancedMarkerElement>
           )}
+
           {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: true }} />}
           
           {infoOpen && vehiclePos && (

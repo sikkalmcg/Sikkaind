@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -108,7 +108,9 @@ export default function AddFreightModal({ isOpen, onClose, trip, onSuccess }: { 
   const currentRequestTotal = (Number(advanceRequest) || 0);
   const aggregateRequestTotal = currentRequestTotal + Number(trip.freightData?.advanceAmount || 0);
   const totalPaidAmount = (Number(cashPayment) || 0) + totalPaidInHistory;
-  const remainingBalance = totalFreightAmount - totalPaidAmount;
+  const podStatus = trip.podStatus || 'None';
+  const holdback = podStatus === 'Hard Copy' ? 0 : (podStatus === 'Soft Copy' ? 500 : 1000);
+  const remainingBalance = totalFreightAmount - totalPaidAmount - holdback;
 
   const handlePost = async () => {
     if (!firestore || !user) return;
@@ -137,7 +139,8 @@ export default function AddFreightModal({ isOpen, onClose, trip, onSuccess }: { 
             const tripUpdate = {
                 freightStatus: 'Requested', // Synchronized with Financial Node Only
                 lastUpdated: timestamp,
-                isFreightPosted: true
+                isFreightPosted: true,
+                podStatus: podStatus
             };
 
             transaction.update(tripRef, tripUpdate);
@@ -150,6 +153,7 @@ export default function AddFreightModal({ isOpen, onClose, trip, onSuccess }: { 
                     paidAmount: (currentData.paidAmount || 0) + values.cashPayment,
                     balanceAmount: remainingBalance,
                     totalFreightAmount: totalFreightAmount,
+                    podStatus: podStatus,
                     lastUpdated: timestamp
                 });
             } else {
@@ -163,6 +167,7 @@ export default function AddFreightModal({ isOpen, onClose, trip, onSuccess }: { 
                     balanceAmount: remainingBalance,
                     targetAccountId: values.targetAccountId,
                     paymentStatus: 'Pending',
+                    podStatus: podStatus,
                     postedBy: currentName,
                     createdAt: timestamp,
                     lastUpdated: timestamp
@@ -275,7 +280,7 @@ export default function AddFreightModal({ isOpen, onClose, trip, onSuccess }: { 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
                                     <FormField name="paymentPurpose" control={form.control} render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Description / Particular *</FormLabel>
+                                            <FormLabel className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Description / Particular</FormLabel>
                                             <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl><SelectTrigger className="h-12 rounded-xl font-black text-blue-900 border-blue-900/20 shadow-inner"><SelectValue /></SelectTrigger></FormControl>
                                                 <SelectContent className="rounded-xl">
@@ -288,9 +293,9 @@ export default function AddFreightModal({ isOpen, onClose, trip, onSuccess }: { 
 
                                     <FormField name="targetAccountId" control={form.control} render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Authorized Role *</FormLabel>
+                                            <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Authorized Role</FormLabel>
                                             <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl><SelectTrigger className="h-12 rounded-xl font-black text-slate-900 border-blue-900/20 shadow-inner"><SelectValue placeholder="Select Account Node" /></SelectTrigger></FormControl>
+                                                <FormControl><SelectTrigger className="h-12 rounded-xl font-black text-slate-900 border-blue-900/20 shadow-inner"><SelectValue placeholder="Select authorized account" /></SelectTrigger></FormControl>
                                                 <SelectContent className="rounded-xl">
                                                     {(trip.bankingAccounts || []).map((acc: any) => (
                                                         <SelectItem key={acc.id} value={acc.id} className="py-3 px-4 border-b last:border-0">
@@ -309,7 +314,7 @@ export default function AddFreightModal({ isOpen, onClose, trip, onSuccess }: { 
                                     <FormField name="advanceRequest" control={form.control} render={({ field }) => (
                                         <FormItem>
                                             <FormLabel className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Amount (₹)</FormLabel>
-                                            <FormControl><Input type="number" {...field} className="h-12 rounded-xl font-black text-blue-900 text-lg shadow-inner" /></FormControl>
+                                            <FormControl><Input type="number" {...field} placeholder="Enter amount" className="h-12 rounded-xl font-black text-blue-900 text-lg shadow-inner" /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
@@ -317,7 +322,7 @@ export default function AddFreightModal({ isOpen, onClose, trip, onSuccess }: { 
                                     <FormField name="cashPayment" control={form.control} render={({ field }) => (
                                         <FormItem>
                                             <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Cash Payment (₹)</FormLabel>
-                                            <FormControl><Input type="number" {...field} className="h-12 rounded-xl font-black text-blue-900 border-blue-900/20 shadow-inner" /></FormControl>
+                                            <FormControl><Input type="number" {...field} placeholder="Enter cash amount" className="h-12 rounded-xl font-black text-blue-900 border-blue-900/20 shadow-inner" /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
@@ -325,8 +330,8 @@ export default function AddFreightModal({ isOpen, onClose, trip, onSuccess }: { 
                                     {Number(cashPayment) > 0 && (
                                         <FormField name="manualAccountHolder" control={form.control} render={({ field }) => (
                                             <FormItem className="md:col-span-2 animate-in slide-in-from-top-2">
-                                                <FormLabel className="text-[10px] font-black uppercase text-emerald-600 tracking-widest">Account Holder Name (Manual Entry) *</FormLabel>
-                                                <FormControl><Input placeholder="Name for cash receipt authorization" {...field} className="h-12 rounded-xl font-black border-emerald-500/30 bg-emerald-50/10" /></FormControl>
+                                                <FormLabel className="text-[10px] font-black uppercase text-emerald-600 tracking-widest">Account Holder Name (Manual Entry)</FormLabel>
+                                                <FormControl><Input placeholder="Enter account holder name for cash payment" {...field} className="h-12 rounded-xl font-black border-emerald-500/30 bg-emerald-50/10" /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />

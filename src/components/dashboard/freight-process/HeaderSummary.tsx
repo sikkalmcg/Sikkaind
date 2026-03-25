@@ -1,11 +1,11 @@
 'use client';
 
-import { ShieldCheck, Factory, Calculator, Landmark } from 'lucide-react';
+import { ShieldCheck, Factory } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 export default function HeaderSummary({ trip }: { trip: any }) {
-  const freightAmount = trip.freightAmount || (trip.freightRate && trip.quantity ? trip.freightRate * trip.quantity : 0);
+  const freightAmount = trip.totalFreightAmount || (trip.freightRate && trip.quantity ? trip.freightRate * trip.quantity : 0);
 
   return (
     <section className="space-y-4">

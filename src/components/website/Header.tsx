@@ -6,7 +6,6 @@ import logoUrl from '@/assets/logo-old.png'
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -23,8 +22,6 @@ export default function Header() {
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  const logoSrc = PlaceHolderImages.find(p => p.id === 'logoUrl');
 
   if (!mounted) {
     return (

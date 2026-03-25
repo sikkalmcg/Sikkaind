@@ -1,27 +1,28 @@
 
-// Import the functions to initialize Firebase services
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFunctions, type Functions } from 'firebase/functions';
 
-// --- CENTRALIZED HOOK EXPORTS ---
-// This is the most important part. We are re-exporting all the custom hooks
-// from the provider file. This ensures that any component that imports from '@/firebase'
-// gets the correct, context-aware hooks.
 export {
-    useFirebase,
+    useFirebaseApp as useFirebase, 
     useAuth,
     useFirestore,
     useFunctions,
-    useUser,
-    useMemoFirebase, // <-- Now exported
-    useCollection,    // <-- Now exported
+    useMemoFirebase,
+    useCollection, 
     useDoc
 } from './provider';
 
-// --- FIREBASE INITIALIZATION ---
+import { useUser as useFireUser } from './provider';
+
+export const useUser = () => {
+  const { status, data: user } = useFireUser();
+  const isUserLoading = status === 'loading';
+  return { user, isUserLoading };
+};
+
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -33,14 +34,12 @@ const firebaseConfig = {
     databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL
 };
 
-// Initialize Firebase services
 const app: FirebaseApp = initializeApp(firebaseConfig);
 const firestore: Firestore = getFirestore(app);
 const storage: FirebaseStorage = getStorage(app);
 const auth: Auth = getAuth(app);
-const functions: Functions = getFunctions(app); // <-- Was missing
+const functions: Functions = getFunctions(app);
 
-// Export the initialized service instances for the FirebaseClientProvider
 export {
     app,
     firestore,

@@ -1,8 +1,8 @@
 'use client';
-import { useState, useMemo } from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
+import { useState } from 'react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Landmark, Wallet, CheckCircle2, AlertCircle, MinusCircle, User, ArrowRightLeft, Lock, Truck, Printer, Edit2 } from 'lucide-react';
+import { MoreHorizontal, Landmark, Wallet, MinusCircle, User, ArrowRightLeft, Printer, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 import {
@@ -15,10 +15,7 @@ import {
   DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
-import { Timestamp } from 'firebase/firestore';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -30,7 +27,6 @@ interface TripFreightTableProps {
 }
 
 export default function TripFreightTable({ data, isAdmin, operatorName, onAction }: TripFreightTableProps) {
-  const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(1);
 
   const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE);
@@ -52,6 +48,7 @@ export default function TripFreightTable({ data, isAdmin, operatorName, onAction
                 <TableHead className="text-[11px] font-black uppercase tracking-wider h-12 px-4">Ship To</TableHead>
                 <TableHead className="text-[11px] font-black uppercase tracking-wider h-12 px-4 text-center">Destination</TableHead>
                 <TableHead className="text-[11px] font-black uppercase tracking-wider h-12 px-4 text-right">LR Qty</TableHead>
+                <TableHead className="text-[11px] font-black uppercase tracking-wider h-12 px-4 text-right">Freight</TableHead>
                 <TableHead className="text-[11px] font-black uppercase tracking-wider h-12 px-4 text-center">POD Status</TableHead>
                 <TableHead className="text-[11px] font-black uppercase tracking-wider h-12 px-4 text-center">Payment Status</TableHead>
                 <TableHead className="sticky right-0 bg-slate-50 z-20 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] text-[11px] font-black uppercase tracking-wider h-12 px-4 text-right">Action</TableHead>
@@ -59,17 +56,13 @@ export default function TripFreightTable({ data, isAdmin, operatorName, onAction
             </TableHeader>
             <TableBody>
               {paginatedData.length === 0 ? (
-                <TableRow><TableCell colSpan={12} className="h-48 text-center text-slate-400 italic">No records detected in registry.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={13} className="h-48 text-center text-slate-400 italic">No records detected in registry.</TableCell></TableRow>
               ) : (
                 paginatedData.map((row) => {
                   const freight = row.freightData;
                   const balance = freight?.balanceAmount || 0;
                   const isPaidCompletely = balance <= 50;
-                  
-                  // ERP Lock Rule: If payment is under process/paid, certain edits are locked
                   const isPaymentInitiated = row.freightStatus === 'Under Process' || row.freightStatus === 'Paid';
-                  
-                  // Permission Rule: Assigned User or Admin
                   const hasOwnership = isAdmin || operatorName === row.userName;
 
                   return (
@@ -90,6 +83,7 @@ export default function TripFreightTable({ data, isAdmin, operatorName, onAction
                       <TableCell className="px-4 truncate max-w-[120px] font-bold text-blue-900 uppercase">{row.shipToParty}</TableCell>
                       <TableCell className="px-4 text-center truncate max-w-[120px] uppercase">{row.unloadingPoint}</TableCell>
                       <TableCell className="px-4 text-right font-black text-blue-900">{(Number(row.quantity) || 0).toFixed(3)}</TableCell>
+                      <TableCell className="px-4 text-right font-black text-emerald-600">{`₹${(Number(row.totalFreightAmount) || 0).toLocaleString()}`}</TableCell>
                       <TableCell className="px-4 text-center">
                         <Badge variant={row.podReceived ? "default" : "destructive"} className="text-[9px] uppercase font-black px-2 h-5 border-none">
                             {row.podReceived ? 'Received' : 'Pending'}
@@ -110,62 +104,36 @@ export default function TripFreightTable({ data, isAdmin, operatorName, onAction
                           </DropdownMenuTrigger>
                           <DropdownMenuPortal>
                             <DropdownMenuContent align="end" className="w-64 p-2 border-slate-200 shadow-xl z-[100] bg-white rounded-xl">
-                                <DropdownMenuLabel className="text-[9px] uppercase tracking-widest text-slate-400 mb-1 px-2 flex justify-between items-center">
-                                    Control Node
-                                    {!hasOwnership && <Lock className="h-2.5 w-2.5" />}
-                                </DropdownMenuLabel>
+                                <DropdownMenuLabel className="text-[9px] uppercase tracking-widest text-slate-400 mb-1 px-2">Control Node</DropdownMenuLabel>
                                 
-                                <DropdownMenuItem 
-                                    disabled={!hasOwnership || isPaymentInitiated}
-                                    onClick={() => onAction('banking', row)} 
-                                    className="gap-3 font-bold py-2.5 cursor-pointer rounded-lg"
-                                >
+                                <DropdownMenuItem disabled={!hasOwnership || isPaymentInitiated} onClick={() => onAction('banking', row)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-lg">
                                     <Landmark className="h-4 w-4 text-blue-600" /> 
                                     {isPaymentInitiated ? 'Add Banking (Locked)' : 'Add Banking'}
                                 </DropdownMenuItem>
 
-                                <DropdownMenuItem 
-                                    disabled={!hasOwnership || isPaymentInitiated}
-                                    onClick={() => onAction('freight', row)} 
-                                    className="gap-3 font-bold py-2.5 cursor-pointer rounded-lg"
-                                >
+                                <DropdownMenuItem disabled={!hasOwnership || isPaymentInitiated} onClick={() => onAction('freight', row)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-lg">
                                     <ArrowRightLeft className="h-4 w-4 text-emerald-600" /> 
                                     {isPaymentInitiated ? 'Freight Request (Locked)' : 'Freight Request'}
                                 </DropdownMenuItem>
 
-                                <DropdownMenuItem 
-                                    disabled={!hasOwnership}
-                                    onClick={() => onAction('charges', row)}
-                                    className="gap-3 font-bold py-2.5 cursor-pointer rounded-lg"
-                                >
+                                <DropdownMenuItem disabled={!hasOwnership} onClick={() => onAction('charges', row)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-lg">
                                     <Wallet className="h-4 w-4 text-amber-600" /> 
                                     Add Charge
                                 </DropdownMenuItem>
 
-                                <DropdownMenuItem 
-                                    disabled={!hasOwnership}
-                                    onClick={() => onAction('debit', row)} 
-                                    className="gap-3 font-bold py-2.5 text-red-600 cursor-pointer rounded-lg"
-                                >
+                                <DropdownMenuItem disabled={!hasOwnership} onClick={() => onAction('debit', row)} className="gap-3 font-bold py-2.5 text-red-600 cursor-pointer rounded-lg">
                                     <MinusCircle className="h-4 w-4 text-red-600" /> 
                                     Add Deduction
                                 </DropdownMenuItem>
 
                                 <DropdownMenuSeparator className="my-1 bg-slate-100" />
 
-                                <DropdownMenuItem 
-                                    disabled={!hasOwnership}
-                                    onClick={() => onAction('edit-selection', row)}
-                                    className="gap-3 font-bold py-2.5 cursor-pointer rounded-lg bg-blue-600 text-white hover:bg-blue-700 focus:bg-blue-700"
-                                >
+                                <DropdownMenuItem disabled={!hasOwnership} onClick={() => onAction('edit-selection', row)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-lg bg-blue-600 text-white hover:bg-blue-700 focus:bg-blue-700">
                                     <Edit2 className="h-4 w-4" /> 
                                     Edit Details
                                 </DropdownMenuItem>
 
-                                <DropdownMenuItem 
-                                    onClick={() => onAction('print', row)} 
-                                    className="gap-3 font-bold py-2.5 text-blue-900 cursor-pointer rounded-lg"
-                                >
+                                <DropdownMenuItem onClick={() => onAction('print', row)} className="gap-3 font-bold py-2.5 text-blue-900 cursor-pointer rounded-lg">
                                     <Printer className="h-4 w-4 text-blue-900" /> 
                                     Print Voucher
                                 </DropdownMenuItem>

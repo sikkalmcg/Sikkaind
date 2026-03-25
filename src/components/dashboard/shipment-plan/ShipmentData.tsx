@@ -8,10 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { FileDown, Search, Ban, Edit2, FileText, Printer, FileDown as DownloadIcon, ExternalLink } from 'lucide-react';
+import { FileDown, Search, Ban, Edit2, FileText, Printer, FileDown as DownloadIcon, ExternalLink, PlusCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Shipment, Plant, Trip, WithId, Carrier, LR } from '@/types';
-import { useUser, useFirestore } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc, limit } from 'firebase/firestore';
 import DeleteShipmentConfirmationDialog from './DeleteShipmentConfirmationDialog';
 import { Timestamp } from "firebase/firestore";
@@ -22,6 +22,7 @@ import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreview
 import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
 import { useLoading } from '@/context/LoadingContext';
 import { useToast } from '@/hooks/use-toast';
+import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAssignModal';
 
 interface ShipmentDataProps {
   shipments: WithId<Shipment>[];
@@ -79,6 +80,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
   const [carriers, setCarriers] = useState<WithId<Carrier>[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [previewLr, setPreviewLr] = useState<EnrichedLR | null>(null);
+  const [isAssignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedShipment, setSelectedShipment] = useState<WithId<Shipment> | null>(null);
+  const [plantCarriers, setPlantCarriers] = useState<WithId<Carrier>[]>([]);
   
   const { user } = useUser();
   const firestore = useFirestore();
@@ -87,32 +91,29 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
   
   const isAdmin = user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
 
+  const allCarriersQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, "carriers")) : null, 
+    [firestore]
+  );
+  const { data: allCarriers } = useCollection<Carrier>(allCarriersQuery);
+
   useEffect(() => {
     if (!firestore) return;
     setLoading(true);
-    
-    // Mission Registry Handshake: Broad extraction for enrichment
     const unsubTrips = onSnapshot(collection(firestore, "trips"), (snap) => {
         setTrips(snap.docs.map(d => ({ id: d.id, ...d.data() } as WithId<Trip>)));
+        setLoading(false);
     });
 
-    const unsubCarriers = onSnapshot(collection(firestore, "carriers"), (snap) => {
-        setCarriers(snap.docs.map(d => ({ id: d.id, ...d.data() } as WithId<Carrier>)));
-    });
-
-    setLoading(false);
-
-    return () => {
-        unsubTrips();
-        unsubCarriers();
-    };
+    return () => unsubTrips();
   }, [firestore]);
 
   const enrichedShipments: EnrichedShipment[] = useMemo(() => {
+    if (!allCarriers) return [];
     return shipments.map(shipment => {
         const trip = trips.find(t => t.shipmentIds && t.shipmentIds.includes(shipment.id));
         const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(shipment.originPlantId));
-        const carrier = carriers.find(c => c.id === trip?.carrierId || c.id === shipment.carrierId);
+        const carrier = allCarriers.find(c => c.id === trip?.carrierId || c.id === shipment.carrierId);
 
         return {
             ...shipment,
@@ -127,7 +128,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
             carrierObj: carrier
         }
     });
-  }, [shipments, plants, trips, carriers]);
+  }, [shipments, plants, trips, allCarriers]);
 
   const filteredShipments = useMemo(() => {
     if (!searchTerm) return enrichedShipments;
@@ -143,6 +144,14 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
   }, [filteredShipments, currentPage]);
 
   const totalPages = Math.ceil(filteredShipments.length / ITEMS_PER_PAGE);
+
+  const handleOpenAssignModal = (shipment: WithId<Shipment>) => {
+    if (!allCarriers) return;
+    const carriersForPlant = allCarriers.filter(c => normalizePlantId(c.plantId) === normalizePlantId(shipment.originPlantId));
+    setPlantCarriers(carriersForPlant);
+    setSelectedShipment(shipment);
+    setAssignModalOpen(true);
+  };
 
   const handleExport = () => {
     const dataToExport = filteredShipments.map(s => ({
@@ -178,11 +187,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
         const plantId = normalizePlantId(row.originPlantId);
         const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
         
-        // Strategy: First check standard registry path
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
-        // Strategy Fallback: Check for LR stored in shipment itself if document missing
         if (snap.empty) {
             if (row.items && row.items.length > 0) {
                 setPreviewLr({
@@ -279,15 +286,15 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
             <TableBody>
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}><TableCell colSpan={16} className="p-6"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                  <TableRow key={i}><TableCell colSpan={17} className="p-6"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                 ))
               ) : paginatedShipments.length === 0 ? (
-                <TableRow><TableCell colSpan={16} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={17} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
               ) : (
                 paginatedShipments.map(s => {
                   const isCancelled = s.currentStatusId?.toLowerCase() === 'cancelled';
                   const isShortClosed = s.currentStatusId?.toLowerCase() === 'short closed';
-                  const canCancel = isAdmin || (!isCancelled && !isShortClosed && s.balanceQty > 0);
+                  const canAssign = !isCancelled && !isShortClosed && s.balanceQty > 0;
                   const canEdit = isAdmin || (!isCancelled && !isShortClosed && (s.currentStatusId === 'pending' || s.currentStatusId === 'partly vehicle assigned'));
                   
                   return (
@@ -318,7 +325,19 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                         </Badge>
                       </TableCell>
                       <TableCell className="px-8 text-right">
-                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:bg-green-50" disabled={!canAssign} onClick={() => handleOpenAssignModal(s)}>
+                                            <PlusCircle className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    {!canAssign ? (
+                                        <TooltipContent className="bg-slate-900 text-white font-black uppercase text-[10px]">Vehicle Allocation Blocked</TooltipContent>
+                                    ) : <TooltipContent className="bg-slate-900 text-white font-black uppercase text-[10px]">Assign Vehicle</TooltipContent>}
+                                </Tooltip>
+                            </TooltipProvider>
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -336,14 +355,14 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <div className="inline-block">
-                                            <DeleteShipmentConfirmationDialog onConfirm={() => onDelete(s.id)} shipment={s} disabled={!canCancel}>
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50" disabled={!canCancel}>
+                                            <DeleteShipmentConfirmationDialog onConfirm={() => onDelete(s.id)} shipment={s} disabled={!isAdmin}>
+                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-.tsx50" disabled={!isAdmin}>
                                                     <Ban className="h-4 w-4" />
                                                 </Button>
                                             </DeleteShipmentConfirmationDialog>
                                         </div>
                                     </TooltipTrigger>
-                                    {!canCancel && (
+                                    {!isAdmin && (
                                         <TooltipContent className="bg-slate-900 text-white font-black uppercase text-[10px]">Revocation Restricted</TooltipContent>
                                     )}
                                 </Tooltip>
@@ -370,6 +389,15 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
         </div>
       </CardContent>
       {previewLr && <LRPrintPreviewModal isOpen={!!previewLr} onClose={() => setPreviewLr(null)} lr={previewLr} />}
+      {isAssignModalOpen && selectedShipment && (
+        <VehicleAssignModal 
+            isOpen={isAssignModalOpen}
+            onClose={() => setAssignModalOpen(false)}
+            shipment={selectedShipment}
+            onAssignmentComplete={() => setAssignModalOpen(false)}
+            carriers={plantCarriers}
+        />
+      )}
     </Card>
   );
 }

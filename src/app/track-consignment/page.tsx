@@ -43,13 +43,14 @@ import { useJsApiLoader } from '@react-google-maps/api';
  */
 
 const MAPS_JS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
+const libraries: ("places")[] = ['places'];
 
 function TrackConsignmentContent() {
     const firestore = useFirestore();
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
         googleMapsApiKey: MAPS_JS_KEY,
-        libraries: ['places']
+        libraries
     });
     
     const [tripIdInput, setTripIdInput] = useState('');
@@ -58,6 +59,19 @@ function TrackConsignmentContent() {
     const [isSearching, setIsSearching] = useState(false);
     const [result, setResult] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
+    const [runningIcon, setRunningIcon] = useState<string | null>(null);
+
+    // Fetch Custom Icon
+    useEffect(() => {
+        if (!firestore) return;
+        const fetchSettings = async () => {
+            const snap = await getDoc(doc(firestore, "gps_settings", "api_config"));
+            if (snap.exists() && snap.data().runningIconUrl) {
+                setRunningIcon(snap.data().runningIconUrl);
+            }
+        };
+        fetchSettings();
+    }, [firestore]);
 
     useEffect(() => {
         refreshCaptcha();
@@ -205,7 +219,11 @@ function TrackConsignmentContent() {
                 <div className="text-center space-y-4">
                     <div className="flex justify-center mb-6">
                         <div className="p-5 bg-blue-900 text-white rounded-[2.5rem] shadow-3xl rotate-3">
-                            <Radar className="h-12 w-12" />
+                            {runningIcon ? (
+                                <img src={runningIcon} alt="Truck" className="h-12 w-12 object-contain invert" />
+                            ) : (
+                                <Radar className="h-12 w-12" />
+                            )}
                         </div>
                     </div>
                     <h1 className="text-5xl md:text-6xl font-black text-slate-900 tracking-tighter uppercase italic leading-none">
@@ -291,7 +309,11 @@ function TrackConsignmentContent() {
                             <CardHeader className="bg-white/5 border-b border-white/5 p-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                                 <div className="flex items-center gap-5">
                                     <div className="p-4 bg-blue-600 rounded-3xl shadow-2xl rotate-3">
-                                        <Truck className="h-8 w-8" />
+                                        {runningIcon ? (
+                                            <img src={runningIcon} alt="Truck" className="h-8 w-8 object-contain invert" />
+                                        ) : (
+                                            <Truck className="h-8 w-8" />
+                                        )}
                                     </div>
                                     <div>
                                         <h2 className="text-3xl font-black uppercase italic tracking-tighter leading-none">Mission Particulars</h2>
@@ -366,7 +388,11 @@ function TrackConsignmentContent() {
                                                     isActive ? "bg-blue-900 border-blue-400 text-white scale-125 shadow-2xl rotate-3" :
                                                     "bg-white border-slate-100 text-slate-300 shadow-sm"
                                                 )}>
-                                                    <stage.icon className={cn("h-7 w-7", isActive && "animate-pulse")} />
+                                                    {stage.icon === Truck && runningIcon ? (
+                                                        <img src={runningIcon} alt="Truck" className={cn("h-7 w-7 object-contain", isCompleted && !isActive && "invert")} />
+                                                    ) : (
+                                                        <stage.icon className={cn("h-7 w-7", isActive && "animate-pulse")} />
+                                                    )}
                                                 </div>
                                                 <div className="text-center space-y-1">
                                                     <p className={cn(

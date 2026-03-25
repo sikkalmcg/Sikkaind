@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -165,13 +164,19 @@ export default function FreightRequestPage() {
     return () => unsubscribers.forEach(u => u());
   }, [firestore, JSON.stringify(selectedPlants)]);
 
-  const joinedData = useMemo(() => {
+ const joinedData = useMemo(() => {
     return trips.map(t => {
         const shipment = shipments.find(s => s.id === t.shipmentIds?.[0]);
         const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId);
         const freight = freights.find(f => f.tripId === t.id);
         const plant = plants.find(p => p.id === t.originPlantId);
         const carrierObj = (dbCarriers || []).find(c => c.id === t.carrierId);
+
+        const totalFreightAmount = freight?.totalFreightAmount || 0;
+        const totalPaidAmount = freight?.totalPaidAmount || 0;
+        const podStatus = freight?.podStatus || 'None';
+        const holdback = podStatus === 'Hard Copy' ? 0 : (podStatus === 'Soft Copy' ? 500 : 1000);
+        const remainingBalance = totalFreightAmount - totalPaidAmount - holdback;
 
         return {
             ...t,
@@ -187,9 +192,13 @@ export default function FreightRequestPage() {
             unloadingPoint: t.unloadingPoint || shipment?.unloadingPoint || '--',
             quantity: lr ? (lr.assignedTripWeight || t.assignedQtyInTrip || 0) : (t.assignedQtyInTrip || 0),
             carrier: carrierObj?.name || '--',
+            totalFreightAmount,
+            totalPaidAmount,
+            remainingBalance,
+            podStatus,
         };
     });
-  }, [trips, shipments, lrs, freights, plants, dbCarriers]);
+}, [trips, shipments, lrs, freights, plants, dbCarriers]);
 
   const baseFiltered = useMemo(() => {
     const dayStart = fromDate ? startOfDay(fromDate) : null;
@@ -215,12 +224,12 @@ export default function FreightRequestPage() {
   // RULE: Automatic Trip Closure Rule (Balance <= ₹50)
   const tripFreightData = useMemo(() => baseFiltered.filter(t => {
     if (!t.freightData) return true; 
-    return t.freightData.balanceAmount > 50;
+    return t.remainingBalance > 50;
   }), [baseFiltered]);
 
   const closeFreightData = useMemo(() => baseFiltered.filter(t => {
     if (!t.freightData) return false;
-    return t.freightData.balanceAmount <= 50;
+    return t.remainingBalance <= 50;
   }), [baseFiltered]);
 
   const isReadOnlyScope = !isAdmin && authorizedPlantIds.length === 1;

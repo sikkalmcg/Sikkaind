@@ -1,50 +1,59 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CreateCarrierForm from '@/components/dashboard/carrier-management/CreateCarrierForm';
 import AddedCarriersTable from '@/components/dashboard/carrier-management/AddedCarriersTable';
 import type { WithId, Carrier, Plant } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import EditCarrierModal from '@/components/dashboard/carrier-management/EditCarrierModal';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
-import { Loader2, WifiOff } from "lucide-react";
+import { Loader2, WifiOff } from 'lucide-react';
 
 export default function CarrierManagementPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
+  const searchParams = useSearchParams();
+  const plantFilter = searchParams.get('plantId') || 'all';
 
   const [activeTab, setActiveTab] = useState('create');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCarrier, setEditingCarrier] = useState<WithId<Carrier> | null>(null);
 
-  // Real-time Firestore query for carriers
-  const carriersQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, "carriers")) : null, 
+  useEffect(() => {
+    if (!isEditModalOpen) {
+      const timer = setTimeout(() => setEditingCarrier(null), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isEditModalOpen]);
+
+  const carriersQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, "carriers")) : null,
     [firestore]
   );
   const { data: carriers, isLoading: isLoadingCarriers, error: carriersError } = useCollection<Carrier>(carriersQuery);
 
-  // Points to logistics_plants for Hub management
-  const plantsQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, "logistics_plants")) : null, 
+  const plantsQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, "logistics_plants")) : null,
     [firestore]
   );
   const { data: plants, isLoading: isLoadingPlants } = useCollection<Plant>(plantsQuery);
 
+  const sanitizedCarriers = useMemo(() => {
+    let filteredCarriers = carriers || [];
+    if (plantFilter !== 'all') {
+      filteredCarriers = filteredCarriers.filter(carrier => carrier.plantId === plantFilter);
+    }
+    return filteredCarriers.map(carrier => ({ name: '', gstin: '', pan: '', plantId: '', logoUrl: '', stateName: '', ...carrier }));
+  }, [carriers, plantFilter]);
+
   const handleCarrierCreated = async (carrierData: Omit<Carrier, 'id'>) => {
     if (!firestore) return;
     try {
-      const cleanedData = Object.fromEntries(
-        Object.entries(carrierData).filter(([_, v]) => v !== undefined)
-      );
-
-      await addDoc(collection(firestore, "carriers"), {
-        ...cleanedData,
-        createdAt: serverTimestamp(),
-      });
-      toast({ title: 'Success', description: 'Carrier created successfully in the cloud.' });
+      await addDoc(collection(firestore, "carriers"), { ...carrierData, createdAt: serverTimestamp() });
+      toast({ title: 'Success', description: 'Carrier created successfully.' });
       setActiveTab('list');
     } catch (error: any) {
       console.error("Create carrier error:", error);
@@ -57,22 +66,15 @@ export default function CarrierManagementPage() {
     try {
       const carrierRef = doc(firestore, "carriers", carrierId);
       const carrierSnap = await getDoc(carrierRef);
-
       if (carrierSnap.exists()) {
-          const carrierData = carrierSnap.data();
-          // Move to Recycle Bin
           await addDoc(collection(firestore, "recycle_bin"), {
               pageName: "Carrier Management",
               userName: user.email?.split('@')[0] || "Admin",
               deletedAt: serverTimestamp(),
-              data: { ...carrierData, id: carrierId, type: 'Carrier' }
+              data: { ...carrierSnap.data(), id: carrierId, type: 'Carrier' }
           });
-
           await deleteDoc(carrierRef);
-          toast({
-            title: 'Moved to Bin',
-            description: 'The carrier has been moved to the Recycle Bin.',
-          });
+          toast({ title: 'Moved to Bin', description: 'Carrier moved to Recycle Bin.' });
       }
     } catch (error: any) {
       console.error("Delete carrier error:", error);
@@ -87,25 +89,25 @@ export default function CarrierManagementPage() {
 
   const handleCloseEditModal = () => {
     setIsEditModalOpen(false);
-    setEditingCarrier(null);
   };
 
   const handleCarrierUpdated = async (carrierId: string, data: Partial<Omit<Carrier, 'id'>>) => {
-    if (!firestore) return;
     try {
-      const cleanedData = Object.fromEntries(
-        Object.entries(data).filter(([_, v]) => v !== undefined)
-      );
+      if (!firestore) throw new Error("Firestore is not initialized.");
 
-      await updateDoc(doc(firestore, "carriers", carrierId), {
-        ...cleanedData,
-        lastUpdated: serverTimestamp()
-      });
-      toast({ title: 'Success', description: 'Carrier details updated in the cloud.' });
+      if (!carrierId) {
+        const errorMsg = "Cannot update: Critical information missing (carrier ID).";
+        toast({ variant: 'destructive', title: 'Update Failed', description: errorMsg });
+        throw new Error(errorMsg);
+      }
+
+      const cleanedData = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== null && v !== undefined));
+      await updateDoc(doc(firestore, "carriers", carrierId), { ...cleanedData, lastUpdated: serverTimestamp() });
+      toast({ title: 'Success', description: 'Carrier details updated successfully.' });
       handleCloseEditModal();
     } catch (error: any) {
       console.error("Update carrier error:", error);
-      toast({ variant: 'destructive', title: "Database Error", description: error.message });
+      toast({ variant: 'destructive', title: "Database Error", description: `Could not update carrier: ${error.message}` });
     }
   };
 
@@ -115,18 +117,18 @@ export default function CarrierManagementPage() {
     <>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold font-headline">Carrier Management</h1>
-            {carriersError && (
-                <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full text-xs font-medium">
-                    <WifiOff className="h-3 w-3" />
-                    <span>Cloud Connectivity Issue</span>
-                </div>
-            )}
+          <h1 className="text-2xl font-semibold font-headline">Carrier Management</h1>
+          {carriersError && (
+            <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full text-xs font-medium">
+              <WifiOff className="h-3 w-3" />
+              <span>Cloud Connectivity Issue</span>
+            </div>
+          )}
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 max-w-md">
-            <TabsTrigger value="create">Create Carrier</TabsTrigger>
+            <TabsTrigger value="create" >Create Carrier</TabsTrigger>
             <TabsTrigger value="list">Added Carriers</TabsTrigger>
           </TabsList>
           <TabsContent value="create">
@@ -134,26 +136,28 @@ export default function CarrierManagementPage() {
           </TabsContent>
           <TabsContent value="list">
             {isDataLoading ? (
-                <div className="flex h-64 items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
+              <div className="flex h-64 items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
             ) : (
+              <>
                 <AddedCarriersTable
-                    carriers={carriers || []}
-                    plants={plants || []}
-                    onEdit={handleOpenEditModal}
-                    onDelete={handleCarrierDeleted}
+                  carriers={sanitizedCarriers}
+                  plants={plants || []}
+                  onEdit={handleOpenEditModal}
+                  onDelete={handleCarrierDeleted}
                 />
+              </>
             )}
           </TabsContent>
         </Tabs>
       </main>
       {editingCarrier && (
         <EditCarrierModal
-            isOpen={isEditModalOpen}
-            onClose={handleCloseEditModal}
-            carrier={editingCarrier}
-            onCarrierUpdated={handleCarrierUpdated}
+          isOpen={isEditModalOpen}
+          onClose={handleCloseEditModal}
+          carrier={editingCarrier}
+          onCarrierUpdated={handleCarrierUpdated}
         />
       )}
     </>

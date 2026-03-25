@@ -2,7 +2,6 @@
 
 ## Core Features:
 
-- Live Dashboard: Display real-time logistics data, including available vehicles, pending shipments, and active trips, through dynamically updating summary cards.
 - Vehicle Management: Allow adding and managing vehicle details such as entry/exit timestamps, driver information, and plant location.
 - Shipment Planning: Enable creation of unique shipment IDs, origin/destination details, material information, and shipment status tracking.
 - Vehicle Assignment: Assign vehicles to shipments, map drivers, generate trip IDs, and manage assignment statuses.
