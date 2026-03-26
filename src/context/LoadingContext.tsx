@@ -1,58 +1,40 @@
 'use client';
-/**
- * @fileOverview Global Loading Context for Sikka LMC.
- * Manages the "Please wait..." ERP-grade interaction shield with a safety fuse.
- */
 
-import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect, useMemo } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useMemo } from 'react';
 
 interface LoadingContextType {
   isLoading: boolean;
-  showLoader: () => void;
-  hideLoader: () => void;
+  showLoading: () => void;
+  hideLoading: () => void;
 }
 
 const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
 
-export function LoadingProvider({ children }: { children: ReactNode }) {
+export const LoadingProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(false);
 
-  const showLoader = useCallback(() => setIsLoading(true), []);
-  const hideLoader = useCallback(() => setIsLoading(false), []);
-
-  /**
-   * Snappy Response Protocol:
-   * Automatically hide the loader after 4 seconds to prevent interaction deadlocks.
-   */
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    if (isLoading) {
-      timer = setTimeout(() => {
-        setIsLoading(false);
-      }, 4000); 
-    }
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [isLoading]);
-
-  const value = useMemo(() => ({
+  const contextValue = useMemo(() => ({
     isLoading,
-    showLoader,
-    hideLoader
-  }), [isLoading, showLoader, hideLoader]);
+    showLoading: () => setIsLoading(true),
+    hideLoading: () => setIsLoading(false),
+  }), [isLoading]);
 
   return (
-    <LoadingContext.Provider value={value}>
+    <LoadingContext.Provider value={contextValue}>
       {children}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-white"></div>
+        </div>
+      )}
     </LoadingContext.Provider>
   );
-}
+};
 
-export function useLoading() {
+export const useLoading = () => {
   const context = useContext(LoadingContext);
   if (context === undefined) {
     throw new Error('useLoading must be used within a LoadingProvider');
   }
   return context;
-}
+};

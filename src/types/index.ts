@@ -78,7 +78,6 @@ export interface Trip {
 export interface Carrier {
   id: string;
   name: string;
-<<<<<<< HEAD
   plantId?: string;
   address?: string;
   gstin?: string;
@@ -90,8 +89,6 @@ export interface Carrier {
   website?: string;
   logoUrl?: string;
   terms?: string[];
-=======
->>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
 }
 
 export interface VehicleEntry {
@@ -132,4 +129,51 @@ export interface Party {
 export interface MasterQtyType {
   id: string;
   name: string;
+}
+
+export const pagePermissions = {
+  'dashboard': 'Dashboard',
+  'user-management': 'User Management',
+  'sub-user-management': 'Sub-User Management',
+  'shipment-plan': 'Shipment Plan',
+  'vehicle-assign': 'Vehicle Assign',
+  'trip-board': 'Trip Board',
+  'shipment-tracking': 'Shipment Tracking',
+  'status-management': 'Status Management',
+  'vehicle-entry': 'Vehicle Entry',
+  'freight-process': 'Freight Process',
+  'freight-management': 'Freight Management',
+  'fuel-management': 'Fuel Management',
+  'fuel-payment': 'Fuel Payment',
+  'fuel-pump': 'Fuel Pump Management',
+  'carrier-management': 'Carrier Management',
+  'plant-management': 'Plant Management',
+  'employee-management': 'Employee Management',
+  'attendance-register': 'Attendance Register',
+  'report-analysis': 'Report & Analysis',
+  'trip-summary': 'Trip Summary',
+  'shipment-summary': 'Shipment Summary',
+  'user-activity-log': 'User Activity Log',
+  'rejection-shortage': 'Rejection/Shortage',
+  'recycle-bin': 'Recycle Bin',
+  'lr-create': 'LR Create',
+  'tracking': 'Tracking',
+};
+
+export type PageKey = keyof typeof pagePermissions;
+
+export type VehicleLocation = string;
+
+export interface User {
+  id: string;
+  fullName: string;
+  mobile: string;
+  username: string;
+  jobRole: string;
+  plantIds: string[];
+  permissions: PageKey[];
+  status: 'Active' | 'Inactive';
+  email: string;
+  password?: string;
+  authorizedLocations?: VehicleLocation[];
 }

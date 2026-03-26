@@ -31,8 +31,18 @@ interface TaskHistoryTableProps {
 const getSafeDate = (date: any): Date | null => {
     if (!date) return null;
     try {
+        // Case 1: Firestore Timestamp instance
         if (date instanceof Timestamp) return date.toDate();
+        
+        // Case 2: JavaScript Date instance
         if (date instanceof Date) return isValid(date) ? date : null;
+
+        // Case 3: Firestore-like object { seconds: ..., nanoseconds: ... }
+        if (typeof date === 'object' && date !== null && typeof date.seconds === 'number') {
+            return new Date(date.seconds * 1000);
+        }
+
+        // Case 4: String or number that can be parsed by new Date()
         const d = new Date(date);
         return isValid(d) ? d : null;
     } catch (e) {
@@ -276,7 +286,7 @@ export default function TaskHistoryTable({ data, isAdmin, onRemove }: TaskHistor
                 </div>
                 <div className="p-6 bg-slate-50 border-t flex items-center justify-between">
                     <Pagination 
-                        currentPage={currentPage} 
+                        currentPage={currentPage}
                         totalPages={totalPages} 
                         onPageChange={setCurrentPage} 
                         itemCount={filteredData.length}

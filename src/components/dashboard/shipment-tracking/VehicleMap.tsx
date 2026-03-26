@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { 
   GoogleMap, 
   useJsApiLoader, 
-  AdvancedMarkerElement, 
+  Marker, 
   InfoWindow,
   DirectionsRenderer
 } from '@react-google-maps/api';
@@ -108,20 +108,18 @@ export default function VehicleMap({
           options={{ disableDefaultUI: false, gestureHandling: 'greedy' }}
           mapId="8a76e73364223c34"
         >
-          {origin && <AdvancedMarkerElement position={origin} title="Lifting Source" />}
-          {destination && <AdvancedMarkerElement position={destination} title="Drop Destination" />}
+          {origin && <Marker position={origin} title="Lifting Source" />}
+          {destination && <Marker position={destination} title="Drop Destination" />}
           
           {vehiclePos && (
-            <AdvancedMarkerElement 
+            <Marker 
                 position={vehiclePos} 
                 onClick={() => setInfoOpen(true)}
-            >
-                <img 
-                    src={isMoving ? runningIconUrl : stoppedIconUrl || DEFAULT_TRUCK_ICON} 
-                    alt="Vehicle" 
-                    className="w-12 h-12 object-contain"
-                />
-            </AdvancedMarkerElement>
+                icon={{
+                    url: (isMoving ? runningIconUrl : stoppedIconUrl) || DEFAULT_TRUCK_ICON,
+                    scaledSize: new window.google.maps.Size(48, 48)
+                }}
+            />
           )}
 
           {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: true }} />}
@@ -138,7 +136,7 @@ export default function VehicleMap({
                         <p className="text-[8px] font-black text-slate-400 uppercase">Speed</p>
                         <p className="text-sm font-black text-slate-900">{liveData?.speed} KM/H</p>
                     </div>
-                    <div className="space-y-0.5">
+                    <div className="spacey-0.5">
                         <p className="text-[8px] font-black text-slate-400 uppercase">Ignition</p>
                         <p className={cn("text-sm font-black uppercase", statusColor)}>
                             {liveData?.ignition ? 'ON' : 'OFF'}

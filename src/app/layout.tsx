@@ -1,63 +1,39 @@
-'use client';
-import './globals.css';
-import { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
-import { FirebaseClientProvider } from '@/firebase/client-provider';
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
-import Header from '@/components/website/Header';
-import Footer from '@/components/website/Footer';
-import { LoadingProvider } from '@/context/LoadingContext';
-import GlobalLoader from '@/components/ui/global-loader';
-import AppShell from '@/components/layout/AppShell';
+import { FirebaseProvider } from "@/firebase/provider";
+import { LoadingProvider } from "@/context/LoadingContext"; // Import the LoadingProvider
+
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "Sikka (Internal)",
+  description: "Sikka internal logistics software",
+};
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const isWebsitePage = !pathname || (
-                        !pathname.startsWith('/login') && 
-                        !pathname.startsWith('/dashboard') && 
-                        !pathname.startsWith('/modules') && 
-                        !pathname.startsWith('/user-management'));
-
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="font-body antialiased bg-background">
-        <FirebaseClientProvider>
-          <LoadingProvider>
-            <GlobalLoader />
-            {mounted ? (
-              isWebsitePage ? (
-                <>
-                  <Header />
-                  <main className="block">{children}</main>
-                  <Footer />
-                </>
-              ) : (
-                <AppShell>{children}</AppShell>
-              )
-            ) : (
-              <GlobalLoader />
-            )}
-            <Toaster />
+      <body className={inter.className}>
+        <FirebaseProvider>
+          <LoadingProvider> {/* Add the LoadingProvider here */}
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="light"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+              <Toaster />
+            </ThemeProvider>
           </LoadingProvider>
-        </FirebaseClientProvider>
+        </FirebaseProvider>
       </body>
     </html>
   );
