@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+    return twMerge(clsx(inputs))
 }
 
 /**
@@ -12,15 +12,88 @@ export function cn(...inputs: ClassValue[]) {
  */
 export const normalizePlantId = (id: string | undefined | null): string => {
     if (!id) return '';
-    
+
+    const trimmedId = id.trim();
+    if (!trimmedId) return '';
+
     const mapping: Record<string, string> = {
         'planta': '1426',
         'plantb': '1214',
         'plantc': 'Id23'
     };
 
-    const normalized = id.toLowerCase();
-    return mapping[normalized] || id;
+    const normalized = trimmedId.toLowerCase();
+    return mapping[normalized] || trimmedId;
+};
+
+/**
+ * Checks if a source plant ID matches any candidate plant IDs using normalization.
+ * Case-insensitive matching with alias support.
+ */
+export const matchesPlantReference = (
+    sourcePlantId: string | undefined | null,
+    ...candidatePlantIds: Array<string | undefined | null>
+): boolean => {
+    const normalizedSource = normalizePlantId(sourcePlantId).toLowerCase();
+    if (!normalizedSource) return false;
+
+    return candidatePlantIds.some(candidate => normalizePlantId(candidate).toLowerCase() === normalizedSource);
+};
+
+type CarrierLike = {
+    id?: string;
+    name?: string;
+    plantId?: string | null;
+};
+
+export const getPlantScopedCarriers = <T extends CarrierLike>(
+    carriers: T[] | undefined | null,
+    plantId: string | undefined | null,
+    plantAliases: Array<string | undefined | null> = []
+): T[] => {
+    if (!Array.isArray(carriers) || carriers.length === 0) return [];
+
+    const normalizedPlantId = normalizePlantId(plantId).toLowerCase();
+    const normalizedAliases = plantAliases
+        .map(alias => normalizePlantId(alias).toLowerCase())
+        .filter(Boolean);
+
+    if (!normalizedPlantId && normalizedAliases.length === 0) return [...carriers];
+
+    return carriers.filter(carrier => {
+        const normalizedCarrierPlantId = normalizePlantId(carrier.plantId).toLowerCase();
+        if (!normalizedCarrierPlantId) return false;
+
+        return normalizedCarrierPlantId === normalizedPlantId || normalizedAliases.includes(normalizedCarrierPlantId);
+    });
+};
+
+export const resolvePlantCarrier = <T extends CarrierLike>(
+    carriers: T[] | undefined | null,
+    plantId: string | undefined | null,
+    preferredCarrierId?: string | null,
+    plantAliases: Array<string | undefined | null> = []
+): T | null => {
+    if (!Array.isArray(carriers) || carriers.length === 0) return null;
+
+    const plantScopedCarriers = getPlantScopedCarriers(carriers, plantId, plantAliases);
+    if (plantScopedCarriers.length === 0) {
+        return carriers.find(carrier => carrier.id === preferredCarrierId) || null;
+    }
+
+    if (preferredCarrierId) {
+        const exactPlantMatch = plantScopedCarriers.find(carrier => carrier.id === preferredCarrierId);
+        if (exactPlantMatch) return exactPlantMatch;
+
+        const preferredCarrier = carriers.find(carrier => carrier.id === preferredCarrierId);
+        const preferredName = preferredCarrier?.name?.trim().toLowerCase();
+        if (preferredName) {
+            const sameNamePlantCarrier = plantScopedCarriers.find(carrier => carrier.name?.trim().toLowerCase() === preferredName);
+            if (sameNamePlantCarrier) return sameNamePlantCarrier;
+        }
+    }
+
+    return plantScopedCarriers[0] || null;
 };
 
 /**
@@ -53,7 +126,7 @@ export const generateRandomTripId = (): string => {
  */
 export const incrementSerial = (lastSerial: string): string => {
     if (!lastSerial) return "0001";
-    
+
     const match = lastSerial.match(/^(.*?)(\d+)$/);
     if (!match) return lastSerial + "1";
 
@@ -76,7 +149,7 @@ export const sanitizeRegistryNode = (obj: any): any => {
         if (obj.constructor?.name === 'FieldValue' || obj._methodName?.includes('FieldValue')) {
             return obj;
         }
-        
+
         return Object.fromEntries(
             Object.entries(obj)
                 .filter(([_, v]) => v !== undefined)

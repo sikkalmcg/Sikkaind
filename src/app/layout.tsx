@@ -8,6 +8,7 @@ import Header from '@/components/website/Header';
 import Footer from '@/components/website/Footer';
 import { LoadingProvider } from '@/context/LoadingContext';
 import GlobalLoader from '@/components/ui/global-loader';
+import AppShell from '@/components/layout/AppShell';
 
 export default function RootLayout({
   children,
@@ -21,7 +22,6 @@ export default function RootLayout({
     setMounted(true);
   }, []);
 
-  // Registry Logic: Safely handle null pathname during SSR
   const isWebsitePage = !pathname || (
                         !pathname.startsWith('/login') && 
                         !pathname.startsWith('/dashboard') && 
@@ -42,9 +42,19 @@ export default function RootLayout({
         <FirebaseClientProvider>
           <LoadingProvider>
             <GlobalLoader />
-            {mounted && isWebsitePage && <Header />}
-            <main className={mounted && isWebsitePage ? 'block' : 'contents'}>{children}</main>
-            {mounted && isWebsitePage && <Footer />}
+            {mounted ? (
+              isWebsitePage ? (
+                <>
+                  <Header />
+                  <main className="block">{children}</main>
+                  <Footer />
+                </>
+              ) : (
+                <AppShell>{children}</AppShell>
+              )
+            ) : (
+              <GlobalLoader />
+            )}
             <Toaster />
           </LoadingProvider>
         </FirebaseClientProvider>

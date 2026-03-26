@@ -1,5 +1,5 @@
 'use client';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import type { WithId, LR, Carrier, Trip, Shipment, Plant } from '@/types';
 import { cn } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
@@ -44,6 +44,28 @@ const getCityOnly = (address: string): string => {
     }
     
     return lastPart.toUpperCase();
+};
+
+const getPrintableDate = (value: unknown): string => {
+    if (!value) return 'N/A';
+
+    let parsedDate: Date | null = null;
+
+    if (value instanceof Timestamp) {
+        parsedDate = value.toDate();
+    } else if (value instanceof Date) {
+        parsedDate = value;
+    } else if (typeof value === 'string' || typeof value === 'number') {
+        const candidate = new Date(value);
+        parsedDate = candidate;
+    } else if (typeof value === 'object' && value && 'seconds' in (value as Record<string, unknown>)) {
+        const seconds = Number((value as { seconds?: number }).seconds);
+        if (!Number.isNaN(seconds)) {
+            parsedDate = new Date(seconds * 1000);
+        }
+    }
+
+    return parsedDate && isValid(parsedDate) ? format(parsedDate, 'dd-MMM-yyyy') : 'N/A';
 };
 
 export default function PrintableLR({ 
@@ -153,7 +175,7 @@ export default function PrintableLR({
                     </div>
                     <div className="text-[8.5pt] space-y-0.5 text-black">
                         <p className="font-black text-base">LR No: {lr.lrNumber || 'N/A'}</p>
-                        <p className="font-bold">Date: <span>{lr.date ? format(new Date(lr.date instanceof Timestamp ? lr.date.toDate() : lr.date), 'dd-MMM-yyyy') : 'N/A'}</span></p>
+                        <p className="font-bold">Date: <span>{getPrintableDate(lr.date)}</span></p>
                         <p className="text-[7.5pt]"><span className="font-bold uppercase text-[7pt] text-black mr-1">ORIGIN:</span> {originCity}</p>
                         <p className="text-[7.5pt]"><span className="font-bold uppercase text-[7pt] text-black mr-1">DESTINATION:</span> {destCity}</p>
                     </div>

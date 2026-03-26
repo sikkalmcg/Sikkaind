@@ -19,6 +19,25 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const firestore = useFirestore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isAuthorizing, setIsVerifying] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkIsMobile = () => {
+      const isMobileView = window.innerWidth < 1024;
+      setIsMobile(isMobileView);
+      setIsSidebarOpen(!isMobileView);
+    };
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile) {
+      setIsSidebarOpen(false);
+    }
+  }, [pathname, isMobile]);
+
 
   useEffect(() => {
     if (isUserLoading) {
@@ -38,7 +57,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         try {
             const isRoot = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
 
-            // --- UNIFIED USER LOOKUP (SAME AS MODULES PAGE) ---
             const searchEmail = user.email;
             if (!searchEmail) {
                 throw new Error("User email not available for access verification.");
@@ -67,7 +85,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 return;
             }
 
-            // 2. SUB-PAGE REGISTRY VALIDATION
             const currentSubPage = pathname.split('/').pop();
             const allPerms = [
                 ...SikkaLogisticsPagePermissions, 
@@ -112,7 +129,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <Suspense fallback={<div className="h-16 border-b bg-white w-full animate-pulse" />}>
-          <LogisticsHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+          <LogisticsHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} isSidebarOpen={isSidebarOpen}/>
         </Suspense>
 
         <main className="flex-1 overflow-auto relative">

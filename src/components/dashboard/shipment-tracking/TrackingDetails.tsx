@@ -12,7 +12,7 @@ import {
     Clock,
     User,
     TrendingUp,
-    Wifi,
+    WifiOff, // Changed from Wifi
     Radar,
     Phone,
     Factory,
@@ -37,6 +37,7 @@ interface TrackingDetailsProps {
 
 export default function TrackingDetails({ trip, MapComponent }: TrackingDetailsProps) {
     const live = trip.liveLocation;
+    const isOffline = !live;
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-12">
@@ -51,7 +52,7 @@ export default function TrackingDetails({ trip, MapComponent }: TrackingDetailsP
                 <div>
                     <h2 className="text-2xl font-black uppercase tracking-tight italic">Mission Telemetry Link</h2>
                     <div className="text-[10px] font-bold text-blue-300 uppercase tracking-widest mt-1 flex items-center gap-2">
-                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <div className={cn("h-1.5 w-1.5 rounded-full", isOffline ? "bg-red-500" : "bg-emerald-500 animate-pulse")} />
                         Registry ID: {trip.tripId}
                     </div>
                 </div>
@@ -63,8 +64,8 @@ export default function TrackingDetails({ trip, MapComponent }: TrackingDetailsP
                     <Separator orientation="vertical" className="h-12 bg-white/10" />
                     <div className="text-right">
                         <p className="text-[9px] font-black uppercase text-blue-400 mb-1">Status</p>
-                        <Badge className="bg-emerald-600 text-white font-black uppercase tracking-widest text-[11px] px-6 py-2 rounded-xl border-none">
-                            {trip.currentStatusId}
+                        <Badge className={cn("font-black uppercase tracking-widest text-[11px] px-6 py-2 rounded-xl border-none", isOffline ? "bg-red-600" : "bg-emerald-600")}>
+                            {isOffline ? "GPS OFFLINE" : trip.currentStatusId}
                         </Badge>
                     </div>
                 </div>
@@ -73,13 +74,21 @@ export default function TrackingDetails({ trip, MapComponent }: TrackingDetailsP
             {/* 2. GIS MAP & LIVE DATA */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div className="lg:col-span-8">
-                    {MapComponent && (
-                        <MapComponent 
-                            livePos={live} 
-                            tripId={trip.tripId} 
-                            origin={{ lat: 28.6139, lng: 77.2090, name: trip.plant.name }} 
-                            destination={{ lat: 19.0760, lng: 72.8777, name: trip.unloadingPoint }} 
-                        />
+                    {isOffline ? (
+                        <div className="w-full h-full min-h-[400px] bg-slate-100 rounded-[3rem] border-4 border-white shadow-xl flex flex-col items-center justify-center gap-4">
+                            <WifiOff className="h-16 w-16 text-slate-400" />
+                            <h3 className="text-xl font-black text-slate-600">GPS Signal Offline</h3>
+                            <p className="text-sm text-slate-500 text-center max-w-xs">The vehicle is not registered for GPS tracking or the signal is currently inactive.</p>
+                        </div>
+                    ) : (
+                        MapComponent && (
+                            <MapComponent 
+                                livePos={live} 
+                                tripId={trip.tripId} 
+                                origin={{ lat: 28.6139, lng: 77.2090, name: trip.plant.name }} 
+                                destination={{ lat: 19.0760, lng: 72.8777, name: trip.unloadingPoint }} 
+                            />
+                        )
                     )}
                 </div>
                 

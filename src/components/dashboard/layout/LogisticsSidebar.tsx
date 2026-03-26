@@ -41,10 +41,6 @@ import { useEffect, useState, useMemo } from 'react';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import type { SubUser } from '@/types';
 
-/**
- * @fileOverview Logistics Module Sidebar.
- * Navigation strictly controlled by User Management permissions.
- */
 const navigationGroups = [
   { group: 'Operational Registry', items: [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'live-dashboard' },
@@ -81,7 +77,7 @@ const navigationGroups = [
     { name: 'GPS Setting', href: '/dashboard/tracking/settings', icon: Settings2, permission: 'admin-only' },
     { name: 'Recycle Bin', href: '/dashboard/recycle-bin', icon: Trash2, permission: 'recycle-bin' },
     { name: 'Activity Log', href: '/dashboard/user-activity-log', icon: History, permission: 'user-activity-log' },
-    { name: 'User Management', href: '/user-management', icon: ShieldCheck, permission: 'user-management' },
+    { name: 'User Management', href: '/dashboard/sub-user-management', icon: ShieldCheck, permission: 'user-management' },
   ]}
 ];
 
@@ -147,91 +143,97 @@ export default function LogisticsSidebar({ isOpen, onToggle }: LogisticsSidebarP
   }, [profile, isRootAdmin, loading]);
 
   return (
-    <aside 
-      className={cn(
-        "fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 text-white transition-all duration-300 ease-in-out lg:static lg:translate-x-0 shadow-2xl",
-        isOpen ? "w-64" : "w-20 translate-x-[-100%] lg:translate-x-0"
-      )}
-    >
-      <div className="flex h-16 items-center justify-between px-6 border-b border-white/10 shrink-0 bg-slate-950">
-        <div className={cn("flex items-center gap-2 overflow-hidden whitespace-nowrap transition-all duration-300", !isOpen && "opacity-0 w-0")}>
-          <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-          <span className="text-xs font-black uppercase tracking-[0.2em] text-blue-400 italic">Sikka LMC</span>
-        </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={onToggle} 
-          className="text-white hover:bg-white/10"
-        >
-          {isOpen ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5 ml-1" />}
-        </Button>
-      </div>
-
-      <ScrollArea className="flex-1 px-3 py-6 bg-slate-900">
-        {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <Loader2 className="h-6 w-6 animate-spin text-blue-50" />
-                <span className="text-[9px] font-black uppercase text-slate-600 tracking-widest">Syncing Registry...</span>
-            </div>
-        ) : (
-            <nav className="space-y-10">
-            {filteredNavigation.map((group, idx) => (
-                <div key={idx} className="space-y-3">
-                <h4 className={cn(
-                    "px-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-600 transition-opacity duration-300",
-                    !isOpen && "opacity-0"
-                )}>
-                    {group.group}
-                </h4>
-                <div className="space-y-1.5">
-                    {group.items.map((item) => {
-                    const isActive = pathname === item.href;
-                    return (
-                        <Link 
-                        key={item.name} 
-                        href={item.href}
-                        className={cn(
-                            "group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-black transition-all duration-200 border border-transparent",
-                            isActive 
-                            ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40 border-blue-500/50" 
-                            : "text-slate-500 hover:bg-white/5 hover:text-white"
-                        )}
-                        >
-                        <item.icon className={cn(
-                            "h-5 w-5 shrink-0 transition-colors",
-                            isActive ? "text-white" : "text-slate-600 group-hover:text-blue-400"
-                        )} />
-                        <span className={cn(
-                            "whitespace-nowrap transition-all duration-300 uppercase tracking-tight text-xs",
-                            !isOpen && "opacity-0 w-0 overflow-hidden"
-                        )}>
-                            {item.name}
-                        </span>
-                        </Link>
-                    );
-                    })}
-                </div>
-                </div>
-            ))}
-            </nav>
+    <>
+      <aside 
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 text-white transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 shadow-2xl",
+          isOpen ? "w-64 translate-x-0" : "w-64 -translate-x-full lg:w-20 lg:translate-x-0"
         )}
-      </ScrollArea>
-
-      <div className={cn("p-4 border-t border-white/5 bg-slate-950/50 transition-all duration-300", !isOpen && "items-center")}>
+      >
         <div className={cn(
-          "flex items-center gap-3 p-3 rounded-2xl bg-white/5 border border-white/5",
-          !isOpen && "justify-center p-2"
+          "flex h-16 items-center justify-between px-6 border-b border-white/10 shrink-0 bg-slate-950",
+          !isOpen && "lg:justify-center"
         )}>
-          <div className="h-8 w-8 rounded-full bg-blue-900 flex items-center justify-center text-[10px] font-black text-white shadow-lg border border-blue-700/50">SIL</div>
-          {isOpen && (
-            <div className="flex flex-col overflow-hidden">
+          <div className={cn("flex items-center gap-2 overflow-hidden whitespace-nowrap transition-all duration-300", !isOpen && "lg:opacity-0 lg:w-0")}>
+            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+            <span className="text-xs font-black uppercase tracking-[0.2em] text-blue-400 italic">Sikka LMC</span>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onToggle} 
+            className="text-white hover:bg-white/10 hidden lg:flex"
+          >
+            {isOpen ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+          </Button>
+        </div>
+
+        <ScrollArea className="flex-1 px-3 py-6 bg-slate-900">
+          {loading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-50" />
+                  <span className={cn("text-[9px] font-black uppercase text-slate-600 tracking-widest", !isOpen && "lg:hidden")}>Syncing Registry...</span>
+              </div>
+          ) : (
+              <nav className="space-y-10">
+              {filteredNavigation.map((group, idx) => (
+                  <div key={idx} className="space-y-3">
+                  <h4 className={cn(
+                      "px-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-600 transition-opacity duration-300",
+                      !isOpen && "lg:opacity-0"
+                  )}>
+                      {group.group}
+                  </h4>
+                  <div className="space-y-1.5">
+                      {group.items.map((item) => {
+                      const isActive = pathname === item.href;
+                      return (
+                          <Link 
+                          key={item.name} 
+                          href={item.href}
+                          onClick={() => !isOpen && onToggle()}
+                          className={cn(
+                              "group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-black transition-all duration-200 border border-transparent",
+                              isActive 
+                              ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40 border-blue-500/50" 
+                              : "text-slate-500 hover:bg-white/5 hover:text-white",
+                              !isOpen && "justify-center"
+                          )}
+                          >
+                          <item.icon className={cn(
+                              "h-5 w-5 shrink-0 transition-colors",
+                              isActive ? "text-white" : "text-slate-600 group-hover:text-blue-400"
+                          )} />
+                          <span className={cn(
+                              "whitespace-nowrap transition-all duration-300 uppercase tracking-tight text-xs",
+                              !isOpen && "lg:hidden"
+                          )}>
+                              {item.name}
+                          </span>
+                          </Link>
+                      );
+                      })}
+                  </div>
+                  </div>
+              ))}
+              </nav>
+          )}
+        </ScrollArea>
+
+        <div className={cn("p-4 border-t border-white/5 bg-slate-950/50", !isOpen && "lg:p-2")}>
+          <div className={cn(
+            "flex items-center gap-3 p-3 rounded-2xl bg-white/5 border border-white/5",
+            !isOpen && "lg:justify-center lg:p-2"
+          )}>
+            <div className="h-8 w-8 rounded-full bg-blue-900 flex items-center justify-center text-[10px] font-black text-white shadow-lg border border-blue-700/50 shrink-0">SIL</div>
+            <div className={cn("flex flex-col overflow-hidden", !isOpen && "lg:hidden")}>
               <span className="text-[10px] font-black uppercase text-white truncate">Sikka Logistics</span>
               <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter truncate">v2.5.0 Enterprise</span>
             </div>
-          )}
+          </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+      {isOpen && <div onClick={onToggle} className="fixed inset-0 bg-black/60 z-40 lg:hidden" />}
+    </>
   );
 }

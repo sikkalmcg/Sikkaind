@@ -62,7 +62,7 @@ import {
   limit,
   orderBy
 } from "firebase/firestore";
-import { normalizePlantId, generateRandomTripId } from '@/lib/utils';
+import { normalizePlantId, generateRandomTripId, getPlantScopedCarriers, resolvePlantCarrier } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import { useJsApiLoader } from '@react-google-maps/api';
@@ -111,6 +111,9 @@ const formSchema = z.object({
         }
         if (!data.transporterMobile?.trim() || !/^\d{10}$/.test(data.transporterMobile)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Valid 10-digit mobile required.', path: ['transporterMobile'] });
+        }
+        if (!data.freightAmount || data.freightAmount <= 0) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Freight amount is required.', path: ['freightAmount'] });
         }
     }
 });
@@ -178,6 +181,14 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     return plants.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(shipment.originPlantId).toLowerCase())?.name || shipment.originPlantId;
   }, [plants, shipment.originPlantId]);
 
+  const availableCarriers = useMemo(() => {
+    return getPlantScopedCarriers(carriers, shipment.originPlantId, [plantNameDisplay]);
+  }, [carriers, shipment.originPlantId, plantNameDisplay]);
+
+  const defaultCarrier = useMemo(() => {
+    return resolvePlantCarrier(carriers, shipment.originPlantId, trip?.carrierId || shipment.carrierId, [plantNameDisplay]);
+  }, [carriers, shipment.originPlantId, trip?.carrierId, shipment.carrierId, plantNameDisplay]);
+
   useEffect(() => {
     if (!isOpen || !firestore || !shipment.originPlantId) return;
     
@@ -227,7 +238,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
       driverName: trip?.driverName || '',
       driverMobile: trip?.driverMobile || '',
       vehicleType: trip?.vehicleType || 'Own Vehicle',
-      carrierId: trip?.carrierId || shipment.carrierId || (carriers.length > 0 ? carriers[0].id : ''),
+      carrierId: defaultCarrier?.id || '',
       assignQty: trip?.assignedQtyInTrip ?? Number(Number(shipment.balanceQty).toFixed(3)),
       transporterName: trip?.transporterName || '',
       transporterMobile: (trip as any)?.transporterMobile || '',
@@ -251,6 +262,29 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   const assignQty = watch('assignQty');
   const vehicleNumber = watch('vehicleNumber');
   const currentDistance = watch('distance');
+  const selectedCarrierId = watch('carrierId');
+  const freightRate = watch('freightRate');
+  const freightAmount = watch('freightAmount');
+  const isRateFixed = watch('isRateFixed');
+
+  useEffect(() => {
+    if (vehicleType !== 'Market Vehicle') return;
+    if (isRateFixed) return;
+
+    const computedFreight = Number(((Number(freightRate) || 0) * (Number(assignQty) || 0)).toFixed(2));
+    setValue('freightAmount', computedFreight, { shouldValidate: false });
+  }, [assignQty, freightRate, isRateFixed, setValue, vehicleType]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const nextCarrierId = defaultCarrier?.id || '';
+    if (nextCarrierId && selectedCarrierId !== nextCarrierId) {
+      setValue('carrierId', nextCarrierId, { shouldValidate: true });
+    } else if (!nextCarrierId && selectedCarrierId) {
+      setValue('carrierId', '', { shouldValidate: true });
+    }
+  }, [defaultCarrier?.id, isOpen, selectedCarrierId, setValue]);
 
   useEffect(() => {
     if (vehicleType === 'Market Vehicle') {
@@ -611,21 +645,22 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                             <TableCell className="min-w-[240px] px-4">
                                                 <FormField
                                                     control={control}
-                                                    name="carrierId" render={({ field }) => (
-                                                    <FormItem>
-                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                            <FormControl>
-                                                                <SelectTrigger className="h-11 font-bold text-xs">
-                                                                    <SelectValue placeholder="Pick Carrier" />
-                                                                </SelectTrigger>
-                                                            </FormControl>
-                                                            <SelectContent className="rounded-xl w-auto min-w-[300px]">
-                                                                {carriers.map(c => <SelectItem key={c.id} value={c.id} className="font-bold py-3">{c.name}</SelectItem>)}
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
+                                                    name="carrierId"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                                <FormControl>
+                                                                    <SelectTrigger className="h-11 font-bold text-xs">
+                                                                        <SelectValue placeholder="Pick Carrier" />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent className="rounded-xl">
+                                                                    {availableCarriers.map(c => <SelectItem key={c.id} value={c.id} className="font-bold py-3">{c.name}</SelectItem>)}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
                                                 />
                                             </TableCell>
                                             <TableCell className="min-w-[220px] px-4">
@@ -712,6 +747,73 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                                     </FormItem>
                                                 )}
                                             />
+                                            <FormField
+                                                control={control}
+                                                name="freightRate"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Freight Rate / MT</FormLabel>
+                                                        <FormControl>
+                                                            <Input type="number" step="0.01" {...field} value={field.value ?? 0} placeholder="0.00" className="h-11 font-bold text-right" />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={control}
+                                                name="isRateFixed"
+                                                render={({ field }) => (
+                                                    <FormItem className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 flex flex-row items-center justify-between">
+                                                        <div className="space-y-1">
+                                                            <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fixed Amount</FormLabel>
+                                                            <p className="text-[10px] font-bold text-slate-500">Enable manual freight entry</p>
+                                                        </div>
+                                                        <FormControl>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={!!field.value}
+                                                                onChange={(e) => field.onChange(e.target.checked)}
+                                                                className="h-4 w-4"
+                                                            />
+                                                        </FormControl>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={control}
+                                                name="freightAmount"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Freight *</FormLabel>
+                                                        <FormControl>
+                                                            <Input
+                                                                type="number"
+                                                                step="0.01"
+                                                                {...field}
+                                                                value={field.value ?? 0}
+                                                                disabled={!isRateFixed}
+                                                                placeholder="0.00"
+                                                                className="h-11 font-bold text-right"
+                                                            />
+                                                        </FormControl>
+                                                        {!isRateFixed && (
+                                                            <p className="text-[10px] font-bold text-slate-400">Auto = Rate x Registry Weight ({Number(assignQty || 0).toFixed(3)})</p>
+                                                        )}
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                        <div className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50/60 px-5 py-4 flex items-center justify-between">
+                                            <div>
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Freight Capture Node</p>
+                                                <p className="text-[11px] font-bold text-slate-600">This market trip will flow into Freight Process for payment tracking.</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Payable Freight</p>
+                                                <p className="text-2xl font-black text-emerald-700">₹ {Number(freightAmount || 0).toLocaleString('en-IN')}</p>
+                                            </div>
                                         </div>
                                     </div>
                                 )}

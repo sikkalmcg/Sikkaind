@@ -78,6 +78,20 @@ export interface Trip {
 export interface Carrier {
   id: string;
   name: string;
+<<<<<<< HEAD
+  plantId?: string;
+  address?: string;
+  gstin?: string;
+  pan?: string;
+  stateName?: string;
+  stateCode?: string;
+  email?: string;
+  mobile?: string;
+  website?: string;
+  logoUrl?: string;
+  terms?: string[];
+=======
+>>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
 }
 
 export interface VehicleEntry {

@@ -1,2 +1,6 @@
 .next
 node_modules
+<<<<<<< HEAD
+.next-dev.log
+=======
+>>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8

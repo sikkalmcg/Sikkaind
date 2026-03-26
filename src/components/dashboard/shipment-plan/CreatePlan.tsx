@@ -52,7 +52,7 @@ import {
 } from 'lucide-react';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, query, doc, runTransaction, where, getDocs, limit, serverTimestamp, orderBy, getDoc, writeBatch } from "firebase/firestore";
-import { cn, normalizePlantId, formatSequenceId, generateRandomTripId, incrementSerial } from '@/lib/utils';
+import { cn, normalizePlantId, formatSequenceId, generateRandomTripId, incrementSerial, getPlantScopedCarriers, resolvePlantCarrier, matchesPlantReference } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import * as XLSX from 'xlsx';
 import { PaymentTerms } from '@/lib/constants';
@@ -363,6 +363,12 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
 
   const showLrSection = useMemo(() => lrNumberValue && lrNumberValue.trim() !== '', [lrNumberValue]);
 
+  const selectedPlant = useMemo(() => {
+    return authorizedPlants.find(plant =>
+      matchesPlantReference(plant.id, originPlantId) || matchesPlantReference(plant.name, originPlantId)
+    ) || null;
+  }, [authorizedPlants, originPlantId]);
+
   useEffect(() => {
     if (materialTypeId === 'FTL') {
         setValue('quantity', 0);
@@ -432,23 +438,21 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
   }, [parties, originPlantId]);
 
   const availableCarriers = useMemo(() => {
-    if (!carriers || !originPlantId) return [];
-    const targetPlantId = normalizePlantId(originPlantId).toLowerCase();
-    return carriers.filter(c => normalizePlantId(c.plantId).toLowerCase() === targetPlantId);
-  }, [carriers, originPlantId]);
+    return getPlantScopedCarriers(carriers, originPlantId, [selectedPlant?.name]);
+  }, [carriers, originPlantId, selectedPlant?.name]);
 
   const selectedCarrier = useMemo(() => {
-    if (!carrierId || !carriers) return null;
-    return carriers.find(c => c.id === carrierId);
-  }, [carrierId, carriers]);
+    return resolvePlantCarrier(carriers, originPlantId, carrierId, [selectedPlant?.name]);
+  }, [carrierId, carriers, originPlantId, selectedPlant?.name]);
 
   useEffect(() => {
-    if (availableCarriers.length > 0) {
-      setValue('carrierId', availableCarriers[0].id);
-    } else {
+    const nextCarrierId = selectedCarrier?.id || availableCarriers[0]?.id || '';
+    if (nextCarrierId && carrierId !== nextCarrierId) {
+      setValue('carrierId', nextCarrierId, { shouldValidate: true });
+    } else if (!nextCarrierId && carrierId) {
       setValue('carrierId', '');
     }
-  }, [availableCarriers, setValue]);
+  }, [availableCarriers, carrierId, selectedCarrier?.id, setValue]);
 
   const handleConsignorSelect = useCallback((p: Party) => {
     setValue('consignor', p.name, { shouldValidate: true });

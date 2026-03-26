@@ -59,7 +59,11 @@ import {
   getDocs, 
   Timestamp,
 } from "firebase/firestore";
+<<<<<<< HEAD
+import { normalizePlantId, generateRandomTripId, getPlantScopedCarriers, resolvePlantCarrier } from '@/lib/utils';
+=======
 import { normalizePlantId, generateRandomTripId } from '@/lib/utils';
+>>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
 import { cn } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import { useJsApiLoader } from '@react-google-maps/api';
@@ -92,6 +96,14 @@ const formSchema = z.object({
     assignQty: z.coerce.number().positive('Assign quantity must be positive'),
     transporterName: z.string().optional().default(''),
     transporterMobile: z.string().optional().default(''),
+<<<<<<< HEAD
+    ownerName: z.string().optional().default(''),
+    ownerPan: z.string().optional().default(''),
+    freightRate: z.coerce.number().optional().default(0),
+    freightAmount: z.coerce.number().optional().default(0),
+    isRateFixed: z.boolean().default(false),
+=======
+>>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
     distance: z.coerce.number().optional(),
 }).superRefine((data, ctx) => {
     if (data.vehicleType === 'Market Vehicle') {
@@ -101,6 +113,12 @@ const formSchema = z.object({
         if (!data.transporterMobile?.trim() || !/^\d{10}$/.test(data.transporterMobile)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Valid 10-digit mobile required.', path: ['transporterMobile'] });
         }
+<<<<<<< HEAD
+        if (!data.freightAmount || data.freightAmount <= 0) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Freight amount is required.', path: ['freightAmount'] });
+        }
+=======
+>>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
     }
 });
 
@@ -131,6 +149,30 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   const isEditing = !!trip;
   const hasCalculatedDistance = useRef(false);
 
+<<<<<<< HEAD
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
+  const { data: plants } = useCollection<Plant>(plantsQuery);
+
+  const plantNameDisplay = useMemo(() => {
+    if (!plants) return shipment.originPlantId;
+    return plants.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(shipment.originPlantId).toLowerCase())?.name || shipment.originPlantId;
+  }, [plants, shipment.originPlantId]);
+
+  const availableCarriers = useMemo(() => {
+    return getPlantScopedCarriers(carriers, shipment.originPlantId, [plantNameDisplay]);
+  }, [carriers, shipment.originPlantId, plantNameDisplay]);
+
+  const defaultCarrier = useMemo(() => {
+    return resolvePlantCarrier(carriers, shipment.originPlantId, trip?.carrierId || shipment.carrierId, [plantNameDisplay]);
+  }, [carriers, shipment.originPlantId, trip?.carrierId, shipment.carrierId, plantNameDisplay]);
+
+=======
+>>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { assignQty: 0 },
@@ -146,10 +188,22 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             driverName: trip?.driverName || '',
             driverMobile: trip?.driverMobile || '',
             vehicleType: trip?.vehicleType || 'Own Vehicle',
+<<<<<<< HEAD
+            carrierId: defaultCarrier?.id || '',
+            assignQty: trip?.assignedQtyInTrip ?? Number(Number(shipment.balanceQty).toFixed(3)),
+            transporterName: trip?.transporterName || '',
+            transporterMobile: (trip as any)?.transporterMobile || '',
+            ownerName: (trip as any)?.ownerName || '',
+            ownerPan: (trip as any)?.ownerPan || '',
+            freightRate: trip?.freightRate || 0,
+            freightAmount: trip?.freightAmount || 0,
+            isRateFixed: trip?.isRateFixed || false,
+=======
             carrierId: trip?.carrierId || shipment.carrierId || (carriers.length > 0 ? carriers[0].id : ''),
             assignQty: trip?.assignedQtyInTrip ?? Number(Number(shipment.balanceQty).toFixed(3)),
             transporterName: trip?.transporterName || '',
             transporterMobile: (trip as any)?.transporterMobile || '',
+>>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
             distance: trip?.distance || 0
         };
         reset(defaultValues);
@@ -158,6 +212,29 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
         reset({ assignQty: 0 });
         setRegistryMatch(null);
     }
+<<<<<<< HEAD
+  }, [isOpen, trip, shipment, defaultCarrier?.id, reset]);
+
+  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, carrierId, vehicleType, freightRate, isRateFixed } = useWatch({ control });
+
+  useEffect(() => {
+    if (vehicleType !== 'Market Vehicle') return;
+    if (isRateFixed) return;
+    const computedAmount = Number(((Number(freightRate) || 0) * (Number(assignQty) || 0)).toFixed(2));
+    setValue('freightAmount', computedAmount, { shouldValidate: false });
+  }, [assignQty, freightRate, isRateFixed, setValue, vehicleType]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const nextCarrierId = defaultCarrier?.id || '';
+    if (nextCarrierId && carrierId !== nextCarrierId) {
+        setValue('carrierId', nextCarrierId, { shouldValidate: true });
+    } else if (!nextCarrierId && carrierId) {
+        setValue('carrierId', '', { shouldValidate: true });
+    }
+  }, [carrierId, defaultCarrier?.id, isOpen, setValue]);
+=======
   }, [isOpen, trip, shipment, carriers, reset]);
 
   useEffect(() => {
@@ -174,6 +251,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   }, [plants, shipment.originPlantId]);
 
   const { isNewVehicle, vehicleId, assignQty, vehicleNumber } = useWatch({ control });
+>>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
 
   useEffect(() => {
     if (!isOpen || !firestore || !shipment.originPlantId) return;
@@ -314,7 +392,25 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 vehicleType: values.vehicleType, carrierId: values.carrierId, assignedQtyInTrip: values.assignQty,
                 originPlantId: plantId, destination: shipment.unloadingPoint || 'N/A', shipmentIds: [shipment.id],
                 tripStatus: 'Assigned', startDate: isEditing ? trip!.startDate : new Date(),
+<<<<<<< HEAD
+                lastUpdated: timestamp, userName: currentName, userId: user.uid, shipToParty: shipment.shipToParty || '',
+                transporterName: values.transporterName,
+                transporterMobile: values.transporterMobile,
+                ownerName: values.ownerName,
+                ownerPan: values.ownerPan,
+                freightRate: values.freightRate || 0,
+                freightAmount: values.freightAmount || 0,
+                isRateFixed: values.isRateFixed || false,
+                freightStatus: 'Unpaid',
+                podStatus: isEditing ? (trip?.podStatus || 'Missing') : 'Missing',
+                vehicleStatus: isEditing ? (trip?.vehicleStatus || 'Under Process') : 'Under Process',
+                currentStatusId: isEditing ? (trip?.currentStatusId || 'Assigned') : 'Assigned',
+                unloadingPoint: shipment.unloadingPoint || '',
+                podReceived: isEditing ? !!trip?.podReceived : false,
+                isFreightPosted: isEditing ? !!trip?.isFreightPosted : false,
+=======
                 lastUpdated: timestamp, userName: currentName, userId: user.uid, shipToParty: shipment.shipToParty || ''
+>>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
             };
 
             if(values.vehicleId && !values.isNewVehicle) {
@@ -344,7 +440,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     }
   };
   
+<<<<<<< HEAD
+  const carrierOptions = useMemo(() => availableCarriers.map(c => ({ value: c.id, label: c.name })), [availableCarriers]);
+=======
   const carrierOptions = useMemo(() => carriers.map(c => ({ value: c.id, label: c.name })), [carriers]);
+>>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -435,10 +535,35 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                 </TableRow>
                             </TableBody>
                         </Table>
+<<<<<<< HEAD
+                        {vehicleType === 'Market Vehicle' && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                <FormField control={control} name="transporterName" render={({ field }) => (<FormItem><FormLabel>Transporter Name *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage/></FormItem>)} />
+                                <FormField control={control} name="transporterMobile" render={({ field }) => (<FormItem><FormLabel>Transporter Mobile *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage/></FormItem>)} />
+                                <FormField control={control} name="ownerName" render={({ field }) => (<FormItem><FormLabel>Owner Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage/></FormItem>)} />
+                                <FormField control={control} name="ownerPan" render={({ field }) => (<FormItem><FormLabel>Owner PAN</FormLabel><FormControl><Input {...field} className="uppercase" /></FormControl><FormMessage/></FormItem>)} />
+                                <FormField control={control} name="freightRate" render={({ field }) => (<FormItem><FormLabel>Freight Rate (Per MT)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage/></FormItem>)} />
+                                <FormField control={control} name="isRateFixed" render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center justify-between rounded-xl border p-3 mt-7">
+                                    <div className="space-y-0.5">
+                                      <FormLabel>Fixed Amount</FormLabel>
+                                    </div>
+                                    <FormControl>
+                                      <input
+                                        type="checkbox"
+                                        checked={!!field.value}
+                                        onChange={(e) => field.onChange(e.target.checked)}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )} />
+                                <FormField control={control} name="freightAmount" render={({ field }) => (<FormItem><FormLabel>Total Freight *</FormLabel><FormControl><Input type="number" step="0.01" {...field} disabled={!isRateFixed} /></FormControl><FormMessage/></FormItem>)} />
+=======
                          {isNewVehicle && vehicleType === 'Market Vehicle' && (
                             <div className="grid grid-cols-2 gap-4 mt-4">
                                 <FormField control={control} name="transporterName" render={({ field }) => (<FormItem><FormLabel>Transporter Name *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage/></FormItem>)} />
                                 <FormField control={control} name="transporterMobile" render={({ field }) => (<FormItem><FormLabel>Transporter Mobile *</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage/></FormItem>)} />
+>>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
                             </div>
                         )}
                     </div>

@@ -85,6 +85,13 @@ function ShipmentTrackingContent() {
     }, [firestore]);
 
     const handleInitializeTracking = async (trip: EnrichedTrip) => {
+        const isGpsEnabled = gpsEnabledVehicles.includes(trip.vehicleNumber || '');
+        if (!isGpsEnabled) {
+            toast({ variant: "destructive", title: "No GPS Link", description: "This vehicle is not configured for GPS tracking." });
+            setSelectedTrip({ ...trip, liveLocation: null }); // Ensure UI updates to offline state
+            return;
+        }
+
         setIsTrackingLoading(true);
         try {
             const response = await fetchWheelseyeLocation(trip.vehicleNumber || '');
@@ -92,6 +99,7 @@ function ShipmentTrackingContent() {
                 setSelectedTrip({ ...trip, liveLocation: response.data });
                 toast({ title: "Telemetry established", description: `GIS Handshake successful for ${trip.vehicleNumber}` });
             } else {
+                setSelectedTrip({ ...trip, liveLocation: null }); // Explicitly set to null for offline state
                 toast({ variant: 'destructive', title: "Signal Lost", description: response.error || "Registry terminal offline." });
             }
         } catch (e: any) {
@@ -103,12 +111,12 @@ function ShipmentTrackingContent() {
 
     // 3. Auto-Refresh Telemetry Node
     useEffect(() => {
-        if (!selectedTrip) return;
+        if (!selectedTrip || !selectedTrip.liveLocation) return;
         const interval = setInterval(() => {
             handleInitializeTracking(selectedTrip);
         }, 30000);
         return () => clearInterval(interval);
-    }, [selectedTrip?.id]);
+    }, [selectedTrip?.id, selectedTrip?.liveLocation]);
 
     const filteredTrips = activeTrips.filter(t => 
         t.tripId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -189,13 +197,13 @@ function ShipmentTrackingContent() {
                                                         <TableCell className="px-8 text-right">
                                                             <Button 
                                                                 onClick={() => handleInitializeTracking(trip)}
-                                                                disabled={!isGpsEnabled || isTrackingLoading}
+                                                                disabled={isTrackingLoading && selectedTrip?.id === trip.id}
                                                                 className={cn(
                                                                     "h-9 px-6 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-all",
-                                                                    isGpsEnabled ? "bg-blue-900 hover:bg-black text-white" : "bg-slate-100 text-slate-300"
+                                                                    isGpsEnabled ? "bg-blue-900 hover:bg-black text-white" : "bg-slate-200 text-slate-500 cursor-not-allowed"
                                                                 )}
                                                             >
-                                                                {isTrackingLoading ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Radar className="h-3 w-3 mr-2" />}
+                                                                {(isTrackingLoading && selectedTrip?.id === trip.id) ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Radar className="h-3 w-3 mr-2" />}
                                                                 {isGpsEnabled ? 'Track Mission' : 'No GPS Link'}
                                                             </Button>
                                                         </TableCell>
