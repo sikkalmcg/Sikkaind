@@ -1,4 +1,4 @@
-.sap-header {
+.sap-header {t -
     @apply fixed top-0 left-0 right-0 z-50 flex flex-col shadow-md bg-white;
 }
 

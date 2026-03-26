@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useEffect, useState, Suspense } from "react";
-import { useUser, useFirestore } from "@/firebase";
+import { useUser, useFirestore, AppProvider } from "@/firebase";
 import { useRouter, usePathname } from "next/navigation";
 import LogisticsHeader from "@/components/dashboard/layout/LogisticsHeader";
 import LogisticsSidebar from "@/components/dashboard/layout/LogisticsSidebar";
@@ -11,8 +11,8 @@ import type { SubUser } from "@/types";
 import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions } from "@/lib/constants";
 import { Loader2 } from "lucide-react";
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const { user, isUserLoading } = useUser();
+function DashboardLayoutContent({ children }: { children: ReactNode }) {
+  const { data: user, isLoading: isUserLoading } = useUser();
   const { showLoader, hideLoader } = useLoading();
   const router = useRouter();
   const pathname = usePathname();
@@ -125,7 +125,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       </div>
     );
   }
-
+  
   return (
     <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
       <LogisticsSidebar 
@@ -146,4 +146,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       </div>
     </div>
   );
+}
+
+export default function DashboardLayout({ children }: { children: ReactNode }) {
+  return (
+    <AppProvider>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </AppProvider>
+  )
 }
