@@ -172,9 +172,9 @@ export default function ModulesPage() {
           </DropdownMenu>
         </header>
 
-        <div className="relative z-10 flex min-h-.screen flex-col items-center justify-center p-4">
+        <div className="relative z-10 flex min-h-screen flex-col items-center justify-center p-4">
           <div className="text-center">
-            <div className="relative w-[500px] h-[200px] md:w-[700px] md:h-[300px] mx-auto mb-10 p-4 transition-all duration-500 filter brightness-[1.75] contrast-[1.1] drop-shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:brightness-[2] hover:scale-105 overflow-hidden">
+            <div className="slmc-logo-container relative w-[500px] h-[200px] md:w-[700px] md:h-[300px] mx-auto mb-10 p-4 transition-all duration-500 filter brightness-[1.75] contrast-[1.1] drop-shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:brightness-[2] hover:scale-105 overflow-hidden">
               <Image
                 src={sikkalogolarge}
                 alt="Sikka LMC Logo"

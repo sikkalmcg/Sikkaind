@@ -10,10 +10,7 @@ import EditCarrierModal from '@/components/dashboard/carrier-management/EditCarr
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
 import { Loader2, WifiOff } from 'lucide-react';
-<<<<<<< HEAD
 import { matchesPlantReference } from '@/lib/utils';
-=======
->>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
 
 export default function CarrierManagementPage() {
   const { toast } = useToast();
@@ -48,18 +45,11 @@ export default function CarrierManagementPage() {
   const sanitizedCarriers = useMemo(() => {
     let filteredCarriers = carriers || [];
     if (plantFilter !== 'all') {
-<<<<<<< HEAD
       const matchedPlant = (plants || []).find(plant => matchesPlantReference(plant.id, plantFilter) || matchesPlantReference(plant.name, plantFilter));
       filteredCarriers = filteredCarriers.filter(carrier => matchesPlantReference(carrier.plantId, plantFilter, matchedPlant?.id, matchedPlant?.name));
     }
     return filteredCarriers.map(carrier => ({ name: '', gstin: '', pan: '', plantId: '', logoUrl: '', stateName: '', ...carrier }));
   }, [carriers, plantFilter, plants]);
-=======
-      filteredCarriers = filteredCarriers.filter(carrier => carrier.plantId === plantFilter);
-    }
-    return filteredCarriers.map(carrier => ({ name: '', gstin: '', pan: '', plantId: '', logoUrl: '', stateName: '', ...carrier }));
-  }, [carriers, plantFilter]);
->>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
 
   const handleCarrierCreated = async (carrierData: Omit<Carrier, 'id'>) => {
     if (!firestore) return;
