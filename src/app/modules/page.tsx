@@ -202,7 +202,7 @@ export default function ModulesPage() {
               </Link>
             )}
             {canAccessUserManagement && (
-              <Link href="/admin/users">
+              <Link href="/dashboard/user-management">
                 <Card className="group flex h-full flex-col justify-between overflow-hidden rounded-xl border-2 border-transparent bg-slate-800/50 shadow-lg transition-all duration-300 hover:border-purple-500/50 hover:bg-slate-800 hover:shadow-purple-500/20">
                   <CardHeader>
                     <CardTitle className='flex items-center gap-3 text-purple-400'>

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { Loader2, User as UserIcon, LogOut, Bell } from 'lucide-react';
+import { Loader2, User as UserIcon, LogOut, Bell, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -20,7 +20,11 @@ import { NotificationBell } from '@/components/dashboard/notification-bell';
 import { useToast } from '@/hooks/use-toast';
 import type { SubUser, WithId } from '@/types';
 
-export default function LogisticsHeader() {
+interface LogisticsHeaderProps {
+  onToggleSidebar: () => void;
+}
+
+export default function LogisticsHeader({ onToggleSidebar }: LogisticsHeaderProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const { toast } = useToast();
@@ -40,11 +44,14 @@ export default function LogisticsHeader() {
   };
 
   if (isUserLoading) {
-    return <div className="flex items-center justify-end h-16 px-4 border-b"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+    return <div className="flex items-center justify-between h-16 px-4 border-b"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
 
   return (
-    <header className="flex items-center justify-end h-16 px-4 border-b bg-gray-50">
+    <header className="flex items-center justify-between h-16 px-4 border-b bg-gray-50 lg:justify-end">
+      <Button variant="ghost" size="icon" className="lg:hidden" onClick={onToggleSidebar}>
+        <Menu className="w-6 h-6" />
+      </Button>
       <div className="flex items-center gap-4">
         <NotificationBell />
         {user ? (
@@ -52,7 +59,6 @@ export default function LogisticsHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative w-8 h-8 rounded-full">
                 <Avatar className="w-8 h-8">
-                  {/* Assuming user profile picture is not available, using fallback */} 
                   <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
               </Button>
@@ -81,7 +87,6 @@ export default function LogisticsHeader() {
           <Button>Login</Button>
         )}
       </div>
-      {/* Modal is only rendered when open, and it needs a user profile to function. */}
       {isProfileModalOpen && user && (
         <UserProfileModal
           isOpen={isProfileModalOpen}

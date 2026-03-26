@@ -86,6 +86,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             }
 
             const currentSubPage = pathname.split('/').pop();
+            if (currentSubPage === 'user-management') {
+                setIsVerifying(false);
+                hideLoader();
+                return;
+            }
+
             const allPerms = [
                 ...SikkaLogisticsPagePermissions, 
                 ...SikkaAccountsPagePermissions,
@@ -129,7 +135,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <Suspense fallback={<div className="h-16 border-b bg-white w-full animate-pulse" />}>
-          <LogisticsHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} isSidebarOpen={isSidebarOpen}/>
+          <LogisticsHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
         </Suspense>
 
         <main className="flex-1 overflow-auto relative">

@@ -77,7 +77,7 @@ const navigationGroups = [
     { name: 'GPS Setting', href: '/dashboard/tracking/settings', icon: Settings2, permission: 'admin-only' },
     { name: 'Recycle Bin', href: '/dashboard/recycle-bin', icon: Trash2, permission: 'recycle-bin' },
     { name: 'Activity Log', href: '/dashboard/user-activity-log', icon: History, permission: 'user-activity-log' },
-    { name: 'User Management', href: '/dashboard/sub-user-management', icon: ShieldCheck, permission: 'user-management' },
+    { name: 'User Management', href: '/dashboard/user-management', icon: ShieldCheck, permission: 'user-management' },
   ]}
 ];
 
