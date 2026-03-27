@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
@@ -65,7 +64,7 @@ function TripBoardContent() {
 
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
-  const [toDate, setTodayDate] = useState<Date | undefined>(new Date());
+  const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
@@ -486,6 +485,7 @@ function TripBoardContent() {
                             <TripBoardTable 
                                 data={filteredTrips} 
                                 activeTab={activeTab} 
+                                isAdmin={isAdmin}
                                 canVerifyPod={isAdminSession} 
                                 onVerifyPod={(trip) => {
                                     const tripRef = doc(firestore, `plants/${trip.originPlantId}/trips`, trip.id);
@@ -552,7 +552,7 @@ function TripBoardContent() {
           />
       )}
       
-      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
+      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setPreviewLr(null)} lr={lrPreviewData} />}
       {podUploadTrip && <PodUploadModal isOpen={!!podUploadTrip} onClose={() => setPodUploadTrip(null)} trip={podUploadTrip} onSuccess={() => setPodUploadTrip(null)} />}
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
       
