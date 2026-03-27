@@ -1,35 +1,44 @@
 # To learn more about how to use Nix to configure your environment
 # see: https://firebase.google.com/docs/studio/customize-workspace
-{pkgs}: {
+{ pkgs, ... }: {
   # Which nixpkgs channel to use.
-  channel = "stable-24.11"; # or "unstable"
+  channel = "unstable"; # or "stable-23.11"
+
   # Use https://search.nixos.org/packages to find packages
   packages = [
-    pkgs.nodejs_22
-    pkgs.zulu
+    pkgs.nodejs_20
+    pkgs.pnpm
+    pkgs.git-lfs
   ];
+
   # Sets environment variables in the workspace
-  env = {};
-  # This adds a file watcher to startup the firebase emulators. The emulators will only start if
-  # a firebase.json file is written into the user's directory
+  env = {
+    NODE_OPTIONS = "--max-old-space-size=4096";
+  };
+
+  # This adds a file watcher to startup the firebase emulators.
   services.firebase.emulators = {
-    # Disabling because we are using prod backends right now
     detect = false;
     projectId = "demo-app";
     services = ["auth" "firestore"];
   };
+
   idx = {
-    # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"
+    # Search for the extensions you want on https://open-vsx.org/
     extensions = [
-      # "vscodevim.vim"
+      "christian-kohler.path-intellisense"
+      "esbenp.prettier-vscode"
     ];
+
     workspace = {
       onCreate = {
+        init-lfs = "git lfs install";
         default.openFiles = [
           "src/app/page.tsx"
         ];
       };
     };
+
     # Enable previews and customize configuration
     previews = {
       enable = true;
