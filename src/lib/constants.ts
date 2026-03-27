@@ -63,3 +63,4 @@ export const VehicleTypes = ['Own Vehicle', 'Contract Vehicle', 'Market Vehicle'
 export const ChargeTypes = ['Detention', 'Labor', 'Toll', 'Others'] as const;
 export const FuelPumpPaymentMethods = ['Cash', 'Banking', 'UPI Payment', 'Cheque', 'Multiple'] as const;
 export const FuelPaymentTransactionMethods = ['Cash', 'Banking', 'Cheque'] as const;
+export const LRUnitTypes = ['Package', 'Bag', 'Metric Ton', 'Box', 'Drum', 'Pallet', 'Others'] as const;
