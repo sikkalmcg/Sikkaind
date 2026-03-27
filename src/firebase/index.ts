@@ -1,19 +1,26 @@
 
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { firebaseConfig } from './config';
 import { useMemo } from 'react';
 
+// Initialize Firebase singleton instances for client-side use
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const auth = getAuth(app);
+const firestore = getFirestore(app);
+
+// Export instances directly for use in components like the Login page
+export { app, auth, firestore };
+
+/**
+ * Initialization function used by the FirebaseClientProvider.
+ */
 export function initializeFirebase(): {
   app: FirebaseApp;
   auth: Auth;
   firestore: Firestore;
 } {
-  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-  const auth = getAuth(app);
-  const firestore = getFirestore(app);
-
   return { app, auth, firestore };
 }
 
