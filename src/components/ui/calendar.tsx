@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -24,6 +25,11 @@ function Calendar({
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
         caption_label: "text-sm font-medium",
+        caption_dropdowns: "flex justify-center gap-1",
+        dropdown: "flex items-center px-2 py-1 rounded-md border border-slate-200 bg-white text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-900 cursor-pointer",
+        dropdown_month: "flex",
+        dropdown_year: "flex",
+        vhidden: "sr-only",
         nav: "space-x-1 flex items-center",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
