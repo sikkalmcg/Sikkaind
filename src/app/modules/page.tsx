@@ -30,12 +30,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserProfileModal from "@/components/dashboard/user-profile/UserProfileModal";
+import { useLoading } from '@/context/LoadingContext';
 
 export default function ModulesPage() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
   const firestore = useFirestore();
+  const { hideLoader } = useLoading();
   const [profile, setProfile] = useState<WithId<SubUser> | null>(null);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -45,6 +47,7 @@ export default function ModulesPage() {
   useEffect(() => {
     if (isUserLoading) return;
     if (!user) {
+      hideLoader();
       router.replace('/login');
       return;
     }
@@ -113,11 +116,12 @@ export default function ModulesPage() {
           }
       } finally {
           setIsLoadingProfile(false);
+          hideLoader();
       }
     };
 
     fetchAndSetUser();
-  }, [user, isUserLoading, router, firestore, auth]);
+  }, [user, isUserLoading, router, firestore, auth, hideLoader]);
 
   const handleLogout = () => {
     if (auth) {
