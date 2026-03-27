@@ -763,6 +763,17 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
 
   const isReadOnlyPlant = !isAdminSession && authorizedPlants.length === 1;
 
+  const onPreSubmit = () => {
+    handleSubmit(() => setShowConfirmModal(true), (err) => {
+        console.log("Form Validation Node Errors:", err);
+        toast({ 
+            variant: 'destructive', 
+            title: 'Registry Incomplete', 
+            description: 'Please populate all mandatory mission fields (*) before commit.' 
+        });
+    })();
+  };
+
   return (
     <div className="w-full space-y-10">
         <div className="flex justify-end gap-4 px-2">
@@ -915,11 +926,16 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                                     <FormField control={control} name="carrierId" render={({ field }) => (
                                         <FormItem className="animate-in fade-in slide-in-from-top-2 duration-300">
                                             <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-[0.2em]">Carrier Registry *</FormLabel>
-                                            <FormControl>
-                                              <div className="h-12 flex items-center justify-start rounded-md border border-blue-200 bg-slate-100 px-3 py-2 text-sm font-bold text-slate-800">
-                                                { selectedCarrier?.name || "-" }
-                                              </div>
-                                            </FormControl>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger className="h-12 border-blue-200 font-bold">
+                                                        <SelectValue placeholder="Select Carrier" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent className="rounded-xl">
+                                                    {availableCarriers.map(carrier => <SelectItem key={carrier.id} value={carrier.id} className="font-bold py-3">{carrier.name}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
@@ -1130,7 +1146,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
 
                     <div className="flex flex-col md:flex-row items-center justify-between gap-8 pt-12 border-t border-slate-100">
                         <div className="p-6 bg-blue-50 rounded-[2rem] border border-blue-100 flex items-start gap-5 shadow-sm max-w-2xl">
-                            <AlertCircle className="h-8 w-8 text-blue-600 shrink-0" />
+                            <AlertCircle className="h-8 w-8 text-blue-600 shrink-0 mt-1" />
                             <div className="space-y-1">
                                 <p className="text-xs font-black text-blue-900 uppercase">Commitment Protocol Active</p>
                                 <p className="text-[10px] font-bold text-blue-700 leading-normal uppercase">
@@ -1141,7 +1157,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
 
                         <div className="flex gap-6">
                             <Button type="button" variant="ghost" onClick={() => form.reset()} className="px-12 h-16 font-black uppercase text-[11px] tracking-[0.2em] text-slate-400 hover:text-red-600 transition-all rounded-[1.5rem]">Discard Draft</Button>
-                            <Button type="button" onClick={handleSubmit(() => setShowConfirmModal(true))} className="bg-blue-900 hover:bg-black text-white px-20 h-16 rounded-[1.5rem] font-black uppercase text-[11px] tracking-[0.3em] shadow-2xl shadow-blue-900/30 transition-all active:scale-95 border-none">
+                            <Button type="button" onClick={onPreSubmit} className="bg-blue-900 hover:bg-black text-white px-20 h-16 rounded-[1.5rem] font-black uppercase text-[11px] tracking-[0.3em] shadow-2xl shadow-blue-900/30 transition-all active:scale-95 border-none">
                                 COMMIT MISSION PLAN (F8)
                             </Button>
                         </div>
@@ -1169,7 +1185,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                             **{materialTypeId === 'FTL' ? 'FTL' : `${quantity} ${materialTypeId}`}** cargo."
                         </p>
                         <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                            <div className="flex flex-col"><span className="text-[8px] font-black uppercase text-slate-400">Node</span> <span className="text-xs font-black text-blue-900 uppercase">{form.watch('originPlantId')}</span></div>
+                            <div className="flex flex-col"><span className="text-[8px] font-black uppercase text-slate-400">Node</span> <span className="text-xs font-black text-blue-900 uppercase">{form.getValues('originPlantId')}</span></div>
                             <div className="flex flex-col"><span className="text-[8px] font-black uppercase text-slate-400">Operator</span> <span className="text-xs font-black text-slate-900 uppercase">{user?.displayName || user?.email?.split('@')[0]}</span></div>
                         </div>
                     </div>
