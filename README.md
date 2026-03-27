@@ -1,3 +1,4 @@
+
 # Sikka Logistics Platform (v2.5 Enterprise)
 
 Enterprise-grade logistics and supply chain management system built with Next.js, Firebase, and ShadCN UI.
@@ -6,7 +7,7 @@ Enterprise-grade logistics and supply chain management system built with Next.js
 
 To deploy this project to your GitHub repository, follow these steps in your terminal:
 
-1. **Initialize Git Repository**
+1. **Initialize Git Repository** (Skip if already done)
    ```bash
    git init
    ```
@@ -14,38 +15,25 @@ To deploy this project to your GitHub repository, follow these steps in your ter
 2. **Setup Git LFS (For heavy assets)**
    ```bash
    git lfs install
-   git lfs track "*.jpg" " *.png" "*.pdf"
+   git lfs track "*.jpg" "*.png" "*.pdf" "*.jpeg"
    ```
 
 3. **Stage and Commit**
    ```bash
    git add .
-   git commit -m "Mission: Initial Deployment v2.5"
+   git commit -m "Finalizing registry: Sync dependencies and Git LFS"
    ```
 
-4. **Connect to GitHub**
-   *Create a new empty repository on GitHub, then:*
+4. **Connect to GitHub** (Replace URL with your repo link)
    ```bash
    git remote add origin https://github.com/sikkalmcg/Sikkaind.git
    git branch -M main
    ```
 
-5. **Push to Cloud**
+5. **Push to Cloud (Force Push to resolve conflicts)**
    ```bash
-   git push -u origin main
+   git push -u origin main --force
    ```
-
-### 🛠 Troubleshooting: "Push Rejected (fetch first)"
-If you see the error `! [rejected] main -> main (fetch first)`, it means GitHub has files (like a README or License) that you don't have locally. Run this command to fix it:
-
-```bash
-# Option A: Merge remote changes into your local code (Safe)
-git pull origin main --rebase
-git push -u origin main
-
-# Option B: Overwrite everything on GitHub with your local code (Quickest for new repos)
-git push -u origin main --force
-```
 
 ## Core Modules
 - **Logistics Hub**: Live Dashboard, Gate Control, Shipment Planning, GIS Tracking.
@@ -53,8 +41,8 @@ git push -u origin main --force
 - **Financial Node**: Freight Process, Fuel Settlement, Employee Payroll.
 
 ## Tech Stack
-- **Framework**: Next.js 15 (App Router)
-- **Database/Auth**: Firebase (Firestore & Authentication)
+- **Framework**: Next.js 14 (App Router)
+- **Database/Auth**: Firebase 9.23.0 (Firestore & Authentication)
 - **Styling**: Tailwind CSS & ShadCN UI
 - **GIS**: Google Maps API & Wheelseye Integration
 
