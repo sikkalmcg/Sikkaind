@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Edit2, Trash2, ShieldCheck, Mail, Smartphone, History, Briefcase } from 'lucide-react';
+import { Search, Edit2, Trash2, ShieldCheck, Mail, Smartphone, History, Briefcase, Lock, User as UserIcon, KeyRound } from 'lucide-react';
 import type { WithId, SubUser, Plant } from '@/types';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -54,32 +54,46 @@ export default function UserManagementTab({ users, plants, onUserDeleted, onUser
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="min-w-[2000px]">
             <TableHeader className="bg-slate-50/50">
               <TableRow className="h-14 hover:bg-transparent border-b border-slate-100">
-                <TableHead className="text-[10px] font-black uppercase px-8 text-slate-400">Staff Entity</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">System Role</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Contact Node</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Node Scope</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-400">Status</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-8 text-right text-slate-400">Actions</TableHead>
+                <TableHead className="text-[10px] font-black uppercase px-8 text-slate-500">Staff Entity</TableHead>
+                <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Username</TableHead>
+                <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Password Node</TableHead>
+                <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">System Role</TableHead>
+                <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Contact Node</TableHead>
+                <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Node Scope</TableHead>
+                <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-500">Status</TableHead>
+                <TableHead className="text-[10px] font-black uppercase px-8 text-right text-slate-500">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredUsers.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No identity nodes matching criteria.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No identity nodes matching criteria.</TableCell></TableRow>
               ) : (
                 filteredUsers.map((user) => (
                   <TableRow key={user.id} className="h-20 hover:bg-blue-50/20 transition-all border-b border-slate-50 last:border-0 group">
                     <TableCell className="px-8">
                       <div className="flex flex-col gap-0.5">
                         <span className="font-black text-slate-900 uppercase text-sm leading-tight">{user.fullName}</span>
-                        <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">@{user.username}</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">ID: {user.id.slice(0, 8)}...</span>
                       </div>
                     </TableCell>
                     <TableCell className="px-4">
                       <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-blue-50 rounded-lg"><Briefcase className="h-3 w-3 text-blue-600" /></div>
+                        <div className="p-1.5 bg-blue-50 rounded-lg"><UserIcon className="h-3 w-3 text-blue-600" /></div>
+                        <span className="text-xs font-black text-blue-900 uppercase tracking-tight">{user.username}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-4">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-orange-50 rounded-lg"><KeyRound className="h-3 w-3 text-orange-600" /></div>
+                        <span className="text-xs font-mono font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded border border-slate-200">{user.password || '********'}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-4">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-slate-50 rounded-lg"><Briefcase className="h-3 w-3 text-slate-400" /></div>
                         <span className="text-xs font-bold text-slate-700 uppercase">{user.jobRole || 'Standard Operator'}</span>
                       </div>
                     </TableCell>
