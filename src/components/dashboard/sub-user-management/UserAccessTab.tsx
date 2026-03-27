@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, ShieldCheck, UserPlus, KeyRound, Smartphone, Briefcase, Factory, LayoutGrid, CheckCircle2 } from 'lucide-react';
+import { Loader2, ShieldCheck, UserPlus, KeyRound, Smartphone, Briefcase, Factory, LayoutGrid, CheckCircle2, Truck } from 'lucide-react';
 import type { SubUser, Plant } from '@/types';
 import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions } from '@/lib/constants';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -242,7 +242,7 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                               selectedPermissions.includes(p.id) ? "bg-white border-emerald-600 shadow-md" : "border-slate-50 hover:border-slate-200"
                             )}>
                               <div className={cn("h-4 w-4 rounded-md border flex items-center justify-center transition-colors", selectedPermissions.includes(p.id) ? "bg-emerald-600 border-emerald-600 shadow-inner" : "bg-white border-slate-200")}>
-                                {selectedPermissions.includes(p.id) && <CheckCircle2 className="h-3 w-3 text-white" />}
+                                {selectedPermissions.includes(p.id) && <CheckCircle2 className="h-3.5 w-3.5 text-white" />}
                               </div>
                               <span className={cn("text-[11px] font-black uppercase tracking-tight", selectedPermissions.includes(p.id) ? "text-emerald-700" : "text-slate-500")}>{p.name}</span>
                             </div>
@@ -262,7 +262,7 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                             selectedPermissions.includes(p.id) ? "bg-white border-emerald-600 shadow-md" : "border-slate-50 hover:border-slate-200"
                           )}>
                             <div className={cn("h-4 w-4 rounded-md border flex items-center justify-center transition-colors", selectedPermissions.includes(p.id) ? "bg-emerald-600 border-emerald-600 shadow-inner" : "bg-white border-slate-200")}>
-                              {selectedPermissions.includes(p.id) && <CheckCircle2 className="h-3 w-3 text-white" />}
+                              {selectedPermissions.includes(p.id) && <CheckCircle2 className="h-3.5 w-3.5 text-white" />}
                             </div>
                             <span className={cn("text-[11px] font-black uppercase tracking-tight", selectedPermissions.includes(p.id) ? "text-emerald-700" : "text-slate-500")}>{p.name}</span>
                           </div>

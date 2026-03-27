@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, ShieldCheck, KeyRound, Smartphone, Factory, CheckCircle2, Save, X, Activity } from 'lucide-react';
+import { Loader2, ShieldCheck, KeyRound, Smartphone, Factory, CheckCircle2, Save, X, Activity, Truck } from 'lucide-react';
 import type { SubUser, Plant, WithId } from '@/types';
 import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions } from '@/lib/constants';
 import { cn } from '@/lib/utils';
@@ -179,7 +179,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                             )} />
                             <FormField name="defaultModule" control={form.control} render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase text-slate-500">Default Terminal</FormLabel>
+                                    <FormLabel className="text-[10px] font-black uppercase text-slate-500">Default Terminal Node</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue /></SelectTrigger></FormControl>
                                         <SelectContent className="rounded-xl">
