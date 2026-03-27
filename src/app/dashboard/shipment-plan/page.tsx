@@ -1,42 +1,55 @@
+
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import CreatePlan from '@/components/dashboard/shipment-plan/CreatePlan';
 import ShipmentData from '@/components/dashboard/shipment-plan/ShipmentData';
 import EditShipmentModal from '@/components/dashboard/shipment-plan/EditShipmentModal';
 import type { WithId, Shipment, Plant, SubUser } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction } from "firebase/firestore";
+import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, getDocs, where, limit, onSnapshot } from "firebase/firestore";
 import { Loader2, WifiOff, Package, ListTree } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { onSnapshot } from 'firebase/firestore';
-import { format } from 'date-fns';
 import { useLoading } from '@/context/LoadingContext';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { normalizePlantId } from '@/lib/utils';
+import { format } from 'date-fns';
 
-export default function ShipmentPlanPage() {
+function ShipmentPlanContent() {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
   const { showLoader, hideLoader } = useLoading();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  
+  // REGISTRY STABILITY: Maintain local state for active tab to prevent UI snapping
+  const [activeTab, setActiveTab] = useState<string>(searchParams.get('tab') || 'create');
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
   const [authorizedPlantIds, setAuthorizedPlantIds] = useState<string[]>([]);
   const [isLoadingMeta, setIsLoadingMeta] = useState(true);
   const [dbError, setDbError] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState('create');
   const [editingShipment, setEditingShipment] = useState<WithId<Shipment> | null>(null);
 
-  // Snappy Protocol: Force finish loading after 4s
+  // Sync tab state with URL without causing resets
   useEffect(() => {
-    if (isLoadingMeta) {
-        const timer = setTimeout(() => setIsLoadingMeta(false), 4000);
-        return () => clearTimeout(timer);
+    const urlTab = searchParams.get('tab');
+    if (urlTab && urlTab !== activeTab) {
+      setActiveTab(urlTab);
     }
-  }, [isLoadingMeta]);
+  }, [searchParams]);
+
+  const handleTabChange = (val: string) => {
+    setActiveTab(val);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', val);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   // Fetch Master Logistics Plants List
   const plantsQuery = useMemoFirebase(() => 
@@ -49,20 +62,29 @@ export default function ShipmentPlanPage() {
     if (!firestore || !user) return;
     
     const fetchData = async () => {
-      setIsLoadingMeta(true);
+      if (authorizedPlantIds.length === 0) setIsLoadingMeta(true);
       setDbError(false);
       try {
-        const userDocRef = doc(firestore, "users", user.uid);
-        const userDocSnap = await getDoc(userDocRef);
+        const lastIdentity = localStorage.getItem('slmc_last_identity');
+        const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
         
+        let userDocSnap = null;
+        const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
+        const qSnap = await getDocs(q);
+        if (!qSnap.empty) {
+            userDocSnap = qSnap.docs[0];
+        }
+
         const baseList = (allMasterPlants && allMasterPlants.length > 0) ? allMasterPlants : mockPlants;
         let authIds: string[] = [];
 
-        if (userDocSnap.exists()) {
+        const isAdminSession = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
+
+        if (userDocSnap && userDocSnap.exists()) {
             const userData = userDocSnap.data() as SubUser;
-            const isSikkaind = userData.username?.toLowerCase() === 'sikkaind' || user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
+            const isSikkaind = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
             authIds = isSikkaind ? baseList.map(p => p.id) : (userData.plantIds || []);
-        } else if (user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com') {
+        } else if (isAdminSession) {
             authIds = baseList.map(p => p.id);
         }
 
@@ -157,7 +179,8 @@ export default function ShipmentPlanPage() {
             const shipRef = doc(firestore, `plants/${shipment.originPlantId}/shipments`, id);
             const ts = serverTimestamp();
             
-            const currentName = user.displayName || user.email || 'System Operator';
+            const isAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
+            const currentName = isAdmin ? 'AJAY SOMRA' : (user.displayName || user.email || 'System Operator');
 
             transaction.update(shipRef, {
                 currentStatusId: 'Cancelled',
@@ -201,7 +224,7 @@ export default function ShipmentPlanPage() {
     }
   };
 
-  if (isLoadingMeta) {
+  if (isLoadingMeta && authorizedPlantIds.length === 0) {
     return (
         <div className="flex h-screen flex-col items-center justify-center bg-[#f8fafc]">
             <Loader2 className="h-12 w-12 animate-spin text-blue-900 mb-4" />
@@ -232,7 +255,7 @@ export default function ShipmentPlanPage() {
             </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-8">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-8">
             <TabsList className="bg-transparent border-b h-12 rounded-none gap-10 p-0 mb-8">
                 <TabsTrigger value="create" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2">
                     <Package className="h-4 w-4" /> Create Order
@@ -243,7 +266,7 @@ export default function ShipmentPlanPage() {
             </TabsList>
 
             <TabsContent value="create" className="focus-visible:ring-0">
-                <CreatePlan onShipmentCreated={() => setActiveTab('history')} />
+                <CreatePlan onShipmentCreated={() => handleTabChange('history')} />
             </TabsContent>
 
             <TabsContent value="history" className="focus-visible:ring-0">
@@ -266,4 +289,12 @@ export default function ShipmentPlanPage() {
         )}
     </main>
   );
+}
+
+export default function ShipmentPlanPage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>}>
+            <ShipmentPlanContent />
+        </Suspense>
+    );
 }
