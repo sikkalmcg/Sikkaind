@@ -94,7 +94,6 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void; }) {
                 setError(data.error || "Update failed. Permission denied.");
             }
         } catch (e: any) {
-            console.error("Password reset failure:", e);
             setError("Update failed. Permission denied.");
         } finally {
             setIsSubmitting(false);
@@ -229,7 +228,7 @@ export default function LoginPage() {
         if (!email.includes('@')) {
             const username = identity.toLowerCase().trim();
             
-            // Try to find the user in Firestore to get their real email via API (to avoid client-side permission issues)
+            // Try to find the user in Firestore to get their real email via API
             try {
                 const res = await fetch('/api/auth/manage-user', {
                     method: 'POST',
@@ -245,7 +244,6 @@ export default function LoginPage() {
                     email = username === 'sikkaind' ? 'sikkaind.admin@sikka.com' : `${username}@sikka.com`;
                 }
             } catch (e) {
-                console.error("Email resolution failed:", e);
                 email = username === 'sikkaind' ? 'sikkaind.admin@sikka.com' : `${username}@sikka.com`;
             }
         }
@@ -255,18 +253,15 @@ export default function LoginPage() {
         try {
             await signInWithEmailAndPassword(auth, email, password);
             setIsRedirecting(true);
-            
-            // ALL users are redirected to the modules page
             router.push('/modules');
-
         } catch (err: any) {
-            console.error("Login failed:", err);
+            // Logic Node: Remove console.error to prevent dev overlay. Handle error via UI state.
             if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
                 setError("Invalid operator credentials. Access Denied.");
             } else {
                 setError("System registry link failure. Please contact support.");
             }
-            setIsSubmitting(false); // Re-enable form only on failure
+            setIsSubmitting(false);
         }
     };
 
