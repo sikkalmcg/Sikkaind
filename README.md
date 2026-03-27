@@ -14,7 +14,7 @@ To deploy this project to your GitHub repository, follow these steps in your ter
 2. **Setup Git LFS (For heavy assets)**
    ```bash
    git lfs install
-   git lfs track "*.jpg" "*.png" "*.pdf"
+   git lfs track "*.jpg" " *.png" "*.pdf"
    ```
 
 3. **Stage and Commit**
@@ -34,6 +34,18 @@ To deploy this project to your GitHub repository, follow these steps in your ter
    ```bash
    git push -u origin main
    ```
+
+### 🛠 Troubleshooting: "Push Rejected (fetch first)"
+If you see the error `! [rejected] main -> main (fetch first)`, it means GitHub has files (like a README or License) that you don't have locally. Run this command to fix it:
+
+```bash
+# Option A: Merge remote changes into your local code (Safe)
+git pull origin main --rebase
+git push -u origin main
+
+# Option B: Overwrite everything on GitHub with your local code (Quickest for new repos)
+git push -u origin main --force
+```
 
 ## Core Modules
 - **Logistics Hub**: Live Dashboard, Gate Control, Shipment Planning, GIS Tracking.
