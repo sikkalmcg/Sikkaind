@@ -5,35 +5,20 @@ Enterprise-grade logistics and supply chain management system built with Next.js
 
 ## 🚀 GitHub Deployment Guide
 
-To deploy this project to your GitHub repository, follow these steps in your terminal:
+Aapka code locally commit ho chuka hai. Ab isse GitHub par bhejne ke liye niche diye gaye steps follow karein:
 
-1. **Initialize Git Repository** (Skip if already done)
-   ```bash
-   git init
-   ```
-
-2. **Setup Git LFS (For heavy assets)**
-   ```bash
-   git lfs install
-   git lfs track "*.jpg" "*.png" "*.pdf" "*.jpeg"
-   ```
-
-3. **Stage and Commit**
-   ```bash
-   git add .
-   git commit -m "Finalizing registry: Sync dependencies and Git LFS"
-   ```
-
-4. **Connect to GitHub** (Replace URL with your repo link)
+1. **Connect to GitHub** (Sirf ek baar karna hai)
    ```bash
    git remote add origin https://github.com/sikkalmcg/Sikkaind.git
-   git branch -M main
    ```
 
-5. **Push to Cloud (Force Push to resolve conflicts)**
+2. **Push to Cloud** (Force push isliye taaki local aur remote sync ho jayein)
    ```bash
    git push -u origin main --force
    ```
+
+3. **Verify**
+   GitHub par apna repository refresh karein, saare commits wahan mil jayenge.
 
 ## Core Modules
 - **Logistics Hub**: Live Dashboard, Gate Control, Shipment Planning, GIS Tracking.
