@@ -5,8 +5,7 @@ import { format, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { LR, Trip, Shipment, Carrier, Plant } from '@/types';
 import { Timestamp } from 'firebase/firestore';
-import { ShieldCheck } from 'lucide-react';
-import Image from 'next/image';
+import { ShieldCheck, Truck, Factory, MapPin } from 'lucide-react';
 
 export type EnrichedLR = LR & {
   trip: Trip;
@@ -25,7 +24,7 @@ interface PrintableLRProps {
 /**
  * @fileOverview SIKKA LMC - Enterprise Lorry Receipt (LR) A4 Node.
  * High-fidelity layout synchronized with the mission registry template.
- * Logic: Signature nodes removed as per user requirement.
+ * Updated: QR Code removed, TO field restricted to City, Conditional E-Way Bill columns.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -38,6 +37,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const totalUnits = items.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
   const totalWeight = lr.assignedTripWeight || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
   const totalValue = items.reduce((sum, item) => sum + (Number((item as any).goodsValue) || 0), 0);
+
+  // Logic Node: Check if E-Way Bill is applicable for this mission manifest
+  const hasEwayBill = items.some(i => i.ewaybillNumber && i.ewaybillNumber.trim() !== '');
 
   return (
     <div className="A4-page p-[10mm] bg-white text-black font-sans text-[9pt] leading-tight border border-slate-100 print:border-none min-h-[297mm] flex flex-col relative select-text">
@@ -73,16 +75,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
 
         <div className="flex items-start gap-6">
-            <div className="h-20 w-20 border-2 border-slate-900 p-1 bg-white">
-                {/* Registry QR Node Placeholder */}
-                <div className="w-full h-full bg-slate-50 flex items-center justify-center">
-                    <div className="w-14 h-14 border border-slate-300 relative">
-                        <div className="absolute top-0 left-0 w-4 h-4 bg-slate-900" />
-                        <div className="absolute top-0 right-0 w-4 h-4 bg-slate-900" />
-                        <div className="absolute bottom-0 left-0 w-4 h-4 bg-slate-900" />
-                    </div>
-                </div>
-            </div>
+            {/* QR Node Removed per requirements */}
             <div className="text-right space-y-3">
                 <div className="border-2 border-slate-900 px-4 py-2 bg-white min-w-[180px]">
                     <p className="text-[11pt] font-black uppercase text-slate-900 flex justify-between gap-4">
@@ -91,8 +84,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 </div>
                 <div className="text-[8pt] font-bold text-slate-600 uppercase space-y-0.5">
                     <p className="flex justify-between gap-4"><span>Date:</span> <span className="text-black font-black">{formatDate(lr.date)}</span></p>
-                    <p className="flex justify-between gap-4"><span>From:</span> <span className="text-black font-black">{lr.from || lr.plant?.name}</span></p>
-                    <p className="flex justify-between gap-4"><span>To:</span> <span className="text-black font-black">{lr.to || 'N/A'}</span></p>
+                    <p className="flex justify-between gap-4"><span>From:</span> <span className="text-black font-black">{lr.from || lr.plant?.name || 'N/A'}</span></p>
+                    <p className="flex justify-between gap-4"><span>To:</span> <span className="text-black font-black">{lr.shipment?.unloadingPoint || lr.to || 'N/A'}</span></p>
                 </div>
             </div>
         </div>
@@ -158,8 +151,12 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
               <th className="border-r-2 border-slate-900 px-2 text-center">No. of Units</th>
               <th className="border-r-2 border-slate-900 px-2 text-right">Weight (MT)</th>
               <th className="border-r-2 border-slate-900 px-2 text-right">Goods value (₹)</th>
-              <th className="border-r-2 border-slate-900 px-2 text-left">E-WayBill No.</th>
-              <th className="px-2 text-left">E-WayBill Date</th>
+              {hasEwayBill && (
+                <>
+                    <th className="border-r-2 border-slate-900 px-2 text-left">E-WayBill No.</th>
+                    <th className="px-2 text-left">E-WayBill Date</th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody className="text-[8.5pt]">
@@ -172,8 +169,12 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 <td className="border-r-2 border-slate-900 px-2 text-center font-black">{item.units} {item.unitType ? `(${item.unitType})` : ''}</td>
                 <td className="border-r-2 border-slate-900 px-2 text-right font-black">{Number(item.weight).toFixed(3)}</td>
                 <td className="border-r-2 border-slate-900 px-2 text-right font-bold">{(Number((item as any).goodsValue) || 0).toLocaleString()}</td>
-                <td className="border-r-2 border-slate-900 px-2 font-mono text-[7.5pt]">{item.ewaybillNumber || '--'}</td>
-                <td className="px-2 whitespace-nowrap">{item.ewaybillNumber ? formatDate(lr.date, 'dd MMM') : '--'}</td>
+                {hasEwayBill && (
+                    <>
+                        <td className="border-r-2 border-slate-900 px-2 font-mono text-[7.5pt]">{item.ewaybillNumber || '--'}</td>
+                        <td className="px-2 whitespace-nowrap">{item.ewaybillNumber ? formatDate(lr.date, 'dd MMM') : '--'}</td>
+                    </>
+                )}
               </tr>
             ))}
             {/* Maintenance rows to push footer down */}
@@ -186,8 +187,12 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 <td className="border-r-2 border-slate-900"></td>
                 <td className="border-r-2 border-slate-900"></td>
                 <td className="border-r-2 border-slate-900"></td>
-                <td className="border-r-2 border-slate-900"></td>
-                <td></td>
+                {hasEwayBill && (
+                    <>
+                        <td className="border-r-2 border-slate-900"></td>
+                        <td></td>
+                    </>
+                )}
               </tr>
             ))}
           </tbody>
@@ -197,7 +202,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
               <td className="border-l-2 border-slate-900 px-2 text-center text-[10pt]">{totalUnits}</td>
               <td className="border-l-2 border-slate-900 px-2 text-right text-[10pt] text-blue-900">{totalWeight.toFixed(3)}</td>
               <td className="border-l-2 border-slate-900 px-2 text-right text-[10pt]">{totalValue > 0 ? totalValue.toLocaleString() : '--'}</td>
-              <td colSpan={2} className="border-l-2 border-slate-900"></td>
+              {hasEwayBill && <td colSpan={2} className="border-l-2 border-slate-900"></td>}
             </tr>
           </tfoot>
         </table>
@@ -231,7 +236,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 6. SIGNATURE NODE REMOVED AS PER USER REQUEST */}
       {/* Visual spacer to maintain balance */}
       <div className="flex-1" />
 
