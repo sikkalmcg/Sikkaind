@@ -5,7 +5,7 @@ import { format, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { LR, Trip, Shipment, Carrier, Plant } from '@/types';
 import { Timestamp } from 'firebase/firestore';
-import { ShieldCheck, Truck, Factory, MapPin } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 export type EnrichedLR = LR & {
   trip: Trip;
@@ -24,7 +24,7 @@ interface PrintableLRProps {
 /**
  * @fileOverview SIKKA LMC - Enterprise Lorry Receipt (LR) A4 Node.
  * High-fidelity layout synchronized with the mission registry template.
- * Updated: Remarks removed, Terms moved to left, Signature added to right.
+ * Updated: Removed Goods Value, optimized column widths, and showed all terms.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -36,7 +36,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const items = lr.items || [];
   const totalUnits = items.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
   const totalWeight = lr.assignedTripWeight || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
-  const totalValue = items.reduce((sum, item) => sum + (Number((item as any).goodsValue) || 0), 0);
 
   // Logic Node: Check if E-Way Bill is applicable for this mission manifest
   const hasEwayBill = items.some(i => i.ewaybillNumber && i.ewaybillNumber.trim() !== '');
@@ -109,7 +108,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
       {/* 3. PARTY REGISTRY GRID */}
       <div className="grid grid-cols-3 border-2 border-slate-900 rounded-xl overflow-hidden mb-6 divide-x-2 divide-slate-900">
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-3 border-slate-900">
             <span className="text-[8pt] font-black uppercase text-slate-900 border-b-2 border-slate-900 pb-1 block">Consignor</span>
             <div className="text-[8pt] space-y-1">
                 <p className="font-black uppercase">{lr.consignorName}</p>
@@ -118,7 +117,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 <p><span className="text-slate-400 font-black">GSTIN:</span> <span className="font-mono">{lr.consignorGtin || '--'}</span></p>
             </div>
         </div>
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-3 border-slate-900">
             <span className="text-[8pt] font-black uppercase text-slate-900 border-b-2 border-slate-900 pb-1 block">Consignee/ Bill To Party</span>
             <div className="text-[8pt] space-y-1">
                 <p className="font-black uppercase">{lr.buyerName}</p>
@@ -127,7 +126,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 <p><span className="text-slate-400 font-black">GSTIN:</span> <span className="font-mono">{lr.buyerGtin || '--'}</span></p>
             </div>
         </div>
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-3 border-slate-900">
             <span className="text-[8pt] font-black uppercase text-slate-900 border-b-2 border-slate-900 pb-1 block">Ship to Party</span>
             <div className="text-[8pt] space-y-1">
                 <p className="font-black uppercase">{lr.shipToParty}</p>
@@ -142,45 +141,39 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       <div className="border-2 border-slate-900 rounded-xl overflow-hidden mb-6 flex-1 flex flex-col">
         <table className="w-full border-collapse">
           <thead>
-            <tr className="bg-slate-50 text-slate-900 h-10 text-[7.5pt] font-black uppercase border-b-2 border-slate-900">
-              <th className="border-r-2 border-slate-900 px-3 text-left">Invoice No.</th>
-              <th className="border-r-2 border-slate-900 px-2 text-left">E-Invoice No.</th>
-              <th className="border-r-2 border-slate-900 px-2 text-left">Invoice Date</th>
-              <th className="border-r-2 border-slate-900 px-3 text-left">Product Name</th>
-              <th className="border-r-2 border-slate-900 px-2 text-center">No. of Units</th>
-              <th className="border-r-2 border-slate-900 px-2 text-right">Weight (MT)</th>
-              <th className="border-r-2 border-slate-900 px-2 text-right">Goods value (₹)</th>
+            <tr className="bg-slate-50 text-slate-900 h-10 text-[7pt] font-black uppercase border-b-2 border-slate-900">
+              <th className="border-r-2 border-slate-900 px-2 text-left w-[12%]">Invoice No.</th>
+              <th className="border-r-2 border-slate-900 px-2 text-left w-[10%]">Date</th>
+              <th className="border-r-2 border-slate-900 px-2 text-left">Product Name</th>
+              <th className="border-r-2 border-slate-900 px-2 text-center w-[8%]">Units</th>
+              <th className="border-r-2 border-slate-900 px-2 text-right w-[10%]">Weight</th>
               {hasEwayBill && (
                 <>
-                    <th className="border-r-2 border-slate-900 px-2 text-left">E-WayBill No.</th>
-                    <th className="px-2 text-left">E-WayBill Date</th>
+                    <th className="border-r-2 border-slate-900 px-2 text-left w-[12%]">E-WayBill</th>
+                    <th className="px-2 text-left w-[10%]">E-W Date</th>
                 </>
               )}
             </tr>
           </thead>
-          <tbody className="text-[8.5pt]">
+          <tbody className="text-[8pt]">
             {items.map((item, idx) => (
               <tr key={idx} className="border-b border-slate-200 h-10 align-middle">
-                <td className="border-r-2 border-slate-900 px-3 font-black uppercase">{item.invoiceNumber}</td>
-                <td className="border-r-2 border-slate-900 px-2 font-mono text-[7pt] truncate max-w-[80px]">{item.invoiceNumber?.slice(0, 10)}...</td>
+                <td className="border-r-2 border-slate-900 px-2 font-black uppercase">{item.invoiceNumber}</td>
                 <td className="border-r-2 border-slate-900 px-2 whitespace-nowrap">{formatDate(lr.date, 'dd MMM')}</td>
-                <td className="border-r-2 border-slate-900 px-3 font-bold uppercase">{item.itemDescription}</td>
-                <td className="border-r-2 border-slate-900 px-2 text-center font-black">{item.units} {item.unitType ? `(${item.unitType})` : ''}</td>
+                <td className="border-r-2 border-slate-900 px-2 font-bold uppercase truncate max-w-0">{item.itemDescription}</td>
+                <td className="border-r-2 border-slate-900 px-2 text-center font-black">{item.units} {item.unitType ? `(${item.unitType.slice(0,3)})` : ''}</td>
                 <td className="border-r-2 border-slate-900 px-2 text-right font-black">{Number(item.weight).toFixed(3)}</td>
-                <td className="border-r-2 border-slate-900 px-2 text-right font-bold">{(Number((item as any).goodsValue) || 0).toLocaleString()}</td>
                 {hasEwayBill && (
                     <>
-                        <td className="border-r-2 border-slate-900 px-2 font-mono text-[7.5pt]">{item.ewaybillNumber || '--'}</td>
+                        <td className="border-r-2 border-slate-900 px-2 font-mono text-[7pt]">{item.ewaybillNumber || '--'}</td>
                         <td className="px-2 whitespace-nowrap">{item.ewaybillNumber ? formatDate(lr.date, 'dd MMM') : '--'}</td>
                     </>
                 )}
               </tr>
             ))}
             {/* Maintenance rows to push footer down */}
-            {Array.from({ length: Math.max(0, 12 - items.length) }).map((_, i) => (
+            {Array.from({ length: Math.max(0, 15 - items.length) }).map((_, i) => (
               <tr key={`empty-${i}`} className="h-10 border-b border-slate-50 opacity-10">
-                <td className="border-r-2 border-slate-900"></td>
-                <td className="border-r-2 border-slate-900"></td>
                 <td className="border-r-2 border-slate-900"></td>
                 <td className="border-r-2 border-slate-900"></td>
                 <td className="border-r-2 border-slate-900"></td>
@@ -197,10 +190,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           </tbody>
           <tfoot className="border-t-2 border-slate-900 bg-slate-50 font-black h-12">
             <tr className="align-middle">
-              <td colSpan={4} className="px-4 text-[8pt] uppercase">Total Registry Manifest:</td>
-              <td className="border-l-2 border-slate-900 px-2 text-center text-[10pt]">{totalUnits}</td>
-              <td className="border-l-2 border-slate-900 px-2 text-right text-[10pt] text-blue-900">{totalWeight.toFixed(3)}</td>
-              <td className="border-l-2 border-slate-900 px-2 text-right text-[10pt]">{totalValue > 0 ? totalValue.toLocaleString() : '--'}</td>
+              <td colSpan={3} className="px-4 text-[8pt] uppercase">Total Registry Manifest:</td>
+              <td className="border-l-2 border-slate-900 px-2 text-center text-[9.5pt]">{totalUnits}</td>
+              <td className="border-l-2 border-slate-900 px-2 text-right text-[9.5pt] text-blue-900">{totalWeight.toFixed(3)} MT</td>
               {hasEwayBill && <td colSpan={2} className="border-l-2 border-slate-900"></td>}
             </tr>
           </tfoot>
@@ -209,47 +201,51 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
       {/* 5. TERMS & SIGNATURE SECTION */}
       <div className="mb-10 mt-4">
-        <div className="flex justify-between items-end gap-10">
-            {/* Left: Terms */}
-            <div className="flex-1 space-y-2">
-                <span className="text-[7.5pt] font-black uppercase text-slate-400 tracking-widest px-1">Terms & Conditions:</span>
-                <div className="text-[6.5pt] font-medium text-slate-500 leading-tight italic space-y-1">
+        <div className="flex justify-between items-start gap-16">
+            {/* Left: All Terms */}
+            <div className="flex-1 space-y-3">
+                <span className="text-[8.5pt] font-black uppercase tracking-widest text-slate-900 border-b border-slate-200 block pb-1">TERMS & CONDITIONS:</span>
+                <div className="text-[7pt] font-medium text-slate-600 leading-tight space-y-1.5">
                     {lr.carrier?.terms && lr.carrier.terms.length > 0 ? (
-                        lr.carrier.terms.slice(0, 4).map((term, i) => <p key={i}>• {term}</p>)
+                        lr.carrier.terms.map((term, i) => <p key={i} className="flex gap-2"><span>•</span> <span>{term}</span></p>)
                     ) : (
                         <>
-                            <p>• Subject to Ghaziabad Jurisdiction</p>
-                            <p>• Goods carried at owner's risk</p>
-                            <p>• Not responsible for leakage/damage</p>
-                            <p>• Discrepancy must be reported within 24 hours</p>
+                            <p className="flex gap-2"><span>•</span> <span>Subject to Ghaziabad Jurisdiction</span></p>
+                            <p className="flex gap-2"><span>•</span> <span>Goods carried at owner's risk</span></p>
+                            <p className="flex gap-2"><span>•</span> <span>Not responsible for leakage/damage</span></p>
+                            <p className="flex gap-2"><span>•</span> <span>Discrepancy must be reported within 24 hours</span></p>
                         </>
                     )}
                 </div>
             </div>
 
-            {/* Right: Signature */}
-            <div className="w-[250px] text-center space-y-12">
-                <p className="text-[8pt] font-black uppercase tracking-tight">For {lr.carrier?.name || 'Sikka Logistics'}</p>
-                <div className="border-t-2 border-slate-900 border-dashed pt-2">
-                    <p className="text-[8pt] font-black uppercase tracking-widest text-slate-900">Authorized Signatory</p>
+            {/* Right: Signature Section */}
+            <div className="w-[320px] pt-4 space-y-16">
+                <div className="text-center space-y-1">
+                    <p className="text-[9pt] font-black uppercase tracking-tight leading-none">FOR {lr.carrier?.name || 'SIKKA INDUSTRIES AND LOGISTICS'}</p>
+                </div>
+                
+                <div className="text-center space-y-2">
+                    <div className="border-t-2 border-slate-900 border-dashed pt-2 w-full mx-auto" />
+                    <p className="text-[9pt] font-black uppercase tracking-widest text-slate-900">AUTHORIZED SIGNATORY</p>
                 </div>
             </div>
         </div>
       </div>
 
-      <div className="mt-auto pt-8 border-t border-slate-100 flex flex-col items-center gap-4">
+      <div className="mt-auto pt-6 border-t border-slate-100 flex flex-col items-center gap-3">
         <div className="text-center space-y-1">
-            <p className="text-[8pt] font-bold text-slate-600">
-                Note: This Lorry Receipt was generated digitally and is to be considered as original
+            <p className="text-[7.5pt] font-bold text-slate-400">
+                Note: This Lorry Receipt was generated digitally and is to be considered as original document
             </p>
-            <p className="text-[7pt] font-black uppercase text-slate-400 tracking-[0.2em]">
+            <p className="text-[7pt] font-black uppercase text-slate-300 tracking-[0.2em]">
                 Page {pageNumber} of {totalInSeries}
             </p>
         </div>
         
         <div className="opacity-20 flex items-center gap-3">
-            <ShieldCheck className="h-6 w-6 text-slate-900" />
-            <span className="text-[6pt] font-black uppercase tracking-[0.5em]">Verified Registry Node Handshake</span>
+            <ShieldCheck className="h-5 w-5 text-slate-900" />
+            <span className="text-[6pt] font-black uppercase tracking-[0.5em]">Verified SIKKA LMC Registry Node</span>
         </div>
       </div>
     </div>
