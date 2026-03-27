@@ -64,49 +64,60 @@ export default function Header() {
         </div>
       </nav>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu Backdrop */}
       {mobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-white p-6 animate-in slide-in-from-top duration-300">
-          <div className="flex items-center justify-between mb-8">
-            <Link href="/" className="flex items-center gap-3" onClick={() => setMobileMenuOpen(false)}>
-              <div className="bg-blue-900 p-2 rounded-xl text-white">
-                <Truck className="h-6 w-6" />
-              </div>
-              <span className="text-xl font-black tracking-tighter uppercase italic">Sikka LMC</span>
-            </Link>
-            <button
-              type="button"
-              className="-m-2.5 rounded-md p-2.5 text-slate-700"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <X className="h-6 w-6" aria-hidden="true" />
-            </button>
-          </div>
-          <div className="space-y-4">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={cn(
-                  "block text-lg font-black uppercase tracking-tight py-2 border-b border-slate-100",
-                  pathname === item.href ? "text-blue-600" : "text-slate-900"
-                )}
-              >
-                {item.name}
-              </Link>
-            ))}
-            <div className="pt-8 flex flex-col gap-4">
-              <Button variant="outline" asChild className="w-full h-12 font-black uppercase text-xs tracking-widest">
-                <Link href="/login">Portal Login</Link>
-              </Button>
-              <Button asChild className="w-full h-12 bg-blue-900 font-black uppercase text-xs tracking-widest">
-                <Link href="/track-consignment">Track Mission</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
+        <div 
+          className="lg:hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm transition-opacity" 
+          onClick={() => setMobileMenuOpen(false)} 
+        />
       )}
+
+      {/* Mobile Menu Drawer (Slides from Right) */}
+      <div className={cn(
+        "lg:hidden fixed inset-y-0 right-0 z-50 w-full max-w-xs bg-white p-6 shadow-2xl transition-transform duration-300 ease-in-out transform",
+        mobileMenuOpen ? "translate-x-0" : "translate-x-full"
+      )}>
+        <div className="flex items-center justify-between mb-8 border-b pb-4">
+          <Link href="/" className="flex items-center gap-3" onClick={() => setMobileMenuOpen(false)}>
+            <div className="bg-blue-900 p-2 rounded-xl text-white">
+              <Truck className="h-6 w-6" />
+            </div>
+            <span className="text-xl font-black tracking-tighter uppercase italic">Sikka LMC</span>
+          </Link>
+          <button
+            type="button"
+            className="-m-2.5 rounded-md p-2.5 text-slate-700 hover:bg-slate-50"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <X className="h-6 w-6" aria-hidden="true" />
+          </button>
+        </div>
+        
+        <div className="flex flex-col gap-2">
+          {navigation.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              onClick={() => setMobileMenuOpen(false)}
+              className={cn(
+                "block text-lg font-black uppercase tracking-tight py-3 px-4 rounded-xl transition-colors",
+                pathname === item.href ? "bg-blue-50 text-blue-600" : "text-slate-900 hover:bg-slate-50"
+              )}
+            >
+              {item.name}
+            </Link>
+          ))}
+        </div>
+
+        <div className="mt-auto pt-8 flex flex-col gap-4 border-t absolute bottom-8 left-6 right-6">
+          <Button variant="outline" asChild className="w-full h-12 font-black uppercase text-xs tracking-widest rounded-xl border-slate-200">
+            <Link href="/login" onClick={() => setMobileMenuOpen(false)}>Portal Login</Link>
+          </Button>
+          <Button asChild className="w-full h-12 bg-blue-900 font-black uppercase text-xs tracking-widest rounded-xl shadow-lg">
+            <Link href="/track-consignment" onClick={() => setMobileMenuOpen(false)}>Track Mission</Link>
+          </Button>
+        </div>
+      </div>
     </header>
   );
 }
