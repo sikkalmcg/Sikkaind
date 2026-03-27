@@ -1,0 +1,1379 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Sikka Logistics platform, excluding authentication credentials. This entity stores user profile information and links to roles and permissions.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "username": {
+          "type": "string",
+          "description": "Unique username for the user, used for login (not password)."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "First name of the user."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Last name of the user."
+        },
+        "statusId": {
+          "type": "string",
+          "description": "Reference to Status for the user's account status (e.g., 'Active', 'Inactive'). (Relationship: Status 1:N User)"
+        },
+        "contactNumber": {
+          "type": "string",
+          "description": "Contact phone number of the user."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the user account was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the user account was last updated.",
+          "format": "date-time"
+        },
+        "createdByUserId": {
+          "type": "string",
+          "description": "Reference to the User who created this user account. (Relationship: User 1:N User)"
+        },
+        "updatedByUserId": {
+          "type": "string",
+          "description": "Reference to the User who last updated this user account. (Relationship: User 1:N User)"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "email",
+        "firstName",
+        "lastName",
+        "statusId",
+        "createdAt"
+      ]
+    },
+    "Role": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Role",
+      "type": "object",
+      "description": "Defines a user role within the application for role-based access control.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Role entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the role (e.g., 'Admin', 'Driver', 'Plant Manager')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the role's responsibilities."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the role was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the role was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "createdAt"
+      ]
+    },
+    "Permission": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Permission",
+      "type": "object",
+      "description": "Defines a specific permission that can be granted to a role, supporting page-wise authorization.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Permission entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the permission (e.g., 'vehicle_view', 'shipment_create')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of what this permission allows."
+        },
+        "module": {
+          "type": "string",
+          "description": "The application module or page this permission applies to (e.g., 'VehicleEntryModule', 'ShipmentPlanModule')."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the permission was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the permission was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "module",
+        "createdAt"
+      ]
+    },
+    "UserRole": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserRole",
+      "type": "object",
+      "description": "Junction entity to manage the N:N relationship between Users and Roles.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserRole entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User. (Relationship: User N:N Role)"
+        },
+        "roleId": {
+          "type": "string",
+          "description": "Reference to the Role. (Relationship: User N:N Role)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the user-role assignment was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "roleId",
+        "createdAt"
+      ]
+    },
+    "RolePermission": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "RolePermission",
+      "type": "object",
+      "description": "Junction entity to manage the N:N relationship between Roles and Permissions.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the RolePermission entity."
+        },
+        "roleId": {
+          "type": "string",
+          "description": "Reference to the Role. (Relationship: Role N:N Permission)"
+        },
+        "permissionId": {
+          "type": "string",
+          "description": "Reference to the Permission. (Relationship: Role N:N Permission)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the role-permission assignment was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "roleId",
+        "permissionId",
+        "createdAt"
+      ]
+    },
+    "PlantLocation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlantLocation",
+      "type": "object",
+      "description": "Represents a physical plant or logistics hub location.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the PlantLocation entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the plant location (e.g., 'Salt Plant', 'Tea Plant', 'Dasna')."
+        },
+        "address": {
+          "type": "string",
+          "description": "Street address of the plant location."
+        },
+        "city": {
+          "type": "string",
+          "description": "City of the plant location."
+        },
+        "state": {
+          "type": "string",
+          "description": "State/Province of the plant location."
+        },
+        "zipCode": {
+          "type": "string",
+          "description": "Postal code of the plant location."
+        },
+        "country": {
+          "type": "string",
+          "description": "Country of the plant location."
+        },
+        "latitude": {
+          "type": "number",
+          "description": "Geographical latitude of the plant location."
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Geographical longitude of the plant location."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the plant location was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the plant location was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "address",
+        "city",
+        "state",
+        "country",
+        "createdAt"
+      ]
+    },
+    "Vehicle": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Vehicle",
+      "type": "object",
+      "description": "Details of a logistics vehicle, including administrative and operational information.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Vehicle entity."
+        },
+        "vehicleNumber": {
+          "type": "string",
+          "description": "Unique registration number of the vehicle (e.g., MH12AB1234)."
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of vehicle ownership (e.g., 'Own Vehicle', 'Contract Vehicle', 'Market Vehicle')."
+        },
+        "make": {
+          "type": "string",
+          "description": "Manufacturer of the vehicle."
+        },
+        "model": {
+          "type": "string",
+          "description": "Model of the vehicle."
+        },
+        "year": {
+          "type": "number",
+          "description": "Manufacturing year of the vehicle."
+        },
+        "capacityValue": {
+          "type": "number",
+          "description": "Load capacity value of the vehicle."
+        },
+        "capacityUnit": {
+          "type": "string",
+          "description": "Unit of load capacity (e.g., 'MT', 'LTR')."
+        },
+        "rcDetails": {
+          "type": "string",
+          "description": "Registration Certificate details of the vehicle."
+        },
+        "insuranceExpiryDate": {
+          "type": "string",
+          "description": "Date when the vehicle's insurance expires.",
+          "format": "date"
+        },
+        "fitnessExpiryDate": {
+          "type": "string",
+          "description": "Date when the vehicle's fitness certificate expires.",
+          "format": "date"
+        },
+        "statusId": {
+          "type": "string",
+          "description": "Reference to Status for the vehicle's current operational status (e.g., 'Available', 'In Maintenance', 'On Trip'). (Relationship: Status 1:N Vehicle)"
+        },
+        "currentPlantLocationId": {
+          "type": "string",
+          "description": "Reference to the PlantLocation where the vehicle is currently located. (Relationship: PlantLocation 1:N Vehicle)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the vehicle record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the vehicle record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "vehicleNumber",
+        "type",
+        "make",
+        "model",
+        "statusId",
+        "createdAt"
+      ]
+    },
+    "Driver": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Driver",
+      "type": "object",
+      "description": "Details of a driver associated with logistics operations.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Driver entity."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "First name of the driver."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Last name of the driver."
+        },
+        "licenseNumber": {
+          "type": "string",
+          "description": "Unique driver's license number."
+        },
+        "contactNumber": {
+          "type": "string",
+          "description": "Contact phone number of the driver."
+        },
+        "address": {
+          "type": "string",
+          "description": "Residential address of the driver."
+        },
+        "statusId": {
+          "type": "string",
+          "description": "Reference to Status for the driver's current availability (e.g., 'Available', 'On Trip', 'Unavailable'). (Relationship: Status 1:N Driver)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the driver record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the driver record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "licenseNumber",
+        "contactNumber",
+        "statusId",
+        "createdAt"
+      ]
+    },
+    "VehicleEntryLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "VehicleEntryLog",
+      "type": "object",
+      "description": "Records vehicle movements (IN/OUT) at a plant location.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the VehicleEntryLog entity."
+        },
+        "vehicleId": {
+          "type": "string",
+          "description": "Reference to the Vehicle that entered or exited. (Relationship: Vehicle 1:N VehicleEntryLog)"
+        },
+        "driverId": {
+          "type": "string",
+          "description": "Reference to the Driver associated with the vehicle entry/exit. (Relationship: Driver 1:N VehicleEntryLog)"
+        },
+        "plantLocationId": {
+          "type": "string",
+          "description": "Reference to the PlantLocation where the vehicle entry/exit occurred. (Relationship: PlantLocation 1:N VehicleEntryLog)"
+        },
+        "entryTimestamp": {
+          "type": "string",
+          "description": "Timestamp when the vehicle entered the plant location.",
+          "format": "date-time"
+        },
+        "exitTimestamp": {
+          "type": "string",
+          "description": "Timestamp when the vehicle exited the plant location. Nullable if the vehicle is still in the plant.",
+          "format": "date-time"
+        },
+        "entryRemarks": {
+          "type": "string",
+          "description": "Remarks noted during vehicle entry."
+        },
+        "exitRemarks": {
+          "type": "string",
+          "description": "Remarks noted during vehicle exit."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the vehicle entry log was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the vehicle entry log was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "vehicleId",
+        "driverId",
+        "plantLocationId",
+        "entryTimestamp",
+        "createdAt"
+      ]
+    },
+    "Material": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Material",
+      "type": "object",
+      "description": "Master data for types of materials transported in shipments.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Material entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the material (e.g., 'Salt', 'Tea', 'Sugar')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the material."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the material record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the material record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "createdAt"
+      ]
+    },
+    "Shipment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Shipment",
+      "type": "object",
+      "description": "Represents a planned shipment, detailing its origin, destination, and overall status.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Shipment entity (Shipment ID)."
+        },
+        "originPlantLocationId": {
+          "type": "string",
+          "description": "Reference to the PlantLocation where the shipment originates. (Relationship: PlantLocation 1:N Shipment)"
+        },
+        "destinationPlantLocationId": {
+          "type": "string",
+          "description": "Reference to the PlantLocation where the shipment is destined. (Relationship: PlantLocation 1:N Shipment)"
+        },
+        "shipmentDate": {
+          "type": "string",
+          "description": "Date when the shipment is planned or started.",
+          "format": "date"
+        },
+        "expectedDeliveryDate": {
+          "type": "string",
+          "description": "Expected date of delivery for the shipment.",
+          "format": "date"
+        },
+        "totalWeightValue": {
+          "type": "number",
+          "description": "Total weight value of all materials in the shipment."
+        },
+        "totalWeightUnit": {
+          "type": "string",
+          "description": "Unit for the total weight (e.g., 'MT', 'LTR', 'Pcs')."
+        },
+        "statusId": {
+          "type": "string",
+          "description": "Reference to Status for the current state of the shipment (e.g., 'Pending', 'In Progress', 'Delivered'). (Relationship: Status 1:N Shipment)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the shipment record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the shipment record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "originPlantLocationId",
+        "destinationPlantLocationId",
+        "shipmentDate",
+        "statusId",
+        "createdAt"
+      ]
+    },
+    "ShipmentItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ShipmentItem",
+      "type": "object",
+      "description": "Represents a specific material item included within a shipment.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ShipmentItem entity."
+        },
+        "shipmentId": {
+          "type": "string",
+          "description": "Reference to the Shipment this item belongs to. (Relationship: Shipment 1:N ShipmentItem)"
+        },
+        "materialId": {
+          "type": "string",
+          "description": "Reference to the Material type of this item. (Relationship: Material 1:N ShipmentItem)"
+        },
+        "quantityValue": {
+          "type": "number",
+          "description": "Quantity value of the material item."
+        },
+        "quantityUnit": {
+          "type": "string",
+          "description": "Unit for the quantity (e.g., 'MT', 'LTR', 'Pcs', 'BOX', 'BAG', 'DRUM')."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the shipment item record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the shipment item record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "shipmentId",
+        "materialId",
+        "quantityValue",
+        "quantityUnit",
+        "createdAt"
+      ]
+    },
+    "StatusCategory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StatusCategory",
+      "type": "object",
+      "description": "Master data to categorize different types of statuses used across the application (e.g., 'Shipment Statuses', 'Vehicle Statuses').",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the StatusCategory entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the status category (e.g., 'Shipment Status', 'Vehicle Status', 'Trip Status')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the status category."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Status": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Status",
+      "type": "object",
+      "description": "Master data for specific status values, categorized by StatusCategory.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Status entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the status (e.g., 'Pending', 'In-Transit', 'Delivered', 'Available', 'Paid')."
+        },
+        "statusCategoryId": {
+          "type": "string",
+          "description": "Reference to the StatusCategory this status belongs to. (Relationship: StatusCategory 1:N Status)"
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the status."
+        },
+        "isDefault": {
+          "type": "boolean",
+          "description": "Indicates if this status is a default for its category (e.g., initial status)."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "statusCategoryId",
+        "isDefault"
+      ]
+    },
+    "Trip": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Trip",
+      "type": "object",
+      "description": "Represents a single journey or assignment of a vehicle and driver to a shipment.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Trip entity (Trip ID, e.g., SIL000000001)."
+        },
+        "shipmentId": {
+          "type": "string",
+          "description": "Reference to the Shipment being transported in this trip. (Relationship: Shipment 1:N Trip)"
+        },
+        "vehicleId": {
+          "type": "string",
+          "description": "Reference to the Vehicle assigned to this trip. (Relationship: Vehicle 1:N Trip)"
+        },
+        "driverId": {
+          "type": "string",
+          "description": "Reference to the Driver assigned to this trip. (Relationship: Driver 1:N Trip)"
+        },
+        "assignedDate": {
+          "type": "string",
+          "description": "Date when the vehicle and driver were assigned to the shipment.",
+          "format": "date"
+        },
+        "departureTime": {
+          "type": "string",
+          "description": "Actual departure timestamp for the trip.",
+          "format": "date-time"
+        },
+        "arrivalTime": {
+          "type": "string",
+          "description": "Actual arrival timestamp for the trip.",
+          "format": "date-time"
+        },
+        "statusId": {
+          "type": "string",
+          "description": "Reference to Status for the current state of the trip (e.g., 'Planned', 'Dispatched', 'In Transit', 'Completed'). (Relationship: Status 1:N Trip)"
+        },
+        "currentLocationDescription": {
+          "type": "string",
+          "description": "Human-readable description of the trip's current location."
+        },
+        "currentLocationLat": {
+          "type": "number",
+          "description": "Geographical latitude of the trip's current location."
+        },
+        "currentLocationLon": {
+          "type": "number",
+          "description": "Geographical longitude of the trip's current location."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the trip record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the trip record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "shipmentId",
+        "vehicleId",
+        "driverId",
+        "assignedDate",
+        "statusId",
+        "createdAt"
+      ]
+    },
+    "TripTrackingUpdate": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TripTrackingUpdate",
+      "type": "object",
+      "description": "Logs real-time or manual status and location updates for a specific trip.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the TripTrackingUpdate entity."
+        },
+        "tripId": {
+          "type": "string",
+          "description": "Reference to the Trip being tracked. (Relationship: Trip 1:N TripTrackingUpdate)"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp of this tracking update.",
+          "format": "date-time"
+        },
+        "locationDescription": {
+          "type": "string",
+          "description": "Human-readable description of the location at the time of update."
+        },
+        "locationLat": {
+          "type": "number",
+          "description": "Geographical latitude of the location at the time of update."
+        },
+        "locationLon": {
+          "type": "number",
+          "description": "Geographical longitude of the location at the time of update."
+        },
+        "statusId": {
+          "type": "string",
+          "description": "Reference to Status representing the trip's status at this update point. (Relationship: Status 1:N TripTrackingUpdate)"
+        },
+        "remarks": {
+          "type": "string",
+          "description": "Any additional remarks for this status update."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the tracking update record was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tripId",
+        "timestamp",
+        "statusId",
+        "createdAt"
+      ]
+    },
+    "ProofOfDelivery": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ProofOfDelivery",
+      "type": "object",
+      "description": "Stores information and documents related to the successful delivery of a shipment.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ProofOfDelivery entity."
+        },
+        "tripId": {
+          "type": "string",
+          "description": "Reference to the Trip for which this POD is generated. (Relationship: Trip 1:N ProofOfDelivery)"
+        },
+        "deliveryDate": {
+          "type": "string",
+          "description": "Date of successful delivery.",
+          "format": "date"
+        },
+        "recipientName": {
+          "type": "string",
+          "description": "Name of the person who received the shipment."
+        },
+        "signatureImageUri": {
+          "type": "string",
+          "description": "URI or URL to the digital signature image of the recipient.",
+          "format": "uri"
+        },
+        "proofDocumentUri": {
+          "type": "string",
+          "description": "URI or URL to a scanned copy of the proof of delivery document (e.g., LR).",
+          "format": "uri"
+        },
+        "remarks": {
+          "type": "string",
+          "description": "Any additional remarks about the delivery."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the POD record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the POD record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tripId",
+        "deliveryDate",
+        "recipientName",
+        "createdAt"
+      ]
+    },
+    "FreightBill": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FreightBill",
+      "type": "object",
+      "description": "Records the freight charges for a specific shipment.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the FreightBill entity."
+        },
+        "shipmentId": {
+          "type": "string",
+          "description": "Reference to the Shipment for which this freight bill is generated. (Relationship: Shipment 1:N FreightBill)"
+        },
+        "totalFreightAmount": {
+          "type": "number",
+          "description": "Total amount of freight charges for the shipment."
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency of the freight amount (e.g., 'INR')."
+        },
+        "billingDate": {
+          "type": "string",
+          "description": "Date when the freight bill was generated.",
+          "format": "date"
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "Date when the freight bill is due for payment.",
+          "format": "date"
+        },
+        "statusId": {
+          "type": "string",
+          "description": "Reference to Status for the payment status of the freight bill (e.g., 'Pending', 'Partial Paid', 'Paid'). (Relationship: Status 1:N FreightBill)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the freight bill record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the freight bill record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "shipmentId",
+        "totalFreightAmount",
+        "currency",
+        "billingDate",
+        "statusId",
+        "createdAt"
+      ]
+    },
+    "FreightPayment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FreightPayment",
+      "type": "object",
+      "description": "Records individual payments made towards a freight bill.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the FreightPayment entity."
+        },
+        "freightBillId": {
+          "type": "string",
+          "description": "Reference to the FreightBill this payment is for. (Relationship: FreightBill 1:N FreightPayment)"
+        },
+        "amountPaid": {
+          "type": "number",
+          "description": "Amount paid in this transaction."
+        },
+        "paymentDate": {
+          "type": "string",
+          "description": "Date when the payment was made.",
+          "format": "date"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Method of payment (e.g., 'Bank Transfer', 'Cash', 'UPI')."
+        },
+        "transactionReference": {
+          "type": "string",
+          "description": "Reference number for the payment transaction."
+        },
+        "remarks": {
+          "type": "string",
+          "description": "Any additional remarks for the payment."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the freight payment record was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "freightBillId",
+        "amountPaid",
+        "paymentDate",
+        "paymentMethod",
+        "createdAt"
+      ]
+    },
+    "FuelPump": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FuelPump",
+      "type": "object",
+      "description": "Master data for fuel pumps or stations where vehicles refuel.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the FuelPump entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the fuel pump/station."
+        },
+        "address": {
+          "type": "string",
+          "description": "Address of the fuel pump/station."
+        },
+        "contactNumber": {
+          "type": "string",
+          "description": "Contact phone number for the fuel pump/station."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the fuel pump record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the fuel pump record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "address",
+        "createdAt"
+      ]
+    },
+    "FuelEntry": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FuelEntry",
+      "type": "object",
+      "description": "Records fuel filled by a vehicle at a specific fuel pump.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the FuelEntry entity."
+        },
+        "vehicleId": {
+          "type": "string",
+          "description": "Reference to the Vehicle that received fuel. (Relationship: Vehicle 1:N FuelEntry)"
+        },
+        "driverId": {
+          "type": "string",
+          "description": "Reference to the Driver who oversaw the fuel entry. (Relationship: Driver 1:N FuelEntry)"
+        },
+        "fuelPumpId": {
+          "type": "string",
+          "description": "Reference to the FuelPump where fuel was filled. (Relationship: FuelPump 1:N FuelEntry)"
+        },
+        "entryDate": {
+          "type": "string",
+          "description": "Date when the fuel entry occurred.",
+          "format": "date"
+        },
+        "fuelQuantityValue": {
+          "type": "number",
+          "description": "Quantity of fuel filled."
+        },
+        "fuelQuantityUnit": {
+          "type": "string",
+          "description": "Unit for the fuel quantity (e.g., 'LTR')."
+        },
+        "amount": {
+          "type": "number",
+          "description": "Total amount paid for the fuel."
+        },
+        "odometerReading": {
+          "type": "number",
+          "description": "Odometer reading of the vehicle at the time of fuel entry."
+        },
+        "paymentStatusId": {
+          "type": "string",
+          "description": "Reference to Status for the payment status of this fuel entry (e.g., 'Paid', 'Pending'). (Relationship: Status 1:N FuelEntry)"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Method of payment for the fuel (e.g., 'Cash', 'Card')."
+        },
+        "remarks": {
+          "type": "string",
+          "description": "Any additional remarks for the fuel entry."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the fuel entry record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the fuel entry record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "vehicleId",
+        "driverId",
+        "fuelPumpId",
+        "entryDate",
+        "fuelQuantityValue",
+        "fuelQuantityUnit",
+        "amount",
+        "paymentStatusId",
+        "createdAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile information, where the document ID is the user's Firebase Authentication UID. Can include denormalized role information for quick security rule checks (e.g., 'isAdmin' boolean, 'managedPlantIds' map)."
+        }
+      },
+      {
+        "path": "/global_admins/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "A dedicated collection for global administrators. The existence of a document with the user's UID as its ID indicates the user has global admin privileges. Used for Authorization Independence via DBAC."
+        }
+      },
+      {
+        "path": "/plant_managers/{plantLocationId}/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "A dedicated subcollection where the existence of a document at this path indicates that the user (by userId) is a manager for the specific plant (by plantLocationId). Used for Authorization Independence for plant-scoped permissions.",
+          "params": [
+            {
+              "name": "plantLocationId",
+              "description": "The unique identifier of the PlantLocation."
+            },
+            {
+              "name": "userId",
+              "description": "The unique identifier of the User."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles/{roleId}",
+        "definition": {
+          "entityName": "Role",
+          "schema": {
+            "$ref": "#/backend/entities/Role"
+          },
+          "description": "Stores master data for application roles. Requires admin privileges for modification."
+        }
+      },
+      {
+        "path": "/permissions/{permissionId}",
+        "definition": {
+          "entityName": "Permission",
+          "schema": {
+            "$ref": "#/backend/entities/Permission"
+          },
+          "description": "Stores master data for application permissions. Requires admin privileges for modification."
+        }
+      },
+      {
+        "path": "/userRoles/{userRoleId}",
+        "definition": {
+          "entityName": "UserRole",
+          "schema": {
+            "$ref": "#/backend/entities/UserRole"
+          },
+          "description": "Junction collection linking Users to Roles. Used by backend to derive user permissions."
+        }
+      },
+      {
+        "path": "/rolePermissions/{rolePermissionId}",
+        "definition": {
+          "entityName": "RolePermission",
+          "schema": {
+            "$ref": "#/backend/entities/RolePermission"
+          },
+          "description": "Junction collection linking Roles to Permissions. Used by backend to derive role permissions."
+        }
+      },
+      {
+        "path": "/plantLocations/{plantLocationId}",
+        "definition": {
+          "entityName": "PlantLocation",
+          "schema": {
+            "$ref": "#/backend/entities/PlantLocation"
+          },
+          "description": "Stores details about physical plant locations. Includes denormalized 'createdByUserId' for ownership."
+        }
+      },
+      {
+        "path": "/vehicles/{vehicleId}",
+        "definition": {
+          "entityName": "Vehicle",
+          "schema": {
+            "$ref": "#/backend/entities/Vehicle"
+          },
+          "description": "Stores details about logistics vehicles. Includes denormalized 'createdByUserId' for ownership."
+        }
+      },
+      {
+        "path": "/drivers/{driverId}",
+        "definition": {
+          "entityName": "Driver",
+          "schema": {
+            "$ref": "#/backend/entities/Driver"
+          },
+          "description": "Stores details about drivers. Includes denormalized 'createdByUserId' for ownership."
+        }
+      },
+      {
+        "path": "/vehicleEntryLogs/{vehicleEntryLogId}",
+        "definition": {
+          "entityName": "VehicleEntryLog",
+          "schema": {
+            "$ref": "#/backend/entities/VehicleEntryLog"
+          },
+          "description": "Records vehicle movements at plant locations. Includes denormalized 'createdByUserId' for ownership and 'plantLocationId' for plant-specific access control (Authorization Independence).",
+          "params": [
+            {
+              "name": "vehicleEntryLogId",
+              "description": "The unique identifier of the Vehicle Entry Log."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/materials/{materialId}",
+        "definition": {
+          "entityName": "Material",
+          "schema": {
+            "$ref": "#/backend/entities/Material"
+          },
+          "description": "Stores master data for materials. Requires admin privileges for modification."
+        }
+      },
+      {
+        "path": "/shipments/{shipmentId}",
+        "definition": {
+          "entityName": "Shipment",
+          "schema": {
+            "$ref": "#/backend/entities/Shipment"
+          },
+          "description": "Represents planned shipments. Includes denormalized 'createdByUserId', 'originPlantLocationId', and 'destinationPlantLocationId' for Authorization Independence and QAPs.",
+          "params": [
+            {
+              "name": "shipmentId",
+              "description": "The unique identifier of the Shipment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/shipmentItems/{shipmentItemId}",
+        "definition": {
+          "entityName": "ShipmentItem",
+          "schema": {
+            "$ref": "#/backend/entities/ShipmentItem"
+          },
+          "description": "Details individual material items within a shipment. Includes denormalized 'shipmentId' and 'createdByUserId' (for consistency) to aid Authorization Independence and QAPs.",
+          "params": [
+            {
+              "name": "shipmentItemId",
+              "description": "The unique identifier of the Shipment Item."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/statusCategories/{statusCategoryId}",
+        "definition": {
+          "entityName": "StatusCategory",
+          "schema": {
+            "$ref": "#/backend/entities/StatusCategory"
+          },
+          "description": "Master data categorizing different types of statuses. Requires admin privileges for modification."
+        }
+      },
+      {
+        "path": "/statuses/{statusId}",
+        "definition": {
+          "entityName": "Status",
+          "schema": {
+            "$ref": "#/backend/entities/Status"
+          },
+          "description": "Master data for specific status values. Includes denormalized 'statusCategoryId'. Requires admin privileges for modification."
+        }
+      },
+      {
+        "path": "/trips/{tripId}",
+        "definition": {
+          "entityName": "Trip",
+          "schema": {
+            "$ref": "#/backend/entities/Trip"
+          },
+          "description": "Represents a single vehicle journey for a shipment. Includes denormalized 'createdByUserId', 'shipmentId', 'vehicleId', 'driverId' for Authorization Independence.",
+          "params": [
+            {
+              "name": "tripId",
+              "description": "The unique identifier of the Trip."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tripTrackingUpdates/{tripTrackingUpdateId}",
+        "definition": {
+          "entityName": "TripTrackingUpdate",
+          "schema": {
+            "$ref": "#/backend/entities/TripTrackingUpdate"
+          },
+          "description": "Logs updates for trips. Includes denormalized 'createdByUserId' and 'tripId' to aid Authorization Independence, linking to the trip's access rules.",
+          "params": [
+            {
+              "name": "tripTrackingUpdateId",
+              "description": "The unique identifier of the Trip Tracking Update."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/proofOfDeliveries/{proofOfDeliveryId}",
+        "definition": {
+          "entityName": "ProofOfDelivery",
+          "schema": {
+            "$ref": "#/backend/entities/ProofOfDelivery"
+          },
+          "description": "Stores proof of delivery information. Includes denormalized 'createdByUserId' and 'tripId' for Authorization Independence.",
+          "params": [
+            {
+              "name": "proofOfDeliveryId",
+              "description": "The unique identifier of the Proof of Delivery."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/freightBills/{freightBillId}",
+        "definition": {
+          "entityName": "FreightBill",
+          "schema": {
+            "$ref": "#/backend/entities/FreightBill"
+          },
+          "description": "Records freight charges for a shipment. Includes denormalized 'createdByUserId' and 'shipmentId' for Authorization Independence.",
+          "params": [
+            {
+              "name": "freightBillId",
+              "description": "The unique identifier of the Freight Bill."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/freightPayments/{freightPaymentId}",
+        "definition": {
+          "entityName": "FreightPayment",
+          "schema": {
+            "$ref": "#/backend/entities/FreightPayment"
+          },
+          "description": "Records payments made towards freight bills. Includes denormalized 'createdByUserId' and 'freightBillId' for Authorization Independence.",
+          "params": [
+            {
+              "name": "freightPaymentId",
+              "description": "The unique identifier of the Freight Payment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/fuelPumps/{fuelPumpId}",
+        "definition": {
+          "entityName": "FuelPump",
+          "schema": {
+            "$ref": "#/backend/entities/FuelPump"
+          },
+          "description": "Master data for fuel pumps. Requires admin privileges for modification."
+        }
+      },
+      {
+        "path": "/fuelEntries/{fuelEntryId}",
+        "definition": {
+          "entityName": "FuelEntry",
+          "schema": {
+            "$ref": "#/backend/entities/FuelEntry"
+          },
+          "description": "Records fuel filled by a vehicle. Includes denormalized 'createdByUserId', 'vehicleId', 'driverId', and 'fuelPumpId' for Authorization Independence and QAPs.",
+          "params": [
+            {
+              "name": "fuelEntryId",
+              "description": "The unique identifier of the Fuel Entry."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The recommended Firestore structure for Sikka Logistics prioritizes secure, scalable, and debuggable access by adhering strictly to the core design principles. The primary goal is to achieve Authorization Independence and enable secure QAPs (Query-Agnostic Permissions) by embedding necessary authorization context directly within each document or through clearly defined, top-level authorization collections.\n\nTo address Authorization Independence, particularly for the 'delete' permission error encountered with `vehicleEntries/PvDlDu3d84TLeT6vZC8K`, several strategies are employed:\n1.  **Global Admin Role:** A dedicated top-level collection, `/global_admins/{userId}`, is introduced. The mere existence of a document at this path (where `{userId}` is `request.auth.uid`) grants global administrative privileges. This allows security rules to check for admin status using `exists(/databases/$(database)/documents/global_admins/$(request.auth.uid))` without traversing complex hierarchies.\n2.  **Creator-Based Ownership (`createdByUserId`):** All transactional and user-managed entities such as `VehicleEntryLog`, `Shipment`, `Trip`, `FuelEntry`, etc., will include a `createdByUserId` field. This denormalized field links the document directly to the user who created it, enabling simple ownership-based authorization rules like `request.auth.uid == resource.data.createdByUserId`.\n3.  **Plant-Specific Management:** For operations that are scoped to specific plant locations (e.g., a 'Plant Manager' managing entries for their plant), a subcollection structure `/plant_managers/{plantLocationId}/{userId}` is proposed. The existence of a document here indicates that `{userId}` manages `{plantLocationId}`. Documents like `VehicleEntryLog` will contain `plantLocationId`, allowing rules to check `exists(/databases/$(database)/documents/plant_managers/$(resource.data.plantLocationId)/$(request.auth.uid))`. This avoids `get()` calls to parent `PlantLocation` documents for authorization.\n\nQAPs (Rules are not Filters) are ensured by:\n1.  **Structural Segregation (Homogeneous Security Posture):** Collections are designed so that all documents within them share a similar security posture. For example, master data (e.g., `roles`, `permissions`, `materials`, `statusCategories`, `statuses`, `fuelPumps`) are in top-level collections, typically allowing read-all access for authenticated users and restricted write access to `global_admins`. Transactional data collections (e.g., `vehicleEntryLogs`, `shipments`) will be secured by `createdByUserId` or `plantLocationId` allowing explicit filtering in queries that correspond to the rule, preventing accidental data leakage during list operations.\n2.  **Explicit Context for Listing:** When a client performs a `list` operation on a collection like `/vehicleEntryLogs`, the security rules can enforce conditions based on `createdByUserId` or `plantLocationId`. For example, a user might only be able to list `vehicleEntryLogs` where `resource.data.createdByUserId == request.auth.uid` or where `resource.data.plantLocationId` is one of the plants they manage (checked via `plant_managers` collection). This forces clients to issue targeted queries (e.g., `db.collection('vehicleEntryLogs').where('createdByUserId', '==', currentUser.uid)`), which are then validated by the rules. The path `vehicleEntryLogs` (plural of `VehicleEntryLog` entity) is used for consistency, correcting the `vehicleEntries` name from the error report.\n\nThis design leverages database-backed access control (DBAC) with explicit user roles and permissions stored as distinct documents, simplifying rule logic and making authorization intent clear and easily debuggable. All wildcards are descriptive, and fields like `createdAt`, `updatedAt`, and `statusId` promote data clarity and integrity."
+  }
+}

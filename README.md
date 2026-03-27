@@ -1,5 +1,19 @@
-# Firebase Studio
+# Sikka Logistics Platform
 
-This is a NextJS starter in Firebase Studio.
+Enterprise-grade logistics and supply chain management system built with Next.js, Firebase, and ShadCN UI.
 
-To get started, take a look at src/app/page.tsx.
+## Repository
+[https://github.com/sikkalmcg/Sikkaind.git](https://github.com/sikkalmcg/Sikkaind.git)
+
+## Core Modules
+- **Logistics Hub**: Live Dashboard, Gate Control, Shipment Planning, GIS Tracking.
+- **Security Node**: Identity Management, Role-Based Access Control, Activity Logs.
+
+## Tech Stack
+- **Framework**: Next.js 15 (App Router)
+- **Database/Auth**: Firebase (Firestore & Authentication)
+- **Styling**: Tailwind CSS & ShadCN UI
+- **GIS**: Google Maps API & Wheelseye Integration
+
+## Getting Started
+To get started, take a look at `src/app/page.tsx`.# Sikkaind
