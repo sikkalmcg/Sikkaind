@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { FileDown, Search, Ban, Edit2, FileText, Printer, FileDown as DownloadIcon, ExternalLink, PlusCircle } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import type { Shipment, Plant, Trip, WithId, Carrier, LR } from '@/types';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc, limit } from 'firebase/firestore';
@@ -22,7 +22,7 @@ import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreview
 import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
 import { useLoading } from '@/context/LoadingContext';
 import { useToast } from '@/hooks/use-toast';
-import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAssignModal';
+import VehicleAssignModal from '@/components/dashboard/shipment-plan/VehicleAssignModal';
 
 interface ShipmentDataProps {
   shipments: WithId<Shipment>[];
@@ -77,7 +77,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState<WithId<Trip>[]>([]);
-  const [carriers, setCarriers] = useState<WithId<Carrier>[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [previewLr, setPreviewLr] = useState<EnrichedLR | null>(null);
   const [isAssignModalOpen, setAssignModalOpen] = useState(false);
@@ -190,13 +189,16 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
+        const parseDate = (val: any) => val instanceof Timestamp ? val.toDate() : (val ? new Date(val) : new Date());
+
         if (snap.empty) {
+            // Fallback: Use shipment items manifest if actual LR doc is not yet provisioned
             if (row.items && row.items.length > 0) {
                 setPreviewLr({
                     lrNumber: row.lrNumber,
-                    date: row.lrDate instanceof Date ? row.lrDate : (row.lrDate as any)?.toDate(),
+                    date: parseDate(row.lrDate),
                     trip: row as any,
-                    carrier: row.carrierObj,
+                    carrier: row.carrierObj || (allCarriers || [])[0],
                     shipment: row as any,
                     plant: row.plant,
                     items: row.items,
@@ -219,9 +221,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
             setPreviewLr({
                 ...lrDoc,
                 id: snap.docs[0].id,
-                date: lrDoc.date instanceof Timestamp ? lrDoc.date.toDate() : new Date(lrDoc.date),
+                date: parseDate(lrDoc.date),
                 trip: row as any,
-                carrier: row.carrierObj,
+                carrier: row.carrierObj || (allCarriers || [])[0],
                 shipment: row as any,
                 plant: row.plant
             } as EnrichedLR);
@@ -356,7 +358,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                                     <TooltipTrigger asChild>
                                         <div className="inline-block">
                                             <DeleteShipmentConfirmationDialog onConfirm={() => onDelete(s.id)} shipment={s} disabled={!isAdmin}>
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-.tsx50" disabled={!isAdmin}>
+                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50" disabled={!isAdmin}>
                                                     <Ban className="h-4 w-4" />
                                                 </Button>
                                             </DeleteShipmentConfirmationDialog>
