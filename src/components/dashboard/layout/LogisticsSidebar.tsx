@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -146,37 +145,37 @@ export default function LogisticsSidebar({ isOpen, onToggle }: LogisticsSidebarP
   return (
     <aside 
       className={cn(
-        "fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 text-white transition-all duration-300 ease-in-out md:relative",
+        "fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-slate-200 transition-all duration-300 ease-in-out md:relative",
         isOpen ? "w-64 translate-x-0" : "w-20 translate-x-0 md:w-20"
       )}
     >
-      <div className="flex h-16 items-center justify-between px-6 border-b border-white/10 shrink-0 bg-slate-950">
+      <div className="flex h-16 items-center justify-between px-6 border-b border-slate-100 shrink-0 bg-white">
         <div className={cn("flex items-center gap-2 overflow-hidden whitespace-nowrap transition-all duration-300", !isOpen && "w-0 opacity-0")}>
-          <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-          <span className="text-xs font-black uppercase tracking-[0.2em] text-blue-400 italic">Sikka LMC</span>
+          <div className="h-2 w-2 rounded-full bg-blue-600 animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.4)]" />
+          <span className="text-xs font-black uppercase tracking-[0.2em] text-blue-900 italic">Sikka LMC</span>
         </div>
         <Button 
           variant="ghost" 
           size="icon" 
           onClick={onToggle} 
-          className="text-white hover:bg-white/10"
+          className="text-slate-400 hover:bg-slate-50"
         >
           {isOpen ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
         </Button>
       </div>
 
-      <ScrollArea className="flex-1 px-3 py-6 bg-slate-900">
+      <ScrollArea className="flex-1 px-3 py-6 bg-white">
         {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <Loader2 className="h-6 w-6 animate-spin text-blue-50" />
-                {isOpen && <span className="text-[9px] font-black uppercase text-slate-600 tracking-widest">Syncing Registry...</span>}
+                <Loader2 className="h-6 w-6 animate-spin text-blue-900" />
+                {isOpen && <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Syncing Registry...</span>}
             </div>
         ) : (
             <nav className="space-y-8">
             {filteredNavigation.map((group, idx) => (
                 <div key={idx} className="space-y-3">
                 <h4 className={cn(
-                    "px-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-600 transition-opacity duration-300",
+                    "px-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 transition-opacity duration-300",
                     !isOpen ? "opacity-0 h-0" : "opacity-100"
                 )}>
                     {group.group}
@@ -191,13 +190,13 @@ export default function LogisticsSidebar({ isOpen, onToggle }: LogisticsSidebarP
                         className={cn(
                             "group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-black transition-all duration-200 border border-transparent",
                             isActive 
-                            ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40 border-blue-500/50" 
-                            : "text-slate-500 hover:bg-white/5 hover:text-white"
+                            ? "bg-blue-50 text-blue-900 border-blue-100 shadow-sm" 
+                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                         )}
                         >
                         <item.icon className={cn(
                             "h-5 w-5 shrink-0 transition-colors",
-                            isActive ? "text-white" : "text-slate-600 group-hover:text-blue-400"
+                            isActive ? "text-blue-900" : "text-slate-400 group-hover:text-blue-600"
                         )} />
                         <span className={cn(
                             "whitespace-nowrap transition-all duration-300 uppercase tracking-tight text-xs",
@@ -215,16 +214,16 @@ export default function LogisticsSidebar({ isOpen, onToggle }: LogisticsSidebarP
         )}
       </ScrollArea>
 
-      <div className={cn("p-4 border-t border-white/5 bg-slate-950/50 transition-all duration-300", !isOpen && "items-center")}>
+      <div className={cn("p-4 border-t border-slate-100 bg-white transition-all duration-300", !isOpen && "items-center")}>
         <div className={cn(
-          "flex items-center gap-3 p-3 rounded-2xl bg-white/5 border border-white/5",
+          "flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100",
           !isOpen && "justify-center p-2"
         )}>
-          <div className="h-8 w-8 rounded-full bg-blue-900 flex items-center justify-center text-[10px] font-black text-white shadow-lg border border-blue-700/50 shrink-0">SIL</div>
+          <div className="h-8 w-8 rounded-full bg-blue-900 flex items-center justify-center text-[10px] font-black text-white shadow-lg shrink-0">SIL</div>
           {isOpen && (
             <div className="flex flex-col overflow-hidden animate-in fade-in duration-500">
-              <span className="text-[10px] font-black uppercase text-white truncate">Sikka Logistics</span>
-              <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter truncate">v2.5.0 Enterprise</span>
+              <span className="text-[10px] font-black uppercase text-slate-900 truncate">Sikka Logistics</span>
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter truncate">v2.5.0 Enterprise</span>
             </div>
           )}
         </div>
