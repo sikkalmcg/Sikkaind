@@ -24,7 +24,7 @@ interface PrintableLRProps {
 /**
  * @fileOverview SIKKA LMC - Enterprise Lorry Receipt (LR) A4 Node.
  * High-fidelity layout synchronized with the mission registry template.
- * Updated: QR Code removed, TO field restricted to City, Conditional E-Way Bill columns.
+ * Updated: Remarks removed, Terms moved to left, Signature added to right.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -75,7 +75,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
 
         <div className="flex items-start gap-6">
-            {/* QR Node Removed per requirements */}
             <div className="text-right space-y-3">
                 <div className="border-2 border-slate-900 px-4 py-2 bg-white min-w-[180px]">
                     <p className="text-[11pt] font-black uppercase text-slate-900 flex justify-between gap-4">
@@ -208,38 +207,36 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </table>
       </div>
 
-      {/* 5. REMARKS & TERMS SECTION */}
-      <div className="mb-10 space-y-4">
-        <div className="flex gap-4">
+      {/* 5. TERMS & SIGNATURE SECTION */}
+      <div className="mb-10 mt-4">
+        <div className="flex justify-between items-end gap-10">
+            {/* Left: Terms */}
             <div className="flex-1 space-y-2">
-                <span className="text-[7.5pt] font-black uppercase text-slate-400 tracking-widest px-1">Remarks:</span>
-                <div className="p-4 border-2 border-slate-900 rounded-xl min-h-[60px] bg-slate-50/30">
-                    <p className="text-[8pt] font-bold uppercase leading-relaxed text-slate-700">
-                        {lr.deliveryAddress || 'N/A'}
-                    </p>
-                </div>
-            </div>
-            <div className="w-[30%] space-y-2">
-                <span className="text-[7.5pt] font-black uppercase text-slate-400 tracking-widest px-1 text-right block">Terms & Conditions:</span>
-                <div className="text-[6.5pt] font-medium text-slate-500 text-right leading-tight italic">
+                <span className="text-[7.5pt] font-black uppercase text-slate-400 tracking-widest px-1">Terms & Conditions:</span>
+                <div className="text-[6.5pt] font-medium text-slate-500 leading-tight italic space-y-1">
                     {lr.carrier?.terms && lr.carrier.terms.length > 0 ? (
-                        lr.carrier.terms.slice(0, 3).map((term, i) => <p key={i}>• {term}</p>)
+                        lr.carrier.terms.slice(0, 4).map((term, i) => <p key={i}>• {term}</p>)
                     ) : (
                         <>
                             <p>• Subject to Ghaziabad Jurisdiction</p>
                             <p>• Goods carried at owner's risk</p>
                             <p>• Not responsible for leakage/damage</p>
+                            <p>• Discrepancy must be reported within 24 hours</p>
                         </>
                     )}
+                </div>
+            </div>
+
+            {/* Right: Signature */}
+            <div className="w-[250px] text-center space-y-12">
+                <p className="text-[8pt] font-black uppercase tracking-tight">For {lr.carrier?.name || 'Sikka Logistics'}</p>
+                <div className="border-t-2 border-slate-900 border-dashed pt-2">
+                    <p className="text-[8pt] font-black uppercase tracking-widest text-slate-900">Authorized Signatory</p>
                 </div>
             </div>
         </div>
       </div>
 
-      {/* Visual spacer to maintain balance */}
-      <div className="flex-1" />
-
-      {/* 7. FOOTER COMPLIANCE */}
       <div className="mt-auto pt-8 border-t border-slate-100 flex flex-col items-center gap-4">
         <div className="text-center space-y-1">
             <p className="text-[8pt] font-bold text-slate-600">
