@@ -31,14 +31,14 @@
     --chart-5: 340.1 75% 55.1%;
     --radius: 0.5rem;
 
-    /* Sikka Logistics Sidebar Theme - Updated to White */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 240 10% 3.9%;
+    /* Sikka Logistics Sidebar Theme - Deep Blue */
+    --sidebar-background: 222.2 47% 11%;
+    --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 40% 96.1%;
-    --sidebar-accent-foreground: 222.2 84% 4.9%;
-    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-accent: 217 91% 60%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 91% 20%;
     --sidebar-ring: 217 91% 60%;
 
     /* Font Variables */
