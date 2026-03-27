@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, ShieldCheck, UserPlus, KeyRound, Smartphone, Briefcase, Factory, LayoutGrid, CheckCircle2, Truck } from 'lucide-react';
+import { Loader2, ShieldCheck, UserPlus, KeyRound, Smartphone, Briefcase, Factory, LayoutGrid, CheckCircle2, Truck, Save } from 'lucide-react';
 import type { SubUser, Plant } from '@/types';
 import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions } from '@/lib/constants';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -173,9 +173,7 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                   </CardHeader>
                   <CardContent className="p-8 space-y-10">
                     <div className="space-y-4">
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
-                        <Factory className="h-3 w-3" /> Lifting Node Authorization
-                      </p>
+                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Factory className="h-3 w-3" /> Lifting Node Authorization</p>
                       <div className="flex flex-wrap gap-2">
                         {logisticsPlants.map(p => (
                           <Badge 
