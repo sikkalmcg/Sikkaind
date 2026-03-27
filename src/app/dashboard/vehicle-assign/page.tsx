@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -41,8 +42,8 @@ function OpenOrdersContent() {
   const urlPlants = searchParams.get('plants')?.split(',').filter(Boolean) || [];
   
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
-  const [fromDate, setFromDate] = useState<Date | undefined>(subDays(new Date(), 15));
-  const [toDate, setTodayDate] = useState<Date | undefined>(new Date());
+  const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 15)));
+  const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
@@ -74,21 +75,22 @@ function OpenOrdersContent() {
   const carriersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "carriers")) : null, [firestore]);
   const { data: carriers } = useCollection<Carrier>(carriersQuery);
 
-  const updateURL = useCallback((plantIds: string[]) => {
+  const updateURL = useCallback((plantIds: string[], tabVal?: string) => {
     const params = new URLSearchParams(searchParams);
     if (plantIds.length > 0) {
       params.set('plants', plantIds.join(','));
     } else {
       params.delete('plants');
     }
+    if (tabVal) {
+        params.set('tab', tabVal);
+    }
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }, [pathname, router, searchParams]);
 
   const handleTabChange = useCallback((v: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('tab', v);
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [pathname, router, searchParams]);
+    updateURL(selectedPlants, v);
+  }, [selectedPlants, updateURL]);
 
   const fetchAuthorizedPlants = useCallback(async () => {
     if (!firestore || !user) return;
@@ -102,9 +104,6 @@ function OpenOrdersContent() {
       const qSnap = await getDocs(q);
       if (!qSnap.empty) {
         userDocSnap = qSnap.docs[0];
-      } else {
-        const uidSnap = await getDoc(doc(firestore, "users", user.uid));
-        if (uidSnap.exists()) userDocSnap = uidSnap;
       }
 
       const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
@@ -149,7 +148,8 @@ function OpenOrdersContent() {
       return;
     }
 
-    setIsLoading(true);
+    // Logic Node: Only return full screen loading on initial mount without data
+    if (allData.shipments.length === 0) setIsLoading(true);
     const unsubscribers: (() => void)[] = [];
 
     selectedPlants.forEach((plantId) => {
@@ -176,7 +176,7 @@ function OpenOrdersContent() {
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/trips`), (snap) => {
         const plantTrips = snap.docs.map(d => ({ 
           id: d.id, 
-          originPlantId: plantId,
+          originPlantId: plantId, 
           ...d.data(),
           startDate: parseDate(d.data().startDate),
           lrDate: d.data().lrDate ? parseDate(d.data().lrDate) : undefined
@@ -188,7 +188,7 @@ function OpenOrdersContent() {
         }));
       }));
 
-      unsubscribers.push(onSnapshot(query(collection(firestore, "vehicleEntries"), where("plantId", "==", plantId)), (snap) => {
+      unsubscribers.push(onSnapshot(query(collection(firestore, "vehicleEntries")), (snap) => {
         const plantEntries = snap.docs.map(d => ({ 
           id: d.id, 
           ...d.data(),
@@ -198,7 +198,7 @@ function OpenOrdersContent() {
 
         setAllData(prev => ({
           ...prev,
-          entries: [...prev.entries.filter(e => e.plantId !== plantId), ...plantEntries]
+          entries: plantEntries
         }));
       }));
 
@@ -283,7 +283,6 @@ function OpenOrdersContent() {
         const parseDate = (val: any) => val instanceof Timestamp ? val.toDate() : (val ? new Date(val) : new Date());
 
         if (snap.empty) {
-            // Fallback: If LR record doesn't exist but we have shipment items, create a draft preview
             const shipmentObj = row.shipmentObj || row;
             if (shipmentObj.items && shipmentObj.items.length > 0) {
                 setPreviewLr({
@@ -305,7 +304,7 @@ function OpenOrdersContent() {
                     id: row.id
                 } as any);
             } else {
-                toast({ variant: 'destructive', title: "LR Node Missing", description: "Full Lorry Receipt particulars not found in registry." });
+                toast({ variant: 'destructive', title: "LR Node Missing", description: "Lorry Receipt particulars not found in registry." });
             }
         } else {
             const lrDoc = snap.docs[0].data() as LR;
@@ -505,6 +504,17 @@ function OpenOrdersContent() {
     }
   };
 
+  if (isLoading && allData.shipments.length === 0) {
+    return (
+        <div className="flex h-screen items-center justify-center bg-[#f8fafc]">
+            <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-12 w-12 animate-spin text-blue-900" />
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Syncing Open Orders...</p>
+            </div>
+        </div>
+    );
+  }
+
   const isReadOnlyPlantScope = !isAuthLoading && !isAdminSession && authorizedPlantIds.length === 1;
   const currentPlantName = plants?.find(p => p.id === authorizedPlantIds[0])?.name || authorizedPlantIds[0];
 
@@ -576,9 +586,7 @@ function OpenOrdersContent() {
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6">
-          {isLoading ? (
-            <div className="flex h-64 items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-blue-900" /></div>
-          ) : selectedPlants.length === 0 ? (
+          {selectedPlants.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center text-slate-400">
               <Factory className="h-16 w-16 mb-4 opacity-10" />
               <p className="text-lg font-bold">No Plants Selected</p>

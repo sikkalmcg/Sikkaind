@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -179,7 +180,11 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
     XLSX.writeFile(workbook, `Order_Ledger_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
-  const openLRPrint = async (row: EnrichedShipment) => {
+  const openLRPrint = async (e: React.MouseEvent, row: EnrichedShipment) => {
+    // REGISTRY HARDENING: Prevent event bubbling to avoid tab reset
+    e.preventDefault();
+    e.stopPropagation();
+
     if (!row.lrNumber || !firestore) return;
     showLoader();
     try {
@@ -192,30 +197,34 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
         const parseDate = (val: any) => val instanceof Timestamp ? val.toDate() : (val ? new Date(val) : new Date());
 
         if (snap.empty) {
-            // Fallback: Use shipment items manifest if actual LR doc is not yet provisioned
-            if (row.items && row.items.length > 0) {
-                setPreviewLr({
-                    lrNumber: row.lrNumber,
-                    date: parseDate(row.lrDate),
-                    trip: row as any,
-                    carrier: row.carrierObj || (allCarriers || [])[0],
-                    shipment: row as any,
-                    plant: row.plant,
-                    items: row.items,
-                    weightSelection: 'Assigned Weight',
-                    assignedTripWeight: row.quantity,
-                    from: row.loadingPoint || row.plantName || '',
-                    to: row.unloadingPoint || '',
-                    consignorName: row.consignor || '',
-                    buyerName: row.billToParty || '',
-                    shipToParty: row.shipToParty || '',
-                    deliveryAddress: row.unloadingPoint || '',
-                    id: row.id
-                } as any);
-                hideLoader();
-                return;
-            }
-            toast({ variant: 'destructive', title: "LR Node Missing", description: "Lorry Receipt particulars not found in registry." });
+            // High-fidelity fallback logic
+            const manifestItems = row.items && row.items.length > 0 ? row.items : [{
+                invoiceNumber: row.invoiceNumber || 'NA',
+                ewaybillNumber: row.ewaybillNumber || '',
+                units: row.totalUnits || 1,
+                unitType: 'Package',
+                itemDescription: row.itemDescription || row.material || 'GENERAL CARGO',
+                weight: row.quantity
+            }];
+
+            setPreviewLr({
+                lrNumber: row.lrNumber,
+                date: parseDate(row.lrDate),
+                trip: row as any,
+                carrier: row.carrierObj || (allCarriers || [])[0],
+                shipment: row as any,
+                plant: row.plant || { id: row.originPlantId, name: row.plantName },
+                items: manifestItems,
+                weightSelection: 'Assigned Weight',
+                assignedTripWeight: row.quantity,
+                from: row.loadingPoint || row.plantName || '',
+                to: row.unloadingPoint || '',
+                consignorName: row.consignor || '',
+                buyerName: row.billToParty || '',
+                shipToParty: row.shipToParty || '',
+                deliveryAddress: row.unloadingPoint || '',
+                id: row.id
+            } as any);
         } else {
             const lrDoc = snap.docs[0].data() as LR;
             setPreviewLr({
@@ -225,7 +234,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                 trip: row as any,
                 carrier: row.carrierObj || (allCarriers || [])[0],
                 shipment: row as any,
-                plant: row.plant
+                plant: row.plant || { id: row.originPlantId, name: row.plantName }
             } as EnrichedLR);
         }
     } catch (e) {
@@ -310,7 +319,11 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                       <TableCell className="px-4 text-center font-bold text-slate-800">{s.ewaybillNumber || '--'}</TableCell>
                       <TableCell className="px-4 text-center">
                         {s.lrNumber ? (
-                            <button onClick={() => openLRPrint(s)} className="font-black text-blue-700 hover:underline underline-offset-4 decoration-blue-200">
+                            <button 
+                                type="button" 
+                                onClick={(e) => openLRPrint(e, s)} 
+                                className="font-black text-blue-700 hover:underline underline-offset-4 decoration-blue-200 uppercase text-[11px]"
+                            >
                                 {s.lrNumber}
                             </button>
                         ) : '--'}
@@ -331,7 +344,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:bg-green-50" disabled={!canAssign} onClick={() => handleOpenAssignModal(s)}>
+                                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:bg-green-50" disabled={!canAssign} onClick={() => handleOpenAssignModal(s)}>
                                             <PlusCircle className="h-4 w-4" />
                                         </Button>
                                     </TooltipTrigger>
@@ -343,7 +356,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:bg-blue-50" disabled={!canEdit} onClick={() => onEdit(s)}>
+                                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:bg-blue-50" disabled={!canEdit} onClick={() => onEdit(s)}>
                                             <Edit2 className="h-4 w-4" />
                                         </Button>
                                     </TooltipTrigger>
@@ -358,7 +371,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                                     <TooltipTrigger asChild>
                                         <div className="inline-block">
                                             <DeleteShipmentConfirmationDialog onConfirm={() => onDelete(s.id)} shipment={s} disabled={!isAdmin}>
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50" disabled={!isAdmin}>
+                                                <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50" disabled={!isAdmin}>
                                                     <Ban className="h-4 w-4" />
                                                 </Button>
                                             </DeleteShipmentConfirmationDialog>
