@@ -39,6 +39,7 @@ interface OrdersTableProps {
   onEditAssignment: (order: any, trip: any) => void;
   onViewOrder: (order: any) => void;
   onViewTrip: (trip: any) => void;
+  onViewLR: (row: any) => void;
   onShortClose: (id: string) => void;
   onCancelOrder: (id: string) => void;
   onRestoreOrder: (id: string) => void;
@@ -65,6 +66,7 @@ export default function OrdersTable({
     onEditAssignment,
     onViewOrder,
     onViewTrip,
+    onViewLR,
     onShortClose,
     onCancelOrder,
     onRestoreOrder,
@@ -203,6 +205,11 @@ export default function OrdersTable({
                                     <span className="text-[9px] font-bold text-slate-400 uppercase italic">
                                         {trip.entry?.status === 'OUT' ? `Sync: ${format(new Date(trip.entry.exitTimestamp), 'dd/MM HH:mm')}` : ''}
                                     </span>
+                                    {trip.lrNumber && (
+                                        <button onClick={() => onViewLR(trip)} className="ml-2 font-black text-blue-700 hover:underline text-[9px] uppercase tracking-tighter decoration-blue-200">
+                                            LR: {trip.lrNumber}
+                                        </button>
+                                    )}
                                 </div>
                             </TableCell>
                             <TableCell className="px-4 text-center">
