@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -32,141 +31,21 @@
     --chart-5: 340.1 75% 55.1%;
     --radius: 0.5rem;
 
-    /* Sikka Logistics Sidebar Theme */
-    --sidebar-background: 222.2 84% 4.9%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 210 40% 98%;
-    --sidebar-primary-foreground: 222.2 84% 4.9%;
-    --sidebar-accent: 224 100% 58%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217.2 32.6% 17.5%;
-    --sidebar-ring: 224 100% 58%;
+    /* Sikka Logistics Sidebar Theme - Updated to White */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 240 10% 3.9%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 96.1%;
+    --sidebar-accent-foreground: 222.2 84% 4.9%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 217 91% 60%;
 
     /* Font Variables */
     --font-family: "Inter", sans-serif;
     --font-weight: 400;
     --font-style: normal;
     --font-size-base: 14px;
-  }
-
-  [data-theme="blue-crystal"] {
-    --background: 210 100% 98%;
-    --foreground: 215 28% 17%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 216 34% 91%;
-    --accent: 216 34% 93%;
-    --card: 220 13% 100%;
-  }
-
-  [data-theme="green"] {
-    --background: 120 20% 98%;
-    --foreground: 120 25% 15%;
-    --primary: 140 60% 35%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 130 20% 94%;
-    --accent: 130 20% 96%;
-    --card: 120 20% 100%;
-  }
-
-  [data-theme="golden"] {
-    --background: 45 60% 97%;
-    --foreground: 35 30% 20%;
-    --primary: 45 95% 51%;
-    --primary-foreground: 35 50% 10%;
-    --secondary: 40 50% 94%;
-    --accent: 40 50% 96%;
-    --card: 45 60% 100%;
-  }
-
-  [data-theme="purple"] {
-    --background: 270 60% 98%;
-    --foreground: 270 25% 15%;
-    --primary: 260 70% 55%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 270 50% 95%;
-    --accent: 270 50% 97%;
-    --card: 270 60% 100%;
-  }
-
-  [data-theme="pink"] {
-    --background: 340 60% 98%;
-    --foreground: 340 25% 15%;
-    --primary: 340 82% 52%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 340 50% 95%;
-    --accent: 340 50% 97%;
-    --card: 340 60% 100%;
-  }
-
-  [data-theme="belize-plus"] {
-    --background: 190 40% 96%;
-    --foreground: 195 35% 18%;
-    --primary: 200 85% 45%;
-    --primary-foreground: 190 40% 98%;
-    --secondary: 190 30% 92%;
-    --accent: 190 30% 94%;
-    --card: 190 40% 100%;
-  }
-
-  [data-theme="high-contrast-black"] {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
-    --primary: 60 100% 50%;
-    --primary-foreground: 0 0% 5%;
-    --secondary: 0 0% 15%;
-    --accent: 0 0% 25%;
-    --card: 0 0% 10%;
-    --border: 0 0% 40%;
-    --input: 0 0% 20%;
-    --ring: 60 100% 50%;
-  }
-
-  [data-theme="high-contrast-white"] {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 0%;
-    --primary: 240 100% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 92%;
-    --accent: 0 0% 95%;
-    --card: 0 0% 98%;
-    --border: 0 0% 60%;
-    --input: 0 0% 88%;
-    --ring: 240 100% 50%;
-  }
-
-  [data-theme="horizon-dark"] {
-    --background: 223 30% 12%;
-    --foreground: 216 20% 92%;
-    --primary: 210 90% 60%;
-    --primary-foreground: 223 30% 12%;
-    --secondary: 220 25% 18%;
-    --accent: 220 25% 22%;
-    --card: 220 25% 15%;
-    --border: 220 20% 30%;
-    --input: 220 20% 25%;
-  }
-
-  [data-theme="day"] {
-    --background: 200 20% 98%;
-    --foreground: 200 15% 20%;
-    --primary: 195 85% 40%;
-    --primary-foreground: 200 20% 98%;
-    --secondary: 200 20% 94%;
-    --accent: 200 20% 96%;
-    --card: 200 20% 100%;
-  }
-
-  [data-theme="night"] {
-    --background: 240 10% 10%;
-    --foreground: 240 5% 90%;
-    --primary: 260 70% 65%;
-    --primary-foreground: 240 5% 90%;
-    --secondary: 240 10% 18%;
-    --accent: 240 10% 22%;
-    --card: 240 10% 15%;
-    --border: 240 5% 30%;
-    --input: 240 5% 25%;
   }
 
   .dark {

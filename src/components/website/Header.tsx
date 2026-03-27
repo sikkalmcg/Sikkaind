@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Truck } from 'lucide-react';
+import { Menu, X, Truck, LogIn, Radar } from 'lucide-react';
 import { useState } from 'react';
 
 const navigation = [
@@ -110,11 +110,15 @@ export default function Header() {
         </div>
 
         <div className="mt-auto pt-8 flex flex-col gap-4 border-t absolute bottom-8 left-6 right-6">
-          <Button variant="outline" asChild className="w-full h-12 font-black uppercase text-xs tracking-widest rounded-xl border-slate-200">
-            <Link href="/login" onClick={() => setMobileMenuOpen(false)}>Portal Login</Link>
+          <Button variant="outline" asChild className="w-full h-12 font-black uppercase text-xs tracking-widest rounded-xl border-blue-200 text-blue-900 shadow-md">
+            <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center gap-2">
+              <LogIn className="h-4 w-4" /> Portal Login
+            </Link>
           </Button>
           <Button asChild className="w-full h-12 bg-blue-900 font-black uppercase text-xs tracking-widest rounded-xl shadow-lg">
-            <Link href="/track-consignment" onClick={() => setMobileMenuOpen(false)}>Track Mission</Link>
+            <Link href="/track-consignment" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center gap-2">
+              <Radar className="h-4 w-4" /> Track Mission
+            </Link>
           </Button>
         </div>
       </div>
