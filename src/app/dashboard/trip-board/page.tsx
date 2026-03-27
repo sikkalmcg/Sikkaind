@@ -64,7 +64,7 @@ function TripBoardContent() {
 
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
-  const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
+  const [todayDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
@@ -279,24 +279,21 @@ function TripBoardContent() {
 
   const filteredBase = useMemo(() => {
     const dayStart = fromDate ? startOfDay(fromDate) : null;
-    const dayEnd = toDate ? endOfDay(toDate) : null;
+    const dayEnd = todayDate ? endOfDay(todayDate) : null;
 
     return allFilteredData.filter(t => {
-      // Normalizing status for logic consistency
       const statusRaw = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim();
       const status = statusRaw.replace(/[\s_-]+/g, '-');
       const isClosed = ['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status);
 
-      // REGISTRY RULE: Active trips should ALWAYS show up regardless of date selection to maintain operational visibility
       if (!isClosed) return true;
 
-      // Closed trips strictly follow the range registry
       const compareDate = t.actualCompletionDate || t.startDate;
       if (dayStart && compareDate && compareDate < dayStart) return false;
       if (dayEnd && compareDate && compareDate > dayEnd) return false;
       return true;
     });
-  }, [allFilteredData, fromDate, toDate]);
+  }, [allFilteredData, fromDate, todayDate]);
 
   const filteredTrips = useMemo(() => {
     return filteredBase.filter(t => {
@@ -308,7 +305,6 @@ function TripBoardContent() {
       const hasVehicle = t.vehicleNumber && t.vehicleNumber.trim() !== '';
       if (!hasVehicle) return false;
 
-      // Tab logic forceful sync
       if (activeTab === 'loading') {
           return !isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete');
       }
@@ -330,7 +326,6 @@ function TripBoardContent() {
       }
 
       if (activeTab === 'active') {
-          // Mission stays active until finalizing delivery pulse
           return !['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status);
       }
 
@@ -429,7 +424,7 @@ function TripBoardContent() {
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
                         <Filter className="h-3 w-3" /> End Date Node
                     </Label>
-                    <DatePicker date={toDate} setDate={setTodayDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" />
+                    <DatePicker date={todayDate} setDate={setTodayDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" />
                 </div>
 
                 <div className="ml-auto flex items-center gap-3 self-end pb-0.5">
@@ -552,7 +547,7 @@ function TripBoardContent() {
           />
       )}
       
-      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setPreviewLr(null)} lr={lrPreviewData} />}
+      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
       {podUploadTrip && <PodUploadModal isOpen={!!podUploadTrip} onClose={() => setPodUploadTrip(null)} trip={podUploadTrip} onSuccess={() => setPodUploadTrip(null)} />}
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
       
@@ -591,7 +586,7 @@ function TripBoardContent() {
                         transaction.update(shipmentRef, { assignedQty: newAssignedTotal, balanceQty: newBalanceTotal, currentStatusId: newAssignedTotal === 0 ? 'pending' : 'Partly Vehicle Assigned', lastUpdateDate: serverTimestamp() });
                     });
 
-                    const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || 'System Operator');
+                    const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email || 'System Operator');
                     const sanitizedData = sanitizeRegistryNode({ ...cancelTripData, type: 'Trip' });
 
                     await addDoc(collection(firestore, "recycle_bin"), {
