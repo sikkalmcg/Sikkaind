@@ -89,16 +89,14 @@ function FreightManagementContent() {
 
                 if (userDocSnap) {
                     const userData = userDocSnap.data() as SubUser;
-                    authIds = (userData.username === 'sikkaind' || isAdminSession) ? activePlants.map(p => p.id) : (userData.plantIds || []);
+                    const username = userData.username?.toLowerCase();
+                    authIds = (username === 'sikkaind' || isAdminSession) ? activePlants.map(p => p.id) : (userData.plantIds || []);
                 } else if (isAdminSession) {
                     authIds = activePlants.map(p => p.id);
                 }
 
                 setAuthorizedPlantIds(authIds);
-                if (authIds.length > 0 && selectedPlant === 'all-plants' && !isAdminSession) {
-                    setSelectedPlant(authIds[0]);
-                }
-
+                
                 if (authIds.length === 0) {
                     setIsLoading(false);
                     return;
@@ -123,7 +121,10 @@ function FreightManagementContent() {
                         });
                         setFreightRegistry(prev => [...prev.filter(f => f.originPlantId !== pId), ...plantFreights]);
                         setIsLoading(false);
-                    }, (err) => setDbError(true)));
+                    }, (err) => {
+                        console.error(`Freight sync error for plant ${pId}:`, err);
+                        setDbError(true);
+                    }));
 
                     unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/trips`), (snap) => {
                         const plantTrips = snap.docs.map(d => ({ 
@@ -160,8 +161,7 @@ function FreightManagementContent() {
             const trip = tripRegistry.find(t => t.id === f.tripId);
             if (!trip) return null;
             
-            const shipment = shipmentRegistry.find(s => s.id === trip.shipmentIds?.[0]);
-            if (!shipment) return null;
+            const shipment = shipmentRegistry.find(s => s.id === trip.shipmentIds?.[0]) || { materialTypeId: 'MT', consignor: '--' } as any;
             
             const activePlants = allPlants && allPlants.length > 0 ? allPlants : mockPlants;
             const plant = activePlants.find(p => normalizePlantId(p.id) === normalizePlantId(f.originPlantId)) || { id: f.originPlantId, name: f.originPlantId };
@@ -230,9 +230,9 @@ function FreightManagementContent() {
         return res;
     }, [filteredFreights]);
 
-    // TABLE CATEGORIZATION NODE
+    // TABLE CATEGORIZATION NODE - Broadened to include 'Unpaid'
     const requestedFreights = useMemo(() => filteredFreights.filter(f => 
-        f.trip.freightStatus === 'Requested' || f.trip.freightStatus === 'Under Process'
+        !['Paid', 'Closed'].includes(f.trip.freightStatus)
     ), [filteredFreights]);
 
     const settledFreights = useMemo(() => filteredFreights.filter(f => 
