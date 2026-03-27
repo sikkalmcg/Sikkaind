@@ -34,6 +34,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 interface TripBoardTableProps {
   data: any[];
   activeTab: string;
+  isAdmin: boolean;
   canVerifyPod: boolean;
   onVerifyPod: (trip: any) => void;
   onUploadPod: (trip: any) => void;
@@ -66,6 +67,7 @@ const getStatusColor = (status: string) => {
 export default function TripBoardTable({ 
     data, 
     activeTab, 
+    isAdmin,
     canVerifyPod, 
     onVerifyPod, 
     onUploadPod, 
@@ -189,7 +191,7 @@ export default function TripBoardTable({
                             </DropdownMenuItem>
 
                             <DropdownMenuItem onClick={() => onEditTrip(row)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-xl hover:bg-blue-50">
-                                <Edit2 className="h-4 w-4 text-blue-600" /> Edit Assignment
+                                <Edit2 className="h-4 w-4" /> Edit Assignment
                             </DropdownMenuItem>
 
                             {isAdmin && (
