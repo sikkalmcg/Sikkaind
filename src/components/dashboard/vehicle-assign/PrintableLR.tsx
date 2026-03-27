@@ -5,6 +5,7 @@ import { format, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { LR, Trip, Shipment, Carrier, Plant } from '@/types';
 import { Timestamp } from 'firebase/firestore';
+import { ShieldCheck } from 'lucide-react';
 
 export type EnrichedLR = LR & {
   trip: Trip;
