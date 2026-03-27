@@ -24,7 +24,7 @@ interface PrintableLRProps {
 /**
  * @fileOverview SIKKA LMC - Enterprise Lorry Receipt (LR) A4 Node.
  * High-fidelity layout synchronized with the mission registry template.
- * Updated: Removed Goods Value, optimized column widths, and showed all terms.
+ * Updated: Auto-adjustable columns based on content logic.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -137,20 +137,20 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 4. ITEM MANIFEST TABLE */}
+      {/* 4. ITEM MANIFEST TABLE - AUTO ADJUSTABLE COLUMNS */}
       <div className="border-2 border-slate-900 rounded-xl overflow-hidden mb-6 flex-1 flex flex-col">
-        <table className="w-full border-collapse">
+        <table className="w-full border-collapse table-auto">
           <thead>
             <tr className="bg-slate-50 text-slate-900 h-10 text-[7pt] font-black uppercase border-b-2 border-slate-900">
-              <th className="border-r-2 border-slate-900 px-2 text-left w-[12%]">Invoice No.</th>
-              <th className="border-r-2 border-slate-900 px-2 text-left w-[10%]">Date</th>
-              <th className="border-r-2 border-slate-900 px-2 text-left">Product Name</th>
-              <th className="border-r-2 border-slate-900 px-2 text-center w-[8%]">Units</th>
-              <th className="border-r-2 border-slate-900 px-2 text-right w-[10%]">Weight</th>
+              <th className="border-r-2 border-slate-900 px-3 text-left whitespace-nowrap">Invoice No.</th>
+              <th className="border-r-2 border-slate-900 px-3 text-left whitespace-nowrap">Date</th>
+              <th className="border-r-2 border-slate-900 px-3 text-left w-full">Product Name</th>
+              <th className="border-r-2 border-slate-900 px-3 text-center whitespace-nowrap">Units</th>
+              <th className="border-r-2 border-slate-900 px-3 text-right whitespace-nowrap">Weight</th>
               {hasEwayBill && (
                 <>
-                    <th className="border-r-2 border-slate-900 px-2 text-left w-[12%]">E-WayBill</th>
-                    <th className="px-2 text-left w-[10%]">E-W Date</th>
+                    <th className="border-r-2 border-slate-900 px-3 text-left whitespace-nowrap">E-WayBill</th>
+                    <th className="px-3 text-left whitespace-nowrap">E-W Date</th>
                 </>
               )}
             </tr>
@@ -158,15 +158,15 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           <tbody className="text-[8pt]">
             {items.map((item, idx) => (
               <tr key={idx} className="border-b border-slate-200 h-10 align-middle">
-                <td className="border-r-2 border-slate-900 px-2 font-black uppercase">{item.invoiceNumber}</td>
-                <td className="border-r-2 border-slate-900 px-2 whitespace-nowrap">{formatDate(lr.date, 'dd MMM')}</td>
-                <td className="border-r-2 border-slate-900 px-2 font-bold uppercase truncate max-w-0">{item.itemDescription}</td>
-                <td className="border-r-2 border-slate-900 px-2 text-center font-black">{item.units} {item.unitType ? `(${item.unitType.slice(0,3)})` : ''}</td>
-                <td className="border-r-2 border-slate-900 px-2 text-right font-black">{Number(item.weight).toFixed(3)}</td>
+                <td className="border-r-2 border-slate-900 px-3 font-black uppercase whitespace-nowrap">{item.invoiceNumber}</td>
+                <td className="border-r-2 border-slate-900 px-3 whitespace-nowrap">{formatDate(lr.date, 'dd MMM')}</td>
+                <td className="border-r-2 border-slate-900 px-3 font-bold uppercase">{item.itemDescription}</td>
+                <td className="border-r-2 border-slate-900 px-3 text-center font-black whitespace-nowrap">{item.units} {item.unitType ? `(${item.unitType.slice(0,3)})` : ''}</td>
+                <td className="border-r-2 border-slate-900 px-3 text-right font-black whitespace-nowrap">{Number(item.weight).toFixed(3)}</td>
                 {hasEwayBill && (
                     <>
-                        <td className="border-r-2 border-slate-900 px-2 font-mono text-[7pt]">{item.ewaybillNumber || '--'}</td>
-                        <td className="px-2 whitespace-nowrap">{item.ewaybillNumber ? formatDate(lr.date, 'dd MMM') : '--'}</td>
+                        <td className="border-r-2 border-slate-900 px-3 font-mono text-[7pt] whitespace-nowrap">{item.ewaybillNumber || '--'}</td>
+                        <td className="px-3 whitespace-nowrap">{item.ewaybillNumber ? formatDate(lr.date, 'dd MMM') : '--'}</td>
                     </>
                 )}
               </tr>
@@ -191,8 +191,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           <tfoot className="border-t-2 border-slate-900 bg-slate-50 font-black h-12">
             <tr className="align-middle">
               <td colSpan={3} className="px-4 text-[8pt] uppercase">Total Registry Manifest:</td>
-              <td className="border-l-2 border-slate-900 px-2 text-center text-[9.5pt]">{totalUnits}</td>
-              <td className="border-l-2 border-slate-900 px-2 text-right text-[9.5pt] text-blue-900">{totalWeight.toFixed(3)} MT</td>
+              <td className="border-l-2 border-slate-900 px-3 text-center text-[9.5pt] whitespace-nowrap">{totalUnits}</td>
+              <td className="border-l-2 border-slate-900 px-3 text-right text-[9.5pt] text-blue-900 whitespace-nowrap">{totalWeight.toFixed(3)} MT</td>
               {hasEwayBill && <td colSpan={2} className="border-l-2 border-slate-900"></td>}
             </tr>
           </tfoot>
