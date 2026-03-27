@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -145,12 +146,12 @@ export default function LogisticsSidebar({ isOpen, onToggle }: LogisticsSidebarP
   return (
     <aside 
       className={cn(
-        "fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-900 text-white transition-transform duration-300 ease-in-out md:relative md:translate-x-0",
-        isOpen ? 'translate-x-0' : '-translate-x-full'
+        "fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 text-white transition-all duration-300 ease-in-out md:relative",
+        isOpen ? "w-64 translate-x-0" : "w-20 translate-x-0 md:w-20"
       )}
     >
       <div className="flex h-16 items-center justify-between px-6 border-b border-white/10 shrink-0 bg-slate-950">
-        <div className={cn("flex items-center gap-2 overflow-hidden whitespace-nowrap transition-all duration-300", !isOpen && "opacity-0 w-0")}>
+        <div className={cn("flex items-center gap-2 overflow-hidden whitespace-nowrap transition-all duration-300", !isOpen && "w-0 opacity-0")}>
           <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
           <span className="text-xs font-black uppercase tracking-[0.2em] text-blue-400 italic">Sikka LMC</span>
         </div>
@@ -158,9 +159,9 @@ export default function LogisticsSidebar({ isOpen, onToggle }: LogisticsSidebarP
           variant="ghost" 
           size="icon" 
           onClick={onToggle} 
-          className="text-white hover:bg-white/10 md:hidden"
+          className="text-white hover:bg-white/10"
         >
-          <ChevronLeft className="h-5 w-5" />
+          {isOpen ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
         </Button>
       </div>
 
@@ -168,15 +169,15 @@ export default function LogisticsSidebar({ isOpen, onToggle }: LogisticsSidebarP
         {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
                 <Loader2 className="h-6 w-6 animate-spin text-blue-50" />
-                <span className="text-[9px] font-black uppercase text-slate-600 tracking-widest">Syncing Registry...</span>
+                {isOpen && <span className="text-[9px] font-black uppercase text-slate-600 tracking-widest">Syncing Registry...</span>}
             </div>
         ) : (
-            <nav className="space-y-10">
+            <nav className="space-y-8">
             {filteredNavigation.map((group, idx) => (
                 <div key={idx} className="space-y-3">
                 <h4 className={cn(
                     "px-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-600 transition-opacity duration-300",
-                    !isOpen && "opacity-0"
+                    !isOpen ? "opacity-0 h-0" : "opacity-100"
                 )}>
                     {group.group}
                 </h4>
@@ -188,7 +189,7 @@ export default function LogisticsSidebar({ isOpen, onToggle }: LogisticsSidebarP
                         key={item.name} 
                         href={item.href}
                         className={cn(
-                            "group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-black transition-all duration-200 border border-transparent",
+                            "group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-black transition-all duration-200 border border-transparent",
                             isActive 
                             ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40 border-blue-500/50" 
                             : "text-slate-500 hover:bg-white/5 hover:text-white"
@@ -200,7 +201,7 @@ export default function LogisticsSidebar({ isOpen, onToggle }: LogisticsSidebarP
                         )} />
                         <span className={cn(
                             "whitespace-nowrap transition-all duration-300 uppercase tracking-tight text-xs",
-                            !isOpen && "opacity-0 w-0 overflow-hidden"
+                            !isOpen ? "opacity-0 w-0 overflow-hidden" : "opacity-100 w-auto"
                         )}>
                             {item.name}
                         </span>
@@ -219,9 +220,9 @@ export default function LogisticsSidebar({ isOpen, onToggle }: LogisticsSidebarP
           "flex items-center gap-3 p-3 rounded-2xl bg-white/5 border border-white/5",
           !isOpen && "justify-center p-2"
         )}>
-          <div className="h-8 w-8 rounded-full bg-blue-900 flex items-center justify-center text-[10px] font-black text-white shadow-lg border border-blue-700/50">SIL</div>
+          <div className="h-8 w-8 rounded-full bg-blue-900 flex items-center justify-center text-[10px] font-black text-white shadow-lg border border-blue-700/50 shrink-0">SIL</div>
           {isOpen && (
-            <div className="flex flex-col overflow-hidden">
+            <div className="flex flex-col overflow-hidden animate-in fade-in duration-500">
               <span className="text-[10px] font-black uppercase text-white truncate">Sikka Logistics</span>
               <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tighter truncate">v2.5.0 Enterprise</span>
             </div>
