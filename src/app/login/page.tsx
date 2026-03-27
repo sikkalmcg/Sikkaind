@@ -1,23 +1,13 @@
 'use client';
 
-import { auth, firestore as db } from "@/firebase";
-import { useState, useRef } from 'react';
+import { auth } from "@/firebase";
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import loginimg from '@/assets/Sikka-login.jpeg';
 import logoimg from '@/assets/logo-old.png';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { 
-    collection, 
-    query, 
-    where, 
-    getDocs, 
-    getDoc,
-    limit, 
-    updateDoc, 
-    serverTimestamp 
-} from 'firebase/firestore';
-
+import { useLoading } from "@/context/LoadingContext";
 import { Loader2, UserCheck, KeyRound, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 // --- FORGOT PASSWORD MODAL COMPONENT ---
@@ -32,7 +22,6 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void; }) {
     const [isVerified, setIsVerified] = useState(false);
     const [targetUserId, setTargetUserId] = useState<string | null>(null);
 
-    // STEP 1: Match Username and Mobile in Database
     const handleVerifyIdentity = async () => {
         if (!username || mobileNumber.length !== 10) {
             setError("Enter Username and 10-digit Mobile No.");
@@ -65,7 +54,6 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void; }) {
         }
     };
 
-    // STEP 2: Update Password in Database
     const handlePasswordChange = async () => {
         if (newPassword !== confirmPassword) {
             setError("Passwords do not match.");
@@ -127,7 +115,6 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void; }) {
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
                                     className="w-full p-2 border border-gray-300 rounded bg-slate-50 text-sm focus:outline-blue-500"
-                                    placeholder=""
                                 />
                             </div>
                             <div>
@@ -197,55 +184,37 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void; }) {
 export default function LoginPage() {
     const [identity, setIdentity] = useState('');
     const [password, setPassword] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isRedirecting, setIsRedirecting] = useState(false);
     const [showForgotPassword, setShowForgotPassword] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
     const router = useRouter();
+    const { showLoader, hideLoader } = useLoading();
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (isSubmitting) return; // Prevent multiple submissions
-
         if (!identity || !password) {
             setError('User and Password must be provided.');
             return;
         }
 
-        setIsSubmitting(true);
         setError(null);
+        showLoader();
 
         if (!auth) {
             setError("Establishing link... Please retry.");
-            setIsSubmitting(false);
+            hideLoader();
             return;
         }
 
+        // Optimized Identity Mapping Node
         let email = identity;
         if (!email.includes('@')) {
             const username = identity.toLowerCase().trim();
-            
-            // Try to find the user in Firestore to get their real email via API
-            try {
-                const res = await fetch('/api/auth/manage-user', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'resolveEmail', username })
-                });
-                
-                if (res.ok) {
-                    const data = await res.json();
-                    email = data.email;
-                } else {
-                    // Fallback to default pattern
-                    email = username === 'sikkaind' ? 'sikkaind.admin@sikka.com' : `${username}@sikka.com`;
-                }
-            } catch (e) {
-                email = username === 'sikkaind' ? 'sikkaind.admin@sikka.com' : `${username}@sikka.com`;
-            }
+            // Construct system email directly to save one network round-trip
+            email = username === 'sikkaind' ? 'sikkaind.admin@sikka.com' : `${username}@sikka.com`;
         }
 
         localStorage.setItem('slmc_last_identity', identity.toLowerCase());
@@ -255,13 +224,12 @@ export default function LoginPage() {
             setIsRedirecting(true);
             router.push('/modules');
         } catch (err: any) {
-            // Logic Node: Remove console.error to prevent dev overlay. Handle error via UI state.
-            if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+            if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-email') {
                 setError("Invalid operator credentials. Access Denied.");
             } else {
                 setError("System registry link failure. Please contact support.");
             }
-            setIsSubmitting(false);
+            hideLoader();
         }
     };
 
@@ -321,15 +289,14 @@ export default function LoginPage() {
                                 <div className="pt-4 md:pl-28 flex flex-wrap gap-2 items-center">
                                     <button 
                                         type="submit" 
-                                        disabled={isSubmitting}
-                                        className="px-6 py-1 text-[11px] font-black uppercase bg-gray-100 border border-gray-500 rounded-sm hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="px-6 py-1 text-[11px] font-black uppercase bg-gray-100 border border-gray-500 rounded-sm hover:bg-gray-200 transition-colors"
                                     >
-                                        {isSubmitting ? 'Verifying...' : 'Log On'}
+                                        Log On
                                     </button>
                                     <button
                                         type="button"
                                         onClick={async () => {
-                                            setIsSubmitting(true);
+                                            showLoader();
                                             try {
                                                 const res = await fetch('/api/auth/manage-user', {
                                                     method: 'POST',
@@ -338,14 +305,12 @@ export default function LoginPage() {
                                                 });
                                                 const data = await res.json();
                                                 if (data.success) {
-                                                    alert("Admin account initialized successfully. You can now log in.");
-                                                } else {
-                                                    alert("Bootstrap failed: " + data.error);
+                                                    toast({ title: 'Bootstrap Successful', description: 'Admin account initialized.' });
                                                 }
                                             } catch (e: any) {
-                                                alert("Bootstrap error: " + e.message);
+                                                console.error(e);
                                             } finally {
-                                                setIsSubmitting(false);
+                                                hideLoader();
                                             }
                                         }}
                                         className="text-[9px] font-black uppercase text-slate-400 hover:text-blue-600 transition-colors"
