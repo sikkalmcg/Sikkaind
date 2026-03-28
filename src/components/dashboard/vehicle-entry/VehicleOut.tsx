@@ -24,7 +24,7 @@ import { collection, query, where, doc, updateDoc, serverTimestamp, onSnapshot, 
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useLoading } from '@/context/LoadingContext';
-import type { Plant, SubUser, Trip, Shipment } from '@/types';
+import type { Plant, SubUser, Trip } from '@/types';
 import { normalizePlantId } from '@/lib/utils';
 
 const formSchema = z.object({
@@ -55,7 +55,7 @@ export default function VehicleOut() {
     firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
     [firestore]
   );
-  const { data: allPlants, isLoading: isLoadingPlants } = useCollection<Plant>(plantsQuery);
+  const { data: allPlants } = useCollection<Plant>(plantsQuery);
 
   const userProfileRef = useMemo(() => (firestore && user?.email) ? doc(firestore, "users", user.email) : null, [firestore, user]);
   const { data: profile } = useDoc<SubUser>(userProfileRef);
@@ -73,7 +73,7 @@ export default function VehicleOut() {
     defaultValues: { plantId: '', entryId: '', exitStatus: 'Loaded', lrNumber: '', invoiceNumber: '', exitWeight: 0, weightUnit: 'MT' },
   });
 
-  const { watch, handleSubmit, reset, setValue, formState: { isSubmitting } } = form;
+  const { watch, handleSubmit, reset, setValue } = form;
   const selectedPlantId = watch('plantId');
   const selectedEntryId = watch('entryId');
   const exitStatus = watch('exitStatus');

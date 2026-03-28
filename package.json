@@ -38,7 +38,7 @@
     "date-fns": "^3.6.0",
     "embla-carousel-autoplay": "^8.0.2",
     "embla-carousel-react": "^8.0.2",
-    "firebase": "9.23.0",
+    "firebase": "^10.11.0",
     "firebase-admin": "^12.0.0",
     "framer-motion": "^11.0.25",
     "leaflet": "^1.9.4",
@@ -76,5 +76,10 @@
     "postcss": "^8",
     "tailwindcss": "^3.3.0",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "overrides": {
+      "firebase": "^10.11.0"
+    }
   }
 }
