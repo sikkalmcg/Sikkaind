@@ -1,4 +1,3 @@
-
 export const SikkaLogisticsPagePermissions = [
   { id: 'live-dashboard', name: 'Live Dashboard' },
   { id: 'vehicle-entry', name: 'Vehicle Entry' },
