@@ -6,39 +6,29 @@ import VehicleIn from '@/components/dashboard/vehicle-entry/VehicleIn';
 import VehicleOut from '@/components/dashboard/vehicle-entry/VehicleOut';
 import UpcomingVehicles from '@/components/dashboard/vehicle-entry/UpcomingVehicles';
 import GateRegister from '@/components/dashboard/vehicle-entry/GateRegister';
-import type { WithId, Trip, VehicleEntryExit, SubUser, Plant } from '@/types';
-import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, query, where, onSnapshot, doc, getDoc, getDocs, limit } from 'firebase/firestore';
+import { useFirestore, useUser } from '@/firebase';
+import { collection, query, where, onSnapshot, getDocs, limit } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Search, FileDown, Plus, Truck, LayoutList, ClipboardCheck, WifiOff } from 'lucide-react';
+import { Loader2, Truck, FileDown, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { normalizePlantId } from '@/lib/utils';
-
-export type UpcomingVehicleData = WithId<Trip>;
+import type { SubUser, VehicleEntryExit, Trip } from '@/types';
 
 export default function VehicleEntryPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const [activeTab, setActiveTab] = useState('vehicle-in');
-  const [upcomingVehicleData, setUpcomingVehicleData] = useState<UpcomingVehicleData | null>(null);
+  const [upcomingVehicleData, setUpcomingVehicleData] = useState<any | null>(null);
   
   const [counts, setCounts] = useState({ in: 0, out: 0, upcoming: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
 
-  const plantsQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, "logistics_plants")) : null, 
-    [firestore]
-  );
-  const { data: plants } = useCollection<Plant>(plantsQuery);
-
   useEffect(() => {
     if (!firestore || !user) return;
 
     let unsubIn: () => void;
+    let unsubUpcoming: () => void;
 
     const fetchData = async () => {
         setIsLoading(true);
@@ -77,10 +67,15 @@ export default function VehicleEntryPage() {
                 const activeInVehicles = snap.docs
                     .map(d => d.data() as VehicleEntryExit)
                     .filter(d => authPlantIds.some(aid => normalizePlantId(aid) === normalizePlantId(d.plantId)));
-                
                 setCounts(prev => ({ ...prev, in: activeInVehicles.length }));
-            }, async (error) => {
-                setDbError(true);
+            }, () => setDbError(true));
+
+            const qUpcoming = query(collection(firestore, "trips"), where("tripStatus", "==", "Assigned"));
+            unsubUpcoming = onSnapshot(qUpcoming, (snap) => {
+                const pending = snap.docs
+                    .map(d => d.data() as Trip)
+                    .filter(d => authPlantIds.some(aid => normalizePlantId(aid) === normalizePlantId(d.originPlantId)));
+                setCounts(prev => ({ ...prev, upcoming: pending.length }));
             });
 
             setIsLoading(false);
@@ -93,58 +88,68 @@ export default function VehicleEntryPage() {
     fetchData();
     return () => {
         if (unsubIn) unsubIn();
+        if (unsubUpcoming) unsubUpcoming();
     };
   }, [firestore, user]);
 
-  const handleVehicleInFromUpcoming = (tripData: UpcomingVehicleData) => {
+  const handleVehicleInFromUpcoming = (tripData: any) => {
     setUpcomingVehicleData(tripData);
     setActiveTab('vehicle-in');
   };
   
   return (
-    <main className="flex flex-1 flex-col h-full bg-slate-50/50">
-      <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-black text-blue-900 tracking-tight uppercase flex items-center gap-3">
-            <Truck className="h-8 w-8 text-blue-900" />
-            Gate Control Registry
-          </h1>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 ml-11">Lifting & Receiving Log</p>
+    <main className="flex flex-1 flex-col h-full bg-[#f8fafc] animate-in fade-in duration-500">
+      {/* PAGE HEADER */}
+      <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-blue-900 text-white rounded-2xl shadow-xl rotate-3">
+                <Truck className="h-7 w-7" />
+            </div>
+            <div>
+                <h1 className="text-2xl md:text-3xl font-black text-blue-900 tracking-tighter uppercase italic">Gate Control Registry</h1>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mt-1 ml-1">Lifting & Receiving Log</p>
+            </div>
         </div>
         
         <div className="flex items-center gap-3">
           {dbError && (
-              <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full text-[10px] font-bold uppercase border border-orange-200">
-                  <WifiOff className="h-3 w-3" />
-                  <span>Registry Desync</span>
+              <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1.5 rounded-full text-[10px] font-black uppercase border border-orange-200 shadow-sm animate-pulse">
+                  <WifiOff className="h-3.5 w-3.5" />
+                  <span>Registry Sync Issue</span>
               </div>
           )}
-          <Button variant="outline" className="h-10 rounded-xl font-bold text-xs uppercase tracking-widest border-slate-200 gap-2">
-            <FileDown className="h-4 w-4" /> Export
+          <Button variant="outline" className="h-11 px-6 rounded-2xl font-black text-[11px] uppercase tracking-widest border-slate-200 text-blue-900 bg-white shadow-sm hover:bg-slate-50 transition-all">
+            <FileDown className="h-4 w-4 mr-2" /> Export
           </Button>
         </div>
       </div>
 
-      <div className="flex-1 p-4 md:p-8 overflow-y-auto">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-8">
-          <TabsList className="inline-flex h-12 items-center justify-start rounded-none border-b bg-transparent p-0 w-full gap-8">
-            <TabsTrigger value="vehicle-in" className="relative h-12 rounded-none border-b-2 border-b-transparent px-0 pb-3 pt-2 text-xs font-black uppercase tracking-widest transition-all data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900">
-              Vehicle IN <Badge className="ml-2 bg-blue-100 text-blue-900 border-none font-black text-[10px]">{counts.in}</Badge>
+      <div className="flex-1 p-4 md:p-8 overflow-y-auto space-y-10">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="bg-transparent border-b h-14 rounded-none gap-12 p-0 mb-10 w-full justify-start overflow-x-auto custom-scrollbar">
+            <TabsTrigger value="vehicle-in" className="data-[state=active]:border-b-4 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 pb-4 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2">
+              Vehicle IN <Badge className="bg-blue-100 text-blue-900 border-none font-black text-[10px] px-2 h-5">{counts.in}</Badge>
             </TabsTrigger>
-            <TabsTrigger value="vehicle-out" className="h-12 px-0 pb-3 pt-2 text-xs font-black uppercase tracking-widest text-slate-400">Vehicle OUT</TabsTrigger>
-            <TabsTrigger value="gate-register" className="h-12 px-0 pb-3 pt-2 text-xs font-black uppercase tracking-widest text-slate-400">Gate Register</TabsTrigger>
-            <TabsTrigger value="upcoming-vehicle" className="h-12 px-0 pb-3 pt-2 text-xs font-black uppercase tracking-widest text-slate-400">Upcoming Vehicles</TabsTrigger>
+            <TabsTrigger value="vehicle-out" className="data-[state=active]:border-b-4 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 pb-4 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all">
+              Vehicle OUT
+            </TabsTrigger>
+            <TabsTrigger value="gate-register" className="data-[state=active]:border-b-4 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 pb-4 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2">
+              Gate Register
+            </TabsTrigger>
+            <TabsTrigger value="upcoming-vehicle" className="data-[state=active]:border-b-4 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 pb-4 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2">
+              Upcoming Vehicles <Badge className="bg-orange-100 text-orange-700 border-none font-black text-[10px] px-2 h-5">{counts.upcoming}</Badge>
+            </TabsTrigger>
           </TabsList>
 
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
               <TabsContent value="vehicle-in" className="m-0 focus-visible:ring-0">
-                  <VehicleIn upcomingVehicleData={upcomingVehicleData} />
+                  <VehicleIn upcomingVehicleData={upcomingVehicleData} onFinished={() => setUpcomingVehicleData(null)} />
               </TabsContent>
               <TabsContent value="vehicle-out" className="m-0 focus-visible:ring-0">
                   <VehicleOut />
               </TabsContent>
               <TabsContent value="gate-register" className="m-0 focus-visible:ring-0">
-                  <GateRegister plants={plants || []} />
+                  <GateRegister />
               </TabsContent>
               <TabsContent value="upcoming-vehicle" className="m-0 focus-visible:ring-0">
                   <UpcomingVehicles onVehicleInClick={handleVehicleInFromUpcoming} />

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useState, useEffect, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,241 +9,201 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Truck, ClipboardList, Trash2, ShieldCheck, Loader2 } from 'lucide-react';
-import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
-import { collection, query, where, doc, writeBatch, serverTimestamp, getDocs } from "firebase/firestore";
+import { ShieldCheck, Loader2, Clock, Truck } from 'lucide-react';
+import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, addDoc, serverTimestamp, getDocs, orderBy } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
-import { normalizePlantId } from '@/lib/utils';
-import type { Shipment, Carrier, WithId } from '@/types';
+import { format } from 'date-fns';
 import { useLoading } from '@/context/LoadingContext';
-
-interface VehicleInProps {
-  upcomingVehicleData?: any | null;
-}
-
-const shipmentItemSchema = z.object({
-  shipmentId: z.string().min(1, "Shipment ID is required"),
-  orderId: z.string(),
-  balanceQty: z.number(),
-  assignedQty: z.coerce.number().min(0.001, "Qty must be > 0").max(z.number().optional().default(Infinity), "Cannot exceed balance"),
-});
+import type { Plant } from '@/types';
 
 const formSchema = z.object({
   plantId: z.string().min(1, "Plant node is required."),
-  vehicleType: z.enum(['Own Vehicle', 'Market Vehicle']).default('Market Vehicle'),
-  vehicleNumber: z.string().min(1, "Vehicle number required.").transform(v => v.toUpperCase().replace(/\s/g, '')),
-  driverName: z.string().min(3, "Pilot name required."),
-  driverMobile: z.string().regex(/^\d{10}$/, "Must be 10 digits"),
-  carrierId: z.string().min(1, "Carrier mandatory."),
-  shipments: z.array(shipmentItemSchema).min(1, "At least one shipment required."),
+  vehicleNumber: z.string().min(6, "Valid vehicle number required.").transform(v => v.toUpperCase().replace(/\s/g, '')),
+  purpose: z.string().min(1, "Purpose is mandatory."),
+  driverName: z.string().min(3, "Pilot name required (min 3 chars)."),
+  driverMobile: z.string().regex(/^\d{10}$/, "10-digit mobile required."),
+  licenseNumber: z.string().min(5, "DL number required."),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
-export default function VehicleIn({ upcomingVehicleData }: VehicleInProps) {
+export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomingVehicleData?: any | null; onFinished?: () => void }) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
   const { showLoader, hideLoader } = useLoading();
+  const [currentTime, setCurrentTime] = useState(new Date());
 
-  const [availableShipments, setAvailableShipments] = useState<WithId<Shipment>[]>([]);
-  const [isLoadingShipments, setIsLoadingShipments] = useState(false);
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const plantsQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
+    [firestore]
+  );
+  const { data: plants, isLoading: isLoadingPlants } = useCollection<Plant>(plantsQuery);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       plantId: '',
-      vehicleType: 'Market Vehicle',
       vehicleNumber: '',
+      purpose: 'Loading',
       driverName: '',
       driverMobile: '',
-      carrierId: '',
-      shipments: [],
+      licenseNumber: '',
     },
   });
 
-  const { control, handleSubmit, setValue, watch, reset, formState: { isSubmitting } } = form;
-  const { fields, append, remove } = useFieldArray({ control, name: "shipments" });
-
-  const plantId = watch('plantId');
-  const selectedShipments = watch('shipments');
-
-  const plantsQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, "logistics_plants")) : null, 
-    [firestore]
-  );
-  const { data: plants } = useCollection<any>(plantsQuery);
-
-  const carriersQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, "carriers")) : null, 
-    [firestore]
-  );
-  const { data: carriers } = useCollection<Carrier>(carriersQuery);
+  const { handleSubmit, setValue, reset, formState: { isSubmitting } } = form;
 
   useEffect(() => {
     if (upcomingVehicleData) {
-        setValue('plantId', upcomingVehicleData.originPlantId);
-        setValue('vehicleNumber', upcomingVehicleData.vehicleNumber);
-        setValue('driverName', upcomingVehicleData.driverName);
-        setValue('driverMobile', upcomingVehicleData.driverMobile);
-        setValue('vehicleType', upcomingVehicleData.vehicleType);
-        setValue('carrierId', upcomingVehicleData.carrierId);
+        setValue('plantId', upcomingVehicleData.originPlantId, { shouldValidate: true });
+        setValue('vehicleNumber', upcomingVehicleData.vehicleNumber, { shouldValidate: true });
+        setValue('driverName', upcomingVehicleData.driverName, { shouldValidate: true });
+        setValue('driverMobile', upcomingVehicleData.driverMobile, { shouldValidate: true });
+        setValue('purpose', 'Loading', { shouldValidate: true });
     }
   }, [upcomingVehicleData, setValue]);
-
-  useEffect(() => {
-    if (!firestore || !plantId) return;
-    setIsLoadingShipments(true);
-    const shipQuery = query(
-      collection(firestore, `plants/${plantId}/shipments`),
-      where('currentStatusId', 'in', ['pending', 'Partly Vehicle Assigned'])
-    );
-    getDocs(shipQuery)
-      .then(snap => {
-        setAvailableShipments(snap.docs.map(d => ({ ...d.data(), id: d.id } as WithId<Shipment>)));
-      })
-      .finally(() => setIsLoadingShipments(false));
-  }, [firestore, plantId]);
-
-  const handleAddShipment = (shipment: WithId<Shipment>) => {
-    append({ 
-      shipmentId: shipment.id, 
-      orderId: shipment.shipmentId,
-      balanceQty: shipment.balanceQty,
-      assignedQty: shipment.balanceQty
-    });
-  };
 
   const onSubmit = async (values: FormValues) => {
     if (!firestore || !user) return;
     showLoader();
     try {
-        const batch = writeBatch(firestore);
-        const entryId = `entry-${Date.now()}`;
-        const entryRef = doc(firestore, "vehicleEntries", entryId);
+        const ts = serverTimestamp();
+        const currentOperator = user.displayName || user.email?.split('@')[0] || 'System';
 
-        batch.set(entryRef, {
+        await addDoc(collection(firestore, "vehicleEntries"), {
             ...values,
             status: 'IN',
-            purpose: 'Loading',
-            entryTimestamp: serverTimestamp(),
-            userName: user.displayName || user.email,
-            userId: user.uid
+            entryTimestamp: ts,
+            userName: currentOperator,
+            userId: user.uid,
+            tripId: upcomingVehicleData?.id || null
         });
 
-        await batch.commit();
-        toast({ title: 'Gate Entry Recorded', description: `Vehicle ${values.vehicleNumber} is now IN.` });
+        toast({ title: 'Registry Sync: OK', description: `Vehicle ${values.vehicleNumber} logged IN yard.` });
         reset();
+        if (onFinished) onFinished();
     } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Error', description: e.message });
+        toast({ variant: 'destructive', title: 'Registry Error', description: e.message });
     } finally {
         hideLoader();
     }
   };
 
   return (
-    <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
-      <CardHeader className="bg-slate-900 text-white p-8">
+    <Card className="border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden transition-all duration-500">
+      <CardHeader className="bg-slate-50 border-b p-8">
         <div className="flex items-center gap-4">
-            <Truck className="h-8 w-8" />
+            <div className="p-2.5 bg-blue-900 text-white rounded-2xl shadow-xl">
+                <ShieldCheck className="h-6 w-6" />
+            </div>
             <div>
-                <CardTitle className="text-xl font-black uppercase italic tracking-tight">In-Gate Registry</CardTitle>
-                <CardDescription className="text-blue-300 text-[10px] font-bold uppercase tracking-widest mt-1">Lifting Node Cargo Assignment</CardDescription>
+                <CardTitle className="text-xl font-black uppercase text-blue-900 italic tracking-tight">Create Gate Entry (IN)</CardTitle>
+                <CardDescription className="text-[10px] font-bold uppercase text-slate-400 tracking-widest mt-1">Capture arrival particulars for gate registry</CardDescription>
             </div>
         </div>
       </CardHeader>
-      <CardContent className="p-10 space-y-10">
+      <CardContent className="p-10">
         <Form {...form}>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-10">
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8 p-8 bg-slate-50 rounded-[2rem] border border-slate-100 shadow-inner">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-12">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                {/* Registry Timestamp Display */}
+                <div className="p-6 bg-[#f1f5f9]/50 rounded-2xl border border-slate-100 space-y-2.5 shadow-inner">
+                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Registry Timestamp</p>
+                    <p className="text-sm font-black text-blue-900 font-mono tracking-tighter">
+                        {format(currentTime, 'dd-MM-yyyy HH:mm')}
+                    </p>
+                </div>
+
                 <FormField name="plantId" control={form.control} render={({ field }) => (
                     <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-slate-400">Plant Node *</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Plant Node *</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger className="h-12 bg-white font-bold"><SelectValue placeholder="Select Node" /></SelectTrigger></FormControl>
-                            <SelectContent className="rounded-xl">
-                                {plants?.map((p: any) => <SelectItem key={p.id} value={p.id} className="font-bold">{p.name}</SelectItem>)}
+                            <FormControl>
+                                <SelectTrigger className="h-12 bg-white rounded-xl font-black text-blue-900 border-slate-200 shadow-sm focus:ring-blue-900">
+                                    <SelectValue placeholder="Select node" />
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="rounded-xl shadow-2xl">
+                                {plants?.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic">{p.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
+                        <FormMessage />
                     </FormItem>
                 )} />
+
                 <FormField name="vehicleNumber" control={form.control} render={({ field }) => (
                     <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-blue-600">Vehicle No *</FormLabel>
-                        <FormControl><Input {...field} className="h-12 bg-white font-black uppercase tracking-tighter" /></FormControl>
+                        <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Vehicle Registry *</FormLabel>
+                        <FormControl>
+                            <Input placeholder="XX00XX0000" {...field} className="h-12 rounded-xl font-black text-blue-900 uppercase text-lg shadow-inner border-slate-200" />
+                        </FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
+
+                <FormField name="purpose" control={form.control} render={({ field }) => (
+                    <FormItem>
+                        <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Purpose *</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                                <SelectTrigger className="h-12 bg-white rounded-xl font-black text-blue-900 border-slate-200">
+                                    <SelectValue placeholder="Pick Purpose" />
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="rounded-xl">
+                                <SelectItem value="Loading" className="font-bold">LOADING MISSION</SelectItem>
+                                <SelectItem value="Unloading" className="font-bold">UNLOADING MISSION</SelectItem>
+                                <SelectItem value="Maintenance" className="font-bold">MAINTENANCE / YARD</SelectItem>
+                                <SelectItem value="Other" className="font-bold">OTHERS</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+
                 <FormField name="driverName" control={form.control} render={({ field }) => (
                     <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-slate-400">Pilot Name *</FormLabel>
-                        <FormControl><Input {...field} className="h-12 bg-white font-bold" /></FormControl>
+                        <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Pilot Name</FormLabel>
+                        <FormControl><Input placeholder="Full Name" {...field} className="h-12 rounded-xl font-bold border-slate-200 shadow-sm" /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
+
                 <FormField name="driverMobile" control={form.control} render={({ field }) => (
                     <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-slate-400">Pilot Mobile *</FormLabel>
-                        <FormControl><Input {...field} maxLength={10} className="h-12 bg-white font-mono font-black" /></FormControl>
+                        <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Contact Number</FormLabel>
+                        <FormControl><Input placeholder="10 Digit Node" {...field} maxLength={10} className="h-12 rounded-xl font-mono font-bold border-slate-200" /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+
+                <FormField name="licenseNumber" control={form.control} render={({ field }) => (
+                    <FormItem>
+                        <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Pilot DL Number</FormLabel>
+                        <FormControl><Input placeholder="Registry ID" {...field} className="h-12 rounded-xl font-mono font-bold uppercase border-slate-200" /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
             </div>
 
-            <section className="space-y-6">
-                <div className="flex items-center justify-between px-2">
-                    <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-2">
-                        <ClipboardList className="h-4 w-4 text-blue-600"/> Shipment Linker
-                    </h3>
-                    <select 
-                        onChange={(e) => {
-                            const ship = availableShipments.find(s => s.id === e.target.value);
-                            if (ship) handleAddShipment(ship);
-                            e.target.value = '';
-                        }}
-                        className="h-10 px-4 rounded-xl bg-white border border-slate-200 text-xs font-black uppercase cursor-pointer"
-                        disabled={!plantId || isLoadingShipments}
-                    >
-                        <option value="">{isLoadingShipments ? 'Syncing...' : 'Add Order Node'}</option>
-                        {availableShipments.filter(s => !selectedShipments.some(x => x.shipmentId === s.id)).map(s => (
-                            <option key={s.id} value={s.id}>{s.shipmentId} | {s.consignor}</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="rounded-[2rem] border-2 border-slate-100 bg-white shadow-xl overflow-hidden">
-                    <Table>
-                        <TableHeader className="bg-slate-900">
-                            <TableRow className="h-12 hover:bg-transparent border-none">
-                                <TableHead className="text-white text-[10px] font-black uppercase px-8">Order ID</TableHead>
-                                <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center">Balance Node</TableHead>
-                                <TableHead className="text-white text-[10px] font-black uppercase px-4 text-right">Action</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {fields.length === 0 ? (
-                                <TableRow><TableCell colSpan={3} className="h-32 text-center text-slate-400 italic">No shipments linked to entry.</TableCell></TableRow>
-                            ) : (
-                                fields.map((field, idx) => (
-                                    <TableRow key={field.id} className="h-14 border-b last:border-0 hover:bg-blue-50/10 transition-colors">
-                                        <TableCell className="px-8 font-black text-blue-700 font-mono">{field.orderId}</TableCell>
-                                        <TableCell className="px-4 text-center font-bold text-slate-900">{field.balanceQty} MT</TableCell>
-                                        <TableCell className="px-4 text-right">
-                                            <Button variant="ghost" size="icon" onClick={() => remove(idx)} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-            </section>
-
-            <div className="flex justify-end pt-8 border-t">
-                <Button type="submit" disabled={isSubmitting} className="bg-blue-900 hover:bg-black text-white px-20 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.3em] shadow-2xl transition-all active:scale-95 border-none">
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-3" /> : <ShieldCheck className="h-4 w-4 mr-3" />}
-                    Finalize In-Gate Node
+            <div className="flex flex-col md:flex-row items-center justify-end gap-6 pt-10 border-t border-slate-50">
+                <Button type="button" variant="ghost" onClick={() => reset()} className="font-black text-slate-400 hover:text-blue-900 uppercase text-[11px] tracking-[0.2em] px-10 transition-all h-14 rounded-2xl">
+                    Reset Entry
+                </Button>
+                <Button 
+                    type="submit" 
+                    disabled={isSubmitting} 
+                    className="bg-blue-900 hover:bg-black text-white px-20 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.3em] shadow-2xl shadow-blue-900/30 transition-all active:scale-95 border-none"
+                >
+                    {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : null}
+                    Finalize System IN
                 </Button>
             </div>
           </form>
