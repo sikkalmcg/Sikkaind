@@ -54,7 +54,6 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
   // GATE-DEPARTURE RULE: Lockdown mission transitions if vehicle hasn't exited the gate
   const isLockedAtGate = useMemo(() => {
     if (!selectedTrip) return false;
-    // Statuses like "Assigned" or "Vehicle Assigned" are pre-departure nodes
     return currentStatus === 'ASSIGNED' || currentStatus === 'VEHICLE-ASSIGNED' || currentStatus === 'VEHICLE ASSIGNED';
   }, [selectedTrip, currentStatus]);
 
