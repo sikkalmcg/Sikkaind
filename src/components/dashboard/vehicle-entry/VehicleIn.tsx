@@ -1,10 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import {
-  useForm, 
-  useFieldArray, 
-} from 'react-hook-form';
+import { useState, useEffect } from 'react';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,31 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
-import { 
-  Truck, 
-  ClipboardList, 
-  Trash2, 
-  ShieldCheck, 
-  Loader2
-} from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Truck, ClipboardList, Trash2, ShieldCheck, Loader2 } from 'lucide-react';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
-import { 
-  collection,
-  query,
-  where,
-  doc,
-  writeBatch,
-  serverTimestamp,
-  getDocs,
-} from "firebase/firestore";
+import { collection, query, where, doc, writeBatch, serverTimestamp, getDocs } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import { normalizePlantId } from '@/lib/utils';
 import type { Shipment, Carrier, WithId } from '@/types';

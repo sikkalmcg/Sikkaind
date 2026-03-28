@@ -4,68 +4,34 @@ import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format } from 'date-fns';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription, 
-  DialogFooter 
-} from '@/components/ui/dialog';
+import { format, isValid } from 'date-fns';
+import { Loader2, Truck, ShieldCheck, Factory, MapPin, UserCircle, IndianRupee, AlertCircle, Lock, Calculator } from 'lucide-react';
+
+// Components & UI
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
-import { 
-    Loader2, 
-    ShieldCheck, 
-    Truck, 
-    Save,
-    MapPin,
-    Factory,
-    Calculator,
-    UserCircle,
-    Lock,
-    ArrowRightLeft,
-    IndianRupee,
-    AlertCircle
-} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser } from '@/types';
-import { VehicleTypes, PaymentTerms } from '@/lib/constants';
-import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
-import { 
-  collection, 
-  doc, 
-  runTransaction, 
-  serverTimestamp, 
-  query, 
-  where, 
-  getDocs, 
-  Timestamp,
-} from "firebase/firestore";
-import { normalizePlantId, generateRandomTripId, cn } from '@/lib/utils';
-import { useLoading } from '@/context/LoadingContext';
-import { useJsApiLoader } from '@react-google-maps/api';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 
+// Firebase & Utils
+import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
+import { collection, doc, runTransaction, serverTimestamp, query, where, getDocs } from "firebase/firestore";
+import { normalizePlantId, generateRandomTripId, cn } from '@/lib/utils';
+import { useLoading } from '@/context/LoadingContext';
+import { useToast } from '@/hooks/use-toast';
+import { useJsApiLoader } from '@react-google-maps/api';
+import { VehicleTypes, PaymentTerms } from '@/lib/constants';
+
+// Types
+import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser } from '@/types';
+
+// --- Constants & Schema ---
 const VEHICLE_REGEX = /^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/;
 const MAPS_JS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
 
@@ -83,18 +49,21 @@ const formSchema = z.object({
     transporterMobile: z.string().optional(),
     ownerName: z.string().optional(),
     ownerPan: z.string().optional(),
-    freightRate: z.coerce.number().min(0).default(0),
-    freightAmount: z.coerce.number().default(0),
+    freightRate: z.coerce.number().min(0).optional().default(0),
+    freightAmount: z.coerce.number().optional().default(0),
     distance: z.coerce.number().default(0),
 }).superRefine((data, ctx) => {
     if (data.vehicleType === 'Market Vehicle') {
         if (!data.transporterName) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Required', path: ['transporterName'] });
-        if (!data.freightRate || data.freightRate <= 0) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Rate required', path: ['freightRate'] });
+        if (!data.ownerName) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Owner name required.', path: ['ownerName'] });
+        if (!data.transporterMobile || !/^\d{10}$/.test(data.transporterMobile)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: '10-digit mobile required.', path: ['transporterMobile'] });
+        if (!data.freightRate || data.freightRate <= 0) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Rate required.', path: ['freightRate'] });
     }
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
+// --- Helper Hook: Google Maps Distance ---
 function useDistanceCalc(isLoaded: boolean, isOpen: boolean, origin?: string, destination?: string) {
     const [dist, setDist] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -114,7 +83,7 @@ function useDistanceCalc(isLoaded: boolean, isOpen: boolean, origin?: string, de
     return { dist, loading };
 }
 
-export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, onAssignmentComplete, carriers }: any) {
+export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, onAssignmentComplete, carriers }: VehicleAssignModalProps) {
     const { toast } = useToast();
     const firestore = useFirestore();
     const { user } = useUser();
@@ -123,55 +92,70 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
     const [vehiclesAtGate, setVehiclesAtGate] = useState<any[]>([]);
     const [isDataLoading, setIsDataLoading] = useState(false);
-    const [registryMatch, setRegistryMatch] = useState<Vehicle | null>(null);
+    const [registryMatch, setRegistryMatch] = useState<WithId<Vehicle> | null>(null);
+
+    const userProfileRef = useMemo(() => (firestore && user) ? doc(firestore, "users", user.uid) : null, [firestore, user]);
+    const { data: userProfile } = useDoc<SubUser>(userProfileRef);
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: { assignQty: shipment.balanceQty, vehicleType: 'Own Vehicle', paymentTerm: 'Paid' }
     });
 
-    const { setValue, handleSubmit, reset, control } = form;
+    const { setValue, handleSubmit, reset, control, watch } = form;
     const watchedFields = useWatch({ control });
 
+    // --- Distance Sync ---
     const { dist, loading: distLoading } = useDistanceCalc(isLoaded, isOpen, shipment.loadingPoint, shipment.unloadingPoint);
-    
-    useEffect(() => { 
-        if (dist > 0) setValue('distance', dist); 
-    }, [dist, setValue]);
+    useEffect(() => { if (dist > 0) setValue('distance', dist); }, [dist, setValue]);
 
+    // --- Auto Calculate Freight ---
     useEffect(() => {
         const amt = (watchedFields.assignQty || 0) * (watchedFields.freightRate || 0);
         setValue('freightAmount', Number(amt.toFixed(2)));
     }, [watchedFields.assignQty, watchedFields.freightRate, setValue]);
 
+    // --- Initial Reset ---
     useEffect(() => {
         if (isOpen) {
-            reset({
-                ...trip,
+            const isEditing = !!trip;
+            const defaultValues = {
                 isNewVehicle: false,
                 vehicleId: trip?.vehicleId || '',
-                assignQty: trip?.assignedQtyInTrip ?? shipment.balanceQty,
-                carrierId: trip?.carrierId || shipment.carrierId || (carriers && carriers.length > 0 ? carriers[0]?.id : ''),
-            });
+                vehicleNumber: trip?.vehicleNumber || '',
+                driverName: trip?.driverName || '',
+                driverMobile: trip?.driverMobile || '',
+                vehicleType: (trip?.vehicleType as any) || 'Own Vehicle',
+                carrierId: trip?.carrierId || shipment.carrierId || (carriers && carriers.length > 0 ? carriers[0].id : ''),
+                assignQty: trip?.assignedQtyInTrip ?? Number(Number(shipment.balanceQty).toFixed(3)),
+                paymentTerm: (trip as any)?.paymentTerm || 'Paid',
+                transporterName: trip?.transporterName || '',
+                transporterMobile: trip?.transporterMobile || '',
+                ownerName: trip?.ownerName || '',
+                ownerPan: trip?.ownerPan || '',
+                freightRate: trip?.freightRate || 0,
+                freightAmount: trip?.freightAmount || 0,
+                distance: trip?.distance || 0
+            };
+            reset(defaultValues);
         }
-    }, [isOpen, trip, reset, shipment, carriers]);
+    }, [isOpen, trip, shipment, carriers, reset]);
 
+    // --- Fetch Gate Vehicles ---
     useEffect(() => {
         if (!isOpen || !firestore) return;
         const fetchGate = async () => {
             setIsDataLoading(true);
-            try {
-                const plantId = normalizePlantId(shipment.originPlantId);
-                const q = query(collection(firestore, 'vehicleEntries'), where('plantId', '==', plantId), where('status', '==', 'IN'));
-                const snap = await getDocs(q);
-                setVehiclesAtGate(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-            } finally {
-                setIsDataLoading(false);
-            }
+            const plantId = normalizePlantId(shipment.originPlantId);
+            const q = query(collection(firestore, 'vehicleEntries'), where('plantId', '==', plantId), where('status', '==', 'IN'));
+            const snap = await getDocs(q);
+            setVehiclesAtGate(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            setIsDataLoading(false);
         };
         fetchGate();
     }, [isOpen, firestore, shipment.originPlantId]);
 
+    // --- Form Submission Logic ---
     const onSubmit = async (values: FormValues) => {
         if (!firestore || !user) return;
         showLoader();
@@ -179,23 +163,36 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             await runTransaction(firestore, async (transaction) => {
                 const plantId = normalizePlantId(shipment.originPlantId);
                 const docId = trip?.id || doc(collection(firestore, 'trips')).id;
+                const isEditing = !!trip;
+                const currentName = userProfile?.fullName || user.displayName || user.email?.split('@')[0] || 'System Operator';
+
                 const tripData = {
                     ...values,
                     tripId: trip?.tripId || generateRandomTripId(),
                     originPlantId: plantId,
                     lastUpdated: serverTimestamp(),
                     userId: user.uid,
+                    userName: currentName,
                     tripStatus: 'Assigned'
                 };
 
+                // Update Shipment Balance
                 const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipment.id);
-                const diff = trip ? (values.assignQty - trip.assignedQtyInTrip) : values.assignQty;
+                const shipSnap = await transaction.get(shipmentRef);
+                if (!shipSnap.exists()) throw new Error("Shipment registry error.");
+                const currentShipmentData = shipSnap.data() as Shipment;
+
+                const diff = isEditing ? values.assignQty - trip!.assignedQtyInTrip : values.assignQty;
+                const newAssignedTotal = (currentShipmentData.assignedQty || 0) + diff;
+                
                 transaction.update(shipmentRef, { 
-                    assignedQty: (shipment.assignedQty || 0) + diff,
-                    balanceQty: shipment.quantity - ((shipment.assignedQty || 0) + diff),
-                    currentStatusId: (shipment.quantity - ((shipment.assignedQty || 0) + diff)) > 0 ? 'Partly Vehicle Assigned' : 'Assigned'
+                    assignedQty: newAssignedTotal, 
+                    balanceQty: currentShipmentData.quantity - newAssignedTotal, 
+                    currentStatusId: (currentShipmentData.quantity - newAssignedTotal) > 0 ? 'Partly Vehicle Assigned' : 'Assigned',
+                    lastUpdateDate: serverTimestamp()
                 });
 
+                // Set Trip Data
                 transaction.set(doc(firestore, `plants/${plantId}/trips`, docId), tripData);
                 transaction.set(doc(firestore, 'trips', docId), tripData);
             });
@@ -215,13 +212,10 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
         return Number(Math.max(0, total - (watchedFields.assignQty || 0)).toFixed(3));
     }, [shipment.balanceQty, watchedFields.assignQty, trip]);
 
-    const destinationCity = useMemo(() => {
-        return shipment.destination || shipment.unloadingPoint?.split(',')[0].trim() || 'N/A';
-    }, [shipment.destination, shipment.unloadingPoint]);
-
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-[1400px] w-[95vw] h-[90vh] flex flex-col p-0 border-none bg-slate-50 rounded-3xl overflow-hidden">
+            <DialogContent className="max-w-[1400px] w-[95vw] h-[90vh] flex flex-col p-0 border-none bg-slate-50 rounded-3xl overflow-hidden shadow-2xl">
+                {/* Header Section */}
                 <div className="bg-slate-900 text-white p-6 flex justify-between items-center rounded-t-3xl">
                     <div className="flex items-center gap-4">
                         <div className="p-2 bg-blue-600 rounded-xl"><Truck className="h-6 w-6" /></div>
@@ -234,14 +228,16 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                    {/* Shipment Context Card */}
                     <Card className="p-6 grid grid-cols-6 gap-6 bg-white border-none shadow-sm rounded-2xl">
                         <ContextItem icon={<Factory size={14}/>} label="Plant" value={shipment.originPlantId} />
                         <ContextItem icon={<UserCircle size={14}/>} label="Consignor" value={shipment.consignor} />
                         <ContextItem icon={<MapPin size={14}/>} label="Site" value={shipment.loadingPoint} />
                         <ContextItem icon={<UserCircle size={14}/>} label="Consignee" value={shipment.billToParty} />
-                        <ContextItem icon={<Truck size={14}/>} label="Drop Point (TO)" value={destinationCity} className="col-span-2 text-blue-800" />
+                        <ContextItem icon={<Truck size={14}/>} label="Destination" value={shipment.destination} className="col-span-2 text-blue-800" />
                     </Card>
 
+                    {/* Main Form */}
                     <Form {...form}>
                         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
                             <Card className="bg-white border-none shadow-sm rounded-2xl overflow-hidden">
@@ -254,7 +250,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead>Vehicle No</TableHead>
-                                                <TableHead>Driver Name</TableHead>
+                                                <TableHead>Pilot Name</TableHead>
                                                 <TableHead>Mobile</TableHead>
                                                 <TableHead>Carrier</TableHead>
                                                 <TableHead>Type</TableHead>
@@ -262,7 +258,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            <TableRow>
+                                            <TableRow className="align-top">
                                                 <TableCell>
                                                     {watchedFields.isNewVehicle ? (
                                                         <FormField name="vehicleNumber" control={control} render={({field}) => <Input {...field} className="h-10 uppercase font-black" />} />
@@ -297,6 +293,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                 </div>
                             </Card>
 
+                            {/* Market Vehicle Fields */}
                             {watchedFields.vehicleType === 'Market Vehicle' && (
                                 <MarketFields control={control} freightAmount={watchedFields.freightAmount} />
                             )}
@@ -323,27 +320,26 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                     </Form>
                 </div>
 
+                {/* Footer Section */}
                 <DialogFooter className="p-8 bg-slate-900 flex justify-between items-center rounded-b-3xl shrink-0">
-                    <div className="flex items-center gap-8">
-                        <div className="flex items-center gap-4">
-                            <Calculator className="text-blue-400" />
-                            <div className="flex flex-col">
-                                <span className="text-[10px] text-slate-500 uppercase font-black">Balance Remaining</span>
-                                <span className={cn("text-2xl font-black", balanceQty > 0 ? "text-orange-400" : "text-emerald-400")}>{balanceQty.toFixed(3)} MT</span>
-                            </div>
+                    <div className="flex items-center gap-4">
+                        <Calculator className="text-blue-400" />
+                        <div className="flex flex-col">
+                            <span className="text-[10px] text-slate-500 uppercase font-black">Balance Remaining</span>
+                            <span className="text-2xl font-black text-orange-400">{balanceQty.toFixed(3)} MT</span>
                         </div>
                     </div>
                     <div className="flex gap-4">
                         <Button variant="ghost" onClick={onClose} className="text-slate-400 font-bold uppercase">Cancel</Button>
-                        <Button onClick={handleSubmit(onSubmit)} disabled={form.formState.isSubmitting} className="bg-blue-600 hover:bg-blue-700 px-12 h-12 rounded-xl font-black uppercase">
-                            {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Establish Mission Node"}
-                        </Button>
+                        <Button onClick={handleSubmit(onSubmit)} className="bg-blue-600 hover:bg-blue-700 px-12 h-12 rounded-xl font-black uppercase shadow-lg transition-all active:scale-95">Establish Mission Node</Button>
                     </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 }
+
+// --- Sub-Components ---
 
 function ContextItem({ icon, label, value, className }: any) {
     return (
@@ -356,7 +352,7 @@ function ContextItem({ icon, label, value, className }: any) {
 
 function VehicleToggle({ control, setValue, isNew }: any) {
     return (
-        <RadioGroup value={isNew ? 'new' : 'gate'} onValueChange={(v) => setValue('isNewVehicle', v === 'new')} className="flex bg-white p-1.5 rounded-2xl border shadow-inner">
+        <RadioGroup value={isNew ? 'new' : 'gate'} onValueChange={(v) => setValue('isNewVehicle', v === 'new')} className="flex bg-white border p-1 rounded-xl">
             <div className={cn("px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center gap-2", !isNew ? "bg-slate-900 text-white" : "text-slate-400")}>
                 <RadioGroupItem value="gate" id="gate" className="sr-only" /><label htmlFor="gate">At Gate</label>
             </div>
@@ -370,12 +366,12 @@ function VehicleToggle({ control, setValue, isNew }: any) {
 function MarketFields({ control, freightAmount }: any) {
     return (
         <Card className="p-6 bg-blue-50/50 border-blue-100 rounded-2xl grid grid-cols-4 gap-6 animate-in fade-in slide-in-from-top-2">
-            <FormField name="transporterName" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black">Transporter</FormLabel><Input {...field} className="bg-white h-10" /></FormItem>} />
-            <FormField name="ownerName" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black">Owner Name</FormLabel><Input {...field} className="bg-white h-10" /></FormItem>} />
-            <FormField name="freightRate" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black">Rate (MT)</FormLabel><div className="relative"><Input {...field} type="number" className="bg-white h-10 pl-8 font-black" /><IndianRupee className="absolute left-2.5 top-3 h-4 w-4 text-slate-400"/></div></FormItem>} />
+            <FormField name="transporterName" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black uppercase">Transporter</FormLabel><Input {...field} className="bg-white h-10 font-bold" /></FormItem>} />
+            <FormField name="ownerName" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black uppercase">Owner Name</FormLabel><Input {...field} className="bg-white h-10 font-bold" /></FormItem>} />
+            <FormField name="freightRate" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black uppercase">Rate (MT)</FormLabel><div className="relative"><Input {...field} type="number" className="bg-white h-10 pl-8 font-black" /><IndianRupee className="absolute left-2.5 top-3 h-4 w-4 text-slate-400"/></div></FormItem>} />
             <div className="flex flex-col justify-end">
                 <span className="text-[10px] font-black uppercase text-slate-400 mb-1">Total Freight</span>
-                <div className="h-10 bg-white border rounded-lg flex items-center px-4 font-black text-blue-900">₹ {freightAmount?.toLocaleString()}</div>
+                <div className="h-10 bg-white border rounded-lg flex items-center px-4 font-black text-blue-900">₹ {Number(freightAmount || 0).toLocaleString()}</div>
             </div>
         </Card>
     );
