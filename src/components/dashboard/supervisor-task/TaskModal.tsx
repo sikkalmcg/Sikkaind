@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -164,7 +165,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
         <DialogHeader className="p-8 bg-blue-900 text-white shrink-0 pr-12">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-5">
-                <div className="p-3 bg-white/10 rounded-2xl border border-white/10">
+                <div className="p-3 bg-white/10 rounded-2xl border border-white/20">
                     <Truck className="h-8 w-8 text-white" />
                 </div>
                 <div>

@@ -148,7 +148,6 @@ function OpenOrdersContent() {
       return;
     }
 
-    // Logic Node: Only return full screen loading on initial mount without data
     if (allData.shipments.length === 0) setIsLoading(true);
     const unsubscribers: (() => void)[] = [];
 
@@ -225,7 +224,7 @@ function OpenOrdersContent() {
     const dayStart = fromDate ? startOfDay(fromDate) : null;
     const dayEnd = toDate ? endOfDay(toDate) : null;
 
-    return shipments.filter(s => {
+    return (shipments || []).filter(s => {
       if (dayStart && s.creationDate < dayStart) return false;
       if (dayEnd && s.creationDate > dayEnd) return false;
       return true;
@@ -233,7 +232,7 @@ function OpenOrdersContent() {
       const normalizedSPlantId = normalizePlantId(s.originPlantId);
       const masterPlant = plants?.find(p => p.id === s.originPlantId || normalizePlantId(p.id) === normalizedSPlantId);
 
-      const associatedTrips = trips.filter(t => t.shipmentIds.includes(s.id));
+      const associatedTrips = (trips || []).filter(t => t.shipmentIds?.includes(s.id));
       const linkedTrips = associatedTrips.map(t => {
           const carrierObj = (carriers || []).find(c => c.id === t.carrierId);
           const carrierName = carrierObj?.name || '--';
@@ -369,22 +368,19 @@ function OpenOrdersContent() {
     });
   }, [allFilteredData, activeTab, searchTerm]);
 
-  const handleCancelAssignment = async (tripDocId: string, shipId: string, qty: number) => {
+  const handleCancelAssignment = async (tripId: string, shipId: string, qty: number) => {
     if (!firestore || !user) return;
     
     const shipment = allData.shipments.find(s => s.id === shipId);
-    if (!shipment) {
-        toast({ variant: 'destructive', title: "Registry Error", description: "Sale Order node not found in session." });
-        return;
-    }
+    if (!shipment) return;
     const plantId = shipment.originPlantId;
 
     showLoader();
     try {
         await runTransaction(firestore, async (transaction) => {
             const shipRef = doc(firestore, `plants/${plantId}/shipments`, shipId);
-            const tripRef = doc(firestore, `plants/${plantId}/trips`, tripDocId);
-            const globalTripRef = doc(firestore, 'trips', tripDocId);
+            const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
+            const globalTripRef = doc(firestore, 'trips', tripId);
 
             const [shipSnap, tripSnap] = await Promise.all([
                 transaction.get(shipRef),
@@ -397,10 +393,7 @@ function OpenOrdersContent() {
                 const tripData = tripSnap.data() as Trip;
                 if (tripData.vehicleId) {
                     const vehicleRef = doc(firestore, 'vehicles', tripData.vehicleId);
-                    const vSnap = await transaction.get(vehicleRef);
-                    if (vSnap.exists()) {
-                        transaction.update(vehicleRef, { status: 'Available' });
-                    }
+                    transaction.update(vehicleRef, { status: 'Available' });
                 }
             }
 
@@ -445,16 +438,6 @@ function OpenOrdersContent() {
             lastUpdateDate: serverTimestamp()
         });
 
-        await addDoc(collection(firestore, "activity_logs"), {
-            userId: user.uid,
-            userName: currentName,
-            action: 'Short Close',
-            tcode: 'Open Orders',
-            pageName: 'Registry Update',
-            timestamp: serverTimestamp(),
-            description: `Short closed order ${shipment.shipmentId}. Reason: ${reason}`
-        });
-
         toast({ title: "Order Short Closed", description: `Shipment ${shipment.shipmentId} moved to cancelled registry.` });
         setCancelModalData(null);
     } catch (e: any) {
@@ -481,19 +464,7 @@ function OpenOrdersContent() {
             lastUpdateDate: serverTimestamp(),
             cancelledAt: null,
             cancelledBy: null,
-            cancelReason: null,
-            restoredBy: currentName,
-            restoredAt: serverTimestamp()
-        });
-
-        await addDoc(collection(firestore, "activity_logs"), {
-            userId: user.uid,
-            userName: currentName,
-            action: 'Restore',
-            tcode: 'Open Orders',
-            pageName: 'Registry Recovery',
-            timestamp: serverTimestamp(),
-            description: `Restored order ${shipment.shipmentId} from cancelled status.`
+            cancelReason: null
         });
 
         toast({ title: "Order Restored", description: `Shipment ${shipment.shipmentId} returned to active registry.` });
