@@ -47,7 +47,9 @@ import {
     CheckCircle2,
     AlertTriangle,
     AlertCircle,
-    PlusCircle
+    PlusCircle,
+    IndianRupee,
+    User
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser } from '@/types';
@@ -68,6 +70,7 @@ import { cn } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import { useJsApiLoader } from '@react-google-maps/api';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { Separator } from '@/components/ui/separator';
 
 interface VehicleAssignModalProps {
   isOpen: boolean;
@@ -96,14 +99,24 @@ const formSchema = z.object({
     assignQty: z.coerce.number().positive('Assign quantity must be positive'),
     transporterName: z.string().optional().default(''),
     transporterMobile: z.string().optional().default(''),
+    ownerName: z.string().optional().default(''),
+    ownerPan: z.string().optional().default(''),
+    freightRate: z.coerce.number().min(0).optional().default(0),
+    freightAmount: z.coerce.number().optional().default(0),
     distance: z.coerce.number().optional(),
 }).superRefine((data, ctx) => {
     if (data.vehicleType === 'Market Vehicle') {
         if (!data.transporterName?.trim()) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Required for Market vehicle.', path: ['transporterName'] });
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Transporter name is mandatory.', path: ['transporterName'] });
         }
         if (!data.transporterMobile?.trim() || !/^\d{10}$/.test(data.transporterMobile)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Valid 10-digit mobile required.', path: ['transporterMobile'] });
+        }
+        if (!data.ownerName?.trim()) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Owner name is mandatory.', path: ['ownerName'] });
+        }
+        if (!data.freightRate || data.freightRate <= 0) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Freight rate is required.', path: ['freightRate'] });
         }
     }
 });
@@ -130,7 +143,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { assignQty: 0 },
+    defaultValues: { 
+        assignQty: 0,
+        freightRate: 0,
+        freightAmount: 0
+    },
   });
   const { watch, setValue, handleSubmit, reset, control, formState: { isSubmitting } } = form;
 
@@ -147,12 +164,16 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             assignQty: trip?.assignedQtyInTrip ?? Number(Number(shipment.balanceQty).toFixed(3)),
             transporterName: trip?.transporterName || '',
             transporterMobile: (trip as any)?.transporterMobile || '',
+            ownerName: trip?.ownerName || '',
+            ownerPan: trip?.ownerPan || '',
+            freightRate: trip?.freightRate || 0,
+            freightAmount: trip?.freightAmount || 0,
             distance: trip?.distance || 0
         };
         reset(defaultValues);
         hasCalculatedDistance.current = !!trip?.distance;
     } else {
-        reset({ assignQty: 0 });
+        reset({ assignQty: 0, freightRate: 0, freightAmount: 0 });
         setRegistryMatch(null);
     }
   }, [isOpen, trip, shipment, carriers, reset]);
@@ -170,7 +191,13 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     return plants.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(shipment.originPlantId).toLowerCase())?.name || shipment.originPlantId;
   }, [plants, shipment.originPlantId]);
 
-  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType } = useWatch({ control });
+  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate } = useWatch({ control });
+
+  // Auto-calculate Freight Amount Registry Node
+  useEffect(() => {
+    const total = (Number(assignQty) || 0) * (Number(freightRate) || 0);
+    setValue('freightAmount', Number(total.toFixed(2)));
+  }, [assignQty, freightRate, setValue]);
 
   useEffect(() => {
     if (!isOpen || !firestore || !shipment.originPlantId) return;
@@ -218,18 +245,15 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 const distKm = (response.routes[0].legs[0].distance?.value || 0) / 1000;
                 setValue('distance', Number(distKm.toFixed(2)));
                 hasCalculatedDistance.current = true;
-            } else {
-                toast({ variant: 'destructive', title: "API Error", description: "Google Maps route calculation failed." });
             }
         });
       } catch (e) {
         setCalculatingDistance(false);
-        toast({ variant: 'destructive', title: "API Error", description: "Could not initialize Google Maps service." });
       }
     };
 
     calculate();
-  }, [isLoaded, isOpen, shipment.loadingPoint, shipment.unloadingPoint, setValue, toast]);
+  }, [isLoaded, isOpen, shipment.loadingPoint, shipment.unloadingPoint, setValue]);
 
   const balanceQty = useMemo(() => {
     const total = isEditing ? (shipment.balanceQty + (trip.assignedQtyInTrip || 0)) : shipment.balanceQty;
@@ -253,7 +277,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             setRegistryMatch(null);
         }
     } catch (e) {
-        toast({ variant: 'destructive', title: 'Cloud Sync Error', description: 'Failed to perform vehicle lookup.' });
+        console.error(e);
     }
   }, [firestore, setValue, toast]);
 
@@ -265,22 +289,21 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
         return;
     }
     
-    // Stabilize Registry Pulse: Don't trigger lookup if the node is already matched
     if (registryMatch?.vehicleNumber === vNumber) return;
 
-    const handler = setTimeout(() => performVehicleLookup(vNumber), 500);
+    const handler = setTimeout(() => performVehicleLookup(vNumber), 1000);
     return () => clearTimeout(handler);
   }, [isOpen, vehicleNumber, registryMatch, performVehicleLookup]);
 
   useEffect(() => {
     if (!isOpen || isNewVehicle || !vehicleId) return;
     const found = vehiclesAtGate.find(v => v.id === vehicleId);
-    if (found && found.vehicleNumber !== vehicleNumber) {
+    if (found) {
         setValue('vehicleNumber', found.vehicleNumber, { shouldValidate: true });
         setValue('driverName', found.driverName || '', { shouldValidate: true });
         setValue('driverMobile', found.driverMobile || '', { shouldValidate: true });
     }
-  }, [isOpen, isNewVehicle, vehicleId, vehiclesAtGate, setValue, vehicleNumber]);
+  }, [isOpen, isNewVehicle, vehicleId, vehiclesAtGate, setValue]);
 
   const onSubmit = async (values: FormValues) => {
     if (!firestore || !user) return;
@@ -316,7 +339,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 originPlantId: plantId, destination: shipment.unloadingPoint || 'N/A', shipmentIds: [shipment.id],
                 tripStatus: 'Assigned', startDate: isEditing ? trip!.startDate : new Date(),
                 lastUpdated: timestamp, userName: currentName, userId: user.uid, shipToParty: shipment.shipToParty || '',
-                distance: values.distance || 0, transporterName: values.transporterName, transporterMobile: values.transporterMobile
+                distance: values.distance || 0, transporterName: values.transporterName, transporterMobile: values.transporterMobile,
+                ownerName: values.ownerName, ownerPan: values.ownerPan, freightRate: values.freightRate, freightAmount: values.freightAmount
             };
 
             if(values.vehicleId && !values.isNewVehicle) {
@@ -412,7 +436,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                         </div>
                     </div>
                     
-                    <div className="p-10">
+                    <div className="p-10 space-y-10">
                         <Table>
                             <TableHeader className="bg-slate-50/50">
                                 <TableRow className="h-12 hover:bg-transparent border-b">
@@ -476,22 +500,75 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                             </TableBody>
                         </Table>
 
-                        {isNewVehicle && vehicleType === 'Market Vehicle' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mt-8 pt-8 border-t border-slate-100 animate-in slide-in-from-top-4 duration-500">
-                                <FormField control={control} name="transporterName" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Market Transporter legal name *</FormLabel>
-                                        <FormControl><Input placeholder="Enter Transporter..." className="h-11 rounded-xl font-black text-slate-900 uppercase" {...field} /></FormControl>
-                                        <FormMessage/>
-                                    </FormItem>
-                                )} />
-                                <FormField control={control} name="transporterMobile" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Transporter Contact Node *</FormLabel>
-                                        <FormControl><Input placeholder="10 Digits" className="h-11 rounded-xl font-mono font-black" maxLength={10} {...field} /></FormControl>
-                                        <FormMessage/>
-                                    </FormItem>
-                                )} />
+                        {vehicleType === 'Market Vehicle' && (
+                            <div className="space-y-8 animate-in slide-in-from-top-4 duration-500">
+                                <div className="flex items-center gap-3 px-2">
+                                    <User className="h-4 w-4 text-blue-600" />
+                                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Transporter & Owner Registry</h3>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 p-8 bg-blue-50/30 rounded-[2rem] border border-blue-100">
+                                    <FormField control={control} name="transporterName" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-[10px] font-black uppercase text-slate-500">Transporter Name *</FormLabel>
+                                            <FormControl><Input placeholder="Legal name" className="h-11 rounded-xl font-bold uppercase" {...field} /></FormControl>
+                                            <FormMessage/>
+                                        </FormItem>
+                                    )} />
+                                    <FormField control={control} name="transporterMobile" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-[10px] font-black uppercase text-slate-500">Transporter Mobile *</FormLabel>
+                                            <FormControl><Input placeholder="10 Digits" className="h-11 rounded-xl font-mono font-bold" maxLength={10} {...field} /></FormControl>
+                                            <FormMessage/>
+                                        </FormItem>
+                                    )} />
+                                    <FormField control={control} name="ownerName" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-[10px] font-black uppercase text-slate-500">Owner Name *</FormLabel>
+                                            <FormControl><Input placeholder="As per RC" className="h-11 rounded-xl font-bold uppercase" {...field} /></FormControl>
+                                            <FormMessage/>
+                                        </FormItem>
+                                    )} />
+                                    <FormField control={control} name="ownerPan" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-[10px] font-black uppercase text-slate-500">Owner PAN</FormLabel>
+                                            <FormControl><Input placeholder="ABCDE1234F" className="h-11 rounded-xl font-mono font-bold uppercase" maxLength={10} {...field} /></FormControl>
+                                            <FormMessage/>
+                                        </FormItem>
+                                    )} />
+                                </div>
+
+                                <div className="flex items-center gap-3 px-2 pt-4">
+                                    <IndianRupee className="h-4 w-4 text-emerald-600" />
+                                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Financial Liquidation Node</h3>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-8 bg-emerald-50/20 rounded-[2rem] border border-emerald-100 items-end">
+                                    <FormField control={control} name="freightRate" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-[10px] font-black uppercase text-emerald-700 tracking-widest">Freight Rate (per MT) *</FormLabel>
+                                            <FormControl>
+                                                <div className="relative">
+                                                    <Input type="number" step="0.01" className="h-12 rounded-xl font-black text-emerald-900 shadow-inner border-emerald-200" {...field} />
+                                                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-400" />
+                                                </div>
+                                            </FormControl>
+                                            <FormMessage/>
+                                        </FormItem>
+                                    )} />
+                                    <div className="flex flex-col gap-1.5 bg-white p-4 rounded-2xl border border-emerald-100 shadow-sm">
+                                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Automated Freight Calculation</span>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-slate-500 italic">{assignQty} MT × ₹{freightRate}</span>
+                                            <span className="text-lg font-black text-emerald-600">₹ {(watch('freightAmount') || 0).toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                    <div className="p-4 bg-emerald-600 rounded-2xl text-white shadow-xl flex items-center gap-4">
+                                        <Calculator className="h-6 w-6 opacity-50" />
+                                        <div className="flex flex-col">
+                                            <span className="text-[8px] font-black uppercase text-emerald-200 tracking-widest">Mission Net Freight</span>
+                                            <span className="text-xl font-black tracking-tighter">₹ {(watch('freightAmount') || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -551,7 +628,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 <Button 
                     onClick={handleSubmit(onSubmit)} 
                     disabled={isSubmitting || calculatingDistance || !assignQty} 
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-2xl shadow-blue-900/50 border-none transition-all active:scale-95 border-none disabled:opacity-30 disabled:grayscale"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl shadow-blue-900/50 border-none transition-all active:scale-95 border-none disabled:opacity-30 disabled:grayscale"
                 >
                     {isSubmitting ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />} 
                     {isEditing ? 'Sync Allocation' : 'Establish mission node'}
