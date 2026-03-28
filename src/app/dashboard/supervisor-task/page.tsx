@@ -13,8 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn, normalizePlantId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
-import TaskModal from '../../../components/dashboard/supervisor-task/TaskModal';
-import TaskHistoryTable from '../../../components/dashboard/supervisor-task/TaskHistoryTable';
+import TaskModal from '@/components/dashboard/supervisor-task/TaskModal';
+import TaskHistoryTable from '@/components/dashboard/supervisor-task/TaskHistoryTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
@@ -34,7 +34,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import Pagination from '../../../components/dashboard/vehicle-management/Pagination';
+import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 
 const LIVE_TASKS_PER_PAGE = 7;
 
@@ -78,10 +78,6 @@ export default function SupervisorTaskPage() {
                 const qSnap = await getDocs(q);
                 if (!qSnap.empty) {
                     userDocSnap = qSnap.docs[0];
-                } else {
-                    const directRef = doc(firestore, "users", user.uid);
-                    const directSnap = await getDoc(directRef);
-                    if (directSnap.exists()) userDocSnap = directSnap;
                 }
 
                 const baseList = allPlants && allPlants.length > 0 ? allPlants : [];
@@ -172,7 +168,7 @@ export default function SupervisorTaskPage() {
 
         trips.forEach(trip => {
             const s = trip.tripStatus?.toLowerCase() || '';
-            if (s !== 'assigned' && s !== 'vehicle assigned') return;
+            if (s !== 'assigned' && s !== 'vehicle assigned' && s !== 'vehicle-assigned') return;
 
             const hasVehicle = trip.vehicleNumber && trip.vehicleNumber.trim() !== '';
             if (!hasVehicle) return;
@@ -204,7 +200,8 @@ export default function SupervisorTaskPage() {
                 status: entry ? 'IN' : 'AWAITING ARRIVAL',
                 isReadyForTask: !!entry, 
                 entryData: entry,
-                originalTask: entry || { id: trip.id, ...trip }
+                originalTask: entry || { id: trip.id, ...trip },
+                shipmentItems: shipment?.items || []
             });
         });
 
@@ -238,7 +235,8 @@ export default function SupervisorTaskPage() {
                 status: 'IN',
                 isReadyForTask: true,
                 entryData: entry,
-                originalTask: entry
+                originalTask: entry,
+                shipmentItems: [] 
             });
         });
 
@@ -385,8 +383,8 @@ export default function SupervisorTaskPage() {
                                                 <TableCell className="px-4 font-black text-slate-900 tracking-tighter uppercase text-[13px] text-center">{task.vehicleNumber}</TableCell>
                                                 <TableCell className="px-4">
                                                     <div className="flex flex-col">
-                                                        <span className="font-bold text-slate-700">{task.driverName || '--'}</span>
-                                                        <span className="font-mono text-[10px] text-slate-400">{task.driverMobile}</span>
+                                                        <span className="text-xs font-bold text-slate-700">{task.driverName || '--'}</span>
+                                                        <span className="text-[9px] font-mono text-slate-400">{task.driverMobile}</span>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="px-4 font-bold text-slate-700 uppercase text-[11px] truncate max-w-[120px] italic">"{task.from}"</TableCell>
