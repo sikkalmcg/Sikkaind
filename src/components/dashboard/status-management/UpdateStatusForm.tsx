@@ -52,6 +52,7 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
 
   const isLockedAtGate = useMemo(() => {
     if (!selectedTrip) return false;
+    // Trip Status remains locked in ASSIGNED until Vehicle Entry system confirms OUT
     const isOut = selectedTrip.entry?.status === 'OUT';
     return !isOut && (currentStatus === 'ASSIGNED' || currentStatus === 'VEHICLE ASSIGNED' || currentStatus === 'LOADED');
   }, [selectedTrip, currentStatus]);

@@ -309,7 +309,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 <Button 
                     onClick={form.handleSubmit(handleCommit)} 
                     disabled={form.formState.isSubmitting} 
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-20 h-16 rounded-[1.5rem] font-black uppercase text-sm tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-20 h-14 rounded-[1.5rem] font-black uppercase text-sm tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
                 >
                     {form.formState.isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <Save className="h-5 w-5 mr-3" />}
                     POST TASK REGISTRY
