@@ -76,30 +76,26 @@ interface VehicleAssignModalProps {
   carriers: WithId<Carrier>[];
 }
 
-const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/;
+const VEHICLE_REGEX = /^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/;
 const MAPS_JS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
 
 const formSchema = z.object({
     isNewVehicle: z.boolean().default(false),
     vehicleId: z.string().optional(),
-    vehicleNumber: z.string().min(1, "Vehicle number is mandatory.").transform(v => v.toUpperCase().replace(/\s/g, '')).refine(val => vehicleNumberRegex.test(val), {
-        message: 'Invalid Format (e.g. MH12AB1234)'
-    }),
-    driverName: z.string().optional().default(''),
-    driverMobile: z.string().min(1, "Driver mobile is required.").refine(val => /^\d{10}$/.test(val), {
-        message: 'Mobile must be 10 digits.'
-    }),
+    vehicleNumber: z.string().min(1, "Required").transform(v => v.toUpperCase().replace(/\s/g, '')).refine(val => VEHICLE_REGEX.test(val), "Invalid Format"),
+    driverName: z.string().default(''),
+    driverMobile: z.string().length(10, "10 digits required"),
     vehicleType: z.enum(VehicleTypes),
-    carrierId: z.string().min(1, 'Carrier is required'),
-    assignQty: z.coerce.number().positive('Assign quantity must be positive'),
+    carrierId: z.string().min(1, 'Required'),
+    assignQty: z.coerce.number().positive(),
     paymentTerm: z.enum(PaymentTerms).default('Paid'),
     transporterName: z.string().optional().default(''),
     transporterMobile: z.string().optional().default(''),
     ownerName: z.string().optional().default(''),
     ownerPan: z.string().optional().default(''),
-    freightRate: z.coerce.number().min(0).optional().default(0),
-    freightAmount: z.coerce.number().optional().default(0),
-    distance: z.coerce.number().optional(),
+    freightRate: z.coerce.number().min(0).default(0),
+    freightAmount: z.coerce.number().default(0),
+    distance: z.coerce.number().default(0),
 }).superRefine((data, ctx) => {
     if (data.vehicleType === 'Market Vehicle') {
         if (!data.transporterName?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Required for Market vehicle.', path: ['transporterName'] });
@@ -110,6 +106,25 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+function useDistanceCalc(isLoaded: boolean, isOpen: boolean, origin?: string, destination?: string) {
+    const [dist, setDist] = useState(0);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!isLoaded || !isOpen || !origin || !destination) return;
+        setLoading(true);
+        const service = new google.maps.DirectionsService();
+        service.route({ origin, destination, travelMode: google.maps.TravelMode.DRIVING }, (res, status) => {
+            if (status === 'OK' && res) {
+                setDist(Number(((res.routes[0].legs[0].distance?.value || 0) / 1000).toFixed(2)));
+            }
+            setLoading(false);
+        });
+    }, [isLoaded, isOpen, origin, destination]);
+
+    return { dist, loading };
+}
 
 export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, onAssignmentComplete, carriers }: VehicleAssignModalProps) {
   const { toast } = useToast();
@@ -134,11 +149,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   });
   
   const { setValue, handleSubmit, reset, control } = form;
-  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate } = useWatch({ control });
+  const watched = useWatch({ control });
 
   useEffect(() => {
     if (isOpen) {
-        const defaultValues = {
+        reset({
             isNewVehicle: false,
             vehicleId: trip?.vehicleId || '',
             vehicleNumber: trip?.vehicleNumber || '',
@@ -155,8 +170,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             freightRate: (trip as any)?.freightRate || 0,
             freightAmount: (trip as any)?.freightAmount || 0,
             distance: trip?.distance || 0
-        };
-        reset(defaultValues);
+        });
         hasCalculatedDistance.current = !!trip?.distance;
     }
   }, [isOpen, trip, shipment, carriers, reset]);
@@ -167,10 +181,10 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   }, []);
 
   useEffect(() => {
-    if (assignQty && freightRate) {
-        setValue('freightAmount', Number(((assignQty || 0) * (freightRate || 0)).toFixed(2)));
+    if (watched.assignQty && watched.freightRate) {
+        setValue('freightAmount', Number(((watched.assignQty || 0) * (watched.freightRate || 0)).toFixed(2)));
     }
-  }, [assignQty, freightRate, setValue]);
+  }, [watched.assignQty, watched.freightRate, setValue]);
 
   const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
   const { data: plants } = useCollection<Plant>(plantsQuery);
@@ -240,26 +254,26 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
   useEffect(() => {
     if (!isOpen) return;
-    const vNumber = vehicleNumber?.toUpperCase().replace(/\s/g, '') || '';
+    const vNumber = watched.vehicleNumber?.toUpperCase().replace(/\s/g, '') || '';
     if (vNumber.length < 6) { if (registryMatch) setRegistryMatch(null); return; }
     const handler = setTimeout(() => performVehicleLookup(vNumber), 1000);
     return () => clearTimeout(handler);
-  }, [isOpen, vehicleNumber, performVehicleLookup]);
+  }, [isOpen, watched.vehicleNumber, performVehicleLookup, registryMatch]);
 
   useEffect(() => {
-    if (!isOpen || isNewVehicle || !vehicleId) return;
-    const found = vehiclesAtGate.find(v => v.id === vehicleId);
-    if (found && found.vehicleNumber !== vehicleNumber) {
+    if (!isOpen || watched.isNewVehicle || !watched.vehicleId) return;
+    const found = vehiclesAtGate.find(v => v.id === watched.vehicleId);
+    if (found && found.vehicleNumber !== watched.vehicleNumber) {
         setValue('vehicleNumber', found.vehicleNumber, { shouldValidate: true });
         setValue('driverName', found.driverName || '', { shouldValidate: true });
         setValue('driverMobile', found.driverMobile || '', { shouldValidate: true });
     }
-  }, [isOpen, isNewVehicle, vehicleId, vehiclesAtGate, setValue, vehicleNumber]);
+  }, [isOpen, watched.isNewVehicle, watched.vehicleId, vehiclesAtGate, setValue, watched.vehicleNumber]);
 
   const balanceQty = useMemo(() => {
     const total = isEditing ? (shipment.balanceQty + (trip.assignedQtyInTrip || 0)) : shipment.balanceQty;
-    return Number(Math.max(0, total - (assignQty || 0)).toFixed(3));
-  }, [shipment.balanceQty, assignQty, isEditing, trip]);
+    return Number(Math.max(0, total - (watched.assignQty || 0)).toFixed(3));
+  }, [shipment.balanceQty, watched.assignQty, isEditing, trip]);
 
   const onSubmit = async (values: FormValues) => {
     if (!firestore || !user) return;
@@ -311,7 +325,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-3xl bg-slate-50 overflow-hidden rounded-3xl">
-        <DialogHeader className="bg-slate-900 text-white p-6 shrink-0 flex flex-row items-center justify-between pr-12 rounded-t-3xl">
+        <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 flex flex-row items-center justify-between pr-12 rounded-t-3xl">
           <div className="flex items-center gap-4">
             <div className="p-2 bg-blue-600 rounded-xl shadow-lg"><Truck className="h-6 w-6" /></div>
             <div>
@@ -344,16 +358,16 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
                     <div className="bg-slate-50 border-b p-8 flex items-center justify-between">
                         <div className="flex items-center gap-4"><div className="p-2 bg-white rounded-lg shadow-sm border"><Truck className="h-5 w-5 text-blue-900"/></div><h3 className="text-sm font-black uppercase tracking-widest text-slate-700">Fleet Allocation Registry</h3></div>
-                        <RadioGroup className="flex bg-white p-1.5 rounded-2xl border shadow-inner" value={isNewVehicle ? 'new' : 'existing'} onValueChange={v => setValue('isNewVehicle', v === 'new')}>
-                            <div className={cn("flex items-center space-x-2 px-4 py-2 rounded-xl transition-all", !isNewVehicle ? "bg-blue-900 text-white" : "text-slate-400")}><RadioGroupItem value="existing" id="r1" /><label htmlFor="r1" className="font-black text-[10px] uppercase tracking-widest cursor-pointer">From Gate</label></div>
-                            <div className={cn("flex items-center space-x-2 px-4 py-2 rounded-xl transition-all", isNewVehicle ? "bg-blue-900 text-white" : "text-slate-400")}><RadioGroupItem value="new" id="r2" /><label htmlFor="r2" className="font-black text-[10px] uppercase tracking-widest cursor-pointer">Direct Entry</label></div>
+                        <RadioGroup className="flex bg-white p-1.5 rounded-2xl border shadow-inner" value={watched.isNewVehicle ? 'new' : 'existing'} onValueChange={v => setValue('isNewVehicle', v === 'new')}>
+                            <div className={cn("flex items-center space-x-2 px-4 py-2 rounded-xl transition-all", !watched.isNewVehicle ? "bg-blue-900 text-white" : "text-slate-400")}><RadioGroupItem value="existing" id="r1" /><label htmlFor="r1" className="font-black text-[10px] uppercase tracking-widest cursor-pointer">From Gate</label></div>
+                            <div className={cn("flex items-center space-x-2 px-4 py-2 rounded-xl transition-all", watched.isNewVehicle ? "bg-blue-900 text-white" : "text-slate-400")}><RadioGroupItem value="new" id="r2" /><label htmlFor="r2" className="font-black text-[10px] uppercase tracking-widest cursor-pointer">Direct Entry</label></div>
                         </RadioGroup>
                     </div>
                     <div className="p-10 space-y-10">
                         <Table>
                             <TableHeader><TableRow><TableHead className="w-[250px]">Vehicle No</TableHead><TableHead>Pilot Name</TableHead><TableHead>Mobile</TableHead><TableHead className="w-[250px]">Carrier</TableHead><TableHead>Category</TableHead><TableHead>Payment Term</TableHead><TableHead className="text-right">Weight (MT)</TableHead></TableRow></TableHeader>
                             <TableBody><TableRow className="align-top">
-                                <TableCell className="py-4">{isNewVehicle ? <FormField control={control} name="vehicleNumber" render={({ field }) => (<Input {...field} placeholder="XX00XX0000" className="h-11 rounded-xl font-black text-blue-900 uppercase" />)} /> : <FormField control={control} name="vehicleId" render={({ field }) => (
+                                <TableCell className="py-4">{watched.isNewVehicle ? <FormField control={control} name="vehicleNumber" render={({ field }) => (<Input {...field} placeholder="XX00XX0000" className="h-11 rounded-xl font-black text-blue-900 uppercase" />)} /> : <FormField control={control} name="vehicleId" render={({ field }) => (
                                     <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-11 font-black"><SelectValue placeholder="Pick Vehicle" /></SelectTrigger></FormControl><SelectContent>{isDataLoading ? <div className="p-4 text-center"><Loader2 className="animate-spin h-4 w-4 mx-auto"/></div> : vehiclesAtGate.map(v => <SelectItem key={v.id} value={v.id} className="font-black">{v.vehicleNumber}</SelectItem>)}</SelectContent></Select>
                                 )} /></TableCell>
                                 <TableCell className="py-4"><FormField control={control} name="driverName" render={({ field }) => (<Input {...field} className="h-11 font-bold" />)} /></TableCell>
@@ -367,7 +381,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                     <FormField control={control} name="vehicleType" render={({ field }) => (
                                         <Select onValueChange={field.onChange} value={field.value} disabled={!!registryMatch}>
                                             <FormControl><SelectTrigger className="relative h-11"><SelectValue placeholder="Select Type"/>{!!registryMatch && <Lock size={12} className="absolute right-2 top-1/2 -translate-y-1/2"/>}</SelectTrigger></FormControl>
-                                            <SelectContent>{VehicleTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                                            <SelectContent className="rounded-xl">{VehicleTypes.map(t => <SelectItem key={t} value={t} className="font-bold py-2">{t}</SelectItem>)}</SelectContent>
                                         </Select>
                                     )} />
                                 </TableCell>
@@ -375,7 +389,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                     <FormField control={control} name="paymentTerm" render={({ field }) => (
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl><SelectTrigger className="h-11 font-bold"><SelectValue /></SelectTrigger></FormControl>
-                                            <SelectContent>{PaymentTerms.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                                            <SelectContent className="rounded-xl">{PaymentTerms.map(t => <SelectItem key={t} value={t} className="font-bold py-2">{t}</SelectItem>)}</SelectContent>
                                         </Select>
                                     )} />
                                 </TableCell>
@@ -383,7 +397,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                             </TableRow></TableBody>
                         </Table>
                         
-                        {vehicleType === 'Market Vehicle' && (
+                        {watched.vehicleType === 'Market Vehicle' && (
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-8 p-8 bg-blue-50/30 rounded-[2rem] border border-blue-100 animate-in slide-in-from-top-4">
                                 <FormField name="transporterName" control={control} render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-500">Transporter Node *</FormLabel><Input {...field} className="h-11 bg-white font-bold" /></FormItem>)} />
                                 <FormField name="transporterMobile" control={control} render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-500">Transporter Mobile *</FormLabel><Input {...field} maxLength={10} className="h-11 bg-white font-mono" /></FormItem>)} />
@@ -392,7 +406,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                 <FormField name="freightRate" control={control} render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-emerald-600">Freight Rate (MT) *</FormLabel><div className="relative"><Input type="number" {...field} className="h-11 bg-white font-black text-emerald-700 pl-8" /><IndianRupee className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-emerald-400" /></div></FormItem>)} />
                                 <div className="space-y-1.5 pt-6">
                                     <p className="text-[10px] font-black uppercase text-slate-400">Calculated Freight Amount</p>
-                                    <div className="h-11 px-4 flex items-center bg-white border rounded-xl font-black text-blue-900 shadow-sm">₹ {watch('freightAmount')?.toLocaleString()}</div>
+                                    <div className="h-11 px-4 flex items-center bg-white border rounded-xl font-black text-blue-900 shadow-sm">₹ {watched.freightAmount?.toLocaleString()}</div>
                                 </div>
                             </div>
                         )}
@@ -405,7 +419,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                             <span className="text-[10px] font-black uppercase text-slate-400">Distance Node</span>
                             <div className="flex items-center gap-3">
                                 <h4 className="text-5xl font-black text-blue-900 tracking-tighter">
-                                    {calculatingDistance ? <Loader2 className="h-8 w-8 animate-spin" /> : (watch('distance') || '--')}
+                                    {calculatingDistance ? <Loader2 className="h-8 w-8 animate-spin" /> : (watched.distance || '--')}
                                 </h4>
                                 <span className="text-xl font-black text-slate-300">KM</span>
                             </div>
@@ -435,7 +449,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             </div>
             <div className="flex gap-4">
                 <Button variant="ghost" onClick={onClose} className="font-black text-slate-400 hover:text-white uppercase text-[11px] tracking-widest px-8">Discard</Button>
-                <Button onClick={handleSubmit(onSubmit)} className="bg-blue-600 hover:bg-blue-700 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl border-none transition-all active:scale-95 border-none">Establish mission node</Button>
+                <Button onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl border-none transition-all active:scale-95 border-none">Establish mission node</Button>
             </div>
         </DialogFooter>
       </DialogContent>
