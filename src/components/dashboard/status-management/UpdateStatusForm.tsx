@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { 
     Truck, 
     MapPin, 
@@ -21,10 +22,10 @@ import {
     History,
     X,
     ArrowRightLeft,
-    MonitorPlay
+    MonitorPlay,
+    Lock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 
 interface UpdateStatusFormProps {
@@ -53,20 +54,22 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
   const selectedTrip = useMemo(() => activeTrips.find(t => t.id === selectedId), [activeTrips, selectedId]);
   const selectedVehicle = useMemo(() => availableVehicles.find(v => v.id === selectedId), [availableVehicles, selectedId]);
 
-  const currentStatus = useMemo(() => {
-    if (selectedTrip) return (selectedTrip.tripStatus || selectedTrip.currentStatusId || 'ASSIGNED').toUpperCase();
-    if (selectedVehicle) return (selectedVehicle.remarks || 'IN YARD').toUpperCase();
+  const currentStatusRaw = useMemo(() => {
+    if (selectedTrip) return (selectedTrip.tripStatus || selectedTrip.currentStatusId || 'ASSIGNED');
+    if (selectedVehicle) return (selectedVehicle.remarks || 'IN YARD');
     return '--';
   }, [selectedTrip, selectedVehicle]);
 
-  // REGISTRY RULE: Once vehicle is OUT, transit options activate
-  const isTransitReady = useMemo(() => {
+  const currentStatus = currentStatusRaw.toUpperCase();
+
+  // REGISTRY RULE: Once vehicle is OUT, transit options activate.
+  // If status is "Assigned", it means the vehicle has not yet departed the gate.
+  const isLockedAtGate = useMemo(() => {
     if (!selectedTrip) return false;
-    // Trip is transit ready if it has a vehicle number and is not purely 'Assigned' (implies gate-out handled)
-    return currentStatus === 'IN TRANSIT' || currentStatus === 'IN-TRANSIT';
+    return currentStatus === 'ASSIGNED' || currentStatus === 'VEHICLE-ASSIGNED' || currentStatus === 'VEHICLE ASSIGNED';
   }, [selectedTrip, currentStatus]);
 
-  const masterRegistryStatuses = [
+  const missionRegistryStatuses = [
     'Arrive For Deliver',
     'Break-Down',
     'Delivered',
@@ -77,7 +80,7 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
 
   const maintenanceStatuses = [
     'Under Maintenance',
-    'Break-down',
+    'Break-Down',
     'Available'
   ];
 
@@ -134,7 +137,7 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
                                         <div className="px-4 py-2 text-[9px] font-black text-blue-600 uppercase bg-blue-50/50 rounded-lg mb-1">Active Missions</div>
                                         {activeTrips.map(t => (
                                             <SelectItem key={t.id} value={t.id} className="font-bold py-3 uppercase italic">
-                                                {t.tripId} – {t.unloadingPoint?.split(',')[0].trim() || 'Node'}
+                                                {t.vehicleNumber} ({t.tripId})
                                             </SelectItem>
                                         ))}
                                     </>
@@ -162,25 +165,28 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
 
                     <div className="md:col-span-4 space-y-3">
                         <Label className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">TARGET STATUS NODE *</Label>
-                        <Select value={newStatus} onValueChange={setNewStatus} disabled={!selectedId}>
-                            <SelectTrigger className="h-14 rounded-2xl font-black text-slate-900 border-slate-200 bg-white shadow-sm focus:ring-blue-900">
-                                <SelectValue placeholder="Transition Node" />
+                        <Select value={newStatus} onValueChange={setNewStatus} disabled={!selectedId || isLockedAtGate}>
+                            <SelectTrigger className={cn(
+                                "h-14 rounded-2xl font-black text-slate-900 border-slate-200 bg-white shadow-sm focus:ring-blue-900",
+                                isLockedAtGate && "bg-slate-50 opacity-60 cursor-not-allowed"
+                            )}>
+                                <SelectValue placeholder={isLockedAtGate ? "Locked: Awaiting Exit" : "Transition Node"} />
                             </SelectTrigger>
                             <SelectContent className="rounded-2xl">
                                 {selectedTrip ? (
                                     <>
                                         <div className="px-4 py-2 text-[9px] font-black text-blue-600 uppercase tracking-[0.2em] border-b mb-1 flex items-center gap-2">
-                                            <ShieldCheck className="h-3 w-3" /> MASTER REGISTRY STATUSES
+                                            <ShieldCheck className="h-3 w-3" /> TRANSIT NODES
                                         </div>
-                                        {masterRegistryStatuses.map(s => (
-                                            <SelectItem key={s} value={s} className="font-black py-3 uppercase text-xs tracking-tight">{s}</SelectItem>
+                                        {missionRegistryStatuses.map(s => (
+                                            <SelectItem key={s} value={s} className="font-black py-3 uppercase text-xs tracking-tight">{s.toUpperCase()}</SelectItem>
                                         ))}
                                     </>
                                 ) : (
                                     <>
                                         <div className="px-4 py-2 text-[9px] font-black text-orange-600 uppercase border-b mb-1">MAINTENANCE NODES</div>
                                         {maintenanceStatuses.map(s => (
-                                            <SelectItem key={s} value={s} className="font-black py-3 uppercase text-xs tracking-tight">{s}</SelectItem>
+                                            <SelectItem key={s} value={s} className="font-black py-3 uppercase text-xs tracking-tight">{s.toUpperCase()}</SelectItem>
                                         ))}
                                     </>
                                 )}
@@ -214,6 +220,15 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
                             <div className="flex items-center gap-3 p-4 px-6 bg-slate-50 rounded-2xl border border-slate-100 text-slate-400 font-bold uppercase text-[10px] italic">
                                 <AlertTriangle className="h-4 w-4" /> Awaiting target node selection...
                             </div>
+                        ) : isLockedAtGate ? (
+                            <div className="flex items-center gap-4 p-4 px-8 bg-red-50 rounded-[2rem] border-2 border-red-100 animate-in shake duration-500">
+                                <div className="h-6 w-6 rounded-full bg-red-600 flex items-center justify-center text-white shadow-lg">
+                                    <Lock className="h-4 w-4" />
+                                </div>
+                                <span className="text-[10px] font-black uppercase text-red-700 tracking-tight">
+                                    TRANSITION BLOCKED: VEHICLE MUST DEPART GATE TO ACTIVATE TRANSIT NODES.
+                                </span>
+                            </div>
                         ) : (
                             <div className="flex items-center gap-4 p-4 px-8 bg-emerald-50 rounded-[2rem] border-2 border-emerald-100 animate-in zoom-in duration-300">
                                 <div className="h-6 w-6 rounded-full bg-emerald-600 flex items-center justify-center text-white shadow-lg">
@@ -237,7 +252,7 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
                         
                         <Button 
                             type="submit"
-                            disabled={isSubmitting || !selectedId || !newStatus}
+                            disabled={isSubmitting || !selectedId || !newStatus || isLockedAtGate}
                             className="h-16 w-24 rounded-3xl bg-blue-900 hover:bg-slate-900 text-white shadow-2xl shadow-blue-900/30 transition-all active:scale-90 border-none group"
                         >
                             {isSubmitting ? (
