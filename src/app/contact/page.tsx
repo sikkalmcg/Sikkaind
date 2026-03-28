@@ -3,7 +3,7 @@
 import ContactForm from '@/components/website/ContactForm';
 import { Mail, Phone } from 'lucide-react';
 import Image from 'next/image';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { PlaceHolderImages } from '../../lib/placeholder-images';
 
 export default function ContactPage() {
     const bgImg = PlaceHolderImages.find(p => p.id === 'contact-bg');
