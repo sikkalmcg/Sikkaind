@@ -3,14 +3,14 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Landmark, ArrowRightLeft, Wallet, MinusCircle, ShieldCheck, Lock, Edit2, ChevronRight, Calculator } from 'lucide-react';
+import { Landmark, ArrowRightLeft, Wallet, MinusCircle, ShieldCheck, Lock, Edit2, ChevronRight, Calculator, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface EditSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   trip: any;
-  onSelect: (type: 'banking' | 'freight' | 'charges' | 'debit', trip: any) => void;
+  onSelect: (type: 'banking' | 'freight' | 'charges' | 'debit' | 'voucher', trip: any) => void;
 }
 
 /**
@@ -69,6 +69,17 @@ export default function EditSelectionModal({ isOpen, onClose, trip, onSelect }: 
         locked: false,
         count: trip.freightData?.charges?.filter((c: any) => c.type === 'Debit').length || 0,
         unit: 'Deductions'
+    },
+    {
+        id: 'voucher',
+        title: 'Voucher',
+        icon: FileText,
+        desc: 'Generate and print payment vouchers',
+        color: 'text-purple-600',
+        bg: 'bg-purple-50',
+        locked: false,
+        count: trip.vouchers?.length || 0,
+        unit: 'Vouchers'
     }
   ];
 
