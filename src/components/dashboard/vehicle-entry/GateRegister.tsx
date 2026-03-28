@@ -15,7 +15,7 @@ import { cn, normalizePlantId } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import type { VehicleEntryExit, Plant } from '@/types';
 
-export default function GateRegister({ plants: providedPlants = [] }: { plants?: any[] }) {
+export default function GateRegister() {
   const firestore = useFirestore();
   const { user } = useUser();
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,11 +26,7 @@ export default function GateRegister({ plants: providedPlants = [] }: { plants?:
     firestore ? query(collection(firestore, "logistics_plants")) : null, 
     [firestore]
   );
-  const { data: masterPlants } = useCollection<Plant>(plantsQuery);
-
-  const activePlants = useMemo(() => {
-    return providedPlants.length > 0 ? providedPlants : (masterPlants || []);
-  }, [providedPlants, masterPlants]);
+  const { data: plants } = useCollection<Plant>(plantsQuery);
 
   useEffect(() => {
     if (!firestore || !user) return;
@@ -61,7 +57,7 @@ export default function GateRegister({ plants: providedPlants = [] }: { plants?:
 
   const handleExport = () => {
     const exportData = filteredData.map(e => ({
-        'Plant': activePlants.find(p => p.id === e.plantId)?.name || e.plantId,
+        'Plant': plants?.find(p => p.id === e.plantId)?.name || e.plantId,
         'Vehicle No': e.vehicleNumber,
         'Pilot': e.driverName,
         'Purpose': e.purpose,
@@ -136,7 +132,7 @@ export default function GateRegister({ plants: providedPlants = [] }: { plants?:
                             return (
                                 <TableRow key={e.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
                                     <TableCell className="px-8 font-black text-slate-600 uppercase text-xs">
-                                        {activePlants.find(p => p.id === e.plantId)?.name || e.plantId}
+                                        {plants?.find(p => p.id === e.plantId)?.name || e.plantId}
                                     </TableCell>
                                     <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter text-[13px]">
                                         {e.vehicleNumber}
