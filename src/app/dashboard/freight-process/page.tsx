@@ -99,7 +99,6 @@ export default function FreightRequestPage() {
       const filtered = baseList.filter(p => authIds.includes(p.id));
       setPlants(filtered);
       
-      // RULE: Default selection = All authorized plants auto-selected
       if (filtered.length > 0 && selectedPlants.length === 0) {
           setSelectedPlants(filtered.map(p => p.id));
       }
@@ -172,7 +171,10 @@ export default function FreightRequestPage() {
         const plant = plants.find(p => p.id === t.originPlantId);
         const carrierObj = (dbCarriers || []).find(c => c.id === t.carrierId);
 
-        const totalFreightAmount = freight?.totalFreightAmount || 0;
+        // Registry Logic: Pull calculated total from trip if freight doc hasn't been provisioned yet
+        const initialCalculatedTotal = Number(t.freightAmount) || (Number(t.freightRate || 0) * Number(t.assignedQtyInTrip || 0)) || 0;
+        const totalFreightAmount = freight?.totalFreightAmount || initialCalculatedTotal;
+        
         const totalPaidAmount = freight?.totalPaidAmount || 0;
         const podStatus = freight?.podStatus || 'None';
         const holdback = podStatus === 'Hard Copy' ? 0 : (podStatus === 'Soft Copy' ? 500 : 1000);
