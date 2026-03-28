@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardCheck, History, Search, FileDown, Loader2, WifiOff, Clock, User, MapPin } from 'lucide-react';
+import { ClipboardCheck, Search, FileDown, Loader2, WifiOff, Clock, User, MapPin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
@@ -22,7 +22,6 @@ export default function GateRegister({ plants: providedPlants = [] }: { plants?:
   const [entries, setEntries] = useState<VehicleEntryExit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch Master Registry for name resolution if not provided
   const plantsQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, "logistics_plants")) : null, 
     [firestore]
@@ -36,7 +35,6 @@ export default function GateRegister({ plants: providedPlants = [] }: { plants?:
   useEffect(() => {
     if (!firestore || !user) return;
 
-    // Registry Listener: Latest 100 movements
     const q = query(collection(firestore, "vehicleEntries"), orderBy("entryTimestamp", "desc"), limit(100));
     const unsubscribe = onSnapshot(q, (snap) => {
         const allEntries = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));

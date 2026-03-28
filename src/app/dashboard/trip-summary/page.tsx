@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -17,9 +18,7 @@ import {
     Factory,
     Calendar,
     Weight,
-    ArrowRightLeft,
-    ChevronRight,
-    PlayCircle
+    ArrowRightLeft
 } from 'lucide-react';
 import { format, startOfDay, subDays, endOfDay, isValid } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -33,11 +32,6 @@ import { cn, normalizePlantId } from '@/lib/utils';
 import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilter';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 import { Skeleton } from '@/components/ui/skeleton';
-
-/**
- * @fileOverview SIKKA LMC - Trip Summary Hub.
- * Optimized consolidated mission analytics dashboard.
- */
 
 type EnrichedTripRow = WithId<Trip> & {
     plantName: string;
@@ -54,14 +48,12 @@ function TripSummaryContent() {
     const firestore = useFirestore();
     const { user } = useUser();
     
-    // FILTER STATE
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPlants, setSelectedPlants] = useState<string[]>([]);
     const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
     const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
     const [vehicleCategory, setVehicleCategory] = useState<string>('all');
 
-    // REGISTRY DATA
     const [trips, setTrips] = useState<WithId<Trip>[]>([]);
     const [shipments, setShipments] = useState<WithId<Shipment>[]>([]);
     const [lrs, setLrs] = useState<WithId<LR>[]>([]);
@@ -74,31 +66,26 @@ function TripSummaryContent() {
 
     const isAdminSession = user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
 
-    // 1. Resolve Master Plant Registry
     const plantsQuery = useMemoFirebase(() => 
         firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
         [firestore]
     );
     const { data: allPlants } = useCollection<Plant>(plantsQuery);
 
-    // 2. Identity Handshake & Authorization
     useEffect(() => {
         if (!firestore || !user || !allPlants) return;
 
         const fetchAuth = async () => {
             setIsAuthLoading(true);
             try {
-                const lastIdentity = localStorage.getItem('slmc_last_identity');
-                const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
+                const searchEmail = user.email;
+                if (!searchEmail) return;
                 
-                let userDocSnap = null;
-                const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
-                const qSnap = await getDocs(q);
-                if (!qSnap.empty) userDocSnap = qSnap.docs[0];
-
+                const userSnap = await getDocs(query(collection(firestore, "users"), where("email", "==", searchEmail)));
+                
                 let authIds: string[] = [];
-                if (userDocSnap) {
-                    const userData = userDocSnap.data() as SubUser;
+                if (!userSnap.empty) {
+                    const userData = userSnap.docs[0].data() as SubUser;
                     authIds = (userData.username === 'sikkaind' || isAdminSession) ? allPlants.map(p => p.id) : (userData.plantIds || []);
                 } else if (isAdminSession) {
                     authIds = allPlants.map(p => p.id);
@@ -115,7 +102,6 @@ function TripSummaryContent() {
         fetchAuth();
     }, [firestore, user, allPlants, isAdminSession]);
 
-    // 3. Real-time Multi-Node Registry Extraction
     useEffect(() => {
         if (!firestore || authorizedPlantIds.length === 0) return;
 
@@ -125,7 +111,6 @@ function TripSummaryContent() {
         authorizedPlantIds.forEach(pId => {
             const parseDate = (val: any) => val instanceof Timestamp ? val.toDate() : (val ? new Date(val) : new Date());
 
-            // Trips
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/trips`), (snap) => {
                 const plantTrips = snap.docs.map(d => ({ 
                     id: d.id, 
@@ -135,15 +120,13 @@ function TripSummaryContent() {
                 } as WithId<Trip>));
                 setTrips(prev => [...prev.filter(t => t.originPlantId !== pId), ...plantTrips]);
                 setIsLoading(false);
-            }, () => setDbError(true)));
+            }));
 
-            // Shipments
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/shipments`), (snap) => {
                 const plantShipments = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() } as WithId<Shipment>));
                 setShipments(prev => [...prev.filter(s => s.originPlantId !== pId), ...plantShipments]);
             }));
 
-            // LRs
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/lrs`), (snap) => {
                 const plantLrs = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() } as WithId<LR>));
                 setLrs(prev => [...prev.filter(l => l.originPlantId !== pId), ...plantLrs]);
@@ -153,7 +136,6 @@ function TripSummaryContent() {
         return () => unsubscribers.forEach(u => u());
     }, [firestore, JSON.stringify(authorizedPlantIds)]);
 
-    // 4. Registry Join Logic
     const enrichedData: EnrichedTripRow[] = useMemo(() => {
         return trips.map(t => {
             const shipment = shipments.find(s => s.id === t.shipmentIds?.[0]);
@@ -172,7 +154,6 @@ function TripSummaryContent() {
         }).sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
     }, [trips, shipments, lrs, allPlants]);
 
-    // 5. Filter Node Logic
     const filteredData = useMemo(() => {
         const start = fromDate ? startOfDay(fromDate) : null;
         const end = toDate ? endOfDay(toDate) : null;
@@ -232,7 +213,6 @@ function TripSummaryContent() {
 
     return (
         <main className="flex flex-1 flex-col h-full bg-[#f8fafc] animate-in fade-in duration-500">
-            {/* HUB HEADER */}
             <div className="sticky top-0 z-30 bg-white border-b px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-xl rotate-3">
@@ -250,7 +230,6 @@ function TripSummaryContent() {
             </div>
 
             <div className="flex-1 p-8 overflow-y-auto space-y-10">
-                {/* KPI CARDS NODE */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {[
                         { label: 'Total Mission Trips', value: stats.count, icon: Truck, color: 'text-blue-900', bg: 'bg-blue-50' },
@@ -276,7 +255,6 @@ function TripSummaryContent() {
                     ))}
                 </div>
 
-                {/* FILTER & REGISTRY SECTION */}
                 <Card className="border-none shadow-2xl rounded-[3rem] bg-white overflow-hidden">
                     <CardHeader className="bg-slate-50 border-b p-10">
                         <div className="flex flex-col space-y-10">
@@ -339,18 +317,18 @@ function TripSummaryContent() {
                     
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
-                            <Table className="border-collapse w-full min-w-[1800px]">
+                            <Table className="border-collapse w-full min-w-[1800px] table-fixed">
                                 <TableHeader className="bg-slate-50/50">
                                     <TableRow className="h-14 hover:bg-transparent border-b">
-                                        <TableHead className="text-[10px] font-black uppercase px-10 text-slate-400">Plant</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Trip ID</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">LR Number</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-400">Date</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Consignor</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">From</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400 font-black">Consignee</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Ship To</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-10 text-slate-400">Destination</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-10 text-slate-400 w-32">Plant</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400 w-36">Trip ID</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400 w-36">LR Number</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-400 w-28">Date</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400 w-48">Consignor</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400 w-40">From</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400 w-48 font-black">Consignee</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400 w-48">Ship To</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-10 text-slate-400 w-48">Destination</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -363,15 +341,15 @@ function TripSummaryContent() {
                                     ) : (
                                         paginatedData.map((row, idx) => (
                                             <TableRow key={row.id} className="h-16 hover:bg-blue-50/30 transition-all border-b border-slate-50 last:border-0 group">
-                                                <TableCell className="px-10 font-bold text-slate-500 uppercase text-[11px]">{row.plantName}</TableCell>
+                                                <TableCell className="px-10 font-bold text-slate-500 uppercase text-[11px] truncate">{row.plantName}</TableCell>
                                                 <TableCell className="px-4 font-black text-blue-600 font-mono tracking-tighter text-xs uppercase">{row.tripId}</TableCell>
                                                 <TableCell className="px-4 font-black text-slate-900 uppercase text-[11px]">{row.lrNumber || '--'}</TableCell>
-                                                <TableCell className="px-4 text-center text-[11px] font-bold text-slate-400 whitespace-nowrap">{format(row.startDate, 'dd.MM.yyyy')}</TableCell>
-                                                <TableCell className="px-4 font-black text-slate-800 uppercase text-[11px] truncate max-w-[200px]">{row.consignor}</TableCell>
-                                                <TableCell className="px-4 text-[11px] font-bold text-slate-400 uppercase italic truncate max-w-[150px]">{row.loadingPoint}</TableCell>
-                                                <TableCell className="px-4 font-black text-slate-900 uppercase text-[11px] truncate max-w-[200px]">{row.billToParty}</TableCell>
-                                                <TableCell className="px-4 text-[11px] font-bold text-slate-400 uppercase truncate max-w-[200px]">{row.shipToParty || '--'}</TableCell>
-                                                <TableCell className="px-10 text-[11px] font-black text-slate-900 uppercase truncate max-w-[200px]">{row.unloadingPoint}</TableCell>
+                                                <TableCell className="px-4 text-center text-[11px] font-bold text-slate-400 whitespace-nowrap">{format(row.startDate, 'dd.MM.yy')}</TableCell>
+                                                <TableCell className="px-4 font-black text-slate-800 uppercase text-[11px] truncate">{row.consignor}</TableCell>
+                                                <TableCell className="px-4 text-[11px] font-bold text-slate-400 uppercase italic truncate">{row.loadingPoint}</TableCell>
+                                                <TableCell className="px-4 font-black text-slate-900 uppercase text-[11px] truncate">{row.billToParty}</TableCell>
+                                                <TableCell className="px-4 text-[11px] font-bold text-slate-400 uppercase truncate">{row.shipToParty || '--'}</TableCell>
+                                                <TableCell className="px-10 text-[11px] font-black text-slate-900 uppercase truncate">{row.unloadingPoint}</TableCell>
                                             </TableRow>
                                         ))
                                     )}

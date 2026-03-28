@@ -182,7 +182,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                     { label: 'Vehicle Number', value: task.vehicleNumber, icon: Truck },
                     { label: 'Pilot Detail', value: task.driverMobile, icon: Smartphone, color: 'text-blue-600' },
                     { label: 'Dispatch From', value: task.from, icon: Factory },
-                    { label: 'Ship To Party', value: task.shipTo, icon: User },
+                    { label: 'Ship To Party', value: task.shipTo, icon: UserCircle },
                     { label: 'Destination', value: task.destination, icon: MapPin },
                     { label: 'Assigned Weight', value: `${task.assignedQty} MT`, icon: FileText, bold: true, color: 'text-blue-900' },
                 ].map((node, i) => (

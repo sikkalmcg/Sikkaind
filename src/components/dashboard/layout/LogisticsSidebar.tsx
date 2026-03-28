@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -10,10 +11,7 @@ import {
   ClipboardList, 
   MonitorPlay, 
   ArrowRightLeft, 
-  MapPin, 
   Activity, 
-  FileText, 
-  IndianRupee, 
   BarChart3,
   ShieldCheck,
   Building2, 
@@ -27,17 +25,13 @@ import {
   Radar,
   Smartphone,
   Settings2,
-  Globe,
-  UserCheck,
-  UserPlus,
-  Calculator,
-  ArrowRightLeft as ExportIcon
+  Globe
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useUser, useFirestore } from '@/firebase';
 import { useEffect, useState, useMemo } from 'react';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc } from 'firebase/firestore';
 import type { SubUser } from '@/types';
 
 const navigationGroups = [
@@ -59,7 +53,7 @@ const navigationGroups = [
     { name: 'Trip Summary', href: '/dashboard/trip-summary', icon: ListTree, permission: 'shipment-summary' },
   ]},
   { group: 'Accounts Control', items: [
-    { name: 'Freight Payment', href: '/dashboard/freight-management', icon: IndianRupee, permission: 'freight-management' },
+    { name: 'Freight Payment', href: '/dashboard/freight-management', icon: ArrowRightLeft, permission: 'freight-management' },
   ]},
   { group: 'Data Extraction', items: [
     { name: 'Reports', href: '/dashboard/report-analysis', icon: BarChart3, permission: 'report-analysis' },
@@ -94,18 +88,12 @@ export default function LogisticsSidebar({ isOpen, onToggle }: LogisticsSidebarP
     const fetchProfile = async () => {
         setLoading(true);
         try {
-            const lastIdentity = localStorage.getItem('slmc_last_identity');
-            const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
+            const searchEmail = user.email;
+            if (!searchEmail) return;
             
-            let userDocSnap = null;
-            const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
-            const qSnap = await getDocs(q);
-            if (!qSnap.empty) {
-                userDocSnap = qSnap.docs[0];
-            }
-
-            if (userDocSnap) {
-                setProfile(userDocSnap.data() as SubUser);
+            const userDocSnap = await getDocs(query(collection(firestore, "users"), where("email", "==", searchEmail)));
+            if (!userDocSnap.empty) {
+                setProfile(userDocSnap.docs[0].data() as SubUser);
             }
         } catch (e) {
             console.error("Sidebar Auth Registry Error:", e);

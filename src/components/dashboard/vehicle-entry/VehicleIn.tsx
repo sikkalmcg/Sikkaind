@@ -11,14 +11,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { ShieldCheck, Loader2, Plus, Factory, UserCircle, Smartphone, FileText, Weight, Package } from 'lucide-react';
+import { ShieldCheck, Loader2, Plus, Factory, FileText, Weight } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, query, addDoc, serverTimestamp, orderBy, doc, where, getDocs, limit, Timestamp } from "firebase/firestore";
+import { collection, query, addDoc, serverTimestamp, orderBy, doc, where, getDocs, limit } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useLoading } from '@/context/LoadingContext';
 import type { Plant, SubUser } from '@/types';
-import { cn, normalizePlantId } from '@/lib/utils';
+import { normalizePlantId } from '@/lib/utils';
 
 const formSchema = z.object({
   plantId: z.string().min(1, "Plant node is required."),
@@ -59,7 +59,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
     firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
     [firestore]
   );
-  const { data: allPlants, isLoading: isLoadingPlants } = useCollection<Plant>(plantsQuery);
+  const { data: allPlants } = useCollection<Plant>(plantsQuery);
 
   const userProfileRef = useMemo(() => (firestore && user?.email) ? doc(firestore, "users", user.email) : null, [firestore, user]);
   const { data: profile } = useDoc<SubUser>(userProfileRef);
@@ -75,11 +75,11 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      plantId: upcomingVehicleData?.originPlantId || '',
-      vehicleNumber: upcomingVehicleData?.vehicleNumber || '',
+      plantId: '',
+      vehicleNumber: '',
       purpose: 'Loading',
-      driverName: upcomingVehicleData?.driverName || '',
-      driverMobile: upcomingVehicleData?.driverMobile || '',
+      driverName: '',
+      driverMobile: '',
       licenseNumber: '',
       lrNumber: '',
       documentNo: '',
