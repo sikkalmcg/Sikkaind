@@ -14,17 +14,15 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/date-picker';
 import type { Plant, Shipment, WithId, SubUser, Party, MasterQtyType, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Search, Upload, Truck, Info, Calculator, Trash2, PlusCircle } from 'lucide-react';
+import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin } from 'lucide-react';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
-import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDoc } from "firebase/firestore";
+import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDoc, getDocs, limit } from "firebase/firestore";
 import { cn, normalizePlantId, formatSequenceId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
-import * as XLSX from 'xlsx';
 import { PaymentTerms } from '@/lib/constants';
 
 // ========== SCHEMA ========== //

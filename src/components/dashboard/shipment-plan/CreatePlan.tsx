@@ -112,7 +112,8 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
-  const { showLoader, hideLoader } = showLoader ? { showLoader, hideLoader } : { showLoader: () => {}, hideLoader: () => {} };
+  const { showLoader, hideLoader } = useLoading();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [authorizedPlants, setAuthorizedPlants] = useState<WithId<Plant>[]>([]);
   const [currentDate, setCurrentTime] = useState(new Date());
