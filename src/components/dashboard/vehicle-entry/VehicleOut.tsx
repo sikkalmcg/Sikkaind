@@ -49,7 +49,7 @@ export default function VehicleOut() {
   
   // States for History Filters
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 7)));
-  const [toDate, setToDate] = useState<Date | undefined>(endOfDay(new Date()));
+  const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState('');
 
   const [activeEntries, setActiveEntries] = useState<any[]>([]);
@@ -69,8 +69,9 @@ export default function VehicleOut() {
     defaultValues: { plantId: '', entryId: '', exitStatus: 'Loaded' },
   });
 
-  const { watch, handleSubmit, reset, setValue } = form;
+  const { watch, handleSubmit, reset, setValue, formState: { isSubmitting } } = form;
   const selectedPlantId = watch('plantId');
+  const selectedEntryId = watch('entryId');
 
   // Sync Clock
   useEffect(() => {
@@ -182,7 +183,7 @@ export default function VehicleOut() {
 
   const handleExport = () => {
     const dataToExport = filteredHistory.map(h => ({
-        'Plant': plants?.find(p => p.id === h.plantId)?.name || h.plantId,
+        'Plant': plants?.find((p:any) => p.id === h.plantId)?.name || h.plantId,
         'Vehicle No': h.vehicleNumber,
         'Pilot': h.driverName,
         'Status': h.outType,
@@ -198,7 +199,6 @@ export default function VehicleOut() {
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500">
-        {/* Form Section */}
         <Card className="border-none shadow-xl rounded-[2.5rem] overflow-hidden bg-white">
             <CardHeader className="p-8 pb-0">
                 <div className="flex items-center gap-4">
@@ -215,7 +215,6 @@ export default function VehicleOut() {
                 <Form {...form}>
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-10">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-end">
-                            {/* Exit Timestamp Box */}
                             <div className="p-6 bg-slate-50/80 rounded-2xl border border-slate-100 space-y-2 shadow-inner">
                                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em]">EXIT TIMESTAMP</p>
                                 <p className="text-sm font-black text-blue-900 font-mono tracking-tighter">
@@ -233,7 +232,7 @@ export default function VehicleOut() {
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent className="rounded-xl">
-                                            {plants?.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic">{p.name}</SelectItem>)}
+                                            {plants?.map((p:any) => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic">{p.name}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                 </FormItem>
@@ -279,10 +278,10 @@ export default function VehicleOut() {
                             </Button>
                             <Button 
                                 type="submit" 
-                                disabled={form.formState.isSubmitting} 
+                                disabled={isSubmitting} 
                                 className="bg-blue-900/80 hover:bg-blue-900 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95"
                             >
-                                {form.formState.isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-5 w-5 mr-3" />}
+                                {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <CheckCircle2 className="h-5 w-5 mr-3" />}
                                 FINALIZE SYSTEM OUT
                             </Button>
                         </div>
@@ -291,7 +290,6 @@ export default function VehicleOut() {
             </CardContent>
         </Card>
 
-        {/* History Section */}
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2">
                 <div className="flex items-center gap-4">
@@ -310,7 +308,7 @@ export default function VehicleOut() {
                         <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
                             <DatePicker date={fromDate} setDate={setFromDate} className="border-none h-8 bg-transparent font-bold text-xs" />
                             <span className="text-slate-300 font-bold px-1">to</span>
-                            <DatePicker date={toDate} setDate={setToDate} className="border-none h-8 bg-transparent font-bold text-xs" />
+                            <DatePicker date={toDate} setDate={setTodayDate} className="border-none h-8 bg-transparent font-bold text-xs" />
                         </div>
                     </div>
                     <div className="grid gap-1.5">
@@ -359,7 +357,7 @@ export default function VehicleOut() {
                                         return (
                                             <TableRow key={h.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
                                                 <TableCell className="px-8 font-black text-slate-600 uppercase text-xs">
-                                                    {plants?.find(p => p.id === h.plantId)?.name || h.plantId}
+                                                    {plants?.find((p:any) => p.id === h.plantId)?.name || h.plantId}
                                                 </TableCell>
                                                 <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter text-[13px]">
                                                     {h.vehicleNumber}

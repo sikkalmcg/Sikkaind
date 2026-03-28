@@ -9,21 +9,35 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldCheck, Loader2, Plus, Factory, UserCircle, Smartphone, FileText } from 'lucide-react';
+import { ShieldCheck, Loader2, Plus, Factory, UserCircle, Smartphone, FileText, Weight, Package } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, addDoc, serverTimestamp, orderBy } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useLoading } from '@/context/LoadingContext';
 import type { Plant } from '@/types';
+import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
   plantId: z.string().min(1, "Plant node is required."),
   vehicleNumber: z.string().min(6, "Valid vehicle number required.").transform(v => v.toUpperCase().replace(/\s/g, '')),
-  purpose: z.string().min(1, "Purpose is mandatory."),
+  purpose: z.enum(['Loading', 'Unloading'], { required_error: "Purpose is mandatory." }),
   driverName: z.string().min(3, "Pilot name required (min 3 chars)."),
   driverMobile: z.string().regex(/^\d{10}$/, "10-digit mobile required."),
   licenseNumber: z.string().min(5, "DL number required."),
+  // Unloading Specific Fields
+  lrNumber: z.string().optional(),
+  documentNo: z.string().optional(),
+  items: z.string().optional(),
+  billedQty: z.coerce.number().optional(),
+  qtyType: z.string().optional(),
+}).superRefine((data, ctx) => {
+    if (data.purpose === 'Unloading') {
+        if (!data.lrNumber) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "LR Number is mandatory for unloading.", path: ["lrNumber"] });
+        if (!data.documentNo) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invoice Number is mandatory.", path: ["documentNo"] });
+        if (!data.items) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Product details are required.", path: ["items"] });
+        if (!data.billedQty || data.billedQty <= 0) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Valid quantity is required.", path: ["billedQty"] });
+    }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -55,10 +69,16 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
       driverName: '',
       driverMobile: '',
       licenseNumber: '',
+      lrNumber: '',
+      documentNo: '',
+      items: '',
+      billedQty: 0,
+      qtyType: 'MT'
     },
   });
 
-  const { handleSubmit, setValue, reset, formState: { isSubmitting } } = form;
+  const { handleSubmit, setValue, reset, watch, formState: { isSubmitting } } = form;
+  const purpose = watch('purpose');
 
   useEffect(() => {
     if (upcomingVehicleData) {
@@ -157,10 +177,8 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                                 </SelectTrigger>
                             </FormControl>
                             <SelectContent className="rounded-xl">
-                                <SelectItem value="Loading" className="font-bold py-3">LOADING MISSION</SelectItem>
-                                <SelectItem value="Unloading" className="font-bold py-3">UNLOADING MISSION</SelectItem>
-                                <SelectItem value="Maintenance" className="font-bold py-3">MAINTENANCE / YARD</SelectItem>
-                                <SelectItem value="Other" className="font-bold py-3">OTHERS</SelectItem>
+                                <SelectItem value="Loading" className="font-bold py-3 uppercase">LOADING MISSION</SelectItem>
+                                <SelectItem value="Unloading" className="font-bold py-3 uppercase">UNLOADING MISSION</SelectItem>
                             </SelectContent>
                         </Select>
                         <FormMessage />
@@ -194,14 +212,73 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                 )} />
             </div>
 
+            {/* Conditional Unloading Section */}
+            {purpose === 'Unloading' && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <Separator className="bg-slate-100" />
+                    <div className="flex items-center gap-3 px-2">
+                        <FileText className="h-5 w-5 text-blue-600" />
+                        <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-700">Unloading Manifest Details</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 p-8 bg-blue-50/20 rounded-[2rem] border border-blue-100 shadow-sm items-end">
+                        <FormField name="lrNumber" control={form.control} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">LR Number *</FormLabel>
+                                <FormControl><Input placeholder="Registry LR #" {...field} className="h-11 bg-white rounded-xl font-bold uppercase border-blue-200" /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField name="documentNo" control={form.control} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Invoice Number *</FormLabel>
+                                <FormControl><Input placeholder="Doc Ref #" {...field} className="h-11 bg-white rounded-xl font-bold uppercase border-blue-200" /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField name="items" control={form.control} render={({ field }) => (
+                            <FormItem className="lg:col-span-2">
+                                <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Product Details *</FormLabel>
+                                <FormControl><Input placeholder="e.g. TATA SALT 50KG BAGS" {...field} className="h-11 bg-white rounded-xl font-bold border-blue-200" /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField name="billedQty" control={form.control} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Quantity *</FormLabel>
+                                <FormControl><Input type="number" step="0.001" {...field} className="h-11 bg-white rounded-xl font-black text-blue-900 border-blue-200" /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField name="qtyType" control={form.control} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">UOM</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger className="h-11 bg-white rounded-xl font-bold border-blue-200">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent className="rounded-xl">
+                                        <SelectItem value="MT" className="font-bold">Metric Ton (MT)</SelectItem>
+                                        <SelectItem value="Bags" className="font-bold">Bags</SelectItem>
+                                        <SelectItem value="PCS" className="font-bold">PCS</SelectItem>
+                                        <SelectItem value="Kg" className="font-bold">KG</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </FormItem>
+                        )} />
+                    </div>
+                </div>
+            )}
+
             <div className="flex items-center justify-end gap-8 pt-4">
-                <Button type="button" variant="ghost" onClick={() => reset()} className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-900 transition-all">
+                <Button type="button" variant="ghost" onClick={() => { reset(); }} className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-900 transition-all">
                     DISCARD ENTRY
                 </Button>
                 <Button 
                     type="submit" 
                     disabled={isSubmitting} 
-                    className="bg-blue-900/80 hover:bg-blue-900 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95"
+                    className="bg-blue-900/80 hover:bg-blue-900 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none"
                 >
                     {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <ShieldCheck className="h-5 w-5 mr-3" />}
                     FINALIZE IN-GATE NODE
