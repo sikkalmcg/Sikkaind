@@ -11,7 +11,24 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Weight, Calculator, Save, AlertTriangle, Loader2, Truck, User, MapPin, X, Plus, Trash2, Smartphone, Factory, History, CheckCircle2, FileText } from 'lucide-react';
+import { 
+    ShieldCheck, 
+    Truck, 
+    Smartphone, 
+    Factory, 
+    User, 
+    MapPin, 
+    FileText, 
+    Save, 
+    Plus, 
+    Trash2, 
+    History,
+    X,
+    ClipboardList,
+    TrendingUp,
+    CheckCircle2,
+    Loader2
+} from 'lucide-react';
 import { useFirestore, useUser } from "@/firebase";
 import { doc, serverTimestamp, collection, runTransaction } from "firebase/firestore";
 import { useLoading } from '@/context/LoadingContext';
@@ -51,12 +68,11 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
   const watchedItems = useWatch({ control, name: "items" }) || [];
 
-  // Registry Handshake: Populate initial items from shipment context
   useEffect(() => {
     if (isOpen && task && fields.length === 0) {
         const initialItems = (task.shipmentItems || []).map((i: any) => ({
             deliveryNo: 'DEL-',
-            invoiceNo: i.invoiceNumber || 'INV-',
+            invoiceNo: i.invoiceNumber ? `INV-${i.invoiceNumber}` : 'INV-',
             itemDescription: i.itemDescription || i.description || 'Goods particulars',
             deliveryUnit: Number(i.units) || 0,
             loadUnit: 0,
@@ -91,7 +107,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
             const plantId = task.plantId;
             const historyRef = doc(collection(firestore, `plants/${plantId}/supervisor_tasks`));
             
-            // Logic Node: Mark Gate Entry as Verified
             if (task.entryData?.id) {
                 const entryRef = doc(firestore, 'vehicleEntries', task.entryData.id);
                 transaction.update(entryRef, { 
@@ -102,7 +117,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 });
             }
 
-            // Sync with Global/Local Trip Node
             const tripRef = doc(firestore, `plants/${plantId}/trips`, task.realTripId);
             const globalTripRef = doc(firestore, 'trips', task.realTripId);
             const tripUpdate = {
@@ -113,7 +127,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
             transaction.update(tripRef, tripUpdate);
             transaction.update(globalTripRef, tripUpdate);
 
-            // Establish History Persistence
             transaction.set(historyRef, {
                 tripId: task.tripId,
                 vehicleNumber: task.vehicleNumber,
@@ -136,149 +149,153 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
     }
   };
 
-  const infoNodes = [
-    { label: 'Vehicle Number', value: task.vehicleNumber, icon: Truck, bold: true },
-    { label: 'Pilot Detail', value: task.driverMobile, icon: Smartphone, color: 'text-blue-600', mono: true },
-    { label: 'Dispatch From', value: task.from, icon: Factory },
-    { label: 'Ship To Party', value: task.shipTo, icon: User },
-    { label: 'Destination', value: task.destination, icon: MapPin },
-    { label: 'Assigned Weight', value: `${task.assignedQty} MT`, icon: FileText, bold: true, color: 'text-blue-900' },
-  ];
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white rounded-3xl">
-        <DialogHeader className="p-8 bg-slate-900 text-white shrink-0 pr-12">
+        {/* HEADER SECTION */}
+        <DialogHeader className="p-8 bg-blue-900 text-white shrink-0 pr-12">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-5">
-                <div className="p-3 bg-white/10 rounded-2xl border border-white/10 shadow-inner">
+                <div className="p-3 bg-white/10 rounded-2xl border border-white/10">
                     <Truck className="h-8 w-8 text-white" />
                 </div>
                 <div>
                     <DialogTitle className="text-3xl font-black uppercase tracking-tight italic leading-none">LOADING DETAILS</DialogTitle>
-                    <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-2 flex items-center gap-2">
-                        OPERATOR: {(user?.displayName || user?.email || 'SYSTEM').toUpperCase()} | REGISTRY HANDSHAKE
+                    <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-[0.2em] mt-2">
+                        OPERATOR: {(user?.displayName || user?.email || 'SIKKAIND.ADMIN').toUpperCase()} | REGISTRY HANDSHAKE
                     </DialogDescription>
                 </div>
             </div>
-            <Badge className="bg-white/10 border-white/10 text-blue-100 font-black uppercase text-[10px] px-6 h-10 border-none rounded-full">VERIFIED MISSION NODE</Badge>
+            <div className="flex items-center gap-4">
+                <Badge variant="outline" className="bg-white/10 border-white/10 text-white font-black uppercase text-[10px] px-6 h-10 border-none rounded-full">VERIFIED MISSION NODE</Badge>
+                <button onClick={onClose} className="h-10 w-10 bg-white p-0 text-red-600 hover:bg-red-50 transition-all rounded-xl shadow-lg flex items-center justify-center border-none">
+                    <X className="h-6 w-6 stroke-[3]" />
+                </button>
+            </div>
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col bg-white">
-            <div className="p-10 border-b bg-[#f8fafc] shrink-0">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-10">
-                    {infoNodes.map((node, i) => (
-                        <div key={i} className="space-y-1.5">
-                            <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
-                                <node.icon className="h-3 w-3" /> {node.label}
-                            </span>
-                            <p className={cn(
-                                "text-xs uppercase leading-tight truncate",
-                                node.bold ? "font-black text-slate-900" : "font-bold text-slate-600",
-                                node.mono && "font-mono tracking-tighter",
-                                node.color
-                            )}>{node.value}</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-10 space-y-10">
-                <div className="flex items-center justify-between px-2">
-                    <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-blue-600" /> 1. LOADING DETAILS REGISTRY
-                    </h3>
-                    <Button 
-                        type="button" 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => append({ deliveryNo: 'DEL-', invoiceNo: 'INV-', itemDescription: '', deliveryUnit: 0, loadUnit: 0, uom: 'Bag' })}
-                        className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all"
-                    >
-                        <Plus className="h-4 w-4" /> ADD ROW
-                    </Button>
-                </div>
-
-                <div className="rounded-[2.5rem] border-2 border-slate-200 bg-white shadow-2xl overflow-hidden">
-                    <Table>
-                        <TableHeader className="bg-slate-900">
-                            <TableRow className="hover:bg-transparent border-none h-12">
-                                <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">DELIVERY NO</TableHead>
-                                <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">INVOICE NO (OPT)</TableHead>
-                                <TableHead className="text-white text-[10px] font-black uppercase px-4">ITEM DESCRIPTION *</TableHead>
-                                <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">DELIVERY UNIT *</TableHead>
-                                <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">LOAD UNIT *</TableHead>
-                                <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-32">UOM *</TableHead>
-                                <TableHead className="text-white text-[10px] font-black uppercase px-8 text-right w-40">BALANCE UNIT</TableHead>
-                                <TableHead className="w-16"></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {fields.map((field, index) => {
-                                const dUnit = Number(watchedItems[index]?.deliveryUnit) || 0;
-                                const lUnit = Number(watchedItems[index]?.loadUnit) || 0;
-                                const balance = dUnit - lUnit;
-
-                                return (
-                                    <TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/10 transition-colors group">
-                                        <TableCell className="px-8 py-3">
-                                            <Input {...form.register(`items.${index}.deliveryNo`)} className="h-11 bg-slate-50 border-slate-200 rounded-xl font-bold uppercase" />
-                                        </TableCell>
-                                        <TableCell className="px-4 py-3">
-                                            <Input {...form.register(`items.${index}.invoiceNo`)} className="h-11 bg-transparent border-none shadow-none focus-visible:ring-0 text-slate-400 font-bold uppercase" />
-                                        </TableCell>
-                                        <TableCell className="px-4 py-3">
-                                            <Input {...form.register(`items.${index}.itemDescription`)} className="h-11 bg-slate-50 border-slate-200 rounded-xl font-bold italic text-slate-500" />
-                                        </TableCell>
-                                        <TableCell className="px-4 py-3">
-                                            <Input type="number" {...form.register(`items.${index}.deliveryUnit`)} className="h-11 text-center font-black text-blue-900 bg-slate-50 border-slate-200 rounded-xl text-lg" />
-                                        </TableCell>
-                                        <TableCell className="px-4 py-3">
-                                            <Input type="number" {...form.register(`items.${index}.loadUnit`)} className="h-11 text-center font-black text-blue-900 bg-white border-blue-900/20 rounded-xl text-lg shadow-inner focus-visible:ring-blue-900" />
-                                        </TableCell>
-                                        <TableCell className="px-4 py-3">
-                                            <Select onValueChange={(val) => setValue(`items.${index}.uom`, val)} defaultValue={watchedItems[index]?.uom || 'Bag'}>
-                                                <SelectTrigger className="h-11 bg-transparent border-none shadow-none focus:ring-0 font-bold">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent className="rounded-xl">
-                                                    {LRUnitTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-                                        </TableCell>
-                                        <TableCell className="px-8 py-3 text-right">
-                                            <span className={cn(
-                                                "font-black text-lg tracking-tighter",
-                                                balance > 0 ? "text-red-600" : (balance < 0 ? "text-blue-600" : "text-emerald-600")
-                                            )}>
-                                                {balance.toFixed(3)}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell className="pr-6">
-                                            <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length === 1} className="h-8 w-8 text-slate-200 hover:text-red-600 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                        <TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16">
-                            <TableRow className="hover:bg-transparent">
-                                <TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400">TOTAL LOADING MANIFEST REGISTRY</TableCell>
-                                <TableCell className="text-center font-black text-lg text-slate-900">{totals.delivery.toFixed(3)}</TableCell>
-                                <TableCell className="text-center font-black text-lg text-blue-900">{totals.load.toFixed(3)}</TableCell>
-                                <TableCell></TableCell>
-                                <TableCell className="text-right px-8 font-black text-xl text-red-600 tracking-tighter">{totals.balance.toFixed(3)}</TableCell>
-                                <TableCell></TableCell>
-                            </TableRow>
-                        </TableFooter>
-                    </Table>
-                </div>
+        {/* MISSION CONTEXT ROW */}
+        <div className="px-10 py-6 border-b bg-white shrink-0">
+            <div className="grid grid-cols-6 gap-8">
+                {[
+                    { label: 'Vehicle Number', value: task.vehicleNumber, icon: Truck },
+                    { label: 'Pilot Detail', value: task.driverMobile, icon: Smartphone, color: 'text-blue-600' },
+                    { label: 'Dispatch From', value: task.from, icon: Factory },
+                    { label: 'Ship To Party', value: task.shipTo, icon: User },
+                    { label: 'Destination', value: task.destination, icon: MapPin },
+                    { label: 'Assigned Weight', value: `${task.assignedQty} MT`, icon: FileText, bold: true, color: 'text-blue-900' },
+                ].map((node, i) => (
+                    <div key={i} className="space-y-1.5">
+                        <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                            <node.icon className="h-3 w-3" /> {node.label}
+                        </span>
+                        <p className={cn(
+                            "text-[11px] uppercase leading-tight truncate",
+                            node.bold ? "font-black text-slate-900" : "font-black text-slate-700",
+                            node.color
+                        )}>{node.value}</p>
+                    </div>
+                ))}
             </div>
         </div>
 
+        {/* MAIN REGISTRY AREA */}
+        <div className="flex-1 overflow-y-auto p-10 space-y-10 bg-[#f8fafc]">
+            <div className="flex items-center justify-between px-2">
+                <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3">
+                    <ClipboardList className="h-5 w-5 text-blue-600" /> 1. LOADING DETAILS REGISTRY
+                </h3>
+                <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => append({ deliveryNo: 'DEL-', invoiceNo: 'INV-', itemDescription: 'Goods particulars', deliveryUnit: 0, loadUnit: 0, uom: 'Bag' })}
+                    className="h-10 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all active:scale-95"
+                >
+                    <Plus className="h-4 w-4" /> ADD ROW
+                </Button>
+            </div>
+
+            <div className="rounded-3xl border-2 border-slate-200 bg-white shadow-2xl overflow-hidden">
+                <Table>
+                    <TableHeader className="bg-slate-900">
+                        <TableRow className="hover:bg-transparent border-none h-14">
+                            <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">DELIVERY NO</TableHead>
+                            <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">INVOICE NO (OPT)</TableHead>
+                            <TableHead className="text-white text-[10px] font-black uppercase px-4">ITEM DESCRIPTION *</TableHead>
+                            <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">DELIVERY UNIT *</TableHead>
+                            <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">LOAD UNIT *</TableHead>
+                            <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-32">UOM *</TableHead>
+                            <TableHead className="text-white text-[10px] font-black uppercase px-8 text-right w-40">BALANCE UNIT</TableHead>
+                            <TableHead className="w-16"></TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {fields.map((field, index) => {
+                            const dUnit = Number(watchedItems[index]?.deliveryUnit) || 0;
+                            const lUnit = Number(watchedItems[index]?.loadUnit) || 0;
+                            const balance = dUnit - lUnit;
+
+                            return (
+                                <TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/10 transition-colors group">
+                                    <TableCell className="px-8 py-3">
+                                        <Input {...form.register(`items.${index}.deliveryNo`)} className="h-11 bg-slate-50 border-slate-200 rounded-xl font-bold uppercase text-xs" />
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3 text-center">
+                                        <Input {...form.register(`items.${index}.invoiceNo`)} className="h-11 bg-transparent border-none shadow-none focus-visible:ring-0 text-slate-400 font-bold uppercase text-center text-xs" />
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3">
+                                        <Input {...form.register(`items.${index}.itemDescription`)} className="h-11 bg-slate-50 border-slate-200 rounded-xl font-bold italic text-slate-500 text-xs" />
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3">
+                                        <Input type="number" {...form.register(`items.${index}.deliveryUnit`)} className="h-11 text-center font-black text-slate-900 bg-slate-50 border-slate-200 rounded-xl text-lg" />
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3">
+                                        <Input type="number" {...form.register(`items.${index}.loadUnit`)} className="h-11 text-center font-black text-blue-900 bg-white border-blue-900/20 rounded-xl text-lg shadow-inner focus-visible:ring-blue-900" />
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3">
+                                        <Select onValueChange={(val) => setValue(`items.${index}.uom`, val)} defaultValue={watchedItems[index]?.uom || 'Bag'}>
+                                            <SelectTrigger className="h-11 bg-transparent border-none shadow-none focus:ring-0 font-bold text-xs uppercase">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-xl">
+                                                {LRUnitTypes.map(t => <SelectItem key={t} value={t} className="font-bold py-2.5">{t}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </TableCell>
+                                    <TableCell className="px-8 py-3 text-right">
+                                        <span className={cn(
+                                            "font-black text-lg tracking-tighter",
+                                            Math.abs(balance) > 0.001 ? "text-red-600" : "text-emerald-600"
+                                        )}>
+                                            {balance.toFixed(3)}
+                                        </span>
+                                    </TableCell>
+                                    <TableCell className="pr-6">
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length === 1} className="h-8 w-8 text-slate-200 hover:text-red-600 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
+                    </TableBody>
+                    <TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16">
+                        <TableRow className="hover:bg-transparent">
+                            <TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL LOADING MANIFEST REGISTRY</TableCell>
+                            <TableCell className="text-center font-black text-lg text-slate-900">{totals.delivery.toFixed(3)}</TableCell>
+                            <TableCell className="text-center font-black text-lg text-blue-900">{totals.load.toFixed(3)}</TableCell>
+                            <TableCell></TableCell>
+                            <TableCell className="text-right px-8 font-black text-xl text-red-600 tracking-tighter">{totals.balance.toFixed(3)}</TableCell>
+                            <TableCell></TableCell>
+                        </TableRow>
+                    </TableFooter>
+                </Table>
+            </div>
+        </div>
+
+        {/* FOOTER ACTION BAR */}
         <DialogFooter className="p-10 bg-slate-950 shrink-0 flex flex-col md:flex-row items-center justify-between sm:justify-between border-t border-white/5">
             <div className="flex items-center gap-6 px-8 py-4 bg-white/5 rounded-3xl border border-white/10 shadow-2xl">
                 <div className="p-3 bg-blue-600/20 rounded-2xl"><History className="h-6 w-6 text-blue-400" /></div>
