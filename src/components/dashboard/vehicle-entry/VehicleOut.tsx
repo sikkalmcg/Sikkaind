@@ -296,7 +296,7 @@ export default function VehicleOut() {
                             disabled={isSubmitting || !selectedEntryId} 
                             className="bg-blue-900/80 hover:bg-blue-900 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none"
                         >
-                            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <CheckCircle2 className="h-5 w-5 mr-3" />}
+                            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <ShieldCheck className="h-5 w-5 mr-3" />}
                             FINALIZE SYSTEM OUT
                         </Button>
                     </div>
