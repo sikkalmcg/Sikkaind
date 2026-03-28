@@ -3,12 +3,19 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { History, Trash2, User, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export default function TaskHistoryTable({ data, isAdmin, onRemove }: { data: any[], isAdmin: boolean, onRemove: (id: string, plantId: string) => void }) {
+  
+  const formatSafeDate = (date: any) => {
+    if (!date) return '--:--';
+    const d = date instanceof Date ? date : new Date(date);
+    return isValid(d) ? format(d, 'dd/MM/yy HH:mm') : '--:--';
+  };
+
   return (
     <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
         <CardHeader className="bg-slate-50 border-b p-8">
@@ -46,7 +53,7 @@ export default function TaskHistoryTable({ data, isAdmin, onRemove }: { data: an
                                             <div className="p-1.5 bg-slate-100 rounded-lg group-hover:bg-blue-900 group-hover:text-white transition-colors">
                                                 <Clock className="h-3.5 w-3.5" />
                                             </div>
-                                            <span className="text-[11px] font-black text-slate-500 font-mono uppercase">{format(item.timestamp, 'dd/MM/yy HH:mm')}</span>
+                                            <span className="text-[11px] font-black text-slate-500 font-mono uppercase">{formatSafeDate(item.timestamp)}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs uppercase">{item.tripId}</TableCell>

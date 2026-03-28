@@ -191,9 +191,12 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     return plants.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(shipment.originPlantId).toLowerCase())?.name || shipment.originPlantId;
   }, [plants, shipment.originPlantId]);
 
+  const destinationCityDisplay = useMemo(() => {
+    return shipment.destination || shipment.unloadingPoint?.split(',')[0] || '--';
+  }, [shipment.destination, shipment.unloadingPoint]);
+
   const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate } = useWatch({ control });
 
-  // Auto-calculate Freight Amount Registry Node
   useEffect(() => {
     const total = (Number(assignQty) || 0) * (Number(freightRate) || 0);
     setValue('freightAmount', Number(total.toFixed(2)));
@@ -404,7 +407,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                     { label: 'Consignor', value: shipment.consignor, icon: UserCircle },
                     { label: 'Lifting Site', value: shipment.loadingPoint, icon: MapPin },
                     { label: 'Consignee', value: shipment.billToParty, icon: UserCircle },
-                    { label: 'Drop Point (TO)', value: shipment.unloadingPoint, icon: Truck, span: 2 },
+                    { label: 'Drop Point (TO)', value: destinationCityDisplay, icon: Truck, span: 2 },
                 ].map((item, i) => (
                     <div key={i} className={cn("flex flex-col gap-1.5", item.span && `col-span-${item.span}`)}>
                         <span className="font-black text-slate-400 text-[10px] uppercase tracking-widest flex items-center gap-2">
@@ -469,7 +472,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                     </TableCell>
                                     <TableCell className="px-4 py-4"><FormField control={control} name="driverName" render={({ field }) => (<Input placeholder="Driver Name" className="h-11 rounded-xl font-bold" {...field} />)} /></TableCell>
                                     <TableCell className="px-4 py-4"><FormField control={control} name="driverMobile" render={({ field }) => (<Input placeholder="10 Digits" className="h-11 rounded-xl font-mono font-black" maxLength={10} {...field} />)} /></TableCell>
-                                    <TableCell className="px-4 py-4">
+                                    <TableCell>
                                         <FormField control={control} name="carrierId" render={({ field }) => (
                                             <SearchableSelect 
                                                 options={carrierOptions} 
@@ -480,7 +483,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                             />
                                         )} />
                                     </TableCell>
-                                    <TableCell className="px-4 py-4">
+                                    <TableCell>
                                         <FormField control={control} name="vehicleType" render={({ field }) => (
                                             <Select onValueChange={field.onChange} value={field.value} disabled={!!registryMatch}>
                                                 <FormControl><SelectTrigger className="h-11 rounded-xl font-bold bg-slate-50/50 border-slate-200"><SelectValue placeholder="Select Type"/>{!!registryMatch && <Lock size={12} className="ml-2 text-slate-400"/>}</SelectTrigger></FormControl>
