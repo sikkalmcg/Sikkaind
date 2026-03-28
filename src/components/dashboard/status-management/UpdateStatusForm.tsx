@@ -52,7 +52,6 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
 
   const isLockedAtGate = useMemo(() => {
     if (!selectedTrip) return false;
-    // Trip Status Control: Only allow transitions if the vehicle has departed from the gate registry
     const isOut = selectedTrip.entry?.status === 'OUT';
     return !isOut && (currentStatus === 'ASSIGNED' || currentStatus === 'VEHICLE ASSIGNED' || currentStatus === 'LOADED');
   }, [selectedTrip, currentStatus]);
