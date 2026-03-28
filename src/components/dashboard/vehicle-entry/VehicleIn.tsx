@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -11,13 +12,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { ShieldCheck, Loader2, Plus, Factory, UserCircle, Smartphone, FileText, Weight, Package } from 'lucide-react';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, addDoc, serverTimestamp, orderBy } from "firebase/firestore";
+import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
+import { collection, query, addDoc, serverTimestamp, orderBy, doc, where, getDocs, limit } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useLoading } from '@/context/LoadingContext';
-import type { Plant } from '@/types';
-import { cn } from '@/lib/utils';
+import type { Plant, SubUser } from '@/types';
+import { cn, normalizePlantId } from '@/lib/utils';
 
 const formSchema = z.object({
   plantId: z.string().min(1, "Plant node is required."),
@@ -59,7 +60,17 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
     firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
     [firestore]
   );
-  const { data: plants } = useCollection<Plant>(plantsQuery);
+  const { data: allPlants, isLoading: isLoadingPlants } = useCollection<Plant>(plantsQuery);
+
+  const userProfileRef = useMemo(() => (firestore && user) ? doc(firestore, "users", user.uid) : null, [firestore, user]);
+  const { data: profile } = useDoc<SubUser>(userProfileRef);
+
+  const authorizedPlants = useMemo(() => {
+    if (!allPlants) return [];
+    if (user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com') return allPlants;
+    const authIds = profile?.plantIds || [];
+    return allPlants.filter(p => authIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id)));
+  }, [allPlants, profile, user]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -96,7 +107,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
     showLoader();
     try {
         const ts = serverTimestamp();
-        const currentOperator = user.displayName || user.email?.split('@')[0] || 'System';
+        const currentOperator = profile?.fullName || user.displayName || user.email?.split('@')[0] || 'System';
 
         await addDoc(collection(firestore, "vehicleEntries"), {
             ...values,
@@ -151,7 +162,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                                 </SelectTrigger>
                             </FormControl>
                             <SelectContent className="rounded-xl">
-                                {plants?.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic">{p.name}</SelectItem>)}
+                                {authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic">{p.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                         <FormMessage />

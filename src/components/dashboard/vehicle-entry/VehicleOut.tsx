@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -22,21 +23,28 @@ import {
     Factory,
     Calendar as CalendarIcon,
     ArrowRightLeft,
-    CheckCircle2
+    CheckCircle2,
+    Weight,
+    FileText
 } from 'lucide-react';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc, updateDoc, serverTimestamp, getDocs, limit, Timestamp, orderBy, onSnapshot } from "firebase/firestore";
+import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
+import { collection, query, where, doc, updateDoc, serverTimestamp, getDocs, limit, Timestamp, orderBy, onSnapshot, getDoc } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfDay, endOfDay, subDays } from 'date-fns';
 import { cn, normalizePlantId } from '@/lib/utils';
 import { DatePicker } from '@/components/date-picker';
 import { Badge } from '@/components/ui/badge';
 import * as XLSX from 'xlsx';
+import type { SubUser, Plant } from '@/types';
 
 const formSchema = z.object({
   plantId: z.string().min(1, "Select Plant Node."),
   entryId: z.string().min(1, "Pick an active vehicle node."),
   exitStatus: z.enum(['Loaded', 'Empty'], { required_error: "Pick Status" }),
+  lrNumber: z.string().optional(),
+  invoiceNumber: z.string().optional(),
+  exitWeight: z.coerce.number().optional(),
+  weightUnit: z.string().optional().default('MT'),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -57,21 +65,32 @@ export default function VehicleOut() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
-  // Authorized Plants
+  // Authorized Plants Logic
   const plantsQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
     [firestore]
   );
-  const { data: plants } = useCollection<any>(plantsQuery);
+  const { data: allPlants } = useCollection<Plant>(plantsQuery);
+
+  const userProfileRef = useMemo(() => (firestore && user) ? doc(firestore, "users", user.uid) : null, [firestore, user]);
+  const { data: profile } = useDoc<SubUser>(userProfileRef);
+
+  const authorizedPlants = useMemo(() => {
+    if (!allPlants) return [];
+    if (user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com') return allPlants;
+    const authIds = profile?.plantIds || [];
+    return allPlants.filter(p => authIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id)));
+  }, [allPlants, profile, user]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { plantId: '', entryId: '', exitStatus: 'Loaded' },
+    defaultValues: { plantId: '', entryId: '', exitStatus: 'Loaded', lrNumber: '', invoiceNumber: '', exitWeight: 0, weightUnit: 'MT' },
   });
 
   const { watch, handleSubmit, reset, setValue, formState: { isSubmitting } } = form;
   const selectedPlantId = watch('plantId');
   const selectedEntryId = watch('entryId');
+  const exitStatus = watch('exitStatus');
 
   // Sync Clock
   useEffect(() => {
@@ -100,6 +119,39 @@ export default function VehicleOut() {
 
     return () => unsub();
   }, [firestore, selectedPlantId]);
+
+  // Autonomous Data Fetching Logic
+  useEffect(() => {
+    if (!selectedEntryId || !firestore) return;
+    const entry = activeEntries.find(e => e.id === selectedEntryId);
+    if (!entry) return;
+
+    const fetchTripDetails = async () => {
+        if (entry.tripId) {
+            const tripRef = doc(firestore, `plants/${entry.plantId}/trips`, entry.tripId);
+            const tripSnap = await getDoc(tripRef);
+            if (tripSnap.exists()) {
+                const tripData = tripSnap.data();
+                setValue('lrNumber', tripData.lrNumber || '', { shouldValidate: true });
+                setValue('exitWeight', tripData.assignedQtyInTrip || 0, { shouldValidate: true });
+                // Attempt to resolve invoice from shipment if missing in trip
+                if (tripData.shipmentIds && tripData.shipmentIds.length > 0) {
+                    const shipRef = doc(firestore, `plants/${entry.plantId}/shipments`, tripData.shipmentIds[0]);
+                    const shipSnap = await getDoc(shipRef);
+                    if (shipSnap.exists()) {
+                        setValue('invoiceNumber', shipSnap.data().invoiceNumber || '', { shouldValidate: true });
+                    }
+                }
+            }
+        } else if (entry.purpose === 'Unloading') {
+            setValue('lrNumber', entry.lrNumber || '', { shouldValidate: true });
+            setValue('invoiceNumber', entry.documentNo || '', { shouldValidate: true });
+            setValue('exitWeight', entry.billedQty || 0, { shouldValidate: true });
+        }
+    };
+
+    fetchTripDetails();
+  }, [selectedEntryId, activeEntries, firestore, setValue]);
 
   // Fetch History
   useEffect(() => {
@@ -140,10 +192,13 @@ export default function VehicleOut() {
             status: 'OUT',
             outType: values.exitStatus,
             exitTimestamp: ts,
-            lastUpdated: ts
+            lastUpdated: ts,
+            exitLrNumber: values.lrNumber,
+            exitInvoiceNumber: values.invoiceNumber,
+            exitWeight: values.exitWeight,
+            weightUnit: values.weightUnit
         });
 
-        // Update linked trip if exists
         if (entry.tripId) {
             const globalTripRef = doc(firestore, 'trips', entry.tripId);
             const plantTripRef = doc(firestore, `plants/${entry.plantId}/trips`, entry.tripId);
@@ -159,7 +214,7 @@ export default function VehicleOut() {
         }
 
         toast({ title: 'Success', description: `Vehicle ${entry.vehicleNumber} marked as OUT.` });
-        reset({ plantId: values.plantId, entryId: '', exitStatus: 'Loaded' });
+        reset({ plantId: values.plantId, entryId: '', exitStatus: 'Loaded', lrNumber: '', invoiceNumber: '', exitWeight: 0, weightUnit: 'MT' });
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Error', description: e.message });
     }
@@ -167,6 +222,10 @@ export default function VehicleOut() {
 
   const filteredHistory = useMemo(() => {
     return history.filter(h => {
+        const authPlantIds = authorizedPlants.map(p => normalizePlantId(p.id));
+        const isAuth = authPlantIds.includes(normalizePlantId(h.plantId));
+        if (!isAuth) return false;
+
         const dateMatch = (!fromDate || h.exitTimestamp >= fromDate) && (!toDate || h.exitTimestamp <= toDate);
         if (!dateMatch) return false;
         
@@ -179,11 +238,11 @@ export default function VehicleOut() {
             h.documentNo?.toLowerCase().includes(s)
         );
     });
-  }, [history, fromDate, toDate, searchTerm]);
+  }, [history, fromDate, toDate, searchTerm, authorizedPlants]);
 
   const handleExport = () => {
     const dataToExport = filteredHistory.map(h => ({
-        'Plant': plants?.find((p:any) => p.id === h.plantId)?.name || h.plantId,
+        'Plant': authorizedPlants.find(p => p.id === h.plantId)?.name || h.plantId,
         'Vehicle No': h.vehicleNumber,
         'Pilot': h.driverName,
         'Status': h.outType,
@@ -232,7 +291,7 @@ export default function VehicleOut() {
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent className="rounded-xl">
-                                            {plants?.map((p:any) => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic">{p.name}</SelectItem>)}
+                                            {authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic">{p.name}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                 </FormItem>
@@ -248,7 +307,7 @@ export default function VehicleOut() {
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent className="rounded-xl">
-                                            {activeEntries.map(e => <SelectItem key={e.id} value={e.id} className="font-bold py-3 uppercase">{e.vehicleNumber} | {e.driverName}</SelectItem>)}
+                                            {activeEntries.map(e => <SelectItem key={e.id} value={e.id} className="font-bold py-3 uppercase">{e.vehicleNumber} ({e.purpose})</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                 </FormItem>
@@ -272,14 +331,54 @@ export default function VehicleOut() {
                             )} />
                         </div>
 
+                        {exitStatus === 'Loaded' && (
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 p-10 bg-blue-50/20 rounded-[2.5rem] border border-blue-100 animate-in slide-in-from-top-4 duration-500 shadow-inner">
+                                <FormField name="lrNumber" control={form.control} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">LR REGISTRY NUMBER</FormLabel>
+                                        <FormControl><Input {...field} placeholder="Auto-fetched" className="h-12 bg-white rounded-xl font-bold uppercase border-blue-200 shadow-sm" /></FormControl>
+                                    </FormItem>
+                                )} />
+                                <FormField name="invoiceNumber" control={form.control} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">OUTBOUND INVOICE NO</FormLabel>
+                                        <FormControl><Input {...field} placeholder="Auto-fetched" className="h-12 bg-white rounded-xl font-bold uppercase border-blue-200 shadow-sm" /></FormControl>
+                                    </FormItem>
+                                )} />
+                                <FormField name="exitWeight" control={form.control} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">EXIT WEIGHT</FormLabel>
+                                        <FormControl><Input type="number" step="0.001" {...field} className="h-12 bg-white rounded-xl font-black text-blue-900 border-blue-200 shadow-sm" /></FormControl>
+                                    </FormItem>
+                                )} />
+                                <FormField name="weightUnit" control={form.control} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">WEIGHT UNIT</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger className="h-12 bg-white rounded-xl font-bold border-blue-200 shadow-sm">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent className="rounded-xl">
+                                                <SelectItem value="MT" className="font-bold">Metric Ton (MT)</SelectItem>
+                                                <SelectItem value="KG" className="font-bold">Kilogram (KG)</SelectItem>
+                                                <SelectItem value="Bags" className="font-bold">Bags</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </FormItem>
+                                )} />
+                            </div>
+                        )}
+
                         <div className="flex items-center justify-end gap-8 pt-4">
                             <Button type="button" variant="ghost" onClick={() => reset()} className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-900 transition-all">
                                 DISCARD ENTRY
                             </Button>
                             <Button 
                                 type="submit" 
-                                disabled={isSubmitting} 
-                                className="bg-blue-900/80 hover:bg-blue-900 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95"
+                                disabled={isSubmitting || !selectedEntryId} 
+                                className="bg-blue-900/80 hover:bg-blue-900 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none"
                             >
                                 {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <CheckCircle2 className="h-5 w-5 mr-3" />}
                                 FINALIZE SYSTEM OUT
@@ -357,7 +456,7 @@ export default function VehicleOut() {
                                         return (
                                             <TableRow key={h.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
                                                 <TableCell className="px-8 font-black text-slate-600 uppercase text-xs">
-                                                    {plants?.find((p:any) => p.id === h.plantId)?.name || h.plantId}
+                                                    {authorizedPlants.find(p => p.id === h.plantId)?.name || h.plantId}
                                                 </TableCell>
                                                 <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter text-[13px]">
                                                     {h.vehicleNumber}
