@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 export default function HeaderSummary({ trip }: { trip: any }) {
-  const freightAmount = trip.totalFreightAmount || (trip.freightRate && trip.quantity ? trip.freightRate * trip.quantity : 0);
+  const freightAmount = trip.totalFreightAmount || trip.freightAmount || (trip.freightRate && trip.assignedQtyInTrip ? trip.freightRate * trip.assignedQtyInTrip : 0);
 
   return (
     <section className="space-y-4">
@@ -26,11 +26,11 @@ export default function HeaderSummary({ trip }: { trip: any }) {
           { label: 'Mission Date', value: trip.startDate ? format(new Date(trip.startDate), 'dd-MMM-yyyy') : '--' },
           { label: 'LR Number', value: trip.lrNumber, mono: true, bold: true },
           { label: 'LR Date', value: trip.lrDate ? format(new Date(trip.lrDate), 'dd-MMM-yyyy') : '--' },
-          { label: 'FROM (Dispatch)', value: trip.from },
-          { label: 'To (Destination)', value: trip.unloadingPoint },
+          { label: 'FROM (Dispatch)', value: trip.from || trip.loadingPoint },
+          { label: 'Drop Point (TO)', value: trip.unloadingPoint || trip.destination },
           { label: 'Ship To Party', value: trip.shipToParty },
           { label: 'Vehicle Number', value: trip.vehicleNumber, bold: true },
-          { label: 'Manifest Weight', value: `${trip.quantity} MT`, bold: true, color: 'text-blue-900' },
+          { label: 'Manifest Weight', value: `${trip.assignedQtyInTrip} MT`, bold: true, color: 'text-blue-900' },
           { label: 'Transporter', value: trip.transporterName || '--' },
           { label: 'Freight Rate', value: trip.freightRate ? `₹ ${trip.freightRate}` : '--', color: 'text-emerald-600' },
           { label: 'Total Freight', value: `₹ ${Number(freightAmount).toLocaleString('en-IN')}`, bold: true, color: 'text-blue-900' },
