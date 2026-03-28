@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -59,7 +60,7 @@ const shipmentItemSchema = z.object({
 const formSchema = z.object({
   plantId: z.string().min(1, "Plant node is required."),
   vehicleType: z.enum(['Own Vehicle', 'Market Vehicle']).default('Market Vehicle'),
-  vehicleNumber: z.string().min(1, "Vehicle number required."),
+  vehicleNumber: z.string().min(1, "Vehicle number required.").transform(v => v.toUpperCase().replace(/\s/g, '')),
   driverName: z.string().min(3, "Pilot name required."),
   driverMobile: z.string().regex(/^\d{10}$/, "Must be 10 digits"),
   carrierId: z.string().min(1, "Carrier mandatory."),
