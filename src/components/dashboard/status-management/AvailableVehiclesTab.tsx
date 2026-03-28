@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Search, Truck, MapPin, Clock, History, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where, onSnapshot, Timestamp } from "firebase/firestore";
 import { format, differenceInHours } from 'date-fns';

@@ -51,8 +51,10 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
 
   const currentStatus = currentStatusRaw.toUpperCase();
 
+  // GATE-DEPARTURE RULE: Lockdown mission transitions if vehicle hasn't exited the gate
   const isLockedAtGate = useMemo(() => {
     if (!selectedTrip) return false;
+    // Statuses like "Assigned" or "Vehicle Assigned" are pre-departure nodes
     return currentStatus === 'ASSIGNED' || currentStatus === 'VEHICLE-ASSIGNED' || currentStatus === 'VEHICLE ASSIGNED';
   }, [selectedTrip, currentStatus]);
 
@@ -100,7 +102,7 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
             </div>
 
             <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-inner flex flex-col items-center min-w-[180px]">
-                <span className="text-[8px] font-black uppercase text-slate-400 tracking-[0.3em] mb-1">REGISTRY TIMESTAMP</span>
+                <span className="text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] mb-1">REGISTRY TIMESTAMP</span>
                 <p className="text-sm font-black text-blue-900 font-mono tracking-tighter">
                     {format(registryTime, 'dd-MM-yy')} <span className="text-slate-300 mx-1">|</span> {format(registryTime, 'HH:mm')}
                 </p>
