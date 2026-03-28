@@ -264,6 +264,10 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
         if (registryMatch) setRegistryMatch(null);
         return;
     }
+    
+    // Stabilize Registry Pulse: Don't trigger lookup if the node is already matched
+    if (registryMatch?.vehicleNumber === vNumber) return;
+
     const handler = setTimeout(() => performVehicleLookup(vNumber), 500);
     return () => clearTimeout(handler);
   }, [isOpen, vehicleNumber, registryMatch, performVehicleLookup]);
