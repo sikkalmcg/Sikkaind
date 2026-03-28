@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, isValid } from 'date-fns';
+import { format } from 'date-fns';
 import { 
   Dialog, 
   DialogContent, 
@@ -61,20 +61,10 @@ import {
   getDocs, 
   Timestamp,
 } from "firebase/firestore";
-import { normalizePlantId, generateRandomTripId } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { normalizePlantId, generateRandomTripId, cn } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import { useJsApiLoader } from '@react-google-maps/api';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-
-interface VehicleAssignModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  shipment: WithId<Shipment>;
-  trip?: WithId<Trip> | null;
-  onAssignmentComplete: () => void;
-  carriers: WithId<Carrier>[];
-}
 
 const VEHICLE_REGEX = /^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/;
 const MAPS_JS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
@@ -89,19 +79,17 @@ const formSchema = z.object({
     carrierId: z.string().min(1, 'Required'),
     assignQty: z.coerce.number().positive(),
     paymentTerm: z.enum(PaymentTerms).default('Paid'),
-    transporterName: z.string().optional().default(''),
-    transporterMobile: z.string().optional().default(''),
-    ownerName: z.string().optional().default(''),
-    ownerPan: z.string().optional().default(''),
+    transporterName: z.string().optional(),
+    transporterMobile: z.string().optional(),
+    ownerName: z.string().optional(),
+    ownerPan: z.string().optional(),
     freightRate: z.coerce.number().min(0).default(0),
     freightAmount: z.coerce.number().default(0),
     distance: z.coerce.number().default(0),
 }).superRefine((data, ctx) => {
     if (data.vehicleType === 'Market Vehicle') {
-        if (!data.transporterName?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Required for Market vehicle.', path: ['transporterName'] });
-        if (!data.ownerName?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Owner name required.', path: ['ownerName'] });
-        if (!data.transporterMobile?.trim() || !/^\d{10}$/.test(data.transporterMobile)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: '10-digit mobile required.', path: ['transporterMobile'] });
-        if (!data.freightRate || data.freightRate <= 0) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Rate required.', path: ['freightRate'] });
+        if (!data.transporterName) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Required', path: ['transporterName'] });
+        if (!data.freightRate || data.freightRate <= 0) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Rate required', path: ['freightRate'] });
     }
 });
 
@@ -126,333 +114,269 @@ function useDistanceCalc(isLoaded: boolean, isOpen: boolean, origin?: string, de
     return { dist, loading };
 }
 
-export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, onAssignmentComplete, carriers }: VehicleAssignModalProps) {
-  const { toast } = useToast();
-  const firestore = useFirestore();
-  const { user } = useUser();
-  const { showLoader, hideLoader } = useLoading();
-  const userProfileRef = useMemo(() => (firestore && user) ? doc(firestore, "users", user.uid) : null, [firestore, user]);
-  const { data: userProfile } = useDoc<SubUser>(userProfileRef);
-  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: MAPS_JS_KEY, libraries: ['places'] });
+export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, onAssignmentComplete, carriers }: any) {
+    const { toast } = useToast();
+    const firestore = useFirestore();
+    const { user } = useUser();
+    const { showLoader, hideLoader } = useLoading();
+    const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: MAPS_JS_KEY, libraries: ['places'] });
 
-  const [vehiclesAtGate, setVehiclesAtGate] = useState<any[]>([]);
-  const [isDataLoading, setIsDataLoading] = useState(true);
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [registryMatch, setRegistryMatch] = useState<WithId<Vehicle> | null>(null);
-  const [calculatingDistance, setCalculatingDistance] = useState(false);
-  const isEditing = !!trip;
-  const hasCalculatedDistance = useRef(false);
+    const [vehiclesAtGate, setVehiclesAtGate] = useState<any[]>([]);
+    const [isDataLoading, setIsDataLoading] = useState(false);
+    const [registryMatch, setRegistryMatch] = useState<Vehicle | null>(null);
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: { assignQty: 0, freightRate: 0, freightAmount: 0, vehicleType: 'Own Vehicle', paymentTerm: 'Paid' },
-  });
-  
-  const { setValue, handleSubmit, reset, control } = form;
-  const watched = useWatch({ control });
+    const form = useForm<FormValues>({
+        resolver: zodResolver(formSchema),
+        defaultValues: { assignQty: shipment.balanceQty, vehicleType: 'Own Vehicle', paymentTerm: 'Paid' }
+    });
 
-  useEffect(() => {
-    if (isOpen) {
-        reset({
-            isNewVehicle: false,
-            vehicleId: trip?.vehicleId || '',
-            vehicleNumber: trip?.vehicleNumber || '',
-            driverName: trip?.driverName || '',
-            driverMobile: trip?.driverMobile || '',
-            vehicleType: (trip?.vehicleType as any) || 'Own Vehicle',
-            carrierId: trip?.carrierId || shipment.carrierId || (carriers.length > 0 ? carriers[0].id : ''),
-            assignQty: trip?.assignedQtyInTrip ?? Number(Number(shipment.balanceQty).toFixed(3)),
-            paymentTerm: (trip as any)?.paymentTerm || 'Paid',
-            transporterName: trip?.transporterName || '',
-            transporterMobile: (trip as any)?.transporterMobile || '',
-            ownerName: (trip as any)?.ownerName || '',
-            ownerPan: (trip as any)?.ownerPan || '',
-            freightRate: (trip as any)?.freightRate || 0,
-            freightAmount: (trip as any)?.freightAmount || 0,
-            distance: trip?.distance || 0
-        });
-        hasCalculatedDistance.current = !!trip?.distance;
-    }
-  }, [isOpen, trip, shipment, carriers, reset]);
+    const { setValue, handleSubmit, reset, control } = form;
+    const watchedFields = useWatch({ control });
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+    const { dist, loading: distLoading } = useDistanceCalc(isLoaded, isOpen, shipment.loadingPoint, shipment.unloadingPoint);
+    
+    useEffect(() => { 
+        if (dist > 0) setValue('distance', dist); 
+    }, [dist, setValue]);
 
-  useEffect(() => {
-    if (watched.assignQty && watched.freightRate) {
-        setValue('freightAmount', Number(((watched.assignQty || 0) * (watched.freightRate || 0)).toFixed(2)));
-    }
-  }, [watched.assignQty, watched.freightRate, setValue]);
+    useEffect(() => {
+        const amt = (watchedFields.assignQty || 0) * (watchedFields.freightRate || 0);
+        setValue('freightAmount', Number(amt.toFixed(2)));
+    }, [watchedFields.assignQty, watchedFields.freightRate, setValue]);
 
-  const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
-  const { data: plants } = useCollection<Plant>(plantsQuery);
+    useEffect(() => {
+        if (isOpen) {
+            reset({
+                ...trip,
+                isNewVehicle: false,
+                vehicleId: trip?.vehicleId || '',
+                assignQty: trip?.assignedQtyInTrip ?? shipment.balanceQty,
+                carrierId: trip?.carrierId || shipment.carrierId || (carriers && carriers.length > 0 ? carriers[0]?.id : ''),
+            });
+        }
+    }, [isOpen, trip, reset, shipment, carriers]);
 
-  const plantNameDisplay = useMemo(() => {
-    if (!plants) return shipment.originPlantId;
-    return plants.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(shipment.originPlantId).toLowerCase())?.name || shipment.originPlantId;
-  }, [plants, shipment.originPlantId]);
+    useEffect(() => {
+        if (!isOpen || !firestore) return;
+        const fetchGate = async () => {
+            setIsDataLoading(true);
+            try {
+                const plantId = normalizePlantId(shipment.originPlantId);
+                const q = query(collection(firestore, 'vehicleEntries'), where('plantId', '==', plantId), where('status', '==', 'IN'));
+                const snap = await getDocs(q);
+                setVehiclesAtGate(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            } finally {
+                setIsDataLoading(false);
+            }
+        };
+        fetchGate();
+    }, [isOpen, firestore, shipment.originPlantId]);
 
-  const destinationCityDisplay = useMemo(() => {
-    return shipment.destination || shipment.unloadingPoint?.split(',')[0].trim() || '--';
-  }, [shipment.destination, shipment.unloadingPoint]);
-
-  useEffect(() => {
-    if (!isOpen || !firestore || !shipment.originPlantId) return;
-    const fetchRegistryData = async () => {
-        setIsDataLoading(true);
+    const onSubmit = async (values: FormValues) => {
+        if (!firestore || !user) return;
+        showLoader();
         try {
-            const targetPlantId = normalizePlantId(shipment.originPlantId);
-            const qVeh = query(collection(firestore, 'vehicleEntries'), where('plantId', '==', targetPlantId), where('status', '==', 'IN'));
-            const vehSnap = await getDocs(qVeh);
-            const entries = vehSnap.docs.map(d => ({ id: d.id, ...d.data() } as WithId<VehicleEntryExit>));
-            const available = entries.filter(e => (isEditing && e.vehicleNumber === trip?.vehicleNumber) || (e.purpose === 'Loading' && ['Available', 'IN', 'Assigned'].includes(e.remarks || 'IN')));
-            setVehiclesAtGate(available);
-        } catch (error) {
-            console.error("Registry Fetch Error:", error);
+            await runTransaction(firestore, async (transaction) => {
+                const plantId = normalizePlantId(shipment.originPlantId);
+                const docId = trip?.id || doc(collection(firestore, 'trips')).id;
+                const tripData = {
+                    ...values,
+                    tripId: trip?.tripId || generateRandomTripId(),
+                    originPlantId: plantId,
+                    lastUpdated: serverTimestamp(),
+                    userId: user.uid,
+                    tripStatus: 'Assigned'
+                };
+
+                const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipment.id);
+                const diff = trip ? (values.assignQty - trip.assignedQtyInTrip) : values.assignQty;
+                transaction.update(shipmentRef, { 
+                    assignedQty: (shipment.assignedQty || 0) + diff,
+                    balanceQty: shipment.quantity - ((shipment.assignedQty || 0) + diff),
+                    currentStatusId: (shipment.quantity - ((shipment.assignedQty || 0) + diff)) > 0 ? 'Partly Vehicle Assigned' : 'Assigned'
+                });
+
+                transaction.set(doc(firestore, `plants/${plantId}/trips`, docId), tripData);
+                transaction.set(doc(firestore, 'trips', docId), tripData);
+            });
+            toast({ title: 'Success', description: 'Mission Allocation Finalized.' });
+            onAssignmentComplete();
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Error', description: e.message });
         } finally {
-            setIsDataLoading(false);
+            hideLoader();
         }
     };
-    fetchRegistryData();
-  }, [isOpen, firestore, shipment.originPlantId, isEditing, trip?.vehicleNumber]);
 
-  useEffect(() => {
-    if (!isLoaded || !isOpen || hasCalculatedDistance.current || !shipment.loadingPoint || !shipment.unloadingPoint) return;
-    const calculate = () => {
-      setCalculatingDistance(true);
-      try {
-        const directionsService = new google.maps.DirectionsService();
-        directionsService.route({ origin: shipment.loadingPoint!, destination: shipment.unloadingPoint!, travelMode: google.maps.TravelMode.DRIVING }, (response, status) => {
-            setCalculatingDistance(false);
-            if (status === 'OK' && response) {
-                const distKm = (response.routes[0].legs[0].distance?.value || 0) / 1000;
-                setValue('distance', Number(distKm.toFixed(2)));
-                hasCalculatedDistance.current = true;
-            }
-        });
-      } catch (e) { setCalculatingDistance(false); }
-    };
-    calculate();
-  }, [isLoaded, isOpen, shipment.loadingPoint, shipment.unloadingPoint, setValue]);
+    const carrierOptions = useMemo(() => (carriers || []).map((c: any) => ({ value: c.id, label: c.name })), [carriers]);
 
-  const performVehicleLookup = useCallback(async (vNumber: string) => {
-    if (!firestore || vNumber.length < 6) return;
-    try {
-        const q = query(collection(firestore, "vehicles"), where("vehicleNumber", "==", vNumber));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-            const vData = { id: snap.docs[0].id, ...snap.docs[0].data() } as WithId<Vehicle>;
-            setRegistryMatch(vData);
-            setValue('vehicleType', (vData.vehicleType as any) || 'Own Vehicle', { shouldValidate: true });
-            if (vData.driverName) setValue('driverName', vData.driverName, { shouldValidate: true });
-            if (vData.driverMobile) setValue('driverMobile', vData.driverMobile, { shouldValidate: true });
-        } else { setRegistryMatch(null); }
-    } catch (e) { console.error("Lookup Failure"); }
-  }, [firestore, setValue]);
+    const balanceQty = useMemo(() => {
+        const total = trip ? (shipment.balanceQty + (trip.assignedQtyInTrip || 0)) : shipment.balanceQty;
+        return Number(Math.max(0, total - (watchedFields.assignQty || 0)).toFixed(3));
+    }, [shipment.balanceQty, watchedFields.assignQty, trip]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const vNumber = watched.vehicleNumber?.toUpperCase().replace(/\s/g, '') || '';
-    if (vNumber.length < 6) { if (registryMatch) setRegistryMatch(null); return; }
-    const handler = setTimeout(() => performVehicleLookup(vNumber), 1000);
-    return () => clearTimeout(handler);
-  }, [isOpen, watched.vehicleNumber, performVehicleLookup, registryMatch]);
+    const destinationCity = useMemo(() => {
+        return shipment.destination || shipment.unloadingPoint?.split(',')[0].trim() || 'N/A';
+    }, [shipment.destination, shipment.unloadingPoint]);
 
-  useEffect(() => {
-    if (!isOpen || watched.isNewVehicle || !watched.vehicleId) return;
-    const found = vehiclesAtGate.find(v => v.id === watched.vehicleId);
-    if (found && found.vehicleNumber !== watched.vehicleNumber) {
-        setValue('vehicleNumber', found.vehicleNumber, { shouldValidate: true });
-        setValue('driverName', found.driverName || '', { shouldValidate: true });
-        setValue('driverMobile', found.driverMobile || '', { shouldValidate: true });
-    }
-  }, [isOpen, watched.isNewVehicle, watched.vehicleId, vehiclesAtGate, setValue, watched.vehicleNumber]);
-
-  const balanceQty = useMemo(() => {
-    const total = isEditing ? (shipment.balanceQty + (trip.assignedQtyInTrip || 0)) : shipment.balanceQty;
-    return Number(Math.max(0, total - (watched.assignQty || 0)).toFixed(3));
-  }, [shipment.balanceQty, watched.assignQty, isEditing, trip]);
-
-  const onSubmit = async (values: FormValues) => {
-    if (!firestore || !user) return;
-    showLoader();
-    try {
-        await runTransaction(firestore, async (transaction) => {
-            const plantId = normalizePlantId(shipment.originPlantId);
-            const ts = serverTimestamp();
-            const currentName = userProfile?.fullName || user.displayName || user.email?.split('@')[0] || 'System Operator';
-            const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipment.id);
-            const shipmentSnap = await transaction.get(shipmentRef);
-            if (!shipmentSnap.exists()) throw new Error("Shipment registry error.");
-            const currentShipmentData = shipmentSnap.data() as Shipment;
-            let vehicleRegId = registryMatch?.id;
-            if (values.isNewVehicle && !registryMatch) {
-                const newVehRef = doc(collection(firestore, 'vehicles'));
-                transaction.set(newVehRef, { vehicleNumber: values.vehicleNumber, driverName: values.driverName, driverMobile: values.driverMobile, plantId, vehicleType: values.vehicleType, createdAt: ts });
-                vehicleRegId = newVehRef.id;
-            }
-            const docId = isEditing ? trip!.id : doc(collection(firestore, 'trips')).id;
-            const tripRef = doc(firestore, `plants/${plantId}/trips`, docId);
-            const globalTripRef = doc(firestore, 'trips', docId);
-            const tripData: any = {
-                tripId: isEditing ? trip!.tripId : generateRandomTripId(),
-                vehicleId: vehicleRegId || null,
-                vehicleNumber: values.vehicleNumber, driverName: values.driverName || '', driverMobile: values.driverMobile || '',
-                vehicleType: values.vehicleType, carrierId: values.carrierId, assignedQtyInTrip: values.assignQty,
-                originPlantId: plantId, destination: shipment.unloadingPoint || 'N/A', shipmentIds: [shipment.id],
-                tripStatus: 'Assigned', startDate: isEditing ? trip!.startDate : new Date(),
-                lastUpdated: ts, userName: currentName, userId: user.uid, shipToParty: shipment.shipToParty || '',
-                transporterName: values.transporterName, transporterMobile: values.transporterMobile,
-                ownerName: values.ownerName, ownerPan: values.ownerPan, freightRate: values.freightRate,
-                freightAmount: values.freightAmount, distance: values.distance || 0, paymentTerm: values.paymentTerm
-            };
-            if(values.vehicleId && !values.isNewVehicle) transaction.update(doc(firestore, 'vehicleEntries', values.vehicleId), { remarks: 'Under Process', tripId: docId });
-            const diff = isEditing ? values.assignQty - trip!.assignedQtyInTrip : values.assignQty;
-            const newAssignedTotal = (currentShipmentData.assignedQty || 0) + diff;
-            transaction.update(shipmentRef, { assignedQty: newAssignedTotal, balanceQty: currentShipmentData.quantity - newAssignedTotal, currentStatusId: (currentShipmentData.quantity - newAssignedTotal) > 0 ? 'Partly Vehicle Assigned' : 'Assigned' });
-            transaction.set(tripRef, tripData);
-            transaction.set(globalTripRef, tripData);
-        });
-        toast({ title: 'Success', description: 'Mission Allocation Finalized.' });
-        onAssignmentComplete();
-    } catch (e: any) { toast({ variant: 'destructive', title: 'Registry Error', description: e.message }); } finally { hideLoader(); }
-  };
-  
-  const carrierOptions = useMemo(() => carriers.map(c => ({ value: c.id, label: c.name })), [carriers]);
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-3xl bg-slate-50 overflow-hidden rounded-3xl">
-        <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 flex flex-row items-center justify-between pr-12 rounded-t-3xl">
-          <div className="flex items-center gap-4">
-            <div className="p-2 bg-blue-600 rounded-xl shadow-lg"><Truck className="h-6 w-6" /></div>
-            <div>
-                <DialogTitle className="text-xl font-black uppercase tracking-tight italic">SIKKA LMC | Allocation Board</DialogTitle>
-                <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-1">Registry Terminal: Assign Fleet</DialogDescription>
-            </div>
-          </div>
-          <Badge variant="outline" className="bg-white/5 border-white/10 text-blue-400 font-mono text-sm px-4 py-1">{format(currentTime, 'HH:mm:ss')}</Badge>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-y-auto p-8 space-y-10">
-          <Card className="p-8 border-none shadow-xl rounded-[2.5rem] bg-white relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-8 opacity-[0.03] rotate-12 transition-transform duration-1000 group-hover:scale-110"><Factory size={160} /></div>
-            <div className="flex items-center gap-4 mb-8">
-                <div className="p-2 bg-blue-50 text-blue-700 rounded-xl border border-blue-100"><ShieldCheck className="h-5 w-5" /></div>
-                <h3 className="text-sm font-black uppercase tracking-wider text-slate-600">Mission Context Handshake</h3>
-                <Badge className="bg-blue-900 text-white font-black text-[10px] px-4 h-6">{shipment.shipmentId}</Badge>
-            </div>
-            <div className="grid grid-cols-6 gap-x-10 gap-y-8 text-xs relative z-10">
-                <div className="flex flex-col gap-1"><span className="font-black text-slate-400 text-[10px] uppercase flex items-center gap-2"><Factory size={12}/>Plant</span><span className="font-bold uppercase">{plantNameDisplay}</span></div>
-                <div className="flex flex-col gap-1"><span className="font-black text-slate-400 text-[10px] uppercase flex items-center gap-2"><UserCircle size={12}/>Consignor</span><span className="font-bold uppercase">{shipment.consignor}</span></div>
-                <div className="flex flex-col gap-1"><span className="font-black text-slate-400 text-[10px] uppercase flex items-center gap-2"><MapPin size={12}/>Lifting Site</span><span className="font-bold uppercase">{shipment.loadingPoint}</span></div>
-                <div className="flex flex-col gap-1"><span className="font-black text-slate-400 text-[10px] uppercase flex items-center gap-2"><UserCircle size={12}/>Consignee</span><span className="font-bold uppercase">{shipment.billToParty}</span></div>
-                <div className="flex flex-col gap-1 col-span-2"><span className="font-black text-slate-400 text-[10px] uppercase flex items-center gap-2"><Truck size={12}/>Drop Point (TO)</span><span className="font-bold uppercase text-blue-900">{destinationCityDisplay}</span></div>
-            </div>
-          </Card>
-
-          <Form {...form}>
-            <form className="space-y-10" onSubmit={handleSubmit(onSubmit)}>
-                <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
-                    <div className="bg-slate-50 border-b p-8 flex items-center justify-between">
-                        <div className="flex items-center gap-4"><div className="p-2 bg-white rounded-lg shadow-sm border"><Truck className="h-5 w-5 text-blue-900"/></div><h3 className="text-sm font-black uppercase tracking-widest text-slate-700">Fleet Allocation Registry</h3></div>
-                        <RadioGroup className="flex bg-white p-1.5 rounded-2xl border shadow-inner" value={watched.isNewVehicle ? 'new' : 'existing'} onValueChange={v => setValue('isNewVehicle', v === 'new')}>
-                            <div className={cn("flex items-center space-x-2 px-4 py-2 rounded-xl transition-all", !watched.isNewVehicle ? "bg-blue-900 text-white" : "text-slate-400")}><RadioGroupItem value="existing" id="r1" /><label htmlFor="r1" className="font-black text-[10px] uppercase tracking-widest cursor-pointer">From Gate</label></div>
-                            <div className={cn("flex items-center space-x-2 px-4 py-2 rounded-xl transition-all", watched.isNewVehicle ? "bg-blue-900 text-white" : "text-slate-400")}><RadioGroupItem value="new" id="r2" /><label htmlFor="r2" className="font-black text-[10px] uppercase tracking-widest cursor-pointer">Direct Entry</label></div>
-                        </RadioGroup>
-                    </div>
-                    <div className="p-10 space-y-10">
-                        <Table>
-                            <TableHeader><TableRow><TableHead className="w-[250px]">Vehicle No</TableHead><TableHead>Pilot Name</TableHead><TableHead>Mobile</TableHead><TableHead className="w-[250px]">Carrier</TableHead><TableHead>Category</TableHead><TableHead>Payment Term</TableHead><TableHead className="text-right">Weight (MT)</TableHead></TableRow></TableHeader>
-                            <TableBody><TableRow className="align-top">
-                                <TableCell className="py-4">{watched.isNewVehicle ? <FormField control={control} name="vehicleNumber" render={({ field }) => (<Input {...field} placeholder="XX00XX0000" className="h-11 rounded-xl font-black text-blue-900 uppercase" />)} /> : <FormField control={control} name="vehicleId" render={({ field }) => (
-                                    <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-11 font-black"><SelectValue placeholder="Pick Vehicle" /></SelectTrigger></FormControl><SelectContent>{isDataLoading ? <div className="p-4 text-center"><Loader2 className="animate-spin h-4 w-4 mx-auto"/></div> : vehiclesAtGate.map(v => <SelectItem key={v.id} value={v.id} className="font-black">{v.vehicleNumber}</SelectItem>)}</SelectContent></Select>
-                                )} /></TableCell>
-                                <TableCell className="py-4"><FormField control={control} name="driverName" render={({ field }) => (<Input {...field} className="h-11 font-bold" />)} /></TableCell>
-                                <TableCell className="py-4"><FormField control={control} name="driverMobile" render={({ field }) => (<Input {...field} maxLength={10} className="h-11 font-mono font-black" />)} /></TableCell>
-                                <TableCell>
-                                    <FormField control={control} name="carrierId" render={({ field }) => (
-                                        <SearchableSelect options={carrierOptions} onChange={field.onChange} value={field.value} placeholder="Select carrier..." searchPlaceholder="Search carriers..." emptyPlaceholder="No carriers found." />
-                                    )} />
-                                </TableCell>
-                                <TableCell>
-                                    <FormField control={control} name="vehicleType" render={({ field }) => (
-                                        <Select onValueChange={field.onChange} value={field.value} disabled={!!registryMatch}>
-                                            <FormControl><SelectTrigger className="relative h-11"><SelectValue placeholder="Select Type"/>{!!registryMatch && <Lock size={12} className="absolute right-2 top-1/2 -translate-y-1/2"/>}</SelectTrigger></FormControl>
-                                            <SelectContent className="rounded-xl">{VehicleTypes.map(t => <SelectItem key={t} value={t} className="font-bold py-2">{t}</SelectItem>)}</SelectContent>
-                                        </Select>
-                                    )} />
-                                </TableCell>
-                                <TableCell>
-                                    <FormField control={control} name="paymentTerm" render={({ field }) => (
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl><SelectTrigger className="h-11 font-bold"><SelectValue /></SelectTrigger></FormControl>
-                                            <SelectContent className="rounded-xl">{PaymentTerms.map(t => <SelectItem key={t} value={t} className="font-bold py-2">{t}</SelectItem>)}</SelectContent>
-                                        </Select>
-                                    )} />
-                                </TableCell>
-                                <TableCell className="py-4"><FormField control={control} name="assignQty" render={({ field }) => (<Input type="number" step="0.001" className="h-11 font-black text-right text-blue-900" {...field} />)} /></TableCell>
-                            </TableRow></TableBody>
-                        </Table>
-                        
-                        {watched.vehicleType === 'Market Vehicle' && (
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 p-8 bg-blue-50/30 rounded-[2rem] border border-blue-100 animate-in slide-in-from-top-4">
-                                <FormField name="transporterName" control={control} render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-500">Transporter Node *</FormLabel><Input {...field} className="h-11 bg-white font-bold" /></FormItem>)} />
-                                <FormField name="transporterMobile" control={control} render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-500">Transporter Mobile *</FormLabel><Input {...field} maxLength={10} className="h-11 bg-white font-mono" /></FormItem>)} />
-                                <FormField name="ownerName" control={control} render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-500">Owner Name *</FormLabel><Input {...field} className="h-11 bg-white font-bold" /></FormItem>)} />
-                                <FormField name="ownerPan" control={control} render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-500">Owner PAN *</FormLabel><Input {...field} className="h-11 bg-white font-mono uppercase" /></FormItem>)} />
-                                <FormField name="freightRate" control={control} render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-emerald-600">Freight Rate (MT) *</FormLabel><div className="relative"><Input type="number" {...field} className="h-11 bg-white font-black text-emerald-700 pl-8" /><IndianRupee className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-emerald-400" /></div></FormItem>)} />
-                                <div className="space-y-1.5 pt-6">
-                                    <p className="text-[10px] font-black uppercase text-slate-400">Calculated Freight Amount</p>
-                                    <div className="h-11 px-4 flex items-center bg-white border rounded-xl font-black text-blue-900 shadow-sm">₹ {watched.freightAmount?.toLocaleString()}</div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </Card>
-                
-                <Card className="p-8 border-none shadow-xl rounded-[2.5rem] bg-white group">
-                    <div className="flex items-center gap-10">
-                        <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-black uppercase text-slate-400">Distance Node</span>
-                            <div className="flex items-center gap-3">
-                                <h4 className="text-5xl font-black text-blue-900 tracking-tighter">
-                                    {calculatingDistance ? <Loader2 className="h-8 w-8 animate-spin" /> : (watched.distance || '--')}
-                                </h4>
-                                <span className="text-xl font-black text-slate-300">KM</span>
-                            </div>
-                        </div>
-                        <div className="h-16 w-px bg-slate-100 hidden md:block" />
-                        <div className="max-w-md p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-start gap-4">
-                            <AlertCircle className="h-6 w-6 text-blue-600 shrink-0 mt-1" />
-                            <p className="text-[9px] font-bold text-slate-500 uppercase leading-normal">Distance node synchronized with Google Maps routing protocol.</p>
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="max-w-[1400px] w-[95vw] h-[90vh] flex flex-col p-0 border-none bg-slate-50 rounded-3xl overflow-hidden">
+                <div className="bg-slate-900 text-white p-6 flex justify-between items-center rounded-t-3xl">
+                    <div className="flex items-center gap-4">
+                        <div className="p-2 bg-blue-600 rounded-xl"><Truck className="h-6 w-6" /></div>
+                        <div>
+                            <DialogTitle className="text-xl font-black italic uppercase">SIKKA LMC | ALLOCATION</DialogTitle>
+                            <DialogDescription className="text-blue-300 text-[10px] uppercase tracking-widest">Registry Terminal</DialogDescription>
                         </div>
                     </div>
-                </Card>
-            </form>
-          </Form>
-        </div>
-
-        <DialogFooter className="p-8 bg-slate-900 text-white shrink-0 flex items-center justify-between border-t border-white/5 rounded-b-3xl">
-            <div className="flex items-center gap-8">
-                <div className="flex flex-col gap-1">
-                    <span className="text-[9px] font-black uppercase text-slate-500">Order Balance</span>
-                    <div className="flex items-center gap-3">
-                        <Calculator size={20} className="text-blue-400"/>
-                        <span className={cn("text-3xl font-black tracking-tighter", balanceQty > 0 ? 'text-orange-400' : 'text-emerald-400')}>
-                            {balanceQty.toFixed(3)} MT
-                        </span>
-                    </div>
+                    <Badge variant="outline" className="text-blue-400 font-mono">{format(new Date(), 'HH:mm:ss')}</Badge>
                 </div>
+
+                <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                    <Card className="p-6 grid grid-cols-6 gap-6 bg-white border-none shadow-sm rounded-2xl">
+                        <ContextItem icon={<Factory size={14}/>} label="Plant" value={shipment.originPlantId} />
+                        <ContextItem icon={<UserCircle size={14}/>} label="Consignor" value={shipment.consignor} />
+                        <ContextItem icon={<MapPin size={14}/>} label="Site" value={shipment.loadingPoint} />
+                        <ContextItem icon={<UserCircle size={14}/>} label="Consignee" value={shipment.billToParty} />
+                        <ContextItem icon={<Truck size={14}/>} label="Drop Point (TO)" value={destinationCity} className="col-span-2 text-blue-800" />
+                    </Card>
+
+                    <Form {...form}>
+                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+                            <Card className="bg-white border-none shadow-sm rounded-2xl overflow-hidden">
+                                <div className="p-6 border-b bg-slate-50 flex justify-between items-center">
+                                    <h3 className="font-black text-xs uppercase tracking-widest text-slate-700">Fleet Allocation Registry</h3>
+                                    <VehicleToggle control={control} setValue={setValue} isNew={watchedFields.isNewVehicle} />
+                                </div>
+                                <div className="p-6">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Vehicle No</TableHead>
+                                                <TableHead>Driver Name</TableHead>
+                                                <TableHead>Mobile</TableHead>
+                                                <TableHead>Carrier</TableHead>
+                                                <TableHead>Type</TableHead>
+                                                <TableHead className="text-right">Qty (MT)</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            <TableRow>
+                                                <TableCell>
+                                                    {watchedFields.isNewVehicle ? (
+                                                        <FormField name="vehicleNumber" control={control} render={({field}) => <Input {...field} className="h-10 uppercase font-black" />} />
+                                                    ) : (
+                                                        <FormField name="vehicleId" control={control} render={({field}) => (
+                                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                                <SelectTrigger className="h-10"><SelectValue placeholder="Select Vehicle" /></SelectTrigger>
+                                                                <SelectContent>{vehiclesAtGate.map(v => <SelectItem key={v.id} value={v.id}>{v.vehicleNumber}</SelectItem>)}</SelectContent>
+                                                            </Select>
+                                                        )} />
+                                                    )}
+                                                </TableCell>
+                                                <TableCell><FormField name="driverName" control={control} render={({field}) => <Input {...field} className="h-10" />} /></TableCell>
+                                                <TableCell><FormField name="driverMobile" control={control} render={({field}) => <Input {...field} maxLength={10} className="h-10 font-mono" />} /></TableCell>
+                                                <TableCell>
+                                                    <FormField name="carrierId" control={control} render={({field}) => (
+                                                        <SearchableSelect options={carrierOptions} value={field.value} onChange={field.onChange} />
+                                                    )} />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <FormField name="vehicleType" control={control} render={({field}) => (
+                                                        <Select onValueChange={field.onChange} value={field.value}>
+                                                            <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                                                            <SelectContent>{VehicleTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                                                        </Select>
+                                                    )} />
+                                                </TableCell>
+                                                <TableCell><FormField name="assignQty" control={control} render={({field}) => <Input {...field} type="number" className="h-10 text-right font-black" />} /></TableCell>
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </Card>
+
+                            {watchedFields.vehicleType === 'Market Vehicle' && (
+                                <MarketFields control={control} freightAmount={watchedFields.freightAmount} />
+                            )}
+
+                            <Card className="p-8 border-none shadow-sm rounded-[2.5rem] bg-white group">
+                                <div className="flex items-center gap-10">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[10px] font-black uppercase text-slate-400">Distance Node</span>
+                                        <div className="flex items-center gap-3">
+                                            <h4 className="text-5xl font-black text-blue-900 tracking-tighter">
+                                                {distLoading ? <Loader2 className="h-8 w-8 animate-spin" /> : (watchedFields.distance || '--')}
+                                            </h4>
+                                            <span className="text-xl font-black text-slate-300">KM</span>
+                                        </div>
+                                    </div>
+                                    <div className="h-16 w-px bg-slate-100 hidden md:block" />
+                                    <div className="max-w-md p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-start gap-4">
+                                        <AlertCircle className="h-6 w-6 text-blue-600 shrink-0 mt-1" />
+                                        <p className="text-[9px] font-bold text-slate-500 uppercase leading-normal">Distance node synchronized with Google Maps routing protocol.</p>
+                                    </div>
+                                </div>
+                            </Card>
+                        </form>
+                    </Form>
+                </div>
+
+                <DialogFooter className="p-8 bg-slate-900 flex justify-between items-center rounded-b-3xl shrink-0">
+                    <div className="flex items-center gap-8">
+                        <div className="flex items-center gap-4">
+                            <Calculator className="text-blue-400" />
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-slate-500 uppercase font-black">Balance Remaining</span>
+                                <span className={cn("text-2xl font-black", balanceQty > 0 ? "text-orange-400" : "text-emerald-400")}>{balanceQty.toFixed(3)} MT</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex gap-4">
+                        <Button variant="ghost" onClick={onClose} className="text-slate-400 font-bold uppercase">Cancel</Button>
+                        <Button onClick={handleSubmit(onSubmit)} disabled={form.formState.isSubmitting} className="bg-blue-600 hover:bg-blue-700 px-12 h-12 rounded-xl font-black uppercase">
+                            {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Establish Mission Node"}
+                        </Button>
+                    </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function ContextItem({ icon, label, value, className }: any) {
+    return (
+        <div className={cn("flex flex-col gap-1", className)}>
+            <span className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-1">{icon} {label}</span>
+            <span className="text-xs font-bold uppercase truncate">{value || '--'}</span>
+        </div>
+    );
+}
+
+function VehicleToggle({ control, setValue, isNew }: any) {
+    return (
+        <RadioGroup value={isNew ? 'new' : 'gate'} onValueChange={(v) => setValue('isNewVehicle', v === 'new')} className="flex bg-white p-1.5 rounded-2xl border shadow-inner">
+            <div className={cn("px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center gap-2", !isNew ? "bg-slate-900 text-white" : "text-slate-400")}>
+                <RadioGroupItem value="gate" id="gate" className="sr-only" /><label htmlFor="gate">At Gate</label>
             </div>
-            <div className="flex gap-4">
-                <Button variant="ghost" onClick={onClose} className="font-black text-slate-400 hover:text-white uppercase text-[11px] tracking-widest px-8">Discard</Button>
-                <Button onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl border-none transition-all active:scale-95 border-none">Establish mission node</Button>
+            <div className={cn("px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center gap-2", isNew ? "bg-slate-900 text-white" : "text-slate-400")}>
+                <RadioGroupItem value="new" id="new" className="sr-only" /><label htmlFor="new">Direct</label>
             </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+        </RadioGroup>
+    );
+}
+
+function MarketFields({ control, freightAmount }: any) {
+    return (
+        <Card className="p-6 bg-blue-50/50 border-blue-100 rounded-2xl grid grid-cols-4 gap-6 animate-in fade-in slide-in-from-top-2">
+            <FormField name="transporterName" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black">Transporter</FormLabel><Input {...field} className="bg-white h-10" /></FormItem>} />
+            <FormField name="ownerName" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black">Owner Name</FormLabel><Input {...field} className="bg-white h-10" /></FormItem>} />
+            <FormField name="freightRate" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black">Rate (MT)</FormLabel><div className="relative"><Input {...field} type="number" className="bg-white h-10 pl-8 font-black" /><IndianRupee className="absolute left-2.5 top-3 h-4 w-4 text-slate-400"/></div></FormItem>} />
+            <div className="flex flex-col justify-end">
+                <span className="text-[10px] font-black uppercase text-slate-400 mb-1">Total Freight</span>
+                <div className="h-10 bg-white border rounded-lg flex items-center px-4 font-black text-blue-900">₹ {freightAmount?.toLocaleString()}</div>
+            </div>
+        </Card>
+    );
 }

@@ -252,9 +252,9 @@ export default function VehicleIn({ upcomingVehicleData }: VehicleInProps) {
                                 fields.map((field, idx) => (
                                     <TableRow key={field.id} className="h-14 border-b last:border-0 hover:bg-blue-50/10 transition-colors">
                                         <TableCell className="px-8 font-black text-blue-700 font-mono">{field.orderId}</TableCell>
-                                        <TableCell className="px-4 text-center font-bold text-slate-500">{field.balanceQty} MT</TableCell>
+                                        <TableCell className="px-4 text-center font-bold text-slate-900">{field.balanceQty} MT</TableCell>
                                         <TableCell className="px-4 text-right">
-                                            <Button variant="ghost" size="icon" onClick={() => remove(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" onClick={() => remove(idx)} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></Button>
                                         </TableCell>
                                     </TableRow>
                                 ))
