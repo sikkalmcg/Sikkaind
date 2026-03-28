@@ -347,7 +347,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
     },
   });
 
-  const { watch, setValue, control, handleSubmit, register, formState: { errors } } = form;
+  const { watch, setValue, control, handleSubmit, reset, formState: { errors } } = form;
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
   
   const isSameAsBillTo = watch('isSameAsBillTo');
@@ -581,7 +581,6 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                 itemDescription: groupDescriptions(Array.from(g.descriptions))
             }));
 
-            // REGISTRY RULE: Orders created here are always 'pending' until a vehicle is assigned via Open Order node.
             const docData: any = {
                 ...values,
                 items: finalItemsManifest,
@@ -722,7 +721,7 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                 const shipmentData = {
                     ...header,
                     shipmentId,
-                    currentStatusId: 'pending', // ALWAYS PENDING AT CREATION
+                    currentStatusId: 'pending', 
                     creationDate: new Date(),
                     assignedQty: 0,
                     balanceQty: totalWeight,
@@ -1068,11 +1067,11 @@ export default function CreatePlan({ onShipmentCreated }: CreatePlanProps) {
                             <Table>
                                 <TableHeader className="bg-slate-900">
                                     <TableRow className="hover:bg-transparent border-none h-12">
-                                        <TableHead className="text-[10px] font-black uppercase text-white px-6 w-40">Invoice Number *</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase text-white px-4 w-40">E-Waybill No</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase text-white px-4">Item Description *</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase text-white px-4 text-center">Package *</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase text-white px-6 text-right w-32">Weight (Opt)</TableHead>
+                                        <TableHead className="text-white text-[10px] font-black uppercase px-6 w-40">Invoice Number *</TableHead>
+                                        <TableHead className="text-white text-[10px] font-black uppercase px-4 w-40">E-Waybill No</TableHead>
+                                        <TableHead className="text-white text-[10px] font-black uppercase px-4">Item Description *</TableHead>
+                                        <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center">Package *</TableHead>
+                                        <TableHead className="text-white text-[10px] font-black uppercase text-white px-6 text-right w-32">Weight (Opt)</TableHead>
                                         <TableHead className="w-16"></TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -1252,7 +1251,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Type to filter registry handbook..." 
                             value={search} 
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-12 h-12 rounded-2xl bg-slate-50 border-slate-200 font-bold focus-visible:ring-blue-900 shadow-inner"
                             autoFocus
                         />
