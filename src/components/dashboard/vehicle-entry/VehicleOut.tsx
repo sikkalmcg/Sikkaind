@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -57,12 +58,13 @@ export default function VehicleOut() {
   );
   const { data: allPlants, isLoading: isLoadingPlants } = useCollection<Plant>(plantsQuery);
 
-  const userProfileRef = useMemo(() => (firestore && user) ? doc(firestore, "users", user.email!) : null, [firestore, user]);
+  const userProfileRef = useMemo(() => (firestore && user?.email) ? doc(firestore, "users", user.email) : null, [firestore, user]);
   const { data: profile } = useDoc<SubUser>(userProfileRef);
 
   const authorizedPlants = useMemo(() => {
     if (!allPlants) return [];
-    if (user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com') return allPlants;
+    const isAdmin = user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
+    if (isAdmin) return allPlants;
     const authIds = profile?.plantIds || [];
     return allPlants.filter(p => authIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id)));
   }, [allPlants, profile, user]);
@@ -197,7 +199,9 @@ export default function VehicleOut() {
                             <FormItem>
                                 <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">PLANT NODE *</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl><SelectTrigger className="h-12 bg-white rounded-xl font-black text-slate-700 shadow-sm border-slate-200"><SelectValue placeholder="Pick node" /></SelectTrigger></FormControl>
+                                    <FormControl>
+                                        <SelectTrigger className="h-12 bg-white rounded-xl font-black text-slate-700 shadow-sm border-slate-200"><SelectValue placeholder="Pick node" /></SelectTrigger>
+                                    </FormControl>
                                     <SelectContent className="rounded-xl">{authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic">{p.name}</SelectItem>)}</SelectContent>
                                 </Select>
                             </FormItem>

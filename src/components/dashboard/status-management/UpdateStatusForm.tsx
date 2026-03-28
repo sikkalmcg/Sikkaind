@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -34,11 +35,6 @@ interface UpdateStatusFormProps {
   onStatusUpdate: (id: string, status: string, location: string, remarks?: string, isTrip?: boolean) => Promise<void>;
 }
 
-/**
- * @fileOverview Manual Transition Node (Status Control Form).
- * High-fidelity implementation matching user template.
- * Logic: Transitions dependent on gate-out registry sync.
- */
 export default function UpdateStatusForm({ activeTrips, availableVehicles, onStatusUpdate }: UpdateStatusFormProps) {
   const [selectedId, setSelectedId] = useState('');
   const [newStatus, setNewStatus] = useState('');
@@ -62,8 +58,6 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
 
   const currentStatus = currentStatusRaw.toUpperCase();
 
-  // REGISTRY RULE: Once vehicle is OUT, transit options activate.
-  // If status is "Assigned", it means the vehicle has not yet departed the gate.
   const isLockedAtGate = useMemo(() => {
     if (!selectedTrip) return false;
     return currentStatus === 'ASSIGNED' || currentStatus === 'VEHICLE-ASSIGNED' || currentStatus === 'VEHICLE ASSIGNED';
@@ -101,7 +95,6 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
 
   return (
     <Card className="border-none shadow-2xl rounded-[3rem] bg-white overflow-hidden animate-in fade-in duration-700">
-        {/* HEADER SECTION */}
         <div className="bg-slate-50/50 p-8 border-b flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center gap-5">
                 <div className="p-3 bg-blue-900 text-white rounded-2xl shadow-xl rotate-3">
@@ -123,7 +116,6 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
 
         <CardContent className="p-10">
             <form onSubmit={handleSubmit} className="space-y-12">
-                {/* FORM ROW 1: PRIMARY NODES */}
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
                     <div className="md:col-span-4 space-y-3">
                         <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">VEHICLE NUMBER *</Label>
@@ -195,7 +187,6 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
                     </div>
                 </div>
 
-                {/* FORM ROW 2: REMARKS */}
                 <div className="space-y-3">
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">ADMINISTRATIVE REMARKS</Label>
                     <div className="relative group">
@@ -213,7 +204,6 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
 
                 <Separator className="opacity-50" />
 
-                {/* FOOTER ACTIONS */}
                 <div className="flex flex-col md:flex-row items-center justify-between gap-8">
                     <div className="flex-1 w-full md:w-auto">
                         {!selectedId ? (
@@ -258,7 +248,9 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
                             {isSubmitting ? (
                                 <Loader2 className="h-6 w-6 animate-spin" />
                             ) : (
-                                <SaveIcon className="h-7 w-7 transition-transform group-hover:-translate-y-1" />
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7 transition-transform group-hover:-translate-y-1">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                                </svg>
                             )}
                         </Button>
                     </div>
@@ -267,12 +259,4 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
         </CardContent>
     </Card>
   );
-}
-
-function SaveIcon({ className }: { className?: string }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
-        </svg>
-    );
 }
