@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -8,13 +7,22 @@ import { format, isValid } from 'date-fns';
 import { History, Trash2, User, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { Timestamp } from 'firebase/firestore';
 
 export default function TaskHistoryTable({ data, isAdmin, onRemove }: { data: any[], isAdmin: boolean, onRemove: (id: string, plantId: string) => void }) {
   
   const formatSafeDate = (date: any) => {
     if (!date) return '--:--';
-    const d = date instanceof Date ? date : new Date(date);
-    return isValid(d) ? format(d, 'dd/MM/yy HH:mm') : '--:--';
+    let d: Date | null = null;
+    if (date instanceof Timestamp) {
+        d = date.toDate();
+    } else if (date instanceof Date) {
+        d = date;
+    } else {
+        const parsed = new Date(date);
+        if (isValid(parsed)) d = parsed;
+    }
+    return d && isValid(d) ? format(d, 'dd/MM/yy HH:mm') : '--:--';
   };
 
   return (

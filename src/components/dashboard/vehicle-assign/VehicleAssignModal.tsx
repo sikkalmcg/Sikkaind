@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -50,7 +49,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser } from '@/types';
-import { VehicleTypes } from '@/lib/constants';
+import { VehicleTypes, PaymentTerms } from '@/lib/constants';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
 import { 
   collection, 
@@ -93,6 +92,7 @@ const formSchema = z.object({
     vehicleType: z.enum(VehicleTypes),
     carrierId: z.string().min(1, 'Carrier is required'),
     assignQty: z.coerce.number().positive('Assign quantity must be positive'),
+    paymentTerm: z.enum(PaymentTerms).default('Paid'),
     transporterName: z.string().optional().default(''),
     transporterMobile: z.string().optional().default(''),
     ownerName: z.string().optional().default(''),
@@ -139,9 +139,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { assignQty: 0, freightRate: 0, freightAmount: 0, vehicleType: 'Own Vehicle' },
+    defaultValues: { assignQty: 0, freightRate: 0, freightAmount: 0, vehicleType: 'Own Vehicle', paymentTerm: 'Paid' },
   });
-  const { watch, setValue, handleSubmit, reset, control, formState: { errors } } = form;
+  const { setValue, handleSubmit, reset, control } = form;
+
+  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate } = useWatch({ control });
 
   useEffect(() => {
     if (isOpen) {
@@ -154,12 +156,13 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             vehicleType: (trip?.vehicleType as any) || 'Own Vehicle',
             carrierId: trip?.carrierId || shipment.carrierId || (carriers.length > 0 ? carriers[0].id : ''),
             assignQty: trip?.assignedQtyInTrip ?? Number(Number(shipment.balanceQty).toFixed(3)),
+            paymentTerm: (trip as any)?.paymentTerm || 'Paid',
             transporterName: trip?.transporterName || '',
             transporterMobile: (trip as any)?.transporterMobile || '',
-            ownerName: trip?.ownerName || '',
-            ownerPan: trip?.ownerPan || '',
-            freightRate: trip?.freightRate || 0,
-            freightAmount: trip?.freightAmount || 0,
+            ownerName: (trip as any)?.ownerName || '',
+            ownerPan: (trip as any)?.ownerPan || '',
+            freightRate: (trip as any)?.freightRate || 0,
+            freightAmount: (trip as any)?.freightAmount || 0,
             distance: trip?.distance || 0
         });
         hasCalculatedDistance.current = !!trip?.distance;
@@ -170,6 +173,10 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    setValue('freightAmount', Number(((assignQty || 0) * (freightRate || 0)).toFixed(2)));
+  }, [assignQty, freightRate, setValue]);
 
   const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
   const { data: plants } = useCollection<Plant>(plantsQuery);
@@ -182,12 +189,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   const destinationCityDisplay = useMemo(() => {
     return shipment.destination || shipment.unloadingPoint?.split(',')[0].trim() || '--';
   }, [shipment.destination, shipment.unloadingPoint]);
-
-  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate } = useWatch({ control });
-
-  useEffect(() => {
-    setValue('freightAmount', Number(((assignQty || 0) * (freightRate || 0)).toFixed(2)));
-  }, [assignQty, freightRate, setValue]);
 
   useEffect(() => {
     if (!isOpen || !firestore || !shipment.originPlantId) return;
@@ -244,6 +245,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
   const performVehicleLookup = useCallback(async (vNumber: string) => {
     if (!firestore || vNumber.length < 6) return;
+    if (registryMatch && registryMatch.vehicleNumber === vNumber) return;
+
     try {
         const q = query(collection(firestore, "vehicles"), where("vehicleNumber", "==", vNumber));
         const snap = await getDocs(q);
@@ -259,7 +262,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     } catch (e) {
         console.error("Lookup Failure");
     }
-  }, [firestore, setValue]);
+  }, [firestore, setValue, registryMatch]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -335,7 +338,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 ownerPan: values.ownerPan,
                 freightRate: values.freightRate,
                 freightAmount: values.freightAmount,
-                distance: values.distance || 0
+                distance: values.distance || 0,
+                paymentTerm: values.paymentTerm
             };
 
             if(values.vehicleId && !values.isNewVehicle) {
@@ -369,7 +373,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-2xl bg-slate-50 rounded-3xl">
+      <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white rounded-3xl">
         <DialogHeader className="bg-slate-900 text-white p-6 shrink-0 flex flex-row items-center justify-between pr-12 rounded-t-3xl">
           <div className="flex items-center gap-4">
             <div className="p-2 bg-blue-600 rounded-xl shadow-lg"><Truck className="h-6 w-6" /></div>
@@ -410,9 +414,9 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                     </div>
                     <div className="p-10 space-y-10">
                         <Table>
-                            <TableHeader><TableRow><TableHead className="w-[250px]">Vehicle No</TableHead><TableHead>Pilot Name</TableHead><TableHead>Mobile</TableHead><TableHead className="w-[250px]">Carrier</TableHead><TableHead>Category</TableHead><TableHead className="text-right">Weight (MT)</TableHead></TableRow></TableHeader>
+                            <TableHeader><TableRow><TableHead className="w-[250px]">Vehicle No</TableHead><TableHead>Pilot Name</TableHead><TableHead>Mobile</TableHead><TableHead className="w-[250px]">Carrier</TableHead><TableHead>Category</TableHead><TableHead>Payment Term</TableHead><TableHead className="text-right">Weight (MT)</TableHead></TableRow></TableHeader>
                             <TableBody><TableRow className="align-top">
-                                <TableCell className="py-4">{isNewVehicle ? <FormField control={control} name="vehicleNumber" render={({ field }) => (<Input {...field} placeholder="XX00XX0000" className="h-11 rounded-xl font-black text-blue-900 uppercase" />)} /> : <FormField control={control} name="vehicleId" render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-11 font-black"><SelectValue placeholder="Pick Vehicle" /></SelectTrigger></FormControl><SelectContent>{isDataLoading ? <div className="p-4"><Loader2 className="animate-spin h-4 w-4 mx-auto"/></div> : vehiclesAtGate.map(v => <SelectItem key={v.id} value={v.id} className="font-black">{v.vehicleNumber}</SelectItem>)}</SelectContent></Select>)} /></TableCell>
+                                <TableCell className="py-4">{isNewVehicle ? <FormField control={control} name="vehicleNumber" render={({ field }) => (<Input {...field} placeholder="XX00XX0000" className="h-11 rounded-xl font-black text-blue-900 uppercase" />)} /> : <FormField control={control} name="vehicleId" render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-11 font-black"><SelectValue placeholder="Pick Vehicle" /></SelectTrigger></FormControl><SelectContent>{isDataLoading ? <div className="p-4 text-center"><Loader2 className="animate-spin h-4 w-4 mx-auto"/></div> : vehiclesAtGate.map(v => <SelectItem key={v.id} value={v.id} className="font-black">{v.vehicleNumber}</SelectItem>)}</SelectContent></Select>)} /></TableCell>
                                 <TableCell className="py-4"><FormField control={control} name="driverName" render={({ field }) => (<Input {...field} className="h-11 font-bold" />)} /></TableCell>
                                 <TableCell className="py-4"><FormField control={control} name="driverMobile" render={({ field }) => (<Input {...field} maxLength={10} className="h-11 font-mono font-black" />)} /></TableCell>
                                 <TableCell><FormField control={control} name="carrierId" render={({ field }) => (<SearchableSelect options={carrierOptions} onChange={field.onChange} value={field.value} className="h-11" />)} /></TableCell>
@@ -421,6 +425,14 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                         <Select onValueChange={field.onChange} value={field.value} disabled={!!registryMatch}>
                                             <FormControl><SelectTrigger className="relative"><SelectValue placeholder="Select Type"/>{!!registryMatch && <Lock size={12} className="absolute right-2 top-1/2 -translate-y-1/2"/>}</SelectTrigger></FormControl>
                                             <SelectContent>{VehicleTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                                        </Select>
+                                    )} />
+                                </TableCell>
+                                <TableCell>
+                                    <FormField control={control} name="paymentTerm" render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl><SelectTrigger className="h-11 font-bold"><SelectValue /></SelectTrigger></FormControl>
+                                            <SelectContent>{PaymentTerms.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                                         </Select>
                                     )} />
                                 </TableCell>
@@ -479,9 +491,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 </div>
             </div>
             <div className="flex gap-4">
-                <Button variant="ghost" onClick={onClose} disabled={isSubmitting} className="font-black text-slate-400 hover:text-white uppercase text-[11px] tracking-widest px-8">Discard</Button>
-                <Button onClick={handleSubmit(onSubmit)} disabled={isSubmitting || calculatingDistance} className="bg-blue-600 hover:bg-blue-700 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl border-none transition-all active:scale-95 border-none">
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                <Button variant="ghost" onClick={onClose} className="font-black text-slate-400 hover:text-white uppercase text-[11px] tracking-widest px-8">Discard</Button>
+                <Button onClick={handleSubmit(onSubmit)} className="bg-blue-600 hover:bg-blue-700 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl border-none transition-all active:scale-95 border-none">
                     Establish mission node
                 </Button>
             </div>
