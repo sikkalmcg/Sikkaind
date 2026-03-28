@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -330,9 +330,9 @@ function TrackConsignmentContent() {
                             <CardContent className="p-12">
                                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-10">
                                     {[
-                                        { label: 'Lifting Site', value: result.loadingPoint || result.originPlantId, icon: Factory },
+                                        { label: 'FROM (Dispatch)', value: result.loadingPoint || result.originPlantId, icon: Factory, color: 'text-blue-200' },
                                         { label: 'Ship to Node', value: result.shipToParty || result.shipment?.shipToParty, icon: UserCircle },
-                                        { label: 'Drop destination', value: result.unloadingPoint || result.destination, icon: MapPin },
+                                        { label: 'TO (Destination)', value: result.unloadingPoint || result.destination, icon: MapPin, color: 'text-emerald-400' },
                                         { label: 'Vehicle Number', value: result.vehicleNumber, bold: true, icon: Truck },
                                         { label: 'Invoice ref', value: result.shipment?.invoiceNumber || '--', mono: true, icon: FileText },
                                         { label: 'LR Number', value: result.lrNumber || '--', mono: true, bold: true, color: 'text-blue-400', icon: FileText },
@@ -433,7 +433,7 @@ function TrackConsignmentContent() {
                                     <div className="flex gap-6 items-start">
                                         <div className="p-4 bg-blue-50 rounded-2xl shadow-sm border border-blue-100"><MapPin className="h-6 w-6 text-blue-600" /></div>
                                         <div>
-                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Lifting Origin</p>
+                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Lifting Origin (FROM)</p>
                                             <p className="text-sm font-black text-slate-900 uppercase leading-snug">{result.loadingPoint}</p>
                                             <p className="text-[10px] font-bold text-blue-600 mt-2 flex items-center gap-2">
                                                 <Calendar className="h-3 w-3" /> {format(result.assignDate, 'dd MMMM yyyy | HH:mm')}
@@ -446,7 +446,7 @@ function TrackConsignmentContent() {
                                     <div className="flex gap-6 items-start">
                                         <div className="p-4 bg-red-50 rounded-2xl shadow-sm border border-red-100"><MapPin className="h-6 w-6 text-red-600" /></div>
                                         <div>
-                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Delivery Destination</p>
+                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">TO (Destination)</p>
                                             <p className="text-sm font-black text-slate-900 uppercase leading-snug">{result.unloadingPoint}</p>
                                         </div>
                                     </div>
