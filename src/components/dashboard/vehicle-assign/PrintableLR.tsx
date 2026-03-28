@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -78,9 +79,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 </p>
             </div>
             <div className="text-[7.5pt] font-bold text-slate-600 uppercase space-y-0.5">
-                <p className="flex justify-between gap-3"><span>Date:</span> <span className="text-black font-black">{formatDate(lr.date)}</span></p>
-                <p className="flex justify-between gap-3"><span>From:</span> <span className="text-black font-black">{lr.from || 'N/A'}</span></p>
-                <p className="flex justify-between gap-3"><span>To:</span> <span className="text-black font-black">{lr.to || 'N/A'}</span></p>
+                <p className="flex justify-between gap-3"><span>DATE:</span> <span className="text-black font-black">{formatDate(lr.date)}</span></p>
+                <p className="flex justify-between gap-3"><span>FROM:</span> <span className="text-black font-black">{lr.from || 'N/A'}</span></p>
+                <p className="flex justify-between gap-3"><span>TO:</span> <span className="text-black font-black">{lr.to || 'N/A'}</span></p>
             </div>
         </div>
       </div>
@@ -105,16 +106,16 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       {/* 3. PARTY REGISTRY GRID */}
       <div className="grid grid-cols-3 border-2 border-slate-900 rounded-lg overflow-hidden mb-4 divide-x-2 divide-slate-900">
         <div className="p-3 space-y-2">
-            <span className="text-[7.5pt] font-black uppercase text-slate-900 border-b border-slate-900 pb-0.5 block">Consignor</span>
+            <span className="text-[7.5pt] font-black uppercase text-slate-900 border-b border-slate-900 pb-0.5 block">CONSIGNOR</span>
             <div className="text-[7.5pt] space-y-0.5">
                 <p className="font-black uppercase truncate">{lr.consignorName}</p>
-                <p className="text-slate-600 font-bold leading-tight line-clamp-2 min-h-[2em]">{lr.from}</p>
+                <p className="text-slate-600 font-bold leading-tight line-clamp-2 min-h-[2em]">{lr.consignorAddress || lr.from}</p>
                 <p><span className="text-slate-400 font-black">Phone:</span> {lr.consignorMobile || 'N/A'}</p>
                 <p><span className="text-slate-400 font-black">GSTIN:</span> <span className="font-mono">{lr.consignorGtin || '--'}</span></p>
             </div>
         </div>
         <div className="p-3 space-y-2">
-            <span className="text-[7.5pt] font-black uppercase text-slate-900 border-b border-slate-900 pb-0.5 block">Bill To Party</span>
+            <span className="text-[7.5pt] font-black uppercase text-slate-900 border-b border-slate-900 pb-0.5 block">BILL TO PARTY</span>
             <div className="text-[7.5pt] space-y-0.5">
                 <p className="font-black uppercase truncate">{lr.buyerName}</p>
                 <p className="text-slate-600 font-bold leading-tight line-clamp-2 min-h-[2em]">{lr.buyerName}</p>
@@ -123,10 +124,10 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             </div>
         </div>
         <div className="p-3 space-y-2">
-            <span className="text-[7.5pt] font-black uppercase text-slate-900 border-b border-slate-900 pb-0.5 block">Ship to Party</span>
+            <span className="text-[7.5pt] font-black uppercase text-slate-900 border-b border-slate-900 pb-0.5 block">SHIP TO PARTY</span>
             <div className="text-[7.5pt] space-y-0.5">
                 <p className="font-black uppercase truncate">{lr.shipToParty}</p>
-                <p className="text-slate-600 font-bold leading-tight line-clamp-2 min-h-[2em]">{lr.to}</p>
+                <p className="text-slate-600 font-bold leading-tight line-clamp-2 min-h-[2em]">{lr.deliveryAddress}</p>
                 <p><span className="text-slate-400 font-black">Phone:</span> {lr.shipToMobile || 'N/A'}</p>
                 <p><span className="text-slate-400 font-black">GSTIN:</span> <span className="font-mono">{lr.shipToGtin || '--'}</span></p>
             </div>
@@ -167,7 +168,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 )}
               </tr>
             ))}
-            {/* Reduced filler rows to ensure fit */}
             {Array.from({ length: Math.max(0, 10 - items.length) }).map((_, i) => (
               <tr key={`empty-${i}`} className="h-8 border-b border-slate-50 opacity-10">
                 <td className="border-r border-slate-900"></td>
