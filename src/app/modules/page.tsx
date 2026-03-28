@@ -17,8 +17,6 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import type { SubUser, WithId } from '@/types';
-import sikkalogolarge from '@/assets/logo.png';
-import backmoduleimg from '@/assets/hero-freight.png';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -31,6 +29,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserProfileModal from "@/components/dashboard/user-profile/UserProfileModal";
 import { useLoading } from '@/context/LoadingContext';
+import placeholderData from '@/app/lib/placeholder-images.json';
 
 export default function ModulesPage() {
   const { user, isUserLoading } = useUser();
@@ -43,6 +42,8 @@ export default function ModulesPage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
+
+  const getImg = (id: string) => placeholderData.placeholderImages.find(p => p.id === id);
 
   useEffect(() => {
     if (isUserLoading) return;
@@ -165,13 +166,15 @@ export default function ModulesPage() {
     <>
       <div className="relative min-h-screen w-full">
         <div className="absolute inset-0 z-0">
-            <Image
-                src={backmoduleimg}
-                alt="Logistics Background"
-                fill
-                className="object-cover"
-                priority
-            />
+            {getImg('hero-freight')?.url && (
+                <Image
+                    src={getImg('hero-freight')!.url}
+                    alt="Logistics Background"
+                    fill
+                    className="object-cover"
+                    priority
+                />
+            )}
             <div className="absolute inset-0 bg-slate-900/80" />
         </div>
 
@@ -206,16 +209,18 @@ export default function ModulesPage() {
           </DropdownMenu>
         </header>
 
-        <div className="relative z-10 flex min-h-.screen flex-col items-center justify-center p-4">
+        <div className="relative z-10 flex min-h-screen flex-col items-center justify-center p-4">
           <div className="text-center">
-            <div className="relative w-[500px] h-[200px] md:w-[700px] md:h-[300px] mx-auto mb-10 p-4 transition-all duration-500 filter brightness-[1.75] contrast-[1.1] drop-shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:brightness-[2] hover:scale-105 overflow-hidden">
-              <Image
-                src={sikkalogolarge}
-                alt="Sikka LMC Logo"
-                fill
-                className="object-contain"
-                priority
-              />
+            <div className="relative w-[300px] h-[100px] md:w-[500px] md:h-[150px] mx-auto mb-10 p-4 transition-all duration-500 filter brightness-[1.75] contrast-[1.1] drop-shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:brightness-[2] hover:scale-105 overflow-hidden">
+              {getImg('logo')?.url && (
+                <Image
+                    src={getImg('logo')!.url}
+                    alt="Sikka LMC Logo"
+                    fill
+                    className="object-contain"
+                    priority
+                />
+              )}
             </div>
           </div>
 

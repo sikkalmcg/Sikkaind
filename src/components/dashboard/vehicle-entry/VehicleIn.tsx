@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -227,7 +226,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
 
             {purpose === 'Unloading' && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
-                    <Separator className="bg-slate-100" />
+                    <Separator />
                     <div className="flex items-center gap-3 px-2">
                         <FileText className="h-5 w-5 text-blue-600" />
                         <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-700">Unloading Manifest Details</h3>

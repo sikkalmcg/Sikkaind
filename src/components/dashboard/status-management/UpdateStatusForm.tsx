@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -52,7 +51,7 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
 
   const isLockedAtGate = useMemo(() => {
     if (!selectedTrip) return false;
-    // Logic Node: Only 'Break-down' or 'Pilot Not Available' is allowed while vehicle is still IN yard
+    // Rule: Mission transitions are locked until the vehicle departs the gate
     const isOut = selectedTrip.entry?.status === 'OUT';
     return !isOut && (currentStatus === 'ASSIGNED' || currentStatus === 'VEHICLE ASSIGNED' || currentStatus === 'LOADED');
   }, [selectedTrip, currentStatus]);

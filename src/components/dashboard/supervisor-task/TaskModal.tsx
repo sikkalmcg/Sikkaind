@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -35,6 +34,7 @@ import { doc, serverTimestamp, collection, runTransaction } from "firebase/fires
 import { useLoading } from '@/context/LoadingContext';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { LRUnitTypes } from '@/lib/constants';
 
 const itemSchema = z.object({
@@ -307,7 +307,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
             <div className="flex gap-10 items-center">
                 <button onClick={onClose} className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500 hover:text-white transition-all">DISCARD</button>
                 <Button 
-                    onClick={handleSubmit(handleCommit)} 
+                    onClick={form.handleSubmit(handleCommit)} 
                     disabled={form.formState.isSubmitting} 
                     className="bg-blue-600 hover:bg-blue-700 text-white px-20 h-16 rounded-[1.5rem] font-black uppercase text-sm tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
                 >

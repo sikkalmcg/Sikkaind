@@ -3,12 +3,6 @@
 import * as React from 'react';
 import Image from 'next/image';
 import Autoplay from 'embla-carousel-autoplay';
-import herotruck from '@/assets/hero-trucks.jpg';
-import herorake from '@/assets/hero-rake.png';
-import herowarehouse from '@/assets/hero-warehouse.jpg';
-// import heroai from '@/assets/hero-ai-analytics.png';
-import herotracking from '@/assets/hero-tracking.png';
-// import herofreight from '@/assets/hero-freight.png';
 import { 
   Carousel, 
   CarouselContent, 
@@ -21,7 +15,7 @@ import {
   CheckCircle, Truck, Warehouse, Package, BarChart3, 
   MapPin, Laptop, Users, Globe, Tag, ShieldCheck, Headphones
 } from 'lucide-react';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import placeholderData from '@/app/lib/placeholder-images.json';
 
 /**
  * @fileOverview Sikka LMC Landing Page.
@@ -32,42 +26,32 @@ export default function HomePage() {
   const [api, setApi] = React.useState<CarouselApi>();
   const [current, setCurrent] = React.useState(0);
 
+  const getImg = (id: string) => placeholderData.placeholderImages.find(p => p.id === id);
+
   const galleryItems = [
     {
       id: 'herotruck',
       title: 'Domestic Transportation',
       description: 'Optimized movement via road with real-time fleet visibility.',
-      src: herotruck
+      src: getImg('hero-trucks')?.url
     },
     {
       id: 'herowarehouse',
       title: 'Modern Warehousing',
       description: 'Advanced inventory management and scalable storage solutions.',
-      src:herowarehouse
+      src: getImg('hero-warehouse')?.url
     },
-    // {
-    //   id: 'heroai',
-    //   title: 'AI Video Analytics',
-    //   description: 'AI-powered video analytics enables accurate loading and unloading count.',
-    //   src: heroai
-    // },
     {
       id: 'herorake',
       title: 'Rake & Bulk Handling',
       description: 'Specialized railhead clearing and bulk commodity logistics.',
-      src: herorake
+      src: getImg('hero-rake')?.url
     },
-    // {
-    //   id: 'herofreight',
-    //   title: 'Freight Forwarding',
-    //   description: 'Seamless international air and sea freight coordination.',
-    //   src: herofreight
-    // },
     {
       id: 'herotracking',
       title: 'Real-Time Tracking',
       description: 'Advanced shipment monitoring for smarter decision-making.',
-      src: herotracking
+      src: getImg('hero-tracking')?.url
     }
   ];
 
@@ -119,13 +103,15 @@ export default function HomePage() {
               {galleryItems.map((item, index) => (
                 <CarouselItem key={index}>
                   <div className="relative aspect-[16/10] sm:aspect-[16/8] w-full group overflow-hidden bg-slate-900">
-                    <Image
-                      src={item.src}
-                      alt={item.title}
-                      fill
-                      className="object-cover"
-                      priority={index === 0}
-                    />
+                    {item.src && (
+                        <Image
+                            src={item.src}
+                            alt={item.title}
+                            fill
+                            className="object-cover"
+                            priority={index === 0}
+                        />
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/20 to-transparent" />
                     <div className="absolute inset-0 flex flex-col justify-end pb-12 px-10 text-white">
                       <h2 className="text-2xl sm:text-5xl font-black uppercase italic drop-shadow-2xl">{item.title}</h2>

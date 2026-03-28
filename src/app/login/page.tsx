@@ -4,11 +4,11 @@ import { auth } from "@/firebase";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-// import loginimg from '@/assets/Sikka-login.jpeg';
-import logoimg from '@/assets/logo-old.png';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useLoading } from "@/context/LoadingContext";
 import { Loader2, UserCheck, KeyRound, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import placeholderData from '@/app/lib/placeholder-images.json';
+import { useToast } from "@/hooks/use-toast";
 
 // --- FORGOT PASSWORD MODAL COMPONENT ---
 function ForgotPasswordModal({ onClose }: { onClose: () => void; }) {
@@ -190,7 +190,10 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
 
     const router = useRouter();
+    const { toast } = useToast();
     const { showLoader, hideLoader } = useLoading();
+
+    const getImg = (id: string) => placeholderData.placeholderImages.find(p => p.id === id);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -213,7 +216,6 @@ export default function LoginPage() {
         let email = identity;
         if (!email.includes('@')) {
             const username = identity.toLowerCase().trim();
-            // Construct system email directly to save one network round-trip
             email = username === 'sikkaind' ? 'sikkaind.admin@sikka.com' : `${username}@sikka.com`;
         }
 
@@ -251,8 +253,10 @@ export default function LoginPage() {
             <div className="w-full max-w-4xl bg-white shadow-lg" style={{ borderTop: '4px solid #F0B800', borderBottom: '4px solid #F0B800' }}>
                 <div className="border p-2">
                     <div className="flex border">
-                        <div className="w-1/2 p-4 hidden md:block">
-                            {/* <Image src={loginimg} alt="Sikka Logistics" width={400} height={100} priority /> */}
+                        <div className="w-1/2 p-4 hidden md:block relative">
+                            {getImg('hero-trucks')?.url && (
+                                <Image src={getImg('hero-trucks')!.url} alt="Sikka Logistics" fill className="object-cover" priority />
+                            )}
                         </div>
                         <div className="w-full md:w-1/2 p-8">
                             <h1 className="text-2xl font-bold text-[#F0B800] mb-8 uppercase italic">Sikka Industries</h1>
@@ -331,7 +335,9 @@ export default function LoginPage() {
                     </div>
                     <div className="flex justify-between items-center pt-8 pb-2 px-4">
                         <p className="text-[9px] text-gray-400 font-bold">© SIKKA INDUSTRIES & LOGISTICS. SECURITY NODE 04.</p>
-                        <Image src={logoimg} alt="Logo" width={100} height={28} style={{ height: 'auto' }} />
+                        {getImg('logo-old')?.url && (
+                            <Image src={getImg('logo-old')!.url} alt="Logo" width={100} height={28} style={{ height: 'auto' }} />
+                        )}
                     </div>
                 </div>
             </div>

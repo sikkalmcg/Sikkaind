@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -12,15 +11,8 @@ import {
   CarouselContent, 
   CarouselItem 
 } from '@/components/ui/carousel';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import placeholderData from '@/app/lib/placeholder-images.json';
 
-import herowarehouse from '@/assets/hero-warehouse.jpg';
-import office1 from '@/assets/office-01.jpeg';
-import office2 from '@/assets/office-2.png';
-import office3 from '@/assets/office-3.png';
-import office4 from '@/assets/office-4.png';
-import office5 from '@/assets/office-5.png';
- 
 const infrastructureStats = [
     { label: 'Daily Inland Movement', value: '500+ Trucks', icon: Truck },
     { label: 'Daily Handling Capacity', value: '5,000 MT', icon: Activity },
@@ -28,15 +20,17 @@ const infrastructureStats = [
 ];
 
 export default function AboutPage() {
+    const getImg = (id: string) => placeholderData.placeholderImages.find(p => p.id === id);
+
     const capabilitiesSlides = [
-        { src: office3, hint: 'warehouse storage' },
-        { src: office2, hint: 'logistics network' },
-        { src: office4, hint: 'shipment tracking' },
+        { src: getImg('office-3')?.url, hint: 'warehouse storage' },
+        { src: getImg('office-2')?.url, hint: 'logistics network' },
+        { src: getImg('office-4')?.url, hint: 'shipment tracking' },
     ];
 
     const expertiseSlides = [
-        { src: office5, hint: 'logistics office' },
-        { src: office1, hint: 'logistics office' },
+        { src: getImg('office-5')?.url, hint: 'logistics office' },
+        { src: getImg('office-1')?.url, hint: 'logistics office' },
     ];
 
     return (
@@ -44,7 +38,7 @@ export default function AboutPage() {
             {/* HERO SECTION */}
             <section className="relative py-20 md:py-32 text-white overflow-hidden min-h-[450px] flex items-center">
                 <Image
-                    src={herowarehouse}
+                    src={getImg('hero-warehouse')?.url || "https://picsum.photos/seed/wh/1200/800"}
                     alt="Sikka Logistics Hub"
                     fill
                     priority
@@ -144,12 +138,15 @@ export default function AboutPage() {
                                     {capabilitiesSlides.map((slide, idx) => (
                                         <CarouselItem key={idx}>
                                             <div className="relative aspect-video w-full">
-                                                <Image 
-                                                    src={slide.src} 
-                                                    fill 
-                                                    className="object-cover"
-                                                    data-ai-hint={slide.hint}
-                                                />
+                                                {slide.src && (
+                                                    <Image 
+                                                        src={slide.src} 
+                                                        fill 
+                                                        className="object-cover"
+                                                        alt="Capability Slide"
+                                                        data-ai-hint={slide.hint}
+                                                    />
+                                                )}
                                             </div>
                                         </CarouselItem>
                                     ))}
@@ -211,12 +208,15 @@ export default function AboutPage() {
                                         {expertiseSlides.map((slide, idx) => (
                                             <CarouselItem key={idx}>
                                                 <div className="relative aspect-video w-full">
-                                                    <Image 
-                                                        src={slide.src}
-                                                        fill 
-                                                        className="object-cover"
-                                                        data-ai-hint={slide.hint}
-                                                    />
+                                                    {slide.src && (
+                                                        <Image 
+                                                            src={slide.src}
+                                                            fill 
+                                                            className="object-cover"
+                                                            alt="Expertise Slide"
+                                                            data-ai-hint={slide.hint}
+                                                        />
+                                                    )}
                                                 </div>
                                             </CarouselItem>
                                         ))}
