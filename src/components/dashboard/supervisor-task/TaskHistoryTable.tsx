@@ -14,6 +14,7 @@ export default function TaskHistoryTable({ data, isAdmin, onRemove }: { data: an
   const formatSafeDate = (date: any) => {
     if (!date) return '--:--';
     let d: Date | null = null;
+    
     if (date instanceof Timestamp) {
         d = date.toDate();
     } else if (date instanceof Date) {
@@ -22,6 +23,7 @@ export default function TaskHistoryTable({ data, isAdmin, onRemove }: { data: an
         const parsed = new Date(date);
         if (isValid(parsed)) d = parsed;
     }
+    
     return d && isValid(d) ? format(d, 'dd/MM/yy HH:mm') : '--:--';
   };
 

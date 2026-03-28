@@ -102,18 +102,10 @@ const formSchema = z.object({
     distance: z.coerce.number().optional(),
 }).superRefine((data, ctx) => {
     if (data.vehicleType === 'Market Vehicle') {
-        if (!data.transporterName?.trim()) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Transporter name is required.', path: ['transporterName'] });
-        }
-        if (!data.ownerName?.trim()) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Owner name is required.', path: ['ownerName'] });
-        }
-        if (!data.transporterMobile?.trim() || !/^\d{10}$/.test(data.transporterMobile)) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Valid 10-digit mobile required.', path: ['transporterMobile'] });
-        }
-        if (!data.freightRate || data.freightRate <= 0) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Freight rate is required.', path: ['freightRate'] });
-        }
+        if (!data.transporterName?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Required for Market vehicle.', path: ['transporterName'] });
+        if (!data.ownerName?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Owner name required.', path: ['ownerName'] });
+        if (!data.transporterMobile?.trim() || !/^\d{10}$/.test(data.transporterMobile)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: '10-digit mobile required.', path: ['transporterMobile'] });
+        if (!data.freightRate || data.freightRate <= 0) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Rate required.', path: ['freightRate'] });
     }
 });
 
@@ -126,7 +118,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   const { showLoader, hideLoader } = useLoading();
   const userProfileRef = useMemo(() => (firestore && user) ? doc(firestore, "users", user.uid) : null, [firestore, user]);
   const { data: userProfile } = useDoc<SubUser>(userProfileRef);
-  
   const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: MAPS_JS_KEY, libraries: ['places'] });
 
   const [vehiclesAtGate, setVehiclesAtGate] = useState<any[]>([]);
@@ -142,7 +133,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     defaultValues: { assignQty: 0, freightRate: 0, freightAmount: 0, vehicleType: 'Own Vehicle', paymentTerm: 'Paid' },
   });
   const { setValue, handleSubmit, reset, control } = form;
-
   const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate } = useWatch({ control });
 
   useEffect(() => {
@@ -194,7 +184,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
   useEffect(() => {
     if (!isOpen || !firestore || !shipment.originPlantId) return;
-    
     const fetchRegistryData = async () => {
         setIsDataLoading(true);
         try {
@@ -202,12 +191,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             const qVeh = query(collection(firestore, 'vehicleEntries'), where('plantId', '==', targetPlantId), where('status', '==', 'IN'));
             const vehSnap = await getDocs(qVeh);
             const entries = vehSnap.docs.map(d => ({ id: d.id, ...d.data() } as WithId<VehicleEntryExit>));
-            
-            const available = entries.filter(e => {
-                return (isEditing && e.vehicleNumber === trip?.vehicleNumber) || 
-                       (e.purpose === 'Loading' && ['Available', 'IN', 'Assigned'].includes(e.remarks || 'IN'));
-            });
-
+            const available = entries.filter(e => (isEditing && e.vehicleNumber === trip?.vehicleNumber) || (e.purpose === 'Loading' && ['Available', 'IN', 'Assigned'].includes(e.remarks || 'IN')));
             setVehiclesAtGate(available);
         } catch (error) {
             console.error("Registry Fetch Error:", error);
@@ -220,16 +204,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
   useEffect(() => {
     if (!isLoaded || !isOpen || hasCalculatedDistance.current || !shipment.loadingPoint || !shipment.unloadingPoint) return;
-
     const calculate = () => {
       setCalculatingDistance(true);
       try {
         const directionsService = new google.maps.DirectionsService();
-        directionsService.route({
-            origin: shipment.loadingPoint!,
-            destination: shipment.unloadingPoint!,
-            travelMode: google.maps.TravelMode.DRIVING,
-        }, (response, status) => {
+        directionsService.route({ origin: shipment.loadingPoint!, destination: shipment.unloadingPoint!, travelMode: google.maps.TravelMode.DRIVING }, (response, status) => {
             setCalculatingDistance(false);
             if (status === 'OK' && response) {
                 const distKm = (response.routes[0].legs[0].distance?.value || 0) / 1000;
@@ -237,18 +216,13 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 hasCalculatedDistance.current = true;
             }
         });
-      } catch (e) {
-        setCalculatingDistance(false);
-      }
+      } catch (e) { setCalculatingDistance(false); }
     };
-
     calculate();
   }, [isLoaded, isOpen, shipment.loadingPoint, shipment.unloadingPoint, setValue]);
 
   const performVehicleLookup = useCallback(async (vNumber: string) => {
     if (!firestore || vNumber.length < 6) return;
-    if (registryMatch && registryMatch.vehicleNumber === vNumber) return;
-
     try {
         const q = query(collection(firestore, "vehicles"), where("vehicleNumber", "==", vNumber));
         const snap = await getDocs(q);
@@ -258,25 +232,17 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             setValue('vehicleType', (vData.vehicleType as any) || 'Own Vehicle', { shouldValidate: true });
             if (vData.driverName) setValue('driverName', vData.driverName, { shouldValidate: true });
             if (vData.driverMobile) setValue('driverMobile', vData.driverMobile, { shouldValidate: true });
-            toast({ title: 'Registry Link Established', description: `${vData.vehicleNumber} identified in fleet registry.` });
-        } else {
-            setRegistryMatch(null);
-        }
-    } catch (e) {
-        console.error("Lookup Failure");
-    }
-  }, [firestore, setValue, registryMatch, toast]);
+        } else { setRegistryMatch(null); }
+    } catch (e) { console.error("Lookup Failure"); }
+  }, [firestore, setValue]);
 
   useEffect(() => {
     if (!isOpen) return;
     const vNumber = vehicleNumber?.toUpperCase().replace(/\s/g, '') || '';
-    if (vNumber.length < 6) {
-        if (registryMatch) setRegistryMatch(null);
-        return;
-    }
+    if (vNumber.length < 6) { if (registryMatch) setRegistryMatch(null); return; }
     const handler = setTimeout(() => performVehicleLookup(vNumber), 1000);
     return () => clearTimeout(handler);
-  }, [isOpen, vehicleNumber, registryMatch, performVehicleLookup]);
+  }, [isOpen, vehicleNumber, performVehicleLookup]);
 
   useEffect(() => {
     if (!isOpen || isNewVehicle || !vehicleId) return;
@@ -290,96 +256,52 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
   const balanceQty = useMemo(() => {
     const total = isEditing ? (shipment.balanceQty + (trip.assignedQtyInTrip || 0)) : shipment.balanceQty;
-    const balance = total - (assignQty || 0);
-    return Number(Math.max(0, balance).toFixed(3));
+    return Number(Math.max(0, total - (assignQty || 0)).toFixed(3));
   }, [shipment.balanceQty, assignQty, isEditing, trip]);
 
   const onSubmit = async (values: FormValues) => {
     if (!firestore || !user) return;
-
     showLoader();
     try {
         await runTransaction(firestore, async (transaction) => {
             const plantId = normalizePlantId(shipment.originPlantId);
-            const timestamp = serverTimestamp();
+            const ts = serverTimestamp();
             const currentName = userProfile?.fullName || user.displayName || user.email?.split('@')[0] || 'System Operator';
-
             const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipment.id);
-            const shipmentSnap = await transaction.get(shipmentRef);
-            if (!shipmentSnap.exists()) throw new Error("Shipment registry error.");
-            const currentShipmentData = shipmentSnap.data() as Shipment;
-
+            const shipSnap = await transaction.get(shipmentRef);
+            if (!shipSnap.exists()) throw new Error("Shipment registry error.");
+            const currentShipmentData = shipSnap.data() as Shipment;
             let vehicleRegId = registryMatch?.id;
             if (values.isNewVehicle && !registryMatch) {
                 const newVehRef = doc(collection(firestore, 'vehicles'));
-                transaction.set(newVehRef, { 
-                    vehicleNumber: values.vehicleNumber, 
-                    driverName: values.driverName, 
-                    driverMobile: values.driverMobile, 
-                    plantId, 
-                    vehicleType: values.vehicleType, 
-                    createdAt: timestamp 
-                });
+                transaction.set(newVehRef, { vehicleNumber: values.vehicleNumber, driverName: values.driverName, driverMobile: values.driverMobile, plantId, vehicleType: values.vehicleType, createdAt: ts });
                 vehicleRegId = newVehRef.id;
             }
-            
             const docId = isEditing ? trip!.id : doc(collection(firestore, 'trips')).id;
             const tripRef = doc(firestore, `plants/${plantId}/trips`, docId);
             const globalTripRef = doc(firestore, 'trips', docId);
-            
             const tripData: any = {
                 tripId: isEditing ? trip!.tripId : generateRandomTripId(),
                 vehicleId: vehicleRegId || null,
-                vehicleNumber: values.vehicleNumber, 
-                driverName: values.driverName || '', 
-                driverMobile: values.driverMobile || '',
-                vehicleType: values.vehicleType, 
-                carrierId: values.carrierId, 
-                assignedQtyInTrip: values.assignQty,
-                originPlantId: plantId, 
-                destination: shipment.unloadingPoint || 'N/A', 
-                shipmentIds: [shipment.id],
-                tripStatus: 'Assigned', 
-                startDate: isEditing ? trip!.startDate : new Date(),
-                lastUpdated: timestamp, 
-                userName: currentName, 
-                userId: user.uid, 
-                shipToParty: shipment.shipToParty || '',
-                transporterName: values.transporterName,
-                transporterMobile: values.transporterMobile,
-                ownerName: values.ownerName,
-                ownerPan: values.ownerPan,
-                freightRate: values.freightRate,
-                freightAmount: values.freightAmount,
-                distance: values.distance || 0,
-                paymentTerm: values.paymentTerm
+                vehicleNumber: values.vehicleNumber, driverName: values.driverName || '', driverMobile: values.driverMobile || '',
+                vehicleType: values.vehicleType, carrierId: values.carrierId, assignedQtyInTrip: values.assignQty,
+                originPlantId: plantId, destination: shipment.unloadingPoint || 'N/A', shipmentIds: [shipment.id],
+                tripStatus: 'Assigned', startDate: isEditing ? trip!.startDate : new Date(),
+                lastUpdated: ts, userName: currentName, userId: user.uid, shipToParty: shipment.shipToParty || '',
+                transporterName: values.transporterName, transporterMobile: values.transporterMobile,
+                ownerName: values.ownerName, ownerPan: values.ownerPan, freightRate: values.freightRate,
+                freightAmount: values.freightAmount, distance: values.distance || 0, paymentTerm: values.paymentTerm
             };
-
-            if(values.vehicleId && !values.isNewVehicle) {
-                const entryRef = doc(firestore, 'vehicleEntries', values.vehicleId);
-                transaction.update(entryRef, { remarks: 'Under Process', tripId: docId });
-            }
-
+            if(values.vehicleId && !values.isNewVehicle) transaction.update(doc(firestore, 'vehicleEntries', values.vehicleId), { remarks: 'Under Process', tripId: docId });
             const diff = isEditing ? values.assignQty - trip!.assignedQtyInTrip : values.assignQty;
             const newAssignedTotal = (currentShipmentData.assignedQty || 0) + diff;
-            
-            transaction.update(shipmentRef, { 
-                assignedQty: newAssignedTotal, 
-                balanceQty: currentShipmentData.quantity - newAssignedTotal, 
-                currentStatusId: (currentShipmentData.quantity - newAssignedTotal) > 0 ? 'Partly Vehicle Assigned' : 'Assigned' 
-            });
-            
+            transaction.update(shipmentRef, { assignedQty: newAssignedTotal, balanceQty: currentShipmentData.quantity - newAssignedTotal, currentStatusId: (currentShipmentData.quantity - newAssignedTotal) > 0 ? 'Partly Vehicle Assigned' : 'Assigned' });
             transaction.set(tripRef, tripData);
             transaction.set(globalTripRef, tripData);
         });
-
         toast({ title: 'Success', description: 'Mission Allocation Finalized.' });
         onAssignmentComplete();
-    } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Registry Error', description: e.message || 'An unexpected error occurred.' });
-    } finally {
-        hideLoader();
-    }
+    } catch (e: any) { toast({ variant: 'destructive', title: 'Registry Error', description: e.message }); } finally { hideLoader(); }
   };
   
   const carrierOptions = useMemo(() => carriers.map(c => ({ value: c.id, label: c.name })), [carriers]);
@@ -429,25 +351,20 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                         <Table>
                             <TableHeader><TableRow><TableHead className="w-[250px]">Vehicle No</TableHead><TableHead>Pilot Name</TableHead><TableHead>Mobile</TableHead><TableHead className="w-[250px]">Carrier</TableHead><TableHead>Category</TableHead><TableHead>Payment Term</TableHead><TableHead className="text-right">Weight (MT)</TableHead></TableRow></TableHeader>
                             <TableBody><TableRow className="align-top">
-                                <TableCell className="py-4">{isNewVehicle ? <FormField control={control} name="vehicleNumber" render={({ field }) => (<Input {...field} placeholder="XX00XX0000" className="h-11 rounded-xl font-black text-blue-900 uppercase" />)} /> : <FormField control={control} name="vehicleId" render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-11 font-black"><SelectValue placeholder="Pick Vehicle" /></SelectTrigger></FormControl><SelectContent>{isDataLoading ? <div className="p-4 text-center"><Loader2 className="animate-spin h-4 w-4 mx-auto"/></div> : vehiclesAtGate.map(v => <SelectItem key={v.id} value={v.id} className="font-black">{v.vehicleNumber}</SelectItem>)}</SelectContent></Select>)} /></TableCell>
+                                <TableCell className="py-4">{isNewVehicle ? <FormField control={control} name="vehicleNumber" render={({ field }) => (<Input {...field} placeholder="XX00XX0000" className="h-11 rounded-xl font-black text-blue-900 uppercase" />)} /> : <FormField control={control} name="vehicleId" render={({ field }) => (
+                                    <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-11 font-black"><SelectValue placeholder="Pick Vehicle" /></SelectTrigger></FormControl><SelectContent>{isDataLoading ? <div className="p-4 text-center"><Loader2 className="animate-spin h-4 w-4 mx-auto"/></div> : vehiclesAtGate.map(v => <SelectItem key={v.id} value={v.id} className="font-black">{v.vehicleNumber}</SelectItem>)}</SelectContent></Select>
+                                )} /></TableCell>
                                 <TableCell className="py-4"><FormField control={control} name="driverName" render={({ field }) => (<Input {...field} className="h-11 font-bold" />)} /></TableCell>
                                 <TableCell className="py-4"><FormField control={control} name="driverMobile" render={({ field }) => (<Input {...field} maxLength={10} className="h-11 font-mono font-black" />)} /></TableCell>
                                 <TableCell>
                                     <FormField control={control} name="carrierId" render={({ field }) => (
-                                        <SearchableSelect 
-                                            options={carrierOptions} 
-                                            onChange={field.onChange} 
-                                            value={field.value} 
-                                            placeholder="Select a carrier..."
-                                            searchPlaceholder="Search carriers..."
-                                            emptyPlaceholder="No carriers found."
-                                        />
+                                        <SearchableSelect options={carrierOptions} onChange={field.onChange} value={field.value} placeholder="Select carrier..." searchPlaceholder="Search carriers..." emptyPlaceholder="No carriers found." />
                                     )} />
                                 </TableCell>
                                 <TableCell>
                                     <FormField control={control} name="vehicleType" render={({ field }) => (
                                         <Select onValueChange={field.onChange} value={field.value} disabled={!!registryMatch}>
-                                            <FormControl><SelectTrigger className="relative"><SelectValue placeholder="Select Type"/>{!!registryMatch && <Lock size={12} className="absolute right-2 top-1/2 -translate-y-1/2"/>}</SelectTrigger></FormControl>
+                                            <FormControl><SelectTrigger className="relative h-11"><SelectValue placeholder="Select Type"/>{!!registryMatch && <Lock size={12} className="absolute right-2 top-1/2 -translate-y-1/2"/>}</SelectTrigger></FormControl>
                                             <SelectContent>{VehicleTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                                         </Select>
                                     )} />
@@ -469,7 +386,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                 <FormField name="transporterName" control={control} render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-500">Transporter Node *</FormLabel><Input {...field} className="h-11 bg-white font-bold" /></FormItem>)} />
                                 <FormField name="transporterMobile" control={control} render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-500">Transporter Mobile *</FormLabel><Input {...field} maxLength={10} className="h-11 bg-white font-mono" /></FormItem>)} />
                                 <FormField name="ownerName" control={control} render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-500">Owner Name *</FormLabel><Input {...field} className="h-11 bg-white font-bold" /></FormItem>)} />
-                                <FormField name="ownerPan" control={control} render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-500">Owner PAN</FormLabel><Input {...field} className="h-11 bg-white font-mono uppercase" /></FormItem>)} />
+                                <FormField name="ownerPan" control={control} render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-500">Owner PAN *</FormLabel><Input {...field} className="h-11 bg-white font-mono uppercase" /></FormItem>)} />
                                 <FormField name="freightRate" control={control} render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-emerald-600">Freight Rate (MT) *</FormLabel><div className="relative"><Input type="number" {...field} className="h-11 bg-white font-black text-emerald-700 pl-8" /><IndianRupee className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-emerald-400" /></div></FormItem>)} />
                                 <div className="space-y-1.5 pt-6">
                                     <p className="text-[10px] font-black uppercase text-slate-400">Calculated Freight Amount</p>
@@ -493,7 +410,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                         </div>
                         <div className="h-16 w-px bg-slate-100 hidden md:block" />
                         <div className="max-w-md p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-start gap-4">
-                            <AlertCircle className="h-6 w-6 text-blue-600 shrink-0 mt-0.5" />
+                            <AlertCircle className="h-6 w-6 text-blue-600 shrink-0 mt-1" />
                             <p className="text-[9px] font-bold text-slate-500 uppercase leading-normal">Distance node synchronized with Google Maps routing protocol.</p>
                         </div>
                     </div>
@@ -516,9 +433,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             </div>
             <div className="flex gap-4">
                 <Button variant="ghost" onClick={onClose} className="font-black text-slate-400 hover:text-white uppercase text-[11px] tracking-widest px-8">Discard</Button>
-                <Button onClick={handleSubmit(onSubmit)} className="bg-blue-600 hover:bg-blue-700 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl border-none transition-all active:scale-95 border-none">
-                    Establish mission node
-                </Button>
+                <Button onClick={handleSubmit(onSubmit)} className="bg-blue-600 hover:bg-blue-700 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl border-none transition-all active:scale-95 border-none">Establish mission node</Button>
             </div>
         </DialogFooter>
       </DialogContent>
