@@ -4,7 +4,7 @@ import { auth } from "@/firebase";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import loginimg from '@/assets/Sikka-login.jpeg';
+// import loginimg from '@/assets/Sikka-login.jpeg';
 import logoimg from '@/assets/logo-old.png';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useLoading } from "@/context/LoadingContext";
@@ -252,7 +252,7 @@ export default function LoginPage() {
                 <div className="border p-2">
                     <div className="flex border">
                         <div className="w-1/2 p-4 hidden md:block">
-                            <Image src={loginimg} alt="Sikka Logistics" width={400} height={100} priority />
+                            {/* <Image src={loginimg} alt="Sikka Logistics" width={400} height={100} priority /> */}
                         </div>
                         <div className="w-full md:w-1/2 p-8">
                             <h1 className="text-2xl font-bold text-[#F0B800] mb-8 uppercase italic">Sikka Industries</h1>

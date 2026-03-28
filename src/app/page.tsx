@@ -6,9 +6,9 @@ import Autoplay from 'embla-carousel-autoplay';
 import herotruck from '@/assets/hero-trucks.jpg';
 import herorake from '@/assets/hero-rake.png';
 import herowarehouse from '@/assets/hero-warehouse.jpg';
-import heroai from '@/assets/hero-ai-analytics.png';
+// import heroai from '@/assets/hero-ai-analytics.png';
 import herotracking from '@/assets/hero-tracking.png';
-import herofreight from '@/assets/hero-freight.png';
+// import herofreight from '@/assets/hero-freight.png';
 import { 
   Carousel, 
   CarouselContent, 
@@ -45,24 +45,24 @@ export default function HomePage() {
       description: 'Advanced inventory management and scalable storage solutions.',
       src:herowarehouse
     },
-    {
-      id: 'heroai',
-      title: 'AI Video Analytics',
-      description: 'AI-powered video analytics enables accurate loading and unloading count.',
-      src: heroai
-    },
+    // {
+    //   id: 'heroai',
+    //   title: 'AI Video Analytics',
+    //   description: 'AI-powered video analytics enables accurate loading and unloading count.',
+    //   src: heroai
+    // },
     {
       id: 'herorake',
       title: 'Rake & Bulk Handling',
       description: 'Specialized railhead clearing and bulk commodity logistics.',
       src: herorake
     },
-    {
-      id: 'herofreight',
-      title: 'Freight Forwarding',
-      description: 'Seamless international air and sea freight coordination.',
-      src: herofreight
-    },
+    // {
+    //   id: 'herofreight',
+    //   title: 'Freight Forwarding',
+    //   description: 'Seamless international air and sea freight coordination.',
+    //   src: herofreight
+    // },
     {
       id: 'herotracking',
       title: 'Real-Time Tracking',
