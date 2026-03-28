@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import {
@@ -19,13 +20,14 @@ import {
   CircleDot,
   MapPin,
   ClipboardCheck as LoadedIcon,
-  BarChart3
+  BarChart3,
+  Loader2
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ModalId } from "@/app/dashboard/page";
 import { useFirestore } from "@/firebase";
-import { collection, getDocs, query, where, Timestamp } from "firebase/firestore";
-import { startOfDay, endOfDay, subDays, differenceInMinutes, isValid, format } from "date-fns";
+import { collection, onSnapshot, query, where, Timestamp } from "firebase/firestore";
+import { startOfDay, endOfDay, subDays, isValid, format } from "date-fns";
 import { cn, normalizePlantId } from "@/lib/utils";
 import { fetchFleetLocation } from "@/app/actions/wheelseye";
 
@@ -145,317 +147,132 @@ export function DashboardCards({
     arrived: { moving: 0, stopped: 0 }
   });
   const [categoryLocations, setCategoryLocations] = useState<Record<string, { location: string, ts: number }>>({});
-  const [isLoading, setIsLoading] = useState(true);
+  
+  // Real-time State Node
+  const [rawShipments, setRawShipments] = useState<Record<string, any[]>>({});
+  const [rawTrips, setRawTrips] = useState<Record<string, any[]>>({});
+  const [rawEntries, setRawEntries] = useState<any[]>([]);
+  const [isFleetLoading, setIsFleetLoading] = useState(false);
+  const [isRegistryLoading, setIsRegistryLoading] = useState(true);
   const [isError, setIsError] = useState(false);
 
-  const fetchRegistry = async () => {
-    if (!firestore) return;
-    setIsLoading(true);
-    try {
-        const isAllPlants = selectedPlant === 'all-plants';
-        const scopePlantIds = isAllPlants ? authorizedPlantIds : [selectedPlant];
-        
-        const dayStart = fromDate ? startOfDay(fromDate) : startOfDay(subDays(new Date(), 7));
-        const dayEnd = toDate ? endOfDay(toDate) : endOfDay(new Date());
-
-        const gpsRes = await fetchFleetLocation();
-        const vehicleStatusMap = new Map<string, any>();
-
-        if (gpsRes.data) {
-            let globalMoving = 0;
-            let globalStopped = 0;
-            gpsRes.data.forEach((v: any) => {
-                const isMoving = v.speed > 5;
-                if (isMoving) globalMoving++; else globalStopped++;
-                
-                const lastSync = v.lastUpdateRaw ? new Date(v.lastUpdateRaw) : new Date();
-                const lastSyncTs = isValid(lastSync) ? lastSync.getTime() : 0;
-
-                vehicleStatusMap.set(v.vehicleNumber?.toUpperCase().replace(/\s/g, ''), { 
-                    speed: Number(v.speed || 0), 
-                    ignition: v.ignition === true || v.ignition === 'true' || v.ignition === 'on',
-                    location: v.location,
-                    lastUpdateRaw: v.lastUpdateRaw,
-                    lastUpdateTs: lastSyncTs
-                });
-            });
-            setGpsStats({ moving: globalMoving, stopped: globalStopped, total: gpsRes.data.length });
-        }
-
-        let pending = 0, assigned = 0, transit = 0, arrived = 0, maintenance = 0, loadedTrips = 0, completed = 0;
-        let ownTrips = 0, contractTrips = 0, marketTrips = 0;
-        const catStats = {
-            assigned: { moving: 0, stopped: 0 },
-            transit: { moving: 0, stopped: 0 },
-            arrived: { moving: 0, stopped: 0 },
-            active: { moving: 0, stopped: 0 }
-        };
-
-        const catLocations: Record<string, { location: string, ts: number }> = {
-            assigned: { location: 'GPS Offline', ts: 0 },
-            transit: { location: 'GPS Offline', ts: 0 },
-            arrived: { location: 'GPS Offline', ts: 0 },
-            active: { location: 'GPS Offline', ts: 0 },
-            maintenance: { location: 'GPS Offline', ts: 0 }
-        };
-
-        const updateCategoryLocation = (cat: string, gpsNode: any) => {
-            if (!gpsNode) return;
-            if (gpsNode.lastUpdateTs > catLocations[cat].ts) {
-                catLocations[cat] = { location: gpsNode.location, ts: gpsNode.lastUpdateTs };
-            }
-        };
-
-        for (const pId of scopePlantIds) {
-            const shipSnap = await getDocs(collection(firestore, `plants/${pId}/shipments`));
-            shipSnap.forEach(d => { 
-                const s = d.data();
-                const status = s.currentStatusId?.toLowerCase() || '';
-                if (['pending', 'partly vehicle assigned'].includes(status)) pending++; 
-            });
-
-            const tripSnap = await getDocs(collection(firestore, `plants/${pId}/trips`));
-            tripSnap.forEach(d => {
-                const t = d.data();
-                const statusStr = t.tripStatus || t.currentStatusId || '';
-                const s = statusStr.toLowerCase().trim().replace(/[\s_-]+/g, '-');
-                
-                const startTime = t.startDate instanceof Timestamp ? t.startDate.toDate() : new Date(t.startDate);
-                const isDateMatch = startTime >= dayStart && startTime <= dayEnd;
-
-                const vNo = t.vehicleNumber?.toUpperCase().replace(/\s/g, '');
-                const gpsInfo = vehicleStatusMap.get(vNo || '');
-                const isMoving = gpsInfo && gpsInfo.speed > 5;
-
-                const isAssigned = s === 'assigned' || s === 'vehicle-assigned';
-                const isTransit = s === 'in-transit';
-                const isArrived = s === 'arrival-for-delivery' || s === 'arrived-at-destination';
-                const isDelivered = s === 'delivered';
-                const isLoaded = s === 'loading-complete' || s === 'loaded';
-
-                // Count trips by vehicle type (within selected date range)
-                if (isDateMatch) {
-                    const vType = (t.vehicleType || '').toLowerCase();
-                    if (vType.includes('own')) ownTrips++;
-                    else if (vType.includes('contract')) contractTrips++;
-                    else if (vType.includes('market')) marketTrips++;
-                }
-
-                if (isAssigned) {
-                    assigned++;
-                    if (isMoving) catStats.assigned.moving++; else catStats.assigned.stopped++;
-                    if (isMoving) catStats.active.moving++; else catStats.active.stopped++;
-                    updateCategoryLocation('assigned', gpsInfo);
-                    updateCategoryLocation('active', gpsInfo);
-                } else if (isTransit) {
-                    transit++;
-                    if (isMoving) catStats.transit.moving++; else catStats.transit.stopped++;
-                    if (isMoving) catStats.active.moving++; else catStats.active.stopped++;
-                    updateCategoryLocation('transit', gpsInfo);
-                    updateCategoryLocation('active', gpsInfo);
-                } else if (isArrived) {
-                    arrived++;
-                    if (isMoving) catStats.arrived.moving++; else catStats.arrived.stopped++;
-                    if (isMoving) catStats.active.moving++; else catStats.active.stopped++;
-                    updateCategoryLocation('arrived', gpsInfo);
-                    updateCategoryLocation('active', gpsInfo);
-                } else if (isDelivered) {
-                    if (isDateMatch) completed++;
-                } else if (isLoaded) {
-                    // Logic Node: Loaded but still in yard (marked as IN at gate)
-                    loadedTrips++;
-                }
-            });
-        }
-
-        const yardSnap = await getDocs(query(collection(firestore, "vehicleEntries"), where("status", "==", "IN")));
-        yardSnap.forEach(d => { 
-            const entry = d.data();
-            const isInMaintenance = entry.remarks && ['Break-down', 'Under Maintenance'].includes(entry.remarks);
-            if (isInMaintenance) {
-                maintenance++;
-                const vNo = entry.vehicleNumber?.toUpperCase().replace(/\s/g, '');
-                const gpsInfo = vehicleStatusMap.get(vNo || '');
-                updateCategoryLocation('maintenance', gpsInfo);
-            }
-        });
-
-        setCategoryLocations(catLocations);
-        setCategoryGps(catStats);
-        setTripsByType({ own: ownTrips, contract: contractTrips, market: marketTrips });
-        setCounts({
-            'pending-shipments': pending,
-            'assigned-vehicles': assigned,
-            'in-transit': transit,
-            'arrival-for-delivery': arrived,
-            'breakdown-maintenance': maintenance,
-            'loaded-trips': loadedTrips,
-            'completed-shipments': completed,
-            'active-trips': assigned + transit + arrived
-        });
-
-    } catch (e) {
-        console.error("Dashboard calculation failure:", e);
-        setIsError(true);
-    } finally {
-        setIsLoading(false);
-    }
-  };
-
+  // 1. Real-time Registry Synchronizer (Multi-Node)
   useEffect(() => {
-    fetchRegistry();
-    const interval = setInterval(fetchRegistry, 60000);
+    if (!firestore || authorizedPlantIds.length === 0) return;
+
+    const unsubscribers: (() => void)[] = [];
+    const scopePlantIds = selectedPlant === 'all-plants' ? authorizedPlantIds : [selectedPlant];
+
+    // Listen to Gate Presence (Global Registry)
+    unsubscribers.push(onSnapshot(query(collection(firestore, "vehicleEntries"), where("status", "==", "IN")), (snap) => {
+        setRawEntries(snap.docs.map(d => d.data()));
+    }));
+
+    // Listen to partitioned plant data
+    scopePlantIds.forEach(pId => {
+        unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/shipments`), (snap) => {
+            setRawShipments(prev => ({ ...prev, [pId]: snap.docs.map(d => d.data()) }));
+        }));
+        unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/trips`), (snap) => {
+            setRawTrips(prev => ({ ...prev, [pId]: snap.docs.map(d => d.data()) }));
+            setIsRegistryLoading(false);
+        }));
+    });
+
+    return () => unsubscribers.forEach(unsub => unsub());
+  }, [firestore, selectedPlant, authorizedPlantIds, refreshKey]);
+
+  // 2. GIS Telemetry Poller (External Handshake)
+  useEffect(() => {
+    const fetchGps = async () => {
+        setIsFleetLoading(true);
+        const res = await fetchFleetLocation();
+        if (res.data) setGpsStats({ moving: res.data.filter(v => v.speed > 5).length, stopped: res.data.filter(v => v.speed <= 5).length, total: res.data.length });
+        setIsFleetLoading(false);
+    };
+    fetchGps();
+    const interval = setInterval(fetchGps, 60000);
     return () => clearInterval(interval);
-  }, [selectedPlant, fromDate, toDate, refreshKey, firestore, authorizedPlantIds]);
+  }, [refreshKey]);
 
-  const formatLoc = (cat: string) => {
-    const node = categoryLocations[cat];
-    if (!node || node.location === 'GPS Offline' || node.ts === 0) return 'GPS Offline';
-    return node.location;
-  };
+  // 3. Logic Node: Real-time Aggregate Computation
+  const calculatedStats = useMemo(() => {
+    const dayStart = fromDate ? startOfDay(fromDate) : startOfDay(subDays(new Date(), 7));
+    const dayEnd = toDate ? endOfDay(toDate) : endOfDay(new Date());
 
-  const formatTime = (cat: string) => {
-    const node = categoryLocations[cat];
-    if (!node || node.ts === 0) return '';
-    return format(new Date(node.ts), 'HH:mm');
-  };
+    let pending = 0, assigned = 0, transit = 0, arrived = 0, maintenance = 0, loadedTrips = 0, completed = 0;
+    let own = 0, contract = 0, market = 0;
+
+    Object.values(rawShipments).flat().forEach(s => {
+        const status = s.currentStatusId?.toLowerCase() || '';
+        if (['pending', 'partly vehicle assigned'].includes(status)) pending++;
+    });
+
+    Object.values(rawTrips).flat().forEach(t => {
+        const statusRaw = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
+        const startTime = t.startDate instanceof Timestamp ? t.startDate.toDate() : (t.startDate ? new Date(t.startDate) : new Date());
+        const isDateMatch = startTime >= dayStart && startTime <= dayEnd;
+
+        const vType = (t.vehicleType || '').toLowerCase();
+        if (isDateMatch) {
+            if (vType.includes('own')) own++;
+            else if (vType.includes('contract')) contract++;
+            else if (vType.includes('market')) market++;
+        }
+
+        if (statusRaw === 'assigned' || statusRaw === 'vehicle-assigned') assigned++;
+        else if (statusRaw === 'in-transit') transit++;
+        else if (statusRaw === 'arrived' || statusRaw === 'arrival-for-delivery') arrived++;
+        else if (statusRaw === 'delivered' && isDateMatch) completed++;
+        else if (statusRaw === 'loaded' || statusRaw === 'loading-complete') loadedTrips++;
+    });
+
+    rawEntries.forEach(entry => {
+        const isInMaintenance = entry.remarks && ['Break-down', 'Under Maintenance'].includes(entry.remarks);
+        if (isInMaintenance) maintenance++;
+    });
+
+    return {
+        'pending-shipments': pending,
+        'assigned-vehicles': assigned,
+        'in-transit': transit,
+        'arrival-for-delivery': arrived,
+        'breakdown-maintenance': maintenance,
+        'loaded-trips': loadedTrips,
+        'completed-shipments': completed,
+        'active-trips': assigned + transit + arrived,
+        own, contract, market
+    };
+  }, [rawShipments, rawTrips, rawEntries, fromDate, toDate]);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-      {/* Trips by Vehicle Type Card */}
       <Card className="relative overflow-hidden group min-h-[160px] cursor-default">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-500 leading-tight">Trips by Vehicle Type</CardTitle>
           <BarChart3 className="h-4 w-4 text-muted-foreground shrink-0" />
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="space-y-2">
-              <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
-              <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
-              <div className="h-4 w-full bg-slate-100 rounded animate-pulse" />
-            </div>
+          {isRegistryLoading ? (
+            <div className="flex flex-col gap-2 mt-4"><Skeleton className="h-4 w-full"/><Skeleton className="h-4 w-2/3"/></div>
           ) : (
             <div className="space-y-2 mt-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase text-blue-700 tracking-wide">Own</span>
-                <span className="text-sm font-black text-blue-700">{tripsByType.own}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase text-violet-700 tracking-wide">Contract</span>
-                <span className="text-sm font-black text-violet-700">{tripsByType.contract}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase text-amber-600 tracking-wide">Market</span>
-                <span className="text-sm font-black text-amber-600">{tripsByType.market}</span>
-              </div>
+              <div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase text-blue-700">Own</span><span className="text-sm font-black text-blue-700">{calculatedStats.own}</span></div>
+              <div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase text-violet-700">Contract</span><span className="text-sm font-black text-violet-700">{calculatedStats.contract}</span></div>
+              <div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase text-amber-600">Market</span><span className="text-sm font-black text-amber-600">{calculatedStats.market}</span></div>
             </div>
           )}
-          <p className="text-[10px] font-medium text-slate-400 mt-2">Trip count within selected period</p>
         </CardContent>
       </Card>
       
-      <DashboardCard
-        title="Pending Orders"
-        icon={Package}
-        value={`${counts['pending-shipments']}`}
-        description="Shipments awaiting allocation"
-        onClick={() => onCardClick('pending-shipments')}
-        isLoading={isLoading}
-        isError={isError}
-      />
-
-      <DashboardCard
-        title="Assigned Vehicles"
-        icon={Clock}
-        value={`${counts['assigned-vehicles']}`}
-        description="Assigned, awaiting gate-out"
-        onClick={() => onCardClick('assigned-vehicles')}
-        isLoading={isLoading}
-        isError={isError}
-        showGpsStats={true}
-        gpsMoving={categoryGps.assigned.moving}
-        gpsStop={categoryGps.assigned.stopped}
-        locationRegistry={formatLoc('assigned')}
-        lastUpdateTime={formatTime('assigned')}
-      />
-
-      <DashboardCard
-        title="Loaded Trips"
-        icon={LoadedIcon}
-        value={`${counts['loaded-trips']}`}
-        description="Ready, awaiting gate departure"
-        onClick={() => onCardClick('loaded-trips')}
-        isLoading={isLoading}
-        isError={isError}
-      />
-
-      <DashboardCard
-        title="Active Trips"
-        icon={PlayCircle}
-        value={`${counts['active-trips']}`}
-        description="Total non-closed missions"
-        onClick={() => onCardClick('active-trips')}
-        isLoading={isLoading}
-        isError={isError}
-        showGpsStats={true}
-        gpsMoving={categoryGps.active.moving}
-        gpsStop={categoryGps.active.stopped}
-        locationRegistry={formatLoc('active')}
-        lastUpdateTime={formatTime('active')}
-      />
-
-      <DashboardCard
-        title="In-Transit"
-        icon={Navigation}
-        value={`${counts['in-transit']}`}
-        description="Missions moving to destination"
-        onClick={() => onCardClick('in-transit')}
-        isLoading={isLoading}
-        isError={isError}
-        showGpsStats={true}
-        gpsMoving={categoryGps.transit.moving}
-        gpsStop={categoryGps.transit.stopped}
-        locationRegistry={formatLoc('transit')}
-        lastUpdateTime={formatTime('transit')}
-      />
-
-      <DashboardCard
-        title="Arrival Vehicles"
-        icon={ClipboardCheck}
-        value={`${counts['arrival-for-delivery']}`}
-        description="Reported at destination"
-        onClick={() => onCardClick('arrival-for-delivery')}
-        isLoading={isLoading}
-        isError={isError}
-        showGpsStats={true}
-        gpsMoving={categoryGps.arrived.moving}
-        gpsStop={categoryGps.arrived.stopped}
-        locationRegistry={formatLoc('arrived')}
-        lastUpdateTime={formatTime('arrived')}
-      />
-
-      <DashboardCard
-        title="Under Maintenance"
-        icon={Wrench}
-        value={`${counts['breakdown-maintenance']}`}
-        description="Fleet nodes in registry"
-        onClick={() => onCardClick('breakdown-maintenance')}
-        isLoading={isLoading}
-        isError={isError}
-        locationRegistry={formatLoc('maintenance')}
-        lastUpdateTime={formatTime('maintenance')}
-      />
-
-      <DashboardCard
-        title="Completed"
-        icon={CheckCircle}
-        value={`${counts['completed-shipments']}`}
-        description="Verified mission completions"
-        onClick={() => onCardClick('completed-shipments')}
-        isLoading={isLoading}
-        isError={isError}
-      />
+      <DashboardCard title="Pending Orders" icon={Package} value={`${calculatedStats['pending-shipments']}`} description="Shipments awaiting allocation" onClick={() => onCardClick('pending-shipments')} isLoading={isRegistryLoading} isError={isError} />
+      <DashboardCard title="Assigned Vehicles" icon={Clock} value={`${calculatedStats['assigned-vehicles']}`} description="Assigned, awaiting gate-out" onClick={() => onCardClick('assigned-vehicles')} isLoading={isRegistryLoading} isError={isError} />
+      <DashboardCard title="Loaded Trips" icon={LoadedIcon} value={`${calculatedStats['loaded-trips']}`} description="Ready, awaiting gate departure" onClick={() => onCardClick('loaded-trips')} isLoading={isRegistryLoading} isError={isError} />
+      <DashboardCard title="Active Trips" icon={PlayCircle} value={`${calculatedStats['active-trips']}`} description="Total non-closed missions" onClick={() => onCardClick('active-trips')} isLoading={isRegistryLoading} isError={isError} />
+      <DashboardCard title="In-Transit" icon={Navigation} value={`${calculatedStats['in-transit']}`} description="Missions moving to destination" onClick={() => onCardClick('in-transit')} isLoading={isRegistryLoading} isError={isError} />
+      <DashboardCard title="Arrival Vehicles" icon={ClipboardCheck} value={`${calculatedStats['arrival-for-delivery']}`} description="Reported at destination" onClick={() => onCardClick('arrival-for-delivery')} isLoading={isRegistryLoading} isError={isError} />
+      <DashboardCard title="Under Maintenance" icon={Wrench} value={`${calculatedStats['breakdown-maintenance']}`} description="Fleet nodes in registry" onClick={() => onCardClick('breakdown-maintenance')} isLoading={isRegistryLoading} isError={isError} />
+      <DashboardCard title="Completed" icon={CheckCircle} value={`${calculatedStats['completed-shipments']}`} description="Verified mission completions" onClick={() => onCardClick('completed-shipments')} isLoading={isRegistryLoading} isError={isError} />
     </div>
   );
 }

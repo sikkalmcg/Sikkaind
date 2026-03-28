@@ -42,7 +42,7 @@ function OpenOrdersContent() {
   const urlPlants = searchParams.get('plants')?.split(',').filter(Boolean) || [];
   
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
-  const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 15)));
+  const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
   const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   
@@ -148,11 +148,22 @@ function OpenOrdersContent() {
       return;
     }
 
-    if (allData.shipments.length === 0) setIsLoading(true);
+    setIsLoading(true);
     const unsubscribers: (() => void)[] = [];
 
+    // Real-time Vehicle Entry Sync (Global)
+    unsubscribers.push(onSnapshot(collection(firestore, "vehicleEntries"), (snap) => {
+        const entries = snap.docs.map(d => ({ 
+            id: d.id, 
+            ...d.data(),
+            entryTimestamp: d.data().entryTimestamp instanceof Timestamp ? d.data().entryTimestamp.toDate() : new Date(d.data().entryTimestamp),
+            exitTimestamp: d.data().exitTimestamp instanceof Timestamp ? d.data().exitTimestamp.toDate() : (d.data().exitTimestamp ? new Date(d.data().exitTimestamp) : undefined)
+        } as WithId<VehicleEntryExit>));
+        setAllData(prev => ({ ...prev, entries }));
+    }));
+
     selectedPlants.forEach((plantId) => {
-      const parseDate = (val: any) => val instanceof Timestamp ? val.toDate() : (val ? new Date(val) : new Date());
+      const parseDate = (val: any) => val instanceof Timestamp ? val.toDate() : (val ? new Date(val) : null);
 
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/shipments`), (snap) => {
         const plantShipments = snap.docs.map(d => ({ 
@@ -161,8 +172,6 @@ function OpenOrdersContent() {
           ...d.data(),
           creationDate: parseDate(d.data().creationDate),
           lastUpdateDate: d.data().lastUpdateDate ? parseDate(d.data().lastUpdateDate) : undefined,
-          cancelledAt: d.data().cancelledAt ? parseDate(d.data().cancelledAt) : undefined,
-          shortClosedAt: d.data().shortClosedAt ? parseDate(d.data().shortClosedAt) : undefined,
         } as WithId<Shipment>));
 
         setAllData(prev => ({
@@ -178,26 +187,11 @@ function OpenOrdersContent() {
           originPlantId: plantId, 
           ...d.data(),
           startDate: parseDate(d.data().startDate),
-          lrDate: d.data().lrDate ? parseDate(d.data().lrDate) : undefined
         } as WithId<Trip>));
 
         setAllData(prev => ({
           ...prev,
           trips: [...prev.trips.filter(t => t.originPlantId !== plantId), ...plantTrips]
-        }));
-      }));
-
-      unsubscribers.push(onSnapshot(query(collection(firestore, "vehicleEntries")), (snap) => {
-        const plantEntries = snap.docs.map(d => ({ 
-          id: d.id, 
-          ...d.data(),
-          entryTimestamp: parseDate(d.data().entryTimestamp),
-          exitTimestamp: d.data().exitTimestamp ? parseDate(d.data().exitTimestamp) : undefined
-        } as WithId<VehicleEntryExit>));
-
-        setAllData(prev => ({
-          ...prev,
-          entries: plantEntries
         }));
       }));
 
@@ -232,8 +226,8 @@ function OpenOrdersContent() {
       const normalizedSPlantId = normalizePlantId(s.originPlantId);
       const masterPlant = plants?.find(p => p.id === s.originPlantId || normalizePlantId(p.id) === normalizedSPlantId);
 
-      const associatedTrips = (trips || []).filter(t => t.shipmentIds?.includes(s.id));
-      const linkedTrips = associatedTrips.map(t => {
+      // SAFE NAVIGATION NODE: Fixed TypeError by using optional chaining
+      const linkedTrips = trips.filter(t => t.shipmentIds?.includes(s.id)).map(t => {
           const carrierObj = (carriers || []).find(c => c.id === t.carrierId);
           const carrierName = carrierObj?.name || '--';
           const entry = entries.find(e => e.tripId === t.id);
@@ -283,28 +277,24 @@ function OpenOrdersContent() {
 
         if (snap.empty) {
             const shipmentObj = row.shipmentObj || row;
-            if (shipmentObj.items && shipmentObj.items.length > 0) {
-                setPreviewLr({
-                    lrNumber: row.lrNumber,
-                    date: parseDate(row.lrDate),
-                    trip: row,
-                    carrier: row.carrierObj || (carriers || [])[0],
-                    shipment: shipmentObj,
-                    plant: row.plant,
-                    items: shipmentObj.items,
-                    weightSelection: 'Assigned Weight',
-                    assignedTripWeight: row.assignedQtyInTrip || shipmentObj.quantity,
-                    from: shipmentObj.loadingPoint || '',
-                    to: shipmentObj.unloadingPoint || '',
-                    consignorName: shipmentObj.consignor || '',
-                    buyerName: shipmentObj.billToParty || '',
-                    shipToParty: shipmentObj.shipToParty || '',
-                    deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
-                    id: row.id
-                } as any);
-            } else {
-                toast({ variant: 'destructive', title: "LR Node Missing", description: "Lorry Receipt particulars not found in registry." });
-            }
+            setPreviewLr({
+                lrNumber: row.lrNumber,
+                date: parseDate(row.lrDate),
+                trip: row,
+                carrier: row.carrierObj || (carriers || [])[0],
+                shipment: shipmentObj,
+                plant: row.plant,
+                items: shipmentObj.items || [],
+                weightSelection: 'Assigned Weight',
+                assignedTripWeight: row.assignedQtyInTrip || shipmentObj.quantity,
+                from: shipmentObj.loadingPoint || '',
+                to: shipmentObj.unloadingPoint || '',
+                consignorName: shipmentObj.consignor || '',
+                buyerName: shipmentObj.billToParty || '',
+                shipToParty: shipmentObj.shipToParty || '',
+                deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
+                id: row.id
+            } as any);
         } else {
             const lrDoc = snap.docs[0].data() as LR;
             setPreviewLr({
@@ -338,7 +328,7 @@ function OpenOrdersContent() {
       if (isCancelled) {
           res.cancelled++;
       } else {
-          if (s.balanceQty > 0) res.pending++;
+          if (s.balanceQty > 0.001) res.pending++;
           if (isInProcess) res.process++;
           if (isDispatched) res.dispatched++;
       }
@@ -356,7 +346,7 @@ function OpenOrdersContent() {
       const isDispatched = dispatchedTrips.length > 0;
       const isInProcess = inProcessTrips.length > 0;
 
-      if (activeTab === 'pending') return !isCancelled && s.balanceQty > 0;
+      if (activeTab === 'pending') return !isCancelled && s.balanceQty > 0.001;
       if (activeTab === 'process') return !isCancelled && isInProcess;
       if (activeTab === 'dispatched') return !isCancelled && isDispatched;
       if (activeTab === 'cancelled') return isCancelled;
@@ -370,7 +360,6 @@ function OpenOrdersContent() {
 
   const handleCancelAssignment = async (tripId: string, shipId: string, qty: number) => {
     if (!firestore || !user) return;
-    
     const shipment = allData.shipments.find(s => s.id === shipId);
     if (!shipment) return;
     const plantId = shipment.originPlantId;
@@ -382,10 +371,7 @@ function OpenOrdersContent() {
             const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
             const globalTripRef = doc(firestore, 'trips', tripId);
 
-            const [shipSnap, tripSnap] = await Promise.all([
-                transaction.get(shipRef),
-                transaction.get(tripRef)
-            ]);
+            const [shipSnap, tripSnap] = await Promise.all([transaction.get(shipRef), transaction.get(tripRef)]);
 
             if (!shipSnap.exists()) throw new Error("Order Registry error.");
             
@@ -403,13 +389,7 @@ function OpenOrdersContent() {
             
             transaction.delete(tripRef);
             transaction.delete(globalTripRef);
-            
-            transaction.update(shipRef, {
-                assignedQty: newAssigned,
-                balanceQty: newBalance,
-                currentStatusId: newAssigned === 0 ? 'pending' : 'Partly Vehicle Assigned',
-                lastUpdateDate: serverTimestamp()
-            });
+            transaction.update(shipRef, { assignedQty: newAssigned, balanceQty: newBalance, currentStatusId: newAssigned === 0 ? 'pending' : 'Partly Vehicle Assigned', lastUpdateDate: serverTimestamp() });
         });
         toast({ title: "Assignment Detached", description: "Vehicle removed and quantities reverted." });
         setCancelModalData(null);
@@ -429,15 +409,7 @@ function OpenOrdersContent() {
     try {
         const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0]);
         const shipRef = doc(firestore, `plants/${shipment.originPlantId}/shipments`, id);
-        
-        await updateDoc(shipRef, {
-            currentStatusId: 'Short Closed',
-            cancelReason: reason,
-            shortClosedBy: currentName,
-            shortClosedAt: serverTimestamp(),
-            lastUpdateDate: serverTimestamp()
-        });
-
+        await updateDoc(shipRef, { currentStatusId: 'Short Closed', cancelReason: reason, shortClosedBy: currentName, shortClosedAt: serverTimestamp(), lastUpdateDate: serverTimestamp() });
         toast({ title: "Order Short Closed", description: `Shipment ${shipment.shipmentId} moved to cancelled registry.` });
         setCancelModalData(null);
     } catch (e: any) {
@@ -454,19 +426,9 @@ function OpenOrdersContent() {
 
     showLoader();
     try {
-        const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0]);
         const shipRef = doc(firestore, `plants/${shipment.originPlantId}/shipments`, id);
-        
-        const nextStatus = shipment.assignedQty > 0 ? 'Partly Vehicle Assigned' : 'pending';
-        
-        await updateDoc(shipRef, {
-            currentStatusId: nextStatus,
-            lastUpdateDate: serverTimestamp(),
-            cancelledAt: null,
-            cancelledBy: null,
-            cancelReason: null
-        });
-
+        const nextStatus = shipment.assignedQty > 0.001 ? 'Partly Vehicle Assigned' : 'pending';
+        await updateDoc(shipRef, { currentStatusId: nextStatus, lastUpdateDate: serverTimestamp(), cancelledAt: null, cancelledBy: null, cancelReason: null });
         toast({ title: "Order Restored", description: `Shipment ${shipment.shipmentId} returned to active registry.` });
     } catch (e: any) {
         toast({ variant: 'destructive', title: "Restoration Failed", description: e.message });
@@ -480,14 +442,11 @@ function OpenOrdersContent() {
         <div className="flex h-screen items-center justify-center bg-[#f8fafc]">
             <div className="flex flex-col items-center gap-4">
                 <Loader2 className="h-12 w-12 animate-spin text-blue-900" />
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Syncing Open Orders...</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Syncing Open Orders Registry...</p>
             </div>
         </div>
     );
   }
-
-  const isReadOnlyPlantScope = !isAuthLoading && !isAdminSession && authorizedPlantIds.length === 1;
-  const currentPlantName = plants?.find(p => p.id === authorizedPlantIds[0])?.name || authorizedPlantIds[0];
 
   return (
     <main className="flex flex-1 flex-col h-full overflow-hidden bg-white">
@@ -503,10 +462,8 @@ function OpenOrdersContent() {
                 <Label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1">
                   <Factory className="h-2.5 w-2.5" /> Plant Node Registry
                 </Label>
-                {isReadOnlyPlantScope ? (
-                    <div className="h-9 px-4 flex items-center bg-blue-50 border border-blue-100 rounded-lg text-blue-900 font-black text-xs shadow-sm uppercase min-w-[180px]">
-                        <ShieldCheck className="h-3.5 w-3.5 mr-2 text-blue-600" /> {currentPlantName}
-                    </div>
+                {isAuthLoading ? (
+                    <div className="h-9 w-[180px] bg-slate-100 animate-pulse rounded-lg" />
                 ) : (
                     <MultiSelectPlantFilter 
                         options={plants || []}
@@ -583,37 +540,10 @@ function OpenOrdersContent() {
       </Tabs>
 
       <LayoutSettingsModal isOpen={isLayoutModalOpen} onClose={() => setIsLayoutModalOpen(false)} activeTab={activeTab} />
-      
-      {isAssignModalOpen && selectedShipment && (
-        <VehicleAssignModal 
-            isOpen={isAssignModalOpen} 
-            onClose={() => {setIsAssignModalOpen(false); setSelectedShipment(null); setEditingTrip(null);}} 
-            shipment={selectedShipment} 
-            trip={editingTrip}
-            onAssignmentComplete={() => {setIsAssignModalOpen(false); setSelectedShipment(null); setEditingTrip(null);}} 
-            carriers={carriers || []} 
-        />
-      )}
-
+      {isAssignModalOpen && selectedShipment && <VehicleAssignModal isOpen={isAssignModalOpen} onClose={() => {setIsAssignModalOpen(false); setSelectedShipment(null); setEditingTrip(null);}} shipment={selectedShipment} trip={editingTrip} onAssignmentComplete={() => {setIsAssignModalOpen(false); setSelectedShipment(null); setEditingTrip(null);}} carriers={carriers || []} />}
       {drawerOrder && <OrderDetailsDrawer isOpen={!!drawerOrder} onClose={() => setDrawerOrder(null)} shipment={drawerOrder} />}
       {drawerTrip && <TripDetailsDrawer isOpen={!!drawerTrip} onClose={() => setDrawerTrip(null)} trip={drawerTrip} />}
-      
-      {cancelModalData && (
-        <CancelReasonModal 
-            isOpen={!!cancelModalData} 
-            onClose={() => setCancelModalData(null)} 
-            onConfirm={(reason) => {
-                if (cancelModalData.type === 'assignment' && cancelModalData.tripId) {
-                    handleCancelAssignment(cancelModalData.tripId, cancelModalData.id, cancelModalData.qty || 0);
-                } else if (cancelModalData.type === 'order') {
-                    handleShortCloseOrder(cancelModalData.id, reason);
-                } else {
-                    setCancelModalData(null);
-                }
-            }} 
-        />
-      )}
-
+      {cancelModalData && <CancelReasonModal isOpen={!!cancelModalData} onClose={() => setCancelModalData(null)} onConfirm={(reason) => { if (cancelModalData.type === 'assignment' && cancelModalData.tripId) { handleCancelAssignment(cancelModalData.tripId, cancelModalData.id, cancelModalData.qty || 0); } else if (cancelModalData.type === 'order') { handleShortCloseOrder(cancelModalData.id, reason); } else { setCancelModalData(null); } }} />}
       {previewLr && <LRPrintPreviewModal isOpen={!!previewLr} onClose={() => setPreviewLr(null)} lr={previewLr} />}
     </main>
   );

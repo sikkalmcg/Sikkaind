@@ -1,11 +1,25 @@
 
-node_modules
-.next
-.firebase
+# Dependencies
+/node_modules
+/.pnpm-debug.log*
+
+# Build Artifacts
+/.next/
+/out/
+/build/
+/.firebase/
+
+# Environment & Logs
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 *.log
 firebase-debug.log*
-.env.local
-.env.*.local
-.vercel
-dist
-build
+.firebase/
+
+# IDE & OS
+.vscode/
+.DS_Store
+Thumbs.db
