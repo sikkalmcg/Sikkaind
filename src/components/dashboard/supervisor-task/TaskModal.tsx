@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -189,7 +188,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 {manifestHeaderNodes.map((node, i) => (
                     <div key={i} className="space-y-1.5">
                         <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                            <node.icon className="h-3 w-3" /> {node.label}
+                            {node.icon && <node.icon className="h-3 w-3" />} {node.label}
                         </span>
                         <p className={cn(
                             "text-[11px] uppercase leading-tight truncate",
@@ -211,7 +210,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                     variant="outline" 
                     size="sm" 
                     onClick={() => append({ deliveryNo: 'DEL-', invoiceNo: 'INV-', itemDescription: 'Goods particulars', deliveryUnit: 0, loadUnit: 0, uom: 'Bag' })}
-                    className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all active:scale-95"
+                    className="h-10 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white hover:bg-blue-50 shadow-md transition-all active:scale-95"
                 >
                     <Plus className="h-4 w-4" /> ADD ROW
                 </Button>
@@ -282,7 +281,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                         })}
                     </TableBody>
                     <TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16">
-                        <TableRow className="hover:bg-transparent">
+                        <TableRow className="hover:bg-transparent border-none">
                             <TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL LOADING MANIFEST REGISTRY</TableCell>
                             <TableCell className="text-center font-black text-lg text-slate-900">{totals.delivery.toFixed(3)}</TableCell>
                             <TableCell className="text-center font-black text-lg text-blue-900">{totals.load.toFixed(3)}</TableCell>
@@ -307,7 +306,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
             <div className="flex gap-10 items-center">
                 <button onClick={onClose} className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500 hover:text-white transition-all">DISCARD</button>
                 <Button 
-                    onClick={form.handleSubmit(handleCommit)} 
+                    onClick={handleSubmit(handleCommit)} 
                     disabled={form.formState.isSubmitting} 
                     className="bg-blue-600 hover:bg-blue-700 text-white px-20 h-14 rounded-[1.5rem] font-black uppercase text-sm tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
                 >

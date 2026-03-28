@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -122,7 +121,7 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
                                     <>
                                         <div className="px-4 py-2 text-[9px] font-black text-blue-600 uppercase bg-blue-50/50 rounded-lg mb-1">Active Missions</div>
                                         {activeTrips.map(t => (
-                                            <SelectItem key={t.id} value={t.id} className="font-bold py-3 uppercase italic">
+                                            <SelectItem key={t.id} value={t.id} className="font-bold py-3 uppercase italic text-black">
                                                 {t.vehicleNumber} ({t.tripId})
                                             </SelectItem>
                                         ))}
@@ -132,7 +131,7 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
                                     <>
                                         <div className="px-4 py-2 text-[9px] font-black text-orange-600 uppercase bg-orange-50/50 rounded-lg my-1">Gate Presence</div>
                                         {availableVehicles.map(v => (
-                                            <SelectItem key={v.id} value={v.id} className="font-bold py-3 uppercase italic">
+                                            <SelectItem key={v.id} value={v.id} className="font-bold py-3 uppercase italic text-black">
                                                 {v.vehicleNumber} (In Yard)
                                             </SelectItem>
                                         ))}
@@ -165,14 +164,14 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
                                             <ShieldCheck className="h-3 w-3" /> TRANSIT NODES
                                         </div>
                                         {missionRegistryStatuses.map(s => (
-                                            <SelectItem key={s} value={s} className="font-black py-3 uppercase text-xs tracking-tight">{s.toUpperCase()}</SelectItem>
+                                            <SelectItem key={s} value={s} className="font-black py-3 uppercase text-xs tracking-tight text-black">{s.toUpperCase()}</SelectItem>
                                         ))}
                                     </>
                                 ) : (
                                     <>
                                         <div className="px-4 py-2 text-[9px] font-black text-orange-600 uppercase border-b mb-1">MAINTENANCE NODES</div>
                                         {maintenanceStatuses.map(s => (
-                                            <SelectItem key={s} value={s} className="font-black py-3 uppercase text-xs tracking-tight">{s.toUpperCase()}</SelectItem>
+                                            <SelectItem key={s} value={s} className="font-black py-3 uppercase text-xs tracking-tight text-black">{s.toUpperCase()}</SelectItem>
                                         ))}
                                     </>
                                 )}
@@ -237,7 +236,7 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
                         <Button 
                             type="submit"
                             disabled={isSubmitting || !selectedId || !newStatus || isLockedAtGate}
-                            className="h-16 w-24 rounded-3xl bg-blue-900 hover:bg-slate-900 text-white shadow-2xl shadow-blue-900/30 transition-all active:scale-90 border-none group"
+                            className="h-16 w-24 rounded-3xl bg-blue-900 hover:bg-slate-900 text-white shadow-2xl shadow-blue-900/30 transition-all active:scale-90 border-none group p-0 flex items-center justify-center"
                         >
                             {isSubmitting ? (
                                 <Loader2 className="h-6 w-6 animate-spin" />

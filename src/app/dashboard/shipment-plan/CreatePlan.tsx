@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format } from 'date-fns';
@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/date-picker';
 import type { Plant, Shipment, WithId, SubUser, Party, MasterQtyType, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Search, Upload, Truck, Info } from 'lucide-react';
+import { ShieldCheck, Search, Upload, Truck, Info, Calculator, Trash2, PlusCircle } from 'lucide-react';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDoc } from "firebase/firestore";
 import { cn, normalizePlantId, formatSequenceId } from '@/lib/utils';
@@ -39,13 +39,22 @@ const formSchema = z.object({
   shipToParty: z.string().optional(),
   shipToGtin: z.string().optional(),
   unloadingPoint: z.string().min(1, 'Destination city is mandatory.'),
-  quantity: z.coerce.number().optional().default(0),
+  quantity: z.coerce.number().min(0.001, 'Quantity must be positive'),
   materialTypeId: z.string().min(1, 'UOM is required.'),
   lrNumber: z.string().optional().or(z.literal('')),
   lrDate: z.date().optional().nullable(),
   carrierId: z.string().optional().or(z.literal('')),
   paymentTerm: z.enum(PaymentTerms).optional(),
   deliveryAddress: z.string().optional().or(z.literal('')),
+  items: z.array(z.object({
+    invoiceNumber: z.string().min(1, "Doc ref required"),
+    ewaybillNumber: z.string().optional(),
+    units: z.coerce.number().min(1, "Units required"),
+    unitType: z.string().default('Package'),
+    itemDescription: z.string().min(1, "Item desc required"),
+    weight: z.coerce.number().min(0.001, "Weight required"),
+    hsnSac: z.string().optional(),
+  })).optional().default([]),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -79,7 +88,7 @@ function AutocompleteInput({ value, onChange, onSearchClick, suggestions, placeh
                         {isOpen && filteredSuggestions.length > 0 && (
                             <div className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
                                 {filteredSuggestions.map((suggestion) => (
-                                    <div key={suggestion.id} onClick={() => { onSelect ? onSelect(suggestion) : onChange(suggestion.name); setIsOpen(false); }} className="px-5 py-3 cursor-pointer hover:bg-blue-50 border-b last:border-0">
+                                    <div key={suggestion.id} onClick={() => { if(onSelect) onSelect(suggestion); else onChange(suggestion.name); setIsOpen(false); }} className="px-5 py-3 cursor-pointer hover:bg-blue-50 border-b last:border-0">
                                         <div className="flex flex-col">
                                             <span className="text-xs font-black uppercase tracking-tight">{suggestion.name}</span>
                                             <span className="text-[9px] font-bold uppercase text-slate-400">{suggestion.city} | {suggestion.gstin || 'No GSTIN'}</span>
@@ -104,16 +113,16 @@ function AutocompleteInput({ value, onChange, onSearchClick, suggestions, placeh
 export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (shipment: any) => void }) {
   const { toast } = useToast();
   const firestore = useFirestore();
-  const { data: user } = useUser();
+  const { user } = useUser();
   const { showLoader, hideLoader } = useLoading();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [authorizedPlants, setAuthorizedPlants] = useState<WithId<Plant>[]>([]);
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentTime] = useState(new Date());
   const [helpModal, setHelpModal] = useState<{ type: string; title: string; data: any[] } | null>(null);
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentDate(new Date()), 1000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -122,13 +131,14 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
     defaultValues: {
         originPlantId: '', consignor: '', billToParty: '', loadingPoint: '', unloadingPoint: '',
         materialTypeId: 'METRIC TON', quantity: 0, lrNumber: '', carrierId: '', paymentTerm: 'Paid',
-        isSameAsBillTo: false, lrDate: null,
+        isSameAsBillTo: false, lrDate: null, items: []
     },
   });
 
-  const { watch, setValue, control, handleSubmit, reset, formState: { errors } } = form;
+  const { watch, setValue, control, handleSubmit, reset } = form;
+  const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  
   const originPlantId = watch('originPlantId');
-  const lrNumber = watch('lrNumber');
   const isSameAsBillTo = watch('isSameAsBillTo');
 
   // --- Data Queries ---
@@ -136,71 +146,27 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   const { data: parties } = useCollection<Party>(useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_parties"), where("isDeleted", "==", false)) : null, [firestore]));
   const { data: allPlants } = useCollection<Plant>(useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, [firestore]));
   
-  // FIX: Carrier Mismatch Logic - Checking both numerical ID and ID prefix
   const { data: carriers } = useCollection<Carrier>(useMemoFirebase(() => {
     if (!firestore || !originPlantId) return null;
-    const formattedId = originPlantId.startsWith('ID') ? originPlantId : `ID${originPlantId}`;
-    return query(collection(firestore, "carriers"), where("plantId", "in", [originPlantId, formattedId]));
+    return query(collection(firestore, "carriers"), where("plantId", "==", originPlantId));
   }, [firestore, originPlantId]));
 
   const consignorRegistry = useMemo(() => (parties || []).filter(p => p.type === 'Consignor'), [parties]);
   const consigneeRegistry = useMemo(() => (parties || []).filter(p => p.type === 'Consignee & Ship to'), [parties]);
 
-  // Auth/Plant Mapping
   useEffect(() => {
     if (allPlants && user) {
-        const isAdmin = user.email?.includes('admin') || user.email === 'sikkalmcg@gmail.com';
+        const isAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
         setAuthorizedPlants(isAdmin ? allPlants : allPlants.filter(p => p.id === '1426')); 
     }
   }, [allPlants, user]);
 
-  // Shared Address Logic
   const handleShipToSelect = useCallback((p: Party) => {
     setValue('shipToParty', p.name, { shouldValidate: true });
     setValue('shipToGtin', p.gstin || '', { shouldValidate: true });
     const address = (p.address && p.address !== 'N/A') ? p.address : p.city;
     if (address) setValue('unloadingPoint', address, { shouldValidate: true });
   }, [setValue]);
-
-  // Excel Bulk Upload Logic
-  const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !originPlantId) return toast({ variant: 'destructive', title: "Select Plant Node first" });
-
-    showLoader();
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-        try {
-            const wb = XLSX.read(evt.target?.result, { type: 'binary' });
-            const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]) as any[];
-            
-            await runTransaction(firestore!, async (tx) => {
-                const countSnap = await tx.get(doc(firestore!, "counters", "shipments"));
-                let count = countSnap.exists() ? countSnap.data().count : 0;
-
-                for (const row of data) {
-                    count++;
-                    const id = formatSequenceId("S", count);
-                    const ref = doc(collection(firestore!, `plants/${normalizePlantId(originPlantId)}/shipments`));
-                    tx.set(ref, { 
-                        ...row, 
-                        originPlantId,
-                        shipmentId: id, 
-                        creationDate: serverTimestamp(), 
-                        currentStatusId: 'pending',
-                        userName: user?.displayName || 'System Import'
-                    });
-                }
-                tx.update(doc(firestore!, "counters", "shipments"), { count });
-            });
-            toast({ title: "Bulk Import Successful", description: `${data.length} orders added.` });
-            onShipmentCreated({ id: 'bulk' } as any);
-        } catch (err: any) {
-            toast({ variant: 'destructive', title: "Upload Failed", description: err.message });
-        } finally { hideLoader(); if(fileInputRef.current) fileInputRef.current.value = ''; }
-    };
-    reader.readAsBinaryString(file);
-  };
 
   const handlePost = async (values: FormValues) => {
     if (!firestore || !user) return;
@@ -213,10 +179,25 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
             const plantId = normalizePlantId(values.originPlantId);
             const shipRef = doc(collection(firestore, `plants/${plantId}/shipments`));
 
+            // REGISTRY SECURITY: Ensure manifest is never empty
+            let manifestItems = values.items || [];
+            if (manifestItems.length === 0) {
+                manifestItems = [{
+                    invoiceNumber: 'INITIAL-PLAN',
+                    units: 1,
+                    unitType: 'Package',
+                    itemDescription: 'AUTO-GEN MISSION PAYLOAD',
+                    weight: values.quantity,
+                    ewaybillNumber: '',
+                    hsnSac: ''
+                }];
+            }
+
             tx.set(doc(firestore, "counters", "shipments"), { count: newCount }, { merge: true });
             tx.set(shipRef, {
                 ...values,
                 shipmentId,
+                items: manifestItems,
                 currentStatusId: 'pending',
                 creationDate: serverTimestamp(),
                 assignedQty: 0,
@@ -241,16 +222,12 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                     <div className="p-4 bg-blue-900 rounded-2xl text-white shadow-xl"><ShieldCheck size={32} /></div>
                     <div>
                         <CardTitle className="text-3xl font-black text-blue-900 tracking-tight uppercase italic">Order Plan Registry</CardTitle>
-                        <CardDescription className="text-xs font-bold text-slate-400">Sikka Industries Logistics v2.5</CardDescription>
+                        <CardDescription className="text-xs font-bold text-slate-400">Secure Mission Asset Deployment</CardDescription>
                     </div>
                 </div>
                 <div className="flex gap-4">
-                    <input type="file" ref={fileInputRef} className="hidden" onChange={handleBulkUpload} accept=".xlsx, .xls" />
-                    <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="h-14 px-8 rounded-2xl border-blue-200 text-blue-900 font-bold hover:bg-blue-50">
-                        <Upload className="mr-2 h-5 w-5" /> Bulk Import
-                    </Button>
-                    <Button onClick={handleSubmit(handlePost)} className="h-14 px-10 bg-blue-900 rounded-2xl font-black shadow-lg hover:scale-105 transition-transform">
-                        Commit Plan
+                    <Button onClick={handleSubmit(handlePost)} className="h-14 px-10 bg-blue-900 rounded-2xl font-black shadow-lg hover:scale-105 transition-transform text-white border-none">
+                        Commit Plan (F8)
                     </Button>
                 </div>
             </div>
@@ -259,7 +236,6 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
         <CardContent className="p-12">
           <Form {...form}>
             <form className="space-y-16">
-               {/* --- TOP REGISTRY ROW --- */}
                <div className="grid grid-cols-1 md:grid-cols-4 gap-8 bg-slate-50 p-8 rounded-3xl border border-slate-100 shadow-inner">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Registry Timestamp</label>
@@ -289,12 +265,11 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                   <FormField control={control} name="quantity" render={({ field }) => (
                     <FormItem>
                         <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Total Quantity *</FormLabel>
-                        <FormControl><Input type="number" {...field} className="h-14 bg-white rounded-xl font-black text-xl" /></FormControl>
+                        <FormControl><Input type="number" step="0.001" {...field} className="h-14 bg-white rounded-xl font-black text-xl text-center" /></FormControl>
                     </FormItem>
                   )} />
                </div>
 
-               {/* --- OPTIONAL LR SECTION --- */}
                <div className="p-10 rounded-[2rem] border-2 border-dashed border-blue-100 bg-blue-50/20 space-y-8">
                   <div className="flex items-center gap-3 text-blue-900 font-black text-sm uppercase tracking-tighter border-b border-blue-100 pb-4"><Truck size={20}/> Optional LR Registry Section</div>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -303,21 +278,18 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                       )} />
 
                       <FormField control={control} name="lrDate" render={({ field }) => (
-                        <FormItem className="flex flex-col"><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">LR Date *</FormLabel><DatePicker date={field.value || undefined} setDate={field.onChange} /><FormMessage /></FormItem>
+                        <FormItem className="flex flex-col"><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">LR Date</FormLabel><DatePicker date={field.value || undefined} setDate={field.onChange} /><FormMessage /></FormItem>
                       )} />
 
                       <FormField control={control} name="carrierId" render={({ field }) => (
                         <FormItem>
-                            <FormLabel className="text-[10px] font-bold text-blue-600 uppercase">Carrier Registry *</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value} disabled={!originPlantId}>
-                                <FormControl>
-                                    <SelectTrigger className="h-14 border-blue-200 bg-white rounded-xl">
-                                        <SelectValue placeholder={!carriers?.length ? "No Carriers Found" : "Select Carrier"} />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>{carriers?.map(c => <SelectItem key={c.id} value={c.id} className="font-bold">{c.name}</SelectItem>)}</SelectContent>
+                            <FormLabel className="text-[10px] font-bold text-blue-600 uppercase">Carrier Agent *</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl><SelectTrigger className="h-14 border-blue-200 bg-white rounded-xl"><SelectValue placeholder="Select Carrier" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    {carriers?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                </SelectContent>
                             </Select>
-                            {!carriers?.length && originPlantId && <p className="text-[9px] text-orange-600 font-bold mt-1 uppercase flex items-center gap-1"><Info size={10}/> ID Mismatch Check Required</p>}
                         </FormItem>
                       )} />
 
@@ -330,7 +302,6 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                   </div>
                </div>
 
-               {/* --- PARTY SELECTION --- */}
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                   <div className="space-y-8 p-10 rounded-[2.5rem] border bg-white shadow-xl">
                       <AutocompleteInput 
@@ -372,12 +343,50 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                       <FormField control={control} name="unloadingPoint" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-400">Destination City *</FormLabel><FormControl><Input {...field} className="h-14 rounded-xl" /></FormControl></FormItem>)} />
                   </div>
                </div>
+
+               <section className="space-y-6">
+                    <div className="flex items-center justify-between px-2">
+                        <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3">
+                            <Calculator className="h-5 w-5 text-blue-600" /> Optional Manifest Items Registry
+                        </h3>
+                        <Button type="button" variant="outline" size="sm" onClick={() => append({ invoiceNumber: '', units: 1, unitType: 'Package', itemDescription: '', weight: 0.001 })} className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all">
+                            <PlusCircle size={16} /> Add Node
+                        </Button>
+                    </div>
+                    <div className="rounded-[2.5rem] border-2 border-slate-200 bg-white shadow-xl overflow-hidden">
+                        <Table>
+                            <TableHeader className="bg-slate-900">
+                                <TableRow className="hover:bg-transparent h-14 border-none">
+                                    <TableHead className="text-white text-[10px] font-black uppercase px-8">Invoice #</TableHead>
+                                    <TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead>
+                                    <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center">Units</TableHead>
+                                    <TableHead className="text-white text-[10px] font-black uppercase px-8 text-right">Weight (MT)</TableHead>
+                                    <TableHead className="w-16"></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {fields.length === 0 ? (
+                                    <TableRow><TableCell colSpan={5} className="h-24 text-center text-slate-400 italic border-none">No detailed items added. Registry will auto-generate from header.</TableCell></TableRow>
+                                ) : (
+                                    fields.map((field, index) => (
+                                        <TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-none hover:bg-blue-50/10 transition-colors">
+                                            <TableCell className="px-8"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-10 rounded-xl font-bold" /></TableCell>
+                                            <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-10 rounded-xl font-bold" /></TableCell>
+                                            <TableCell className="px-4"><Input type="number" {...form.register(`items.${index}.units`)} className="h-10 text-center font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" /></TableCell>
+                                            <TableCell className="px-8 text-right"><Input type="number" step="0.001" {...form.register(`items.${index}.weight`)} className="h-10 text-right font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" /></TableCell>
+                                            <TableCell className="pr-6 text-right"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-400 hover:text-red-600"><Trash2 size={18}/></Button></TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+               </section>
             </form>
           </Form>
         </CardContent>
       </Card>
 
-      {/* Registry Search Modal */}
       {helpModal && (
         <Dialog open={!!helpModal} onOpenChange={() => setHelpModal(null)}>
             <DialogContent className="max-w-2xl rounded-3xl p-0 overflow-hidden border-none shadow-3xl">

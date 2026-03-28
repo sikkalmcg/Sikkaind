@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -12,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { ShieldCheck, Plus, Factory, FileText } from 'lucide-react';
+import { ShieldCheck, Plus, Factory, FileText, Loader2 } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, query, addDoc, serverTimestamp, orderBy, doc, where, getDocs, limit } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
@@ -164,7 +163,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                                 </SelectTrigger>
                             </FormControl>
                             <SelectContent className="rounded-xl">
-                                {authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic">{p.name}</SelectItem>)}
+                                {authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                         <FormMessage />
@@ -191,8 +190,8 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                                 </SelectTrigger>
                             </FormControl>
                             <SelectContent className="rounded-xl">
-                                <SelectItem value="Loading" className="font-bold py-3 uppercase">LOADING MISSION</SelectItem>
-                                <SelectItem value="Unloading" className="font-bold py-3 uppercase">UNLOADING MISSION</SelectItem>
+                                <SelectItem value="Loading" className="font-bold py-3 uppercase text-black">LOADING MISSION</SelectItem>
+                                <SelectItem value="Unloading" className="font-bold py-3 uppercase text-black">UNLOADING MISSION</SelectItem>
                             </SelectContent>
                         </Select>
                         <FormMessage />
@@ -272,10 +271,10 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent className="rounded-xl">
-                                        <SelectItem value="MT" className="font-bold">Metric Ton (MT)</SelectItem>
-                                        <SelectItem value="Bags" className="font-bold">Bags</SelectItem>
-                                        <SelectItem value="PCS" className="font-bold">PCS</SelectItem>
-                                        <SelectItem value="Kg" className="font-bold">KG</SelectItem>
+                                        <SelectItem value="MT" className="font-bold text-black">Metric Ton (MT)</SelectItem>
+                                        <SelectItem value="Bags" className="font-bold text-black">Bags</SelectItem>
+                                        <SelectItem value="PCS" className="font-bold text-black">PCS</SelectItem>
+                                        <SelectItem value="Kg" className="font-bold text-black">KG</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </FormItem>

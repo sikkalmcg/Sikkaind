@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -204,7 +203,7 @@ export default function VehicleOut() {
                                     <FormControl>
                                         <SelectTrigger className="h-12 bg-white rounded-xl font-black text-slate-700 shadow-sm border-slate-200"><SelectValue placeholder="Pick node" /></SelectTrigger>
                                     </FormControl>
-                                    <SelectContent className="rounded-xl">{(authorizedPlants || []).map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic">{p.name}</SelectItem>)}</SelectContent>
+                                    <SelectContent className="rounded-xl">{(authorizedPlants || []).map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>)}</SelectContent>
                                 </Select>
                             </FormItem>
                         )} />
@@ -213,7 +212,7 @@ export default function VehicleOut() {
                                 <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">VEHICLES CURRENTLY IN *</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value} disabled={!selectedPlantId || isLoadingEntries}>
                                     <FormControl><SelectTrigger className="h-12 bg-white rounded-xl font-black text-blue-900 shadow-sm border-slate-200 overflow-hidden"><SelectValue placeholder={isLoadingEntries ? "Syncing..." : "Pick vehicle"} /></SelectTrigger></FormControl>
-                                    <SelectContent className="rounded-xl">{activeEntries.map(e => <SelectItem key={e.id} value={e.id} className="font-bold py-3 uppercase">{e.vehicleNumber} ({e.purpose})</SelectItem>)}</SelectContent>
+                                    <SelectContent className="rounded-xl">{activeEntries.map(e => <SelectItem key={e.id} value={e.id} className="font-bold py-3 uppercase text-black">{e.vehicleNumber} ({e.purpose})</SelectItem>)}</SelectContent>
                                 </Select>
                             </FormItem>
                         )} />
@@ -222,7 +221,10 @@ export default function VehicleOut() {
                                 <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">EXIT STATUS *</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl><SelectTrigger className="h-12 bg-white rounded-xl font-black text-slate-700 shadow-sm border-slate-200"><SelectValue placeholder="Pick Status" /></SelectTrigger></FormControl>
-                                    <SelectContent className="rounded-xl"><SelectItem value="Loaded" className="font-bold py-3 uppercase">LOADED</SelectItem><SelectItem value="Empty" className="font-bold py-3 uppercase">EMPTY</SelectItem></SelectContent>
+                                    <SelectContent className="rounded-xl">
+                                        <SelectItem value="Loaded" className="font-bold py-3 uppercase text-black">LOADED</SelectItem>
+                                        <SelectItem value="Empty" className="font-bold py-3 uppercase text-black">EMPTY</SelectItem>
+                                    </SelectContent>
                                 </Select>
                             </FormItem>
                         )} />
@@ -241,12 +243,17 @@ export default function VehicleOut() {
                                     <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">EXIT WEIGHT</FormLabel><FormControl><div className="relative group"><Weight className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-400" /><Input type="number" step="0.001" {...field} className="h-12 pl-10 bg-white rounded-xl font-black text-blue-900 border-blue-200 shadow-inner" /></div></FormControl></FormItem>
                                 )} />
                                 <FormField name="weightUnit" control={form.control} render={({ field }) => (
-                                    <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">WEIGHT UNIT</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 bg-white rounded-xl font-bold border-blue-200 shadow-sm"><SelectValue /></SelectTrigger></FormControl><SelectContent className="rounded-xl"><SelectItem value="MT" className="font-bold">Metric Ton (MT)</SelectItem><SelectItem value="KG" className="font-bold">Kilogram (KG)</SelectItem><SelectItem value="Bags" className="font-bold">Bags</SelectItem></SelectContent></Select></FormItem>
+                                    <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">WEIGHT UNIT</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 bg-white rounded-xl font-bold border-blue-200 shadow-sm"><SelectValue /></SelectTrigger></FormControl><SelectContent className="rounded-xl"><SelectItem value="MT" className="font-bold text-black">Metric Ton (MT)</SelectItem><SelectItem value="KG" className="font-bold text-black">Kilogram (KG)</SelectItem><SelectItem value="Bags" className="font-bold text-black">Bags</SelectItem></SelectContent></Select></FormItem>
                                 )} />
                             </div>
                         </div>
                     )}
-                    <div className="flex items-center justify-end gap-8 pt-4"><button type="button" onClick={() => reset()} className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-900 transition-all">DISCARD ENTRY</button><Button type="submit" disabled={isSubmitting || !selectedEntryId} className="bg-blue-900 hover:bg-black text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none">{isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <ShieldCheck className="h-5 w-5 mr-3" />}FINALIZE SYSTEM OUT</Button></div>
+                    <div className="flex items-center justify-end gap-8 pt-4">
+                        <button type="button" onClick={() => reset()} className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-900 transition-all">DISCARD ENTRY</button>
+                        <Button type="submit" disabled={isSubmitting || !selectedEntryId} className="bg-blue-900 hover:bg-black text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none p-0 flex items-center justify-center">
+                            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <><ShieldCheck className="h-5 w-5 mr-3" />FINALIZE SYSTEM OUT</>}
+                        </Button>
+                    </div>
                 </form>
             </Form>
         </CardContent>

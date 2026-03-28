@@ -1,9 +1,8 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, query, doc, getDocs, getDoc, Timestamp, where, limit, onSnapshot, serverTimestamp, runTransaction, deleteDoc, addDoc, updateDoc } from "firebase/firestore";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -23,7 +22,7 @@ import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilte
 import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreviewModal';
 import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
 import { mockPlants, mockCarriers } from '@/lib/mock-data';
-import { normalizePlantId } from '@/lib/utils';
+import { normalizePlantId, sanitizeRegistryNode } from '@/lib/utils';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useLoading } from '@/context/LoadingContext';
 
@@ -151,7 +150,6 @@ function OpenOrdersContent() {
     setIsLoading(true);
     const unsubscribers: (() => void)[] = [];
 
-    // Real-time Vehicle Entry Sync (Global)
     unsubscribers.push(onSnapshot(collection(firestore, "vehicleEntries"), (snap) => {
         const entries = snap.docs.map(d => ({ 
             id: d.id, 
@@ -226,8 +224,8 @@ function OpenOrdersContent() {
       const normalizedSPlantId = normalizePlantId(s.originPlantId);
       const masterPlant = plants?.find(p => p.id === s.originPlantId || normalizePlantId(p.id) === normalizedSPlantId);
 
-      // SAFE NAVIGATION NODE: Fixed TypeError by using optional chaining
-      const linkedTrips = trips.filter(t => t.shipmentIds?.includes(s.id)).map(t => {
+      const associatedTrips = trips.filter(t => t.shipmentIds?.includes(s.id));
+      const linkedTrips = associatedTrips.map(t => {
           const carrierObj = (carriers || []).find(c => c.id === t.carrierId);
           const carrierName = carrierObj?.name || '--';
           const entry = entries.find(e => e.tripId === t.id);
