@@ -1,3 +1,4 @@
+
 'use client';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
@@ -46,6 +47,7 @@ const formSchema = z.object({
   })).min(1, "At least one row is required."),
   deliveryAddress: z.string().min(1, "Delivery Address is mandatory."),
   consignorName: z.string().min(1, "Consignor node required."),
+  consignorAddress: z.string().optional().default(''),
   consignorGtin: z.string().optional(),
   consignorMobile: z.string().optional(),
   buyerName: z.string().min(1, "Consignee node required."),
@@ -230,6 +232,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
         items: [],
         deliveryAddress: '',
         consignorName: '',
+        consignorAddress: '',
         consignorGtin: '',
         consignorMobile: '',
         buyerName: '',
@@ -269,6 +272,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
     if (match) {
         setValue('consignorGtin', match.gstin || '', { shouldValidate: true });
         setValue('consignorMobile', match.mobile || '', { shouldValidate: true });
+        setValue('consignorAddress', match.address || '', { shouldValidate: true });
     }
   }, [watchedConsignorName, consignorRegistry, setValue, parties]);
 
@@ -398,7 +402,6 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                     }];
                 }
 
-                // REGISTRY HANDSHAKE: Prioritize shipment data for new LRs
                 const lrNo = baseData?.lrNumber || shipmentData.lrNumber || '';
                 const lrDt = getSafeDate(baseData?.date || shipmentData.lrDate) || new Date();
 
@@ -411,6 +414,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                     paymentTerm: (baseData?.paymentTerm || shipmentData.paymentTerm || 'Paid') as any,
                     weightSelection: baseData?.weightSelection || 'Assigned Weight',
                     consignorName: baseData?.consignorName || shipmentData.consignor || '',
+                    consignorAddress: baseData?.consignorAddress || shipmentData.loadingPoint || '',
                     consignorGtin: baseData?.consignorGtin || shipmentData.consignorGtin || '',
                     consignorMobile: baseData?.consignorMobile || '',
                     buyerName: baseData?.buyerName || shipmentData.billToParty || '',
@@ -450,12 +454,14 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
     if (type === 'consignorName') {
         setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
         setValue('consignorMobile', party.mobile || '', { shouldValidate: true });
+        setValue('consignorAddress', party.address || '', { shouldValidate: true });
     } else if (type === 'buyerName') {
         setValue('buyerGtin', party.gstin || '', { shouldValidate: true });
         setValue('buyerMobile', party.mobile || '', { shouldValidate: true });
     } else if (type === 'shipToParty') {
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
         setValue('shipToMobile', party.mobile || '', { shouldValidate: true });
+        setValue('deliveryAddress', party.address || '', { shouldValidate: true });
     }
 
     setHelpModal(null);
@@ -488,14 +494,21 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                 ? 'AJAY SOMRA' 
                 : (user.displayName || user.email?.split('@')[0] || 'System Operator');
 
+            // CONCISE HEADER NODE LOGIC
+            const consignorParty = parties?.find(p => p.name === values.consignorName);
+            const shipToPartyObj = parties?.find(p => p.name === values.shipToParty);
+            
+            const fromHeader = consignorParty?.city || values.consignorName;
+            const toHeader = shipToPartyObj?.city || values.shipToParty;
+
             const lrData: any = {
                 ...values,
                 tripDocId: activeTrip.id,
                 tripId: activeTrip.tripId, 
                 carrierId: activeCarrier.id,
                 originPlantId: plantId,
-                from: values.consignorName || shipment.loadingPoint || plantId,
-                to: values.deliveryAddress || shipment.unloadingPoint || activeTrip.unloadingPoint,
+                from: fromHeader,
+                to: toHeader,
                 transportMode: 'Road',
                 assignedTripWeight: finalWeight,
                 updatedAt: serverTimestamp(),
@@ -619,7 +632,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                                         <FormLabel className="text-[10px] font-black uppercase tracking-wider">Consignor Entity * (F4 Help)</FormLabel>
                                         <div className="flex gap-2">
                                             <FormControl><Input className="h-10 rounded-xl font-black text-slate-900" {...field} onKeyDown={(e) => handleF4(e, 'consignorName')} /></FormControl>
-                                            <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => setHelpModal({ type: 'consignorName', title: 'Select Consignor Node', data: consignorRegistry })}>
+                                            <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => setHelpModal({ type: 'consignor', title: 'Select Consignor Node', data: consignorRegistry })}>
                                                 <Search className="h-4 w-4" />
                                             </Button>
                                         </div>
@@ -642,7 +655,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                                         <FormLabel className="text-[10px] font-black uppercase tracking-wider">Consignee (Bill to) * (F4 Help)</FormLabel>
                                         <div className="flex gap-2">
                                             <FormControl><Input className="h-10 rounded-xl font-black text-slate-900" {...field} onKeyDown={(e) => handleF4(e, 'buyerName')} /></FormControl>
-                                            <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => setHelpModal({ type: 'buyerName', title: 'Select Consignee Node', data: consigneeRegistry })}>
+                                            <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => setHelpModal({ type: 'billToParty', title: 'Select Consignee Node', data: consigneeRegistry })}>
                                                 <Search className="h-4 w-4" />
                                             </Button>
                                         </div>

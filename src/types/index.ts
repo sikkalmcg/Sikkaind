@@ -154,6 +154,7 @@ export interface LR {
   consignorName: string;
   consignorGtin?: string;
   consignorMobile?: string;
+  consignorAddress?: string;
   buyerName: string;
   buyerGtin?: string;
   buyerMobile?: string;
