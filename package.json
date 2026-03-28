@@ -84,9 +84,6 @@
     }
   },
   "overrides": {
-    "firebase": "10.11.0",
-    "reactfire": {
-      "firebase": "10.11.0"
-    }
+    "firebase": "10.11.0"
   }
 }

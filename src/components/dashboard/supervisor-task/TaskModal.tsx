@@ -70,6 +70,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
 
   useEffect(() => {
     if (isOpen && task && fields.length === 0) {
+        // Automatic Manifest Resolution Node
         const initialItems = (task.shipmentItems || []).map((i: any) => ({
             deliveryNo: 'DEL-',
             invoiceNo: i.invoiceNumber ? `INV-${i.invoiceNumber}` : 'INV-',
