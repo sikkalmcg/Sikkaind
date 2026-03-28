@@ -11,19 +11,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { 
-    Truck, 
-    MapPin, 
     Activity, 
     CheckCircle2, 
     AlertTriangle, 
     Loader2, 
-    Clock, 
     ShieldCheck, 
-    ChevronDown, 
     History,
-    X,
-    ArrowRightLeft,
-    MonitorPlay,
     Lock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';

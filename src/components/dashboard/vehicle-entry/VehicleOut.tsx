@@ -20,13 +20,12 @@ import {
     Sparkles
 } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, query, where, doc, updateDoc, serverTimestamp, onSnapshot, getDoc, orderBy, Timestamp } from "firebase/firestore";
+import { collection, query, where, doc, updateDoc, serverTimestamp, onSnapshot, getDoc, orderBy } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useLoading } from '@/context/LoadingContext';
 import type { Plant, SubUser, Trip, Shipment } from '@/types';
 import { normalizePlantId } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 
 const formSchema = z.object({
   plantId: z.string().min(1, "Select Plant Node."),
