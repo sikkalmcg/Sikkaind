@@ -175,7 +175,9 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   }, []);
 
   useEffect(() => {
-    setValue('freightAmount', Number(((assignQty || 0) * (freightRate || 0)).toFixed(2)));
+    if (assignQty && freightRate) {
+        setValue('freightAmount', Number(((assignQty || 0) * (freightRate || 0)).toFixed(2)));
+    }
   }, [assignQty, freightRate, setValue]);
 
   const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
@@ -256,13 +258,14 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             setValue('vehicleType', (vData.vehicleType as any) || 'Own Vehicle', { shouldValidate: true });
             if (vData.driverName) setValue('driverName', vData.driverName, { shouldValidate: true });
             if (vData.driverMobile) setValue('driverMobile', vData.driverMobile, { shouldValidate: true });
+            toast({ title: 'Registry Link Established', description: `${vData.vehicleNumber} identified in fleet registry.` });
         } else {
             setRegistryMatch(null);
         }
     } catch (e) {
         console.error("Lookup Failure");
     }
-  }, [firestore, setValue, registryMatch]);
+  }, [firestore, setValue, registryMatch, toast]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -274,6 +277,16 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     const handler = setTimeout(() => performVehicleLookup(vNumber), 1000);
     return () => clearTimeout(handler);
   }, [isOpen, vehicleNumber, registryMatch, performVehicleLookup]);
+
+  useEffect(() => {
+    if (!isOpen || isNewVehicle || !vehicleId) return;
+    const found = vehiclesAtGate.find(v => v.id === vehicleId);
+    if (found && found.vehicleNumber !== vehicleNumber) {
+        setValue('vehicleNumber', found.vehicleNumber, { shouldValidate: true });
+        setValue('driverName', found.driverName || '', { shouldValidate: true });
+        setValue('driverMobile', found.driverMobile || '', { shouldValidate: true });
+    }
+  }, [isOpen, isNewVehicle, vehicleId, vehiclesAtGate, setValue, vehicleNumber]);
 
   const balanceQty = useMemo(() => {
     const total = isEditing ? (shipment.balanceQty + (trip.assignedQtyInTrip || 0)) : shipment.balanceQty;
@@ -373,7 +386,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white rounded-3xl">
+      <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-2xl bg-slate-50 overflow-hidden rounded-3xl">
         <DialogHeader className="bg-slate-900 text-white p-6 shrink-0 flex flex-row items-center justify-between pr-12 rounded-t-3xl">
           <div className="flex items-center gap-4">
             <div className="p-2 bg-blue-600 rounded-xl shadow-lg"><Truck className="h-6 w-6" /></div>
@@ -390,7 +403,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             <div className="absolute top-0 right-0 p-8 opacity-[0.03] rotate-12 transition-transform duration-1000 group-hover:scale-110"><Factory size={160} /></div>
             <div className="flex items-center gap-4 mb-8">
                 <div className="p-2 bg-blue-50 text-blue-700 rounded-xl border border-blue-100"><ShieldCheck className="h-5 w-5" /></div>
-                <h3 className="text-sm font-black uppercase tracking-wider text-slate-700">Mission Context Handshake</h3>
+                <h3 className="text-sm font-black uppercase tracking-wider text-slate-600">Mission Context Handshake</h3>
                 <Badge className="bg-blue-900 text-white font-black text-[10px] px-4 h-6">{shipment.shipmentId}</Badge>
             </div>
             <div className="grid grid-cols-6 gap-x-10 gap-y-8 text-xs relative z-10">
@@ -419,7 +432,18 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                 <TableCell className="py-4">{isNewVehicle ? <FormField control={control} name="vehicleNumber" render={({ field }) => (<Input {...field} placeholder="XX00XX0000" className="h-11 rounded-xl font-black text-blue-900 uppercase" />)} /> : <FormField control={control} name="vehicleId" render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-11 font-black"><SelectValue placeholder="Pick Vehicle" /></SelectTrigger></FormControl><SelectContent>{isDataLoading ? <div className="p-4 text-center"><Loader2 className="animate-spin h-4 w-4 mx-auto"/></div> : vehiclesAtGate.map(v => <SelectItem key={v.id} value={v.id} className="font-black">{v.vehicleNumber}</SelectItem>)}</SelectContent></Select>)} /></TableCell>
                                 <TableCell className="py-4"><FormField control={control} name="driverName" render={({ field }) => (<Input {...field} className="h-11 font-bold" />)} /></TableCell>
                                 <TableCell className="py-4"><FormField control={control} name="driverMobile" render={({ field }) => (<Input {...field} maxLength={10} className="h-11 font-mono font-black" />)} /></TableCell>
-                                <TableCell><FormField control={control} name="carrierId" render={({ field }) => (<SearchableSelect options={carrierOptions} onChange={field.onChange} value={field.value} className="h-11" />)} /></TableCell>
+                                <TableCell>
+                                    <FormField control={control} name="carrierId" render={({ field }) => (
+                                        <SearchableSelect 
+                                            options={carrierOptions} 
+                                            onChange={field.onChange} 
+                                            value={field.value} 
+                                            placeholder="Select a carrier..."
+                                            searchPlaceholder="Search carriers..."
+                                            emptyPlaceholder="No carriers found."
+                                        />
+                                    )} />
+                                </TableCell>
                                 <TableCell>
                                     <FormField control={control} name="vehicleType" render={({ field }) => (
                                         <Select onValueChange={field.onChange} value={field.value} disabled={!!registryMatch}>
