@@ -1,15 +1,31 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Truck, MapPin, Activity, CheckCircle2, AlertTriangle, Hammer, Loader2 } from 'lucide-react';
+import { 
+    Truck, 
+    MapPin, 
+    Activity, 
+    CheckCircle2, 
+    AlertTriangle, 
+    Loader2, 
+    Clock, 
+    ShieldCheck, 
+    ChevronDown, 
+    History,
+    X,
+    ArrowRightLeft,
+    MonitorPlay
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
 
 interface UpdateStatusFormProps {
   activeTrips: any[];
@@ -17,40 +33,46 @@ interface UpdateStatusFormProps {
   onStatusUpdate: (id: string, status: string, location: string, remarks?: string, isTrip?: boolean) => Promise<void>;
 }
 
+/**
+ * @fileOverview Manual Transition Node (Status Control Form).
+ * High-fidelity implementation matching user template.
+ * Logic: Transitions dependent on gate-out registry sync.
+ */
 export default function UpdateStatusForm({ activeTrips, availableVehicles, onStatusUpdate }: UpdateStatusFormProps) {
   const [selectedId, setSelectedId] = useState('');
   const [newStatus, setNewStatus] = useState('');
-  const [location, setLocation] = useState('');
   const [remarks, setRemarks] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [registryTime, setRegistryTime] = useState(new Date());
 
-  const selectedTrip = activeTrips.find(t => t.id === selectedId);
-  const selectedVehicle = availableVehicles.find(v => v.id === selectedId);
+  useEffect(() => {
+    const timer = setInterval(() => setRegistryTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedId || !newStatus) return;
+  const selectedTrip = useMemo(() => activeTrips.find(t => t.id === selectedId), [activeTrips, selectedId]);
+  const selectedVehicle = useMemo(() => availableVehicles.find(v => v.id === selectedId), [availableVehicles, selectedId]);
 
-    setIsSubmitting(true);
-    try {
-        await onStatusUpdate(selectedId, newStatus, location, remarks, !!selectedTrip);
-        // Reset form on success
-        setSelectedId('');
-        setNewStatus('');
-        setLocation('');
-        setRemarks('');
-    } finally {
-        setIsSubmitting(false);
-    }
-  };
+  const currentStatus = useMemo(() => {
+    if (selectedTrip) return (selectedTrip.tripStatus || selectedTrip.currentStatusId || 'ASSIGNED').toUpperCase();
+    if (selectedVehicle) return (selectedVehicle.remarks || 'IN YARD').toUpperCase();
+    return '--';
+  }, [selectedTrip, selectedVehicle]);
 
-  const tripStatuses = [
-    'In Transit',
-    'Arrival for Delivery',
-    'Arrived',
+  // REGISTRY RULE: Once vehicle is OUT, transit options activate
+  const isTransitReady = useMemo(() => {
+    if (!selectedTrip) return false;
+    // Trip is transit ready if it has a vehicle number and is not purely 'Assigned' (implies gate-out handled)
+    return currentStatus === 'IN TRANSIT' || currentStatus === 'IN-TRANSIT';
+  }, [selectedTrip, currentStatus]);
+
+  const masterRegistryStatuses = [
+    'Arrive For Deliver',
+    'Break-Down',
     'Delivered',
-    'Breakdown',
-    'Under-Maintenance'
+    'Not Accept Return',
+    'Out For Delivery',
+    'Pilot Not Available'
   ];
 
   const maintenanceStatuses = [
@@ -59,34 +81,70 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
     'Available'
   ];
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedId || !newStatus) return;
+
+    setIsSubmitting(true);
+    try {
+        await onStatusUpdate(selectedId, newStatus, '', remarks, !!selectedTrip);
+        setSelectedId('');
+        setNewStatus('');
+        setRemarks('');
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <form onSubmit={handleSubmit} className="lg:col-span-7 space-y-8">
-            <div className="space-y-6 bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-xl">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Target Entity *</Label>
-                        <Select value={selectedId} onValueChange={setSelectedId}>
-                            <SelectTrigger className="h-12 rounded-xl font-bold border-slate-200">
-                                <SelectValue placeholder="Select Trip or Vehicle" />
+    <Card className="border-none shadow-2xl rounded-[3rem] bg-white overflow-hidden animate-in fade-in duration-700">
+        {/* HEADER SECTION */}
+        <div className="bg-slate-50/50 p-8 border-b flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
+                <div className="p-3 bg-blue-900 text-white rounded-2xl shadow-xl rotate-3">
+                    <Activity className="h-7 w-7" />
+                </div>
+                <div>
+                    <h2 className="text-2xl font-black text-blue-900 uppercase italic tracking-tight">MANUAL TRANSITION NODE</h2>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">CONFIGURE MISSION STATUS PARTICULARS</p>
+                </div>
+            </div>
+
+            <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-inner flex flex-col items-center min-w-[180px]">
+                <span className="text-[8px] font-black uppercase text-slate-400 tracking-[0.3em] mb-1">REGISTRY TIMESTAMP</span>
+                <p className="text-sm font-black text-blue-900 font-mono tracking-tighter">
+                    {format(registryTime, 'dd-MM-yy')} <span className="text-slate-300 mx-1">|</span> {format(registryTime, 'HH:mm')}
+                </p>
+            </div>
+        </div>
+
+        <CardContent className="p-10">
+            <form onSubmit={handleSubmit} className="space-y-12">
+                {/* FORM ROW 1: PRIMARY NODES */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+                    <div className="md:col-span-4 space-y-3">
+                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">VEHICLE NUMBER *</Label>
+                        <Select value={selectedId} onValueChange={(v) => { setSelectedId(v); setNewStatus(''); }}>
+                            <SelectTrigger className="h-14 rounded-2xl font-black text-blue-900 border-slate-200 bg-white shadow-sm focus:ring-blue-900">
+                                <SelectValue placeholder="Select active vehicle..." />
                             </SelectTrigger>
-                            <SelectContent className="rounded-xl">
+                            <SelectContent className="rounded-2xl">
                                 {activeTrips.length > 0 && (
                                     <>
-                                        <div className="px-3 py-2 text-[9px] font-black text-blue-600 uppercase bg-blue-50/50 rounded-lg mb-1">Active Missions</div>
+                                        <div className="px-4 py-2 text-[9px] font-black text-blue-600 uppercase bg-blue-50/50 rounded-lg mb-1">Active Missions</div>
                                         {activeTrips.map(t => (
-                                            <SelectItem key={t.id} value={t.id} className="font-bold py-2.5">
-                                                {t.tripId} | {t.vehicleNumber}
+                                            <SelectItem key={t.id} value={t.id} className="font-bold py-3 uppercase italic">
+                                                {t.tripId} – {t.unloadingPoint?.split(',')[0].trim() || 'Node'}
                                             </SelectItem>
                                         ))}
                                     </>
                                 )}
                                 {availableVehicles.length > 0 && (
                                     <>
-                                        <div className="px-3 py-2 text-[9px] font-black text-orange-600 uppercase bg-orange-50/50 rounded-lg my-1">Yard Maintenance</div>
+                                        <div className="px-4 py-2 text-[9px] font-black text-orange-600 uppercase bg-orange-50/50 rounded-lg my-1">Gate Presence</div>
                                         {availableVehicles.map(v => (
-                                            <SelectItem key={v.id} value={v.id} className="font-bold py-2.5">
-                                                {v.vehicleNumber} (IN Yard)
+                                            <SelectItem key={v.id} value={v.id} className="font-bold py-3 uppercase italic">
+                                                {v.vehicleNumber} (In Yard)
                                             </SelectItem>
                                         ))}
                                     </>
@@ -95,106 +153,111 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
                         </Select>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Transition To *</Label>
+                    <div className="md:col-span-4 space-y-3">
+                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">LATEST REGISTRY STATUS</Label>
+                        <div className="h-14 px-6 flex items-center bg-blue-50/30 rounded-2xl border-2 border-blue-100/50 font-black text-blue-900 uppercase tracking-tight text-sm">
+                            {currentStatus}
+                        </div>
+                    </div>
+
+                    <div className="md:col-span-4 space-y-3">
+                        <Label className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">TARGET STATUS NODE *</Label>
                         <Select value={newStatus} onValueChange={setNewStatus} disabled={!selectedId}>
-                            <SelectTrigger className="h-12 rounded-xl font-black text-blue-900 border-blue-200 shadow-inner">
-                                <SelectValue placeholder="Select New Status" />
+                            <SelectTrigger className="h-14 rounded-2xl font-black text-slate-900 border-slate-200 bg-white shadow-sm focus:ring-blue-900">
+                                <SelectValue placeholder="Transition Node" />
                             </SelectTrigger>
-                            <SelectContent className="rounded-xl">
+                            <SelectContent className="rounded-2xl">
                                 {selectedTrip ? (
-                                    tripStatuses.map(s => <SelectItem key={s} value={s} className="font-bold py-2.5">{s}</SelectItem>)
+                                    <>
+                                        <div className="px-4 py-2 text-[9px] font-black text-blue-600 uppercase tracking-[0.2em] border-b mb-1 flex items-center gap-2">
+                                            <ShieldCheck className="h-3 w-3" /> MASTER REGISTRY STATUSES
+                                        </div>
+                                        {masterRegistryStatuses.map(s => (
+                                            <SelectItem key={s} value={s} className="font-black py-3 uppercase text-xs tracking-tight">{s}</SelectItem>
+                                        ))}
+                                    </>
                                 ) : (
-                                    maintenanceStatuses.map(s => <SelectItem key={s} value={s} className="font-bold py-2.5">{s}</SelectItem>)
+                                    <>
+                                        <div className="px-4 py-2 text-[9px] font-black text-orange-600 uppercase border-b mb-1">MAINTENANCE NODES</div>
+                                        {maintenanceStatuses.map(s => (
+                                            <SelectItem key={s} value={s} className="font-black py-3 uppercase text-xs tracking-tight">{s}</SelectItem>
+                                        ))}
+                                    </>
                                 )}
                             </SelectContent>
                         </Select>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Current Node (Location)</Label>
-                        <div className="relative group">
-                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
-                            <Input 
-                                placeholder="Enter location..." 
-                                value={location}
-                                onChange={e => setLocation(e.target.value)}
-                                className="pl-10 h-12 rounded-xl border-slate-200" 
-                            />
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Registry Remark</Label>
-                        <Input 
-                            placeholder="Optional operational note..." 
+                {/* FORM ROW 2: REMARKS */}
+                <div className="space-y-3">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">ADMINISTRATIVE REMARKS</Label>
+                    <div className="relative group">
+                        <Textarea 
+                            placeholder="Provide justification or context for this transition..." 
                             value={remarks}
-                            onChange={e => setRemarks(e.target.value)}
-                            className="h-12 rounded-xl border-slate-200" 
+                            onChange={(e) => setRemarks(e.target.value)}
+                            className="min-h-[120px] rounded-3xl border-2 border-slate-100 p-6 font-bold text-slate-700 bg-white shadow-inner focus-visible:ring-blue-900 transition-all"
                         />
+                        <div className="absolute top-6 right-6 opacity-10 group-focus-within:opacity-30 transition-opacity">
+                            <History className="h-8 w-8" />
+                        </div>
                     </div>
                 </div>
 
-                <div className="pt-4 flex justify-end">
-                    <Button 
-                        disabled={isSubmitting || !selectedId || !newStatus}
-                        className="bg-blue-900 hover:bg-slate-900 text-white px-12 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl shadow-blue-900/20 border-none transition-all active:scale-95"
-                    >
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Activity className="mr-2 h-4 w-4" />}
-                        Commit Status Node
-                    </Button>
-                </div>
-            </div>
-        </form>
+                <Separator className="opacity-50" />
 
-        <div className="lg:col-span-5 space-y-6">
-            <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-4">Selection Context</h4>
-            <div className="p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl relative overflow-hidden group min-h-[300px] flex flex-col justify-between">
-                <div className="absolute top-0 right-0 p-8 opacity-5 rotate-12 transition-transform duration-1000 group-hover:scale-110">
-                    <Truck size={180} />
-                </div>
-                
-                {!selectedId ? (
-                    <div className="flex-1 flex flex-col items-center justify-center gap-4 opacity-30 grayscale text-center">
-                        <CheckCircle2 className="h-12 w-12" />
-                        <p className="text-[10px] font-black uppercase tracking-widest">Awaiting Entity selection</p>
+                {/* FOOTER ACTIONS */}
+                <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+                    <div className="flex-1 w-full md:w-auto">
+                        {!selectedId ? (
+                            <div className="flex items-center gap-3 p-4 px-6 bg-slate-50 rounded-2xl border border-slate-100 text-slate-400 font-bold uppercase text-[10px] italic">
+                                <AlertTriangle className="h-4 w-4" /> Awaiting target node selection...
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-4 p-4 px-8 bg-emerald-50 rounded-[2rem] border-2 border-emerald-100 animate-in zoom-in duration-300">
+                                <div className="h-6 w-6 rounded-full bg-emerald-600 flex items-center justify-center text-white shadow-lg">
+                                    <CheckCircle2 className="h-4 w-4" />
+                                </div>
+                                <span className="text-[10px] font-black uppercase text-emerald-700 tracking-tight">
+                                    VALIDATED: READY TO TRANSITION FROM {currentStatus}.
+                                </span>
+                            </div>
+                        )}
                     </div>
-                ) : (
-                    <div className="space-y-8 relative z-10 animate-in fade-in zoom-in-95 duration-300">
-                        <div className="flex items-start justify-between">
-                            <div className="space-y-1">
-                                <span className="text-[8px] font-black uppercase text-blue-400 tracking-widest">Target Asset</span>
-                                <h3 className="text-3xl font-black tracking-tighter uppercase leading-none">
-                                    {selectedTrip?.vehicleNumber || selectedVehicle?.vehicleNumber}
-                                </h3>
-                            </div>
-                            <Badge className="bg-blue-600 text-white font-black uppercase text-[10px] px-4 h-6 border-none shadow-lg">
-                                {selectedTrip ? 'Active Mission' : 'Gate Presence'}
-                            </Badge>
-                        </div>
 
-                        <div className="grid grid-cols-2 gap-8">
-                            <div className="space-y-1">
-                                <span className="text-[8px] font-black uppercase text-slate-500">Current Status Node</span>
-                                <p className="text-xs font-bold text-blue-200 uppercase">{selectedTrip?.tripStatus || selectedVehicle?.remarks || 'Operational'}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <span className="text-[8px] font-black uppercase text-slate-500">Destination Hub</span>
-                                <p className="text-xs font-bold text-white uppercase truncate">{selectedTrip?.unloadingPoint || '--'}</p>
-                            </div>
-                        </div>
-
-                        <div className="p-4 bg-white/5 rounded-2xl border border-white/10 flex items-start gap-3">
-                            <AlertTriangle className="h-4 w-4 text-orange-400 shrink-0 mt-0.5" />
-                            <p className="text-[9px] font-bold text-slate-400 uppercase leading-normal">
-                                Registry Transition Protocol: Advancing this node will update both local and global mission manifests.
-                            </p>
-                        </div>
+                    <div className="flex items-center gap-10">
+                        <button 
+                            type="button" 
+                            onClick={() => { setSelectedId(''); setNewStatus(''); setRemarks(''); }}
+                            className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-slate-900 transition-all"
+                        >
+                            CLEAR BOARD
+                        </button>
+                        
+                        <Button 
+                            type="submit"
+                            disabled={isSubmitting || !selectedId || !newStatus}
+                            className="h-16 w-24 rounded-3xl bg-blue-900 hover:bg-slate-900 text-white shadow-2xl shadow-blue-900/30 transition-all active:scale-90 border-none group"
+                        >
+                            {isSubmitting ? (
+                                <Loader2 className="h-6 w-6 animate-spin" />
+                            ) : (
+                                <Save className="h-7 w-7 transition-transform group-hover:-translate-y-1" />
+                            )}
+                        </Button>
                     </div>
-                )}
-            </div>
-        </div>
-    </div>
+                </div>
+            </form>
+        </CardContent>
+    </Card>
   );
+}
+
+function Save({ className }: { className?: string }) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+        </svg>
+    );
 }
