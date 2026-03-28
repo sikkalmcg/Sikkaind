@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { ShieldCheck, Loader2, Plus, Factory, UserCircle, Smartphone, FileText, Weight, Package } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, addDoc, serverTimestamp, orderBy } from "firebase/firestore";
