@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  firebase: ^10.11.0
+
 importers:
 
   .:
@@ -11,9 +14,6 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.3.4
         version: 3.10.0(react-hook-form@7.72.0(react@18.3.1))
-      '@next/swc-linux-x64-gnu':
-        specifier: ^16.2.1
-        version: 16.2.1
       '@radix-ui/react-alert-dialog':
         specifier: ^1.0.5
         version: 1.1.15(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -71,12 +71,6 @@ importers:
       '@swc/helpers':
         specifier: ^0.5.11
         version: 0.5.19
-      '@types/geojson':
-        specifier: ^7946.0.14
-        version: 7946.0.16
-      '@types/leaflet':
-        specifier: ^1.9.12
-        version: 1.9.21
       axios:
         specifier: ^1.6.8
         version: 1.13.6
@@ -171,6 +165,12 @@ importers:
         specifier: ^3.22.4
         version: 3.25.76
     devDependencies:
+      '@types/geojson':
+        specifier: ^7946.0.14
+        version: 7946.0.16
+      '@types/leaflet':
+        specifier: ^1.9.12
+        version: 1.9.21
       '@types/node':
         specifier: ^20
         version: 20.19.37
@@ -699,12 +699,6 @@ packages:
 
   '@next/swc-linux-x64-gnu@14.2.33':
     resolution: {integrity: sha512-FnFn+ZBgsVMbGDsTqo8zsnRzydvsGV8vfiWwUo1LD8FTmPTdV+otGSWKc4LJec0oSexFnCYVO4hX8P8qQKaSlg==}
-    engines: {node: '>= 10'}
-    cpu: [x64]
-    os: [linux]
-
-  '@next/swc-linux-x64-gnu@16.2.1':
-    resolution: {integrity: sha512-HQm7SrHRELJ30T1TSmT706IWovFFSRGxfgUkyWJZF/RKBMdbdRWJuFrcpDdE5vy9UXjFOx6L3mRdqH04Mmx0hg==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
@@ -3300,7 +3294,7 @@ packages:
   react-firebase-hooks@5.1.1:
     resolution: {integrity: sha512-y2UpWs82xs+39q5Rc/wq316ca52QsC0n8m801V+yM4IC4hbfOL4yQPVSh7w+ydstdvjN9F+lvs1WrO2VYxpmdA==}
     peerDependencies:
-      firebase: '>= 9.0.0'
+      firebase: ^10.11.0
       react: '>= 16.8.0'
 
   react-hook-form@7.72.0:
@@ -3390,7 +3384,7 @@ packages:
     resolution: {integrity: sha512-FG75b586r8dId7EGIyVi/nKokth++BIvdRO1BRIBkM7BGe2v753olcNpUHBLGdBPap7t67vq2FA0P22Pu8rT3Q==}
     engines: {node: '>=14'}
     peerDependencies:
-      firebase: ^9.0.0
+      firebase: ^10.11.0
       react: '>=16 || experimental'
 
   read-cache@1.0.0:
@@ -3479,7 +3473,7 @@ packages:
   rxfire@6.1.0:
     resolution: {integrity: sha512-NezdjeY32VZcCuGO0bbb8H8seBsJSCaWdUwGsHNzUcAOHR0VGpzgPtzjuuLXr8R/iemkqSzbx/ioS7VwV43ynA==}
     peerDependencies:
-      firebase: ^9.0.0 || ^10.0.0 || ^11.0.0
+      firebase: ^10.11.0
       rxjs: ^6.0.0 || ^7.0.0
 
   rxjs@7.8.2:
@@ -4647,8 +4641,6 @@ snapshots:
 
   '@next/swc-linux-x64-gnu@14.2.33':
     optional: true
-
-  '@next/swc-linux-x64-gnu@16.2.1': {}
 
   '@next/swc-linux-x64-musl@14.2.33':
     optional: true
