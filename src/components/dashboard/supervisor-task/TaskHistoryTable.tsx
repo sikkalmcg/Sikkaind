@@ -19,7 +19,7 @@ export default function TaskHistoryTable({ data, isAdmin, onRemove }: { data: an
         d = date.toDate();
     } else if (date instanceof Date) {
         d = date;
-    } else {
+    } else if (typeof date === 'string' || typeof date === 'number') {
         const parsed = new Date(date);
         if (isValid(parsed)) d = parsed;
     }

@@ -132,12 +132,13 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     resolver: zodResolver(formSchema),
     defaultValues: { assignQty: 0, freightRate: 0, freightAmount: 0, vehicleType: 'Own Vehicle', paymentTerm: 'Paid' },
   });
+  
   const { setValue, handleSubmit, reset, control } = form;
   const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate } = useWatch({ control });
 
   useEffect(() => {
     if (isOpen) {
-        reset({
+        const defaultValues = {
             isNewVehicle: false,
             vehicleId: trip?.vehicleId || '',
             vehicleNumber: trip?.vehicleNumber || '',
@@ -154,7 +155,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             freightRate: (trip as any)?.freightRate || 0,
             freightAmount: (trip as any)?.freightAmount || 0,
             distance: trip?.distance || 0
-        });
+        };
+        reset(defaultValues);
         hasCalculatedDistance.current = !!trip?.distance;
     }
   }, [isOpen, trip, shipment, carriers, reset]);
@@ -268,9 +270,9 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             const ts = serverTimestamp();
             const currentName = userProfile?.fullName || user.displayName || user.email?.split('@')[0] || 'System Operator';
             const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipment.id);
-            const shipSnap = await transaction.get(shipmentRef);
-            if (!shipSnap.exists()) throw new Error("Shipment registry error.");
-            const currentShipmentData = shipSnap.data() as Shipment;
+            const shipmentSnap = await transaction.get(shipmentRef);
+            if (!shipmentSnap.exists()) throw new Error("Shipment registry error.");
+            const currentShipmentData = shipmentSnap.data() as Shipment;
             let vehicleRegId = registryMatch?.id;
             if (values.isNewVehicle && !registryMatch) {
                 const newVehRef = doc(collection(firestore, 'vehicles'));
@@ -308,7 +310,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-2xl bg-slate-50 overflow-hidden rounded-3xl">
+      <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-3xl bg-slate-50 overflow-hidden rounded-3xl">
         <DialogHeader className="bg-slate-900 text-white p-6 shrink-0 flex flex-row items-center justify-between pr-12 rounded-t-3xl">
           <div className="flex items-center gap-4">
             <div className="p-2 bg-blue-600 rounded-xl shadow-lg"><Truck className="h-6 w-6" /></div>
