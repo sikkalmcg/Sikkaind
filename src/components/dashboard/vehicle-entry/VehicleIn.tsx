@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { ShieldCheck, Loader2, Plus, Factory, UserCircle, Smartphone, FileText, Weight, Package } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, query, addDoc, serverTimestamp, orderBy, doc, where, getDocs, limit } from "firebase/firestore";
+import { collection, query, addDoc, serverTimestamp, orderBy, doc, where, getDocs, limit, Timestamp } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useLoading } from '@/context/LoadingContext';
@@ -59,7 +59,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
     firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
     [firestore]
   );
-  const { data: allPlants } = useCollection<Plant>(plantsQuery);
+  const { data: allPlants, isLoading: isLoadingPlants } = useCollection<Plant>(plantsQuery);
 
   const userProfileRef = useMemo(() => (firestore && user) ? doc(firestore, "users", user.email!) : null, [firestore, user]);
   const { data: profile } = useDoc<SubUser>(userProfileRef);

@@ -7,8 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Search, Truck, MapPin, Clock, History, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
-import { format, differenceInHours, Timestamp } from 'date-fns';
+import { collection, query, where, onSnapshot, Timestamp } from "firebase/firestore";
+import { format, differenceInHours } from 'date-fns';
 import { normalizePlantId } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 

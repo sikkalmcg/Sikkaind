@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { User, MapPin, Clock, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Timestamp } from 'firebase/firestore';
 
 interface StatusHistoryProps {
   history: any[];
@@ -32,7 +33,7 @@ export default function StatusHistory({ history }: StatusHistoryProps) {
         <div className="overflow-x-auto">
             <Table>
                 <TableHeader className="bg-slate-50/80 sticky top-0 z-10 border-b">
-                    <TableRow className="h-14 hover:bg-transparent">
+                    <TableRow className="h-14 hover:bg-transparent border-b">
                         <TableHead className="text-[10px] font-black uppercase px-8 text-slate-400">Timestamp node</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Trip ID</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Vehicle Registry</TableHead>
