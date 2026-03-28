@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
@@ -171,7 +172,8 @@ function TrackConsignmentContent() {
                     expectedDelivery,
                     distanceValue: distance,
                     loadingPoint: shipmentData?.loadingPoint || tripData.loadingPoint,
-                    unloadingPoint: shipmentData?.unloadingPoint || tripData.unloadingPoint || tripData.destination
+                    unloadingPoint: shipmentData?.unloadingPoint || tripData.unloadingPoint || tripData.destination,
+                    destinationCity: shipmentData?.destination || tripData.destination
                 });
             }
         } catch (e) {
@@ -192,7 +194,7 @@ function TrackConsignmentContent() {
 
     const progressStages = [
         { label: 'Assigned', desc: 'Mission Planned', icon: ClipboardList, key: 'startDate' },
-        { label: 'Loading', desc: 'Task Complete', icon: Factory, key: 'loadingDate' }, // Proxy: Uses lastUpdated if Loaded
+        { label: 'Loading', desc: 'Task Complete', icon: Factory, key: 'loadingDate' }, 
         { label: 'In Transit', desc: 'Cargo Movement', icon: Truck, key: 'outDate' },
         { label: 'Arrived', desc: 'At Destination', icon: MapPin, key: 'arrivalDate' },
         { label: 'Delivered', desc: 'Mission Finished', icon: CheckCircle2, key: 'actualCompletionDate' }
@@ -200,16 +202,13 @@ function TrackConsignmentContent() {
 
     const getStageTimestamp = (idx: number, key: string) => {
         if (!result) return null;
-        
-        // Logical Fallbacks for Timestamps
         if (idx === 0) return result.startDate;
         if (idx === 1 && (result.tripStatus?.includes('Load') || getActiveStage(result.tripStatus) >= 1)) {
-            return result.lastUpdated; // Supervisor Task Completion Node
+            return result.lastUpdated;
         }
         if (idx === 2) return result.outDate;
         if (idx === 3) return result.arrivalDate;
         if (idx === 4) return result.actualCompletionDate;
-        
         return null;
     };
 
@@ -332,7 +331,7 @@ function TrackConsignmentContent() {
                                     {[
                                         { label: 'FROM (Dispatch)', value: result.loadingPoint || result.originPlantId, icon: Factory, color: 'text-blue-200' },
                                         { label: 'Ship to Node', value: result.shipToParty || result.shipment?.shipToParty, icon: UserCircle },
-                                        { label: 'TO (Destination)', value: result.unloadingPoint || result.destination, icon: MapPin, color: 'text-emerald-400' },
+                                        { label: 'TO (Destination)', value: result.destinationCity || result.unloadingPoint || '--', icon: MapPin, color: 'text-emerald-400' },
                                         { label: 'Vehicle Number', value: result.vehicleNumber, bold: true, icon: Truck },
                                         { label: 'Invoice ref', value: result.shipment?.invoiceNumber || '--', mono: true, icon: FileText },
                                         { label: 'LR Number', value: result.lrNumber || '--', mono: true, bold: true, color: 'text-blue-400', icon: FileText },
