@@ -1,17 +1,17 @@
 
 {
   "placeholderImages": [
-    { "id": "hero-trucks", "url": "/assets/hero-trucks.jpg", "hint": "logistics trucks" },
-    { "id": "hero-rake", "url": "/assets/hero-rake.png", "hint": "railway logistics" },
-    { "id": "hero-warehouse", "url": "/assets/hero-warehouse.jpg", "hint": "modern warehouse" },
-    { "id": "hero-tracking", "url": "/assets/hero-tracking.png", "hint": "satellite tracking" },
-    { "id": "hero-freight", "url": "/assets/hero-freight.png", "hint": "freight ship" },
-    { "id": "office-1", "url": "/assets/office-01.jpeg", "hint": "modern office" },
-    { "id": "office-2", "url": "/assets/office-2.png", "hint": "meeting room" },
-    { "id": "office-3", "url": "/assets/office-3.png", "hint": "logistics hub" },
-    { "id": "office-4", "url": "/assets/office-4.png", "hint": "data center" },
-    { "id": "office-5", "url": "/assets/office-5.png", "hint": "corporate building" },
-    { "id": "logo", "url": "/assets/logo.png", "hint": "company logo" },
-    { "id": "logo-old", "url": "/assets/logo-old.png", "hint": "vintage logo" }
+    { "id": "hero-trucks", "url": "https://picsum.photos/seed/trucks/1200/800", "hint": "logistics trucks" },
+    { "id": "hero-rake", "url": "https://picsum.photos/seed/rake/1200/800", "hint": "railway logistics" },
+    { "id": "hero-warehouse", "url": "https://picsum.photos/seed/warehouse/1200/800", "hint": "modern warehouse" },
+    { "id": "hero-tracking", "url": "https://picsum.photos/seed/tracking/1200/800", "hint": "satellite tracking" },
+    { "id": "hero-freight", "url": "https://picsum.photos/seed/freight/1200/800", "hint": "freight ship" },
+    { "id": "office-1", "url": "https://picsum.photos/seed/off1/800/600", "hint": "modern office" },
+    { "id": "office-2", "url": "https://picsum.photos/seed/off2/800/600", "hint": "meeting room" },
+    { "id": "office-3", "url": "https://picsum.photos/seed/off3/800/600", "hint": "logistics hub" },
+    { "id": "office-4", "url": "https://picsum.photos/seed/off4/800/600", "hint": "data center" },
+    { "id": "office-5", "url": "https://picsum.photos/seed/off5/800/600", "hint": "corporate building" },
+    { "id": "logo", "url": "https://picsum.photos/seed/logo/200/100", "hint": "company logo" },
+    { "id": "logo-old", "url": "https://picsum.photos/seed/logoold/200/100", "hint": "vintage logo" }
   ]
 }

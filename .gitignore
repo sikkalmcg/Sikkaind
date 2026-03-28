@@ -1,20 +1,16 @@
 
 # Dependencies
-/node_modules
-/.pnp
-.pnp.js
-
-# Testing
-/coverage
+node_modules
+.pnpm-debug.log*
 
 # Next.js
-/.next/
-/out/
+.next/
+out/
 
 # Production
-/build
+build
 
-# Logs
+# Debug Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -22,17 +18,12 @@ firebase-debug.log*
 .firebaserc
 
 # Environment Variables
-.env*.local
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # OS Files
 .DS_Store
 Thumbs.db
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Firebase
-.firebase/

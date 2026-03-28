@@ -78,6 +78,11 @@
     "tailwindcss": "^3.3.0",
     "typescript": "^5"
   },
+  "pnpm": {
+    "overrides": {
+      "firebase": "10.11.0"
+    }
+  },
   "overrides": {
     "firebase": "10.11.0",
     "reactfire": {
