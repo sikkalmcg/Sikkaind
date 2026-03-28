@@ -24,7 +24,7 @@ import { collection, query, where, doc, updateDoc, serverTimestamp, onSnapshot, 
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useLoading } from '@/context/LoadingContext';
-import type { Plant, SubUser, Trip } from '@/types';
+import type { Plant, SubUser, Trip, Shipment } from '@/types';
 import { normalizePlantId } from '@/lib/utils';
 
 const formSchema = z.object({
@@ -122,7 +122,7 @@ export default function VehicleOut() {
                         const shipRef = doc(firestore, `plants/${plantId}/shipments`, tripData.shipmentIds[0]);
                         const shipSnap = await getDoc(shipRef);
                         if (shipSnap.exists()) {
-                            setValue('invoiceNumber', shipSnap.data().invoiceNumber || '', { shouldValidate: true });
+                            setValue('invoiceNumber', (shipSnap.data() as Shipment).invoiceNumber || '', { shouldValidate: true });
                         }
                     }
                 }

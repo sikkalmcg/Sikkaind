@@ -149,6 +149,15 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
     }
   };
 
+  const manifestHeaderNodes = [
+    { label: 'Vehicle Number', value: task.vehicleNumber, icon: Truck },
+    { label: 'Pilot Detail', value: task.driverMobile, icon: Smartphone, color: 'text-blue-600' },
+    { label: 'Dispatch From', value: task.from, icon: Factory },
+    { label: 'Ship To Party', value: task.shipTo, icon: UserCircle },
+    { label: 'Destination', value: task.destination, icon: MapPin },
+    { label: 'Assigned Weight', value: `${task.assignedQty} MT`, icon: FileText, bold: true, color: 'text-blue-900' },
+  ];
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white rounded-3xl">
@@ -176,14 +185,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
 
         <div className="px-10 py-6 border-b bg-white shrink-0">
             <div className="grid grid-cols-6 gap-8">
-                {[
-                    { label: 'Vehicle Number', value: task.vehicleNumber, icon: Truck },
-                    { label: 'Pilot Detail', value: task.driverMobile, icon: Smartphone, color: 'text-blue-600' },
-                    { label: 'Dispatch From', value: task.from, icon: Factory },
-                    { label: 'Ship To Party', value: task.shipTo, icon: UserCircle },
-                    { label: 'Destination', value: task.destination, icon: MapPin },
-                    { label: 'Assigned Weight', value: `${task.assignedQty} MT`, icon: FileText, bold: true, color: 'text-blue-900' },
-                ].map((node, i) => (
+                {manifestHeaderNodes.map((node, i) => (
                     <div key={i} className="space-y-1.5">
                         <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
                             <node.icon className="h-3 w-3" /> {node.label}

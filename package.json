@@ -3,6 +3,9 @@
   "name": "sikka-app-v2.1",
   "version": "0.1.0",
   "private": true,
+  "overrides": {
+    "firebase": "^10.11.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
