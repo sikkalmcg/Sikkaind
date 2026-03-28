@@ -13,22 +13,26 @@ import {
     Plus, 
     ShieldCheck, 
     Loader2, 
-    CheckCircle2,
+    ArrowRightLeft,
+    FileText,
+    Weight,
+    Sparkles
 } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, query, where, doc, updateDoc, serverTimestamp, getDocs, orderBy, onSnapshot, getDoc, limit, Timestamp } from "firebase/firestore";
+import { collection, query, where, doc, updateDoc, serverTimestamp, onSnapshot, getDoc, orderBy, Timestamp } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useLoading } from '@/context/LoadingContext';
-import type { Plant, SubUser } from '@/types';
+import type { Plant, SubUser, Trip, Shipment } from '@/types';
 import { normalizePlantId } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const formSchema = z.object({
   plantId: z.string().min(1, "Select Plant Node."),
   entryId: z.string().min(1, "Pick an active vehicle node."),
   exitStatus: z.enum(['Loaded', 'Empty'], { required_error: "Pick Status" }),
-  lrNumber: z.string().optional(),
-  invoiceNumber: z.string().optional(),
+  lrNumber: z.string().optional().or(z.literal('')),
+  invoiceNumber: z.string().optional().or(z.literal('')),
   exitWeight: z.coerce.number().optional(),
   weightUnit: z.string().optional().default('MT'),
 });
@@ -97,36 +101,50 @@ export default function VehicleOut() {
     return () => unsub();
   }, [firestore, selectedPlantId]);
 
+  // AUTO-FETCH LOGIC NODE
   useEffect(() => {
-    if (!selectedEntryId || !firestore) return;
+    if (!selectedEntryId || !firestore || exitStatus !== 'Loaded') return;
+    
     const entry = activeEntries.find(e => e.id === selectedEntryId);
     if (!entry) return;
 
-    const fetchTripDetails = async () => {
-        if (entry.tripId) {
-            const tripRef = doc(firestore, `plants/${entry.plantId}/trips`, entry.tripId);
-            const tripSnap = await getDoc(tripRef);
-            if (tripSnap.exists()) {
-                const tripData = tripSnap.data();
-                setValue('lrNumber', tripData.lrNumber || '', { shouldValidate: true });
-                setValue('exitWeight', tripData.assignedQtyInTrip || 0, { shouldValidate: true });
-                if (tripData.shipmentIds && tripData.shipmentIds.length > 0) {
-                    const shipRef = doc(firestore, `plants/${entry.plantId}/shipments`, tripData.shipmentIds[0]);
-                    const shipSnap = await getDoc(shipRef);
-                    if (shipSnap.exists()) {
-                        setValue('invoiceNumber', shipSnap.data().invoiceNumber || '', { shouldValidate: true });
+    const fetchMissionData = async () => {
+        try {
+            const plantId = normalizePlantId(entry.plantId);
+            
+            // 1. If linked to a trip board node
+            if (entry.tripId) {
+                const tripRef = doc(firestore, `plants/${plantId}/trips`, entry.tripId);
+                const tripSnap = await getDoc(tripRef);
+                
+                if (tripSnap.exists()) {
+                    const tripData = tripSnap.data() as Trip;
+                    setValue('lrNumber', tripData.lrNumber || '', { shouldValidate: true });
+                    setValue('exitWeight', tripData.assignedQtyInTrip || 0, { shouldValidate: true });
+                    
+                    // Handshake with shipment for invoice
+                    if (tripData.shipmentIds && tripData.shipmentIds.length > 0) {
+                        const shipRef = doc(firestore, `plants/${plantId}/shipments`, tripData.shipmentIds[0]);
+                        const shipSnap = await getDoc(shipRef);
+                        if (shipSnap.exists()) {
+                            setValue('invoiceNumber', shipSnap.data().invoiceNumber || '', { shouldValidate: true });
+                        }
                     }
                 }
+            } 
+            // 2. If it was an unloading mission (data captured at entry)
+            else if (entry.purpose === 'Unloading') {
+                setValue('lrNumber', entry.lrNumber || '', { shouldValidate: true });
+                setValue('invoiceNumber', entry.documentNo || '', { shouldValidate: true });
+                setValue('exitWeight', entry.billedQty || 0, { shouldValidate: true });
             }
-        } else if (entry.purpose === 'Unloading') {
-            setValue('lrNumber', entry.lrNumber || '', { shouldValidate: true });
-            setValue('invoiceNumber', entry.documentNo || '', { shouldValidate: true });
-            setValue('exitWeight', entry.billedQty || 0, { shouldValidate: true });
+        } catch (e) {
+            console.error("Registry lookup failure:", e);
         }
     };
 
-    fetchTripDetails();
-  }, [selectedEntryId, activeEntries, firestore, setValue]);
+    fetchMissionData();
+  }, [selectedEntryId, activeEntries, exitStatus, firestore, setValue]);
 
   const onSubmit = async (values: FormValues) => {
     if (!firestore || !user) return;
@@ -174,23 +192,24 @@ export default function VehicleOut() {
   };
 
   return (
-    <Card className="border-none shadow-xl rounded-[2.5rem] overflow-hidden bg-white">
-        <CardHeader className="p-8 pb-0">
+    <Card className="border-none shadow-xl rounded-[2.5rem] overflow-hidden bg-white animate-in fade-in duration-500">
+        <CardHeader className="p-8 pb-4">
             <div className="flex items-center gap-4">
-                <div className="p-3 bg-blue-900 text-white rounded-xl shadow-lg">
-                    <Plus className="h-6 w-6" />
+                <div className="p-3 bg-blue-900 text-white rounded-xl shadow-lg rotate-3">
+                    <ArrowRightLeft className="h-6 w-6" />
                 </div>
                 <div>
-                    <CardTitle className="text-xl font-black uppercase text-blue-900 italic">FINALIZE GATE EXIT (OUT)</CardTitle>
-                    <CardDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">RECORD GATE DEPARTURE AND MISSION STATUS</CardDescription>
+                    <CardTitle className="text-xl font-black uppercase text-blue-900 italic">GATE EXIT REGISTRY (OUT)</CardTitle>
+                    <CardDescription className="text-[10px] font-bold text-slate-400 tracking-widest">Finalize mission node and yard departure</CardDescription>
                 </div>
             </div>
         </CardHeader>
-        <CardContent className="p-8">
+        
+        <CardContent className="p-8 space-y-10">
             <Form {...form}>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-10">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-end">
-                        <div className="p-6 bg-slate-50/80 rounded-2xl border border-slate-100 space-y-2 shadow-inner">
+                        <div className="p-6 bg-slate-50/80 rounded-[1.5rem] border border-slate-100 space-y-2 shadow-inner">
                             <p className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em]">EXIT TIMESTAMP</p>
                             <p className="text-sm font-black text-blue-900 font-mono tracking-tighter">
                                 {format(currentTime, 'dd-MM-yyyy HH:mm')}
@@ -218,7 +237,7 @@ export default function VehicleOut() {
                                 <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">VEHICLES CURRENTLY IN *</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value} disabled={!selectedPlantId || isLoadingEntries}>
                                     <FormControl>
-                                        <SelectTrigger className="h-12 bg-white rounded-xl font-black text-blue-900 shadow-sm border-slate-200">
+                                        <SelectTrigger className="h-12 bg-white rounded-xl font-black text-blue-900 shadow-sm border-slate-200 overflow-hidden">
                                             <SelectValue placeholder={isLoadingEntries ? "Syncing..." : "Pick vehicle"} />
                                         </SelectTrigger>
                                     </FormControl>
@@ -239,8 +258,8 @@ export default function VehicleOut() {
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent className="rounded-xl">
-                                        <SelectItem value="Loaded" className="font-bold py-3">LOADED</SelectItem>
-                                        <SelectItem value="Empty" className="font-bold py-3">EMPTY</SelectItem>
+                                        <SelectItem value="Loaded" className="font-bold py-3 uppercase">LOADED</SelectItem>
+                                        <SelectItem value="Empty" className="font-bold py-3 uppercase">EMPTY</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </FormItem>
@@ -248,42 +267,59 @@ export default function VehicleOut() {
                     </div>
 
                     {exitStatus === 'Loaded' && (
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 p-10 bg-blue-50/20 rounded-[2.5rem] border border-blue-100 animate-in slide-in-from-top-4 duration-500 shadow-inner">
-                            <FormField name="lrNumber" control={form.control} render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">LR REGISTRY NUMBER</FormLabel>
-                                    <FormControl><Input {...field} placeholder="Auto-fetched" className="h-12 bg-white rounded-xl font-bold uppercase border-blue-200 shadow-sm" /></FormControl>
-                                </FormItem>
-                            )} />
-                            <FormField name="invoiceNumber" control={form.control} render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">OUTBOUND INVOICE NO</FormLabel>
-                                    <FormControl><Input {...field} placeholder="Auto-fetched" className="h-12 bg-white rounded-xl font-bold uppercase border-blue-200 shadow-sm" /></FormControl>
-                                </FormItem>
-                            )} />
-                            <FormField name="exitWeight" control={form.control} render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">EXIT WEIGHT</FormLabel>
-                                    <FormControl><Input type="number" step="0.001" {...field} className="h-12 bg-white rounded-xl font-black text-blue-900 border-blue-200 shadow-sm" /></FormControl>
-                                </FormItem>
-                            )} />
-                            <FormField name="weightUnit" control={form.control} render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">WEIGHT UNIT</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
+                        <div className="p-10 bg-blue-50/20 rounded-[2.5rem] border border-blue-100 animate-in slide-in-from-top-4 duration-500 shadow-xl space-y-8">
+                            <div className="flex items-center gap-3 border-b border-blue-100 pb-4">
+                                <FileText className="h-5 w-5 text-blue-600" />
+                                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-blue-900">Mission Manifest Data</h3>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-end">
+                                <FormField name="lrNumber" control={form.control} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">LR REGISTRY NUMBER</FormLabel>
                                         <FormControl>
-                                            <SelectTrigger className="h-12 bg-white rounded-xl font-bold border-blue-200 shadow-sm">
-                                                <SelectValue />
-                                            </SelectTrigger>
+                                            <div className="relative group">
+                                                <Input {...field} placeholder="Auto-populated" className="h-12 bg-white rounded-xl font-black uppercase border-blue-200 shadow-inner group-focus-within:ring-2 ring-blue-900" />
+                                                {!field.value && <Sparkles className="absolute right-3 top-3 h-4 w-4 text-blue-300 animate-pulse" />}
+                                            </div>
                                         </FormControl>
-                                        <SelectContent className="rounded-xl">
-                                            <SelectItem value="MT" className="font-bold">Metric Ton (MT)</SelectItem>
-                                            <SelectItem value="KG" className="font-bold">Kilogram (KG)</SelectItem>
-                                            <SelectItem value="Bags" className="font-bold">Bags</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </FormItem>
-                            )} />
+                                    </FormItem>
+                                )} />
+                                <FormField name="invoiceNumber" control={form.control} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">OUTBOUND INVOICE NO</FormLabel>
+                                        <FormControl><Input {...field} placeholder="Auto-populated" className="h-12 bg-white rounded-xl font-black uppercase border-blue-200 shadow-inner" /></FormControl>
+                                    </FormItem>
+                                )} />
+                                <FormField name="exitWeight" control={form.control} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">EXIT WEIGHT</FormLabel>
+                                        <FormControl>
+                                            <div className="relative group">
+                                                <Weight className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-400" />
+                                                <Input type="number" step="0.001" {...field} className="h-12 pl-10 bg-white rounded-xl font-black text-blue-900 border-blue-200 shadow-inner" />
+                                            </div>
+                                        </FormControl>
+                                    </FormItem>
+                                )} />
+                                <FormField name="weightUnit" control={form.control} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">WEIGHT UNIT</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger className="h-12 bg-white rounded-xl font-bold border-blue-200 shadow-sm">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent className="rounded-xl">
+                                                <SelectItem value="MT" className="font-bold">Metric Ton (MT)</SelectItem>
+                                                <SelectItem value="KG" className="font-bold">Kilogram (KG)</SelectItem>
+                                                <SelectItem value="Bags" className="font-bold">Bags</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </FormItem>
+                                )} />
+                            </div>
                         </div>
                     )}
 
@@ -294,7 +330,7 @@ export default function VehicleOut() {
                         <Button 
                             type="submit" 
                             disabled={isSubmitting || !selectedEntryId} 
-                            className="bg-blue-900/80 hover:bg-blue-900 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none"
+                            className="bg-blue-900 hover:bg-black text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none"
                         >
                             {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <ShieldCheck className="h-5 w-5 mr-3" />}
                             FINALIZE SYSTEM OUT
