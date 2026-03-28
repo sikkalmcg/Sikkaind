@@ -243,7 +243,7 @@ export default function VehicleOut() {
                             </div>
                         </div>
                     )}
-                    <div className="flex items-center justify-end gap-8 pt-4"><Button type="button" variant="ghost" onClick={() => reset()} className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-900 transition-all">DISCARD ENTRY</Button><Button type="submit" disabled={isSubmitting || !selectedEntryId} className="bg-blue-900 hover:bg-black text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none">{isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <ShieldCheck className="h-5 w-5 mr-3" />}FINALIZE SYSTEM OUT</Button></div>
+                    <div className="flex items-center justify-end gap-8 pt-4"><button type="button" onClick={() => reset()} className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-900 transition-all">DISCARD ENTRY</button><Button type="submit" disabled={isSubmitting || !selectedEntryId} className="bg-blue-900 hover:bg-black text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none">{isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <ShieldCheck className="h-5 w-5 mr-3" />}FINALIZE SYSTEM OUT</Button></div>
                 </form>
             </Form>
         </CardContent>

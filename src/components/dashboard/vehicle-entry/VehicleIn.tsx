@@ -283,13 +283,13 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
             )}
 
             <div className="flex items-center justify-end gap-8 pt-4">
-                <Button type="button" variant="ghost" onClick={() => { reset(); }} className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-900 transition-all">
+                <button type="button" onClick={() => { reset(); }} className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-900 transition-all">
                     DISCARD ENTRY
-                </Button>
+                </button>
                 <Button 
                     type="submit" 
                     disabled={isSubmitting} 
-                    className="bg-blue-900/80 hover:bg-blue-900 text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none"
+                    className="bg-blue-900 hover:bg-black text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none"
                 >
                     {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <ShieldCheck className="h-5 w-5 mr-3" />}
                     FINALIZE IN-GATE NODE
