@@ -14,8 +14,6 @@ import {
   Activity, 
   FileText, 
   IndianRupee, 
-  Fuel, 
-  CreditCard, 
   BarChart3,
   ShieldCheck,
   Building2, 
@@ -32,7 +30,8 @@ import {
   Globe,
   UserCheck,
   UserPlus,
-  Calculator
+  Calculator,
+  ArrowRightLeft as ExportIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -45,7 +44,6 @@ const navigationGroups = [
   { group: 'Operational Registry', items: [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'live-dashboard' },
     { name: 'Gate Entry', href: '/dashboard/vehicle-entry', icon: Truck, permission: 'vehicle-entry' },
-    { name: 'Attendance', href: '/dashboard/attendance-register', icon: UserCheck, permission: 'attendance-register' },
     { name: 'Order Plan', href: '/dashboard/shipment-plan', icon: PackagePlus, permission: 'shipment-plan' },
     { name: 'Open Order', href: '/dashboard/vehicle-assign', icon: ClipboardList, permission: 'vehicle-assign' },
     { name: 'Trip Board', href: '/dashboard/trip-board', icon: MonitorPlay, permission: 'trip-board' },
@@ -61,10 +59,7 @@ const navigationGroups = [
     { name: 'Trip Summary', href: '/dashboard/trip-summary', icon: ListTree, permission: 'shipment-summary' },
   ]},
   { group: 'Accounts Control', items: [
-    { name: 'Employee Hub', href: '/dashboard/employee-management', icon: UserPlus, permission: 'employee-management' },
     { name: 'Freight Payment', href: '/dashboard/freight-management', icon: IndianRupee, permission: 'freight-management' },
-    { name: 'Fuel Payment', href: '/dashboard/fuel-payment', icon: CreditCard, permission: 'fuel-payment' },
-    { name: 'Fuel Entry', href: '/dashboard/fuel-management', icon: Fuel, permission: 'fuel-management' },
   ]},
   { group: 'Data Extraction', items: [
     { name: 'Reports', href: '/dashboard/report-analysis', icon: BarChart3, permission: 'report-analysis' },
