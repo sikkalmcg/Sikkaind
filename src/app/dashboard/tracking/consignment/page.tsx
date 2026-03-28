@@ -64,14 +64,14 @@ function TrackConsignmentContent() {
                 if (docSnap.exists() && docSnap.data().apiKey) {
                     setApiKey(docSnap.data().apiKey);
                 } else {
-                    toast({ variant: 'destructive', title: 'API Key Missing', description: 'GPS API key is not configured.' });
+                    setError('API key is not configured.');
                 }
             } catch (error) {
-                toast({ variant: 'destructive', title: 'Config Error', description: 'Could not fetch API key.' });
+                console.error(error);
             }
         };
         fetchApiKey();
-    }, [firestore, toast]);
+    }, [firestore]);
 
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
@@ -148,6 +148,10 @@ function TrackConsignmentContent() {
             trip.plantLat = plantSnap.exists() ? plantSnap.data().latitude : null;
             trip.plantLng = plantSnap.exists() ? plantSnap.data().longitude : null;
             
+            // Logic Node: Refine TO City for high-level monitoring
+            trip.toCity = trip.unloadingPoint?.split(',')[0].trim() || 'N/A';
+            trip.fromCity = (trip.loadingPoint || trip.plantName).split(',')[0].trim();
+
             const response = await fetch('/api/track', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -231,9 +235,9 @@ function TrackConsignmentContent() {
                                 { label: 'Vehicle', value: consignment.vehicleNumber, bold: true },
                                 { label: 'Trip ID', value: consignment.tripId, mono: true, color: 'text-blue-400' },
                                 { label: 'LR Number', value: consignment.lrNumber || '--', mono: true, bold: true },
-                                { label: 'FROM (Dispatch)', value: consignment.loadingPoint || consignment.plantName, truncate: true, color: 'text-blue-200' },
+                                { label: 'FROM (City)', value: consignment.fromCity, truncate: true, color: 'text-blue-200' },
+                                { label: 'TO (City)', value: consignment.toCity, truncate: true, color: 'text-emerald-400' },
                                 { label: 'Ship To', value: consignment.shipToParty || '--', truncate: true },
-                                { label: 'Destination', value: consignment.unloadingPoint || '--', truncate: true },
                                 { label: 'LR Weight', value: `${consignment.assignedQtyInTrip} MT`, color: 'text-emerald-400', bold: true },
                             ].map((item, i) => (
                                 <div key={i} className="space-y-1 relative z-10">
@@ -256,8 +260,8 @@ function TrackConsignmentContent() {
                                             <div className="flex gap-6 items-start">
                                                 <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100 shadow-sm"><MapPin className="h-6 w-6 text-blue-600" /></div>
                                                 <div>
-                                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">From Location Registry</p>
-                                                    <p className="text-sm font-black text-slate-900 uppercase leading-tight">{consignment.loadingPoint}</p>
+                                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">From Location Node</p>
+                                                    <p className="text-sm font-black text-slate-900 uppercase leading-tight">{consignment.fromCity}</p>
                                                     <p className="text-[10px] font-bold text-slate-400 mt-2 flex items-center gap-2">
                                                         <Clock className="h-3 w-3" /> Assigned: {isValid(consignment.assignedAt) ? format(consignment.assignedAt, 'dd MMM yyyy p') : '--'}
                                                     </p>
@@ -266,8 +270,8 @@ function TrackConsignmentContent() {
                                             <div className="flex gap-6 items-start">
                                                 <div className="p-3 bg-red-50 rounded-2xl border border-red-100 shadow-sm"><CircleDot className="h-6 w-6 text-red-600" /></div>
                                                 <div>
-                                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Final Destination Drop</p>
-                                                    <p className="text-sm font-black text-slate-900 uppercase leading-tight">{consignment.unloadingPoint}</p>
+                                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">To Destination Node</p>
+                                                    <p className="text-sm font-black text-slate-900 uppercase leading-tight">{consignment.toCity}</p>
                                                 </div>
                                             </div>
                                         </div>

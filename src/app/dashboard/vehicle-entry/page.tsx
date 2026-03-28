@@ -39,12 +39,10 @@ export default function VehicleEntryPage() {
     if (!firestore || !user) return;
 
     let unsubIn: () => void;
-    let unsubTrips: (() => void)[] = [];
 
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            // 1. High-fidelity User Lookup by Email (Security Protocol)
             const lastIdentity = localStorage.getItem('slmc_last_identity');
             const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
             
@@ -54,10 +52,6 @@ export default function VehicleEntryPage() {
             
             if (!userQSnap.empty) {
                 userDocSnap = userQSnap.docs[0];
-            } else {
-                const directRef = doc(firestore, "users", user.uid);
-                const directSnap = await getDoc(directRef);
-                if (directSnap.exists()) userDocSnap = directSnap;
             }
 
             let authPlantIds: string[] = [];
@@ -78,47 +72,19 @@ export default function VehicleEntryPage() {
                 return;
             }
 
-            // 2. Real-time IN Count (Vehicles in yard)
-            const qIn = collection(firestore, "vehicleEntries");
-            const qInFiltered = query(qIn, where("status", "==", "IN"));
-            unsubIn = onSnapshot(qInFiltered, (snap) => {
+            const qIn = query(collection(firestore, "vehicleEntries"), where("status", "==", "IN"));
+            unsubIn = onSnapshot(qIn, (snap) => {
                 const activeInVehicles = snap.docs
                     .map(d => d.data() as VehicleEntryExit)
                     .filter(d => authPlantIds.some(aid => normalizePlantId(aid) === normalizePlantId(d.plantId)));
                 
-                const inVehiclesList = activeInVehicles.map(v => v.vehicleNumber);
                 setCounts(prev => ({ ...prev, in: activeInVehicles.length }));
-
-                // 3. Real-time Upcoming Count (Assigned trips NOT yet IN)
-                // We fetch all trips and filter for active ones not yet logged in the yard
-                let totalUpcoming = 0;
-                const currentPlantTrips: Record<string, number> = {};
-
-                unsubTrips.forEach(u => u()); // Clear old listeners
-                unsubTrips = authPlantIds.map(pId => {
-                    const tripCol = collection(firestore, `plants/${pId}/trips`);
-                    // Broader query to include 'in-transit' Own Vehicles and 'Assigned' Market Vehicles
-                    const qU = query(tripCol);
-                    
-                    return onSnapshot(qU, (tripSnap) => {
-                        const count = tripSnap.docs.filter(td => {
-                            const data = td.data() as Trip;
-                            const isActive = ['Assigned', 'in-transit', 'Vehicle Assigned'].includes(data.currentStatusId);
-                            return isActive && !inVehiclesList.includes(data.vehicleNumber || '');
-                        }).length;
-                        
-                        currentPlantTrips[pId] = count;
-                        const grandTotal = Object.values(currentPlantTrips).reduce((a, b) => a + b, 0);
-                        setCounts(prev => ({ ...prev, upcoming: grandTotal }));
-                    });
-                });
             }, async (error) => {
                 setDbError(true);
             });
 
             setIsLoading(false);
         } catch (e) {
-            console.error("Registry Sync Error:", e);
             setDbError(true);
             setIsLoading(false);
         }
@@ -127,7 +93,6 @@ export default function VehicleEntryPage() {
     fetchData();
     return () => {
         if (unsubIn) unsubIn();
-        unsubTrips.forEach(u => u());
     };
   }, [firestore, user]);
 
@@ -136,13 +101,6 @@ export default function VehicleEntryPage() {
     setActiveTab('vehicle-in');
   };
   
-  const handleTabChange = (tab: string) => {
-    if (tab !== 'vehicle-in') {
-      setUpcomingVehicleData(null);
-    }
-    setActiveTab(tab);
-  }
-
   return (
     <main className="flex flex-1 flex-col h-full bg-slate-50/50">
       <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -168,40 +126,19 @@ export default function VehicleEntryPage() {
       </div>
 
       <div className="flex-1 p-4 md:p-8 overflow-y-auto">
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-8">
           <TabsList className="inline-flex h-12 items-center justify-start rounded-none border-b bg-transparent p-0 w-full gap-8">
-            <TabsTrigger 
-              value="vehicle-in" 
-              className="relative h-12 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-xs font-black uppercase tracking-widest text-slate-400 transition-all data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 data-[state=active]:shadow-none"
-            >
-              Vehicle IN
-              <Badge className="ml-2 bg-blue-100 text-blue-900 border-none font-black text-[10px]">{counts.in}</Badge>
+            <TabsTrigger value="vehicle-in" className="relative h-12 rounded-none border-b-2 border-b-transparent px-0 pb-3 pt-2 text-xs font-black uppercase tracking-widest transition-all data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900">
+              Vehicle IN <Badge className="ml-2 bg-blue-100 text-blue-900 border-none font-black text-[10px]">{counts.in}</Badge>
             </TabsTrigger>
-            <TabsTrigger 
-              value="vehicle-out" 
-              className="relative h-12 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-xs font-black uppercase tracking-widest text-slate-400 transition-all data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 data-[state=active]:shadow-none"
-            >
-              Vehicle OUT
-            </TabsTrigger>
-            <TabsTrigger 
-              value="gate-register" 
-              className="relative h-12 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-xs font-black uppercase tracking-widest text-slate-400 transition-all data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 data-[state=active]:shadow-none flex items-center gap-2"
-            >
-              <ClipboardCheck className="h-3.5 w-3.5" />
-              Gate Register
-            </TabsTrigger>
-            <TabsTrigger 
-              value="upcoming-vehicle" 
-              className="relative h-12 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-xs font-black uppercase tracking-widest text-slate-400 transition-all data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 data-[state=active]:shadow-none"
-            >
-              Upcoming Vehicles
-              <Badge className="ml-2 bg-amber-100 text-amber-900 border-none font-black text-[10px]">{counts.upcoming}</Badge>
-            </TabsTrigger>
+            <TabsTrigger value="vehicle-out" className="h-12 px-0 pb-3 pt-2 text-xs font-black uppercase tracking-widest text-slate-400">Vehicle OUT</TabsTrigger>
+            <TabsTrigger value="gate-register" className="h-12 px-0 pb-3 pt-2 text-xs font-black uppercase tracking-widest text-slate-400">Gate Register</TabsTrigger>
+            <TabsTrigger value="upcoming-vehicle" className="h-12 px-0 pb-3 pt-2 text-xs font-black uppercase tracking-widest text-slate-400">Upcoming Vehicles</TabsTrigger>
           </TabsList>
 
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <TabsContent value="vehicle-in" className="m-0 focus-visible:ring-0">
-                  <VehicleIn upcomingVehicleData={upcomingVehicleData} key={upcomingVehicleData?.id || 'new'} />
+                  <VehicleIn upcomingVehicleData={upcomingVehicleData} />
               </TabsContent>
               <TabsContent value="vehicle-out" className="m-0 focus-visible:ring-0">
                   <VehicleOut />
