@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -51,8 +52,9 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
 
   const isLockedAtGate = useMemo(() => {
     if (!selectedTrip) return false;
-    // Mission Logic: Status change blocked until vehicle exits gate (status is Assigned)
-    return currentStatus === 'ASSIGNED' || currentStatus === 'VEHICLE-ASSIGNED' || currentStatus === 'VEHICLE ASSIGNED';
+    // Logic Node: Only 'Break-down' or 'Pilot Not Available' is allowed while vehicle is still IN yard
+    const isOut = selectedTrip.entry?.status === 'OUT';
+    return !isOut && (currentStatus === 'ASSIGNED' || currentStatus === 'VEHICLE ASSIGNED' || currentStatus === 'LOADED');
   }, [selectedTrip, currentStatus]);
 
   const missionRegistryStatuses = [
@@ -240,7 +242,7 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
                             {isSubmitting ? (
                                 <Loader2 className="h-6 w-6 animate-spin" />
                             ) : (
-                                <Save className="h-7 w-7 transition-transform group-hover:-translate-y-1" />
+                                <Activity className="h-7 w-7 transition-transform group-hover:-translate-y-1" />
                             )}
                         </Button>
                     </div>

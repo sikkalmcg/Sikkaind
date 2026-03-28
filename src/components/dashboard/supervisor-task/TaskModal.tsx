@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -70,7 +71,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
 
   useEffect(() => {
     if (isOpen && task && fields.length === 0) {
-        // Mission Logic: Auto-populate loading manifest from shipment items registry
         const initialItems = (task.shipmentItems || []).map((i: any) => ({
             deliveryNo: 'DEL-',
             invoiceNo: i.invoiceNumber ? `INV-${i.invoiceNumber}` : 'INV-',
@@ -161,7 +161,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-1400px h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white rounded-3xl">
+      <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white rounded-3xl">
         <DialogHeader className="p-8 bg-blue-900 text-white shrink-0 pr-12">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-5">
