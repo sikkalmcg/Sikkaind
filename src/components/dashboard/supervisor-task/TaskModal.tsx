@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Weight, Calculator, Save, AlertTriangle, Loader2, Truck, User, MapPin, X, Plus, Trash2, Smartphone, Factory, History, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Weight, Calculator, Save, AlertTriangle, Loader2, Truck, User, MapPin, X, Plus, Trash2, Smartphone, Factory, History, CheckCircle2, FileText } from 'lucide-react';
 import { useFirestore, useUser } from "@/firebase";
 import { doc, serverTimestamp, collection, runTransaction } from "firebase/firestore";
 import { useLoading } from '@/context/LoadingContext';
@@ -147,7 +147,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white rounded-3xl">
+      <DialogContent className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white rounded-3xl">
         <DialogHeader className="p-8 bg-slate-900 text-white shrink-0 pr-12">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-5">
@@ -243,7 +243,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent className="rounded-xl">
-                                                    {LRUnitTypes.map(t => <SelectItem key={t} value={t} className="font-bold">{t}</SelectItem>)}
+                                                    {LRUnitTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                                                 </SelectContent>
                                             </Select>
                                         </TableCell>
