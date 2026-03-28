@@ -51,7 +51,6 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
 
   const currentStatus = currentStatusRaw.toUpperCase();
 
-  // GATE-DEPARTURE RULE: Status transitions locked until vehicle departs yard
   const isLockedAtGate = useMemo(() => {
     if (!selectedTrip) return false;
     return currentStatus === 'ASSIGNED' || currentStatus === 'VEHICLE-ASSIGNED' || currentStatus === 'VEHICLE ASSIGNED';

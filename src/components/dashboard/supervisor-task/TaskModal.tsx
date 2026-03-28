@@ -210,7 +210,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                     variant="outline" 
                     size="sm" 
                     onClick={() => append({ deliveryNo: 'DEL-', invoiceNo: 'INV-', itemDescription: 'Goods particulars', deliveryUnit: 0, loadUnit: 0, uom: 'Bag' })}
-                    className="h-10 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all active:scale-95"
+                    className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all active:scale-95"
                 >
                     <Plus className="h-4 w-4" /> ADD ROW
                 </Button>
