@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,7 +7,7 @@ import VehicleOut from '@/components/dashboard/vehicle-entry/VehicleOut';
 import UpcomingVehicles from '@/components/dashboard/vehicle-entry/UpcomingVehicles';
 import GateRegister from '@/components/dashboard/vehicle-entry/GateRegister';
 import type { WithId, Trip, VehicleEntryExit, SubUser, Plant } from '@/types';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, query, where, onSnapshot, doc, getDoc, getDocs, limit } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Search, FileDown, Plus, Truck, LayoutList, ClipboardCheck, WifiOff } from 'lucide-react';
