@@ -1,25 +1,37 @@
-# Next.js
-.next/
-out/
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# Firebase
-.firebase/
-firebase-debug.log*
-ui-debug.log*
-firestore-debug.log*
-pubsub-debug.log*
-database-debug.log*
-storage-debug.log*
-hosting-debug.log*
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
 
-# Dependencies
-node_modules/
-.pnpm-store/
+# testing
+/coverage
 
-# OS
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
 .DS_Store
-Thumbs.db
+*.pem
 
-# Env
-.env*
-!.env.example
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# vercel
+.vercel
+
+# firebase
+.firebase/
