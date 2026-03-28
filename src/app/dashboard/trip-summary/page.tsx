@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -11,24 +11,21 @@ import {
     Loader2, 
     WifiOff, 
     Truck, 
-    Navigation, 
     IndianRupee, 
     Search,
     ShieldCheck,
     Factory,
     Calendar,
-    Filter,
-    User,
     Weight,
-    TrendingUp,
-    Phone,
-    ArrowRightLeft
+    ArrowRightLeft,
+    ChevronRight,
+    PlayCircle
 } from 'lucide-react';
 import { format, startOfDay, subDays, endOfDay, isValid } from 'date-fns';
 import * as XLSX from 'xlsx';
 import type { WithId, Trip, Shipment, LR, Plant, SubUser } from '@/types';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, getDocs, query, where, Timestamp, orderBy, limit, onSnapshot } from "firebase/firestore";
+import { collection, query, where, Timestamp, orderBy, onSnapshot, getDocs, limit } from "firebase/firestore";
 import { DatePicker } from '@/components/date-picker';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -38,9 +35,8 @@ import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 
 /**
- * @fileOverview Trip Summary Page.
- * Provides a consolidated overview of all mission trips with financial and manifest weights.
- * Update: Freight details (Rate, Amount, KPI) restricted to Market Vehicles only.
+ * @fileOverview SIKKA LMC - Trip Summary Hub.
+ * Optimized consolidated mission analytics dashboard.
  */
 
 type EnrichedTripRow = WithId<Trip> & {
@@ -49,21 +45,21 @@ type EnrichedTripRow = WithId<Trip> & {
     loadingPoint: string;
     billToParty: string;
     lrWeight: number;
+    plant?: Plant;
 };
 
 const ITEMS_PER_PAGE = 10;
 
-export default function TripSummaryPage() {
+function TripSummaryContent() {
     const firestore = useFirestore();
     const { user } = useUser();
     
     // FILTER STATE
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPlants, setSelectedPlants] = useState<string[]>([]);
-    const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 31)));
+    const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
     const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
     const [vehicleCategory, setVehicleCategory] = useState<string>('all');
-    const [footerVehicleType, setFooterVehicleType] = useState<string>('all');
 
     // REGISTRY DATA
     const [trips, setTrips] = useState<WithId<Trip>[]>([]);
@@ -171,30 +167,22 @@ export default function TripSummaryPage() {
                 loadingPoint: shipment?.loadingPoint || '--',
                 billToParty: shipment?.billToParty || '--',
                 lrWeight: Number(lr?.assignedTripWeight || 0),
+                plant
             } as EnrichedTripRow;
         }).sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
     }, [trips, shipments, lrs, allPlants]);
 
-    // 5. Advanced Filter Logic
+    // 5. Filter Node Logic
     const filteredData = useMemo(() => {
         const start = fromDate ? startOfDay(fromDate) : null;
         const end = toDate ? endOfDay(toDate) : null;
 
         return enrichedData.filter(item => {
-            // Plant Filter
             if (selectedPlants.length > 0 && !selectedPlants.includes(item.originPlantId)) return false;
-
-            // Date Range Filter
             if (start && item.startDate < start) return false;
             if (end && item.startDate > end) return false;
-
-            // Vehicle Category Filter (Top Header)
             if (vehicleCategory !== 'all' && item.vehicleType !== vehicleCategory) return false;
 
-            // Vehicle Type Filter (Footer)
-            if (footerVehicleType !== 'all' && item.vehicleType !== footerVehicleType) return false;
-
-            // Search Filter
             if (searchTerm) {
                 const s = searchTerm.toLowerCase();
                 return [
@@ -202,109 +190,84 @@ export default function TripSummaryPage() {
                     item.lrNumber,
                     item.vehicleNumber,
                     item.consignor,
-                    item.unloadingPoint,
-                    item.userName,
-                    item.transporterName
+                    item.unloadingPoint
                 ].some(val => val?.toString().toLowerCase().includes(s));
             }
 
             return true;
         });
-    }, [enrichedData, selectedPlants, fromDate, toDate, vehicleCategory, footerVehicleType, searchTerm]);
+    }, [enrichedData, selectedPlants, fromDate, toDate, vehicleCategory, searchTerm]);
 
-    // 6. Summary Stats
     const stats = useMemo(() => {
         return filteredData.reduce((acc, curr) => ({
             count: acc.count + 1,
             weight: acc.weight + (Number(curr.assignedQtyInTrip) || 0),
-            // Only sum freight for market vehicles as per rule
-            freight: curr.vehicleType === 'Market Vehicle' ? acc.freight + (Number(curr.freightAmount) || 0) : acc.freight
+            freight: acc.freight + (Number(curr.freightAmount) || 0)
         }), { count: 0, weight: 0, freight: 0 });
     }, [filteredData]);
 
     const paginatedData = filteredData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
     const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
 
-    // Registry Rule: Show freight only if filter is Market or All
-    const isFreightVisible = vehicleCategory === 'all' || vehicleCategory === 'Market Vehicle';
-
-    // 7. Excel Export Handbook
     const handleExport = () => {
-        const rows = filteredData.map(t => {
-            const row: any = {
-                'Plant': t.plantName,
-                'Trip ID': t.tripId,
-                'LR Number': t.lrNumber || '--',
-                'Date': format(t.startDate, 'dd-MM-yyyy HH:mm'),
-                'Consignor': t.consignor,
-                'From': t.loadingPoint,
-                'Consignee': t.billToParty,
-                'Ship To': t.shipToParty || '--',
-                'Destination': t.unloadingPoint,
-                'Transporter': t.transporterName || '--',
-                'Transporter Mobile': t.transporterMobile || '--',
-                'Assigned Weight': t.assignedQtyInTrip,
-                'LR Weight': t.lrWeight,
-                'Assigned Username': t.userName || 'System'
-            };
-
-            // Only include freight in export if applicable
-            if (t.vehicleType === 'Market Vehicle') {
-                row['Rate'] = t.freightRate || 0;
-                row['Total Freight'] = t.freightAmount || 0;
-            }
-
-            return row;
-        });
+        const rows = filteredData.map(t => ({
+            'Plant': t.plantName,
+            'Trip ID': t.tripId,
+            'LR Number': t.lrNumber || '--',
+            'Date': format(t.startDate, 'dd-MM-yyyy HH:mm'),
+            'Consignor': t.consignor,
+            'From': t.loadingPoint,
+            'Consignee': t.billToParty,
+            'Ship To': t.shipToParty || '--',
+            'Destination': t.unloadingPoint,
+            'Assigned Weight': t.assignedQtyInTrip,
+            'Freight': t.freightAmount || 0
+        }));
 
         const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Trip Summary Registry");
-        XLSX.writeFile(wb, `TripSummary_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "Trip Summary Ledger");
+        XLSX.writeFile(wb, `Trip_Summary_${format(new Date(), 'yyyyMMdd')}.xlsx`);
     };
 
     return (
         <main className="flex flex-1 flex-col h-full bg-[#f8fafc] animate-in fade-in duration-500">
-            {/* ERP HEADER */}
-            <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm print:hidden">
+            {/* HUB HEADER */}
+            <div className="sticky top-0 z-30 bg-white border-b px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <div className="p-2 bg-primary text-white rounded-lg shadow-lg rotate-3">
-                        <ArrowRightLeft className="h-6 w-6" />
+                    <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-xl rotate-3">
+                        <ArrowRightLeft className="h-8 w-8" />
                     </div>
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-black text-primary tracking-tight uppercase">Trip Summary Hub</h1>
+                        <h1 className="text-3xl font-black text-blue-600 tracking-tight uppercase italic">Trip Summary Hub</h1>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">LMC Registry &gt; Consolidated Analytics</p>
                     </div>
                 </div>
                 
-                <div className="flex items-center gap-3">
-                    {dbError && (
-                        <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full text-[10px] font-bold border border-orange-200 uppercase tracking-wider">
-                            <WifiOff className="h-3 w-3" /> <span>Registry Unstable</span>
-                        </div>
-                    )}
-                    <Button variant="outline" onClick={handleExport} className="h-11 rounded-xl font-black uppercase text-[11px] tracking-widest border-slate-200 text-primary gap-2 shadow-sm hover:bg-slate-50">
-                        <FileDown className="h-4 w-4" /> Export Ledger
-                    </Button>
-                </div>
+                <Button variant="outline" onClick={handleExport} className="h-12 px-8 rounded-xl font-black uppercase text-[11px] tracking-[0.2em] border-slate-200 text-blue-600 gap-3 shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+                    <FileDown className="h-5 w-5" /> Export Ledger
+                </Button>
             </div>
 
-            <div className="flex-1 p-4 md:p-8 overflow-y-auto space-y-10">
-                {/* KPI INDICATORS */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="flex-1 p-8 overflow-y-auto space-y-10">
+                {/* KPI CARDS NODE */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {[
-                        { label: 'Total Mission Trips', value: stats.count, icon: Truck, color: 'text-blue-900', bg: 'bg-blue-50', show: true },
-                        { label: 'Aggregate Manifest Weight', value: `${stats.weight.toFixed(2)} MT`, icon: Weight, color: 'text-emerald-600', bg: 'bg-emerald-50', show: true },
-                        { label: 'Accumulated Registry Freight', value: `₹ ${stats.freight.toLocaleString('en-IN')}`, icon: IndianRupee, color: 'text-indigo-600', bg: 'bg-indigo-50', show: isFreightVisible },
-                    ].filter(card => card.show).map((card, i) => (
-                        <Card key={i} className="border-none shadow-md rounded-[2rem] group hover:shadow-xl transition-all">
-                            <CardContent className="p-8">
+                        { label: 'Total Mission Trips', value: stats.count, icon: Truck, color: 'text-blue-900', bg: 'bg-blue-50' },
+                        { label: 'Aggregate Manifest Weight', value: `${stats.weight.toFixed(2)} MT`, icon: Weight, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                        { label: 'Accumulated Registry Freight', value: `₹ ${stats.freight.toLocaleString('en-IN')}`, icon: IndianRupee, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                    ].map((card, i) => (
+                        <Card key={i} className="border-none shadow-xl rounded-[2.5rem] bg-white group hover:-translate-y-1 transition-all duration-500 overflow-hidden">
+                            <CardContent className="p-10 relative">
+                                <div className="absolute top-0 right-0 p-8 opacity-[0.03] transition-transform duration-1000 group-hover:scale-110">
+                                    <card.icon size={120} />
+                                </div>
                                 <div className="flex justify-between items-start">
-                                    <div className="space-y-2">
-                                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{card.label}</p>
-                                        <h4 className={cn("text-3xl font-black tracking-tighter leading-none", card.color)}>{card.value}</h4>
+                                    <div className="space-y-3">
+                                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">{card.label}</p>
+                                        <h4 className={cn("text-4xl font-black tracking-tighter leading-none", card.color)}>{card.value}</h4>
                                     </div>
-                                    <div className={cn("p-3 rounded-2xl transition-transform group-hover:scale-110", card.bg, card.color)}>
+                                    <div className={cn("p-4 rounded-2xl shadow-inner", card.bg, card.color)}>
                                         <card.icon className="h-6 w-6" />
                                     </div>
                                 </div>
@@ -313,180 +276,133 @@ export default function TripSummaryPage() {
                     ))}
                 </div>
 
-                {/* FILTER CONTROLS */}
-                <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
-                    <CardHeader className="bg-slate-50 border-b p-8">
-                        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-                            <div className="flex flex-wrap items-end gap-6">
-                                <div className="grid gap-2">
-                                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                {/* FILTER & REGISTRY SECTION */}
+                <Card className="border-none shadow-2xl rounded-[3rem] bg-white overflow-hidden">
+                    <CardHeader className="bg-slate-50 border-b p-10">
+                        <div className="flex flex-col space-y-10">
+                            <div className="flex flex-wrap items-end gap-10">
+                                <div className="grid gap-3">
+                                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
                                         <Factory className="h-3 w-3" /> Lifting Node Scope
                                     </Label>
-                                    {isAuthLoading ? (
-                                        <div className="h-11 w-48 bg-slate-200 animate-pulse rounded-xl" />
-                                    ) : (
-                                        <MultiSelectPlantFilter 
-                                            options={authorizedPlantIds.map(id => ({ id, name: allPlants?.find(p => p.id === id)?.name || id }))}
-                                            selected={selectedPlants}
-                                            onChange={setSelectedPlants}
-                                        />
-                                    )}
+                                    <MultiSelectPlantFilter 
+                                        options={authorizedPlantIds.map(id => ({ id, name: allPlants?.find(p => p.id === id)?.name || id }))}
+                                        selected={selectedPlants}
+                                        onChange={setSelectedPlants}
+                                        isLoading={isAuthLoading}
+                                    />
                                 </div>
-                                <div className="grid gap-2">
-                                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                                <div className="grid gap-3">
+                                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
                                         <Calendar className="h-3 w-3" /> Period Selection
                                     </Label>
-                                    <div className="flex items-center gap-2">
-                                        <DatePicker date={fromDate} setDate={setFromDate} className="h-11 rounded-xl" />
-                                        <span className="text-slate-300 font-bold">to</span>
-                                        <DatePicker date={toDate} setDate={setTodayDate} className="h-11 rounded-xl" />
+                                    <div className="flex items-center gap-3 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
+                                        <DatePicker date={fromDate} setDate={setFromDate} className="h-9 border-none shadow-none font-bold" />
+                                        <span className="text-slate-200 font-bold px-1">to</span>
+                                        <DatePicker date={toDate} setDate={setTodayDate} className="h-9 border-none shadow-none font-bold" />
                                     </div>
                                 </div>
-                                <div className="grid gap-2">
-                                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                                <div className="grid gap-3">
+                                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
                                         <Truck className="h-3 w-3" /> Fleet Category
                                     </Label>
                                     <Select value={vehicleCategory} onValueChange={setVehicleCategory}>
-                                        <SelectTrigger className="h-11 w-[180px] rounded-xl font-bold">
+                                        <SelectTrigger className="h-11 w-[220px] rounded-xl bg-white border-slate-200 font-bold shadow-sm focus:ring-blue-600">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-xl">
-                                            <SelectItem value="all">All Categories</SelectItem>
-                                            <SelectItem value="Own Vehicle">Own Vehicle</SelectItem>
-                                            <SelectItem value="Contract Vehicle">Contract Vehicle</SelectItem>
-                                            <SelectItem value="Market Vehicle">Market Vehicle</SelectItem>
+                                            <SelectItem value="all" className="font-bold py-3 uppercase italic">All Categories</SelectItem>
+                                            <SelectItem value="Own Vehicle" className="font-bold py-3 uppercase italic">Own Fleet</SelectItem>
+                                            <SelectItem value="Contract Vehicle" className="font-bold py-3 uppercase italic">Contractor Node</SelectItem>
+                                            <SelectItem value="Market Vehicle" className="font-bold py-3 uppercase italic">Market Node</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div className="grid gap-2">
-                                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                                        <Search className="h-3 w-3" /> Global Search
-                                    </Label>
+                            </div>
+
+                            <div className="grid gap-3">
+                                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
+                                    <Search className="h-3 w-3" /> Global Search
+                                </Label>
+                                <div className="relative group max-w-sm">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
                                     <Input 
                                         placeholder="IDs, Vehicles, Parties..." 
                                         value={searchTerm} 
                                         onChange={e => setSearchTerm(e.target.value)}
-                                        className="h-11 w-[300px] rounded-xl border-slate-200 bg-white font-bold shadow-inner" 
+                                        className="h-14 pl-12 rounded-2xl border-slate-200 bg-white font-bold shadow-inner focus-visible:ring-blue-600" 
                                     />
                                 </div>
                             </div>
                         </div>
                     </CardHeader>
+                    
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
-                            <Table className="border-collapse w-full min-w-[2200px]">
-                                <TableHeader className="bg-slate-50 border-b">
-                                    <TableRow className="hover:bg-transparent">
-                                        <TableHead className="text-[10px] font-black uppercase px-6 h-14">Plant</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 h-14">Trip ID</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 h-14">LR Number</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 h-14 text-center">Date</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 h-14">Consignor</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 h-14">From</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 h-14">Consignee</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 h-14">Ship To</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 h-14">Destination</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 h-14">Transporter Name</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 h-14">Transporter Mobile</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 h-14 text-right">Assigned weight</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase px-4 h-14 text-right">LR Weight</TableHead>
-                                        
-                                        {/* FINANCIAL HEADERS: Market Only */}
-                                        {isFreightVisible && (
-                                            <>
-                                                <TableHead className="text-[10px] font-black uppercase px-4 h-14 text-right">Rate</TableHead>
-                                                <TableHead className="text-[10px] font-black uppercase px-4 h-14 text-right bg-blue-50/50">Total Freight</TableHead>
-                                            </>
-                                        )}
-                                        
-                                        <TableHead className="text-[10px] font-black uppercase px-6 h-14">Username</TableHead>
+                            <Table className="border-collapse w-full min-w-[1800px]">
+                                <TableHeader className="bg-slate-50/50">
+                                    <TableRow className="h-14 hover:bg-transparent border-b">
+                                        <TableHead className="text-[10px] font-black uppercase px-10 text-slate-400">Plant</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Trip ID</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">LR Number</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-400">Date</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Consignor</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">From</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400 font-black">Consignee</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Ship To</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase px-10 text-slate-400">Destination</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {isLoading ? (
                                         Array.from({ length: 5 }).map((_, i) => (
-                                            <TableRow key={i}><TableCell colSpan={isFreightVisible ? 16 : 14} className="p-6"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                                            <TableRow key={i}><TableCell colSpan={9} className="p-8"><Skeleton className="h-10 w-full rounded-2xl" /></TableCell></TableRow>
                                         ))
                                     ) : paginatedData.length === 0 ? (
-                                        <TableRow><TableCell colSpan={isFreightVisible ? 16 : 14} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No mission records found in current scope.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={9} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No mission records found in current scope.</TableCell></TableRow>
                                     ) : (
-                                        paginatedData.map(row => {
-                                            const isMarketRow = row.vehicleType === 'Market Vehicle';
-                                            return (
-                                                <TableRow key={row.id} className="h-16 hover:bg-blue-50/30 transition-all border-b border-slate-50 last:border-0 group">
-                                                    <TableCell className="px-6 font-bold text-slate-600 uppercase text-[11px]">{row.plantName}</TableCell>
-                                                    <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs">{row.tripId}</TableCell>
-                                                    <TableCell className="px-4 font-black text-slate-900">{row.lrNumber || '--'}</TableCell>
-                                                    <TableCell className="px-4 text-center text-[11px] font-bold text-slate-500 whitespace-nowrap">{format(row.startDate, 'dd.MM.yyyy')}</TableCell>
-                                                    <TableCell className="px-4 font-black text-slate-800 uppercase text-[11px] truncate max-w-[150px]">{row.consignor}</TableCell>
-                                                    <TableCell className="px-4 text-[11px] font-bold text-slate-500 uppercase truncate max-w-[120px]">{row.loadingPoint}</TableCell>
-                                                    <TableCell className="px-4 font-black text-slate-800 uppercase text-[11px] truncate max-w-[150px]">{row.billToParty}</TableCell>
-                                                    <TableCell className="px-4 text-[11px] font-bold text-slate-500 uppercase truncate max-w-[150px]">{row.shipToParty}</TableCell>
-                                                    <TableCell className="px-4 text-[11px] font-black text-slate-900 uppercase truncate max-w-[150px]">{row.unloadingPoint}</TableCell>
-                                                    <TableCell className="px-4 font-bold text-slate-700 uppercase text-[11px] truncate max-w-[180px]">{row.transporterName || '--'}</TableCell>
-                                                    <TableCell className="px-4 font-mono text-[11px] text-slate-500">{row.transporterMobile || '--'}</TableCell>
-                                                    <TableCell className="px-4 text-right font-bold text-slate-700">{row.assignedQtyInTrip.toFixed(3)}</TableCell>
-                                                    <TableCell className="px-4 text-right font-black text-blue-900">{row.lrWeight.toFixed(3)}</TableCell>
-                                                    
-                                                    {/* FINANCIAL CELLS: Visible only if top category filter allows it */}
-                                                    {isFreightVisible && (
-                                                        <>
-                                                            <TableCell className="px-4 text-right font-bold text-emerald-600">
-                                                                {isMarketRow ? `₹ ${Number(row.freightRate || 0).toLocaleString()}` : '--'}
-                                                            </TableCell>
-                                                            <TableCell className="px-4 text-right font-black text-blue-900 bg-blue-50/20">
-                                                                {isMarketRow ? `₹ ${Number(row.freightAmount || 0).toLocaleString()}` : '--'}
-                                                            </TableCell>
-                                                        </>
-                                                    )}
-                                                    
-                                                    <TableCell className="px-6 font-black text-slate-400 text-[10px] uppercase">{row.userName || 'System'}</TableCell>
-                                                </TableRow>
-                                            );
-                                        })
+                                        paginatedData.map((row, idx) => (
+                                            <TableRow key={row.id} className="h-16 hover:bg-blue-50/30 transition-all border-b border-slate-50 last:border-0 group">
+                                                <TableCell className="px-10 font-bold text-slate-500 uppercase text-[11px]">{row.plantName}</TableCell>
+                                                <TableCell className="px-4 font-black text-blue-600 font-mono tracking-tighter text-xs uppercase">{row.tripId}</TableCell>
+                                                <TableCell className="px-4 font-black text-slate-900 uppercase text-[11px]">{row.lrNumber || '--'}</TableCell>
+                                                <TableCell className="px-4 text-center text-[11px] font-bold text-slate-400 whitespace-nowrap">{format(row.startDate, 'dd.MM.yyyy')}</TableCell>
+                                                <TableCell className="px-4 font-black text-slate-800 uppercase text-[11px] truncate max-w-[200px]">{row.consignor}</TableCell>
+                                                <TableCell className="px-4 text-[11px] font-bold text-slate-400 uppercase italic truncate max-w-[150px]">{row.loadingPoint}</TableCell>
+                                                <TableCell className="px-4 font-black text-slate-900 uppercase text-[11px] truncate max-w-[200px]">{row.billToParty}</TableCell>
+                                                <TableCell className="px-4 text-[11px] font-bold text-slate-400 uppercase truncate max-w-[200px]">{row.shipToParty || '--'}</TableCell>
+                                                <TableCell className="px-10 text-[11px] font-black text-slate-900 uppercase truncate max-w-[200px]">{row.unloadingPoint}</TableCell>
+                                            </TableRow>
+                                        ))
                                     )}
                                 </TableBody>
                             </Table>
                         </div>
-                    </CardContent>
-                    
-                    {/* FOOTER SECTION */}
-                    <div className="bg-slate-50 border-t p-8 flex flex-col md:flex-row md:items-center justify-between gap-8 shrink-0">
-                        <div className="flex items-center gap-10">
-                            <div className="flex flex-col gap-1">
-                                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Fleet Logic Node</Label>
-                                <Select value={footerVehicleType} onValueChange={setFooterVehicleType}>
-                                    <SelectTrigger className="h-10 w-[220px] rounded-xl bg-white border-slate-200 font-bold">
-                                        <SelectValue placeholder="All Categories" />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl">
-                                        <SelectItem value="all">Global Fleet Hierarchy</SelectItem>
-                                        <SelectItem value="Own Vehicle">Own Vehicle Registry</SelectItem>
-                                        <SelectItem value="Contract Vehicle">Contract Vehicle Registry</SelectItem>
-                                        <SelectItem value="Market Vehicle">Market Vehicle Registry</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                        <div className="p-8 bg-slate-50 border-t flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">LMC Registry Manifest Synchronized</span>
                             </div>
-                            <div className="flex items-center gap-4 p-4 bg-white rounded-2xl border shadow-sm">
-                                <TrendingUp className="h-5 w-5 text-blue-600" />
-                                <div>
-                                    <p className="text-[9px] font-black uppercase text-slate-400 leading-none mb-1">Active Scope</p>
-                                    <p className="text-sm font-black text-blue-900">{filteredData.length} Registry Entries</p>
-                                </div>
-                            </div>
+                            <Pagination 
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                onPageChange={setCurrentPage}
+                                canPreviousPage={currentPage > 1}
+                                canNextPage={currentPage < totalPages}
+                                itemCount={filteredData.length}
+                            />
                         </div>
-                        
-                        <Pagination 
-                            currentPage={currentPage} 
-                            totalPages={totalPages} 
-                            onPageChange={setCurrentPage} 
-                            itemCount={filteredData.length}
-                            canPreviousPage={currentPage > 1}
-                            canNextPage={currentPage < totalPages}
-                        />
-                    </div>
+                    </CardContent>
                 </Card>
             </div>
         </main>
+    );
+}
+
+export default function TripSummaryPage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>}>
+            <TripSummaryContent />
+        </Suspense>
     );
 }
