@@ -109,7 +109,6 @@ export default function VehicleOut() {
     const entry = activeEntries.find(e => e.id === selectedEntryId);
     if (!entry) return;
 
-    // Autonomous Handshake: Automatically fetch mission particulars for Loaded exit
     const fetchMissionData = async () => {
         try {
             const plantId = normalizePlantId(entry.plantId);
@@ -160,7 +159,6 @@ export default function VehicleOut() {
             weightUnit: values.weightUnit
         });
 
-        // Sync with trip Board if applicable
         if (entry.tripId) {
             const globalTripRef = doc(firestore, 'trips', entry.tripId);
             const plantTripRef = doc(firestore, `plants/${entry.plantId}/trips`, entry.tripId);

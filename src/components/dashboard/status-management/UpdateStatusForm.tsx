@@ -51,7 +51,6 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
 
   const isLockedAtGate = useMemo(() => {
     if (!selectedTrip) return false;
-    // Rule: Mission transitions are locked until the vehicle departs the gate
     const isOut = selectedTrip.entry?.status === 'OUT';
     return !isOut && (currentStatus === 'ASSIGNED' || currentStatus === 'VEHICLE ASSIGNED' || currentStatus === 'LOADED');
   }, [selectedTrip, currentStatus]);
