@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -23,11 +24,9 @@ import {
     History,
     X,
     ClipboardList,
-    TrendingUp,
-    CheckCircle2,
+    Calculator,
     Loader2,
-    UserCircle,
-    Calculator
+    UserCircle
 } from 'lucide-react';
 import { useFirestore, useUser } from "@/firebase";
 import { doc, serverTimestamp, collection, runTransaction } from "firebase/firestore";

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -58,16 +59,17 @@ export default function VehicleOut() {
   );
   const { data: allPlants } = useCollection<Plant>(plantsQuery);
 
-  const userProfileRef = useMemo(() => (firestore && user?.email) ? doc(firestore, "users", user.email) : null, [firestore, user]);
+  const searchEmail = useMemo(() => user?.email || '', [user]);
+  const userProfileRef = useMemo(() => (firestore && searchEmail) ? doc(firestore, "users", searchEmail) : null, [firestore, searchEmail]);
   const { data: profile } = useDoc<SubUser>(userProfileRef);
 
   const authorizedPlants = useMemo(() => {
     if (!allPlants) return [];
-    const isAdmin = user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
+    const isAdmin = searchEmail === 'sikkaind.admin@sikka.com' || searchEmail === 'sikkalmcg@gmail.com';
     if (isAdmin) return allPlants;
     const authIds = profile?.plantIds || [];
     return allPlants.filter(p => authIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id)));
-  }, [allPlants, profile, user]);
+  }, [allPlants, profile, searchEmail]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),

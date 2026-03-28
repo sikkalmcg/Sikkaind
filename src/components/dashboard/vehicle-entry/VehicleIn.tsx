@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -11,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { ShieldCheck, Loader2, Plus, Factory, FileText, Weight } from 'lucide-react';
+import { ShieldCheck, Plus, Factory, FileText, Weight } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, query, addDoc, serverTimestamp, orderBy, doc, where, getDocs, limit } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
@@ -61,16 +62,17 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
   );
   const { data: allPlants } = useCollection<Plant>(plantsQuery);
 
-  const userProfileRef = useMemo(() => (firestore && user?.email) ? doc(firestore, "users", user.email) : null, [firestore, user]);
+  const searchEmail = useMemo(() => user?.email || '', [user]);
+  const userProfileRef = useMemo(() => (firestore && searchEmail) ? doc(firestore, "users", searchEmail) : null, [firestore, searchEmail]);
   const { data: profile } = useDoc<SubUser>(userProfileRef);
 
   const authorizedPlants = useMemo(() => {
     if (!allPlants) return [];
-    const isAdmin = user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
+    const isAdmin = searchEmail === 'sikkaind.admin@sikka.com' || searchEmail === 'sikkalmcg@gmail.com';
     if (isAdmin) return allPlants;
     const authIds = profile?.plantIds || [];
     return (allPlants || []).filter(p => authIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id)));
-  }, [allPlants, profile, user]);
+  }, [allPlants, profile, searchEmail]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
