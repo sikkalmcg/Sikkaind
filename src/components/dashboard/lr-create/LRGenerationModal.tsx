@@ -499,7 +499,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
             const shipToPartyObj = parties?.find(p => p.name === values.shipToParty);
             
             const fromHeader = consignorParty?.city || values.consignorName;
-            const toHeader = shipToPartyObj?.city || values.shipToParty;
+            const toHeader = shipToPartyObj?.city || shipment.destination || values.shipToParty;
 
             const lrData: any = {
                 ...values,
@@ -655,7 +655,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                                         <FormLabel className="text-[10px] font-black uppercase tracking-wider">Consignee (Bill to) * (F4 Help)</FormLabel>
                                         <div className="flex gap-2">
                                             <FormControl><Input className="h-10 rounded-xl font-black text-slate-900" {...field} onKeyDown={(e) => handleF4(e, 'buyerName')} /></FormControl>
-                                            <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => setHelpModal({ type: 'billToParty', title: 'Select Consignee Node', data: consigneeRegistry })}>
+                                            <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => setHelpModal({ type: 'buyerName', title: 'Select Consignee Node', data: consigneeRegistry })}>
                                                 <Search className="h-4 w-4" />
                                             </Button>
                                         </div>
@@ -857,7 +857,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
             </div>
           </div>
           <div className="flex gap-4">
-            <Button variant="ghost" onClick={onClose} className="font-black text-slate-500 hover:text-red-600 transition-colors uppercase text-[11px] tracking-widest px-8 h-12">Discard Draft</Button>
+            <Button variant="ghost" onClick={onClose} className="font-black text-slate-500 hover:text-red-600 transition-all uppercase text-[11px] tracking-widest px-8 h-12">Discard Draft</Button>
             <Button onClick={handleSubmit(() => setShowConfirmModal(true))} className="bg-blue-900 hover:bg-slate-900 text-white px-16 h-12 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl shadow-blue-200 transition-all active:scale-95 border-none">
                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "COMMIT MISSION RECEIPT"}
             </Button>
