@@ -36,14 +36,6 @@ import {
 } from "@/components/ui/tooltip";
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 
-/**
- * @fileOverview Supervisor Task Hub.
- * Optimized mission board for yard supervisors.
- * Logic Node: Mirror of Trip Board -> Loading tab for Outward, Gate Registry for Inward.
- * Rule: Data for Loading is strictly fetched from Assigned trips pool.
- * Registry Standard: 7 entries per page.
- */
-
 const LIVE_TASKS_PER_PAGE = 7;
 
 export default function SupervisorTaskPage() {
@@ -114,7 +106,7 @@ export default function SupervisorTaskPage() {
             }
         };
         syncAuth();
-    }, [firestore, user, allPlants]);
+    }, [firestore, user, allPlants, selectedPlant]);
 
     useEffect(() => {
         if (!firestore || authorizedPlantIds.length === 0) return;
@@ -124,7 +116,6 @@ export default function SupervisorTaskPage() {
 
         const normalizedAuthIds = authorizedPlantIds.map(normalizePlantId);
 
-        // 1. Listen to gate entries
         const qGate = collection(firestore, "vehicleEntries");
         const unsubGate = onSnapshot(qGate, (snap) => {
             const activeVehicles = snap.docs
@@ -135,7 +126,6 @@ export default function SupervisorTaskPage() {
         });
         unsubscribers.push(unsubGate);
 
-        // 2. Listen to authorized mission nodes
         authorizedPlantIds.forEach(pId => {
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/trips`), (snap) => {
                 const plantTrips = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() }));
@@ -180,16 +170,13 @@ export default function SupervisorTaskPage() {
     const activeTasks = useMemo(() => {
         const tasks: any[] = [];
 
-        // 1. PROCESS OUTWARD (LOADING) TASKS - ONLY ASSIGNED VEHICLES
         trips.forEach(trip => {
             const s = trip.tripStatus?.toLowerCase() || '';
-            // Filter: Must be Assigned or Vehicle Assigned (Consistent with Trip Board -> Loading)
             if (s !== 'assigned' && s !== 'vehicle assigned') return;
 
             const hasVehicle = trip.vehicleNumber && trip.vehicleNumber.trim() !== '';
             if (!hasVehicle) return;
 
-            // Check if task already completed in current gate session
             const entry = vehicleEntries.find(e => e.tripId === trip.id || (e.vehicleNumber === trip.vehicleNumber && e.status === 'IN'));
             if (entry?.isTaskCompleted) return;
 
@@ -202,7 +189,6 @@ export default function SupervisorTaskPage() {
             tasks.push({
                 id: entry?.id || `trip-${trip.id}`,
                 tripId: trip.tripId,
-                // REGISTRY SYNC: Fetch LR from Trip, fallback to Shipment draft
                 lrNumber: trip.lrNumber || shipment?.lrNumber || '--',
                 realTripId: trip.id,
                 plantId: trip.originPlantId,
@@ -222,7 +208,6 @@ export default function SupervisorTaskPage() {
             });
         });
 
-        // 2. PROCESS INWARD (UNLOADING) TASKS
         vehicleEntries.forEach(entry => {
             if (entry.purpose !== 'Unloading' || entry.status !== 'IN' || entry.isTaskCompleted) return;
 
