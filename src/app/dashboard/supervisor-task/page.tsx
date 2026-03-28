@@ -13,8 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn, normalizePlantId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
-import TaskModal from '@/components/dashboard/supervisor-task/TaskModal';
-import TaskHistoryTable from '@/components/dashboard/supervisor-task/TaskHistoryTable';
+import TaskModal from '../../../components/dashboard/supervisor-task/TaskModal';
+import TaskHistoryTable from '../../../components/dashboard/supervisor-task/TaskHistoryTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
@@ -34,7 +34,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import Pagination from '@/components/dashboard/vehicle-management/Pagination';
+import Pagination from '../../../components/dashboard/vehicle-management/Pagination';
 
 const LIVE_TASKS_PER_PAGE = 7;
 

@@ -12,7 +12,7 @@ import { Loader2, WifiOff, History, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { WithId, SubUser, Activity } from '@/types';
 import { mockSubUsers } from '@/lib/mock-data';
-import ActivityLogModal from '@/components/dashboard/user-activity-log/ActivityLogModal';
+import ActivityLogModal from '../../../components/dashboard/user-activity-log/ActivityLogModal';
 import { subDays, startOfDay, endOfDay, isAfter, isBefore } from 'date-fns';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";

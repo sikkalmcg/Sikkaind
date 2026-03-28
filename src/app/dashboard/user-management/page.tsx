@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useContext, useMemo, useEffect } from 'react';
-import { AppContext } from '@/firebase/app-provider';
+import { AppContext } from '../../../firebase/app-provider';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
