@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -32,7 +31,7 @@ const formSchema = z.object({
   documentNo: z.string().optional(),
   items: z.string().optional(),
   billedQty: z.coerce.number().optional(),
-  qtyType: z.string().optional(),
+  qtyType: z.string().optional().default('MT'),
 }).superRefine((data, ctx) => {
     if (data.purpose === 'Unloading') {
         if (!data.lrNumber) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "LR Number is mandatory for unloading.", path: ["lrNumber"] });
@@ -60,9 +59,9 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
     firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
     [firestore]
   );
-  const { data: allPlants, isLoading: isLoadingPlants } = useCollection<Plant>(plantsQuery);
+  const { data: allPlants } = useCollection<Plant>(plantsQuery);
 
-  const userProfileRef = useMemo(() => (firestore && user) ? doc(firestore, "users", user.uid) : null, [firestore, user]);
+  const userProfileRef = useMemo(() => (firestore && user) ? doc(firestore, "users", user.email!) : null, [firestore, user]);
   const { data: profile } = useDoc<SubUser>(userProfileRef);
 
   const authorizedPlants = useMemo(() => {
@@ -75,11 +74,11 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      plantId: '',
-      vehicleNumber: '',
+      plantId: upcomingVehicleData?.originPlantId || '',
+      vehicleNumber: upcomingVehicleData?.vehicleNumber || '',
       purpose: 'Loading',
-      driverName: '',
-      driverMobile: '',
+      driverName: upcomingVehicleData?.driverName || '',
+      driverMobile: upcomingVehicleData?.driverMobile || '',
       licenseNumber: '',
       lrNumber: '',
       documentNo: '',
