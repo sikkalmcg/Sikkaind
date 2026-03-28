@@ -16,7 +16,7 @@ import {
     CheckCircle2,
 } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, query, where, doc, updateDoc, serverTimestamp, getDocs, orderBy, onSnapshot, getDoc, limit } from "firebase/firestore";
+import { collection, query, where, doc, updateDoc, serverTimestamp, getDocs, orderBy, onSnapshot, getDoc, limit, Timestamp } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useLoading } from '@/context/LoadingContext';
