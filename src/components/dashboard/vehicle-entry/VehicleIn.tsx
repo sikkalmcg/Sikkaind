@@ -223,7 +223,6 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                 )} />
             </div>
 
-            {/* Conditional Unloading Section */}
             {purpose === 'Unloading' && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
                     <Separator className="bg-slate-100" />

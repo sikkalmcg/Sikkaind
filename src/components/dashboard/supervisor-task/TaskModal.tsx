@@ -27,7 +27,8 @@ import {
     ClipboardList,
     TrendingUp,
     CheckCircle2,
-    Loader2
+    Loader2,
+    UserCircle
 } from 'lucide-react';
 import { useFirestore, useUser } from "@/firebase";
 import { doc, serverTimestamp, collection, runTransaction } from "firebase/firestore";
@@ -152,7 +153,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white rounded-3xl">
-        {/* HEADER SECTION */}
         <DialogHeader className="p-8 bg-blue-900 text-white shrink-0 pr-12">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-5">
@@ -175,7 +175,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
           </div>
         </DialogHeader>
 
-        {/* MISSION CONTEXT ROW */}
         <div className="px-10 py-6 border-b bg-white shrink-0">
             <div className="grid grid-cols-6 gap-8">
                 {[
@@ -200,7 +199,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
             </div>
         </div>
 
-        {/* MAIN REGISTRY AREA */}
         <div className="flex-1 overflow-y-auto p-10 space-y-10 bg-[#f8fafc]">
             <div className="flex items-center justify-between px-2">
                 <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3">
@@ -295,7 +293,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
             </div>
         </div>
 
-        {/* FOOTER ACTION BAR */}
         <DialogFooter className="p-10 bg-slate-950 shrink-0 flex flex-col md:flex-row items-center justify-between sm:justify-between border-t border-white/5">
             <div className="flex items-center gap-6 px-8 py-4 bg-white/5 rounded-3xl border border-white/10 shadow-2xl">
                 <div className="p-3 bg-blue-600/20 rounded-2xl"><History className="h-6 w-6 text-blue-400" /></div>
