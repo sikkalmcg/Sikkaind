@@ -55,7 +55,7 @@ export default function TaskHistoryTable({ data, isAdmin, onRemove }: { data: an
                     </TableHeader>
                     <TableBody>
                         {data.length === 0 ? (
-                            <TableRow><TableCell colSpan={8} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No historical tasks detected in registry.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={isAdmin ? 8 : 7} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No historical tasks detected in registry.</TableCell></TableRow>
                         ) : (
                             data.map((item) => (
                                 <TableRow key={item.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">

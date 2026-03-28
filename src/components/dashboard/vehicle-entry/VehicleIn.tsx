@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -26,7 +25,6 @@ import {
   ClipboardList, 
   Trash2, 
   ShieldCheck, 
-  ChevronsUpDown,
   Loader2
 } from 'lucide-react';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
@@ -37,13 +35,11 @@ import {
   doc,
   writeBatch,
   serverTimestamp,
-  getDoc,
   getDocs,
-  Timestamp 
 } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
-import { normalizePlantId, generateRandomTripId } from '@/lib/utils';
-import type { Trip, Shipment, Vehicle, Carrier, WithId } from '@/types';
+import { normalizePlantId } from '@/lib/utils';
+import type { Shipment, Carrier, WithId } from '@/types';
 import { useLoading } from '@/context/LoadingContext';
 
 interface VehicleInProps {
@@ -91,7 +87,7 @@ export default function VehicleIn({ upcomingVehicleData }: VehicleInProps) {
     },
   });
 
-  const { control, handleSubmit, setValue, watch, reset } = form;
+  const { control, handleSubmit, setValue, watch, reset, formState: { isSubmitting } } = form;
   const { fields, append, remove } = useFieldArray({ control, name: "shipments" });
 
   const plantId = watch('plantId');
