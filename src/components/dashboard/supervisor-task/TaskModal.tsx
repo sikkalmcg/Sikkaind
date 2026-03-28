@@ -259,7 +259,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-xl">
-                                                {LRUnitTypes.map(t => <SelectItem key={t} value={t} className="font-bold py-2.5">{t}</SelectItem>)}
+                                                {LRUnitTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                     </TableCell>
