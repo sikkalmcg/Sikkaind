@@ -46,6 +46,7 @@ import {
     ArrowRightLeft,
     CheckCircle2,
     AlertTriangle,
+    AlertCircle,
     PlusCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -375,7 +376,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                     { label: 'Consignor', value: shipment.consignor, icon: UserCircle },
                     { label: 'Lifting Site', value: shipment.loadingPoint, icon: MapPin },
                     { label: 'Consignee', value: shipment.billToParty, icon: UserCircle },
-                    { label: 'Drop Point', value: shipment.unloadingPoint, icon: Truck, span: 2 },
+                    { label: 'Drop Point (TO)', value: shipment.unloadingPoint, icon: Truck, span: 2 },
                 ].map((item, i) => (
                     <div key={i} className={cn("flex flex-col gap-1.5", item.span && `col-span-${item.span}`)}>
                         <span className="font-black text-slate-400 text-[10px] uppercase tracking-widest flex items-center gap-2">
@@ -509,7 +510,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                         </div>
                         <div className="h-16 w-px bg-slate-100 hidden md:block" />
                         <div className="max-w-md p-4 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner flex items-start gap-4">
-                            <AlertCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                            <AlertCircle className="h-6 w-6 text-blue-600 shrink-0 mt-0.5" />
                             <p className="text-[10px] font-bold text-slate-500 leading-normal uppercase">
                                 Distance node synchronized with Google Maps standard routing protocols. Final mission payload logic may vary based on pilot route selection.
                             </p>
