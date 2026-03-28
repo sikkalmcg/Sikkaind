@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Truck, MapPin, Activity, CheckCircle2, AlertTriangle, Hammer, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 interface UpdateStatusFormProps {
   activeTrips: any[];
