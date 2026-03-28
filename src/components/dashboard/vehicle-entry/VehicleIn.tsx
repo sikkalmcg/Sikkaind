@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -69,7 +68,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
     const isAdmin = user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
     if (isAdmin) return allPlants;
     const authIds = profile?.plantIds || [];
-    return allPlants.filter(p => authIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id)));
+    return (allPlants || []).filter(p => authIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id)));
   }, [allPlants, profile, user]);
 
   const form = useForm<FormValues>({

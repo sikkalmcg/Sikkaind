@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -27,7 +26,8 @@ import {
     TrendingUp,
     CheckCircle2,
     Loader2,
-    UserCircle
+    UserCircle,
+    Calculator
 } from 'lucide-react';
 import { useFirestore, useUser } from "@/firebase";
 import { doc, serverTimestamp, collection, runTransaction } from "firebase/firestore";
@@ -297,7 +297,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
 
         <DialogFooter className="p-10 bg-slate-950 shrink-0 flex flex-col md:flex-row items-center justify-between sm:justify-between border-t border-white/5">
             <div className="flex items-center gap-6 px-8 py-4 bg-white/5 rounded-3xl border border-white/10 shadow-2xl">
-                <div className="p-3 bg-blue-600/20 rounded-2xl"><History className="h-6 w-6 text-blue-400" /></div>
+                <div className="p-3 bg-blue-600/20 rounded-2xl"><Calculator className="h-6 w-6 text-blue-400" /></div>
                 <div className="flex flex-col">
                     <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-1">MANIFEST NODE PROCESSING</span>
                     <span className="text-3xl font-black text-white tracking-tighter leading-none">{totals.load.toFixed(3)} Units</span>

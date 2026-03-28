@@ -1,10 +1,8 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -242,9 +240,7 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
                             {isSubmitting ? (
                                 <Loader2 className="h-6 w-6 animate-spin" />
                             ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7 transition-transform group-hover:-translate-y-1">
-                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
-                                </svg>
+                                <Save className="h-7 w-7 transition-transform group-hover:-translate-y-1" />
                             )}
                         </Button>
                     </div>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -57,7 +56,7 @@ export default function GateRegister() {
 
   const handleExport = () => {
     const exportData = filteredData.map(e => ({
-        'Plant': plants?.find(p => p.id === e.plantId)?.name || e.plantId,
+        'Plant': (plants || []).find(p => p.id === e.plantId)?.name || e.plantId,
         'Vehicle No': e.vehicleNumber,
         'Pilot': e.driverName,
         'Purpose': e.purpose,
@@ -132,7 +131,7 @@ export default function GateRegister() {
                             return (
                                 <TableRow key={e.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
                                     <TableCell className="px-8 font-black text-slate-600 uppercase text-xs">
-                                        {plants?.find(p => p.id === e.plantId)?.name || e.plantId}
+                                        {(plants || []).find(p => p.id === e.plantId)?.name || e.plantId}
                                     </TableCell>
                                     <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter text-[13px]">
                                         {e.vehicleNumber}
