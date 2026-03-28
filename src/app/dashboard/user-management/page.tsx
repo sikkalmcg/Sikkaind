@@ -283,7 +283,7 @@ export default function UserManagementPage() {
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="password">Password</Label>
-                            <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={editing.user ? 'Leave blank to keep password' : ''} />
+                            <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={editingUser ? 'Leave blank to keep password' : ''} />
                         </div>
                     </div>
 
