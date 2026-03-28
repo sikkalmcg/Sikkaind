@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -95,7 +96,7 @@ export default function AvailableVehiclesTab({ plantsList, filterPlantId }: Avai
                         <TableHeader className="bg-slate-50/50">
                             <TableRow className="h-14 hover:bg-transparent border-b">
                                 <TableHead className="text-[10px] font-black uppercase px-8 text-slate-400">Lifting Node</TableHead>
-                                <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Vehicle Registry</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Vehicle Number</TableHead>
                                 <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Pilot Name</TableHead>
                                 <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-400">In-Gate Timestamp</TableHead>
                                 <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-400">Stay Duration</TableHead>

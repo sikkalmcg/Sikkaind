@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -26,7 +27,6 @@ const formSchema = z.object({
   driverName: z.string().min(3, "Pilot name required (min 3 chars)."),
   driverMobile: z.string().regex(/^\d{10}$/, "10-digit mobile required."),
   licenseNumber: z.string().min(5, "DL number required."),
-  // Unloading Specific Fields
   lrNumber: z.string().optional(),
   documentNo: z.string().optional(),
   items: z.string().optional(),
@@ -61,12 +61,13 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
   );
   const { data: allPlants, isLoading: isLoadingPlants } = useCollection<Plant>(plantsQuery);
 
-  const userProfileRef = useMemo(() => (firestore && user) ? doc(firestore, "users", user.email!) : null, [firestore, user]);
+  const userProfileRef = useMemo(() => (firestore && user?.email) ? doc(firestore, "users", user.email) : null, [firestore, user]);
   const { data: profile } = useDoc<SubUser>(userProfileRef);
 
   const authorizedPlants = useMemo(() => {
     if (!allPlants) return [];
-    if (user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com') return allPlants;
+    const isAdmin = user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
+    if (isAdmin) return allPlants;
     const authIds = profile?.plantIds || [];
     return allPlants.filter(p => authIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id)));
   }, [allPlants, profile, user]);

@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -28,11 +29,11 @@ export default function GateRegister({ plants: providedPlants = [] }: { plants?:
   );
   const { data: masterPlants } = useCollection<Plant>(plantsQuery);
 
-  const plants = useMemo(() => {
-    return providedPlants.length > 0 ? providedPlants : masterPlants;
+  const activePlants = useMemo(() => {
+    return providedPlants.length > 0 ? providedPlants : (masterPlants || []);
   }, [providedPlants, masterPlants]);
 
-  useMemo(() => {
+  useEffect(() => {
     if (!firestore || !user) return;
 
     // Registry Listener: Latest 100 movements
@@ -61,8 +62,8 @@ export default function GateRegister({ plants: providedPlants = [] }: { plants?:
   }, [entries, searchTerm]);
 
   const handleExport = () => {
-    const data = filteredData.map(e => ({
-        'Plant': (plants || []).find(p => p.id === e.plantId)?.name || e.plantId,
+    const exportData = filteredData.map(e => ({
+        'Plant': activePlants.find(p => p.id === e.plantId)?.name || e.plantId,
         'Vehicle No': e.vehicleNumber,
         'Pilot': e.driverName,
         'Purpose': e.purpose,
@@ -71,7 +72,7 @@ export default function GateRegister({ plants: providedPlants = [] }: { plants?:
         'Out Date/Time': e.exitTimestamp ? format(e.exitTimestamp.toDate ? e.exitTimestamp.toDate() : new Date(e.exitTimestamp), 'dd-MM-yy HH:mm') : '--',
         'Operator': e.userName || 'System'
     }));
-    const ws = XLSX.utils.json_to_sheet(data);
+    const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Gate Registry");
     XLSX.writeFile(wb, "Gate_Control_Registry.xlsx");
@@ -137,7 +138,7 @@ export default function GateRegister({ plants: providedPlants = [] }: { plants?:
                             return (
                                 <TableRow key={e.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
                                     <TableCell className="px-8 font-black text-slate-600 uppercase text-xs">
-                                        {(plants || []).find(p => p.id === e.plantId)?.name || e.plantId}
+                                        {activePlants.find(p => p.id === e.plantId)?.name || e.plantId}
                                     </TableCell>
                                     <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter text-[13px]">
                                         {e.vehicleNumber}

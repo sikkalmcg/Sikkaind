@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -58,7 +59,9 @@ export default function StatusHistory({ history }: StatusHistoryProps) {
                                         <div className="p-1.5 bg-slate-100 rounded-lg group-hover:bg-blue-900 group-hover:text-white transition-colors">
                                             <Clock className="h-3.5 w-3.5" />
                                         </div>
-                                        <span className="text-[11px] font-black text-slate-500 font-mono">{format(h.timestamp, 'dd/MM/yy HH:mm:ss')}</span>
+                                        <span className="text-[11px] font-black text-slate-500 font-mono">
+                                            {format(h.timestamp instanceof Timestamp ? h.timestamp.toDate() : new Date(h.timestamp), 'dd/MM/yy HH:mm:ss')}
+                                        </span>
                                     </div>
                                 </TableCell>
                                 <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs uppercase">{h.tripId}</TableCell>
