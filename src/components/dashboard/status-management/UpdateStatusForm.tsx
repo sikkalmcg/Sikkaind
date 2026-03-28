@@ -53,6 +53,7 @@ export default function UpdateStatusForm({ activeTrips, availableVehicles, onSta
 
   const isLockedAtGate = useMemo(() => {
     if (!selectedTrip) return false;
+    // Mission Logic: Status change blocked until vehicle exits gate (status is Assigned)
     return currentStatus === 'ASSIGNED' || currentStatus === 'VEHICLE-ASSIGNED' || currentStatus === 'VEHICLE ASSIGNED';
   }, [selectedTrip, currentStatus]);
 
