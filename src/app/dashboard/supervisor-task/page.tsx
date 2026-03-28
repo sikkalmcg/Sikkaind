@@ -382,7 +382,7 @@ export default function SupervisorTaskPage() {
                                 <TableBody>
                                     {isLoading ? (
                                         Array.from({length: 5}).map((_, i) => (
-                                            <TableRow key={i}><TableCell colSpan={12} className="p-6"><Skeleton className="h-8 w-full"/></TableCell></TableRow>
+                                            <TableRow key={i} className="h-16"><TableCell colSpan={12} className="p-6"><Skeleton className="h-8 w-full"/></TableCell></TableRow>
                                         ))
                                     ) : paginatedTasks.length === 0 ? (
                                         <TableRow><TableCell colSpan={12} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No assigned tasks detected in yard.</TableCell></TableRow>
