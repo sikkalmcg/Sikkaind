@@ -74,5 +74,10 @@
     "reactfire": {
       "firebase": "$firebase"
     }
+  },
+  "pnpm": {
+    "overrides": {
+      "firebase": "^10.11.0"
+    }
   }
 }
