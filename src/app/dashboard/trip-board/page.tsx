@@ -71,7 +71,7 @@ function TripBoardContent() {
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
   const [authorizedPlantIds, setAuthorizedPlantIds] = useState<string[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [operatorFullName, setOperatorFullName] = useState('');
+  const [operatorName, setOperatorName] = useState('');
   
   const [trips, setTrips] = useState<WithId<Trip>[]>([]);
   const [shipments, setShipments] = useState<WithId<Shipment>[]>([]);
@@ -131,11 +131,11 @@ function TripBoardContent() {
         const userData = userDocSnap.data() as SubUser;
         isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
         authIds = isRoot ? baseList.map(p => p.id) : (userData.plantIds || []);
-        setOperatorFullName(userData.fullName || userData.username || 'Operator');
+        setOperatorName(userData.fullName || userData.username || 'Operator');
       } else if (isAdminSession) {
         isRoot = true;
         authIds = baseList.map(p => p.id);
-        setOperatorFullName('AJAY SOMRA');
+        setOperatorName('AJAY SOMRA');
       }
 
       setIsAdmin(isRoot);
@@ -234,10 +234,9 @@ function TripBoardContent() {
 
   const allFilteredData = useMemo(() => {
     return trips.map(t => {
-      // Registry Logic Node: Resolve associated shipment
       const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : (t.shipmentIds || null);
-      const shipment = shipments.find(s => s.id === shipId);
-      const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId);
+      const shipment = shipments.find(s => s.id === shipId || s.shipmentId === shipId);
+      const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId || (l.lrNumber === t.lrNumber && l.originPlantId === t.originPlantId));
       
       const entry = entries.find(e => e.tripId === t.id) || 
                     entries.filter(e => e.vehicleNumber === t.vehicleNumber)
@@ -248,7 +247,7 @@ function TripBoardContent() {
 
       const parseDate = (val: any) => val instanceof Date ? val : (val instanceof Timestamp ? val.toDate() : null);
 
-      // Robust Item Description & Weight Node
+      // Robust Item Description Node
       const itemDescriptions = lr?.items?.map((i: any) => i.itemDescription || i.productDescription).filter(Boolean) || 
                                shipment?.items?.map((i: any) => i.itemDescription || i.description).filter(Boolean) || 
                                [];
@@ -309,7 +308,7 @@ function TripBoardContent() {
       const statusRaw = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim();
       const status = statusRaw.replace(/[\s_-]+/g, '-');
       
-      const hasVehicle = t.vehicleNumber && t.vehicleNumber.trim() !== '';
+      const hasVehicle = t.vehicleNumber && t.vehicleNumber.trim() !== '' && t.vehicleNumber !== '--';
       if (!hasVehicle) return false;
 
       if (activeTab === 'loading') {
@@ -347,7 +346,7 @@ function TripBoardContent() {
   const counts = useMemo(() => {
     const res = { active: 0, loading: 0, transit: 0, arrived: 0, podPending: 0, closed: 0 };
     filteredBase.forEach(t => {
-      const hasVehicle = t.vehicleNumber && t.vehicleNumber.trim() !== '';
+      const hasVehicle = t.vehicleNumber && t.vehicleNumber.trim() !== '' && t.vehicleNumber !== '--';
       if (!hasVehicle) return;
 
       const isOut = t.entry?.status === 'OUT';
@@ -655,7 +654,7 @@ function TripBoardContent() {
                             transaction.update(doc(firestore, `plants/${plantId}/lrs`, targetTrip.lrData.id), { vehicleNumber: newVehicle, driverMobile: values.driverMobile, updatedAt: timestamp });
                         }
                     });
-                    toast({ title: 'Registry Synchronized', description: `Vehicle updated across all mission nodes.` });
+                    toast({ title: 'Registry Synchronized', description: `Vehicle updated across all mission manifests.` });
                     setEditVehicleTrip(null);
                 } catch (e: any) {
                     toast({ variant: 'destructive', title: 'Correction Failed', description: e.message });

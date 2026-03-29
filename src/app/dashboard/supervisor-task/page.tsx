@@ -171,13 +171,15 @@ export default function SupervisorTaskPage() {
             const s = trip.tripStatus?.toLowerCase() || '';
             if (s !== 'assigned' && s !== 'vehicle assigned' && s !== 'vehicle-assigned') return;
 
-            const hasVehicle = trip.vehicleNumber && trip.vehicleNumber.trim() !== '';
-            if (!hasVehicle) return;
-
+            const vehicleNum = trip.vehicleNumber || '--';
+            const hasVehicle = vehicleNum !== '--' && vehicleNum.trim() !== '';
+            
+            // Registry Node: Match with Gate Entry
             const entry = vehicleEntries.find(e => e.tripId === trip.id || (e.vehicleNumber === trip.vehicleNumber && e.status === 'IN'));
             if (entry?.isTaskCompleted) return;
 
-            const shipment = shipments.find(s => s.id === trip.shipmentIds?.[0]);
+            const shipId = Array.isArray(trip.shipmentIds) ? trip.shipmentIds[0] : trip.shipmentIds;
+            const shipment = shipments.find(s => s.id === shipId || s.shipmentId === shipId);
             if (shipment?.currentStatusId === 'Cancelled') return;
 
             const normalizedPlantIdStr = normalizePlantId(trip.originPlantId);
@@ -191,9 +193,9 @@ export default function SupervisorTaskPage() {
                 plantId: trip.originPlantId,
                 plantName: pName,
                 purpose: 'Loading',
-                vehicleNumber: trip.vehicleNumber,
-                driverName: trip.driverName,
-                driverMobile: trip.driverMobile,
+                vehicleNumber: vehicleNum,
+                driverName: trip.driverName || entry?.driverName || '--',
+                driverMobile: trip.driverMobile || entry?.driverMobile || '--',
                 from: trip.loadingPoint || shipment?.loadingPoint || pName,
                 shipTo: trip.shipToParty || shipment?.shipToParty || '--',
                 destination: trip.unloadingPoint || shipment?.unloadingPoint || '--',
@@ -209,9 +211,7 @@ export default function SupervisorTaskPage() {
         vehicleEntries.forEach(entry => {
             if (entry.purpose !== 'Unloading' || entry.status !== 'IN' || entry.isTaskCompleted) return;
 
-            const hasVehicle = entry.vehicleNumber && entry.vehicleNumber.trim() !== '';
-            if (!hasVehicle) return;
-
+            const vehicleNum = entry.vehicleNumber || '--';
             const normalizedEntryPlantId = normalizePlantId(entry.plantId);
             const pName = allPlants?.find((p: any) => normalizePlantId(p.id) === normalizedEntryPlantId)?.name || entry.plantId;
 
@@ -222,8 +222,8 @@ export default function SupervisorTaskPage() {
                 plantId: entry.plantId,
                 plantName: pName,
                 purpose: 'Unloading',
-                vehicleNumber: entry.vehicleNumber,
-                driverName: entry.driverName,
+                vehicleNumber: vehicleNum,
+                driverName: entry.driverName || '--',
                 driverMobile: entry.driverMobile || '--',
                 from: entry.from || '--',
                 shipTo: entry.shipToParty || '--',
@@ -313,7 +313,7 @@ export default function SupervisorTaskPage() {
                                 <SelectContent className="rounded-xl">
                                     <SelectItem value="all-plants" className="font-black uppercase text-[10px] tracking-widest text-blue-600">All Authorized Nodes</SelectItem>
                                     {(allPlants || []).filter(p => isAdmin || authorizedPlantIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id))).map(p => (
-                                        <SelectItem key={p.id} value={p.id} className="font-bold py-2.5">{p.name}</SelectItem>
+                                        <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -335,10 +335,10 @@ export default function SupervisorTaskPage() {
                             <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Source: Assigned Fleet | Registry Handshake</CardDescription>
                         </div>
                         <div className="relative group">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-blue-900 transition-colors" />
                             <Input 
                                 placeholder="Search Vehicle, Pilot, Trip..." 
-                                value={searchTerm}
+                                value={searchTerm} 
                                 onChange={e => { setSearchTerm(e.target.value); setLivePage(1); }}
                                 className="pl-10 h-10 w-[300px] rounded-xl bg-white border-slate-200 shadow-sm font-bold focus-visible:ring-blue-900"
                             />
