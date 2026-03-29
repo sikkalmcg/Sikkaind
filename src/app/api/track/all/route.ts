@@ -4,7 +4,7 @@ export async function GET() {
     try {
         // Wheelseye actual API details
         // Token is now stored in environment variables for better security
-        const API_KEY = process.env.WHEELSEYE_API_KEY || "53afc208-0981-48c7-b134-d85d2f33dc0c";
+        const API_KEY = process.env.NEXT_PUBLIC_WHEELSEYE_API_KEY || "53afc208-0981-48c7-b134-d85d2f33dc0c";
         const WHEELSEYE_URL = `https://api.wheelseye.com/currentLoc?accessToken=${API_KEY}`;
 
         if (!API_KEY) {
@@ -40,7 +40,7 @@ export async function GET() {
 
         const vehicleData = result.data || result.list;
 
-        // Data structure mapping (No changes here)
+        // Data structure mapping
         const vehicles = Array.isArray(vehicleData) ? vehicleData.map((v: any) => ({
             vehicleNumber: v.vehicleNumber || v.regNo || "Unknown",
             speed: v.speed || 0,
@@ -56,7 +56,7 @@ export async function GET() {
         });
 
     } catch (error: any) {
-        console.error("API Error:", error); // Log the full error object
+        console.error("API Error:", error);
         return NextResponse.json({ 
             success: false, 
             list: [], 

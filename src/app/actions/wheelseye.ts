@@ -6,7 +6,6 @@ import { firestore } from "@/firebase";
  * Performs secure extraction of telemetry nodes from the authorized gateway.
  * Implements address cleaning logic to resolve professional location names.
  * Integrated with Google Maps Reverse Geocoding for high-fidelity location registry.
- * Note: 'use server' removed to support static export client-side execution.
  */
 
 const GOOGLE_MAPS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
@@ -61,7 +60,7 @@ async function getSettings() {
     }
     return {
         apiUrl: "https://api.wheelseye.com/currentLoc",
-        accessToken: "53afc208-0981-48c7-b134-d85d2f33dc0c"
+        accessToken: process.env.NEXT_PUBLIC_WHEELSEYE_API_KEY || "53afc208-0981-48c7-b134-d85d2f33dc0c"
     };
 }
 
