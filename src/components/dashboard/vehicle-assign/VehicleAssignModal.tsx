@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -135,7 +134,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   });
   const { watch, setValue, handleSubmit, reset, control, formState: { isSubmitting, errors } } = form;
 
-  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate, distance: currentDistance } = useWatch({ control });
+  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate, distance: currentDistance } = watch();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);

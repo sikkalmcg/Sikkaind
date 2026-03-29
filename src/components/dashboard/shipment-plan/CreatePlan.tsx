@@ -232,9 +232,10 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   const billToParty = useWatch({ control, name: 'billToParty' });
   const watchedConsignor = useWatch({ control, name: 'consignor' });
   const watchedShipTo = useWatch({ control, name: 'shipToParty' });
+  const watchedItems = useWatch({ control, name: "items" }) || [];
 
   // --- FTL LOGIC NODE ---
-  const isFtl = useMemo(() => watchedUom.toUpperCase() === 'FTL', [watchedUom]);
+  const isFtl = useMemo(() => watchedUom?.toUpperCase() === 'FTL', [watchedUom]);
 
   useEffect(() => {
     if (isFtl) {
@@ -311,6 +312,15 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
     selectPartyNode(party, helpModal.type);
     setHelpModal(null);
   }, [helpModal, selectPartyNode]);
+
+  const totals = useMemo(() => {
+    const result = watchedItems.reduce((acc, item) => ({
+        units: acc.units + (Number(item?.units) || 0),
+        weight: acc.weight + (Number(item?.weight) || 0)
+    }), { units: 0, weight: 0 });
+
+    return { ...result };
+  }, [watchedItems]);
 
   const handlePost = async (values: FormValues) => {
     if (!firestore || !user) return;
@@ -545,11 +555,11 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                         <Table>
                             <TableHeader className="bg-slate-900">
                                 <TableRow className="hover:bg-transparent h-14 border-none">
-                                    <TableHead className="text-white text-[10px] font-black uppercase px-8">Invoice #</TableHead>
-                                    <TableHead className="text-white text-[10px] font-black uppercase px-4">E-Waybill No.</TableHead>
+                                    <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">Invoice #</TableHead>
+                                    <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">E-Waybill No.</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center">Units</TableHead>
-                                    <TableHead className="text-white text-[10px] font-black uppercase px-8 text-right">Weight (MT)</TableHead>
+                                    <TableHead className="text-white text-[10px] font-black uppercase px-8 text-right w-40">Weight (MT)</TableHead>
                                     <TableHead className="w-16"></TableHead>
                                 </TableRow>
                             </TableHeader>

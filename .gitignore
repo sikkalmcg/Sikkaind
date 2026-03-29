@@ -1,32 +1,19 @@
-# Next.js build output
-.next/
-out/
+# Build artifacts
+.next
+.firebase
+out
+build
 
-# Firebase build output
-.firebase/
-firebase-debug.log*
-.firebaserc
+# Local modules
+node_modules
 
-# Node modules
-node_modules/
-
-# Environment variables
-.env
+# Environment & Logs
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# System files
+# OS specific
 .DS_Store
 Thumbs.db
-
-# Large asset archives
-*.zip
-*.tar.gz
-*.rar
