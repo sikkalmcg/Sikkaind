@@ -214,7 +214,7 @@ function OpenOrdersContent() {
   const allFilteredData = useMemo(() => {
     const { shipments, trips, entries, lrs } = allData;
     const dayStart = fromDate ? startOfDay(fromDate) : null;
-    const dayEnd = toDate ? endOfDay(toDate) : null;
+    const dayEnd = todayDate ? endOfDay(todayDate) : null;
 
     return (shipments || []).filter(s => {
       if (dayStart && s.creationDate < dayStart) return false;
@@ -224,7 +224,6 @@ function OpenOrdersContent() {
       const normalizedSPlantId = normalizePlantId(s.originPlantId);
       const masterPlant = plants?.find(p => p.id === s.originPlantId || normalizePlantId(p.id) === normalizedSPlantId);
 
-      // FIX: Added optional chaining to shipmentIds to prevent TypeError
       const associatedTrips = trips.filter(t => t.shipmentIds?.includes(s.id));
       const linkedTrips = associatedTrips.map(t => {
           const carrierObj = (carriers || []).find(c => c.id === t.carrierId);

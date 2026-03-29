@@ -34,7 +34,7 @@ const formSchema = z.object({
   billToParty: z.string().min(1, 'Consignee is mandatory.'),
   billToGtin: z.string().optional(),
   isSameAsBillTo: z.boolean().default(false),
-  shipToParty: z.string().optional(),
+  shipToParty: z.string().min(1, 'Ship To Node is mandatory.'),
   shipToGtin: z.string().optional(),
   unloadingPoint: z.string().min(1, 'Destination city is mandatory.'),
   quantity: z.coerce.number().min(0.001, 'Quantity must be positive'),
@@ -113,7 +113,6 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   const firestore = useFirestore();
   const { user } = useUser();
   const { showLoader, hideLoader } = useLoading();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [authorizedPlants, setAuthorizedPlants] = useState<WithId<Plant>[]>([]);
   const [currentDate, setCurrentTime] = useState(new Date());
@@ -127,7 +126,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-        originPlantId: '', consignor: '', billToParty: '', loadingPoint: '', unloadingPoint: '',
+        originPlantId: '', consignor: '', billToParty: '', shipToParty: '', loadingPoint: '', unloadingPoint: '',
         materialTypeId: 'METRIC TON', quantity: 0, lrNumber: '', carrierId: '', paymentTerm: 'Paid',
         isSameAsBillTo: false, lrDate: null, items: []
     },
@@ -138,6 +137,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   
   const originPlantId = watch('originPlantId');
   const isSameAsBillTo = watch('isSameAsBillTo');
+  const billToParty = watch('billToParty');
 
   // --- Data Queries ---
   const { data: qtyTypes } = useCollection<MasterQtyType>(useMemoFirebase(() => firestore ? query(collection(firestore, "material_types")) : null, [firestore]));
@@ -155,16 +155,21 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   useEffect(() => {
     if (allPlants && user) {
         const isAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
-        setAuthorizedPlants(isAdmin ? allPlants : allPlants.filter(p => p.id === '1426')); 
+        setAuthorizedPlants(isAdmin ? allPlants : allMasterPlants?.filter((p: any) => p.id === '1426') || []); 
     }
   }, [allPlants, user]);
 
-  const handleShipToSelect = useCallback((p: Party) => {
-    setValue('shipToParty', p.name, { shouldValidate: true });
-    setValue('shipToGtin', p.gstin || '', { shouldValidate: true });
-    const address = (p.address && p.address !== 'N/A') ? p.address : p.city;
-    if (address) setValue('unloadingPoint', address, { shouldValidate: true });
-  }, [setValue]);
+  useEffect(() => {
+    if (isSameAsBillTo && billToParty) {
+        setValue('shipToParty', billToParty, { shouldValidate: true });
+        const match = consigneeRegistry.find(p => p.name === billToParty);
+        if (match) {
+            setValue('shipToGtin', match.gstin || '', { shouldValidate: true });
+            const address = (match.address && match.address !== 'N/A') ? match.address : match.city;
+            if (address) setValue('unloadingPoint', address, { shouldValidate: true });
+        }
+    }
+  }, [isSameAsBillTo, billToParty, setValue, consigneeRegistry]);
 
   const handlePost = async (values: FormValues) => {
     if (!firestore || !user) return;
@@ -330,14 +335,38 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                         onSelect={p => {
                             setValue('billToParty', p.name, {shouldValidate: true});
                             setValue('billToGtin', p.gstin || '');
-                            if(isSameAsBillTo) handleShipToSelect(p);
+                            if(isSameAsBillTo) {
+                                setValue('shipToParty', p.name, { shouldValidate: true });
+                                setValue('shipToGtin', p.gstin || '');
+                                const address = (p.address && p.address !== 'N/A') ? p.address : p.city;
+                                if (address) setValue('unloadingPoint', address, { shouldValidate: true });
+                            }
                         }}
                       />
+                      
                       <div className="flex items-center justify-between px-2">
                         <FormField control={control} name="isSameAsBillTo" render={({ field }) => (
                             <div className="flex items-center gap-2"><Checkbox checked={field.value} onCheckedChange={field.onChange} id="sameAs" /><label htmlFor="sameAs" className="text-xs font-bold text-slate-500">Unloading same as Bill-To</label></div>
                         )} />
                       </div>
+
+                      <div className={cn("space-y-8 transition-all duration-500", isSameAsBillTo && "opacity-40 grayscale pointer-events-none")}>
+                        <AutocompleteInput 
+                            label="Ship To Party *" 
+                            placeholder="Search drop node..." 
+                            value={watch('shipToParty')} 
+                            onChange={v => setValue('shipToParty', v)} 
+                            suggestions={consigneeRegistry} 
+                            onSearchClick={() => setHelpModal({type: 'shipToParty', title: 'Ship To Node Registry', data: consigneeRegistry})} 
+                            onSelect={p => {
+                                setValue('shipToParty', p.name, {shouldValidate: true});
+                                setValue('shipToGtin', p.gstin || '');
+                                const address = (p.address && p.address !== 'N/A') ? p.address : p.city;
+                                if (address) setValue('unloadingPoint', address, { shouldValidate: true });
+                            }}
+                        />
+                      </div>
+
                       <FormField control={control} name="unloadingPoint" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-400">Destination City *</FormLabel><FormControl><Input {...field} className="h-14 rounded-xl" /></FormControl></FormItem>)} />
                   </div>
                </div>
@@ -399,8 +428,19 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                                         setValue('consignor', item.name);
                                         const addr = (item.address && item.address !== 'N/A') ? item.address : item.city;
                                         if(addr) setValue('loadingPoint', addr);
-                                    } else {
+                                    } else if (helpModal.type === 'billToParty') {
                                         setValue('billToParty', item.name);
+                                        if(isSameAsBillTo) {
+                                            setValue('shipToParty', item.name);
+                                            setValue('shipToGtin', item.gstin || '');
+                                            const addr = (item.address && item.address !== 'N/A') ? item.address : item.city;
+                                            if(addr) setValue('unloadingPoint', addr);
+                                        }
+                                    } else {
+                                        setValue('shipToParty', item.name);
+                                        setValue('shipToGtin', item.gstin || '');
+                                        const addr = (item.address && item.address !== 'N/A') ? item.address : item.city;
+                                        if(addr) setValue('unloadingPoint', addr);
                                     }
                                     setHelpModal(null);
                                 }}>
