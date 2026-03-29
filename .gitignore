@@ -1,29 +1,26 @@
-# Next.js Build Artifacts
+# Next.js build output
 .next/
 out/
 build/
 
-# Firebase Tools
+# Firebase build output
 .firebase/
 firebase-debug.log*
-firestore-debug.log*
-ui-debug.log*
+.runtimeconfig.json
 
-# Dependencies
+# Local env files
+.env*.local
+
+# Node dependencies
 node_modules/
-.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Environment Nodes
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# System Files
+# OS files
 .DS_Store
-*.pem
+Thumbs.db
 
-# Large Binaries
-public/assets/large-videos/
-public/assets/backups/
+# Project local caches
+.cache/
+.swc/

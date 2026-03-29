@@ -45,11 +45,13 @@ import {
     Lock,
     ArrowRightLeft,
     AlertCircle,
-    X
+    X,
+    IndianRupee,
+    TrendingUp
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser } from '@/types';
-import { VehicleTypes, PaymentTerms } from '@/lib/constants';
+import { VehicleTypes } from '@/lib/constants';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
 import { 
   collection, 
@@ -95,6 +97,7 @@ const formSchema = z.object({
     transporterName: z.string().optional().default(''),
     transporterMobile: z.string().optional().default(''),
     distance: z.coerce.number().optional(),
+    freightRate: z.coerce.number().optional().default(0),
 }).superRefine((data, ctx) => {
     if (data.vehicleType === 'Market Vehicle') {
         if (!data.transporterName?.trim()) {
@@ -130,7 +133,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   });
   const { watch, setValue, handleSubmit, reset, control, formState: { isSubmitting, errors } } = form;
 
-  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType } = useWatch({ control });
+  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate } = useWatch({ control });
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -159,7 +162,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             assignQty: trip?.assignedQtyInTrip ?? Number(Number(shipment.balanceQty).toFixed(3)),
             transporterName: trip?.transporterName || '',
             transporterMobile: (trip as any)?.transporterMobile || '',
-            distance: trip?.distance || 0
+            distance: trip?.distance || 0,
+            freightRate: trip?.freightRate || 0
         };
         reset(defaultValues as any);
     }
@@ -198,6 +202,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   }, [isOpen, firestore, shipment.originPlantId]);
 
   // Distance Calculation
+  const currentDistance = watch('distance');
   useEffect(() => {
     if (!isLoaded || !isOpen || !shipment.loadingPoint || !shipment.unloadingPoint || isEditing) return;
 
@@ -223,13 +228,14 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   }, [isLoaded, isOpen, shipment.loadingPoint, shipment.unloadingPoint, setValue, isEditing]);
 
   const balanceQty = useMemo(() => {
-    const currentPool = isEditing ? (shipment.balanceQty + (trip.assignedQtyInTrip || 0)) : shipment.balanceQty;
-    const remaining = currentPool - (assignQty || 0);
+    const currentPool = isEditing ? (shipment.balanceQty + (trip?.assignedQtyInTrip || 0)) : shipment.balanceQty;
+    const remaining = currentPool - (Number(assignQty) || 0);
     return Number(Math.max(0, remaining).toFixed(3));
   }, [shipment.balanceQty, assignQty, isEditing, trip]);
 
   const onSubmit = async (values: FormValues) => {
     if (!firestore || !user) return;
+
     showLoader();
     try {
         await runTransaction(firestore, async (transaction) => {
@@ -284,15 +290,17 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   const onInvalid = () => {
       const firstError = Object.values(errors)[0];
       if (firstError) {
-          toast({ variant: 'destructive', title: "Validation Error", description: firstError.message as string });
+          toast({ variant: 'destructive', title: "Validation Error", description: (firstError.message as string) || "Invalid field detected." });
       }
   };
 
   const carrierOptions = useMemo(() => carriers.map(c => ({ value: c.id, label: c.name })), [carriers]);
 
+  const calculatedFreight = (Number(assignQty) || 0) * (Number(freightRate) || 0);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-slate-50 rounded-[3rem]">
+      <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-2xl bg-slate-50 rounded-[3rem]">
         <DialogHeader className="bg-slate-900 text-white p-6 shrink-0 flex flex-row items-center justify-between pr-12">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-blue-600 rounded-2xl shadow-xl rotate-3"><Truck className="h-7 w-7" /></div>
@@ -354,7 +362,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                 <TableRow className="align-top h-20 hover:bg-transparent">
                                     <TableCell className="px-4 py-6">
                                         {isNewVehicle ? (
-                                            <FormField name="vehicleNumber" control={control} render={({field}) => <FormControl><Input {...field} placeholder="XX00XX0000" className="h-12 rounded-xl font-black uppercase text-lg border-blue-200 focus-visible:ring-blue-900" /></FormControl>} />
+                                            <FormField name="vehicleNumber" control={control} render={({field}) => <FormControl><div className="relative"><Input placeholder="XX00XX0000" className="h-12 rounded-xl font-black uppercase text-lg border-blue-200 focus-visible:ring-blue-900" {...field} /></div></FormControl>} />
                                         ) : (
                                             <FormField name="vehicleId" control={control} render={({field}) => (
                                                 <Select onValueChange={field.onChange} value={field.value}>
@@ -364,17 +372,23 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                             )} />
                                         )}
                                     </TableCell>
-                                    <TableCell className="px-4 py-6"><FormField name="driverName" control={control} render={({field}) => <FormControl><Input {...field} placeholder="Pilot Name" className="h-12 rounded-xl font-bold" /></FormControl>} /></TableCell>
+                                    <TableCell className="px-4 py-6"><FormField name="driverName" control={control} render={({field}) => <FormControl><Input placeholder="Pilot Name" className="h-12 rounded-xl font-bold" {...field} /></FormControl>} /></TableCell>
                                     <TableCell className="px-4 py-6"><FormField name="driverMobile" control={control} render={({field}) => <FormControl><Input {...field} maxLength={10} placeholder="10 Digits" className="h-12 rounded-xl font-mono font-black" /></FormControl>} /></TableCell>
                                     <TableCell className="px-4 py-6">
-                                        <FormField name="carrierId" control={control} render={({field}) => (
-                                            <SearchableSelect options={carrierOptions} value={field.value} onChange={field.onChange} placeholder="Pick Agent" className="h-12" />
+                                        <FormField name="carrierId" control={control} render={({ field }) => (
+                                            <SearchableSelect 
+                                                options={carrierOptions} 
+                                                onChange={field.onChange} 
+                                                value={field.value} 
+                                                placeholder="Pick Agent"
+                                                className="h-12"
+                                            />
                                         )} />
                                     </TableCell>
                                     <TableCell className="px-4 py-6">
-                                        <FormField name="vehicleType" control={control} render={({field}) => (
+                                        <FormField name="vehicleType" control={control} render={({ field }) => (
                                             <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue /></SelectTrigger></FormControl>
+                                                <FormControl><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue placeholder="Select Type"/></SelectTrigger></FormControl>
                                                 <SelectContent className="rounded-xl">{VehicleTypes.map(t => <SelectItem key={t} value={t} className="font-bold py-2.5">{t}</SelectItem>)}</SelectContent>
                                             </Select>
                                         )} />
@@ -388,36 +402,34 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                     </div>
                 </Card>
 
-                {vehicleType === 'Market Vehicle' && (
-                    <Card className="p-10 bg-blue-50/30 border-2 border-blue-100 rounded-[2.5rem] shadow-xl animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                    <Card className={cn("p-10 transition-all duration-500 rounded-[2.5rem] shadow-xl", vehicleType === 'Market Vehicle' ? "bg-blue-50/30 border-2 border-blue-100 opacity-100" : "opacity-40 grayscale pointer-events-none border-slate-100")}>
                         <div className="flex items-center gap-3 mb-8 px-2">
                             <IndianRupee className="h-5 w-5 text-blue-600" />
                             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Financial Particulars (Market Node)</h3>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-end">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
                             <FormField name="transporterName" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Transporter Name *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white border-slate-200 font-bold" /></FormControl></FormItem>} />
                             <FormField name="ownerName" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Fleet Owner *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white border-slate-200 font-bold" /></FormControl></FormItem>} />
                             <FormField name="freightRate" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-600">Freight Rate (MT) *</FormLabel><FormControl><Input type="number" step="0.01" {...field} className="h-12 rounded-xl bg-white border-blue-200 font-black text-blue-900 text-lg shadow-inner" /></FormControl></FormItem>} />
                             <div className="flex flex-col gap-1.5">
                                 <span className="text-[10px] font-black uppercase text-slate-400">Calculated Freight</span>
-                                <div className="h-12 px-5 flex items-center bg-blue-900 rounded-xl text-white font-black text-xl shadow-lg">₹ {Number(freightAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                                <div className="h-12 px-5 flex items-center bg-blue-900 rounded-xl text-white font-black text-xl shadow-lg">₹ {calculatedFreight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                             </div>
                         </div>
                     </Card>
-                )}
 
-                <div className="flex items-center gap-10">
-                    <Card className="flex-1 p-8 rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-xl flex items-center gap-8 relative overflow-hidden group">
+                    <Card className="p-8 rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-xl flex items-center gap-8 relative overflow-hidden group">
                         <div className="flex flex-col gap-1">
                             <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Routing Distance Node</span>
                             <div className="flex items-center gap-3">
                                 <h4 className="text-5xl font-black text-blue-900 tracking-tighter">
-                                    {calculatingDistance ? <Loader2 className="h-10 w-10 animate-spin" /> : (distance || '--')}
+                                    {calculatingDistance ? <Loader2 className="h-10 w-10 animate-spin" /> : (currentDistance || '--')}
                                 </h4>
                                 <span className="text-xl font-black text-slate-300">KM</span>
                             </div>
                         </div>
-                        <div className="h-16 w-px bg-slate-100" />
+                        <div className="h-16 w-px bg-slate-100 mx-2" />
                         <div className="flex items-start gap-4">
                             <AlertCircle className="h-6 w-6 text-blue-600 shrink-0 mt-1" />
                             <p className="text-[9px] font-bold text-slate-500 uppercase leading-normal max-w-[200px]">Distance synchronized with Google Maps mission routing protocol.</p>
@@ -432,7 +444,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             <div className="flex items-center gap-10">
                 <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><Calculator className="h-3 w-3" /> Balance remaining</span>
-                    <span className={cn("text-3xl font-black tracking-tighter transition-all duration-500", balanceQty > 0 ? "text-orange-400" : "text-emerald-400")}>
+                    <span className={cn("text-3xl font-black tracking-tighter transition-all duration-500", balanceQty > 0.001 ? "text-orange-400" : "text-emerald-400")}>
                         {balanceQty.toFixed(3)} MT
                     </span>
                 </div>
@@ -444,7 +456,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                     disabled={isSubmitting || calculatingDistance} 
                     className="h-16 px-16 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
                 >
-                    {isSubmitting ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />} Establish Mission Node
+                    {isSubmitting ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />} {isEditing ? 'Update Node' : 'Establish Mission Node'}
                 </Button>
             </div>
         </DialogFooter>

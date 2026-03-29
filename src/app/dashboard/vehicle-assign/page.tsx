@@ -42,7 +42,7 @@ function OpenOrdersContent() {
   
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
-  const [todayDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
+  const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
@@ -214,7 +214,7 @@ function OpenOrdersContent() {
   const allFilteredData = useMemo(() => {
     const { shipments, trips, entries, lrs } = allData;
     const dayStart = fromDate ? startOfDay(fromDate) : null;
-    const dayEnd = todayDate ? endOfDay(todayDate) : null;
+    const dayEnd = toDate ? endOfDay(toDate) : null;
 
     return (shipments || []).filter(s => {
       if (dayStart && s.creationDate < dayStart) return false;
@@ -259,7 +259,7 @@ function OpenOrdersContent() {
         lrDate: linkedTrips[0]?.lrDate || s.lrDate || null,
       };
     });
-  }, [allData, fromDate, todayDate, carriers, plants]);
+  }, [allData, fromDate, toDate, carriers, plants]);
 
   const handleOpenLR = async (row: any) => {
     if (!row.lrNumber || !firestore) return;
@@ -477,7 +477,7 @@ function OpenOrdersContent() {
               </div>
               <div className="grid gap-1.5">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">To Date</Label>
-                <DatePicker date={todayDate} setDate={setTodayDate} className="h-9 border-slate-200" />
+                <DatePicker date={toDate} setDate={setTodayDate} className="h-9 border-slate-200" />
               </div>
               <div className="grid gap-1.5">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Global Registry Search</Label>
