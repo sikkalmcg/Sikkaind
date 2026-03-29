@@ -84,6 +84,12 @@ export default function VehicleOut() {
   const [isLoadingEntries, setIsLoadingEntries] = useState(false);
 
   useEffect(() => {
+    if (authorizedPlants.length > 0 && !selectedPlantId) {
+        setValue('plantId', authorizedPlants[0].id, { shouldValidate: true });
+    }
+  }, [authorizedPlants, selectedPlantId, setValue]);
+
+  useEffect(() => {
     if (!firestore || !selectedPlantId) {
         setActiveEntries([]);
         return;

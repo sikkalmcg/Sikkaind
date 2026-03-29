@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -106,8 +105,10 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
         setValue('driverName', upcomingVehicleData.driverName, { shouldValidate: true });
         setValue('driverMobile', upcomingVehicleData.driverMobile, { shouldValidate: true });
         setValue('purpose', 'Loading', { shouldValidate: true });
+    } else if (authorizedPlants.length > 0 && !watchedPlantId) {
+        setValue('plantId', authorizedPlants[0].id, { shouldValidate: true });
     }
-  }, [upcomingVehicleData, setValue]);
+  }, [upcomingVehicleData, authorizedPlants, watchedPlantId, setValue]);
 
   const onSubmit = async (values: FormValues) => {
     if (!firestore || !user) return;
@@ -242,7 +243,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                     <Separator />
                     <div className="flex items-center gap-3 px-2">
                         <FileText className="h-5 w-5 text-blue-600" />
-                        <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-700">Unloading Manifest Details</h3>
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Unloading Manifest Details</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 p-8 bg-blue-50/20 rounded-[2rem] border border-blue-100 shadow-sm items-end">
                         <FormField name="lrNumber" control={form.control} render={({ field }) => (

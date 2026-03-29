@@ -14,7 +14,7 @@ import EditVehicleModal from '@/components/dashboard/trip-board/EditVehicleModal
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants, mockCarriers } from '@/lib/mock-data';
 import { normalizePlantId, sanitizeRegistryNode } from '@/lib/utils';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, doc, getDocs, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, Timestamp } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/date-picker';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 
 export type TripBoardTab = 'active' | 'loading' | 'transit' | 'arrived' | 'pod-pending' | 'closed';
 
@@ -229,7 +230,7 @@ function TripBoardContent() {
 
         if (snap.empty) {
             const shipmentObj = row.shipmentObj || row;
-            setPreviewLr({
+            setLrPreviewData({
                 lrNumber: row.lrNumber,
                 date: parseDate(row.lrDate),
                 trip: row,
@@ -249,7 +250,7 @@ function TripBoardContent() {
             } as any);
         } else {
             const lrDoc = snap.docs[0].data() as LR;
-            setPreviewLr({
+            setLrPreviewData({
                 ...lrDoc,
                 id: snap.docs[0].id,
                 date: parseDate(lrDoc.date),
@@ -423,6 +424,7 @@ function TripBoardContent() {
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
       {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={async () => {}} />}
       {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={handleCancelTrip} />}
+      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
     </div>
   );
 }

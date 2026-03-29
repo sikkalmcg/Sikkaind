@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -27,7 +26,7 @@ import {
     Calculator, 
     Loader2, 
     UserCircle,
-    Weight
+    Scale
 } from 'lucide-react';
 import { useFirestore, useUser } from "@/firebase";
 import { doc, serverTimestamp, collection, runTransaction } from "firebase/firestore";
@@ -167,7 +166,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
     { label: 'Dispatch From', value: task.from, icon: Factory },
     { label: 'Ship To Party', value: task.shipTo, icon: UserCircle },
     { label: 'Destination', value: task.destination, icon: MapPin },
-    { label: 'Allotted Weight (MT)', value: `${task.assignedQty} MT`, icon: Weight, bold: true, color: 'text-blue-900' },
+    { label: 'Allotted Weight (MT)', value: `${task.assignedQty} MT`, icon: Scale, bold: true, color: 'text-blue-900' },
   ];
 
   return (
@@ -235,7 +234,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                     <TableHeader className="bg-slate-900">
                         <TableRow className="hover:bg-transparent border-none h-14">
                             <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">DELIVERY NO</TableHead>
-                            <TableHead className="text-white text-[10px) font-black uppercase px-4 w-48">INVOICE NO</TableHead>
+                            <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">INVOICE NO</TableHead>
                             <TableHead className="text-white text-[10px] font-black uppercase px-4">ITEM DESCRIPTION *</TableHead>
                             <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">DELIVERY UNIT</TableHead>
                             <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">LOAD UNIT *</TableHead>
@@ -298,14 +297,10 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
 
             <div className="flex flex-col md:flex-row items-center gap-8 justify-center">
                 <div className="max-w-md w-full p-8 bg-blue-900 text-white rounded-[2.5rem] shadow-2xl flex flex-col items-center gap-4 text-center border-4 border-blue-800">
-                    <Weight className="h-10 w-10 text-blue-400" />
+                    <Scale className="h-10 w-10 text-blue-400" />
                     <div className="space-y-1">
                         <p className="text-[10px] font-black uppercase text-blue-300 tracking-widest">TOTAL ACTUAL WEIGHT (MT)</p>
-                        <FormField name="actualWeight" control={form.control} render={({ field }) => (
-                            <FormControl>
-                                <Input type="number" step="0.001" {...field} className="h-16 text-center font-black text-4xl bg-transparent border-none focus-visible:ring-0 w-full" />
-                            </FormControl>
-                        )} />
+                        <Input type="number" step="0.001" {...form.register('actualWeight')} className="h-16 text-center font-black text-4xl bg-transparent border-none focus-visible:ring-0 w-full" />
                     </div>
                 </div>
             </div>
