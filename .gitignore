@@ -3,23 +3,27 @@
 out/
 build/
 
-# Firebase Registry Nodes
+# Firebase Studio & CLI
 .firebase/
 firebase-debug.log*
-firestore-debug.log*
-ui-debug.log*
+.firebaserc
 
 # Dependencies
 node_modules/
-.pnpm-store/
+jspm_packages/
 
-# Environment & Secrets
+# Environment Variables
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# System Files
+# OS Files
 .DS_Store
 Thumbs.db
+
+# Large Binary Purge
+public/assets/large-*
+src/assets/*.png
+src/assets/*.jpg

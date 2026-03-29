@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/date-picker';
 import type { Plant, Shipment, WithId, SubUser, Party, MasterQtyType, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock } from 'lucide-react';
+import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles } from 'lucide-react';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDoc, getDocs, limit } from "firebase/firestore";
 import { cn, normalizePlantId, formatSequenceId } from '@/lib/utils';
@@ -37,7 +37,7 @@ const formSchema = z.object({
   shipToParty: z.string().min(1, 'Ship To Node is mandatory.'),
   shipToGtin: z.string().optional(),
   unloadingPoint: z.string().min(1, 'Destination city is mandatory.'),
-  quantity: z.coerce.number().min(0.001, 'Quantity must be positive'),
+  quantity: z.coerce.number(),
   materialTypeId: z.string().min(1, 'UOM is required.'),
   lrNumber: z.string().optional().or(z.literal('')),
   lrDate: z.date().optional().nullable(),
@@ -53,6 +53,15 @@ const formSchema = z.object({
     weight: z.coerce.number().min(0.001, "Weight required"),
     hsnSac: z.string().optional(),
   })).optional().default([]),
+}).superRefine((data, ctx) => {
+    // Registry Rule: Qty must be positive if not FTL
+    if (data.materialTypeId !== 'FTL' && data.quantity <= 0) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Total quantity must be a positive value.",
+            path: ['quantity']
+        });
+    }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -152,7 +161,8 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
 
   useEffect(() => {
     if (isFtl) {
-        setValue('quantity', 1, { shouldValidate: true });
+        // Registry Rule: FTL is a non-quantifiable load node in the initial plan
+        setValue('quantity', 0, { shouldValidate: true });
     }
   }, [isFtl, setValue]);
 
@@ -171,12 +181,11 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
 
   useEffect(() => {
     if (allPlants && user) {
-        const isAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
-        setAuthorizedPlants(isAdmin ? allPlants : allPlants.filter(p => p.id === '1426')); 
+        const isAdminSession = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
+        setAuthorizedPlants(isAdminSession ? allPlants : allPlants.filter(p => p.id === '1426')); 
     }
   }, [allPlants, user]);
 
-  // Registry Pulse: Auto-populate Lifting Point from selected Plant Node
   useEffect(() => {
     if (originPlantId && authorizedPlants.length > 0) {
         const plant = authorizedPlants.find(p => p.id === originPlantId);
@@ -210,13 +219,12 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
             const plantId = normalizePlantId(values.originPlantId);
             const shipRef = doc(collection(firestore, `plants/${plantId}/shipments`));
 
-            // REGISTRY SECURITY: Ensure manifest is never empty
             let manifestItems = values.items || [];
             if (manifestItems.length === 0) {
                 manifestItems = [{
                     invoiceNumber: 'INITIAL-PLAN',
                     ewaybillNumber: '',
-                    units: 1,
+                    units: isFtl ? 1 : 0,
                     unitType: 'Package',
                     itemDescription: 'AUTO-GEN MISSION PAYLOAD',
                     weight: values.quantity,
@@ -316,7 +324,9 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                         <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-bold"><SelectValue placeholder="UOM" /></SelectTrigger></FormControl>
                             <SelectContent className="rounded-xl">
-                                {qtyTypes?.map(t => <SelectItem key={t.id} value={t.name} className="font-bold py-2.5">{t.name}</SelectItem>)}
+                                {qtyTypes?.filter(t => t.name !== 'FTL').map(t => (
+                                    <SelectItem key={t.id} value={t.name} className="font-bold py-2.5">{t.name}</SelectItem>
+                                ))}
                                 <SelectItem value="FTL" className="font-bold py-2.5">FTL</SelectItem>
                             </SelectContent>
                         </Select>
@@ -332,9 +342,10 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                         <FormControl>
                             <div className="relative group">
                                 <Input 
-                                    type="number" 
+                                    type={isFtl ? "text" : "number"}
                                     step="0.001" 
                                     {...field} 
+                                    value={isFtl ? "" : field.value}
                                     disabled={isFtl}
                                     className={cn(
                                         "h-14 rounded-xl font-black text-xl text-center transition-all",
