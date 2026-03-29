@@ -47,7 +47,7 @@ const formSchema = z.object({
     invoiceNumber: z.string().min(1, "Doc ref required"),
     ewaybillNumber: z.string().optional(),
     units: z.coerce.number().min(1, "Units required"),
-    unitType: z.string().default('Package'),
+    unitType: z.string().default('Bag'),
     itemDescription: z.string().min(1, "Item desc required"),
     weight: z.coerce.number().min(0.001, "Weight required"),
     hsnSac: z.string().optional(),

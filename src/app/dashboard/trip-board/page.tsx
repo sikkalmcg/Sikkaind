@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -154,20 +153,27 @@ function TripBoardContent() {
 
       const items = lr?.items || shipment?.items || [];
       const invoiceNumbers = Array.from(new Set(items.map((i: any) => i.invoiceNumber).filter(Boolean))).join(', ');
-      const description = Array.from(new Set(items.map((i: any) => i.itemDescription || i.description).filter(Boolean))).join(', ') || shipment?.material || '--';
+      const description = Array.from(new Set(items.map((i: any) => i.itemDescription || i.description).filter(Boolean))).join(', ') || t.itemDescription || shipment?.material || '--';
       const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
+
+      // REDUNDANCY HANDSHAKE NODE
+      const consignor = t.consignor || shipment?.consignor || '--';
+      const billToParty = t.billToParty || shipment?.billToParty || '--';
+      const shipToParty = t.shipToParty || shipment?.shipToParty || '--';
+      const unloadingPoint = t.unloadingPoint || shipment?.unloadingPoint || t.destination || '--';
+      const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
 
       return {
         ...t,
         plantName: plants.find(p => p.id === t.originPlantId)?.name || t.originPlantId,
-        consignor: shipment?.consignor || '--',
-        billToParty: shipment?.billToParty || '--',
-        shipToParty: t.shipToParty || shipment?.shipToParty || '--',
-        unloadingPoint: t.unloadingPoint || shipment?.unloadingPoint || '--',
+        consignor,
+        billToParty,
+        shipToParty,
+        unloadingPoint,
         invoiceNumbers: invoiceNumbers || shipment?.invoiceNumber || '--',
         itemDescription: description,
         lrUnits: units || shipment?.totalUnits || '--',
-        dispatchedQty: lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip) || 0),
+        dispatchedQty,
         shipmentObj: shipment,
         lrData: lr,
         carrierObj: carrier,
@@ -208,6 +214,97 @@ function TripBoardContent() {
     });
     return res;
   }, [allFilteredData]);
+
+  const onViewLR = async (row: any) => {
+    if (!row.lrNumber || !firestore) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(row.originPlantId);
+        const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
+        
+        let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
+        let snap = await getDocs(q);
+        
+        const parseDate = (val: any) => val instanceof Timestamp ? val.toDate() : (val ? new Date(val) : new Date());
+
+        if (snap.empty) {
+            const shipmentObj = row.shipmentObj || row;
+            setPreviewLr({
+                lrNumber: row.lrNumber,
+                date: parseDate(row.lrDate),
+                trip: row,
+                carrier: row.carrierObj || (dbCarriers || [])[0],
+                shipment: shipmentObj,
+                plant: plants.find(p => p.id === row.originPlantId),
+                items: shipmentObj.items || [],
+                weightSelection: 'Assigned Weight',
+                assignedTripWeight: row.dispatchedQty || shipmentObj.quantity,
+                from: row.loadingPoint || shipmentObj.loadingPoint || '',
+                to: row.unloadingPoint || shipmentObj.unloadingPoint || '',
+                consignorName: row.consignor || shipmentObj.consignor || '',
+                buyerName: row.billToParty || shipmentObj.billToParty || '',
+                shipToParty: row.shipToParty || shipmentObj.shipToParty || '',
+                deliveryAddress: row.unloadingPoint || shipmentObj.deliveryAddress || '',
+                id: row.id
+            } as any);
+        } else {
+            const lrDoc = snap.docs[0].data() as LR;
+            setPreviewLr({
+                ...lrDoc,
+                id: snap.docs[0].id,
+                date: parseDate(lrDoc.date),
+                trip: row,
+                carrier: row.carrierObj || (dbCarriers || [])[0],
+                shipment: row.shipmentObj || row,
+                plant: plants.find(p => p.id === row.originPlantId)
+            } as EnrichedLR);
+        }
+    } catch (e) {
+        toast({ variant: 'destructive', title: "Registry Error", description: "Could not extract LR manifest." });
+    } finally {
+        hideLoader();
+    }
+  };
+
+  const handleCancelTrip = async () => {
+    if (!cancelTripData || !firestore || !user) return;
+    showLoader();
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const plantId = cancelTripData.originPlantId;
+            const tripRef = doc(firestore, `plants/${plantId}/trips`, cancelTripData.id);
+            const globalTripRef = doc(firestore, 'trips', cancelTripData.id);
+            const shipId = cancelTripData.shipmentIds[0];
+            const shipRef = doc(firestore, `plants/${plantId}/shipments`, shipId);
+
+            const shipSnap = await transaction.get(shipRef);
+            if (shipSnap.exists()) {
+                const sData = shipSnap.data() as Shipment;
+                const newAssigned = Math.max(0, (sData.assignedQty || 0) - cancelTripData.assignedQtyInTrip);
+                transaction.update(shipRef, {
+                    assignedQty: newAssigned,
+                    balanceQty: sData.quantity - newAssigned,
+                    currentStatusId: newAssigned === 0 ? 'pending' : 'Partly Vehicle Assigned',
+                    lastUpdateDate: serverTimestamp()
+                });
+            }
+
+            if (cancelTripData.vehicleId) {
+                const vRef = doc(firestore, 'vehicles', cancelTripData.vehicleId);
+                transaction.update(vRef, { status: 'Available' });
+            }
+
+            transaction.delete(tripRef);
+            transaction.delete(globalTripRef);
+        });
+        toast({ title: "Mission Purged", description: "Trip registry deleted and order balance restored." });
+        setCancelTripData(null);
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: "Error", description: e.message });
+    } finally {
+        hideLoader();
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -325,6 +422,7 @@ function TripBoardContent() {
       {podUploadTrip && <PodUploadModal isOpen={!!podUploadTrip} onClose={() => setPodUploadTrip(null)} trip={podUploadTrip} onSuccess={() => setPodUploadTrip(null)} />}
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
       {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={async () => {}} />}
+      {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={handleCancelTrip} />}
     </div>
   );
 }

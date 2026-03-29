@@ -476,7 +476,7 @@ function OpenOrdersContent() {
               </div>
               <div className="grid gap-1.5">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">To Date</Label>
-                <DatePicker date={toDate} setDate={setToDate} className="h-9 border-slate-200" />
+                <DatePicker date={toDate} setDate={setTodayDate} className="h-9 border-slate-200" />
               </div>
               <div className="grid gap-1.5">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Global Registry Search</Label>

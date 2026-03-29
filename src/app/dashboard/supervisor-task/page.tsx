@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -177,8 +176,8 @@ export default function SupervisorTaskPage() {
         const tasks: any[] = [];
 
         trips.forEach(trip => {
-            const s = trip.tripStatus?.toLowerCase() || '';
-            if (s !== 'assigned' && s !== 'vehicle assigned' && s !== 'vehicle-assigned') return;
+            const s = (trip.tripStatus || trip.currentStatusId || '').toLowerCase().replace(/[\s_-]+/g, '-');
+            if (s !== 'assigned' && s !== 'vehicle-assigned') return;
 
             const vehicleNum = trip.vehicleNumber || '--';
             
@@ -196,6 +195,12 @@ export default function SupervisorTaskPage() {
             const normalizedPlantIdStr = normalizePlantId(trip.originPlantId);
             const pName = allPlants?.find((p: any) => normalizePlantId(p.id) === normalizedPlantIdStr)?.name || trip.originPlantId;
 
+            // USE TRIP DATA IF SHIPMENT IS MISSING (REDUNDANCY NODE)
+            const consignor = trip.consignor || shipment?.consignor || '--';
+            const shipTo = trip.shipToParty || shipment?.shipToParty || '--';
+            const destination = trip.unloadingPoint || shipment?.unloadingPoint || trip.destination || '--';
+            const weight = Number(trip.assignedQtyInTrip || trip.assignQty) || 0;
+
             tasks.push({
                 id: entry?.id || `trip-${trip.id}`,
                 tripId: trip.tripId,
@@ -208,9 +213,9 @@ export default function SupervisorTaskPage() {
                 driverName: trip.driverName || entry?.driverName || '--',
                 driverMobile: trip.driverMobile || entry?.driverMobile || '--',
                 from: trip.loadingPoint || shipment?.loadingPoint || pName,
-                shipTo: trip.shipToParty || shipment?.shipToParty || '--',
-                destination: trip.unloadingPoint || shipment?.unloadingPoint || '--',
-                assignedQty: Number(trip.assignedQtyInTrip) || 0,
+                shipTo: shipTo,
+                destination: destination,
+                assignedQty: weight,
                 status: entry ? 'IN' : 'AWAITING ARRIVAL',
                 isReadyForTask: !!entry, 
                 entryData: entry,
