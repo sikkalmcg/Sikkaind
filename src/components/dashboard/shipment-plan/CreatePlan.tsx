@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/date-picker';
 import type { Plant, Shipment, WithId, SubUser, Party, MasterQtyType, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles } from 'lucide-react';
+import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X } from 'lucide-react';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDoc, getDocs, limit } from "firebase/firestore";
 import { cn, normalizePlantId, formatSequenceId } from '@/lib/utils';
@@ -54,7 +54,6 @@ const formSchema = z.object({
     hsnSac: z.string().optional(),
   })).optional().default([]),
 }).superRefine((data, ctx) => {
-    // Registry Rule: Qty must be positive if not FTL
     if (data.materialTypeId.toUpperCase() !== 'FTL' && data.quantity <= 0) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -95,15 +94,15 @@ function AutocompleteInput({ value, onChange, onSearchClick, suggestions, placeh
                         value={value} 
                         onChange={(e) => { onChange(e.target.value); setIsOpen(true); }} 
                         onFocus={() => setIsOpen(true)} 
-                        className="h-14 rounded-2xl font-black text-slate-900 border-slate-200 bg-slate-50/30 focus-visible:ring-blue-900" 
+                        className="h-14 rounded-2xl font-black text-slate-900 border-slate-200 bg-slate-50/30 focus-visible:ring-blue-900 shadow-inner" 
                         disabled={disabled} 
                     />
                     {isOpen && filteredSuggestions.length > 0 && (
                         <div className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
                             {filteredSuggestions.map((suggestion) => (
-                                <div key={suggestion.id} onClick={() => { if(onSelect) onSelect(suggestion); else onChange(suggestion.name); setIsOpen(false); }} className="px-5 py-3 cursor-pointer hover:bg-blue-50 border-b last:border-0">
+                                <div key={suggestion.id} onMouseDown={() => { if(onSelect) onSelect(suggestion); else onChange(suggestion.name); setIsOpen(false); }} className="px-5 py-3 cursor-pointer hover:bg-blue-50 border-b last:border-0 group">
                                     <div className="flex flex-col">
-                                        <span className="text-xs font-black uppercase tracking-tight">{suggestion.name}</span>
+                                        <span className="text-xs font-black uppercase tracking-tight text-slate-700 group-hover:text-blue-900">{suggestion.name}</span>
                                         <span className="text-[9px] font-bold uppercase text-slate-400">{suggestion.city} | {suggestion.gstin || 'No GSTIN'}</span>
                                     </div>
                                 </div>
@@ -111,12 +110,90 @@ function AutocompleteInput({ value, onChange, onSearchClick, suggestions, placeh
                         </div>
                     )}
                 </div>
-                <Button type="button" variant="outline" size="icon" disabled={disabled} className="h-14 w-14 rounded-2xl shrink-0 shadow-lg hover:bg-blue-50" onClick={onSearchClick}>
+                <Button type="button" variant="outline" size="icon" disabled={disabled} className="h-14 w-14 rounded-2xl shrink-0 shadow-lg hover:bg-blue-50 transition-all active:scale-95" onClick={onSearchClick}>
                     <Search className="h-6 w-6 text-blue-600" />
                 </Button>
             </div>
             {error && <p className="text-[10px] font-bold text-red-600 mt-1">{error}</p>}
         </div>
+    );
+}
+
+function SearchRegistryModal({ 
+    isOpen, 
+    onClose, 
+    title, 
+    data, 
+    onSelect 
+}: { 
+    isOpen: boolean; 
+    onClose: () => void; 
+    title: string; 
+    data: any[]; 
+    onSelect: (party: Party) => void;
+}) {
+    const [search, setSearch] = useState('');
+    const filtered = useMemo(() => {
+        const s = search.toLowerCase();
+        return data.filter(item => item.name.toLowerCase().includes(s));
+    }, [data, search]);
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="max-w-xl p-0 border-none shadow-3xl overflow-hidden bg-white rounded-3xl">
+                <DialogHeader className="p-6 bg-slate-900 text-white">
+                    <DialogTitle className="text-xl font-black uppercase tracking-tight italic flex items-center gap-3">
+                        <Search className="h-5 w-5 text-blue-400" /> {title}
+                    </DialogTitle>
+                    <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-1">
+                        Select a verified node from the mission registry
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="p-6 space-y-4">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input 
+                            placeholder="Type to filter registry handbook..." 
+                            value={search} 
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold focus-visible:ring-blue-900 shadow-inner"
+                            autoFocus
+                        />
+                    </div>
+                    <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-inner bg-white">
+                        <ScrollArea className="h-[40vh]">
+                            <Table>
+                                <TableHeader className="sticky top-0 bg-slate-50 z-10 border-b">
+                                    <TableRow className="hover:bg-transparent h-12">
+                                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-10 px-4">Registry Node Name</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-10 px-4 text-center">GSTIN</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-10 px-4 text-right">Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {filtered.length === 0 ? (
+                                        <TableRow><TableCell colSpan={3} className="h-32 text-center text-slate-400 italic">No nodes matching search.</TableCell></TableRow>
+                                    ) : (
+                                        filtered.map(item => (
+                                            <TableRow key={item.id} className="cursor-pointer h-12 transition-all group hover:bg-blue-50" onClick={() => onSelect(item)}>
+                                                <TableCell className="px-4 font-black text-slate-800 uppercase text-xs">{item.name}</TableCell>
+                                                <TableCell className="px-4 text-center font-mono text-[10px] text-slate-500">{item.gstin || '--'}</TableCell>
+                                                <TableCell className="px-4 text-right">
+                                                    <Button variant="ghost" size="sm" className="h-7 text-blue-600 font-black text-[10px] uppercase">Select</Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </ScrollArea>
+                    </div>
+                </div>
+                <DialogFooter className="p-4 bg-slate-50 border-t flex-row justify-end gap-3">
+                    <Button variant="ghost" onClick={onClose} className="font-bold text-slate-400 uppercase text-[10px]">Cancel</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -161,12 +238,10 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
 
   useEffect(() => {
     if (isFtl) {
-        // Registry Rule: FTL quantity node must remain empty/null during plan
         setValue('quantity', 0, { shouldValidate: true });
     }
   }, [isFtl, setValue]);
 
-  // --- Data Queries ---
   const { data: qtyTypes } = useCollection<MasterQtyType>(useMemoFirebase(() => firestore ? query(collection(firestore, "material_types")) : null, [firestore]));
   const { data: parties } = useCollection<Party>(useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_parties"), where("isDeleted", "==", false)) : null, [firestore]));
   const { data: allPlants } = useCollection<Plant>(useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, [firestore]));
@@ -207,6 +282,35 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
         }
     }
   }, [isSameAsBillTo, billToParty, setValue, consigneeRegistry]);
+
+  // Unified Registry Selection Handler
+  const selectPartyNode = useCallback((party: Party, type: string) => {
+    setValue(type as any, party.name, { shouldValidate: true });
+    
+    if (type === 'consignor') {
+        setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
+        const addr = (party.address && party.address !== 'N/A') ? party.address : party.city;
+        if(addr) setValue('loadingPoint', addr, { shouldValidate: true });
+    } else if (type === 'billToParty') {
+        setValue('billToGtin', party.gstin || '', { shouldValidate: true });
+        if(isSameAsBillTo) {
+            setValue('shipToParty', party.name, { shouldValidate: true });
+            setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
+            const address = (party.address && party.address !== 'N/A') ? party.address : party.city;
+            if (address) setValue('unloadingPoint', address, { shouldValidate: true });
+        }
+    } else if (type === 'shipToParty') {
+        setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
+        const address = (party.address && party.address !== 'N/A') ? party.address : party.city;
+        if (address) setValue('unloadingPoint', address, { shouldValidate: true });
+    }
+  }, [setValue, isSameAsBillTo]);
+
+  const handleRegistrySelect = useCallback((party: Party) => {
+    if (!helpModal) return;
+    selectPartyNode(party, helpModal.type);
+    setHelpModal(null);
+  }, [helpModal, selectPartyNode]);
 
   const handlePost = async (values: FormValues) => {
     if (!firestore || !user) return;
@@ -252,47 +356,20 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
     } finally { hideLoader(); }
   };
 
-  const handleRegistrySelect = useCallback((party: Party) => {
-    if (!helpModal) return;
-    const type = helpModal.type;
-    
-    setValue(type as any, party.name, { shouldValidate: true });
-    
-    if (type === 'consignor') {
-        setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
-        const addr = (party.address && party.address !== 'N/A') ? party.address : party.city;
-        if(addr) setValue('loadingPoint', addr, { shouldValidate: true });
-    } else if (type === 'billToParty') {
-        setValue('billToGtin', party.gstin || '', { shouldValidate: true });
-        if(isSameAsBillTo) {
-            setValue('shipToParty', party.name, { shouldValidate: true });
-            setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-            const address = (party.address && party.address !== 'N/A') ? party.address : party.city;
-            if (address) setValue('unloadingPoint', address, { shouldValidate: true });
-        }
-    } else if (type === 'shipToParty') {
-        setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-        const address = (party.address && party.address !== 'N/A') ? party.address : party.city;
-        if (address) setValue('unloadingPoint', address, { shouldValidate: true });
-    }
-
-    setHelpModal(null);
-  }, [helpModal, setValue, isSameAsBillTo]);
-
   return (
     <div className="w-full space-y-10">
       <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white">
         <CardHeader className="bg-slate-50/80 p-10 border-b">
             <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                 <div className="flex items-center gap-5">
-                    <div className="p-4 bg-blue-900 rounded-2xl text-white shadow-xl"><ShieldCheck size={32} /></div>
+                    <div className="p-4 bg-blue-900 rounded-2xl text-white shadow-xl rotate-3"><ShieldCheck size={32} /></div>
                     <div>
-                        <CardTitle className="text-3xl font-black text-blue-900 tracking-tight uppercase italic">Order Plan Registry</CardTitle>
-                        <CardDescription className="text-xs font-bold text-slate-400">Secure Mission Asset Deployment</CardDescription>
+                        <CardTitle className="text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none">Order Plan Registry</CardTitle>
+                        <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">Secure Mission Asset Deployment Terminal</CardDescription>
                     </div>
                 </div>
                 <div className="flex gap-4">
-                    <Button onClick={handleSubmit(handlePost)} className="h-14 px-10 bg-blue-900 rounded-2xl font-black shadow-lg hover:scale-105 transition-transform text-white border-none">
+                    <Button onClick={handleSubmit(handlePost)} className="h-14 px-12 bg-blue-900 hover:bg-slate-900 rounded-2xl font-black shadow-xl transition-all active:scale-95 text-white border-none uppercase text-xs tracking-widest">
                         Commit Plan (F8)
                     </Button>
                 </div>
@@ -302,7 +379,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
         <CardContent className="p-12">
           <Form {...form}>
             <form className="space-y-16">
-               <div className="grid grid-cols-1 md:grid-cols-4 gap-8 bg-slate-50 p-8 rounded-3xl border border-slate-100 shadow-inner">
+               <div className="grid grid-cols-1 md:grid-cols-4 gap-8 bg-slate-50 p-8 rounded-[2rem] border border-slate-100 shadow-inner">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Registry Timestamp</label>
                     <div className="h-14 bg-white border rounded-xl flex items-center px-5 font-mono text-blue-900 font-bold shadow-sm">{format(currentTime, 'dd-MM-yyyy HH:mm:ss')}</div>
@@ -312,8 +389,8 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                     <FormItem>
                         <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Plant Node Registry *</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-bold"><SelectValue placeholder="Select Node" /></SelectTrigger></FormControl>
-                            <SelectContent className="rounded-xl">{authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-2.5">{p.name} ({p.id})</SelectItem>)}</SelectContent>
+                            <FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-black text-slate-700 shadow-sm border-slate-200"><SelectValue placeholder="Select Node" /></SelectTrigger></FormControl>
+                            <SelectContent className="rounded-xl">{authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>)}</SelectContent>
                         </Select>
                     </FormItem>
                   )} />
@@ -322,12 +399,12 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                     <FormItem>
                         <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">UOM (Unit) *</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-bold"><SelectValue placeholder="UOM" /></SelectTrigger></FormControl>
+                            <FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-bold border-slate-200 shadow-sm"><SelectValue placeholder="UOM" /></SelectTrigger></FormControl>
                             <SelectContent className="rounded-xl">
                                 {qtyTypes?.filter(t => t.name.toUpperCase() !== 'FTL').map(t => (
-                                    <SelectItem key={t.id} value={t.name} className="font-bold py-2.5">{t.name}</SelectItem>
+                                    <SelectItem key={t.id} value={t.name} className="font-bold py-2.5 uppercase">{t.name}</SelectItem>
                                 ))}
-                                <SelectItem value="FTL" className="font-bold py-2.5">FTL</SelectItem>
+                                <SelectItem value="FTL" className="font-bold py-2.5 uppercase text-blue-600">FTL (Full Truck Load)</SelectItem>
                             </SelectContent>
                         </Select>
                     </FormItem>
@@ -349,8 +426,9 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                                     disabled={isFtl}
                                     className={cn(
                                         "h-14 rounded-xl font-black text-xl text-center transition-all",
-                                        isFtl ? "bg-blue-50 border-blue-100 text-blue-900 opacity-100 cursor-not-allowed shadow-none" : "bg-white border-slate-200"
+                                        isFtl ? "bg-blue-50 border-blue-100 text-blue-900 opacity-100 cursor-not-allowed shadow-none" : "bg-white border-slate-200 shadow-inner"
                                     )} 
+                                    placeholder={isFtl ? "" : "0.000"}
                                 />
                                 {isFtl && (
                                     <Badge className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-blue-900 text-white font-black text-[8px] uppercase px-2 h-4 border-none shadow-sm">
@@ -364,14 +442,14 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                </div>
 
                <div className="p-10 rounded-[2.5rem] border-2 border-dashed border-blue-100 bg-blue-50/10 space-y-8">
-                  <div className="flex items-center gap-3 text-blue-900 font-black text-sm uppercase tracking-tighter border-b border-blue-100 pb-4"><Truck size={20}/> Optional LR Registry Section</div>
+                  <div className="flex items-center gap-3 text-blue-900 font-black text-sm uppercase tracking-tighter border-b border-blue-100 pb-4"><Truck size={20}/> 2. Optional LR Registry Section</div>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                       <FormField control={control} name="lrNumber" render={({ field }) => (
-                        <FormItem><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">LR Number</FormLabel><FormControl><Input {...field} placeholder="Enter LR" className="h-14 bg-white rounded-xl" /></FormControl></FormItem>
+                        <FormItem><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">LR Number</FormLabel><FormControl><Input {...field} placeholder="Enter LR" className="h-14 bg-white rounded-xl font-black uppercase tracking-widest border-slate-200" /></FormControl></FormItem>
                       )} />
 
                       <FormField control={control} name="lrDate" render={({ field }) => (
-                        <FormItem className="flex flex-col"><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">LR Date</FormLabel><DatePicker date={field.value || undefined} setDate={field.onChange} /><FormMessage /></FormItem>
+                        <FormItem className="flex flex-col"><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">LR Date</FormLabel><DatePicker date={field.value || undefined} setDate={field.onChange} className="h-14 bg-white" /><FormMessage /></FormItem>
                       )} />
 
                       <FormField control={control} name="carrierId" render={({ field }) => (
@@ -380,7 +458,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                             <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl><SelectTrigger className="h-14 border-blue-200 bg-white rounded-xl font-bold"><SelectValue placeholder="Select Carrier" /></SelectTrigger></FormControl>
                                 <SelectContent className="rounded-xl">
-                                    {carriers?.map(c => <SelectItem key={c.id} value={c.id} className="font-bold py-2.5">{c.name}</SelectItem>)}
+                                    {carriers?.map(c => <SelectItem key={c.id} value={c.id} className="font-bold py-2.5 uppercase">{c.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </FormItem>
@@ -388,15 +466,16 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
 
                       <FormField control={control} name="paymentTerm" render={({ field }) => (
                         <FormItem><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">Payment Term</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-bold"><SelectValue /></SelectTrigger></FormControl>
-                            <SelectContent className="rounded-xl">{PaymentTerms.map(t => <SelectItem key={t} value={t} className="font-bold py-2.5">{t}</SelectItem>)}</SelectContent></Select>
+                            <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl>
+                            <SelectContent className="rounded-xl">{PaymentTerms.map(t => <SelectItem key={t} value={t} className="font-bold py-2.5 uppercase">{t}</SelectItem>)}</SelectContent></Select>
                         </FormItem>
                       )} />
                   </div>
                </div>
 
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                  <div className="space-y-8 p-10 rounded-[2.5rem] border bg-white shadow-xl">
+                  <div className="space-y-8 p-10 rounded-[3rem] border-2 border-slate-100 bg-white shadow-xl relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-600" />
                       <AutocompleteInput 
                         label="Consignor Entity *" 
                         placeholder="Search consignor registry..." 
@@ -404,12 +483,18 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                         onChange={v => setValue('consignor', v)} 
                         suggestions={consignorRegistry} 
                         onSearchClick={() => setHelpModal({type: 'consignor', title: 'Consignor Handbook', data: consignorRegistry})} 
-                        onSelect={handleRegistrySelect}
+                        onSelect={(party) => selectPartyNode(party, 'consignor')}
                       />
-                      <FormField control={control} name="loadingPoint" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-400 px-1">Lifting City (Point) *</FormLabel><FormControl><Input {...field} className="h-14 rounded-2xl font-bold bg-slate-50/30" /></FormControl></FormItem>)} />
+                      <FormField control={control} name="loadingPoint" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase text-slate-400 px-1">Lifting City (Point) *</FormLabel>
+                            <FormControl><div className="relative group"><MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-400 opacity-20" /><Input {...field} className="h-14 pl-12 rounded-2xl font-bold bg-slate-50/30 border-slate-200 uppercase" /></div></FormControl>
+                        </FormItem>
+                      )} />
                   </div>
 
-                  <div className="space-y-8 p-10 rounded-[2.5rem] border bg-white shadow-xl">
+                  <div className="space-y-8 p-10 rounded-[3rem] border-2 border-slate-100 bg-white shadow-xl relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-600" />
                       <AutocompleteInput 
                         label="Consignee / Bill To *" 
                         placeholder="Search buyer registry..." 
@@ -417,12 +502,12 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                         onChange={v => setValue('billToParty', v)} 
                         suggestions={consigneeRegistry} 
                         onSearchClick={() => setHelpModal({type: 'billToParty', title: 'Buyer Registry', data: consigneeRegistry})} 
-                        onSelect={handleRegistrySelect}
+                        onSelect={(party) => selectPartyNode(party, 'billToParty')}
                       />
                       
                       <div className="flex items-center justify-between px-2">
                         <FormField control={control} name="isSameAsBillTo" render={({ field }) => (
-                            <div className="flex items-center gap-2"><Checkbox checked={field.value} onCheckedChange={field.onChange} id="sameAs" className="h-5 w-5 data-[state=checked]:bg-blue-900" /><label htmlFor="sameAs" className="text-xs font-black uppercase text-slate-400 cursor-pointer">Unloading same as Bill-To</label></div>
+                            <div className="flex items-center gap-3"><Checkbox checked={field.value} onCheckedChange={field.onChange} id="sameAs" className="h-6 w-6 rounded-lg data-[state=checked]:bg-emerald-600 shadow-md" /><label htmlFor="sameAs" className="text-[11px] font-black uppercase text-slate-400 cursor-pointer tracking-widest">Same as Unloading Point</label></div>
                         )} />
                       </div>
 
@@ -434,21 +519,26 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                             onChange={v => setValue('shipToParty', v)} 
                             suggestions={consigneeRegistry} 
                             onSearchClick={() => setHelpModal({type: 'shipToParty', title: 'Ship To Node Registry', data: consigneeRegistry})} 
-                            onSelect={handleRegistrySelect}
+                            onSelect={(party) => selectPartyNode(party, 'shipToParty')}
                         />
                       </div>
 
-                      <FormField control={control} name="unloadingPoint" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-400 px-1">Destination City *</FormLabel><FormControl><Input {...field} className="h-14 rounded-2xl font-bold bg-slate-50/30" /></FormControl></FormItem>)} />
+                      <FormField control={control} name="unloadingPoint" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-[10px] font-bold uppercase text-slate-400 px-1">Destination City *</FormLabel>
+                            <FormControl><div className="relative group"><MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-emerald-400 opacity-20" /><Input {...field} className="h-14 pl-12 rounded-2xl font-bold bg-slate-50/30 border-slate-200 uppercase" /></div></FormControl>
+                        </FormItem>
+                      )} />
                   </div>
                </div>
 
                <section className="space-y-6">
                     <div className="flex items-center justify-between px-2">
                         <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3">
-                            <Calculator className="h-5 w-5 text-blue-600" /> 3. Optional Manifest Items Registry
+                            <Calculator className="h-5 w-5 text-blue-600" /> 3. Manifest Items Registry
                         </h3>
                         <Button type="button" variant="outline" size="sm" onClick={() => append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '', weight: 0.001 })} className="h-10 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all rounded-xl">
-                            <PlusCircle size={16} /> Add Node
+                            <PlusCircle size={16} /> Add Document row
                         </Button>
                     </div>
                     <div className="rounded-[2.5rem] border-2 border-slate-200 bg-white shadow-2xl overflow-hidden">
@@ -469,9 +559,9 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                                 ) : (
                                     fields.map((field, index) => (
                                         <TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-none hover:bg-blue-50/10 transition-colors">
-                                            <TableCell className="px-8"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-10 rounded-xl font-bold bg-slate-50/50" /></TableCell>
-                                            <TableCell className="px-4"><Input {...form.register(`items.${index}.ewaybillNumber`)} className="h-10 rounded-xl font-mono text-blue-600 bg-slate-50/50" /></TableCell>
-                                            <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-10 rounded-xl font-bold bg-slate-50/50" /></TableCell>
+                                            <TableCell className="px-8"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-10 rounded-xl font-black uppercase bg-slate-50 border-slate-200" /></TableCell>
+                                            <TableCell className="px-4"><Input {...form.register(`items.${index}.ewaybillNumber`)} className="h-10 rounded-xl font-mono text-blue-600 bg-slate-50 border-slate-200 uppercase" /></TableCell>
+                                            <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-10 rounded-xl font-bold bg-slate-50 border-slate-200 uppercase" /></TableCell>
                                             <TableCell className="px-4"><Input type="number" {...form.register(`items.${index}.units`)} className="h-10 text-center font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" /></TableCell>
                                             <TableCell className="px-8 text-right"><Input type="number" step="0.001" {...form.register(`items.${index}.weight`)} className="h-10 text-right font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" /></TableCell>
                                             <TableCell className="pr-6 text-right"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-400 hover:text-red-600 rounded-lg"><Trash2 size={18}/></Button></TableCell>
@@ -479,6 +569,17 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                                     ))
                                 )}
                             </TableBody>
+                            <TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16">
+                                <TableRow className="hover:bg-transparent border-none">
+                                    <TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL MANIFEST REGISTRY</TableCell>
+                                    <TableCell className="text-center font-black text-lg text-slate-900">{totals.units}</TableCell>
+                                    <TableCell colSpan={1}></TableCell>
+                                    <TableCell className="text-right px-8 font-black text-xl text-blue-900 tracking-tighter">
+                                        {Number(totals.weight).toFixed(3)} MT
+                                    </TableCell>
+                                    <TableCell></TableCell>
+                                </TableRow>
+                            </TableFooter>
                         </Table>
                     </div>
                </section>
@@ -488,26 +589,13 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
       </Card>
 
       {helpModal && (
-        <Dialog open={!!helpModal} onOpenChange={() => setHelpModal(null)}>
-            <DialogContent className="max-w-2xl rounded-3xl p-0 overflow-hidden border-none shadow-3xl bg-white">
-                <div className="bg-slate-900 p-6 text-white font-black uppercase italic tracking-tighter flex items-center gap-3 shadow-xl"><Search /> {helpModal.title}</div>
-                <div className="p-6 h-[50vh] overflow-auto">
-                    <Table>
-                        <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b"><TableRow className="h-10"><TableHead className="px-4 text-[10px] font-black uppercase">Entity Name</TableHead><TableHead className="text-[10px] font-black uppercase">GSTIN</TableHead><TableHead className="text-right text-[10px] font-black uppercase px-4">Action</TableHead></TableRow></TableHeader>
-                        <TableBody>
-                            {helpModal.data.map(item => (
-                                <TableRow key={item.id} className="h-14 cursor-pointer hover:bg-blue-50 transition-colors" onClick={() => handleRegistrySelect(item)}>
-                                    <TableCell className="px-4 font-black text-xs uppercase text-slate-800">{item.name}</TableCell>
-                                    <TableCell className="font-mono text-[10px] text-slate-500 font-bold tracking-widest">{item.gstin || '--'}</TableCell>
-                                    <TableCell className="text-right px-4"><Button variant="ghost" size="sm" className="font-black text-blue-600 text-[10px] uppercase tracking-widest">SELECT</Button></TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-                <DialogFooter className="p-4 bg-slate-50 border-t"><Button variant="ghost" onClick={() => setHelpModal(null)} className="font-black text-[10px] uppercase">Close Handbook</Button></DialogFooter>
-            </DialogContent>
-        </Dialog>
+        <SearchRegistryModal 
+            isOpen={!!helpModal}
+            onClose={() => setHelpModal(null)}
+            title={helpModal.title}
+            data={helpModal.data}
+            onSelect={handleRegistrySelect}
+        />
       )}
     </div>
   );
