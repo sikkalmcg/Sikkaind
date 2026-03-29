@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -22,7 +21,8 @@ import {
     MoreHorizontal
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
+import { Timestamp } from 'firebase/firestore';
 import { 
     DropdownMenu, 
     DropdownMenuContent, 
@@ -60,6 +60,17 @@ const getStatusColor = (status: string) => {
     }
 }
 
+const formatSafeDate = (date: any, formatStr: string = 'dd/MM/yy') => {
+    if (!date) return '--';
+    try {
+        const d = date instanceof Timestamp ? date.toDate() : new Date(date);
+        if (!isValid(d)) return '--';
+        return format(d, formatStr);
+    } catch (e) {
+        return '--';
+    }
+}
+
 export default function OrdersTable({ 
     data, 
     tab, 
@@ -88,7 +99,7 @@ export default function OrdersTable({
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48">Consignor</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48">Consignee</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-64">Item description</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 text-center">Units</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-500 w-24">Units</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40">Destination</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-24 text-center">Unit</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right">Order Qty</TableHead>
@@ -123,7 +134,7 @@ export default function OrdersTable({
                         ) : '--'}
                       </TableCell>
                       <TableCell className="px-4 text-center text-[11px] font-bold text-slate-500">
-                        {order.lrDate ? format(new Date(order.lrDate), 'dd/MM/yy') : '--'}
+                        {formatSafeDate(order.lrDate)}
                       </TableCell>
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={order.consignor}>{order.consignor}</TableCell>
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={order.billToParty}>{order.billToParty}</TableCell>
@@ -207,7 +218,7 @@ export default function OrdersTable({
                                         {trip.entry?.status === 'OUT' ? 'DISPATCHED' : (trip.entry?.status === 'IN' ? 'IN-YARD' : 'ASSIGNED')}
                                     </Badge>
                                     <span className="text-[9px] font-bold text-slate-400 uppercase italic">
-                                        {trip.entry?.status === 'OUT' ? `Sync: ${format(new Date(trip.entry.exitTimestamp), 'dd/MM HH:mm')}` : ''}
+                                        {trip.entry?.status === 'OUT' ? `Sync: ${formatSafeDate(trip.entry.exitTimestamp, 'dd/MM HH:mm')}` : ''}
                                     </span>
                                     <span className="text-[9px] font-black text-blue-900 uppercase">Load: {(trip.assignedQtyInTrip || 0).toFixed(3)} MT</span>
                                 </div>

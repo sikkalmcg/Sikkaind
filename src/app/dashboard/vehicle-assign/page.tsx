@@ -1,17 +1,16 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
-import { collection, query, doc, getDocs, getDoc, Timestamp, where, limit, onSnapshot, serverTimestamp, runTransaction, deleteDoc, addDoc, updateDoc } from "firebase/firestore";
+import { collection, query, doc, getDocs, getDoc, Timestamp, where, limit, onSnapshot, serverTimestamp, runTransaction } from "firebase/firestore";
 import { Label } from "@/components/ui/label";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/date-picker';
-import { Card } from '@/components/ui/card';
 import { Loader2, WifiOff, Settings2, Search, RefreshCcw, Factory, ShieldCheck } from "lucide-react";
-import { subDays, startOfDay, endOfDay, isBefore } from "date-fns";
+import { subDays, startOfDay, endOfDay } from "date-fns";
 import type { WithId, Shipment, Trip, Plant, SubUser, VehicleEntryExit, LR, Carrier } from '@/types';
 import OrdersTable from '@/components/dashboard/vehicle-assign/OrdersTable';
 import LayoutSettingsModal from '@/components/dashboard/vehicle-assign/LayoutSettingsModal';
@@ -23,8 +22,7 @@ import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilte
 import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreviewModal';
 import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
 import { mockPlants, mockCarriers } from '@/lib/mock-data';
-import { normalizePlantId, sanitizeRegistryNode } from '@/lib/utils';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { normalizePlantId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 
 export type OrderTab = 'pending' | 'process' | 'dispatched' | 'cancelled';
@@ -242,6 +240,10 @@ function OpenOrdersContent() {
           };
       });
 
+      const itemsManifest = s.items || [];
+      const summarizedItems = Array.from(new Set(itemsManifest.map(i => i.itemDescription || i.description).filter(Boolean))).join(', ') || s.itemDescription || s.material || '--';
+      const totalUnitsCount = itemsManifest.reduce((sum, i) => sum + (Number(i.units) || 0), 0) || s.totalUnits || 0;
+
       const dispatchQty = linkedTrips.reduce((sum, t) => sum + (t.entry?.status === 'OUT' ? (t.assignedQtyInTrip || 0) : 0), 0);
       
       return {
@@ -258,6 +260,8 @@ function OpenOrdersContent() {
         transporterName: linkedTrips[0]?.transporterName || '--',
         lrNumber: linkedTrips[0]?.lrNumber || s.lrNumber || '',
         lrDate: linkedTrips[0]?.lrDate || s.lrDate || null,
+        summarizedItems,
+        totalUnitsCount
       };
     });
   }, [allData, fromDate, toDate, carriers, plants]);
