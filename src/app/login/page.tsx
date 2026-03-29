@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useAuth } from "@/firebase";
 import { useLoading } from "@/context/LoadingContext";
-import { Loader2, UserCheck, KeyRound, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Loader2, UserCheck, KeyRound, AlertCircle, Eye, EyeOff, Sparkles } from 'lucide-react';
 import placeholderData from '@/app/lib/placeholder-images.json';
 import { useToast } from "@/hooks/use-toast";
 
@@ -196,6 +196,9 @@ export default function LoginPage() {
 
     const getImg = (id: string) => placeholderData.placeholderImages.find(p => p.id === id);
 
+    // Typo Detection Logic Node
+    const hasTypo = useMemo(() => identity.toLowerCase().trim() === 'sikkiand', [identity]);
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         
@@ -223,10 +226,21 @@ export default function LoginPage() {
         localStorage.setItem('slmc_last_identity', identity.toLowerCase());
 
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+
+            // Handshake with Backend Registry
+            const loginRes = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: user.uid, email: user.email })
+            });
+            const loginData = await loginRes.json();
+
             setIsRedirecting(true);
-            router.push('/modules');
+            router.push(loginData.redirect || '/modules');
         } catch (err: any) {
+            console.error("Login Error:", err);
             if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-email') {
                 setError("Invalid operator credentials. Access Denied.");
             } else {
@@ -264,13 +278,24 @@ export default function LoginPage() {
                             <form onSubmit={handleLogin} className="space-y-4">
                                 <div className="flex items-center space-x-4">
                                     <label className="w-24 text-[11px] font-black uppercase text-gray-600">User <span className="text-red-500">*</span></label>
-                                    <input 
-                                        type="text" 
-                                        value={identity}
-                                        onChange={(e) => setIdentity(e.target.value)}
-                                        className="flex-1 p-1 border border-gray-400 bg-white text-sm"
-                                        placeholder=""
-                                    />
+                                    <div className="flex-1 relative">
+                                        <input 
+                                            type="text" 
+                                            value={identity}
+                                            onChange={(e) => setIdentity(e.target.value)}
+                                            className={cn("w-full p-1 border bg-white text-sm uppercase", hasTypo ? "border-red-500" : "border-gray-400")}
+                                            placeholder=""
+                                        />
+                                        {hasTypo && (
+                                            <button 
+                                                type="button"
+                                                onClick={() => setIdentity('sikkaind')}
+                                                className="absolute -bottom-5 left-0 text-[9px] font-black text-blue-600 uppercase flex items-center gap-1 animate-bounce"
+                                            >
+                                                <Sparkles size={10} /> Did you mean "sikkaind"?
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex items-center space-x-4">
                                     <label className="w-24 text-[11px] font-black uppercase text-gray-600">Password <span className="text-red-500">*</span></label>
@@ -330,12 +355,17 @@ export default function LoginPage() {
                                         Forgot Password?
                                     </button>
                                 </div>
-                                {error && <p className="md:pl-28 pt-2 text-[10px] text-red-600 font-black uppercase">{error}</p>}
+                                {error && (
+                                    <div className="md:pl-28 pt-2 flex flex-col gap-1">
+                                        <p className="text-[10px] text-red-600 font-black uppercase">{error}</p>
+                                        <p className="text-[8px] text-slate-400 font-bold uppercase italic">If this is a new setup, click INITIALIZE above.</p>
+                                    </div>
+                                )}
                             </form>
                         </div>
                     </div>
                     <div className="flex justify-between items-center pt-8 pb-2 px-4">
-                        <p className="text-[9px] text-gray-400 font-bold">© SIKKA INDUSTRIES & LOGISTICS. SECURITY NODE 04.</p>
+                        <p className="text-[9px] text-gray-400 font-bold uppercase">© SIKKA INDUSTRIES & LOGISTICS. SECURITY NODE 04.</p>
                         {getImg('logo-old')?.url && (
                             <Image src={getImg('logo-old')!.url} alt="Logo" width={100} height={28} style={{ height: 'auto' }} />
                         )}
