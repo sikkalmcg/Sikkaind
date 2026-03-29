@@ -130,7 +130,10 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { assignQty: Number(shipment.balanceQty || 0) },
+    defaultValues: { 
+        assignQty: shipment.balanceQty !== undefined ? Number(Number(shipment.balanceQty).toFixed(3)) : 0,
+        vehicleType: 'Own Vehicle'
+    },
   });
   const { watch, setValue, handleSubmit, reset, control, formState: { isSubmitting, errors } } = form;
 
@@ -274,10 +277,10 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     }
   };
 
-  const onInvalid = () => {
-      const firstError = Object.values(errors)[0];
+  const onInvalid = (errs: any) => {
+      const firstError = Object.values(errs)[0] as any;
       if (firstError) {
-          toast({ variant: 'destructive', title: "Validation Error", description: (firstError.message as string) || "Invalid field detected." });
+          toast({ variant: 'destructive', title: "Validation Error", description: firstError.message || "Invalid field detected." });
       }
   };
 
@@ -321,7 +324,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
           </Card>
 
           <Form {...form}>
-            <form className="space-y-10">
+            <form className="space-y-10" onSubmit={handleSubmit(onSubmit, onInvalid)}>
                 <Card className="border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden">
                     <div className="p-8 bg-slate-50 border-b flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <h3 className="font-black text-xs uppercase tracking-[0.3em] text-slate-500 flex items-center gap-3"><Truck className="h-5 w-5 text-blue-600"/> Fleet Entry Control</h3>
@@ -352,7 +355,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                                 <FormItem>
                                                 <Select onValueChange={field.onChange} value={field.value}>
                                                     <FormControl><SelectTrigger className="h-12 rounded-xl font-black text-blue-900"><SelectValue placeholder={isDataLoading ? "Syncing Gate..." : "Resolve from Gate"} /></SelectTrigger></FormControl>
-                                                    <SelectContent className="rounded-xl">{vehiclesAtGate.map(v => <SelectItem key={v.id} value={v.id} className="font-bold py-3 uppercase italic">{v.vehicleNumber} ({v.driverName})</SelectItem>)}</SelectContent>
+                                                    <SelectContent className="rounded-xl">{vehiclesAtGate.map(v => <SelectItem key={v.id} value={v.id} className="font-bold py-3 uppercase italic text-black">{v.vehicleNumber} ({v.driverName})</SelectItem>)}</SelectContent>
                                                 </Select>
                                                 <FormMessage />
                                                 </FormItem>
@@ -434,11 +437,22 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                         </div>
                     </Card>
                 </div>
+
+                <div className="flex justify-end pt-10 border-t border-white/5 gap-6">
+                    <button type="button" onClick={onClose} className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-blue-900 transition-all">ABORT ALLOCATION</button>
+                    <Button 
+                        type="submit" 
+                        disabled={isSubmitting || calculatingDistance} 
+                        className="h-16 px-16 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
+                    >
+                        {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} {isEditing ? 'Update Node' : 'Establish Mission Node'}
+                    </Button>
+                </div>
             </form>
           </Form>
         </div>
 
-        <DialogFooter className="p-10 bg-slate-900 flex flex-col md:flex-row justify-between items-center shrink-0 gap-8">
+        <DialogFooter className="p-8 bg-slate-900 flex flex-col md:flex-row justify-between items-center shrink-0 gap-8">
             <div className="flex items-center gap-10">
                 <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><Calculator className="h-3 w-3" /> Balance remaining</span>
@@ -447,15 +461,9 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                     </span>
                 </div>
             </div>
-            <div className="flex items-center gap-6">
-                <button onClick={onClose} className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all">ABORT ALLOCATION</button>
-                <Button 
-                    onClick={handleSubmit(onSubmit, onInvalid)} 
-                    disabled={isSubmitting || calculatingDistance} 
-                    className="h-16 px-16 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
-                >
-                    {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} {isEditing ? 'Update Node' : 'Establish Mission Node'}
-                </Button>
+            <div className="flex items-center gap-4">
+                <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest italic">Authorized Registry Handshake Node</span>
             </div>
         </DialogFooter>
       </DialogContent>

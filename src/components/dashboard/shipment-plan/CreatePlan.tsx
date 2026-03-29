@@ -18,9 +18,9 @@ import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/date-picker';
 import type { Plant, Shipment, WithId, SubUser, Party, MasterQtyType, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X } from 'lucide-react';
+import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save } from 'lucide-react';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
-import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDoc, getDocs, limit } from "firebase/firestore";
+import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDoc, getDocs, limit, Timestamp } from "firebase/firestore";
 import { cn, normalizePlantId, formatSequenceId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import { PaymentTerms } from '@/lib/constants';
@@ -186,7 +186,7 @@ function SearchRegistryModal({
                                     )}
                                 </TableBody>
                             </Table>
-                        </div>
+                        </ScrollArea>
                     </div>
                 </div>
                 <DialogFooter className="p-4 bg-slate-50 border-t flex-row justify-end gap-3">
@@ -235,12 +235,10 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   const watchedItems = useWatch({ control, name: "items" }) || [];
 
   const totals = useMemo(() => {
-    const result = watchedItems.reduce((acc, item) => ({
+    return watchedItems.reduce((acc, item) => ({
         units: acc.units + (Number(item?.units) || 0),
         weight: acc.weight + (Number(item?.weight) || 0)
     }), { units: 0, weight: 0 });
-
-    return { ...result };
   }, [watchedItems]);
 
   // --- FTL LOGIC NODE ---
@@ -597,29 +595,18 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                </section>
             </form>
           </Form>
-        </div>
+        </CardContent>
+      </Card>
 
-        <DialogFooter className="p-10 bg-slate-900 flex flex-col md:flex-row justify-between items-center shrink-0 gap-8">
-            <div className="flex items-center gap-10">
-                <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><Calculator className="h-3 w-3" /> Balance remaining</span>
-                    <span className={cn("text-3xl font-black tracking-tighter transition-all duration-500", balanceQty > 0.001 ? "text-orange-400" : "text-emerald-400")}>
-                        {balanceQty.toFixed(3)} MT
-                    </span>
-                </div>
-            </div>
-            <div className="flex items-center gap-6">
-                <button onClick={onClose} className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all">ABORT ALLOCATION</button>
-                <Button 
-                    onClick={handleSubmit(handlePost)} 
-                    disabled={form.formState.isSubmitting} 
-                    className="h-16 px-16 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
-                >
-                    {form.formState.isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} {isEditing ? 'Update Node' : 'Establish Mission Node'}
-                </Button>
-            </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      {helpModal && (
+          <SearchRegistryModal 
+            isOpen={!!helpModal}
+            onClose={() => setHelpModal(null)}
+            title={helpModal.title}
+            data={helpModal.data}
+            onSelect={handleRegistrySelect}
+          />
+      )}
+    </div>
   );
 }
