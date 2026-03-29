@@ -63,7 +63,7 @@ function OpenOrdersContent() {
   const [drawerOrder, setDrawerOrder] = useState<any | null>(null);
   const [drawerTrip, setDrawerTrip] = useState<any | null>(null);
   const [previewLr, setPreviewLr] = useState<EnrichedLR | null>(null);
-  const [cancelModalData, setCancelModalData] = { id: string, type: 'order' | 'assignment', tripId?: string, qty?: number } | null>(null);
+  const [cancelModalData, setCancelModalData] = useState<{ id: string, type: 'order' | 'assignment', tripId?: string, qty?: number } | null>(null);
   const [selectedShipment, setSelectedShipment] = useState<any | null>(null);
   const [editingTrip, setEditingTrip] = useState<WithId<Trip> | null>(null);
 
