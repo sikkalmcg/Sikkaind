@@ -55,7 +55,7 @@ const formSchema = z.object({
   })).optional().default([]),
 }).superRefine((data, ctx) => {
     // Registry Rule: Qty must be positive if not FTL
-    if (data.materialTypeId !== 'FTL' && data.quantity <= 0) {
+    if (data.materialTypeId.toUpperCase() !== 'FTL' && data.quantity <= 0) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: "Total quantity must be a positive value.",
@@ -157,11 +157,11 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   const watchedShipTo = useWatch({ control, name: 'shipToParty' });
 
   // --- FTL LOGIC NODE ---
-  const isFtl = useMemo(() => watchedUom === 'FTL', [watchedUom]);
+  const isFtl = useMemo(() => watchedUom.toUpperCase() === 'FTL', [watchedUom]);
 
   useEffect(() => {
     if (isFtl) {
-        // Registry Rule: FTL is a non-quantifiable load node in the initial plan
+        // Registry Rule: FTL quantity node must remain empty/null during plan
         setValue('quantity', 0, { shouldValidate: true });
     }
   }, [isFtl, setValue]);
@@ -324,7 +324,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                         <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-bold"><SelectValue placeholder="UOM" /></SelectTrigger></FormControl>
                             <SelectContent className="rounded-xl">
-                                {qtyTypes?.filter(t => t.name !== 'FTL').map(t => (
+                                {qtyTypes?.filter(t => t.name.toUpperCase() !== 'FTL').map(t => (
                                     <SelectItem key={t.id} value={t.name} className="font-bold py-2.5">{t.name}</SelectItem>
                                 ))}
                                 <SelectItem value="FTL" className="font-bold py-2.5">FTL</SelectItem>
@@ -349,7 +349,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                                     disabled={isFtl}
                                     className={cn(
                                         "h-14 rounded-xl font-black text-xl text-center transition-all",
-                                        isFtl ? "bg-blue-50 border-blue-100 text-blue-900 opacity-100 cursor-not-allowed" : "bg-white border-slate-200"
+                                        isFtl ? "bg-blue-50 border-blue-100 text-blue-900 opacity-100 cursor-not-allowed shadow-none" : "bg-white border-slate-200"
                                     )} 
                                 />
                                 {isFtl && (

@@ -5,10 +5,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, query, doc, getDocs, getDoc, Timestamp, where, limit, onSnapshot, serverTimestamp, runTransaction, deleteDoc, addDoc, updateDoc } from "firebase/firestore";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { DatePicker } from "@/components/date-picker";
-import { Card } from "@/components/ui/card";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/date-picker';
+import { Card } from '@/components/ui/card';
 import { Loader2, WifiOff, Settings2, Search, RefreshCcw, Factory, ShieldCheck } from "lucide-react";
 import { subDays, startOfDay, endOfDay, isBefore } from "date-fns";
 import type { WithId, Shipment, Trip, Plant, SubUser, VehicleEntryExit, LR, Carrier } from '@/types';
@@ -42,7 +42,7 @@ function OpenOrdersContent() {
   
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
-  const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
+  const [todayDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
@@ -63,7 +63,7 @@ function OpenOrdersContent() {
   const [drawerOrder, setDrawerOrder] = useState<any | null>(null);
   const [drawerTrip, setDrawerTrip] = useState<any | null>(null);
   const [previewLr, setPreviewLr] = useState<EnrichedLR | null>(null);
-  const [cancelModalData, setCancelModalData] = useState<{ id: string, type: 'order' | 'assignment', tripId?: string, qty?: number } | null>(null);
+  const [cancelModalData, setCancelModalData] = { id: string, type: 'order' | 'assignment', tripId?: string, qty?: number } | null>(null);
   const [selectedShipment, setSelectedShipment] = useState<any | null>(null);
   const [editingTrip, setEditingTrip] = useState<WithId<Trip> | null>(null);
 
@@ -183,7 +183,7 @@ function OpenOrdersContent() {
         const plantTrips = snap.docs.map(d => ({ 
           id: d.id, 
           originPlantId: plantId, 
-          ...d.data(),
+          ...d.data(), 
           startDate: parseDate(d.data().startDate),
         } as WithId<Trip>));
 
@@ -259,7 +259,7 @@ function OpenOrdersContent() {
         lrDate: linkedTrips[0]?.lrDate || s.lrDate || null,
       };
     });
-  }, [allData, fromDate, toDate, carriers, plants]);
+  }, [allData, fromDate, todayDate, carriers, plants]);
 
   const handleOpenLR = async (row: any) => {
     if (!row.lrNumber || !firestore) return;
@@ -477,7 +477,7 @@ function OpenOrdersContent() {
               </div>
               <div className="grid gap-1.5">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">To Date</Label>
-                <DatePicker date={toDate} setDate={setTodayDate} className="h-9 border-slate-200" />
+                <DatePicker date={todayDate} setDate={setTodayDate} className="h-9 border-slate-200" />
               </div>
               <div className="grid gap-1.5">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Global Registry Search</Label>
