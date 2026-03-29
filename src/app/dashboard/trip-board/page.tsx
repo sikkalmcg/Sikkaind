@@ -190,7 +190,10 @@ function TripBoardContent() {
           podUploadDate: parseDate(d.data().podUploadDate),
           podVerifiedAt: parseDate(d.data().podVerifiedAt),
         } as WithId<Trip>));
-        setTrips(prev => [...prev.filter(t => t.originPlantId !== plantId), ...plantTrips]);
+        setTrips(prev => {
+            const otherPlants = prev.filter(t => t.originPlantId !== plantId);
+            return [...otherPlants, ...plantTrips];
+        });
         setIsLoading(false);
       }));
 

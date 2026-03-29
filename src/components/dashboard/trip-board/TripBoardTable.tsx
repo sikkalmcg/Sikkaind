@@ -57,9 +57,9 @@ const getStatusColor = (status: string) => {
         case 'vehicle-assigned': return 'bg-blue-500/10 text-blue-700 border-blue-200';
         case 'loaded':
         case 'loading-complete': return 'bg-orange-500/10 text-orange-700 border-orange-200';
-        case 'in-transit': return 'bg-indigo-500/10 text-indigo-700 border-indigo-200';
+        case 'in-transit': return 'bg-purple-500/10 text-purple-700 border-indigo-200';
         case 'arrived':
-        case 'arrival-for-delivery': return 'bg-purple-500/10 text-purple-700 border-purple-200';
+        case 'arrival-for-delivery': return 'bg-teal-500/10 text-teal-700 border-teal-200';
         case 'delivered': return 'bg-green-500/10 text-green-700 border-green-200';
         case 'closed': return 'bg-slate-900 text-white border-none';
         default: return 'bg-gray-500/10 text-gray-700 border-gray-200';
@@ -141,11 +141,11 @@ export default function TripBoardTable({
                 <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs uppercase">{row.tripId}</TableCell>
                 <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{row.vehicleNumber}</TableCell>
                 <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs">{row.consignor}</TableCell>
-                <TableCell className="px-4 truncate font-medium text-slate-500 uppercase text-xs">{row.consignee}</TableCell>
+                <TableCell className="px-4 truncate font-medium text-slate-500 uppercase text-xs">{row.billToParty}</TableCell>
                 <TableCell className="px-4 truncate font-bold text-slate-700 uppercase italic text-[10px]">
                     "{row.itemDescription || '--'}"
                 </TableCell>
-                <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-xs">{row.destination}</TableCell>
+                <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-xs">{row.unloadingPoint}</TableCell>
                 <TableCell className="px-4 text-right font-black text-blue-900 text-xs">
                     {(Number(row.dispatchedQty) || Number(row.assignedQtyInTrip) || 0).toFixed(3)} MT
                 </TableCell>
