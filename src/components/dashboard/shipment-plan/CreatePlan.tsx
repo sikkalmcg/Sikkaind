@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/date-picker';
 import type { Plant, Shipment, WithId, SubUser, Party, MasterQtyType, Carrier } from '@/types';
@@ -234,6 +234,15 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   const watchedShipTo = useWatch({ control, name: 'shipToParty' });
   const watchedItems = useWatch({ control, name: "items" }) || [];
 
+  const totals = useMemo(() => {
+    const result = watchedItems.reduce((acc, item) => ({
+        units: acc.units + (Number(item?.units) || 0),
+        weight: acc.weight + (Number(item?.weight) || 0)
+    }), { units: 0, weight: 0 });
+
+    return { ...result };
+  }, [watchedItems]);
+
   // --- FTL LOGIC NODE ---
   const isFtl = useMemo(() => watchedUom?.toUpperCase() === 'FTL', [watchedUom]);
 
@@ -312,15 +321,6 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
     selectPartyNode(party, helpModal.type);
     setHelpModal(null);
   }, [helpModal, selectPartyNode]);
-
-  const totals = useMemo(() => {
-    const result = watchedItems.reduce((acc, item) => ({
-        units: acc.units + (Number(item?.units) || 0),
-        weight: acc.weight + (Number(item?.weight) || 0)
-    }), { units: 0, weight: 0 });
-
-    return { ...result };
-  }, [watchedItems]);
 
   const handlePost = async (values: FormValues) => {
     if (!firestore || !user) return;
