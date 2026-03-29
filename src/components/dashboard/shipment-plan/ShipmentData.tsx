@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -9,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { FileDown, Search, Ban, Edit2, FileText, Printer, FileDown as DownloadIcon, ExternalLink, PlusCircle } from 'lucide-react';
+import { FileDown, Search, Ban, Edit2, FileText, Printer, PlusCircle, WifiOff } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import type { Shipment, Plant, Trip, WithId, Carrier, LR } from '@/types';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -171,7 +170,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
         'Bill to Party': s.billToParty || 'N/A',
         'Ship to Party': s.shipToParty || 'N/A',
         'Destination': s.unloadingPoint || 'N/A',
-        'Order Qty': `${s.quantity.toFixed(3)} ${s.materialTypeId}`,
+        'Order Qty': s.materialTypeId === 'FTL' ? '1 Load' : `${s.quantity.toFixed(3)} ${s.materialTypeId}`,
         'Status': s.currentStatusId,
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -181,7 +180,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
   };
 
   const openLRPrint = async (e: React.MouseEvent, row: EnrichedShipment) => {
-    // REGISTRY HARDENING: Prevent event bubbling to avoid tab reset
     e.preventDefault();
     e.stopPropagation();
 
@@ -197,7 +195,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
         const parseDate = (val: any) => val instanceof Timestamp ? val.toDate() : (val ? new Date(val) : new Date());
 
         if (snap.empty) {
-            // High-fidelity fallback logic
             const manifestItems = row.items && row.items.length > 0 ? row.items : [{
                 invoiceNumber: row.invoiceNumber || 'NA',
                 ewaybillNumber: row.ewaybillNumber || '',
@@ -305,7 +302,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                 paginatedShipments.map(s => {
                   const isCancelled = s.currentStatusId?.toLowerCase() === 'cancelled';
                   const isShortClosed = s.currentStatusId?.toLowerCase() === 'short closed';
-                  const canAssign = !isCancelled && !isShortClosed && s.balanceQty > 0;
+                  const canAssign = !isCancelled && !isShortClosed && (s.materialTypeId === 'FTL' ? s.assignedQty < 1 : s.balanceQty > 0);
                   const canEdit = isAdmin || (!isCancelled && !isShortClosed && (s.currentStatusId === 'pending' || s.currentStatusId === 'partly vehicle assigned'));
                   
                   return (
@@ -333,7 +330,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase">{s.billToParty}</TableCell>
                       <TableCell className="px-4 truncate font-medium text-slate-500 italic">"{s.itemDescription || '--'}"</TableCell>
                       <TableCell className="px-4 text-center font-black text-slate-900">{s.totalUnits || '0'}</TableCell>
-                      <TableCell className="px-4 text-right font-black text-blue-900">{s.quantity.toFixed(3)}</TableCell>
+                      <TableCell className="px-4 text-right font-black text-blue-900">
+                        {s.materialTypeId === 'FTL' ? '1 LOAD' : s.quantity.toFixed(3)}
+                      </TableCell>
                       <TableCell className="px-4 text-center">
                         <Badge variant="outline" className={cn("text-[9px] font-black uppercase px-2 h-6 border shadow-sm", getStatusColor(s.currentStatusId))}>
                             {s.currentStatusId}
