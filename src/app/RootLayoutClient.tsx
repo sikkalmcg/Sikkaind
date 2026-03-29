@@ -11,7 +11,7 @@ import GlobalLoader from '@/components/ui/global-loader';
 
 /**
  * @fileOverview Client-side Root Layout Wrapper.
- * Manages providers and conditional website navigation logic.
+ * Manages providers and ensures hooks like usePathname execute within the correct context.
  */
 export default function RootLayoutClient({ children }: { children: ReactNode }) {
   const pathname = usePathname();

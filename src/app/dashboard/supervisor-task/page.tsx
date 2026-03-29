@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where, onSnapshot, doc, getDoc, getDocs, Timestamp, orderBy, limit, deleteDoc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore";
-import { Loader2, WifiOff, ClipboardList, ShieldCheck, Factory, User, Search, RefreshCcw, Trash2, AlertTriangle, ClipboardCheck, Weight, MapPin, Truck, AlertCircle } from "lucide-react";
+import { Loader2, WifiOff, ClipboardList, ShieldCheck, Factory, User, Search, RefreshCcw, Trash2, AlertTriangle, ClipboardCheck, Weight, MapPin, Truck, AlertCircle, Smartphone } from "lucide-react";
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';

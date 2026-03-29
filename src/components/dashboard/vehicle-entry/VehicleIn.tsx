@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { ShieldCheck, Plus, Factory, FileText, Loader2 } from 'lucide-react';
+import { ShieldCheck, Plus, Factory, FileText, Loader2, Weight } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, query, addDoc, serverTimestamp, orderBy, doc, where, getDocs, limit } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';

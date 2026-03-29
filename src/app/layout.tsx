@@ -4,7 +4,7 @@ import RootLayoutClient from './RootLayoutClient';
 
 /**
  * @fileOverview Root Layout Node (Server Component).
- * Provides the core HTML structure and delegates client-side logic to the Client Wrapper.
+ * Delegates client-side context handling to RootLayoutClient to prevent useContext errors.
  */
 export default function RootLayout({
   children,
