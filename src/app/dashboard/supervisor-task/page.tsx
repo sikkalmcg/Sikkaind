@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -196,7 +197,7 @@ export default function SupervisorTaskPage() {
                 from: trip.loadingPoint || shipment?.loadingPoint || pName,
                 shipTo: trip.shipToParty || shipment?.shipToParty || '--',
                 destination: trip.unloadingPoint || shipment?.unloadingPoint || '--',
-                assignedQty: trip.assignedQtyInTrip || 0,
+                assignedQty: Number(trip.assignedQtyInTrip) || 0,
                 status: entry ? 'IN' : 'AWAITING ARRIVAL',
                 isReadyForTask: !!entry, 
                 entryData: entry,
@@ -227,8 +228,8 @@ export default function SupervisorTaskPage() {
                 from: entry.from || '--',
                 shipTo: entry.shipToParty || '--',
                 destination: entry.unloadingPoint || pName,
-                assignedQty: entry.billedQty || 0,
-                billedQty: entry.billedQty || 0,
+                assignedQty: Number(entry.billedQty) || 0,
+                billedQty: Number(entry.billedQty) || 0,
                 qtyType: entry.qtyType || 'MT',
                 invoiceNo: entry.documentNo || '--',
                 goodsDesc: entry.items || '--',
@@ -357,7 +358,7 @@ export default function SupervisorTaskPage() {
                                         <TableHead className="px-4">FROM</TableHead>
                                         <TableHead className="px-4">Ship To</TableHead>
                                         <TableHead className="px-4">Destination</TableHead>
-                                        <TableHead className="px-4 text-right">Qty</TableHead>
+                                        <TableHead className="px-4 text-right">Qty (MT)</TableHead>
                                         <TableHead className="px-4 text-center">Gate Status</TableHead>
                                         <TableHead className="px-8 text-right sticky right-0 bg-slate-50/50">Action</TableHead>
                                     </TableRow>
@@ -392,7 +393,7 @@ export default function SupervisorTaskPage() {
                                                 <TableCell className="px-4 font-bold text-slate-700 uppercase text-[11px] truncate max-w-[150px]">{task.destination}</TableCell>
                                                 <TableCell className="px-4 text-right font-black text-blue-900">
                                                     <div className="flex items-center justify-end gap-2">
-                                                        <span>{task.assignedQty} MT</span>
+                                                        <span>{Number(task.assignedQty).toFixed(3)}</span>
                                                         <Weight className="h-3 w-3 opacity-20" />
                                                     </div>
                                                 </TableCell>

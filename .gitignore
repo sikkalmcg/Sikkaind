@@ -1,29 +1,22 @@
-# dependencies
+
+# Dependencies
 /node_modules
 /.pnpm-debug.log*
 
-# next.js
+# Next.js Build Output
 /.next/
 /out/
 
-# production
-/build
+# Firebase Studio & Build Artifacts
+/.firebase/
+/firebase-debug.log*
+/firestore-debug.log*
+/ui-debug.log*
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-firebase-debug.log*
-
-# local env files
+# Environment Secrets
+.env
 .env*.local
 
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# firebase
-.firebase/
+# OS Files
+.DS_Store
+Thumbs.db

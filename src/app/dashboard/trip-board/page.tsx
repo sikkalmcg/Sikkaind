@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
@@ -248,6 +249,12 @@ function TripBoardContent() {
 
       const parseDate = (val: any) => val instanceof Date ? val : (val instanceof Timestamp ? val.toDate() : null);
 
+      // Robust Item Description & Weight Node
+      const itemDescriptions = lr?.items?.map((i: any) => i.itemDescription || i.productDescription).filter(Boolean) || 
+                               shipment?.items?.map((i: any) => i.itemDescription || i.description).filter(Boolean) || 
+                               [];
+      const summarizedDesc = itemDescriptions.length > 0 ? Array.from(new Set(itemDescriptions)).join(', ') : (shipment?.itemDescription || shipment?.material || '--');
+
       return {
         ...t,
         entry,
@@ -268,11 +275,12 @@ function TripBoardContent() {
         orderQty: shipment?.quantity || 0,
         balanceQty: shipment ? (shipment.quantity - (shipment.assignedQty || 0)) : 0,
         carrier: carrierObj?.name || '--',
-        dispatchedQty: lr ? (Number(lr.assignedTripWeight) || 0) : 0,
-        lrQty: lr ? lr.items?.reduce((sum: number, i: any) => sum + (Number(i.weight) || 0), 0) : 0,
+        dispatchedQty: lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip) || 0),
+        lrQty: lr ? lr.items?.reduce((sum: number, i: any) => sum + (Number(i.weight) || 0), 0) : (Number(t.assignedQtyInTrip) || 0),
         lrUnits: lr ? lr.items?.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0) : 0,
         lrNumber: t.lrNumber || shipment?.lrNumber || '',
         lrDate: t.lrDate || shipment?.lrDate || null,
+        itemDescription: summarizedDesc
       };
     });
   }, [trips, shipments, lrs, entries, dbCarriers, plants]);
