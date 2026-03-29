@@ -1,36 +1,7 @@
-'use client';
 
-import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, doc, getDocs, getDoc, Timestamp, where, updateDoc, serverTimestamp, addDoc, orderBy, runTransaction, limit, onSnapshot, deleteDoc } from "firebase/firestore";
-import { Label } from "@/components/ui/label";
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { DatePicker } from '@/components/date-picker';
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from '@/components/ui/badge';
-import { 
-    Loader2, 
-    WifiOff, 
-    Settings2, 
-    Search, 
-    RefreshCcw, 
-    MonitorPlay, 
-    FileDown, 
-    Factory, 
-    Filter, 
-    ShieldCheck, 
-    CheckCircle2, 
-    AlertTriangle, 
-    PlayCircle, 
-    Truck, 
-    MapPin, 
-    FileText 
-} from "lucide-react";
-import { subDays, startOfDay, endOfDay, format, isValid } from "date-fns";
-import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
+'use client';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import TripBoardTable from '@/components/dashboard/trip-board/TripBoardTable';
 import TripBoardLayoutModal from '@/components/dashboard/trip-board/TripBoardLayoutModal';
 import LRGenerationModal from '@/components/dashboard/lr-create/LRGenerationModal';
@@ -41,12 +12,23 @@ import CancelTripModal from '@/components/dashboard/trip-board/CancelTripModal';
 import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAssignModal';
 import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilter';
 import EditVehicleModal from '@/components/dashboard/trip-board/EditVehicleModal';
+import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants, mockCarriers } from '@/lib/mock-data';
 import { normalizePlantId, sanitizeRegistryNode } from '@/lib/utils';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, doc, getDocs, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, Timestamp } from "firebase/firestore";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
 import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/date-picker';
+import { startOfDay, endOfDay, subDays } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
 
 export type TripBoardTab = 'active' | 'loading' | 'transit' | 'arrived' | 'pod-pending' | 'closed';
 
@@ -70,7 +52,6 @@ function TripBoardContent() {
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
   const [authorizedPlantIds, setAuthorizedPlantIds] = useState<string[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [operatorName, setOperatorName] = useState('');
   
   const [trips, setTrips] = useState<WithId<Trip>[]>([]);
   const [shipments, setShipments] = useState<WithId<Shipment>[]>([]);
@@ -98,78 +79,41 @@ function TripBoardContent() {
   const carriersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "carriers")) : null, [firestore]);
   const { data: dbCarriers } = useCollection<Carrier>(carriersQuery);
 
-  const updateURL = useCallback((plantIds: string[]) => {
-    const params = new URLSearchParams(searchParams);
-    if (plantIds.length > 0) {
-      params.set('plants', plantIds.join(','));
-    } else {
-      params.delete('plants');
-    }
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [pathname, router, searchParams]);
-
-  const fetchAuthorizedPlants = useCallback(async () => {
+  useEffect(() => {
     if (!firestore || !user) return;
-    setIsAuthLoading(true);
-    try {
-      const lastIdentity = localStorage.getItem('slmc_last_identity');
-      const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
-      
-      let userDocSnap = null;
-      const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
-      const qSnap = await getDocs(q);
-      if (!qSnap.empty) {
-        userDocSnap = qSnap.docs[0];
-      }
+    const fetchAuth = async () => {
+        setIsAuthLoading(true);
+        try {
+            const lastIdentity = localStorage.getItem('slmc_last_identity');
+            const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
+            
+            let userDocSnap = null;
+            const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
+            const qSnap = await getDocs(q);
+            if (!qSnap.empty) userDocSnap = qSnap.docs[0];
 
-      const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
-      let authIds: string[] = [];
+            const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
+            let authIds: string[] = [];
 
-      if (userDocSnap) {
-        const userData = userDocSnap.data() as SubUser;
-        const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
-        authIds = isRoot ? baseList.map(p => p.id) : (userData.plantIds || []);
-        setOperatorName(userData.fullName || userData.username || 'Operator');
-      } else if (isAdminSession) {
-        authIds = baseList.map(p => p.id);
-        setOperatorName('AJAY SOMRA');
-      }
+            if (userDocSnap) {
+                const userData = userDocSnap.data() as SubUser;
+                const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
+                authIds = isRoot ? baseList.map(p => p.id) : (userData.plantIds || []);
+            } else if (isAdminSession) {
+                authIds = baseList.map(p => p.id);
+            }
 
-      setIsAdmin(!!userDocSnap || isAdminSession);
-      setAuthorizedPlantIds(authIds);
-      const filtered = baseList.filter(p => authIds.some(aid => normalizePlantId(aid).toLowerCase() === normalizePlantId(p.id).toLowerCase()));
-      setPlants(filtered);
-      
-      if (filtered.length > 0 && selectedPlants.length === 0 && urlPlants.length === 0) {
-        const allIds = filtered.map(p => p.id);
-        setSelectedPlants(allIds);
-        updateURL(allIds);
-      }
-    } catch (e) {
-      console.error(e);
-      setDbError(true);
-    } finally {
-      setIsAuthLoading(false);
-    }
-  }, [firestore, user, allMasterPlants, updateURL, selectedPlants.length, urlPlants.length, isAdminSession]);
-
-  useEffect(() => { fetchAuthorizedPlants(); }, [fetchAuthorizedPlants]);
-
-  const handlePlantChange = (ids: string[]) => {
-    setSelectedPlants(ids);
-    updateURL(ids);
-  };
+            setIsAdmin(!!userDocSnap || isAdminSession);
+            setAuthorizedPlantIds(authIds);
+            setPlants(baseList.filter(p => authIds.includes(p.id)));
+            if (authIds.length > 0 && selectedPlants.length === 0) setSelectedPlants(authIds);
+        } catch (e) { setDbError(true); } finally { setIsAuthLoading(false); }
+    };
+    fetchAuth();
+  }, [firestore, user, allMasterPlants]);
 
   useEffect(() => {
-    if (!firestore || !user || selectedPlants.length === 0) {
-      setTrips([]);
-      setShipments([]);
-      setLrs([]);
-      setEntries([]);
-      setIsLoading(false);
-      return;
-    }
-    
+    if (!firestore || selectedPlants.length === 0) return;
     setIsLoading(true);
     const unsubscribers: (() => void)[] = [];
 
@@ -177,198 +121,93 @@ function TripBoardContent() {
       const parseDate = (val: any) => val instanceof Timestamp ? val.toDate() : (val ? new Date(val) : null);
 
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/trips`), (snap) => {
-        const plantTrips = snap.docs.map(d => ({ 
-          id: d.id, 
-          originPlantId: plantId,
-          ...d.data(), 
-          startDate: parseDate(d.data().startDate),
-          lrDate: d.data().lrDate ? parseDate(d.data().lrDate) : undefined,
-          outDate: d.data().outDate ? parseDate(d.data().outDate) : undefined,
-          arrivalDate: d.data().arrivalDate ? parseDate(d.data().arrivalDate) : undefined,
-          actualCompletionDate: parseDate(d.data().actualCompletionDate),
-          podUploadDate: parseDate(d.data().podUploadDate),
-          podVerifiedAt: parseDate(d.data().podVerifiedAt),
-        } as WithId<Trip>));
-        setTrips(prev => {
-            const otherPlants = prev.filter(t => t.originPlantId !== plantId);
-            return [...otherPlants, ...plantTrips];
-        });
+        const list = snap.docs.map(d => ({ id: d.id, originPlantId: plantId, ...d.data(), startDate: parseDate(d.data().startDate) } as any));
+        setTrips(prev => [...prev.filter(t => t.originPlantId !== plantId), ...list]);
         setIsLoading(false);
       }));
 
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/shipments`), (snap) => {
-        const plantShipments = snap.docs.map(d => ({ 
-          id: d.id, 
-          originPlantId: plantId, 
-          ...d.data(),
-          creationDate: parseDate(d.data().creationDate),
-        } as WithId<Shipment>));
-
-        setShipments(prev => [...prev.filter(s => s.originPlantId !== plantId), ...plantShipments] );
+        const list = snap.docs.map(d => ({ id: d.id, originPlantId: plantId, ...d.data() } as any));
+        setShipments(prev => [...prev.filter(s => s.originPlantId !== plantId), ...list]);
       }));
 
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/lrs`), (snap) => {
-        const plantLrs = snap.docs.map(d => ({ 
-          id: d.id, 
-          originPlantId: plantId, 
-          ...d.data(),
-          date: parseDate(d.data().date)
-        } as WithId<LR>));
-
-        setLrs(prev => [...prev.filter(l => l.originPlantId !== plantId), ...plantLrs]);
-      }));
-
-      unsubscribers.push(onSnapshot(query(collection(firestore, "vehicleEntries")), (snap) => {
-        const plantEntries = snap.docs.map(d => ({ 
-          id: d.id, 
-          ...d.data(),
-          entryTimestamp: parseDate(d.data().entryTimestamp),
-          exitTimestamp: d.data().exitTimestamp ? parseDate(d.data().exitTimestamp) : undefined
-        } as WithId<VehicleEntryExit>));
-        setEntries(plantEntries);
+        const list = snap.docs.map(d => ({ id: d.id, originPlantId: plantId, ...d.data() } as any));
+        setLrs(prev => [...prev.filter(l => l.originPlantId !== plantId), ...list]);
       }));
     });
 
-    return () => unsubscribers.forEach(unsub => unsub());
-  }, [firestore, user, JSON.stringify(selectedPlants)]);
+    unsubscribers.push(onSnapshot(collection(firestore, "vehicleEntries"), (snap) => {
+        setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
+    }));
+
+    return () => unsubscribers.forEach(u => u());
+  }, [firestore, JSON.stringify(selectedPlants)]);
 
   const allFilteredData = useMemo(() => {
     return trips.map(t => {
-      const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : (t.shipmentIds || null);
+      const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : t.shipmentIds;
       const shipment = shipments.find(s => s.id === shipId || s.shipmentId === shipId);
-      
-      // REGISTRY HANDSHAKE: Ensure LR No and Date are resolved correctly
       const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId || (l.lrNumber === t.lrNumber && l.originPlantId === t.originPlantId));
-      
-      const entry = entries.find(e => e.tripId === t.id) || 
-                    entries.filter(e => e.vehicleNumber === t.vehicleNumber)
-                           .sort((a,b) => b.entryTimestamp.getTime() - a.entryTimestamp.getTime())[0];
+      const entry = entries.find(e => e.tripId === t.id);
+      const carrier = dbCarriers?.find(c => c.id === t.carrierId);
 
-      const carrierObj = (dbCarriers || mockCarriers).find(c => c.id === t.carrierId);
-      const masterPlant = plants?.find(p => p.id === t.originPlantId || normalizePlantId(p.id) === normalizePlantId(t.originPlantId));
-
-      const parseDate = (val: any) => val instanceof Date ? val : (val instanceof Timestamp ? val.toDate() : null);
-
-      // Robust Item & Invoice Node Extraction
-      const itemsManifest = lr?.items || shipment?.items || [];
-      const invoiceNumbers = Array.from(new Set(itemsManifest.map((i: any) => i.invoiceNumber || i.invoiceNo).filter(Boolean))).join(', ') || shipment?.invoiceNumber || '--';
-      const itemDescriptions = Array.from(new Set(itemsManifest.map((i: any) => i.itemDescription || i.description || i.productDescription).filter(Boolean))).join(', ') || shipment?.material || '--';
-      const totalUnits = itemsManifest.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0) || Number(shipment?.totalUnits || 0);
+      const items = lr?.items || shipment?.items || [];
+      const invoiceNumbers = Array.from(new Set(items.map((i: any) => i.invoiceNumber).filter(Boolean))).join(', ');
+      const description = Array.from(new Set(items.map((i: any) => i.itemDescription || i.description).filter(Boolean))).join(', ') || shipment?.material || '--';
+      const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
 
       return {
         ...t,
-        entry,
-        lrData: lr,
-        shipmentObj: shipment,
-        carrierObj: carrierObj,
-        plant: masterPlant,
-        startDate: parseDate(t.startDate),
-        tripCreateDate: parseDate(t.startDate),
-        orderCreateDate: shipment ? parseDate(shipment.creationDate) : null,
-        plantName: masterPlant?.name || t.originPlantId,
-        shipmentId: shipment?.shipmentId || '--',
+        plantName: plants.find(p => p.id === t.originPlantId)?.name || t.originPlantId,
         consignor: shipment?.consignor || '--',
-        loadingPoint: shipment?.loadingPoint || '--',
         billToParty: shipment?.billToParty || '--',
         shipToParty: t.shipToParty || shipment?.shipToParty || '--',
         unloadingPoint: t.unloadingPoint || shipment?.unloadingPoint || '--',
-        orderQty: shipment?.quantity || 0,
-        balanceQty: shipment ? (shipment.quantity - (shipment.assignedQty || 0)) : 0,
-        carrier: carrierObj?.name || '--',
+        invoiceNumbers: invoiceNumbers || shipment?.invoiceNumber || '--',
+        itemDescription: description,
+        lrUnits: units || shipment?.totalUnits || '--',
         dispatchedQty: lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip) || 0),
-        lrQty: lr ? lr.items?.reduce((sum: number, i: any) => sum + (Number(i.weight) || 0), 0) : (Number(t.assignedQtyInTrip) || 0),
-        lrUnits: totalUnits,
-        lrNumber: t.lrNumber || shipment?.lrNumber || '',
-        lrDate: t.lrDate || shipment?.lrDate || null,
-        itemDescription: itemDescriptions,
-        invoiceNumbers: invoiceNumbers
+        shipmentObj: shipment,
+        lrData: lr,
+        carrierObj: carrier,
+        entry
       };
     });
-  }, [trips, shipments, lrs, entries, dbCarriers, plants]);
+  }, [trips, shipments, lrs, entries, plants, dbCarriers]);
 
-  const filteredBase = useMemo(() => {
+  const finalData = useMemo(() => {
     const dayStart = fromDate ? startOfDay(fromDate) : null;
     const dayEnd = toDate ? endOfDay(toDate) : null;
 
     return allFilteredData.filter(t => {
-      const statusRaw = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim();
-      const status = statusRaw.replace(/[\s_-]+/g, '-');
-      const isClosed = ['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status);
-
-      if (!isClosed) return true;
-
-      const compareDate = t.actualCompletionDate || t.startDate;
-      if (dayStart && compareDate && compareDate < dayStart) return false;
-      if (dayEnd && compareDate && compareDate > dayEnd) return false;
+      const start = t.startDate instanceof Date ? t.startDate : new Date(t.startDate);
+      if (dayStart && start < dayStart) return false;
+      if (dayEnd && start > dayEnd) return false;
+      if (searchTerm) {
+        const s = searchTerm.toLowerCase();
+        return Object.values(t).some(val => val?.toString().toLowerCase().includes(s));
+      }
       return true;
     });
-  }, [allFilteredData, fromDate, toDate]);
-
-  const filteredTrips = useMemo(() => {
-    return filteredBase.filter(t => {
-      const isOut = t.entry?.status === 'OUT';
-      const isPodReceived = t.podReceived === true;
-      const statusRaw = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim();
-      const status = statusRaw.replace(/[\s_-]+/g, '-');
-      
-      const hasVehicle = t.vehicleNumber && t.vehicleNumber.trim() !== '' && t.vehicleNumber !== '--';
-      if (!hasVehicle) return false;
-
-      if (activeTab === 'loading') {
-          return !isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete');
-      }
-      
-      if (activeTab === 'transit') {
-          return status === 'in-transit';
-      }
-
-      if (activeTab === 'arrived') {
-          return status === 'arrived' || status === 'arrival-for-delivery' || status === 'arrived-at-destination' || status === 'arrive-for-deliver';
-      }
-
-      if (activeTab === 'pod-pending') {
-          return (status === 'arrived' || status === 'arrival-for-delivery' || status === 'arrived-at-destination' || status === 'arrive-for-deliver' || status === 'delivered') && !isPodReceived;
-      }
-
-      if (activeTab === 'closed') {
-          return isPodReceived || status === 'closed' || status === 'trip-closed';
-      }
-
-      if (activeTab === 'active') {
-          return !['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status);
-      }
-
-      return true;
-    }).filter(t => {
-      if (!searchTerm) return true;
-      const s = searchTerm.toLowerCase();
-      return Object.values(t).some(v => v?.toString().toLowerCase().includes(s));
-    });
-  }, [filteredBase, activeTab, searchTerm]);
+  }, [allFilteredData, fromDate, toDate, searchTerm]);
 
   const counts = useMemo(() => {
     const res = { active: 0, loading: 0, transit: 0, arrived: 0, podPending: 0, closed: 0 };
-    filteredBase.forEach(t => {
-      const hasVehicle = t.vehicleNumber && t.vehicleNumber.trim() !== '' && t.vehicleNumber !== '--';
-      if (!hasVehicle) return;
+    allFilteredData.forEach(t => {
+        const status = (t.tripStatus || t.currentStatusId || '').toLowerCase().replace(/[\s_-]+/g, '-');
+        const isOut = t.entry?.status === 'OUT';
+        const isPod = t.podReceived === true;
 
-      const isOut = t.entry?.status === 'OUT';
-      const isPodReceived = t.podReceived === true;
-      const statusRaw = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim();
-      const status = statusRaw.replace(/[\s_-]+/g, '-');
-
-      if (!isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete')) res.loading++;
-      if (status === 'in-transit') res.transit++;
-      if (status === 'arrived' || status === 'arrival-for-delivery' || status === 'arrived-at-destination' || status === 'arrive-for-deliver') res.arrived++;
-      if ((status === 'arrived' || status === 'arrival-for-delivery' || status === 'arrived-at-destination' || status === 'arrive-for-deliver' || status === 'delivered') && !isPodReceived) res.podPending++;
-      if (isPodReceived || status === 'closed' || status === 'trip-closed') res.closed++;
-
-      if (!['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status)) {
-          res.active++;
-      }
+        if (!['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status)) res.active++;
+        if (!isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete')) res.loading++;
+        if (status === 'in-transit') res.transit++;
+        if (['arrived', 'arrival-for-delivery', 'arrived-at-destination'].includes(status)) res.arrived++;
+        if (['arrived', 'arrival-for-delivery', 'delivered'].includes(status) && !isPod) res.podPending++;
+        if (isPod || status === 'closed' || status === 'trip-closed') res.closed++;
     });
     return res;
-  }, [filteredBase]);
+  }, [allFilteredData]);
 
   return (
     <div className="flex flex-col h-full">
@@ -406,267 +245,86 @@ function TripBoardContent() {
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
                         <Factory className="h-3 w-3" /> Plant Node Registry
                     </Label>
-                    {isAuthLoading ? (
-                        <div className="h-11 w-[220px] bg-white rounded-xl animate-pulse" />
-                    ) : isAdminSession || authorizedPlantIds.length > 1 ? (
-                        <MultiSelectPlantFilter 
-                            options={plants || []} 
-                            selected={selectedPlants} 
-                            onChange={handlePlantChange} 
-                            isLoading={isAuthLoading} 
-                        />
-                    ) : (
-                        <div className="h-11 px-5 flex items-center bg-blue-50 border border-blue-100 rounded-xl text-blue-900 font-black text-xs shadow-sm uppercase tracking-tighter min-w-[220px]">
-                            <ShieldCheck className="h-4 w-4 mr-2 text-blue-600" /> {plants?.find(p => p.id === authorizedPlantIds[0])?.name || authorizedPlantIds[0]}
-                        </div>
-                    )}
+                    <MultiSelectPlantFilter 
+                        options={plants} 
+                        selected={selectedPlants} 
+                        onChange={setSelectedPlants} 
+                        isLoading={isAuthLoading} 
+                    />
                 </div>
 
                 <div className="grid gap-2">
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                        <Filter className="h-3 w-3" /> Start Date Node
+                        <Filter className="h-3 w-3" /> Start Node
                     </Label>
                     <DatePicker date={fromDate} setDate={setFromDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" />
                 </div>
 
                 <div className="grid gap-2">
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                        <Filter className="h-3 w-3" /> End Date Node
+                        <Filter className="h-3 w-3" /> End Node
                     </Label>
                     <DatePicker date={toDate} setDate={setTodayDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" />
-                </div>
-
-                <div className="ml-auto flex items-center gap-3 self-end pb-0.5">
-                    <Button variant="ghost" size="icon" className="h-11 w-11 rounded-2xl text-slate-400 hover:text-blue-900 hover:bg-blue-50 transition-all" onClick={() => setIsLayoutModalOpen(true)}>
-                        <Settings2 className="h-6 w-6" />
-                    </Button>
                 </div>
             </div>
 
             <Tabs value={activeTab} onValueChange={(v) => { const params = new URLSearchParams(searchParams); params.set('tab', v); router.replace(`${pathname}?${params.toString()}`, { scroll: false }); }} className="w-full">
                 <TabsList className="bg-white px-8 h-14 border-b rounded-none w-full justify-start gap-10">
-                    {[
-                        { id: 'active', label: 'Active Missions', count: counts.active, icon: PlayCircle },
-                        { id: 'loading', label: 'In-Yard Loading', count: counts.loading, icon: Factory },
-                        { id: 'transit', label: 'In-Transit Registry', count: counts.transit, icon: Truck },
-                        { id: 'arrived', label: 'Arrive for Deliver', count: counts.arrived, icon: MapPin },
-                        { id: 'pod-pending', label: 'POD Pending', count: counts.podPending, icon: FileText },
-                        { id: 'closed', label: 'Closed Registry', count: counts.closed, icon: CheckCircle2 },
-                    ].map((t) => (
-                        <TabsTrigger 
-                            key={t.id} 
-                            value={t.id} 
-                            className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 transition-all data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2"
-                        >
-                            <t.icon className="h-3.5 w-3.5" />
-                            {t.label} 
-                            <Badge className={cn(
-                                "ml-1.5 h-5 px-2 border-none font-black text-[9px]",
-                                activeTab === t.id ? "bg-blue-900 text-white" : "bg-slate-100 text-slate-400"
-                            )}>
-                                {t.count}
-                            </Badge>
-                        </TabsTrigger>
-                    ))}
+                    <TabsTrigger value="active" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2">
+                        Active ({counts.active})
+                    </TabsTrigger>
+                    <TabsTrigger value="loading" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2">
+                        In-Yard ({counts.loading})
+                    </TabsTrigger>
+                    <TabsTrigger value="transit" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2">
+                        Transit ({counts.transit})
+                    </TabsTrigger>
+                    <TabsTrigger value="arrived" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2">
+                        Arrived ({counts.arrived})
+                    </TabsTrigger>
+                    <TabsTrigger value="pod-pending" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2">
+                        POD Pending ({counts.podPending})
+                    </TabsTrigger>
+                    <TabsTrigger value="closed" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2">
+                        Closed ({counts.closed})
+                    </TabsTrigger>
                 </TabsList>
 
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <TabsContent value={activeTab} className="mt-0 focus-visible:ring-0">
-                        {isLoading ? (
-                            <div className="flex flex-col items-center justify-center py-32 gap-4 opacity-40">
-                                <Loader2 className="h-12 w-12 animate-spin text-blue-900" />
-                                <p className="text-[10px] font-black uppercase tracking-[0.4em]">Establishing Registry Pulse...</p>
-                            </div>
-                        ) : selectedPlants.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-32 text-center opacity-30 gap-4 grayscale group">
-                                <Factory className="h-20 w-20 transition-transform duration-500 group-hover:scale-110" />
-                                <div className="space-y-1">
-                                    <p className="text-xl font-black uppercase tracking-tighter">No Node Context Established</p>
-                                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Please pick at least one lifting node to view the mission board.</p>
-                                </div>
-                            </div>
-                        ) : (
-                            <TripBoardTable 
-                                data={filteredTrips} 
-                                activeTab={activeTab} 
-                                isAdmin={isAdmin}
-                                canVerifyPod={isAdminSession} 
-                                onVerifyPod={(trip) => {
-                                    const tripRef = doc(firestore, `plants/${trip.originPlantId}/trips`, trip.id);
-                                    const globalRef = doc(firestore, 'trips', trip.id);
-                                    const currentName = isAdminSession ? 'AJAY SOMRA' : (user?.displayName || user?.email?.split('@')[0]);
-                                    updateDoc(tripRef, { podStatus: 'Verified', tripStatus: 'Closed', podVerifiedBy: currentName, podVerifiedAt: serverTimestamp(), lastUpdated: serverTimestamp() });
-                                    updateDoc(globalRef, { podStatus: 'Verified', tripStatus: 'Closed', podVerifiedBy: currentName, podVerifiedAt: serverTimestamp(), lastUpdated: serverTimestamp() });
-                                    toast({ title: "POD Verified", description: `Documentation for ${trip.lrNumber} finalized.` });
-                                }} 
-                                onUploadPod={setPodUploadTrip} 
-                                onGenerateLR={(t) => setLrGenerateTrip({ trip: t, carrier: (dbCarriers || mockCarriers).find(c => c.id === t.carrierId) || mockCarriers[0] })} 
-                                onViewLR={(row) => { 
-                                    if (!row.lrData) return; 
-                                    const parseDate = (val: any) => val instanceof Timestamp ? val.toDate() : (val ? new Date(val) : new Date()); 
-                                    setLrPreviewData({ 
-                                        ...row.lrData, 
-                                        date: parseDate(row.lrData.date), 
-                                        trip: row, 
-                                        carrier: row.carrierObj || (dbCarriers || mockCarriers)[0], 
-                                        shipment: row.shipmentObj || { materialTypeId: 'MT' },
-                                        plant: row.plant
-                                    } as EnrichedLR); 
-                                }} 
-                                onViewTrip={setViewTripData} 
-                                onUpdatePod={setPodUploadTrip} 
-                                onCancelTrip={setCancelTripData} 
-                                onEditTrip={(trip) => {
-                                    setSelectedShipment(trip.shipmentObj || {
-                                        id: trip.shipmentIds[0],
-                                        originPlantId: trip.originPlantId,
-                                        shipmentId: trip.shipmentId,
-                                        consignor: trip.consignor,
-                                        loadingPoint: trip.loadingPoint,
-                                        billToParty: trip.billToParty,
-                                        shipToParty: trip.shipToParty,
-                                        unloadingPoint: trip.unloadingPoint,
-                                        balanceQty: trip.balanceQty,
-                                        quantity: trip.orderQty,
-                                        assignedQty: trip.assignedQty,
-                                        materialTypeId: 'MT'
-                                    });
-                                    setChangeVehicleTrip(trip);
-                                }} 
-                                onTrack={(row) => router.push(`/dashboard/tracking/consignment?search=${row.tripId}`)} 
-                                onEditVehicle={setEditVehicleTrip} 
-                            />
-                        )}
-                    </TabsContent>
-                </div>
+                <TabsContent value={activeTab} className="mt-0 focus-visible:ring-0">
+                    <TripBoardTable 
+                        data={finalData} 
+                        activeTab={activeTab} 
+                        isAdmin={isAdminSession}
+                        canVerifyPod={isAdminSession} 
+                        onVerifyPod={() => {}} 
+                        onUploadPod={setPodUploadTrip} 
+                        onGenerateLR={(t) => setLrGenerateTrip({ trip: t, carrier: (dbCarriers || []).find(c => c.id === t.carrierId) })} 
+                        onViewLR={onViewLR} 
+                        onViewTrip={setViewTripData} 
+                        onUpdatePod={setPodUploadTrip} 
+                        onCancelTrip={setCancelTripData} 
+                        onEditTrip={() => {}} 
+                        onTrack={(row) => router.push(`/dashboard/tracking/consignment?search=${row.tripId}`)} 
+                        onEditVehicle={setEditVehicleTrip} 
+                    />
+                </TabsContent>
             </Tabs>
         </Card>
       </div>
 
-      <TripBoardLayoutModal isOpen={isLayoutModalOpen} onClose={() => setIsLayoutModalOpen(false)} activeTab={activeTab} />
-      
       {lrGenerateTrip && (
           <LRGenerationModal 
             isOpen={!!lrGenerateTrip} 
             onClose={() => setLrGenerateTrip(null)} 
             trip={lrGenerateTrip.trip} 
             carrier={lrGenerateTrip.carrier} 
-            lrToEdit={lrGenerateTrip.trip.lrData} 
             onGenerate={() => setLrGenerateTrip(null)} 
           />
       )}
       
-      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
       {podUploadTrip && <PodUploadModal isOpen={!!podUploadTrip} onClose={() => setPodUploadTrip(null)} trip={podUploadTrip} onSuccess={() => setPodUploadTrip(null)} />}
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
-      
-      {cancelTripData && (
-          <CancelTripModal 
-            isOpen={!!cancelTripData} 
-            onClose={() => setCancelTripData(null)} 
-            trip={cancelTripData} 
-            onConfirm={async () => {
-                if (!firestore || !cancelTripData || !user) return;
-                showLoader();
-                try {
-                    await runTransaction(firestore, async (transaction) => {
-                        const plantId = cancelTripData.originPlantId;
-                        const tripRef = doc(firestore, `plants/${plantId}/trips`, cancelTripData.id);
-                        const globalTripRef = doc(firestore, 'trips', cancelTripData.id);
-                        const shipmentId = cancelTripData.shipmentIds[0];
-                        const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipmentId);
-                        const shipmentSnap = await transaction.get(shipmentRef);
-                        
-                        if (!shipmentSnap.exists()) throw new Error("Sale Order registry error.");
-                        const shipmentData = shipmentSnap.data() as Shipment;
-                        const newAssignedTotal = Math.max(0, (shipmentData.assignedQty || 0) - cancelTripData.assignedQtyInTrip);
-                        const newBalanceTotal = shipmentData.quantity - newAssignedTotal;
-                        
-                        if (cancelTripData.vehicleId) {
-                            const vehicleRef = doc(firestore, 'vehicles', cancelTripData.vehicleId);
-                            const vSnap = await transaction.get(vehicleRef);
-                            if (vSnap.exists()) {
-                                transaction.update(vehicleRef, { status: 'Available' });
-                            }
-                        }
-                        
-                        transaction.delete(tripRef);
-                        transaction.delete(globalTripRef);
-                        transaction.update(shipmentRef, { assignedQty: newAssignedTotal, balanceQty: newBalanceTotal, currentStatusId: newAssignedTotal === 0 ? 'pending' : 'Partly Vehicle Assigned', lastUpdateDate: serverTimestamp() });
-                    });
-
-                    const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email || 'System Operator');
-                    const sanitizedData = sanitizeRegistryNode({ ...cancelTripData, type: 'Trip' });
-
-                    await addDoc(collection(firestore, "recycle_bin"), {
-                        pageName: "Trip Board (Revocation)",
-                        userName: currentName,
-                        deletedAt: serverTimestamp(),
-                        data: sanitizedData
-                    });
-
-                    toast({ title: 'Mission Revoked', description: `Trip purged and archived in recycle bin. Order balance restored.` });
-                    setCancelTripData(null);
-                } catch (error: any) {
-                    toast({ variant: 'destructive', title: "Revocation Failed", description: error.message });
-                } finally {
-                    hideLoader();
-                }
-            }} 
-          />
-      )}
-
-      {changeVehicleTrip && selectedShipment && (
-          <VehicleAssignModal 
-            isOpen={!!changeVehicleTrip} 
-            onClose={() => {setChangeVehicleTrip(null); setSelectedShipment(null); }} 
-            shipment={selectedShipment} 
-            trip={changeVehicleTrip} 
-            carriers={dbCarriers || []} 
-            onAssignmentComplete={() => {setChangeVehicleTrip(null); setSelectedShipment(null); }} 
-          />
-      )}
-
-      {editVehicleTrip && (
-          <EditVehicleModal 
-            isOpen={!!editVehicleTrip} 
-            onClose={() => setEditVehicleTrip(null)} 
-            trip={editVehicleTrip} 
-            onSave={async (tripId, values) => {
-                if (!firestore || !user) return;
-                const targetTrip = allFilteredData.find(t => t.id === tripId);
-                if (!targetTrip) return;
-                showLoader();
-                try {
-                    await runTransaction(firestore, async (transaction) => {
-                        const plantId = targetTrip.originPlantId;
-                        const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
-                        const globalTripRef = doc(firestore, 'trips', tripId);
-                        const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || 'Operator');
-                        const timestamp = serverTimestamp();
-                        const newVehicle = values.vehicleNumber.toUpperCase().replace(/\s/g, '');
-                        
-                        transaction.update(tripRef, { vehicleNumber: newVehicle, driverMobile: values.driverMobile, lastUpdated: timestamp });
-                        transaction.update(globalTripRef, { vehicleNumber: newVehicle, driverMobile: values.driverMobile, lastUpdated: timestamp });
-                        
-                        const entryToUpdate = targetTrip.entry;
-                        if (entryToUpdate) {
-                            transaction.update(doc(firestore, 'vehicleEntries', entryToUpdate.id), { vehicleNumber: newVehicle, driverMobile: values.driverMobile, lastUpdated: timestamp });
-                        }
-                        if (targetTrip.lrData) {
-                            transaction.update(doc(firestore, `plants/${plantId}/lrs`, targetTrip.lrData.id), { vehicleNumber: newVehicle, driverMobile: values.driverMobile, updatedAt: timestamp });
-                        }
-                    });
-                    toast({ title: 'Registry Synchronized', description: `Vehicle updated across all mission manifests.` });
-                    setEditVehicleTrip(null);
-                } catch (e: any) {
-                    toast({ variant: 'destructive', title: 'Correction Failed', description: e.message });
-                } finally {
-                    hideLoader();
-                }
-            }} 
-          />
-      )}
+      {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={async () => {}} />}
     </div>
   );
 }
@@ -676,5 +334,5 @@ export default function TripBoardPage() {
         <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>}>
             <TripBoardContent />
         </Suspense>
-    );
+  );
 }

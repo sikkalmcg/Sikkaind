@@ -25,7 +25,6 @@ import { cn, normalizePlantId, formatSequenceId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import { PaymentTerms } from '@/lib/constants';
 
-// ========== SCHEMA ========== //
 const formSchema = z.object({
   originPlantId: z.string().min(1, 'Plant node selection is required.'),
   consignor: z.string().min(1, 'Consignor is mandatory.'),
@@ -64,8 +63,6 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-
-// ========== HELPER COMPONENTS ========== //
 
 function AutocompleteInput({ value, onChange, onSearchClick, suggestions, placeholder, label, error, disabled = false, onSelect }: { value: string; onChange: (val: string) => void; onSearchClick: () => void; suggestions: Party[]; placeholder: string; label: string; error?: string; disabled?: boolean; onSelect?: (party: Party) => void; }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -197,8 +194,6 @@ function SearchRegistryModal({
     );
 }
 
-// ========== MAIN COMPONENT ========== //
-
 export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (shipment: any) => void }) {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -235,13 +230,12 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   const watchedItems = useWatch({ control, name: "items" }) || [];
 
   const totals = useMemo(() => {
-    return watchedItems.reduce((acc, item) => ({
+    return (watchedItems || []).reduce((acc, item) => ({
         units: acc.units + (Number(item?.units) || 0),
         weight: acc.weight + (Number(item?.weight) || 0)
     }), { units: 0, weight: 0 });
   }, [watchedItems]);
 
-  // --- FTL LOGIC NODE ---
   const isFtl = useMemo(() => watchedUom?.toUpperCase() === 'FTL', [watchedUom]);
 
   useEffect(() => {
@@ -291,7 +285,6 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
     }
   }, [isSameAsBillTo, billToParty, setValue, consigneeRegistry]);
 
-  // Unified Registry Selection Handler
   const selectPartyNode = useCallback((party: Party, type: string) => {
     setValue(type as any, party.name, { shouldValidate: true });
     
@@ -476,7 +469,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                         <FormItem><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">Payment Term</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl>
-                                <SelectContent className="rounded-xl">{PaymentTerms.map(t => <SelectItem key={t} value={t} className="font-bold py-2.5 uppercase">{t}</SelectItem>)}</SelectContent>
+                                <SelectContent className="rounded-xl">{PaymentTerms.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                             </Select>
                         </FormItem>
                       )} />

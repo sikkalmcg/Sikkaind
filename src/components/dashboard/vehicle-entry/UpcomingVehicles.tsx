@@ -1,87 +1,36 @@
+
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Radar, MapPin, Truck, PlayCircle, Loader2, ArrowRightLeft, UserCircle, Factory, ShieldCheck } from 'lucide-react';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, getDocs, onSnapshot, limit, Timestamp } from "firebase/firestore";
-import { format } from 'date-fns';
-import { cn, normalizePlantId } from '@/lib/utils';
-import type { Trip, SubUser, Plant } from '@/types';
+import { Clock, Radar, Loader2, Factory } from 'lucide-react';
+import { useCollection, useMemoFirebase, useFirestore } from "@/firebase";
+import { collection, query } from "firebase/firestore";
+import type { Plant } from '@/types';
 
-export default function UpcomingVehicles({ onVehicleInClick }: { onVehicleInClick: (trip: any) => void }) {
+/**
+ * @fileOverview Upcoming Missions Component.
+ * Optimized UI node for visualizing fleet assets awaiting yard arrival.
+ * Receives synchronized data from parent registry.
+ */
+export default function UpcomingVehicles({ 
+    data, 
+    isLoading, 
+    onVehicleInClick 
+}: { 
+    data: any[], 
+    isLoading: boolean, 
+    onVehicleInClick: (trip: any) => void 
+}) {
   const firestore = useFirestore();
-  const { user } = useUser();
-  const [upcomingTrips, setUpcomingTrips] = useState<Trip[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Authorization Node
   const plantsQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, "logistics_plants")) : null, 
     [firestore]
   );
   const { data: plants } = useCollection<Plant>(plantsQuery);
-
-  useEffect(() => {
-    if (!firestore || !user) return;
-
-    const fetchUpcoming = async () => {
-        setIsLoading(true);
-        try {
-            const lastIdentity = localStorage.getItem('slmc_last_identity');
-            const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
-            
-            let userDocSnap = null;
-            const userQ = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
-            const userQSnap = await getDocs(userQ);
-            if (!userQSnap.empty) userDocSnap = userQSnap.docs[0];
-
-            let authPlantIds: string[] = [];
-            const isAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
-
-            if (userDocSnap) {
-                const userData = userDocSnap.data() as SubUser;
-                const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdmin;
-                authPlantIds = isRoot ? (plants || []).map(p => p.id) : (userData.plantIds || []);
-            } else if (isAdmin) {
-                authPlantIds = (plants || []).map(p => p.id);
-            }
-
-            if (authPlantIds.length === 0) {
-                setIsLoading(false);
-                return;
-            }
-
-            // Real-time listener for assigned trips
-            const q = query(collection(firestore, "trips"), where("tripStatus", "==", "Assigned"));
-            const unsub = onSnapshot(q, async (snap) => {
-                const assigned = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
-                
-                // Filter by authorized plants
-                const filtered = assigned.filter(t => authPlantIds.some(aid => normalizePlantId(aid) === normalizePlantId(t.originPlantId)));
-                
-                // Cross-check with Gate Registry to exclude vehicles already IN
-                const gateSnap = await getDocs(query(collection(firestore, "vehicleEntries"), where("status", "==", "IN")));
-                const inVehicles = new Set(gateSnap.docs.map(d => d.data().vehicleNumber?.toUpperCase()));
-                
-                const reallyUpcoming = filtered.filter(t => !inVehicles.has(t.vehicleNumber?.toUpperCase()));
-                
-                setUpcomingTrips(reallyUpcoming);
-                setIsLoading(false);
-            });
-
-            return () => unsub();
-        } catch (e) {
-            console.error(e);
-            setIsLoading(false);
-        }
-    };
-
-    fetchUpcoming();
-  }, [firestore, user, plants]);
 
   return (
     <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden animate-in fade-in duration-500">
@@ -116,14 +65,14 @@ export default function UpcomingVehicles({ onVehicleInClick }: { onVehicleInClic
                 <TableBody>
                     {isLoading ? (
                         <TableRow><TableCell colSpan={7} className="h-64 text-center"><Loader2 className="h-10 w-10 animate-spin inline-block text-blue-900 opacity-20" /></TableCell></TableRow>
-                    ) : upcomingTrips.length === 0 ? (
+                    ) : data.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={7} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
                                 No upcoming missions detected in registry scope.
                             </TableCell>
                         </TableRow>
                     ) : (
-                        upcomingTrips.map((trip) => (
+                        data.map((trip) => (
                             <TableRow key={trip.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
                                 <TableCell className="px-8 font-black text-slate-600 uppercase text-xs">
                                     {plants?.find(p => p.id === trip.originPlantId)?.name || trip.originPlantId}
@@ -144,7 +93,7 @@ export default function UpcomingVehicles({ onVehicleInClick }: { onVehicleInClic
                                     {trip.shipToParty || '--'}
                                 </TableCell>
                                 <TableCell className="px-4 text-right font-black text-blue-900">
-                                    {trip.assignedQtyInTrip} MT
+                                    {Number(trip.assignedQtyInTrip || 0).toFixed(3)} {trip.materialTypeId}
                                 </TableCell>
                                 <TableCell className="px-8 text-right">
                                     <Button 

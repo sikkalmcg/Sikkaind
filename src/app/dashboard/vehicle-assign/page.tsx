@@ -212,14 +212,8 @@ function OpenOrdersContent() {
 
   const allFilteredData = useMemo(() => {
     const { shipments, trips, entries, lrs } = allData;
-    const dayStart = fromDate ? startOfDay(fromDate) : null;
-    const dayEnd = toDate ? endOfDay(toDate) : null;
 
-    return (shipments || []).filter(s => {
-      if (dayStart && s.creationDate < dayStart) return false;
-      if (dayEnd && s.creationDate > dayEnd) return false;
-      return true;
-    }).map(s => {
+    return (shipments || []).map(s => {
       const normalizedSPlantId = normalizePlantId(s.originPlantId);
       const masterPlant = plants?.find(p => p.id === s.originPlantId || normalizePlantId(p.id) === normalizedSPlantId);
 
@@ -264,7 +258,7 @@ function OpenOrdersContent() {
         totalUnitsCount
       };
     });
-  }, [allData, fromDate, toDate, carriers, plants]);
+  }, [allData, carriers, plants]);
 
   const handleOpenLR = async (row: any) => {
     if (!row.lrNumber || !firestore) return;

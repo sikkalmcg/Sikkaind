@@ -63,7 +63,14 @@ const getStatusColor = (status: string) => {
 const formatSafeDate = (date: any, formatStr: string = 'dd/MM/yy') => {
     if (!date) return '--';
     try {
-        const d = date instanceof Timestamp ? date.toDate() : new Date(date);
+        let d: Date;
+        if (date instanceof Timestamp) {
+            d = date.toDate();
+        } else if (typeof date === 'object' && 'seconds' in date) {
+            d = new Date(date.seconds * 1000);
+        } else {
+            d = new Date(date);
+        }
         if (!isValid(d)) return '--';
         return format(d, formatStr);
     } catch (e) {
@@ -122,7 +129,6 @@ export default function OrdersTable({
 
                 return (
                   <React.Fragment key={order.id}>
-                    {/* PRIMARY ORDER ROW */}
                     <TableRow className="h-16 hover:bg-blue-50/20 transition-all border-b border-slate-100 group">
                       <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{order.plantName}</TableCell>
                       <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs">{order.shipmentId}</TableCell>
@@ -156,17 +162,14 @@ export default function OrdersTable({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-slate-200 shadow-2xl">
                             <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Mission Control</DropdownMenuLabel>
-                            
                             <DropdownMenuItem onClick={() => onViewOrder(order)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-xl hover:bg-blue-50">
                                 <Eye className="h-4 w-4 text-blue-600" /> View Payload
                             </DropdownMenuItem>
-
                             {tab === 'pending' && !isCancelled && (
                                 <DropdownMenuItem onClick={() => onAssign(order)} className="gap-3 font-black py-2.5 cursor-pointer rounded-xl bg-blue-900 text-white hover:bg-slate-900 focus:bg-slate-900 focus:text-white">
                                     <PlusCircle className="h-4 w-4" /> Assign Fleet
                                 </DropdownMenuItem>
                             )}
-
                             {!isCancelled && (
                                 <>
                                     <DropdownMenuSeparator className="bg-slate-100" />
@@ -178,7 +181,6 @@ export default function OrdersTable({
                                     </DropdownMenuItem>
                                 </>
                             )}
-
                             {isCancelled && isAdmin && (
                                 <DropdownMenuItem onClick={() => onRestoreOrder(order.id)} className="gap-3 font-bold py-2.5 text-emerald-600 cursor-pointer rounded-xl hover:bg-emerald-50">
                                     <RotateCcw className="h-4 w-4" /> Restore Mission
@@ -188,8 +190,6 @@ export default function OrdersTable({
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-
-                    {/* ASSIGNMENT SUB-ROWS */}
                     {assignedTrips.map((trip: any, tIdx: number) => (
                         <TableRow key={trip.id} className="h-14 bg-slate-50/50 hover:bg-blue-50/10 border-b border-slate-100 last:border-slate-200 transition-colors group/trip">
                             <TableCell colSpan={2} className="px-6">
@@ -217,9 +217,6 @@ export default function OrdersTable({
                                     )}>
                                         {trip.entry?.status === 'OUT' ? 'DISPATCHED' : (trip.entry?.status === 'IN' ? 'IN-YARD' : 'ASSIGNED')}
                                     </Badge>
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase italic">
-                                        {trip.entry?.status === 'OUT' ? `Sync: ${formatSafeDate(trip.entry.exitTimestamp, 'dd/MM HH:mm')}` : ''}
-                                    </span>
                                     <span className="text-[9px] font-black text-blue-900 uppercase">Load: {(trip.assignedQtyInTrip || 0).toFixed(3)} MT</span>
                                 </div>
                             </TableCell>

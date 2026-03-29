@@ -1,37 +1,43 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import VehicleIn from '@/components/dashboard/vehicle-entry/VehicleIn';
 import VehicleOut from '@/components/dashboard/vehicle-entry/VehicleOut';
 import UpcomingVehicles from '@/components/dashboard/vehicle-entry/UpcomingVehicles';
 import GateRegister from '@/components/dashboard/vehicle-entry/GateRegister';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, query, where, onSnapshot, getDocs, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs, limit, doc, getDoc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Truck, FileDown, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { normalizePlantId } from '@/lib/utils';
-import type { SubUser, VehicleEntryExit, Trip } from '@/types';
+import type { SubUser, VehicleEntryExit, Trip, Shipment } from '@/types';
 
+/**
+ * @fileOverview Gate Control Registry (Parent Page).
+ * Centralizes real-time data fetching to ensure synchronization between badges and tables.
+ */
 export default function VehicleEntryPage() {
   const firestore = useFirestore();
   const { user } = useUser();
+  
   const [activeTab, setActiveTab] = useState('vehicle-in');
   const [upcomingVehicleData, setUpcomingVehicleData] = useState<any | null>(null);
   
-  const [counts, setCounts] = useState({ in: 0, out: 0, upcoming: 0 });
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [entries, setEntries] = useState<VehicleEntryExit[]>([]);
+  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [authPlantIds, setAuthPlantIds] = useState<string[]>([]);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
 
+  // 1. Authorization Handshake
   useEffect(() => {
     if (!firestore || !user) return;
 
-    let unsubIn: () => void;
-    let unsubUpcoming: () => void;
-
-    const fetchData = async () => {
-        setIsLoading(true);
+    const fetchAuth = async () => {
         try {
             const lastIdentity = localStorage.getItem('slmc_last_identity');
             const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
@@ -44,53 +50,85 @@ export default function VehicleEntryPage() {
                 userDocSnap = userQSnap.docs[0];
             }
 
-            let authPlantIds: string[] = [];
+            let ids: string[] = [];
             const isAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
 
             if (userDocSnap) {
                 const userData = userDocSnap.data() as SubUser;
                 const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdmin;
                 const allPlantsSnap = await getDocs(collection(firestore, "logistics_plants"));
-                authPlantIds = isRoot ? allPlantsSnap.docs.map(d => d.id) : (userData.plantIds || []);
+                ids = isRoot ? allPlantsSnap.docs.map(d => d.id) : (userData.plantIds || []);
             } else if (isAdmin) {
                 const allPlantsSnap = await getDocs(collection(firestore, "logistics_plants"));
-                authPlantIds = allPlantsSnap.docs.map(d => d.id);
+                ids = allPlantsSnap.docs.map(d => d.id);
             }
-
-            if (authPlantIds.length === 0) {
-                setIsLoading(false);
-                return;
-            }
-
-            const qIn = query(collection(firestore, "vehicleEntries"), where("status", "==", "IN"));
-            unsubIn = onSnapshot(qIn, (snap) => {
-                const activeInVehicles = snap.docs
-                    .map(d => d.data() as VehicleEntryExit)
-                    .filter(d => authPlantIds.some(aid => normalizePlantId(aid) === normalizePlantId(d.plantId)));
-                setCounts(prev => ({ ...prev, in: activeInVehicles.length }));
-            }, () => setDbError(true));
-
-            const qUpcoming = query(collection(firestore, "trips"), where("tripStatus", "==", "Assigned"));
-            unsubUpcoming = onSnapshot(qUpcoming, (snap) => {
-                const pending = snap.docs
-                    .map(d => d.data() as Trip)
-                    .filter(d => authPlantIds.some(aid => normalizePlantId(aid) === normalizePlantId(d.originPlantId)));
-                setCounts(prev => ({ ...prev, upcoming: pending.length }));
-            });
-
-            setIsLoading(false);
+            setAuthPlantIds(ids);
         } catch (e) {
             setDbError(true);
-            setIsLoading(false);
         }
     };
-
-    fetchData();
-    return () => {
-        if (unsubIn) unsubIn();
-        if (unsubUpcoming) unsubUpcoming();
-    };
+    fetchAuth();
   }, [firestore, user]);
+
+  // 2. Real-time Registry Sync
+  useEffect(() => {
+    if (!firestore || authPlantIds.length === 0) return;
+
+    const unsubscribers: (() => void)[] = [];
+
+    // Sync Gate Entries
+    const unsubIn = onSnapshot(collection(firestore, "vehicleEntries"), (snap) => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+        setEntries(list);
+        setIsLoading(false);
+    }, () => setDbError(true));
+    unsubscribers.push(unsubIn);
+
+    // Sync Active Assigned Trips
+    const unsubTrips = onSnapshot(query(collection(firestore, "trips"), where("tripStatus", "==", "Assigned")), (snap) => {
+        setTrips(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
+    });
+    unsubscribers.push(unsubTrips);
+
+    // Sync Shipments for Enrichment
+    authPlantIds.forEach(pId => {
+        unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/shipments`), (snap) => {
+            const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+            setShipments(prev => [...prev.filter(s => s.originPlantId !== pId), ...list]);
+        }));
+    });
+
+    return () => unsubscribers.forEach(u => u());
+  }, [firestore, authPlantIds]);
+
+  // 3. Centralized Logic Nodes
+  const inVehiclesSet = useMemo(() => {
+    return new Set(entries.filter(e => e.status === 'IN').map(e => e.vehicleNumber?.toUpperCase().trim()));
+  }, [entries]);
+
+  const upcomingList = useMemo(() => {
+    const list = trips.filter(t => {
+        const normPId = normalizePlantId(t.originPlantId);
+        const isAuth = authPlantIds.some(aid => normalizePlantId(aid) === normPId);
+        const isNotInYard = !inVehiclesSet.has(t.vehicleNumber?.toUpperCase().trim());
+        return isAuth && isNotInYard;
+    }).map(t => {
+        const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : t.shipmentIds;
+        const shipment = shipments.find(s => s.id === shipId);
+        return {
+            ...t,
+            shipToParty: t.shipToParty || shipment?.shipToParty || shipment?.billToParty || '--',
+            assignedQtyInTrip: t.assignedQtyInTrip || shipment?.quantity || 0,
+            materialTypeId: shipment?.materialTypeId || 'MT'
+        };
+    });
+    return list;
+  }, [trips, authPlantIds, inVehiclesSet, shipments]);
+
+  const counts = useMemo(() => ({
+    in: entries.filter(e => e.status === 'IN' && authPlantIds.some(aid => normalizePlantId(aid) === normalizePlantId(e.plantId))).length,
+    upcoming: upcomingList.length
+  }), [entries, upcomingList, authPlantIds]);
 
   const handleVehicleInFromUpcoming = (tripData: any) => {
     setUpcomingVehicleData(tripData);
@@ -99,7 +137,6 @@ export default function VehicleEntryPage() {
   
   return (
     <main className="flex flex-1 flex-col h-full bg-[#f8fafc] animate-in fade-in duration-500">
-      {/* PAGE HEADER */}
       <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
             <div className="p-2.5 bg-blue-900 text-white rounded-2xl shadow-xl rotate-3">
@@ -152,7 +189,7 @@ export default function VehicleEntryPage() {
                   <GateRegister />
               </TabsContent>
               <TabsContent value="upcoming-vehicle" className="m-0 focus-visible:ring-0">
-                  <UpcomingVehicles onVehicleInClick={handleVehicleInFromUpcoming} />
+                  <UpcomingVehicles data={upcomingList} isLoading={isLoading} onVehicleInClick={handleVehicleInFromUpcoming} />
               </TabsContent>
           </div>
         </Tabs>

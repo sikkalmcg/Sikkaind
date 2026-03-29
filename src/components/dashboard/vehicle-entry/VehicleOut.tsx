@@ -124,7 +124,8 @@ export default function VehicleOut() {
                         const shipRef = doc(firestore, `plants/${plantId}/shipments`, tripData.shipmentIds[0]);
                         const shipSnap = await getDoc(shipRef);
                         if (shipSnap.exists()) {
-                            setValue('invoiceNumber', (shipSnap.data() as Shipment).invoiceNumber || '', { shouldValidate: true });
+                            const sData = shipSnap.data() as Shipment;
+                            setValue('invoiceNumber', sData.invoiceNumber || '', { shouldValidate: true });
                         }
                     }
                 }
