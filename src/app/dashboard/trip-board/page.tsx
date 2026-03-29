@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
@@ -65,7 +64,7 @@ function TripBoardContent() {
 
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
-  const [toDate, setToDate] = useState<Date | undefined>(endOfDay(new Date()));
+  const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
@@ -250,11 +249,11 @@ function TripBoardContent() {
 
       const parseDate = (val: any) => val instanceof Date ? val : (val instanceof Timestamp ? val.toDate() : null);
 
-      // Robust Item Description Node
-      const itemDescriptions = lr?.items?.map((i: any) => i.itemDescription || i.productDescription).filter(Boolean) || 
-                               shipment?.items?.map((i: any) => i.itemDescription || i.description).filter(Boolean) || 
-                               [];
-      const summarizedDesc = itemDescriptions.length > 0 ? Array.from(new Set(itemDescriptions)).join(', ') : (shipment?.itemDescription || shipment?.material || '--');
+      // Robust Item & Invoice Node Extraction
+      const itemsManifest = lr?.items || shipment?.items || [];
+      const invoiceNumbers = Array.from(new Set(itemsManifest.map((i: any) => i.invoiceNumber || i.invoiceNo).filter(Boolean))).join(', ') || shipment?.invoiceNumber || '--';
+      const itemDescriptions = Array.from(new Set(itemsManifest.map((i: any) => i.itemDescription || i.description || i.productDescription).filter(Boolean))).join(', ') || shipment?.material || '--';
+      const totalUnits = itemsManifest.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0) || Number(shipment?.totalUnits || 0);
 
       return {
         ...t,
@@ -278,10 +277,11 @@ function TripBoardContent() {
         carrier: carrierObj?.name || '--',
         dispatchedQty: lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip) || 0),
         lrQty: lr ? lr.items?.reduce((sum: number, i: any) => sum + (Number(i.weight) || 0), 0) : (Number(t.assignedQtyInTrip) || 0),
-        lrUnits: lr ? lr.items?.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0) : 0,
+        lrUnits: totalUnits,
         lrNumber: t.lrNumber || shipment?.lrNumber || '',
         lrDate: t.lrDate || shipment?.lrDate || null,
-        itemDescription: summarizedDesc
+        itemDescription: itemDescriptions,
+        invoiceNumbers: invoiceNumbers
       };
     });
   }, [trips, shipments, lrs, entries, dbCarriers, plants]);
@@ -433,7 +433,7 @@ function TripBoardContent() {
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
                         <Filter className="h-3 w-3" /> End Date Node
                     </Label>
-                    <DatePicker date={toDate} setDate={setToDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" />
+                    <DatePicker date={toDate} setDate={setTodayDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" />
                 </div>
 
                 <div className="ml-auto flex items-center gap-3 self-end pb-0.5">

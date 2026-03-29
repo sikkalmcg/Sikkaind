@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -18,7 +17,9 @@ import {
     Clock,
     FileText,
     MapPin,
-    AlertCircle
+    AlertCircle,
+    Info,
+    Smartphone
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, isValid } from 'date-fns';
@@ -70,7 +71,8 @@ const formatSafeDate = (date: any, formatStr: string = 'dd/MM/yy') => {
     if (!date) return '--';
     try {
         const d = date instanceof Timestamp ? date.toDate() : new Date(date);
-        return isValid(d) ? format(d, formatStr) : '--';
+        if (!isValid(d)) return '--';
+        return format(d, formatStr);
     } catch (e) {
         return '--';
     }
@@ -95,7 +97,7 @@ export default function TripBoardTable({
   
   return (
     <div className="overflow-x-auto">
-      <Table className="border-collapse w-full min-w-[2400px] table-fixed">
+      <Table className="border-collapse w-full min-w-[3000px] table-fixed">
         <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b">
           <TableRow className="h-14 hover:bg-transparent">
             <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500 w-32">Plant</TableHead>
@@ -103,11 +105,13 @@ export default function TripBoardTable({
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 text-center">LR Date</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36">Trip ID</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36">Vehicle No</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48 text-center">Invoice Node</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48">Consignor</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48">Consignee</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-64">Item Description</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40">Destination</TableHead>
-            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right font-black">UNIT (MT)</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-24 text-center">Units</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right font-black">Weight (MT)</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 text-center">Trip Status</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 text-center">POD Registry</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-8 text-right sticky right-0 bg-slate-50 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-32">Action</TableHead>
@@ -116,7 +120,7 @@ export default function TripBoardTable({
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={13} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
+              <TableCell colSpan={15} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
                 No mission nodes detected in current registry view.
               </TableCell>
             </TableRow>
@@ -140,12 +144,18 @@ export default function TripBoardTable({
                 </TableCell>
                 <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs uppercase">{row.tripId}</TableCell>
                 <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{row.vehicleNumber}</TableCell>
-                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs">{row.consignor}</TableCell>
+                <TableCell className="px-4 text-center font-bold text-slate-800 text-[10px] truncate" title={row.invoiceNumbers}>
+                    {row.invoiceNumbers}
+                </TableCell>
+                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={row.consignor}>{row.consignor}</TableCell>
                 <TableCell className="px-4 truncate font-medium text-slate-500 uppercase text-xs">{row.billToParty}</TableCell>
-                <TableCell className="px-4 truncate font-bold text-slate-700 uppercase italic text-[10px]">
+                <TableCell className="px-4 truncate font-bold text-slate-700 uppercase italic text-[10px]" title={row.itemDescription}>
                     "{row.itemDescription || '--'}"
                 </TableCell>
                 <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-xs">{row.unloadingPoint}</TableCell>
+                <TableCell className="px-4 text-center font-black text-slate-900 text-xs">
+                    {row.lrUnits || '--'}
+                </TableCell>
                 <TableCell className="px-4 text-right font-black text-blue-900 text-xs">
                     {(Number(row.dispatchedQty) || Number(row.assignedQtyInTrip) || 0).toFixed(3)} MT
                 </TableCell>

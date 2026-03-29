@@ -75,7 +75,7 @@ export default function VehicleOut() {
     defaultValues: { plantId: '', entryId: '', exitStatus: 'Loaded', lrNumber: '', invoiceNumber: '', exitWeight: 0, weightUnit: 'MT' },
   });
 
-  const { watch, handleSubmit, reset, setValue } = form;
+  const { watch, handleSubmit, reset, setValue, formState: { isSubmitting } } = form;
   const selectedPlantId = watch('plantId');
   const selectedEntryId = watch('entryId');
   const exitStatus = watch('exitStatus');
