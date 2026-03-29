@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -18,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/date-picker';
 import type { Plant, Shipment, WithId, SubUser, Party, MasterQtyType, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin } from 'lucide-react';
+import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText } from 'lucide-react';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDoc, getDocs, limit } from "firebase/firestore";
 import { cn, normalizePlantId, formatSequenceId } from '@/lib/utils';
@@ -198,11 +199,11 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
             if (manifestItems.length === 0) {
                 manifestItems = [{
                     invoiceNumber: 'INITIAL-PLAN',
+                    ewaybillNumber: '',
                     units: 1,
                     unitType: 'Package',
                     itemDescription: 'AUTO-GEN MISSION PAYLOAD',
                     weight: values.quantity,
-                    ewaybillNumber: '',
                     hsnSac: ''
                 }];
             }
@@ -385,9 +386,9 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                <section className="space-y-6">
                     <div className="flex items-center justify-between px-2">
                         <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3">
-                            <Calculator className="h-5 w-5 text-blue-600" /> Optional Manifest Items Registry
+                            <Calculator className="h-5 w-5 text-blue-600" /> 3. Optional Manifest Items Registry
                         </h3>
-                        <Button type="button" variant="outline" size="sm" onClick={() => append({ invoiceNumber: '', units: 1, unitType: 'Package', itemDescription: '', weight: 0.001 })} className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all">
+                        <Button type="button" variant="outline" size="sm" onClick={() => append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '', weight: 0.001 })} className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all">
                             <PlusCircle size={16} /> Add Node
                         </Button>
                     </div>
@@ -396,6 +397,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                             <TableHeader className="bg-slate-900">
                                 <TableRow className="hover:bg-transparent h-14 border-none">
                                     <TableHead className="text-white text-[10px] font-black uppercase px-8">Invoice #</TableHead>
+                                    <TableHead className="text-white text-[10px] font-black uppercase px-4">E-Waybill No.</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center">Units</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-8 text-right">Weight (MT)</TableHead>
@@ -404,11 +406,12 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                             </TableHeader>
                             <TableBody>
                                 {fields.length === 0 ? (
-                                    <TableRow><TableCell colSpan={5} className="h-24 text-center text-slate-400 italic border-none">No detailed items added. Registry will auto-generate from header.</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={6} className="h-24 text-center text-slate-400 italic border-none">No detailed items added. Registry will auto-generate from header.</TableCell></TableRow>
                                 ) : (
                                     fields.map((field, index) => (
                                         <TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-none hover:bg-blue-50/10 transition-colors">
                                             <TableCell className="px-8"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-10 rounded-xl font-bold" /></TableCell>
+                                            <TableCell className="px-4"><Input {...form.register(`items.${index}.ewaybillNumber`)} className="h-10 rounded-xl font-mono text-blue-600" /></TableCell>
                                             <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-10 rounded-xl font-bold" /></TableCell>
                                             <TableCell className="px-4"><Input type="number" {...form.register(`items.${index}.units`)} className="h-10 text-center font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" /></TableCell>
                                             <TableCell className="px-8 text-right"><Input type="number" step="0.001" {...form.register(`items.${index}.weight`)} className="h-10 text-right font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" /></TableCell>
