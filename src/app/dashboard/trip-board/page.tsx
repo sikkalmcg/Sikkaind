@@ -234,7 +234,9 @@ function TripBoardContent() {
 
   const allFilteredData = useMemo(() => {
     return trips.map(t => {
-      const shipment = shipments.find(s => s.id === t.shipmentIds?.[0]);
+      // Registry Logic Node: Resolve associated shipment
+      const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : (t.shipmentIds || null);
+      const shipment = shipments.find(s => s.id === shipId);
       const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId);
       
       const entry = entries.find(e => e.tripId === t.id) || 

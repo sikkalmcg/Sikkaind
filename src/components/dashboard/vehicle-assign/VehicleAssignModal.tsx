@@ -454,7 +454,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                     disabled={isSubmitting || calculatingDistance} 
                     className="h-16 px-16 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
                 >
-                    {isSubmitting ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />} {isEditing ? 'Update Node' : 'Establish Mission Node'}
+                    {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} {isEditing ? 'Update Node' : 'Establish Mission Node'}
                 </Button>
             </div>
         </DialogFooter>
