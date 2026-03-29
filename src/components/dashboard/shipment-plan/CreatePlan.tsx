@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -158,6 +158,17 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
         setAuthorizedPlants(isAdmin ? allPlants : allPlants.filter(p => p.id === '1426')); 
     }
   }, [allPlants, user]);
+
+  // Registry Pulse: Auto-populate Lifting Point from selected Plant Node
+  useEffect(() => {
+    if (originPlantId && authorizedPlants.length > 0) {
+        const plant = authorizedPlants.find(p => p.id === originPlantId);
+        if (plant) {
+            const location = plant.city && plant.city !== 'N/A' ? plant.city : (plant.address && plant.address !== 'N/A' ? plant.address : plant.name);
+            setValue('loadingPoint', location, { shouldValidate: true });
+        }
+    }
+  }, [originPlantId, authorizedPlants, setValue]);
 
   useEffect(() => {
     if (isSameAsBillTo && billToParty) {
