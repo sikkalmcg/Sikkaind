@@ -65,7 +65,7 @@ function TripBoardContent() {
 
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
-  const [todayDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
+  const [toDate, setToDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
@@ -125,20 +125,18 @@ function TripBoardContent() {
 
       const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
       let authIds: string[] = [];
-      let isRoot = false;
 
       if (userDocSnap) {
         const userData = userDocSnap.data() as SubUser;
-        isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
+        const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
         authIds = isRoot ? baseList.map(p => p.id) : (userData.plantIds || []);
         setOperatorName(userData.fullName || userData.username || 'Operator');
       } else if (isAdminSession) {
-        isRoot = true;
         authIds = baseList.map(p => p.id);
         setOperatorName('AJAY SOMRA');
       }
 
-      setIsAdmin(isRoot);
+      setIsAdmin(!!userDocSnap || isAdminSession);
       setAuthorizedPlantIds(authIds);
       const filtered = baseList.filter(p => authIds.some(aid => normalizePlantId(aid).toLowerCase() === normalizePlantId(p.id).toLowerCase()));
       setPlants(filtered);
@@ -236,6 +234,8 @@ function TripBoardContent() {
     return trips.map(t => {
       const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : (t.shipmentIds || null);
       const shipment = shipments.find(s => s.id === shipId || s.shipmentId === shipId);
+      
+      // REGISTRY HANDSHAKE: Ensure LR No and Date are resolved correctly
       const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId || (l.lrNumber === t.lrNumber && l.originPlantId === t.originPlantId));
       
       const entry = entries.find(e => e.tripId === t.id) || 
@@ -285,7 +285,7 @@ function TripBoardContent() {
 
   const filteredBase = useMemo(() => {
     const dayStart = fromDate ? startOfDay(fromDate) : null;
-    const dayEnd = todayDate ? endOfDay(todayDate) : null;
+    const dayEnd = toDate ? endOfDay(toDate) : null;
 
     return allFilteredData.filter(t => {
       const statusRaw = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim();
@@ -299,7 +299,7 @@ function TripBoardContent() {
       if (dayEnd && compareDate && compareDate > dayEnd) return false;
       return true;
     });
-  }, [allFilteredData, fromDate, todayDate]);
+  }, [allFilteredData, fromDate, toDate]);
 
   const filteredTrips = useMemo(() => {
     return filteredBase.filter(t => {
@@ -430,7 +430,7 @@ function TripBoardContent() {
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
                         <Filter className="h-3 w-3" /> End Date Node
                     </Label>
-                    <DatePicker date={todayDate} setDate={setTodayDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" />
+                    <DatePicker date={toDate} setDate={setToDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" />
                 </div>
 
                 <div className="ml-auto flex items-center gap-3 self-end pb-0.5">

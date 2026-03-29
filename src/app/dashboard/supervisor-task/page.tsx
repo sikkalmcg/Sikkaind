@@ -52,6 +52,7 @@ export default function SupervisorTaskPage() {
     const [vehicleEntries, setVehicleEntries] = useState<any[]>([]);
     const [trips, setTrips] = useState<any[]>([]);
     const [shipments, setShipments] = useState<any[]>([]);
+    const [lrs, setLrs] = useState<any[]>([]);
     const [history, setHistory] = useState<any[]>([]);
     
     const [taskModalData, setTaskModalData] = useState<any | null>(null);
@@ -140,6 +141,14 @@ export default function SupervisorTaskPage() {
                 });
             }));
 
+            unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/lrs`), (snap) => {
+                const plantLrs = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() }));
+                setLrs(prev => {
+                    const otherPlants = prev.filter(l => l.originPlantId !== pId);
+                    return [...otherPlants, ...plantLrs];
+                });
+            }));
+
             const historyRef = query(
                 collection(firestore, `plants/${pId}/supervisor_tasks`), 
                 orderBy("timestamp", "desc"), 
@@ -172,11 +181,13 @@ export default function SupervisorTaskPage() {
             if (s !== 'assigned' && s !== 'vehicle assigned' && s !== 'vehicle-assigned') return;
 
             const vehicleNum = trip.vehicleNumber || '--';
-            const hasVehicle = vehicleNum !== '--' && vehicleNum.trim() !== '';
             
-            // Registry Node: Match with Gate Entry
+            // REGISTRY NODE: Match with Gate Entry
             const entry = vehicleEntries.find(e => e.tripId === trip.id || (e.vehicleNumber === trip.vehicleNumber && e.status === 'IN'));
             if (entry?.isTaskCompleted) return;
+
+            // Handshake with Lorry Receipt node
+            const lr = lrs.find(l => l.tripDocId === trip.id || l.tripId === trip.tripId);
 
             const shipId = Array.isArray(trip.shipmentIds) ? trip.shipmentIds[0] : trip.shipmentIds;
             const shipment = shipments.find(s => s.id === shipId || s.shipmentId === shipId);
@@ -188,7 +199,7 @@ export default function SupervisorTaskPage() {
             tasks.push({
                 id: entry?.id || `trip-${trip.id}`,
                 tripId: trip.tripId,
-                lrNumber: trip.lrNumber || shipment?.lrNumber || '--',
+                lrNumber: lr?.lrNumber || trip.lrNumber || shipment?.lrNumber || '--',
                 realTripId: trip.id,
                 plantId: trip.originPlantId,
                 plantName: pName,
@@ -242,7 +253,7 @@ export default function SupervisorTaskPage() {
         });
 
         return tasks;
-    }, [trips, vehicleEntries, shipments, allPlants]);
+    }, [trips, vehicleEntries, shipments, allPlants, lrs]);
 
     const filteredTasks = useMemo(() => {
         return activeTasks.filter(t => {
@@ -251,7 +262,8 @@ export default function SupervisorTaskPage() {
             const matchesSearch = !searchTerm || 
                 t.vehicleNumber?.toLowerCase().includes(s) || 
                 t.driverName?.toLowerCase().includes(s) ||
-                t.tripId?.toLowerCase().includes(s);
+                t.tripId?.toLowerCase().includes(s) ||
+                t.lrNumber?.toLowerCase().includes(s);
             return matchesPlant && matchesSearch;
         });
     }, [activeTasks, selectedPlant, searchTerm]);
@@ -291,7 +303,7 @@ export default function SupervisorTaskPage() {
                         <ClipboardCheck className="h-7 w-7" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic">Supervisor Task Hub</h1>
+                        <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight uppercase italic">Supervisor Task Hub</h1>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Lifting & Receiving Registry Verification</p>
                     </div>
                 </div>
@@ -337,7 +349,7 @@ export default function SupervisorTaskPage() {
                         <div className="relative group">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-blue-900 transition-colors" />
                             <Input 
-                                placeholder="Search Vehicle, Pilot, Trip..." 
+                                placeholder="Search Vehicle, Pilot, Trip, LR..." 
                                 value={searchTerm} 
                                 onChange={e => { setSearchTerm(e.target.value); setLivePage(1); }}
                                 className="pl-10 h-10 w-[300px] rounded-xl bg-white border-slate-200 shadow-sm font-bold focus-visible:ring-blue-900"

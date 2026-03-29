@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -88,7 +89,7 @@ function ShipmentPlanContent() {
         }
 
         setAuthorizedPlantIds(authIds);
-        setPlants(baseList.filter(p => authIds.includes(p.id)));
+        setPlants(baseList.filter(p => authIds.some(aid => normalizePlantId(aid).toLowerCase() === normalizePlantId(p.id).toLowerCase())));
 
       } catch (error) {
         setDbError(true);
