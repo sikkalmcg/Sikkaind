@@ -12,7 +12,7 @@ import { FileDown, Search, Ban, Edit2, FileText, Printer, PlusCircle, WifiOff } 
 import { format, isValid } from 'date-fns';
 import type { Shipment, Plant, Trip, WithId, Carrier, LR } from '@/types';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, onSnapshot, doc, getDoc, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot, doc, getDoc, limit, orderBy } from 'firebase/firestore';
 import DeleteShipmentConfirmationDialog from './DeleteShipmentConfirmationDialog';
 import { Timestamp } from "firebase/firestore";
 import { cn, normalizePlantId } from '@/lib/utils';
@@ -42,6 +42,9 @@ type EnrichedShipment = WithId<Shipment> & {
     lrData?: any;
     carrierObj?: any;
     plant?: Plant;
+    summarizedInvoices?: string;
+    summarizedItems?: string;
+    totalUnitsCount?: number;
 };
 
 const ITEMS_PER_PAGE = 10;
@@ -62,7 +65,7 @@ const getStatusColor = (status: string) => {
     }
 }
 
-const formatSafeDate = (date: any, formatStr: string) => {
+const formatSafeDate = (date: any, formatStr: string = 'dd/MM/yy') => {
     if (!date) return '--';
     try {
         const d = date instanceof Timestamp ? date.toDate() : new Date(date);
@@ -114,6 +117,12 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
         const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(shipment.originPlantId));
         const carrier = allCarriers.find(c => c.id === trip?.carrierId || c.id === shipment.carrierId);
 
+        // Registry Data Resolution Node
+        const itemsManifest = shipment.items || [];
+        const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
+        const summarizedItems = Array.from(new Set(itemsManifest.map(i => i.itemDescription || i.description).filter(Boolean))).join(', ') || shipment.itemDescription || shipment.material || '--';
+        const totalUnitsCount = itemsManifest.reduce((sum, i) => sum + (Number(i.units) || 0), 0) || shipment.totalUnits || 0;
+
         return {
             ...shipment,
             plant,
@@ -124,7 +133,10 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
             tripStartDate: trip?.startDate instanceof Timestamp ? trip.startDate.toDate() : (trip?.startDate ? new Date(trip.startDate) : undefined),
             lrNumber: trip?.lrNumber || shipment.lrNumber,
             lrDate: trip?.lrDate instanceof Timestamp ? trip.lrDate.toDate() : (trip?.lrDate ? new Date(trip.lrDate) : (shipment.lrDate ? new Date(shipment.lrDate) : undefined)),
-            carrierObj: carrier
+            carrierObj: carrier,
+            summarizedInvoices,
+            summarizedItems,
+            totalUnitsCount
         }
     });
   }, [shipments, plants, trips, allCarriers]);
@@ -133,7 +145,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
     if (!searchTerm) return enrichedShipments;
     const s = searchTerm.toLowerCase();
     return enrichedShipments.filter(row => 
-        Object.values(row).some(val => val?.toString().toLowerCase().includes(s))
+        Object.values(row).some(val => val?.toString().toLowerCase().includes(s)) ||
+        row.summarizedInvoices?.toLowerCase().includes(s) ||
+        row.summarizedItems?.toLowerCase().includes(s)
     );
   }, [enrichedShipments, searchTerm]);
 
@@ -159,12 +173,12 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
         'Order Date': formatSafeDate(s.creationDate, 'dd/MM/yy HH:mm'),
         'Vehicle Number': s.vehicleNumber || '--',
         'Pilot Mobile': s.driverMobile || '--',
-        'Invoice Number': s.invoiceNumber || '--',
+        'Invoice Number': s.summarizedInvoices || '--',
         'E-Waybill Number': s.ewaybillNumber || '--',
         'LR Number': s.lrNumber || '--',
         'LR Date': s.lrDate ? format(new Date(s.lrDate), 'dd-MM-yyyy') : '--',
-        'Item Description': s.itemDescription || '--',
-        'Total Units': s.totalUnits || '--',
+        'Item Description': s.summarizedItems || '--',
+        'Total Units': s.totalUnitsCount || '--',
         'FROM': s.loadingPoint || s.plantName,
         'Consignor': s.consignor || 'N/A',
         'Bill to Party': s.billToParty || 'N/A',
@@ -198,9 +212,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
             const manifestItems = row.items && row.items.length > 0 ? row.items : [{
                 invoiceNumber: row.invoiceNumber || 'NA',
                 ewaybillNumber: row.ewaybillNumber || '',
-                units: row.totalUnits || 1,
+                units: row.totalUnitsCount || 1,
                 unitType: 'Package',
-                itemDescription: row.itemDescription || row.material || 'GENERAL CARGO',
+                itemDescription: row.summarizedItems || 'GENERAL CARGO',
                 weight: row.quantity
             }];
 
@@ -312,7 +326,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                       <TableCell className="px-4 text-center whitespace-nowrap text-slate-500 font-bold">{formatSafeDate(s.creationDate, 'dd/MM/yy HH:mm')}</TableCell>
                       <TableCell className="px-4 text-center font-black text-slate-900 uppercase tracking-tighter">{s.vehicleNumber || '--'}</TableCell>
                       <TableCell className="px-4 text-center font-mono font-bold text-slate-400">{s.driverMobile || '--'}</TableCell>
-                      <TableCell className="px-4 text-center font-bold text-slate-800">{s.invoiceNumber || '--'}</TableCell>
+                      <TableCell className="px-4 text-center font-bold text-slate-800">{s.summarizedInvoices}</TableCell>
                       <TableCell className="px-4 text-center font-bold text-slate-800">{s.ewaybillNumber || '--'}</TableCell>
                       <TableCell className="px-4 text-center">
                         {s.lrNumber ? (
@@ -328,8 +342,8 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                       <TableCell className="px-4 text-center whitespace-nowrap text-slate-500">{formatSafeDate(s.lrDate, 'dd/MM/yy')}</TableCell>
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase">{s.consignor}</TableCell>
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase">{s.billToParty}</TableCell>
-                      <TableCell className="px-4 truncate font-medium text-slate-500 italic">"{s.itemDescription || '--'}"</TableCell>
-                      <TableCell className="px-4 text-center font-black text-slate-900">{s.totalUnits || '0'}</TableCell>
+                      <TableCell className="px-4 truncate font-medium text-slate-500 italic">"{s.summarizedItems}"</TableCell>
+                      <TableCell className="px-4 text-center font-black text-slate-900">{s.totalUnitsCount}</TableCell>
                       <TableCell className="px-4 text-right font-black text-blue-900">
                         {s.materialTypeId === 'FTL' ? '1 LOAD' : s.quantity.toFixed(3)}
                       </TableCell>

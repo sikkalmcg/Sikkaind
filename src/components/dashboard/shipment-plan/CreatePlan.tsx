@@ -554,7 +554,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                     <div className="rounded-[2.5rem] border-2 border-slate-200 bg-white shadow-2xl overflow-hidden">
                         <Table>
                             <TableHeader className="bg-slate-900">
-                                <TableRow className="hover:bg-transparent h-14 border-none">
+                                <TableRow className="hover:bg-transparent border-none h-14">
                                     <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">Invoice #</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">E-Waybill No.</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead>
