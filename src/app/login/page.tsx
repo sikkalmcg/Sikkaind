@@ -1,10 +1,10 @@
 'use client';
 
-import { auth } from "@/firebase";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { useAuth } from "@/firebase";
 import { useLoading } from "@/context/LoadingContext";
 import { Loader2, UserCheck, KeyRound, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import placeholderData from '@/app/lib/placeholder-images.json';
@@ -182,6 +182,7 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void; }) {
 
 // --- MAIN LOGIN PAGE ---
 export default function LoginPage() {
+    const auth = useAuth();
     const [identity, setIdentity] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
