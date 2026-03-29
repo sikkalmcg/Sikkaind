@@ -125,7 +125,7 @@ export default function TripBoardTable({
               <TableRow key={row.id} className="h-16 hover:bg-blue-50/20 transition-all border-b border-slate-100 last:border-0 group">
                 <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{row.plantName}</TableCell>
                 <TableCell className="px-4 text-center">
-                    {row.lrNumber ? (
+                    {row.lrNumber && row.lrNumber !== 'PENDING' ? (
                         <button onClick={() => onViewLR(row)} className="font-black text-blue-700 hover:underline underline-offset-4 decoration-blue-200 uppercase text-[11px]">
                             {row.lrNumber}
                         </button>
@@ -141,11 +141,11 @@ export default function TripBoardTable({
                 <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs uppercase">{row.tripId}</TableCell>
                 <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{row.vehicleNumber}</TableCell>
                 <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs">{row.consignor}</TableCell>
-                <TableCell className="px-4 truncate font-medium text-slate-500 uppercase text-xs">{row.billToParty}</TableCell>
+                <TableCell className="px-4 truncate font-medium text-slate-500 uppercase text-xs">{row.consignee}</TableCell>
                 <TableCell className="px-4 truncate font-bold text-slate-700 uppercase italic text-[10px]">
                     "{row.itemDescription || '--'}"
                 </TableCell>
-                <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-xs">{row.unloadingPoint}</TableCell>
+                <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-xs">{row.destination}</TableCell>
                 <TableCell className="px-4 text-right font-black text-blue-900 text-xs">
                     {(Number(row.dispatchedQty) || Number(row.assignedQtyInTrip) || 0).toFixed(3)} MT
                 </TableCell>

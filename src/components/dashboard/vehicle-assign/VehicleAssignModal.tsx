@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -47,7 +48,8 @@ import {
     AlertCircle,
     X,
     IndianRupee,
-    TrendingUp
+    TrendingUp,
+    Weight
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser } from '@/types';
@@ -96,7 +98,7 @@ const formSchema = z.object({
     assignQty: z.coerce.number().positive('Assign quantity must be positive'),
     transporterName: z.string().optional().default(''),
     transporterMobile: z.string().optional().default(''),
-    distance: z.coerce.number().optional(),
+    distance: z.coerce.number().optional().default(0),
     freightRate: z.coerce.number().optional().default(0),
 }).superRefine((data, ctx) => {
     if (data.vehicleType === 'Market Vehicle') {
@@ -129,11 +131,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { assignQty: shipment.balanceQty },
+    defaultValues: { assignQty: Number(shipment.balanceQty || 0) },
   });
   const { watch, setValue, handleSubmit, reset, control, formState: { isSubmitting, errors } } = form;
 
-  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate } = useWatch({ control });
+  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate, distance: currentDistance } = useWatch({ control });
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -148,9 +150,9 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     return plants.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(shipment.originPlantId).toLowerCase())?.name || shipment.originPlantId;
   }, [plants, shipment.originPlantId]);
 
-  // Initial Form Reset
   useEffect(() => {
     if (isOpen) {
+        const safeBalance = shipment.balanceQty !== undefined ? Number(Number(shipment.balanceQty).toFixed(3)) : 0;
         const defaultValues = {
             isNewVehicle: false,
             vehicleId: trip?.vehicleId || '',
@@ -159,7 +161,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             driverMobile: trip?.driverMobile || '',
             vehicleType: trip?.vehicleType || 'Own Vehicle',
             carrierId: trip?.carrierId || shipment.carrierId || (carriers.length > 0 ? carriers[0].id : ''),
-            assignQty: trip?.assignedQtyInTrip ?? Number(Number(shipment.balanceQty).toFixed(3)),
+            assignQty: trip?.assignedQtyInTrip ?? safeBalance,
             transporterName: trip?.transporterName || '',
             transporterMobile: (trip as any)?.transporterMobile || '',
             distance: trip?.distance || 0,
@@ -169,7 +171,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     }
   }, [isOpen, trip, shipment, carriers, reset]);
 
-  // Sync Vehicle from Gate
   useEffect(() => {
     if (!isOpen || isNewVehicle || !vehicleId) return;
     const found = vehiclesAtGate.find(v => v.id === vehicleId);
@@ -180,10 +181,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     }
   }, [isOpen, isNewVehicle, vehicleId, vehiclesAtGate, setValue]);
 
-  // Fetch Gate Registry
   useEffect(() => {
     if (!isOpen || !firestore || !shipment.originPlantId) return;
-    
     const fetchRegistryData = async () => {
         setIsDataLoading(true);
         try {
@@ -201,16 +200,12 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     fetchRegistryData();
   }, [isOpen, firestore, shipment.originPlantId]);
 
-  // Distance Calculation
-  const currentDistance = watch('distance');
   useEffect(() => {
     if (!isLoaded || !isOpen || !shipment.loadingPoint || !shipment.unloadingPoint || isEditing) return;
-
     const calculate = () => {
       setCalculatingDistance(true);
       const service = new google.maps.DirectionsService();
-      const timeout = setTimeout(() => setCalculatingDistance(false), 5000); // Fail-safe
-
+      const timeout = setTimeout(() => setCalculatingDistance(false), 5000);
       service.route({
           origin: shipment.loadingPoint!,
           destination: shipment.unloadingPoint!,
@@ -235,22 +230,18 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
   const onSubmit = async (values: FormValues) => {
     if (!firestore || !user) return;
-
     showLoader();
     try {
         await runTransaction(firestore, async (transaction) => {
             const plantId = normalizePlantId(shipment.originPlantId);
             const timestamp = serverTimestamp();
             const currentName = userProfile?.fullName || user.displayName || user.email?.split('@')[0] || 'System Operator';
-
             const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipment.id);
             const shipmentSnap = await transaction.get(shipmentRef);
             if (!shipmentSnap.exists()) throw new Error("Order registry node error.");
             const sData = shipmentSnap.data() as Shipment;
-
             const docId = trip?.id || doc(collection(firestore, 'trips')).id;
             const tripId = trip?.tripId || generateRandomTripId();
-            
             const tripData: any = {
                 ...values,
                 tripId,
@@ -263,21 +254,17 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 podStatus: 'Missing',
                 freightStatus: 'Unpaid'
             };
-
             const diff = isEditing ? values.assignQty - trip!.assignedQtyInTrip : values.assignQty;
             const newAssignedTotal = (sData.assignedQty || 0) + diff;
-            
             transaction.update(shipmentRef, { 
                 assignedQty: newAssignedTotal, 
                 balanceQty: sData.quantity - newAssignedTotal, 
                 currentStatusId: (sData.quantity - newAssignedTotal) > 0 ? 'Partly Vehicle Assigned' : 'Assigned',
                 lastUpdateDate: timestamp
             });
-            
             transaction.set(doc(firestore, `plants/${plantId}/trips`, docId), tripData);
             transaction.set(doc(firestore, 'trips', docId), tripData);
         });
-
         toast({ title: 'Mission Established', description: 'Registry node synchronized successfully.' });
         onAssignmentComplete();
     } catch (e: any) {
@@ -295,7 +282,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   };
 
   const carrierOptions = useMemo(() => carriers.map(c => ({ value: c.id, label: c.name })), [carriers]);
-
   const calculatedFreight = (Number(assignQty) || 0) * (Number(freightRate) || 0);
 
   return (
@@ -316,7 +302,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-10 space-y-10">
-          {/* Mission Context */}
           <Card className="p-10 border-2 border-slate-100 shadow-xl rounded-[2.5rem] bg-white relative overflow-hidden">
             <div className="absolute top-0 left-0 w-2 h-full bg-blue-900" />
             <div className="flex items-center gap-4 mb-8">
@@ -335,7 +320,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             </div>
           </Card>
 
-          {/* Allocation Form */}
           <Form {...form}>
             <form className="space-y-10">
                 <Card className="border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden">
@@ -362,20 +346,24 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                 <TableRow className="align-top h-20 hover:bg-transparent">
                                     <TableCell className="px-4 py-6">
                                         {isNewVehicle ? (
-                                            <FormField name="vehicleNumber" control={control} render={({field}) => <FormControl><div className="relative"><Input placeholder="XX00XX0000" className="h-12 rounded-xl font-black uppercase text-lg border-blue-200 focus-visible:ring-blue-900" {...field} /></div></FormControl>} />
+                                            <FormField name="vehicleNumber" control={control} render={({field}) => <FormItem><FormControl><div className="relative"><Input placeholder="XX00XX0000" className="h-12 rounded-xl font-black uppercase text-lg border-blue-200 focus-visible:ring-blue-900" {...field} /></div></FormControl><FormMessage /></FormItem>} />
                                         ) : (
                                             <FormField name="vehicleId" control={control} render={({field}) => (
+                                                <FormItem>
                                                 <Select onValueChange={field.onChange} value={field.value}>
                                                     <FormControl><SelectTrigger className="h-12 rounded-xl font-black text-blue-900"><SelectValue placeholder={isDataLoading ? "Syncing Gate..." : "Resolve from Gate"} /></SelectTrigger></FormControl>
                                                     <SelectContent className="rounded-xl">{vehiclesAtGate.map(v => <SelectItem key={v.id} value={v.id} className="font-bold py-3 uppercase italic">{v.vehicleNumber} ({v.driverName})</SelectItem>)}</SelectContent>
                                                 </Select>
+                                                <FormMessage />
+                                                </FormItem>
                                             )} />
                                         )}
                                     </TableCell>
-                                    <TableCell className="px-4 py-6"><FormField name="driverName" control={control} render={({field}) => <FormControl><Input placeholder="Pilot Name" className="h-12 rounded-xl font-bold" {...field} /></FormControl>} /></TableCell>
-                                    <TableCell className="px-4 py-6"><FormField name="driverMobile" control={control} render={({field}) => <FormControl><Input {...field} maxLength={10} placeholder="10 Digits" className="h-12 rounded-xl font-mono font-black" /></FormControl>} /></TableCell>
+                                    <TableCell className="px-4 py-6"><FormField name="driverName" control={control} render={({field}) => <FormItem><FormControl><Input placeholder="Pilot Name" className="h-12 rounded-xl font-bold" {...field} /></FormControl><FormMessage /></FormItem>} /></TableCell>
+                                    <TableCell className="px-4 py-6"><FormField name="driverMobile" control={control} render={({field}) => <FormItem><FormControl><Input {...field} maxLength={10} placeholder="10 Digits" className="h-12 rounded-xl font-mono font-black" /></FormControl><FormMessage /></FormItem>} /></TableCell>
                                     <TableCell className="px-4 py-6">
                                         <FormField name="carrierId" control={control} render={({ field }) => (
+                                            <FormItem>
                                             <SearchableSelect 
                                                 options={carrierOptions} 
                                                 onChange={field.onChange} 
@@ -383,18 +371,28 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                                 placeholder="Pick Agent"
                                                 className="h-12"
                                             />
+                                            <FormMessage />
+                                            </FormItem>
                                         )} />
                                     </TableCell>
                                     <TableCell className="px-4 py-6">
                                         <FormField name="vehicleType" control={control} render={({ field }) => (
+                                            <FormItem>
                                             <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue placeholder="Select Type"/></SelectTrigger></FormControl>
                                                 <SelectContent className="rounded-xl">{VehicleTypes.map(t => <SelectItem key={t} value={t} className="font-bold py-2.5">{t}</SelectItem>)}</SelectContent>
                                             </Select>
+                                            <FormMessage />
+                                            </FormItem>
                                         )} />
                                     </TableCell>
                                     <TableCell className="px-4 py-6">
-                                        <FormField name="assignQty" control={control} render={({field}) => <FormControl><Input {...field} type="number" step="0.001" className="h-12 rounded-xl text-right font-black text-xl text-blue-900 shadow-inner" /></FormControl>} />
+                                        <FormField name="assignQty" control={control} render={({field}) => (
+                                            <FormItem>
+                                            <FormControl><Input {...field} value={field.value ?? ''} type="number" step="0.001" className="h-12 rounded-xl text-right font-black text-xl text-blue-900 shadow-inner" /></FormControl>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )} />
                                     </TableCell>
                                 </TableRow>
                             </TableBody>
@@ -409,9 +407,9 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Financial Particulars (Market Node)</h3>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
-                            <FormField name="transporterName" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Transporter Name *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white border-slate-200 font-bold" /></FormControl></FormItem>} />
-                            <FormField name="ownerName" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Fleet Owner *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white border-slate-200 font-bold" /></FormControl></FormItem>} />
-                            <FormField name="freightRate" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-600">Freight Rate (MT) *</FormLabel><FormControl><Input type="number" step="0.01" {...field} className="h-12 rounded-xl bg-white border-blue-200 font-black text-blue-900 text-lg shadow-inner" /></FormControl></FormItem>} />
+                            <FormField name="transporterName" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Transporter Name *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white border-slate-200 font-bold" /></FormControl><FormMessage /></FormItem>} />
+                            <FormField name="ownerName" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Fleet Owner *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white border-slate-200 font-bold" /></FormControl><FormMessage /></FormItem>} />
+                            <FormField name="freightRate" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-600">Freight Rate (MT) *</FormLabel><FormControl><Input type="number" step="0.01" {...field} className="h-12 rounded-xl bg-white border-blue-200 font-black text-blue-900 text-lg shadow-inner" /></FormControl><FormMessage /></FormItem>} />
                             <div className="flex flex-col gap-1.5">
                                 <span className="text-[10px] font-black uppercase text-slate-400">Calculated Freight</span>
                                 <div className="h-12 px-5 flex items-center bg-blue-900 rounded-xl text-white font-black text-xl shadow-lg">₹ {calculatedFreight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>

@@ -7,9 +7,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, doc, getDocs, getDoc, Timestamp, where, updateDoc, serverTimestamp, addDoc, orderBy, runTransaction, limit, onSnapshot, deleteDoc } from "firebase/firestore";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { DatePicker } from "@/components/date-picker";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/date-picker';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -121,9 +121,6 @@ function TripBoardContent() {
       const qSnap = await getDocs(q);
       if (!qSnap.empty) {
         userDocSnap = qSnap.docs[0];
-      } else {
-        const uidSnap = await getDoc(doc(firestore, "users", user.uid));
-        if (uidSnap.exists()) userDocSnap = uidSnap;
       }
 
       const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
