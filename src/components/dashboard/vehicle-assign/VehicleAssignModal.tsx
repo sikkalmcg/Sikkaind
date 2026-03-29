@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -245,6 +246,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 ...values,
                 tripId,
                 originPlantId: plantId,
+                shipmentIds: [shipment.id],
                 lastUpdated: timestamp,
                 userName: currentName,
                 userId: user.uid,
@@ -306,7 +308,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             <div className="flex items-center gap-4 mb-8">
                 <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100 shadow-sm"><ShieldCheck className="h-6 w-6 text-blue-600" /></div>
                 <div>
-                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">Order Manifest</h3>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Order Manifest</h3>
                     <p className="text-2xl font-black text-slate-900 tracking-tighter uppercase">{shipment.shipmentId}</p>
                 </div>
             </div>

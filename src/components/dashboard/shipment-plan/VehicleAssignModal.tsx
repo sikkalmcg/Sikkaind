@@ -135,7 +135,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   });
   const { watch, setValue, handleSubmit, reset, control, formState: { isSubmitting, errors } } = form;
 
-  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate, distance: currentDistance } = useWatch({ control });
+  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate, distance: currentDistance } = watch();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -246,6 +246,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 ...values,
                 tripId,
                 originPlantId: plantId,
+                shipmentIds: [shipment.id],
                 lastUpdated: timestamp,
                 userName: currentName,
                 userId: user.uid,
@@ -307,7 +308,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             <div className="flex items-center gap-4 mb-8">
                 <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100 shadow-sm"><ShieldCheck className="h-6 w-6 text-blue-600" /></div>
                 <div>
-                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">Order Manifest</h3>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Order Manifest</h3>
                     <p className="text-2xl font-black text-slate-900 tracking-tighter uppercase">{shipment.shipmentId}</p>
                 </div>
             </div>
@@ -454,7 +455,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                     disabled={isSubmitting || calculatingDistance} 
                     className="h-16 px-16 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
                 >
-                    {isSubmitting ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />} {isEditing ? 'Update Node' : 'Establish Mission Node'}
+                    {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} {isEditing ? 'Update Node' : 'Establish Mission Node'}
                 </Button>
             </div>
         </DialogFooter>

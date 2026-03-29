@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -42,7 +43,7 @@ function OpenOrdersContent() {
   
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
-  const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
+  const [toDate, setToDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
@@ -453,7 +454,7 @@ function OpenOrdersContent() {
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-4">
               <h1 className="text-2xl font-black uppercase text-blue-900 italic tracking-tight">Mission Control: Open Orders</h1>
-              {dbError && <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-orange-200"><WifiOff className="h-3 w-3" /><span>Cloud Sync Issue</span></div>}
+              {dbError && <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-orange-200"><WifiOff className="h-3 w-3" /><span>Cloud Sync Issue</span></div>}
             </div>
             <div className="flex flex-wrap items-center gap-4">
               <div className="grid gap-1.5">
@@ -477,7 +478,7 @@ function OpenOrdersContent() {
               </div>
               <div className="grid gap-1.5">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">To Date</Label>
-                <DatePicker date={toDate} setDate={setTodayDate} className="h-9 border-slate-200" />
+                <DatePicker date={toDate} setDate={setToDate} className="h-9 border-slate-200" />
               </div>
               <div className="grid gap-1.5">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Global Registry Search</Label>

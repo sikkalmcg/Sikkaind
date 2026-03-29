@@ -1,6 +1,7 @@
+
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -77,27 +78,29 @@ export default function OrdersTable({
   return (
     <div className="rounded-[2rem] border border-slate-200 shadow-xl bg-white overflow-hidden">
       <div className="overflow-x-auto">
-        <Table className="border-collapse w-full min-w-[1800px]">
+        <Table className="border-collapse w-full min-w-[2200px] table-fixed">
           <TableHeader className="bg-slate-50/80 sticky top-0 z-10 border-b">
             <TableRow className="h-14 hover:bg-transparent">
               <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500 w-32">Plant</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36">Order ID</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36">LR Number</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-500 w-32">LR Date</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48">Consignor</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48">Consignee</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48">Ship To</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-64">Item description</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 text-center">Units</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40">Destination</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-24 text-center">Unit</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right">Order Qty</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right">Balance Qty</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 text-center">Status</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 text-center">Assigned Trips</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-8 text-right sticky right-0 bg-slate-50 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-32">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
+                <TableCell colSpan={14} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
                   No mission plans detected in current registry view.
                 </TableCell>
               </TableRow>
@@ -110,11 +113,22 @@ export default function OrdersTable({
                   <React.Fragment key={order.id}>
                     {/* PRIMARY ORDER ROW */}
                     <TableRow className="h-16 hover:bg-blue-50/20 transition-all border-b border-slate-100 group">
-                      <TableCell className="px-6 font-bold text-slate-600 uppercase text-[11px] truncate">{order.plantName}</TableCell>
+                      <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{order.plantName}</TableCell>
                       <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs">{order.shipmentId}</TableCell>
+                      <TableCell className="px-4 text-center">
+                        {order.lrNumber ? (
+                            <button onClick={() => onViewLR(order)} className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter">
+                                {order.lrNumber}
+                            </button>
+                        ) : '--'}
+                      </TableCell>
+                      <TableCell className="px-4 text-center text-[11px] font-bold text-slate-500">
+                        {order.lrDate ? format(new Date(order.lrDate), 'dd/MM/yy') : '--'}
+                      </TableCell>
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={order.consignor}>{order.consignor}</TableCell>
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={order.billToParty}>{order.billToParty}</TableCell>
-                      <TableCell className="px-4 truncate font-medium text-slate-500 uppercase text-xs" title={order.shipToParty}>{order.shipToParty}</TableCell>
+                      <TableCell className="px-4 truncate font-medium text-slate-500 uppercase italic text-[10px]" title={order.summarizedItems}>"{order.summarizedItems}"</TableCell>
+                      <TableCell className="px-4 text-center font-black text-slate-900">{order.totalUnitsCount || '--'}</TableCell>
                       <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-xs" title={order.unloadingPoint}>{order.unloadingPoint}</TableCell>
                       <TableCell className="px-4 text-center font-bold text-slate-400 text-xs">{order.materialTypeId}</TableCell>
                       <TableCell className="px-4 text-right font-black text-slate-900 text-xs">{(order.quantity || 0).toFixed(3)}</TableCell>
@@ -123,17 +137,6 @@ export default function OrdersTable({
                         <Badge variant="outline" className={cn("text-[9px] font-black uppercase px-2 h-6 border shadow-sm", getStatusColor(order.currentStatusId))}>
                             {order.currentStatusId}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="px-4 text-center">
-                        <div className="flex justify-center">
-                            {assignedTrips.length > 0 ? (
-                                <Badge className="bg-blue-900 text-white font-black text-[9px] px-3 h-6 border-none shadow-md">
-                                    {assignedTrips.length} MISSION NODE{assignedTrips.length > 1 ? 'S' : ''}
-                                </Badge>
-                            ) : (
-                                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest italic">Awaiting Fleet</span>
-                            )}
-                        </div>
                       </TableCell>
                       <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
                         <DropdownMenu modal={false}>
@@ -185,16 +188,17 @@ export default function OrdersTable({
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fleet Node {tIdx + 1}</span>
                                 </div>
                             </TableCell>
-                            <TableCell className="px-4 font-black text-slate-900 uppercase text-xs tracking-tighter">{trip.vehicleNumber}</TableCell>
-                            <TableCell className="px-4 font-mono font-bold text-blue-600 text-[11px] uppercase">{trip.tripId}</TableCell>
+                            <TableCell colSpan={2} className="px-4 font-black text-slate-900 uppercase text-xs tracking-tighter">
+                                {trip.vehicleNumber}
+                                <span className="ml-3 font-mono font-bold text-blue-600 text-[10px] opacity-60">ID: {trip.tripId}</span>
+                            </TableCell>
                             <TableCell className="px-4">
                                 <div className="flex items-center gap-2">
                                     <div className="h-5 w-5 rounded-full bg-slate-200 flex items-center justify-center"><UserCircle className="h-3 w-3 text-slate-500" /></div>
-                                    <span className="text-[11px] font-bold text-slate-600 uppercase truncate max-w-[150px]">{trip.driverName || 'Pilot Name N/A'}</span>
+                                    <span className="text-[11px] font-bold text-slate-600 uppercase truncate max-w-[150px]">{trip.driverName || 'Pilot N/A'}</span>
                                 </div>
                             </TableCell>
-                            <TableCell className="px-4 font-black text-blue-900 text-xs text-right">{(trip.assignedQtyInTrip || 0).toFixed(3)} MT</TableCell>
-                            <TableCell colSpan={3} className="px-4">
+                            <TableCell colSpan={5} className="px-4">
                                 <div className="flex items-center gap-4">
                                     <Badge variant="outline" className={cn(
                                         "text-[8px] font-black uppercase px-2 h-5 border-none",
@@ -205,14 +209,10 @@ export default function OrdersTable({
                                     <span className="text-[9px] font-bold text-slate-400 uppercase italic">
                                         {trip.entry?.status === 'OUT' ? `Sync: ${format(new Date(trip.entry.exitTimestamp), 'dd/MM HH:mm')}` : ''}
                                     </span>
-                                    {trip.lrNumber && (
-                                        <button onClick={() => onViewLR(trip)} className="ml-2 font-black text-blue-700 hover:underline text-[9px] uppercase tracking-tighter decoration-blue-200">
-                                            LR: {trip.lrNumber}
-                                        </button>
-                                    )}
+                                    <span className="text-[9px] font-black text-blue-900 uppercase">Load: {(trip.assignedQtyInTrip || 0).toFixed(3)} MT</span>
                                 </div>
                             </TableCell>
-                            <TableCell className="px-4 text-center">
+                            <TableCell colSpan={2} className="px-4 text-center">
                                 <Badge variant="outline" className="text-[9px] font-black bg-white border-slate-200 text-slate-500 uppercase h-5">{trip.tripStatus || 'Awaiting Node'}</Badge>
                             </TableCell>
                             <TableCell className="px-8 text-right sticky right-0 bg-slate-50 group-hover/trip:bg-blue-50/20 transition-all border-l border-slate-100">

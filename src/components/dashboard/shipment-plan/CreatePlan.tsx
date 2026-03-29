@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -476,8 +477,10 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
 
                       <FormField control={control} name="paymentTerm" render={({ field }) => (
                         <FormItem><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">Payment Term</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl>
-                            <SelectContent className="rounded-xl">{PaymentTerms.map(t => <SelectItem key={t} value={t} className="font-bold py-2.5 uppercase">{t}</SelectItem>)}</SelectContent></Select>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl>
+                                <SelectContent className="rounded-xl">{PaymentTerms.map(t => <SelectItem key={t} value={t} className="font-bold py-2.5 uppercase">{t}</SelectItem>)}</SelectContent>
+                            </Select>
                         </FormItem>
                       )} />
                   </div>
