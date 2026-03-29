@@ -60,6 +60,10 @@ const getStatusColor = (status: string) => {
     }
 }
 
+/**
+ * Registry Logic: Safe Date Handshake
+ * Robustly resolves Firestore Timestamps or raw dates into mission-ready strings.
+ */
 const formatSafeDate = (date: any, formatStr: string = 'dd/MM/yy') => {
     if (!date) return '--';
     try {

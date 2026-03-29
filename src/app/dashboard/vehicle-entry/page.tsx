@@ -1,24 +1,25 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import VehicleIn from '@/components/dashboard/vehicle-entry/VehicleIn';
 import VehicleOut from '@/components/dashboard/vehicle-entry/VehicleOut';
 import UpcomingVehicles from '@/components/dashboard/vehicle-entry/UpcomingVehicles';
 import GateRegister from '@/components/dashboard/vehicle-entry/GateRegister';
-import { useFirestore, useUser } from '@/firebase';
-import { collection, query, where, onSnapshot, getDocs, limit, doc, getDoc } from 'firebase/firestore';
+import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, onSnapshot, getDocs, limit, doc, getDoc, orderBy } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Truck, FileDown, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { normalizePlantId } from '@/lib/utils';
-import type { SubUser, VehicleEntryExit, Trip, Shipment } from '@/types';
+import type { SubUser, VehicleEntryExit, Trip, Shipment, Plant } from '@/types';
 
 /**
  * @fileOverview Gate Control Registry (Parent Page).
  * Centralizes real-time data fetching to ensure synchronization between badges and tables.
+ * Implements "All Plant" upcoming view for authorized nodes.
  */
-export default function VehicleEntryPage() {
+function VehicleEntryContent() {
   const firestore = useFirestore();
   const { user } = useUser();
   
@@ -32,6 +33,12 @@ export default function VehicleEntryPage() {
   
   const [isLoading, setIsLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
+
+  const plantsQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
+    [firestore]
+  );
+  const { data: allMasterPlants } = useCollection<Plant>(plantsQuery);
 
   // 1. Authorization Handshake
   useEffect(() => {
@@ -56,19 +63,24 @@ export default function VehicleEntryPage() {
             if (userDocSnap) {
                 const userData = userDocSnap.data() as SubUser;
                 const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdmin;
-                const allPlantsSnap = await getDocs(collection(firestore, "logistics_plants"));
-                ids = isRoot ? allPlantsSnap.docs.map(d => d.id) : (userData.plantIds || []);
-            } else if (isAdmin) {
-                const allPlantsSnap = await getDocs(collection(firestore, "logistics_plants"));
-                ids = allPlantsSnap.docs.map(d => d.id);
+                
+                // Optimized: Use master plants if admin, else use profile-defined IDs
+                if (isRoot && allMasterPlants) {
+                    ids = allMasterPlants.map(p => p.id);
+                } else {
+                    ids = userData.plantIds || [];
+                }
+            } else if (isAdmin && allMasterPlants) {
+                ids = allMasterPlants.map(p => p.id);
             }
             setAuthPlantIds(ids);
         } catch (e) {
+            console.error("Auth sync error:", e);
             setDbError(true);
         }
     };
     fetchAuth();
-  }, [firestore, user]);
+  }, [firestore, user, allMasterPlants]);
 
   // 2. Real-time Registry Sync
   useEffect(() => {
@@ -84,8 +96,8 @@ export default function VehicleEntryPage() {
     }, () => setDbError(true));
     unsubscribers.push(unsubIn);
 
-    // Sync Active Assigned Trips
-    const unsubTrips = onSnapshot(query(collection(firestore, "trips"), where("tripStatus", "==", "Assigned")), (snap) => {
+    // Sync ALL Assigned Trips (For Upcoming Logic)
+    const unsubTrips = onSnapshot(collection(firestore, "trips"), (snap) => {
         setTrips(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
     });
     unsubscribers.push(unsubTrips);
@@ -93,7 +105,7 @@ export default function VehicleEntryPage() {
     // Sync Shipments for Enrichment
     authPlantIds.forEach(pId => {
         unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/shipments`), (snap) => {
-            const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+            const list = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() } as any));
             setShipments(prev => [...prev.filter(s => s.originPlantId !== pId), ...list]);
         }));
     });
@@ -107,14 +119,16 @@ export default function VehicleEntryPage() {
   }, [entries]);
 
   const upcomingList = useMemo(() => {
-    const list = trips.filter(t => {
+    return trips.filter(t => {
         const normPId = normalizePlantId(t.originPlantId);
         const isAuth = authPlantIds.some(aid => normalizePlantId(aid) === normPId);
+        const rawStatus = (t.tripStatus || t.currentStatusId || '').toLowerCase().replace(/[\s_-]+/g, '-');
+        const isAssigned = ['assigned', 'vehicle-assigned'].includes(rawStatus);
         const isNotInYard = !inVehiclesSet.has(t.vehicleNumber?.toUpperCase().trim());
-        return isAuth && isNotInYard;
+        return isAuth && isAssigned && isNotInYard;
     }).map(t => {
         const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : t.shipmentIds;
-        const shipment = shipments.find(s => s.id === shipId);
+        const shipment = shipments.find(s => s.id === shipId || s.shipmentId === shipId);
         return {
             ...t,
             shipToParty: t.shipToParty || shipment?.shipToParty || shipment?.billToParty || '--',
@@ -122,7 +136,6 @@ export default function VehicleEntryPage() {
             materialTypeId: shipment?.materialTypeId || 'MT'
         };
     });
-    return list;
   }, [trips, authPlantIds, inVehiclesSet, shipments]);
 
   const counts = useMemo(() => ({
@@ -196,4 +209,12 @@ export default function VehicleEntryPage() {
       </div>
     </main>
   );
+}
+
+export default function VehicleEntryPage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-blue-900" /></div>}>
+            <VehicleEntryContent />
+        </Suspense>
+    );
 }
