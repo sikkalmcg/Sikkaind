@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -11,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { ShieldCheck, Plus, Factory, FileText, Loader2, Weight } from 'lucide-react';
+import { ShieldCheck, Plus, Factory, FileText, Loader2, Weight, MapPin } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, query, addDoc, serverTimestamp, orderBy, doc, where, getDocs, limit } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
@@ -92,6 +93,11 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
 
   const { handleSubmit, setValue, reset, watch, formState: { isSubmitting } } = form;
   const purpose = watch('purpose');
+  const watchedPlantId = watch('plantId');
+
+  const selectedPlantName = useMemo(() => {
+    return authorizedPlants.find(p => p.id === watchedPlantId)?.name || watchedPlantId || 'NODE NOT SELECTED';
+  }, [authorizedPlants, watchedPlantId]);
 
   useEffect(() => {
     if (upcomingVehicleData) {
@@ -131,18 +137,24 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
 
   return (
     <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
-      <CardHeader className="p-8 pb-0">
-        <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-900 text-white rounded-xl shadow-lg">
-                <Plus className="h-6 w-6" />
+      <CardHeader className="p-8 bg-slate-900 text-white">
+        <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-600 rounded-xl shadow-lg rotate-3">
+                    <Plus className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                    <CardTitle className="text-xl font-black uppercase italic leading-none">INITIALIZE GATE ENTRY (IN)</CardTitle>
+                    <CardDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-2">Plant Node Registry: {selectedPlantName}</CardDescription>
+                </div>
             </div>
-            <div>
-                <CardTitle className="text-xl font-black uppercase text-blue-900 italic">INITIALIZE GATE ENTRY (IN)</CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase text-slate-400 tracking-widest mt-1">CAPTURE ARRIVAL PARTICULARS FOR GATE REGISTRY</CardDescription>
+            <div className="text-right flex flex-col items-end">
+                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Registry Sync Node</span>
+                <Badge variant="outline" className="bg-white/5 border-white/10 text-emerald-400 font-mono text-[10px] mt-1 h-7">{format(currentTime, 'HH:mm:ss')}</Badge>
             </div>
         </div>
       </CardHeader>
-      <CardContent className="p-8">
+      <CardContent className="p-10">
         <Form {...form}>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-10">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-end">

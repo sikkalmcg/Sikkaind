@@ -21,12 +21,13 @@ import {
     Save, 
     Plus, 
     Trash2, 
-    History,
-    X,
-    ClipboardList,
-    Calculator,
-    Loader2,
-    UserCircle
+    History, 
+    X, 
+    ClipboardList, 
+    Calculator, 
+    Loader2, 
+    UserCircle,
+    Weight
 } from 'lucide-react';
 import { useFirestore, useUser } from "@/firebase";
 import { doc, serverTimestamp, collection, runTransaction } from "firebase/firestore";
@@ -234,7 +235,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                     <TableHeader className="bg-slate-900">
                         <TableRow className="hover:bg-transparent border-none h-14">
                             <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">DELIVERY NO</TableHead>
-                            <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">INVOICE NO</TableHead>
+                            <TableHead className="text-white text-[10px) font-black uppercase px-4 w-48">INVOICE NO</TableHead>
                             <TableHead className="text-white text-[10px] font-black uppercase px-4">ITEM DESCRIPTION *</TableHead>
                             <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">DELIVERY UNIT</TableHead>
                             <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">LOAD UNIT *</TableHead>
