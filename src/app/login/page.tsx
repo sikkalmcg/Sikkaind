@@ -9,6 +9,7 @@ import { useLoading } from "@/context/LoadingContext";
 import { Loader2, UserCheck, KeyRound, AlertCircle, Eye, EyeOff, Sparkles } from 'lucide-react';
 import placeholderData from '@/app/lib/placeholder-images.json';
 import { useToast } from "@/hooks/use-toast";
+import { cn } from '@/lib/utils';
 
 // --- FORGOT PASSWORD MODAL COMPONENT ---
 function ForgotPasswordModal({ onClose }: { onClose: () => void; }) {
