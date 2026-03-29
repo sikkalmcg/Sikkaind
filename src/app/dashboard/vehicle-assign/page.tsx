@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/date-picker';
-import { Loader2, WifiOff, Settings2, Search, RefreshCcw, Factory, ShieldCheck } from "lucide-react";
+import { Loader2, WifiOff, Settings2, Search, RefreshCcw, Factory, ShieldCheck, ArrowRightLeft } from "lucide-react";
 import { subDays, startOfDay, endOfDay } from "date-fns";
 import type { WithId, Shipment, Trip, Plant, SubUser, VehicleEntryExit, LR, Carrier } from '@/types';
 import OrdersTable from '@/components/dashboard/vehicle-assign/OrdersTable';
@@ -21,9 +21,10 @@ import CancelReasonModal from '@/components/dashboard/vehicle-assign/CancelReaso
 import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilter';
 import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreviewModal';
 import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
-import { mockPlants, mockCarriers } from '@/lib/mock-data';
+import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
+import { Card } from '@/components/ui/card';
 
 export type OrderTab = 'pending' | 'process' | 'dispatched' | 'cancelled';
 
@@ -491,6 +492,13 @@ function OpenOrdersContent() {
                   <Settings2 className="h-5 w-5" />
                 </Button>
               </div>
+            </div>
+          </div>
+
+          <div className="px-4 md:px-8 py-2 bg-slate-50 flex items-center justify-between border-b">
+            <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-900 text-white rounded-lg shadow-lg rotate-3"><ArrowRightLeft className="h-4 w-4" /></div>
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Authorized registry transition node</span>
             </div>
           </div>
 
