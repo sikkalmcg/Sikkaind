@@ -8,12 +8,12 @@ import {
   ArrowRight, Radar
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 
 /**
  * @fileOverview Sikka LMC Landing Page.
  * Streamlined Typography-Led Node. 
  * Carousel and image assets purged for a clean registry aesthetic.
+ * Badge node removed as per latest mission requirement.
  */
 
 export default function HomePage() {
@@ -50,12 +50,9 @@ export default function HomePage() {
             <Truck size={400} />
         </div>
         <div className="max-w-5xl mx-auto px-6 text-center space-y-8 relative z-10">
-            <Badge variant="outline" className="bg-blue-50 text-blue-900 border-blue-100 font-black uppercase text-[10px] px-6 py-2 tracking-[0.3em] rounded-full shadow-sm mb-4">
-                Enterprise Logistics Registry v2.5
-            </Badge>
             <h2 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter uppercase italic leading-[1.1]">
-                Intelligence-Driven <span className="text-blue-600">Movement</span> <br/>
-                & Supply Chain Excellence.
+                Intelligence-Driven <span className="text-blue-600">MOVEMENT</span> <br/>
+                & SUPPLY CHAIN EXCELLENCE.
             </h2>
             <p className="text-lg md:text-xl text-slate-500 font-medium max-w-3xl mx-auto leading-relaxed">
                 Optimizing nationwide distribution through a verified network of lifting nodes, 
