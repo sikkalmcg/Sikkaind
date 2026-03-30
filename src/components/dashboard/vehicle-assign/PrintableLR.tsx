@@ -170,7 +170,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       {/* 5. TERMS & SIGNATURE */}
       <div className="mt-4 mb-8">
         <div className="grid grid-cols-2 gap-16">
-            {/* REPLACED CONSIGNEE SIGNATURE WITH CARRIER TERMS */}
             <div className="space-y-3">
                 <span className="text-[8pt] font-black uppercase text-slate-900 border-b border-slate-200 block pb-1">TERMS & CONDITIONS</span>
                 <div className="min-h-[100px] w-full bg-slate-50/30 p-2 rounded-lg border border-slate-100 text-[7pt] text-slate-600 space-y-1">
@@ -197,13 +196,13 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       </div>
 
       {/* 6. FOOTER NODE - Synchronized with Image Manifest */}
-      <div className="mt-auto pt-4 border-t border-slate-200 flex flex-col items-center gap-2 shrink-0">
-        <p className="text-[7pt] font-bold text-slate-400 uppercase tracking-widest">
-            Registry Handshake Page {pageNumber} of {totalInSeries} | Certified Node Sync
+      <div className="mt-auto pt-4 border-t border-slate-200 flex flex-col items-center gap-1.5 shrink-0">
+        <p className="text-[7.5pt] font-black uppercase text-blue-400/80 tracking-widest">
+            REGISTRY HANDSHAKE PAGE {pageNumber} OF {totalInSeries} | CERTIFIED NODE SYNC
         </p>
-        <div className="opacity-40 flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-slate-900" />
-            <span className="text-[6pt] font-black uppercase tracking-[0.5em]">Verified SIKKA LMC Registry Document</span>
+        <div className="flex items-center gap-2">
+            <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
+            <span className="text-[7.5pt] font-black uppercase tracking-[0.5em] text-slate-500">VERIFIED SIKKA LMC REGISTRY DOCUMENT</span>
         </div>
       </div>
     </div>

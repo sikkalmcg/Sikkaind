@@ -32,13 +32,11 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
     const bankingPayments = payments.filter((p: any) => p.mode !== 'Cash');
     
     const totalCash = cashPayments.reduce((s: number, p: any) => s + (Number(p.paidAmount || p.amount) || 0), 0);
-    // User Requirement: Advance Paid should be Banking amount
     const totalBanking = bankingPayments.reduce((s: number, p: any) => s + (Number(p.paidAmount || p.amount) || 0), 0) + advanceAmt;
     
     const totalTds = payments.reduce((s: number, p: any) => s + (Number(p.tdsAmount) || 0), 0);
     const totalDeduction = payments.reduce((s: number, p: any) => s + (Number(p.deductionAmount) || 0), 0);
     
-    // Balance Amount Logic: Total Freight – (Total Cash + Total Banking Transfer + TDS + Deduction)
     const balanceAmount = totalFreight - (totalCash + totalBanking + totalTds + totalDeduction);
 
     const summaryNodes = [
@@ -205,10 +203,6 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
 
             {/* 6. SIGNATURES & COMPLIANCE */}
             <div className="mt-auto flex flex-col gap-10">
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center">
-                    <p className="text-[8pt] font-black text-slate-400 italic">"Note: This is a system auto-generated transporter payment voucher and does not require a physical signature for registry validation."</p>
-                </div>
-
                 <div className="grid grid-cols-2 gap-24 px-10">
                     <div className="text-center border-t-2 border-black border-dashed pt-2">
                         <p className="font-black uppercase tracking-widest text-[9.5pt] text-slate-900">Verified By Signature</p>
@@ -221,13 +215,13 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
                 </div>
 
                 {/* Standardized Registry Footer */}
-                <div className="mt-8 pt-4 border-t border-slate-200 flex flex-col items-center gap-2 shrink-0">
-                    <p className="text-[7pt] font-bold text-slate-400 uppercase tracking-widest">
-                        Financial Registry Handshake | Certified Node Sync
+                <div className="mt-8 pt-4 border-t border-slate-200 flex flex-col items-center gap-1.5 shrink-0">
+                    <p className="text-[7.5pt] font-black uppercase text-blue-400/80 tracking-widest">
+                        REGISTRY HANDSHAKE | CERTIFIED NODE SYNC
                     </p>
-                    <div className="opacity-40 flex items-center gap-2">
-                        <ShieldCheck className="h-4 w-4 text-slate-900" />
-                        <span className="text-[6pt] font-black uppercase tracking-[0.5em]">Verified SIKKA LMC Registry Document</span>
+                    <div className="flex items-center gap-2">
+                        <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
+                        <span className="text-[7.5pt] font-black uppercase tracking-[0.5em] text-slate-500">VERIFIED SIKKA LMC REGISTRY DOCUMENT</span>
                     </div>
                 </div>
             </div>
