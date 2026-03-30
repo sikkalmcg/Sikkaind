@@ -1,5 +1,6 @@
+
 'use client';
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import TripBoardTable from '@/components/dashboard/trip-board/TripBoardTable';
 import TripBoardLayoutModal from '@/components/dashboard/trip-board/TripBoardLayoutModal';
@@ -14,7 +15,7 @@ import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryE
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate } from '@/lib/utils';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, doc, getDocs, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDoc } from "firebase/firestore";
+import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -37,7 +38,7 @@ function TripBoardContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { showLoader, hideLoader } = useLoading();
+  const { hideLoader } = useLoading();
   
   const activeTab = (searchParams.get('tab') as TripBoardTab) || 'active';
   const urlPlants = searchParams.get('plants')?.split(',').filter(Boolean) || [];
@@ -46,6 +47,7 @@ function TripBoardContent() {
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
   const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
+  const [isExtracting, setIsExtracting] = useState(false);
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
   const [authorizedPlantIds, setAuthorizedPlantIds] = useState<string[]>([]);
@@ -259,9 +261,9 @@ function TripBoardContent() {
     return res;
   }, [finalData]);
 
-  const onViewLR = async (row: any) => {
+  const onViewLR = useCallback(async (row: any) => {
     if (!row.lrNumber || !firestore) return;
-    showLoader();
+    setIsExtracting(true);
     try {
         const plantId = normalizePlantId(row.originPlantId);
         const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
@@ -307,9 +309,9 @@ function TripBoardContent() {
     } catch (e) {
         toast({ variant: 'destructive', title: "Registry Error", description: "Could not extract LR manifest." });
     } finally {
-        hideLoader();
+        setIsExtracting(false);
     }
-  };
+  }, [firestore, plants, dbCarriers, toast]);
 
   const handleCancelTrip = async () => {
     if (!cancelTripData || !firestore || !user) return;
@@ -352,7 +354,16 @@ function TripBoardContent() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+      {isExtracting && (
+          <div className="absolute inset-0 z-[100] flex items-center justify-center bg-white/60 backdrop-blur-[2px]">
+              <div className="p-8 bg-white rounded-3xl shadow-2xl border flex flex-col items-center gap-4">
+                  <Loader2 className="h-10 w-10 animate-spin text-blue-900" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 animate-pulse">Extracting Manifest...</p>
+              </div>
+          </div>
+      )}
+
       <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-4">
           <div className="p-2.5 bg-blue-900 text-white rounded-2xl shadow-xl rotate-3">

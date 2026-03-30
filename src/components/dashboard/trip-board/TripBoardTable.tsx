@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -121,7 +122,7 @@ export default function TripBoardTable({
             </TableRow>
           ) : (
             data.map((row) => (
-              <TableRow key={row.id} className="h-16 hover:bg-blue-50/20 transition-all border-b border-slate-100 last:border-0 group">
+              <TableRow key={row.id} className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 transition-all group">
                 <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{row.plantName}</TableCell>
                 <TableCell className="px-4 text-center">
                     {row.lrNumber && row.lrNumber !== 'PENDING' ? (
@@ -137,11 +138,9 @@ export default function TripBoardTable({
                             {row.lrNumber}
                         </button>
                     ) : (
-                        <Button 
+                        <button 
                             type="button"
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-7 text-[9px] font-black uppercase text-slate-400 hover:text-blue-600" 
+                            className="h-7 text-[9px] font-black uppercase text-slate-400 hover:text-blue-600 px-2 rounded-md hover:bg-white transition-colors" 
                             onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -149,7 +148,7 @@ export default function TripBoardTable({
                             }}
                         >
                             Pending
-                        </Button>
+                        </button>
                     )}
                 </TableCell>
                 <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap text-[11px]">
@@ -188,7 +187,7 @@ export default function TripBoardTable({
                     </div>
                 </TableCell>
                 <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
-                    <DropdownMenu modal={false}>
+                    <DropdownMenu modal={true}>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white text-slate-400 hover:text-blue-900 transition-all"><MoreHorizontal className="h-5 w-5" /></Button>
                         </DropdownMenuTrigger>
