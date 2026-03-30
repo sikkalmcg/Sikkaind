@@ -47,7 +47,6 @@ export default function ReportAnalysisPage() {
         items: [
             { id: 'vehicle-entry', label: 'Gate Movement Registry', icon: Truck, component: VehicleEntryReport },
             { id: 'trips', label: 'Mission Performance Log', icon: FileText, component: TripsReport },
-            { id: 'fuel-entry', label: 'Fuel Consumption Record', icon: Fuel, component: FuelReport },
         ]
     }
   ];
@@ -155,9 +154,6 @@ export default function ReportAnalysisPage() {
                         </TabsContent>
                         <TabsContent value="freight" className="m-0 border-none p-0 focus-visible:ring-0">
                             <FreightReport fromDate={fromDate} toDate={toDate} searchTerm={searchTerm} />
-                        </TabsContent>
-                        <TabsContent value="fuel-entry" className="m-0 border-none p-0 focus-visible:ring-0">
-                            <FuelReport fromDate={fromDate} toDate={toDate} searchTerm={searchTerm} />
                         </TabsContent>
                         <TabsContent value="fuel-pay" className="m-0 border-none p-0 focus-visible:ring-0">
                             <FuelReport fromDate={fromDate} toDate={toDate} searchTerm={searchTerm} />
