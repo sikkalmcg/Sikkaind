@@ -89,9 +89,7 @@ const formSchema = z.object({
         message: 'Invalid Format (e.g. MH12AB1234)'
     }),
     driverName: z.string().optional().default(''),
-    driverMobile: z.string().min(1, "Driver mobile is required.").refine(val => /^\d{10}$/.test(val), {
-        message: 'Mobile must be 10 digits.'
-    }),
+    driverMobile: z.string().optional(),
     vehicleType: z.enum(VehicleTypes, { required_error: 'Vehicle type is required' }),
     carrierId: z.string().min(1, 'Carrier is required'),
     assignQty: z.coerce.number().positive('Assign quantity must be positive'),
@@ -107,6 +105,9 @@ const formSchema = z.object({
         if (!data.transporterMobile?.trim() || !/^\d{10}$/.test(data.transporterMobile)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Valid 10-digit mobile required.', path: ['transporterMobile'] });
         }
+    }
+    if (data.isNewVehicle && (!data.driverMobile || !/^\d{10}$/.test(data.driverMobile))) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Valid 10-digit mobile required.', path: ['driverMobile'] });
     }
 });
 
