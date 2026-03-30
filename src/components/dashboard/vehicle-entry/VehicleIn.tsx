@@ -25,7 +25,7 @@ const formSchema = z.object({
   vehicleNumber: z.string().min(6, "Valid vehicle number required.").transform(v => v.toUpperCase().replace(/\s/g, '')),
   purpose: z.enum(['Loading', 'Unloading'], { required_error: "Purpose is mandatory." }),
   driverName: z.string().min(3, "Pilot name required (min 3 chars)."),
-  driverMobile: z.string().regex(/^\d{10}$/, "10-digit mobile required."),
+  driverMobile: z.string().optional(),
   licenseNumber: z.string().optional().or(z.literal('')),
   lrNumber: z.string().optional(),
   documentNo: z.string().optional(),
@@ -223,7 +223,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
 
                 <FormField name="driverMobile" control={form.control} render={({ field }) => (
                     <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">CONTACT NUMBER *</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">CONTACT NUMBER</FormLabel>
                         <FormControl><Input placeholder="10 Digit Node" {...field} maxLength={10} className="h-12 rounded-xl font-mono font-bold bg-white border-slate-200" /></FormControl>
                         <FormMessage />
                     </FormItem>
