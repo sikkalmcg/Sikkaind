@@ -7,14 +7,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { WithId, Trip, Plant, Shipment } from "@/types";
-import { mockPlants } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, startOfDay, endOfDay, isValid } from "date-fns";
+import { format, isValid } from "date-fns";
 import { useFirestore } from "@/firebase";
-import { collection, onSnapshot, query, where, Timestamp, doc, getDoc } from "firebase/firestore";
+import { collection, onSnapshot, query, where, Timestamp } from "firebase/firestore";
 import { normalizePlantId } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { ShieldCheck, Search, MapPin, Loader2 } from "lucide-react";
+import { ShieldCheck, Search, MapPin, Loader2, Navigation } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchFleetLocation } from "@/app/actions/wheelseye";
 
@@ -26,34 +25,29 @@ type EnrichedTrip = WithId<Trip> & {
 export default function InTransitShipmentsModal({ isOpen, onClose, plantId, plantName, authorizedPlantIds, fromDate, toDate }: { isOpen: boolean; onClose: () => void; plantId: string; plantName: string; authorizedPlantIds: string[]; fromDate?: Date; toDate?: Date; }) {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState("");
-  const [trips, setTrips] = useState<EnrichedTrip[]>([]);
+  const [trips, setTrips] = useState<WithId<Trip>[]>([]);
+  const [shipments, setShipments] = useState<WithId<Shipment>[]>([]);
+  const [gpsMap, setGpsMap] = useState<Map<string, any>>(new Map());
   const [loading, setLoading] = useState(true);
 
-  // 1. Registry Handshake: Sync GPS Telemetry
-  const fetchGpsData = async (activeTrips: EnrichedTrip[]) => {
+  const refreshGps = async () => {
     try {
         const res = await fetchFleetLocation();
-        if (res.data && res.data.length > 0) {
-            const gpsMap = new Map();
+        if (res.data) {
+            const newMap = new Map();
             res.data.forEach((v: any) => {
-                const vNo = v.vehicleNumber?.toUpperCase().replace(/\s/g, '');
-                gpsMap.set(vNo, {
-                    location: v.location || 'N/A',
-                    lastUpdate: v.lastUpdateRaw ? format(new Date(v.lastUpdateRaw), 'HH:mm:ss') : '--:--:--'
+                newMap.set(v.vehicleNumber?.toUpperCase().replace(/\s/g, ''), {
+                    location: v.location,
+                    lastUpdate: v.lastUpdateRaw ? format(new Date(v.lastUpdateRaw), 'HH:mm:ss') : null
                 });
             });
-
-            setTrips(prev => prev.map(t => ({
-                ...t,
-                gpsData: gpsMap.get(t.vehicleNumber?.toUpperCase().replace(/\s/g, ''))
-            })));
+            setGpsMap(newMap);
         }
     } catch (e) {
-        console.warn("GPS Handshake Latency");
+        console.warn("GPS Sync Latency");
     }
   };
 
-  // 2. Real-time Data Pulse
   useEffect(() => {
     if (!isOpen || !firestore || (plantId === 'all-plants' && authorizedPlantIds.length === 0)) return;
 
@@ -61,59 +55,71 @@ export default function InTransitShipmentsModal({ isOpen, onClose, plantId, plan
     const unsubscribers: (() => void)[] = [];
     
     setLoading(true);
+    refreshGps();
 
     scopePlants.forEach(pId => {
-        const q = collection(firestore, `plants/${pId}/trips`);
-        const unsub = onSnapshot(q, async (snap) => {
+        unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/trips`), (snap) => {
             const plantTrips = snap.docs.map(docSnap => {
                 const t = docSnap.data();
                 const statusRaw = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
-                const isInTransit = statusRaw === 'in-transit';
-                
-                if (isInTransit) {
+                if (statusRaw === 'in-transit') {
                     return {
                         id: docSnap.id,
                         ...t,
                         originPlantId: pId,
-                        startDate: t.startDate instanceof Timestamp ? t.startDate.toDate() : new Date(t.startDate)
-                    } as EnrichedTrip;
+                        startDate: t.startDate instanceof Timestamp ? t.startDate.toDate() : new Date(t.startDate),
+                        lastUpdated: t.lastUpdated instanceof Timestamp ? t.lastUpdated.toDate() : (t.lastUpdated ? new Date(t.lastUpdated) : new Date())
+                    } as WithId<Trip>;
                 }
                 return null;
-            }).filter((t): t is EnrichedTrip => t !== null);
+            }).filter((t): t is WithId<Trip> => t !== null);
 
-            setTrips(prev => {
-                const others = prev.filter(t => t.originPlantId !== pId);
-                const combined = [...others, ...plantTrips];
-                return combined.sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
-            });
+            setTrips(prev => [...prev.filter(t => t.originPlantId !== pId), ...plantTrips]);
             setLoading(false);
-        });
-        unsubscribers.push(unsub);
+        }));
+
+        unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/shipments`), (snap) => {
+            const plantShipments = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() } as WithId<Shipment>));
+            setShipments(prev => [...prev.filter(s => s.originPlantId !== pId), ...plantShipments]);
+        }));
     });
 
-    return () => unsubscribers.forEach(u => u());
+    const interval = setInterval(refreshGps, 30000);
+    return () => {
+        unsubscribers.forEach(u => u());
+        clearInterval(interval);
+    };
   }, [isOpen, plantId, JSON.stringify(authorizedPlantIds), firestore]);
 
-  // 3. Background Telemetry Sync
-  useEffect(() => {
-    if (trips.length > 0 && !loading) {
-        fetchGpsData(trips);
-    }
-  }, [trips.length, loading]);
+  const joinedData = useMemo((): EnrichedTrip[] => {
+    return trips.map(t => {
+        const shipment = shipments.find(s => s.id === t.shipmentIds?.[0]);
+        const vNo = t.vehicleNumber?.toUpperCase().replace(/\s/g, '');
+        return {
+            ...t,
+            shipment,
+            gpsData: gpsMap.get(vNo)
+        };
+    }).sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+  }, [trips, shipments, gpsMap]);
 
   const filteredData = useMemo(() => {
-    return trips.filter(item =>
-      Object.values(item).some(value =>
-        value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
-      ) || (item.gpsData?.location?.toLowerCase().includes(searchTerm.toLowerCase()))
+    if (!searchTerm) return joinedData;
+    const s = searchTerm.toLowerCase();
+    return joinedData.filter(item =>
+      Object.values(item).some(val => val?.toString().toLowerCase().includes(s)) ||
+      item.shipment?.shipToParty?.toLowerCase().includes(s) ||
+      item.gpsData?.location?.toLowerCase().includes(s)
     );
-  }, [searchTerm, trips]);
+  }, [searchTerm, joinedData]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white rounded-3xl">
         <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-          <DialogTitle className="text-xl font-black uppercase tracking-tight italic">In-Transit Registry Handshake</DialogTitle>
+          <DialogTitle className="text-xl font-black uppercase tracking-tight italic flex items-center gap-3">
+            <Navigation className="h-6 w-6 text-blue-400" /> In-Transit Registry Manifest
+          </DialogTitle>
           <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-1">
             Plant: {plantName} | Live GIS Telemetry Monitoring
           </DialogDescription>
@@ -139,54 +145,50 @@ export default function InTransitShipmentsModal({ isOpen, onClose, plantId, plan
                     <Table className="border-collapse w-full min-w-[1800px]">
                     <TableHeader className="sticky top-0 bg-slate-100 z-10 border-b-2">
                         <TableRow className="h-14 hover:bg-transparent">
-                        <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500">Trip ID</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Vehicle Number</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500 w-32">Trip ID</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40">Vehicle Number</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Location Registry</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-500">Last Update</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Consignor</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Ship To Party</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Unloading Point</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-right text-slate-500">Quantity</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-6 text-right text-slate-500">Track</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-500 w-32">Last Sync</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-64">Ship To Party</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-64">Destination Address</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-right text-slate-500 w-32">Quantity</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-6 text-right text-slate-500 w-32">Track</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading && trips.length === 0 ? (
                         Array.from({length: 10}).map((_, i) => (
-                            <TableRow key={i} className="h-16">
-                            <TableCell colSpan={9} className="px-6"><Skeleton className="h-8 w-full" /></TableCell>
-                            </TableRow>
+                            <TableRow key={i} className="h-16"><TableCell colSpan={8} className="px-6"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                         ))
                         ) : filteredData.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={9} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-widest opacity-40">No in-transit records matching current scope.</TableCell>
-                        </TableRow>
+                        <TableRow><TableCell colSpan={8} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-widest opacity-40">No in-transit records matching scope.</TableCell></TableRow>
                         ) : (
-                        filteredData.map((item, index) => {
-                            const isOffline = !item.gpsData || item.gpsData.location === 'N/A';
+                        filteredData.map((item) => {
+                            const isOffline = !item.gpsData || !item.gpsData.location;
+                            const syncTime = item.gpsData?.lastUpdate || (item.lastUpdated ? format(item.lastUpdated, 'HH:mm:ss') : '--:--:--');
+                            
+                            const shipTo = item.shipToParty || item.shipment?.shipToParty || item.shipment?.billToParty || 'N/A';
+                            const destination = item.unloadingPoint || item.shipment?.deliveryAddress || item.shipment?.unloadingPoint || 'N/A';
+
                             return (
-                                <TableRow key={index} className="h-16 border-b border-slate-50 last:border-0 hover:bg-blue-50/20 transition-colors">
+                                <TableRow key={item.id} className="h-16 border-b border-slate-50 last:border-0 hover:bg-blue-50/20 transition-colors">
                                 <TableCell className="px-6 font-black text-blue-700 font-mono text-[11px] uppercase tracking-tighter">{item.tripId}</TableCell>
-                                <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{item.vehicleNumber ?? 'N/A'}</TableCell>
+                                <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter text-[13px]">{item.vehicleNumber ?? 'N/A'}</TableCell>
                                 <TableCell className="px-4">
                                     <div className="flex items-center gap-2 text-xs font-bold">
                                         <MapPin className={cn("h-3 w-3 shrink-0", isOffline ? "text-slate-300" : "text-blue-500")} />
-                                        <span className={cn(
-                                            "truncate max-w-[350px] uppercase",
-                                            isOffline ? "text-slate-300 font-normal" : "text-slate-700"
-                                        )}>
-                                            {isOffline ? 'GPS Syncing...' : item.gpsData.location}
+                                        <span className={cn("truncate max-w-[350px] uppercase", isOffline ? "text-slate-300 font-normal" : "text-slate-700")}>
+                                            {isOffline ? 'GPS Signal Inactive' : item.gpsData.location}
                                         </span>
                                     </div>
                                 </TableCell>
-                                <TableCell className="px-4 text-center text-[10px] font-black text-slate-400 font-mono">{item.gpsData?.lastUpdate || '--:--:--'}</TableCell>
-                                <TableCell className="px-4 font-bold text-slate-700 uppercase text-xs truncate max-w-[150px]">{item.consignor ?? 'N/A'}</TableCell>
-                                <TableCell className="px-4 font-bold text-slate-700 uppercase text-xs truncate max-w-[150px]">{item.shipToParty ?? 'N/A'}</TableCell>
-                                <TableCell className="px-4 font-medium text-slate-500 uppercase text-xs truncate max-w-[200px]">{item.unloadingPoint ?? 'N/A'}</TableCell>
-                                <TableCell className="px-4 text-right font-black text-blue-900">{item.assignedQtyInTrip} MT</TableCell>
+                                <TableCell className="px-4 text-center text-[10px] font-black text-slate-400 font-mono">{syncTime}</TableCell>
+                                <TableCell className="px-4 font-black text-slate-900 uppercase text-xs truncate">{shipTo}</TableCell>
+                                <TableCell className="px-4 font-bold text-slate-500 uppercase text-[10px] leading-tight line-clamp-2" title={destination}>{destination}</TableCell>
+                                <TableCell className="px-4 text-right font-black text-blue-900">{item.assignedQtyInTrip || 0} MT</TableCell>
                                 <TableCell className="px-6 text-right">
-                                    <Button asChild variant="ghost" size="sm" className="h-8 rounded-lg font-black text-[10px] uppercase text-blue-600 hover:bg-blue-100">
-                                        <a href={`/dashboard/shipment-tracking?search=${item.vehicleNumber}`} target="_blank" rel="noopener noreferrer">Satellite Node</a>
+                                    <Button asChild variant="ghost" size="sm" className="h-8 rounded-lg font-black text-[10px] uppercase text-blue-600 hover:bg-blue-100 gap-2">
+                                        <a href={`/dashboard/shipment-tracking?search=${item.vehicleNumber}`} target="_blank" rel="noopener noreferrer">Live Track</a>
                                     </Button>
                                 </TableCell>
                                 </TableRow>
@@ -203,9 +205,10 @@ export default function InTransitShipmentsModal({ isOpen, onClose, plantId, plan
         </div>
         
         <DialogFooter className="p-6 bg-slate-50 border-t flex-row items-center justify-between sm:justify-between shrink-0">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-blue-600" /> Transit Registry Synchronized
-            </p>
+            <div className="flex items-center gap-4">
+                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Transit Registry Synchronized</span>
+            </div>
             <Button onClick={onClose} className="bg-slate-900 hover:bg-black text-white px-12 h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl border-none">Close Monitor</Button>
         </DialogFooter>
       </DialogContent>
