@@ -47,10 +47,14 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   // Registry Logic: Extract City only from From/To strings
   const getCity = (str: string) => {
     if (!str) return 'N/A';
-    const parts = str.split(',').map(part => part.trim());
+    const parts = str.split(',').map(part => part.trim()).filter(Boolean);
+    
+    // If the string contains commas, assume "City, State" or "Area, City, State"
     if (parts.length > 1) {
-        let city = parts[parts.length - 2];
-        return city.toUpperCase();
+        // Usually the city is the second to last element if formatted as "City, State"
+        // or just the first element if formatted as "City, Country"
+        const cityIndex = parts.length >= 2 ? parts.length - 2 : 0;
+        return parts[cityIndex].toUpperCase();
     }
     return parts[0].toUpperCase();
   };
@@ -96,7 +100,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             </div>
             <div className="text-[8.5pt] font-black text-slate-900 uppercase space-y-1">
                 <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>DATE:</span> <span>{formatDate(lr.date)}</span></p>
-                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>FROM:</span> <span>{lr.plant?.name || getCity(lr.from)}</span></p>
+                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>FROM:</span> <span>{getCity(lr.from)}</span></p>
                 <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>TO:</span> <span>{getCity(lr.to)}</span></p>
             </div>
         </div>
