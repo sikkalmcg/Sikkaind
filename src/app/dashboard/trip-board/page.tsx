@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -9,14 +8,12 @@ import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreview
 import PodUploadModal from '@/components/dashboard/trip-board/PodUploadModal';
 import TripViewModal from '@/components/dashboard/trip-board/TripViewModal';
 import CancelTripModal from '@/components/dashboard/trip-board/CancelTripModal';
-import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAssignModal';
-import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilter';
 import EditVehicleModal from '@/components/dashboard/trip-board/EditVehicleModal';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate } from '@/lib/utils';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, doc, getDocs, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot } from "firebase/firestore";
+import { collection, query, doc, getDocs, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDoc } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -25,7 +22,7 @@ import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/Printable
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { DatePicker } from '@/components/date-picker';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -68,8 +65,12 @@ function TripBoardContent() {
   const [cancelTripData, setCancelTripData] = useState<any | null>(null);
   const [editVehicleTrip, setEditVehicleTrip] = useState<any | null>(null);
 
-  const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
-  const { data: allMasterPlants } = useCollection<Plant>(plantsQuery);
+  const isAdminSession = useMemo(() => {
+    return user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
+  }, [user]);
+
+  const masterPlantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
+  const { data: allMasterPlants } = useCollection<Plant>(masterPlantsQuery);
   const carriersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "carriers")) : null, [firestore]);
   const { data: dbCarriers } = useCollection<Carrier>(carriersQuery);
 
@@ -94,7 +95,6 @@ function TripBoardContent() {
 
             const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
             let authIds: string[] = [];
-            const isAdminSession = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
 
             if (userDocSnap) {
                 const userData = userDocSnap.data() as SubUser;
@@ -110,7 +110,7 @@ function TripBoardContent() {
         } catch (e) { setDbError(true); } finally { setIsAuthLoading(false); }
     };
     fetchAuth();
-  }, [firestore, user, allMasterPlants]);
+  }, [firestore, user, allMasterPlants, isAdminSession]);
 
   useEffect(() => {
     if (!firestore || selectedPlants.length === 0) return;
@@ -203,7 +203,7 @@ function TripBoardContent() {
       if (selectedPlants.length > 0 && !selectedPlants.some(pid => normalizePlantId(pid) === normalizePlantId(t.originPlantId))) return false;
 
       const start = t.startDate;
-      if (!start) return true; 
+      if (!start) return true; // Include missions with pending server timestamps
 
       if (dayStart && start < dayStart) return false;
       if (dayEnd && start > dayEnd) return false;
