@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, getDocs, doc, getDoc, Timestamp, query, orderBy, where, limit } from "firebase/firestore";
 import { Badge } from '@/components/ui/badge';
-import { cn, normalizePlantId } from '@/lib/utils';
+import { cn, normalizePlantId, parseSafeDate } from '@/lib/utils';
 
 interface ReportProps {
   fromDate?: Date;
@@ -54,7 +54,6 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
     setLoading(true);
     setDbError(false);
     try {
-        // HIGH-FIDELITY IDENTITY HANDSHAKE
         const lastIdentity = localStorage.getItem('slmc_last_identity');
         const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
         
@@ -63,9 +62,6 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
         const userQSnap = await getDocs(userQ);
         if (!userQSnap.empty) {
             userDocSnap = userQSnap.docs[0];
-        } else {
-            const uidSnap = await getDoc(doc(firestore, "users", user.uid));
-            if (uidSnap.exists()) userDocSnap = uidSnap;
         }
         
         let authorizedPlantIds: string[] = [];
@@ -87,7 +83,6 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
 
         const allEnriched: EnrichedFreight[] = [];
 
-        // Parallel Optimized Fetching across all authorized plants
         const plantFetchPromises = authorizedPlantIds.map(async (pId) => {
             const [tripSnap, shipSnap, freightSnap] = await Promise.all([
                 getDocs(collection(firestore, `plants/${pId}/trips`)),
@@ -108,23 +103,25 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
                 const shipment = shipsMap.get(trip.shipmentIds[0]);
                 const addChargeAmount = (fData.charges || []).reduce((acc: number, c: any) => acc + (c.amount || 0), 0);
                 
+                const startTime = parseSafeDate(trip.startDate) || new Date();
+
                 allEnriched.push({
                     id: docSnap.id,
                     originPlantId: pId,
                     ...fData,
                     payments: (fData.payments || []).map((p: any) => ({
                         ...p,
-                        paymentDate: p.paymentDate instanceof Timestamp ? p.paymentDate.toDate() : new Date(p.paymentDate)
+                        paymentDate: parseSafeDate(p.paymentDate)
                     })),
                     trip: {
                         ...trip,
-                        startDate: trip.startDate instanceof Timestamp ? trip.startDate.toDate() : new Date(trip.startDate)
+                        startDate: startTime
                     },
                     shipment,
                     plant: plant as any,
                     addChargeAmount,
                     plantName: (plant as any).name || resolvedPlantId,
-                    startDate: trip.startDate instanceof Timestamp ? trip.startDate.toDate() : new Date(trip.startDate)
+                    startDate: startTime
                 } as EnrichedFreight);
             });
         });
@@ -148,11 +145,10 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
     let filtered = data;
     
     if (fromDate) {
-        filtered = filtered.filter(item => item.startDate && item.startDate >= fromDate);
+        filtered = filtered.filter(item => item.startDate && item.startDate >= startOfDay(fromDate));
     }
     if (toDate) {
-        const to = new Date(toDate);
-        to.setHours(23, 59, 59, 999);
+        const to = endOfDay(toDate);
         filtered = filtered.filter(item => item.startDate && item.startDate <= to);
     }
 
@@ -195,13 +191,14 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
       const lastPayment = item.payments?.[item.payments.length - 1];
       const row: {[key: string]: any} = {};
       headers.forEach(key => {
-        row[headerLabels[key]] = (item as any)[key] ?? (item.trip as any)?.[key] ?? 'N/A';
-        if (key.includes('Date') && row[headerLabels[key]] !== 'N/A') {
-           row[headerLabels[key]] = format(new Date(row[headerLabels[key]]), 'dd-MM-yyyy');
+        let val = (item as any)[key] ?? (item.trip as any)?.[key] ?? 'N/A';
+        if (key.includes('Date') && val !== 'N/A') {
+           val = format(new Date(val), 'dd-MM-yyyy');
         }
-        if(key === 'paymentDate') row[headerLabels[key]] = lastPayment && isValid(new Date(lastPayment.paymentDate)) ? format(new Date(lastPayment.paymentDate), 'dd-MM-yyyy') : 'N/A';
-        if(key === 'bankingRef') row[headerLabels[key]] = lastPayment?.referenceNo || 'N/A';
-        if(key === 'podReceived') row[headerLabels[key]] = item.trip?.podReceived ? 'Received' : 'Pending';
+        if(key === 'paymentDate') val = lastPayment && isValid(new Date(lastPayment.paymentDate)) ? format(new Date(lastPayment.paymentDate), 'dd-MM-yyyy') : 'N/A';
+        if(key === 'bankingRef') val = lastPayment?.referenceNo || 'N/A';
+        if(key === 'podReceived') val = item.trip?.podReceived ? 'Received' : 'Pending';
+        row[headerLabels[key]] = val;
       });
       return row;
     });
@@ -239,7 +236,7 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
                 <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Registry audit of mission financial liquidation</CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={handleExport} className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-slate-200 text-blue-900 bg-white shadow-sm hover:bg-slate-50 transition-all">
-                <FileDown className="mr-2 h-4 w-4" /> Export Ledger
+                <FileDown className="h-4 w-4" /> Export Ledger
             </Button>
         </div>
       </CardHeader>
@@ -276,10 +273,10 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
                             <TableCell className="px-4 text-center text-xs font-bold text-slate-500 whitespace-nowrap">{item.trip ? format(new Date(item.trip.startDate), 'dd.MM.yy') : 'N/A'}</TableCell>
                             <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{item.trip?.vehicleNumber || 'N/A'}</TableCell>
                             <TableCell className="px-4 text-[10px] font-black uppercase text-slate-400 truncate max-w-[120px]">{item.trip?.transporterName || 'N/A'}</TableCell>
-                            <TableCell className="px-4 text-[10px] font-black uppercase text-slate-400 truncate max-w-[120px]">{item.plantName || 'N/A'}</TableCell>
+                            <TableCell className="px-4 text-[10px] font-black uppercase text-slate-400 truncate max-w-[120px]">{item.trip?.loadingPoint || 'N/A'}</TableCell>
                             <TableCell className="px-4 text-[10px] font-black uppercase text-slate-400 truncate max-w-[120px]">{item.trip?.shipToParty || 'N/A'}</TableCell>
                             <TableCell className="px-4 text-[10px] font-black uppercase text-slate-400 truncate max-w-[120px]">{item.trip?.unloadingPoint || 'N/A'}</TableCell>
-                            <TableCell className="px-4 text-right font-bold text-blue-900">{item.trip?.assignedQtyInTrip || 'N/A'} MT</TableCell>
+                            <TableCell className="px-4 text-right font-bold text-blue-900">{(item.trip?.assignedQtyInTrip || 0).toFixed(3)} MT</TableCell>
                             <TableCell className="px-4 text-right text-[11px] font-bold text-slate-500">₹ {item.trip?.freightRate?.toLocaleString() || 'N/A'}</TableCell>
                             <TableCell className="px-4 text-right font-black text-slate-700">₹ {Number(item.baseFreightAmount).toLocaleString()}</TableCell>
                             <TableCell className="px-4 text-right font-bold text-orange-600">₹ {Number(item.addChargeAmount).toLocaleString()}</TableCell>

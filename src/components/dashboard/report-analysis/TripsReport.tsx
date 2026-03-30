@@ -93,7 +93,6 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
   );
   const { data: allMasterPlants } = useCollection<Plant>(plantsQuery);
 
-  // 1. Authorization Node
   useEffect(() => {
     if (!firestore || !user) return;
     const fetchAuth = async () => {
@@ -116,13 +115,11 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
     fetchAuth();
   }, [firestore, user, allMasterPlants]);
 
-  // 2. Real-time Multi-Node Registry Sync
   useEffect(() => {
     if (!firestore || authorizedPlantIds.length === 0) return;
     setLoading(true);
     const unsubscribers: (() => void)[] = [];
 
-    // Global Registry Sync
     unsubscribers.push(onSnapshot(collection(firestore, "trips"), (snap) => {
         setTrips(snap.docs.map(d => ({ id: d.id, ...d.data(), startDate: parseSafeDate(d.data().startDate) } as any)));
         setLoading(false);
@@ -146,23 +143,25 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
     return () => unsubscribers.forEach(u => u());
   }, [firestore, authorizedPlantIds]);
 
-  // 3. Registry Join Handshake
   const enrichedData = useMemo((): EnrichedTrip[] => {
     const plantsMap = new Map((allMasterPlants || initialPlants).map(p => [normalizePlantId(p.id), p.name]));
     const carriersMap = new Map(carriers.map(c => [c.id, c.name]));
 
     return trips.map(t => {
         const shipment = shipments.find(s => s.id === t.shipmentIds?.[0]);
-        const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId);
+        // DEEP SYNC: Link by ID or Number
+        const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId || (l.lrNumber === t.lrNumber && l.originPlantId === t.originPlantId));
         
         let lrPackageName = '--';
-        let invoiceNumbers = shipment?.invoiceNumber || '--';
+        let invoiceNumbers = shipment?.invoiceNumber || t.invoiceNumbers || '--';
         
-        if (lr && lr.items && lr.items.length > 0) {
-            const totalUnits = lr.items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
-            const firstDesc = lr.items[0].itemDescription || lr.items[0].description || 'Items';
+        // MANIFEST RECOVERY NODE
+        const itemsManifest = lr?.items || t.items || shipment?.items || [];
+        if (itemsManifest.length > 0) {
+            const totalUnits = itemsManifest.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
+            const firstDesc = itemsManifest[0].itemDescription || itemsManifest[0].description || 'GENERAL CARGO';
             lrPackageName = `${totalUnits} U (${firstDesc})`;
-            invoiceNumbers = Array.from(new Set(lr.items.map((i: any) => i.invoiceNumber).filter(Boolean))).join(', ');
+            invoiceNumbers = Array.from(new Set(itemsManifest.map((i: any) => i.invoiceNumber).filter(Boolean))).join(', ');
         }
 
         return {
@@ -170,10 +169,16 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
             plantName: plantsMap.get(normalizePlantId(t.originPlantId)) || t.originPlantId,
             shipment,
             lrPackageName,
-            invoiceNumbers,
+            invoiceNumbers: invoiceNumbers || '--',
             carrierName: carriersMap.get(t.carrierId || '') || 'N/A',
+            // Deep Resolution for LR specifics
             lrNumber: lr?.lrNumber || t.lrNumber || shipment?.lrNumber || '--',
-            lrDate: parseSafeDate(lr?.date || t.lrDate || shipment?.lrDate)
+            lrDate: parseSafeDate(lr?.date || t.lrDate || shipment?.lrDate),
+            loadingPoint: t.loadingPoint || shipment?.loadingPoint || '--',
+            consignor: t.consignor || shipment?.consignor || '--',
+            billToParty: t.billToParty || shipment?.billToParty || '--',
+            shipToParty: t.shipToParty || shipment?.shipToParty || '--',
+            unloadingPoint: t.unloadingPoint || shipment?.unloadingPoint || t.destination || '--',
         };
     }).sort((a, b) => (b.startDate?.getTime() || 0) - (a.startDate?.getTime() || 0));
   }, [trips, shipments, lrs, carriers, allMasterPlants]);
@@ -190,7 +195,8 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
         const s = searchTerm.toLowerCase();
         filtered = filtered.filter(item =>
             Object.values(item).some(val => val?.toString().toLowerCase().includes(s)) ||
-            (item.shipment && Object.values(item.shipment).some(val => val?.toString().toLowerCase().includes(s)))
+            (item.shipment && Object.values(item.shipment).some(val => val?.toString().toLowerCase().includes(s))) ||
+            (item.invoiceNumbers && item.invoiceNumbers.toLowerCase().includes(s))
         );
     }
     return filtered;
@@ -219,9 +225,6 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
         headers.forEach(key => {
             let value = (item as any)[key];
             if (key === 'shipmentId') value = item.shipment?.shipmentId;
-            if (key === 'consignor') value = item.shipment?.consignor;
-            if (key === 'billToParty') value = item.shipment?.billToParty;
-            if (key === 'loadingPoint') value = item.shipment?.loadingPoint;
             if (key === 'startDate' || key === 'lrDate') {
                 value = value ? format(new Date(value), 'dd-MM-yyyy HH:mm') : 'N/A';
             }
@@ -232,7 +235,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, ws, "Trips Report");
-    XLSX.writeFile(workbook, "TripsReport.xlsx");
+    XLSX.writeFile(workbook, `Trips_Performance_Log_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
   const requestSort = (key: string) => {
@@ -255,6 +258,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
         case 'loading-complete': return 'bg-orange-50 text-orange-700 border-orange-200';
         case 'in-transit': return 'bg-purple-50 text-purple-700 border-purple-200';
         case 'delivered': return 'bg-green-50 text-green-700 border-green-200';
+        case 'closed': return 'bg-slate-900 text-white border-none';
         default: return 'border-slate-200';
     }
   };
@@ -268,7 +272,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
                         Mission Performance Log
                         {dbError && <WifiOff className="h-4 w-4 text-orange-500" />}
                     </CardTitle>
-                    <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Detailed lifecycle monitoring of trip nodes</CardDescription>
+                    <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Deep-registry audit of trip nodes</CardDescription>
                 </div>
                 <Button variant="outline" size="sm" onClick={handleExport} className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-slate-200 text-blue-900 bg-white shadow-sm hover:bg-slate-50 transition-all">
                     <FileDown className="h-4 w-4" /> Export Ledger
@@ -298,7 +302,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
                 <TableRow><TableCell colSpan={headers.length} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No records found matching criteria.</TableCell></TableRow>
               ) : (
                 paginatedData.map(item => (
-                  <TableRow key={item.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group text-[11px] font-medium text-slate-600">
+                  <TableRow key={item.id} className="h-16 hover:bg-blue-50/20 transition-all border-b border-slate-50 last:border-0 group text-[11px] font-medium text-slate-600">
                     <TableCell className="px-4 font-bold text-slate-600 uppercase whitespace-nowrap">{item.plantName}</TableCell>
                     <TableCell className="px-4 text-blue-700 font-black font-mono">{item.shipment?.shipmentId || '--'}</TableCell>
                     <TableCell className="px-4 font-mono text-blue-600 font-bold uppercase">{item.tripId}</TableCell>
@@ -308,11 +312,11 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
                     <TableCell className="px-4 truncate max-w-[120px]" title={item.invoiceNumbers}>{item.invoiceNumbers}</TableCell>
                     <TableCell className="px-4 truncate max-w-[150px]" title={item.lrPackageName}>{item.lrPackageName}</TableCell>
                     <TableCell className="px-4 truncate max-w-[150px]" title={item.carrierName}>{item.carrierName}</TableCell>
-                    <TableCell className="px-4 truncate max-w-[100px]">{item.shipment?.loadingPoint || '--'}</TableCell>
-                    <TableCell className="px-4 truncate max-w-[100px] font-bold">{item.shipment?.consignor || '--'}</TableCell>
-                    <TableCell className="px-4 truncate max-w-[100px] font-bold">{item.shipment?.billToParty || '--'}</TableCell>
-                    <TableCell className="px-4 truncate max-w-[100px] font-bold">{item.shipToParty || '--'}</TableCell>
-                    <TableCell className="px-4 truncate max-w-[100px]">{item.unloadingPoint || '--'}</TableCell>
+                    <TableCell className="px-4 truncate max-w-[100px]">{item.loadingPoint}</TableCell>
+                    <TableCell className="px-4 truncate max-w-[100px] font-bold">{item.consignor}</TableCell>
+                    <TableCell className="px-4 truncate max-w-[100px] font-bold">{item.billToParty}</TableCell>
+                    <TableCell className="px-4 truncate max-w-[100px] font-bold">{item.shipToParty}</TableCell>
+                    <TableCell className="px-4 truncate max-w-[100px]">{item.unloadingPoint}</TableCell>
                     <TableCell className="px-4 font-black text-slate-900 tracking-tighter uppercase">{item.vehicleNumber}</TableCell>
                     <TableCell className="px-4 text-right font-black text-blue-900">{item.assignedQtyInTrip} MT</TableCell>
                     <TableCell className="px-4">
