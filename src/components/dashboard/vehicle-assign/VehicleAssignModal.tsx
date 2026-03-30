@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -89,7 +90,9 @@ const formSchema = z.object({
         message: 'Invalid Format (e.g. MH12AB1234)'
     }),
     driverName: z.string().optional().default(''),
-    driverMobile: z.string().optional(),
+    driverMobile: z.string().optional().or(z.literal('')).refine(val => !val || /^\d{10}$/.test(val), {
+        message: 'Mobile must be 10 digits if provided.'
+    }),
     vehicleType: z.enum(VehicleTypes, { required_error: 'Vehicle type is required' }),
     carrierId: z.string().min(1, 'Carrier is required'),
     assignQty: z.coerce.number().positive('Assign quantity must be positive'),
@@ -105,9 +108,6 @@ const formSchema = z.object({
         if (!data.transporterMobile?.trim() || !/^\d{10}$/.test(data.transporterMobile)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Valid 10-digit mobile required.', path: ['transporterMobile'] });
         }
-    }
-    if (data.isNewVehicle && (!data.driverMobile || !/^\d{10}$/.test(data.driverMobile))) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Valid 10-digit mobile required.', path: ['driverMobile'] });
     }
 });
 
@@ -261,6 +261,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 deliveryAddress: shipment.deliveryAddress || shipment.unloadingPoint,
                 materialTypeId: shipment.materialTypeId,
                 items: shipment.items || [],
+                lrNumber: shipment.lrNumber || '', // PRE-POPULATE FROM SHIPMENT
+                lrDate: shipment.lrDate || null,   // PRE-POPULATE FROM SHIPMENT
                 lastUpdated: timestamp,
                 userName: currentName,
                 userId: user.uid,
@@ -354,7 +356,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                 <TableRow className="h-12 border-b-2 hover:bg-transparent">
                                     <TableHead className="text-[10px] font-black uppercase px-4 w-64">Vehicle Number *</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase px-4">Pilot Name</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase px-4">Pilot Mobile *</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase px-4">Pilot Mobile</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase px-4 w-64">Carrier Agent *</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase px-4 w-48">Fleet Type</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase px-4 text-right">Assign Qty (MT) *</TableHead>
@@ -378,7 +380,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                         )}
                                     </TableCell>
                                     <TableCell className="px-4 py-6"><FormField name="driverName" control={control} render={({field}) => <FormItem><FormControl><Input placeholder="Pilot Name" className="h-12 rounded-xl font-bold" {...field} /></FormControl><FormMessage /></FormItem>} /></TableCell>
-                                    <TableCell className="px-4 py-6"><FormField name="driverMobile" control={control} render={({field}) => <FormItem><FormControl><Input {...field} maxLength={10} placeholder="10 Digits" className="h-12 rounded-xl font-mono font-black" /></FormControl><FormMessage /></FormItem>} /></TableCell>
+                                    <TableCell className="px-4 py-6"><FormField name="driverMobile" control={control} render={({field}) => <FormItem><FormControl><Input {...field} maxLength={10} placeholder="Optional" className="h-12 rounded-xl font-mono font-black" /></FormControl><FormMessage /></FormItem>} /></TableCell>
                                     <TableCell className="px-4 py-6">
                                         <FormField name="carrierId" control={control} render={({ field }) => (
                                             <FormItem>

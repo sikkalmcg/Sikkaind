@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -28,8 +29,8 @@ const formSchema = z.object({
   vehicleNumber: z.string().min(1, "Vehicle number is mandatory.").transform(v => v.toUpperCase().replace(/\s/g, '')).refine(val => vehicleNumberRegex.test(val), {
     message: 'Invalid Format (e.g. MH12AB1234)'
   }),
-  driverMobile: z.string().min(1, "Driver mobile is required.").refine(val => /^\d{10}$/.test(val), {
-    message: 'Mobile must be 10 digits.'
+  driverMobile: z.string().optional().or(z.literal('')).refine(val => !val || /^\d{10}$/.test(val), {
+    message: 'Mobile must be 10 digits if provided.'
   }),
 });
 
@@ -97,11 +98,11 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
 
                     <FormField name="driverMobile" control={form.control} render={({ field }) => (
                         <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Correct Pilot Mobile *</FormLabel>
+                            <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Correct Pilot Mobile</FormLabel>
                             <FormControl>
                                 <div className="relative group">
                                     <MobileIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
-                                    <Input placeholder="10 Digit Number" {...field} maxLength={10} className="pl-12 h-14 rounded-2xl font-black text-slate-900 text-xl font-mono shadow-inner border-slate-200 focus-visible:ring-blue-900" />
+                                    <Input placeholder="Optional" {...field} maxLength={10} className="pl-12 h-14 rounded-2xl font-black text-slate-900 text-xl font-mono shadow-inner border-slate-200 focus-visible:ring-blue-900" />
                                 </div>
                             </FormControl>
                             <FormMessage className="text-[9px] font-black uppercase" />
