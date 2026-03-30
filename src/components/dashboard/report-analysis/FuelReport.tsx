@@ -16,6 +16,17 @@ import { normalizePlantId } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import ViewFuelEntryModal from '../fuel-management/ViewFuelEntryModal';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface ReportProps {
   fromDate?: Date;
@@ -327,4 +338,3 @@ export default function FuelReport({ fromDate, toDate, searchTerm }: ReportProps
     </>
   );
 }
-

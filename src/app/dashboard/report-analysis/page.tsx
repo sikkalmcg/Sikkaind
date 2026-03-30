@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { subDays } from 'date-fns';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { DatePicker } from "@/components/date-picker";
@@ -7,13 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import VehicleEntryReport from '@/components/dashboard/report-analysis/VehicleEntryReport';
 import TripsReport from '@/components/dashboard/report-analysis/TripsReport';
-import FuelReport from '@/components/dashboard/report-analysis/FuelReport';
 import FreightReport from '@/components/dashboard/report-analysis/FreightReport';
 import { 
     BarChart3, 
     FileText, 
     IndianRupee, 
-    Fuel, 
     Truck, 
     Search, 
     ChevronRight,
@@ -23,10 +21,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-
-const CreditCardIcon = ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
-);
 
 export default function ReportAnalysisPage() {
   const [activeTab, setActiveTab] = useState('vehicle-entry');
@@ -39,7 +33,6 @@ export default function ReportAnalysisPage() {
         group: 'Financial Analysis',
         items: [
             { id: 'freight', label: 'Freight Payment Ledger', icon: IndianRupee, component: FreightReport },
-            { id: 'fuel-pay', label: 'Fuel Settlement Registry', icon: CreditCardIcon, component: FuelReport },
         ]
     },
     {
@@ -154,9 +147,6 @@ export default function ReportAnalysisPage() {
                         </TabsContent>
                         <TabsContent value="freight" className="m-0 border-none p-0 focus-visible:ring-0">
                             <FreightReport fromDate={fromDate} toDate={toDate} searchTerm={searchTerm} />
-                        </TabsContent>
-                        <TabsContent value="fuel-pay" className="m-0 border-none p-0 focus-visible:ring-0">
-                            <FuelReport fromDate={fromDate} toDate={toDate} searchTerm={searchTerm} />
                         </TabsContent>
                     </Tabs>
                 </CardContent>
