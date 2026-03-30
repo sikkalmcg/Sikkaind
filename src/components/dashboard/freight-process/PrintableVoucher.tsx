@@ -190,7 +190,7 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
                                         <td className="px-2 text-right border-r border-slate-200 font-black text-blue-700">{p.banking > 0 ? `₹${p.banking.toLocaleString()}` : '--'}</td>
                                         <td className="px-2 text-right border-r border-slate-200 font-bold text-orange-600">{p.tds > 0 ? `₹${p.tds.toLocaleString()}` : '--'}</td>
                                         <td className="px-2 text-right border-r border-slate-200 font-bold text-red-600">{p.ded > 0 ? `₹${p.ded.toLocaleString()}` : '--'}</td>
-                                        <td className="px-2 text-center border-r border-slate-200 whitespace-nowrap">{formatDate(p.date, 'dd.MM.yy')}</td>
+                                        <td className="px-2 text-center border-r border-white/10 whitespace-nowrap">{formatDate(p.date, 'dd.MM.yy')}</td>
                                         <td className="px-3 font-mono text-[7pt] border-r border-slate-200 uppercase truncate max-w-[100px]">{p.ref}</td>
                                         <td className="px-3 font-mono text-[7pt] text-slate-500 leading-tight">
                                             {p.details}
@@ -220,9 +220,15 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
                     </div>
                 </div>
 
-                <div className="flex flex-col items-center gap-2 opacity-30 mt-4">
-                    <ShieldCheck className="h-10 w-10 text-slate-900" />
-                    <p className="text-[7pt] font-black uppercase tracking-[0.5em] text-center">Verified SIKKA LMC Financial Settlement Node</p>
+                {/* Standardized Registry Footer */}
+                <div className="mt-8 pt-4 border-t border-slate-200 flex flex-col items-center gap-2 shrink-0">
+                    <p className="text-[7pt] font-bold text-slate-400 uppercase tracking-widest">
+                        Financial Registry Handshake | Certified Node Sync
+                    </p>
+                    <div className="opacity-40 flex items-center gap-2">
+                        <ShieldCheck className="h-4 w-4 text-slate-900" />
+                        <span className="text-[6pt] font-black uppercase tracking-[0.5em]">Verified SIKKA LMC Registry Document</span>
+                    </div>
                 </div>
             </div>
         </div>

@@ -216,9 +216,15 @@ export default function PrintablePaymentSlip({ freight, payment }: { freight: En
                 </div>
             </div>
 
-            <div className="mt-8 flex flex-col items-center gap-2 opacity-30 shrink-0">
-                <ShieldCheck className="h-10 w-10" />
-                <p className="text-[7pt] font-black uppercase tracking-[0.5em] text-center">Verified SIKKA LMC Financial Settlement Node</p>
+            {/* FOOTER NODE - Standardized Registry Footer */}
+            <div className="mt-8 pt-4 border-t border-slate-200 flex flex-col items-center gap-2 shrink-0">
+                <p className="text-[7pt] font-bold text-slate-400 uppercase tracking-widest">
+                    Financial Registry Handshake | Certified Node Sync
+                </p>
+                <div className="opacity-40 flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-slate-900" />
+                    <span className="text-[6pt] font-black uppercase tracking-[0.5em]">Verified SIKKA LMC Registry Document</span>
+                </div>
             </div>
         </div>
     );

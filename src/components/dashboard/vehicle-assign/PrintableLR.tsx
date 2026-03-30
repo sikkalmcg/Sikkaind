@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -197,12 +196,12 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 6. FOOTER NODE */}
+      {/* 6. FOOTER NODE - Synchronized with Image Manifest */}
       <div className="mt-auto pt-4 border-t border-slate-200 flex flex-col items-center gap-2 shrink-0">
         <p className="text-[7pt] font-bold text-slate-400 uppercase tracking-widest">
             Registry Handshake Page {pageNumber} of {totalInSeries} | Certified Node Sync
         </p>
-        <div className="opacity-30 flex items-center gap-2">
+        <div className="opacity-40 flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-slate-900" />
             <span className="text-[6pt] font-black uppercase tracking-[0.5em]">Verified SIKKA LMC Registry Document</span>
         </div>
