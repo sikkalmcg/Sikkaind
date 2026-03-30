@@ -15,6 +15,7 @@ import {
     ShieldCheck, 
     FileText, 
     AlertTriangle, 
+    AlertCircle,
     CheckCircle2,
     ImageIcon,
     X as XIcon,
