@@ -11,7 +11,7 @@ import { mockTrips, mockPlants } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, startOfDay, endOfDay, subDays, isValid } from "date-fns";
 import { useFirestore } from "@/firebase";
-import { collection, getDocs, query, where, Timestamp } from "firebase/firestore";
+import { collection, onSnapshot, query, where, Timestamp, getDocs } from "firebase/firestore";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { ShieldCheck, Search, Radar, MapPin, Loader2 } from "lucide-react";
 import { cn, normalizePlantId } from "@/lib/utils";
@@ -41,10 +41,10 @@ export default function ActiveTripsModal({ isOpen, onClose, plantId, plantName, 
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState("");
   const [data, setData] = useState<EnrichedTrip[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [plants, setPlants] = useState<WithId<Plant>[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const fetchRegistryWithGps = async (trips: WithId<Trip>[]) => {
+  // 1. Registry Handshake: Sync GPS Telemetry
+  const fetchGpsData = async (activeTrips: EnrichedTrip[]) => {
     try {
         const res = await fetchFleetLocation();
         if (res.data && res.data.length > 0) {
@@ -52,72 +52,70 @@ export default function ActiveTripsModal({ isOpen, onClose, plantId, plantName, 
             res.data.forEach((v: any) => {
                 const vNo = v.vehicleNumber?.toUpperCase().replace(/\s/g, '');
                 gpsMap.set(vNo, {
-                    speed: Number(v.speed || 0),
-                    ignition: v.ignition,
-                    // REGISTRY FIX: Show actual location node
                     location: v.location || 'N/A',
                     lastUpdate: v.lastUpdateRaw ? format(new Date(v.lastUpdateRaw), 'HH:mm:ss') : '--:--:--'
                 });
             });
 
-            const enriched = trips.map(t => ({
+            setData(prev => prev.map(t => ({
                 ...t,
                 gpsData: gpsMap.get(t.vehicleNumber?.toUpperCase().replace(/\s/g, ''))
-            }));
-            setData(enriched);
-        } else {
-            setData(trips.map(t => ({ ...t })));
+            })));
         }
     } catch (e) {
-        setData(trips.map(t => ({ ...t })));
+        console.warn("GPS Handshake Latency");
     }
   };
 
+  // 2. Real-time Data Pulse (Matches Dashboard Cards)
   useEffect(() => {
-    if (!isOpen || !firestore) return;
+    if (!isOpen || !firestore || (plantId === 'all-plants' && authorizedPlantIds.length === 0)) return;
 
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            const plantSnap = await getDocs(collection(firestore, "logistics_plants"));
-            const masterPlants = plantSnap.docs.map(d => ({ id: d.id, ...d.data() } as WithId<Plant>));
-            setPlants(masterPlants.length > 0 ? masterPlants : mockPlants);
+    const scopePlants = plantId === 'all-plants' ? authorizedPlantIds : [plantId];
+    const unsubscribers: (() => void)[] = [];
+    
+    setLoading(true);
 
-            const isAllPlants = plantId === 'all-plants';
-            const scopePlants = isAllPlants ? authorizedPlantIds : [plantId];
+    scopePlants.forEach(pId => {
+        const q = collection(firestore, `plants/${pId}/trips`);
+        const unsub = onSnapshot(q, async (snap) => {
+            const plantTrips = snap.docs.map(docSnap => {
+                const t = docSnap.data();
+                const statusRaw = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
+                
+                // Unified Registry Logic: Show all active mission categories
+                const isActive = ['assigned', 'vehicle-assigned', 'in-transit', 'arrival-for-delivery', 'arrived-at-destination'].includes(statusRaw);
+                
+                if (isActive) {
+                    return {
+                        id: docSnap.id,
+                        ...t,
+                        originPlantId: pId,
+                        startDate: t.startDate instanceof Timestamp ? t.startDate.toDate() : new Date(t.startDate)
+                    } as EnrichedTrip;
+                }
+                return null;
+            }).filter((t): t is EnrichedTrip => t !== null);
 
-            const dayStart = fromDate ? startOfDay(fromDate) : startOfDay(subDays(new Date(), 30));
-            const dayEnd = toDate ? endOfDay(toDate) : endOfDay(new Date());
-
-            const allActive: WithId<Trip>[] = [];
-
-            for (const pId of scopePlants) {
-                const tripSnap = await getDocs(collection(firestore, `plants/${pId}/trips`));
-                tripSnap.forEach(docSnap => {
-                    const t = docSnap.data();
-                    const rawStatus = t.tripStatus?.toLowerCase().replace(/[\s_-]+/g, '-') || '';
-                    const startTime = t.startDate instanceof Timestamp ? t.startDate.toDate() : new Date(t.startDate);
-                    
-                    if (['assigned', 'vehicle-assigned', 'in-transit', 'arrival-for-delivery', 'arrived-at-destination'].includes(rawStatus) && startTime >= dayStart && startTime <= dayEnd) {
-                        allActive.push({
-                            id: docSnap.id,
-                            ...t,
-                            startDate: startTime
-                        } as WithId<Trip>);
-                    }
-                });
-            }
-
-            await fetchRegistryWithGps(allActive);
-        } catch (error) {
-            console.error("Active trips fetch failure:", error);
-        } finally {
+            setData(prev => {
+                const others = prev.filter(t => t.originPlantId !== pId);
+                const combined = [...others, ...plantTrips];
+                return combined.sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+            });
             setLoading(false);
-        }
-    };
+        });
+        unsubscribers.push(unsub);
+    });
 
-    fetchData();
-  }, [isOpen, plantId, firestore, authorizedPlantIds, fromDate, toDate]);
+    return () => unsubscribers.forEach(u => u());
+  }, [isOpen, plantId, JSON.stringify(authorizedPlantIds), firestore]);
+
+  // 3. Background Telemetry Sync
+  useEffect(() => {
+    if (data.length > 0 && !loading) {
+        fetchGpsData(data);
+    }
+  }, [data.length, loading]);
   
   const filteredData = useMemo(() => {
     return data.filter(item =>
@@ -133,7 +131,7 @@ export default function ActiveTripsModal({ isOpen, onClose, plantId, plantName, 
         <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
           <DialogTitle className="text-xl font-black uppercase tracking-tight italic">Active Trips Manifest</DialogTitle>
           <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-1">
-            Plant: {plantName} | Live GIS Handshake Active
+            Plant: {plantName} | Live Mission Registry Monitor
           </DialogDescription>
         </DialogHeader>
         
@@ -160,7 +158,7 @@ export default function ActiveTripsModal({ isOpen, onClose, plantId, plantName, 
                         <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500">Trip ID</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Vehicle Number</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Location Registry</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-500">Last Update</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-500">Last Sync</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Ship to Party</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-right text-slate-500">Quantity</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-500">Status Node</TableHead>
@@ -168,7 +166,7 @@ export default function ActiveTripsModal({ isOpen, onClose, plantId, plantName, 
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {loading ? (
+                        {loading && data.length === 0 ? (
                         Array.from({length: 10}).map((_, i) => (
                             <TableRow key={i} className="h-16">
                             <TableCell colSpan={8} className="px-6"><Skeleton className="h-8 w-full" /></TableCell>
@@ -180,7 +178,7 @@ export default function ActiveTripsModal({ isOpen, onClose, plantId, plantName, 
                         </TableRow>
                         ) : (
                         filteredData.map((item) => {
-                            const isOffline = !item.gpsData || item.gpsData.location === 'GPS Offline';
+                            const isOffline = !item.gpsData || item.gpsData.location === 'N/A';
                             return (
                                 <TableRow key={item.id} className="h-16 border-b border-slate-50 last:border-0 hover:bg-blue-50/20 transition-colors">
                                 <TableCell className="px-6 font-black text-blue-700 font-mono text-[11px] uppercase tracking-tighter">{item.tripId}</TableCell>
@@ -192,7 +190,7 @@ export default function ActiveTripsModal({ isOpen, onClose, plantId, plantName, 
                                             "truncate max-w-[350px] uppercase",
                                             isOffline ? "text-slate-300 font-normal" : "text-slate-700"
                                         )}>
-                                            {isOffline ? 'GPS Offline' : item.gpsData.location}
+                                            {isOffline ? 'Registry Syncing...' : item.gpsData.location}
                                         </span>
                                     </div>
                                 </TableCell>

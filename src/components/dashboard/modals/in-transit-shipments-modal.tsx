@@ -11,10 +11,11 @@ import { mockPlants } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, startOfDay, endOfDay, isValid } from "date-fns";
 import { useFirestore } from "@/firebase";
-import { collection, getDocs, doc, getDoc, Timestamp } from "firebase/firestore";
+import { collection, onSnapshot, query, where, Timestamp, doc, getDoc } from "firebase/firestore";
+import { normalizePlantId } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { ShieldCheck, Search, MapPin, Loader2 } from "lucide-react";
-import { cn, normalizePlantId } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { fetchFleetLocation } from "@/app/actions/wheelseye";
 
 type EnrichedTrip = WithId<Trip> & {
@@ -25,11 +26,11 @@ type EnrichedTrip = WithId<Trip> & {
 export default function InTransitShipmentsModal({ isOpen, onClose, plantId, plantName, authorizedPlantIds, fromDate, toDate }: { isOpen: boolean; onClose: () => void; plantId: string; plantName: string; authorizedPlantIds: string[]; fromDate?: Date; toDate?: Date; }) {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState("");
-  const [data, setData] = useState<EnrichedTrip[]>([]);
+  const [trips, setTrips] = useState<EnrichedTrip[]>([]);
   const [loading, setLoading] = useState(true);
-  const [plants, setPlants] = useState<WithId<Plant>[]>([]);
 
-  const fetchRegistryWithGps = async (trips: EnrichedTrip[]) => {
+  // 1. Registry Handshake: Sync GPS Telemetry
+  const fetchGpsData = async (activeTrips: EnrichedTrip[]) => {
     try {
         const res = await fetchFleetLocation();
         if (res.data && res.data.length > 0) {
@@ -37,84 +38,76 @@ export default function InTransitShipmentsModal({ isOpen, onClose, plantId, plan
             res.data.forEach((v: any) => {
                 const vNo = v.vehicleNumber?.toUpperCase().replace(/\s/g, '');
                 gpsMap.set(vNo, {
-                    speed: Number(v.speed || 0),
-                    ignition: v.ignition,
-                    // REGISTRY FIX: Always show actual latest location node
                     location: v.location || 'N/A',
                     lastUpdate: v.lastUpdateRaw ? format(new Date(v.lastUpdateRaw), 'HH:mm:ss') : '--:--:--'
                 });
             });
 
-            const enriched = trips.map(t => ({
+            setTrips(prev => prev.map(t => ({
                 ...t,
                 gpsData: gpsMap.get(t.vehicleNumber?.toUpperCase().replace(/\s/g, ''))
-            }));
-            setData(enriched);
-        } else {
-            setData(trips);
+            })));
         }
     } catch (e) {
-        setData(trips);
+        console.warn("GPS Handshake Latency");
     }
   };
 
+  // 2. Real-time Data Pulse
   useEffect(() => {
-    if (!isOpen || !firestore) return;
+    if (!isOpen || !firestore || (plantId === 'all-plants' && authorizedPlantIds.length === 0)) return;
 
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            const plantSnap = await getDocs(collection(firestore, "logistics_plants"));
-            const masterPlants = plantSnap.docs.map(d => ({ id: d.id, ...d.data() } as WithId<Plant>));
-            setPlants(masterPlants.length > 0 ? masterPlants : mockPlants);
+    const scopePlants = plantId === 'all-plants' ? authorizedPlantIds : [plantId];
+    const unsubscribers: (() => void)[] = [];
+    
+    setLoading(true);
 
-            const isAllPlants = plantId === 'all-plants';
-            const scopePlants = isAllPlants ? authorizedPlantIds : [plantId];
-
-            const dayStart = fromDate ? startOfDay(fromDate) : startOfDay(new Date());
-            const dayEnd = toDate ? endOfDay(toDate) : endOfDay(new Date());
-
-            const allEnriched: EnrichedTrip[] = [];
-
-            for (const pId of scopePlants) {
-                const tripSnap = await getDocs(collection(firestore, `plants/${pId}/trips`));
-                for (const tripDoc of tripSnap.docs) {
-                    const t = tripDoc.data();
-                    const startTime = t.startDate instanceof Timestamp ? t.startDate.toDate() : new Date(t.startDate);
-                    const rawStatus = t.tripStatus?.toLowerCase().replace(/[\s_-]+/g, '-') || '';
-
-                    if (rawStatus === 'in-transit' && startTime >= dayStart && startTime <= dayEnd) {
-                        const shipId = t.shipmentIds[0];
-                        const shipDoc = await getDoc(doc(firestore, `plants/${pId}/shipments`, shipId));
-                        
-                        allEnriched.push({
-                            id: tripDoc.id,
-                            ...t,
-                            startDate: startTime,
-                            shipment: shipDoc.exists() ? ({ id: shipDoc.id, ...shipDoc.data() } as WithId<Shipment>) : undefined
-                        } as EnrichedTrip);
-                    }
+    scopePlants.forEach(pId => {
+        const q = collection(firestore, `plants/${pId}/trips`);
+        const unsub = onSnapshot(q, async (snap) => {
+            const plantTrips = snap.docs.map(docSnap => {
+                const t = docSnap.data();
+                const statusRaw = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
+                const isInTransit = statusRaw === 'in-transit';
+                
+                if (isInTransit) {
+                    return {
+                        id: docSnap.id,
+                        ...t,
+                        originPlantId: pId,
+                        startDate: t.startDate instanceof Timestamp ? t.startDate.toDate() : new Date(t.startDate)
+                    } as EnrichedTrip;
                 }
-            }
+                return null;
+            }).filter((t): t is EnrichedTrip => t !== null);
 
-            await fetchRegistryWithGps(allEnriched);
-        } catch (error) {
-            console.error("In-transit fetch failure:", error);
-        } finally {
+            setTrips(prev => {
+                const others = prev.filter(t => t.originPlantId !== pId);
+                const combined = [...others, ...plantTrips];
+                return combined.sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+            });
             setLoading(false);
-        }
-    };
+        });
+        unsubscribers.push(unsub);
+    });
 
-    fetchData();
-  }, [isOpen, plantId, authorizedPlantIds, fromDate, toDate, firestore]);
-  
+    return () => unsubscribers.forEach(u => u());
+  }, [isOpen, plantId, JSON.stringify(authorizedPlantIds), firestore]);
+
+  // 3. Background Telemetry Sync
+  useEffect(() => {
+    if (trips.length > 0 && !loading) {
+        fetchGpsData(trips);
+    }
+  }, [trips.length, loading]);
+
   const filteredData = useMemo(() => {
-    return data.filter(item =>
+    return trips.filter(item =>
       Object.values(item).some(value =>
         value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
       ) || (item.gpsData?.location?.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-  }, [searchTerm, data]);
+  }, [searchTerm, trips]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -158,19 +151,19 @@ export default function InTransitShipmentsModal({ isOpen, onClose, plantId, plan
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {loading ? (
+                        {loading && trips.length === 0 ? (
                         Array.from({length: 10}).map((_, i) => (
                             <TableRow key={i} className="h-16">
-                            <TableCell colSpan={11} className="px-6"><Skeleton className="h-8 w-full" /></TableCell>
+                            <TableCell colSpan={9} className="px-6"><Skeleton className="h-8 w-full" /></TableCell>
                             </TableRow>
                         ))
                         ) : filteredData.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={11} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-widest opacity-40">No in-transit records matching current scope.</TableCell>
+                            <TableCell colSpan={9} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-widest opacity-40">No in-transit records matching current scope.</TableCell>
                         </TableRow>
                         ) : (
                         filteredData.map((item, index) => {
-                            const isOffline = !item.gpsData || item.gpsData.location === 'GPS Offline';
+                            const isOffline = !item.gpsData || item.gpsData.location === 'N/A';
                             return (
                                 <TableRow key={index} className="h-16 border-b border-slate-50 last:border-0 hover:bg-blue-50/20 transition-colors">
                                 <TableCell className="px-6 font-black text-blue-700 font-mono text-[11px] uppercase tracking-tighter">{item.tripId}</TableCell>
@@ -182,12 +175,12 @@ export default function InTransitShipmentsModal({ isOpen, onClose, plantId, plan
                                             "truncate max-w-[350px] uppercase",
                                             isOffline ? "text-slate-300 font-normal" : "text-slate-700"
                                         )}>
-                                            {isOffline ? 'GPS Offline' : item.gpsData.location}
+                                            {isOffline ? 'GPS Syncing...' : item.gpsData.location}
                                         </span>
                                     </div>
                                 </TableCell>
                                 <TableCell className="px-4 text-center text-[10px] font-black text-slate-400 font-mono">{item.gpsData?.lastUpdate || '--:--:--'}</TableCell>
-                                <TableCell className="px-4 font-bold text-slate-700 uppercase text-xs truncate max-w-[150px]">{item.shipment?.consignor ?? 'N/A'}</TableCell>
+                                <TableCell className="px-4 font-bold text-slate-700 uppercase text-xs truncate max-w-[150px]">{item.consignor ?? 'N/A'}</TableCell>
                                 <TableCell className="px-4 font-bold text-slate-700 uppercase text-xs truncate max-w-[150px]">{item.shipToParty ?? 'N/A'}</TableCell>
                                 <TableCell className="px-4 font-medium text-slate-500 uppercase text-xs truncate max-w-[200px]">{item.unloadingPoint ?? 'N/A'}</TableCell>
                                 <TableCell className="px-4 text-right font-black text-blue-900">{item.assignedQtyInTrip} MT</TableCell>
