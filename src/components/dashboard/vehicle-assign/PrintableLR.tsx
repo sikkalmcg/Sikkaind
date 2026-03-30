@@ -198,11 +198,11 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       {/* 6. FOOTER NODE - Synchronized with Image Manifest */}
       <div className="mt-auto pt-4 border-t border-slate-200 flex flex-col items-center gap-1.5 shrink-0">
         <p className="text-[7.5pt] font-black uppercase text-blue-400/80 tracking-widest">
-            REGISTRY HANDSHAKE PAGE {pageNumber} OF {totalInSeries} | CERTIFIED NODE SYNC
+            Note: This Lorry Receipt was generated digitally and is to be considered as original
         </p>
         <div className="flex items-center gap-2">
-            <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
-            <span className="text-[7.5pt] font-black uppercase tracking-[0.5em] text-slate-500">VERIFIED SIKKA LMC REGISTRY DOCUMENT</span>
+           
+            <span className="text-[7.5pt] font-black uppercase tracking-[0.5em] text-slate-500"> Page {pageNumber} OF {totalInSeries}</span>
         </div>
       </div>
     </div>

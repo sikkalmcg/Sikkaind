@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useRef } from 'react';
@@ -15,22 +14,32 @@ interface LRPrintPreviewModalProps {
     lr: EnrichedLR;
 }
 
+/**
+ * @fileOverview LR Print Preview Terminal.
+ * Synchronized with react-to-print v2.15.1 standards.
+ * Manages triple-copy manifest extraction.
+ */
 export default function LRPrintPreviewModal({ isOpen, onClose, lr }: LRPrintPreviewModalProps) {
     const { toast } = useToast();
     const [zoom, setZoom] = useState(100);
     const [isPreparing, setIsPreparing] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
 
+    // Registry Print Handshake Node (v2.x Compatible Syntax)
     const handlePrint = useReactToPrint({
-        contentRef,
+        content: () => contentRef.current,
         documentTitle: `LR_${lr.lrNumber || lr.id}`,
-        onBeforeGetContent: async () => {
+        onBeforeGetContent: () => {
             setIsPreparing(true);
-            return new Promise((resolve) => setTimeout(resolve, 400));
+            return Promise.resolve();
         },
         onAfterPrint: () => {
             setIsPreparing(false);
             toast({ title: 'Mission Printed', description: 'Document sent to spooler registry.' });
+        },
+        onPrintError: () => {
+            setIsPreparing(false);
+            toast({ variant: 'destructive', title: 'Print Failed', description: 'Registry communication error.' });
         }
     });
 
@@ -45,12 +54,12 @@ export default function LRPrintPreviewModal({ isOpen, onClose, lr }: LRPrintPrev
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-[95vw] md:max-w-6xl h-[95vh] flex flex-col p-0 overflow-hidden border-none shadow-3xl bg-slate-100 rounded-[2.5rem] print:bg-white print:p-0 print:rounded-none">
+            <DialogContent className="max-w-[95vw] md:max-w-6xl h-[95vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-slate-100 rounded-[2.5rem] print:bg-white print:p-0 print:rounded-none">
                 
                 {/* TOOLBAR */}
                 <div className="flex items-center justify-between p-6 border-b bg-slate-900 text-white print:hidden shrink-0 pr-12">
                     <div className="flex items-center gap-4">
-                        <div className="p-3 bg-blue-600 rounded-2xl shadow-lg">
+                        <div className="p-3 bg-blue-600 rounded-2xl shadow-xl">
                             <Printer className="h-6 w-6" />
                         </div>
                         <div>
