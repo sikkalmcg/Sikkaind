@@ -9,6 +9,7 @@ import PodUploadModal from '@/components/dashboard/trip-board/PodUploadModal';
 import TripViewModal from '@/components/dashboard/trip-board/TripViewModal';
 import CancelTripModal from '@/components/dashboard/trip-board/CancelTripModal';
 import EditVehicleModal from '@/components/dashboard/trip-board/EditVehicleModal';
+import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilter';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate } from '@/lib/utils';
