@@ -23,10 +23,11 @@ interface PrintableLRProps {
 
 /**
  * @fileOverview SIKKA LMC - Simplified Enterprise Lorry Receipt (LR) Node.
- * Optimized for A4 printing. Removes E-waybill, QR, and Goods Value.
- * Displays City-only routing for From/To.
- * Replaced Consignee Signature with Carrier Terms & Conditions.
- * Includes a "Total:" row at the bottom of the items manifest.
+ * Optimized for A4 printing.
+ * - Removed E-waybill, QR, and Goods Value.
+ * - Displays City-only routing for From/To.
+ * - Compact Table layout (not full page height).
+ * - Consolidated Totals row for Packages and Weight.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -132,15 +133,15 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 4. MANIFEST TABLE */}
-      <div className="border-2 border-black rounded-xl overflow-hidden mb-6 flex-1 flex flex-col min-h-0">
+      {/* 4. MANIFEST TABLE (Compact Mode) */}
+      <div className="border-2 border-black rounded-xl overflow-hidden mb-6 flex flex-col min-h-0">
         <table className="w-full border-collapse">
           <thead className="bg-black text-white text-[7.5pt] font-black uppercase tracking-wider">
             <tr className="h-10">
-              <th className="border-r border-white/20 px-4 text-left w-48">Document Ref (Invoice)</th>
-              <th className="border-r border-white/20 px-4 text-left">Description of Goods</th>
-              <th className="border-r border-white/20 px-4 text-center w-32">No. of Pkgs</th>
-              <th className="px-4 text-right w-40">Weight (MT)</th>
+              <th className="border-r border-white/20 px-4 text-left w-48">DOCUMENT REF (INVOICE)</th>
+              <th className="border-r border-white/20 px-4 text-left">DESCRIPTION OF GOODS</th>
+              <th className="border-r border-white/20 px-4 text-center w-32">NO. OF PKGS</th>
+              <th className="px-4 text-right w-40">WEIGHT (MT)</th>
             </tr>
           </thead>
           <tbody className="text-[9pt] font-bold text-slate-900 divide-y">
@@ -152,8 +153,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 <td className="px-4 text-right font-black text-blue-900">{Number(item.weight).toFixed(3)}</td>
               </tr>
             ))}
-            {/* Logic: Grow with whitespace if items are few */}
-            {Array.from({ length: Math.max(0, 8 - items.length) }).map((_, i) => (
+            {/* Logic: Grow with whitespace if items are few, but keep table compact */}
+            {Array.from({ length: Math.max(0, 4 - items.length) }).map((_, i) => (
               <tr key={`empty-${i}`} className="h-10 border-b border-slate-50 opacity-10">
                 <td className="border-r border-slate-200"></td>
                 <td className="border-r border-slate-200"></td>
@@ -164,7 +165,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           </tbody>
           <tfoot className="bg-slate-50 font-black h-12 border-t-2 border-black">
             <tr className="align-middle">
-              <td className="px-4 text-[10pt] font-black uppercase">Total:</td>
+              <td className="px-4 text-[10pt] font-black uppercase">TOTAL:</td>
               <td className="border-l-2 border-black px-4"></td>
               <td className="border-l-2 border-black px-4 text-center text-[10pt] font-black">{totalUnits}</td>
               <td className="border-l-2 border-black px-4 text-right text-[10pt] font-black text-blue-900">{totalWeight.toFixed(3)}</td>
@@ -204,7 +205,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       {/* 6. FOOTER NODE */}
       <div className="mt-auto pt-4 border-t border-slate-200 flex flex-col items-center gap-1.5 shrink-0">
         <p className="text-[7.5pt] font-black uppercase text-blue-400/80 tracking-widest">
-            Note: This Lorry Receipt was generated digitally and is to be considered as original | Page {pageNumber} OF {totalInSeries}
+            Note: This Lorry Receipt was generated digitally and is to be considered as original | PAGE {pageNumber} OF {totalInSeries}
         </p>
         <div className="flex items-center gap-2">
             <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
