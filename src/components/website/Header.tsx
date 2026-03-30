@@ -33,7 +33,7 @@ export default function Header() {
       <nav className="mx-auto flex max-w-7xl items-center justify-between p-4 lg:px-8" aria-label="Global">
         <div className="flex lg:flex-1">
           <Link href="/" className="flex items-center group">
-            {logoAsset?.url && (
+            {logoAsset?.url ? (
               <Image 
                 src={logoAsset.url}
                 alt="Sikka LMC Logo"
@@ -43,6 +43,8 @@ export default function Header() {
                 priority
                 unoptimized={true}
               />
+            ) : (
+              <span className="text-xl font-bold text-blue-900 italic">SIKKA LMC</span>
             )}
           </Link>
         </div>
@@ -102,7 +104,7 @@ export default function Header() {
       )}>
         <div className="flex items-center justify-between p-6 border-b bg-slate-50">
           <Link href="/" className="flex items-center" onClick={() => setMobileMenuOpen(false)}>
-            {logoAsset?.url && (
+            {logoAsset?.url ? (
               <Image 
                 src={logoAsset.url}
                 alt="Sikka LMC Logo"
@@ -112,6 +114,8 @@ export default function Header() {
                 priority
                 unoptimized={true}
               />
+            ) : (
+              <span className="text-xl font-bold text-blue-900 italic">SIKKA LMC</span>
             )}
           </Link>
           <button

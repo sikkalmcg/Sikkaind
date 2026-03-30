@@ -258,6 +258,8 @@ export default function LoginPage() {
         );
     }
 
+    const loginImageAsset = getImg('logo');
+
     return (
         <div className="flex min-h-screen items-center justify-center bg-gray-200 p-4 font-sans">
             {showForgotPassword && <ForgotPasswordModal onClose={() => setShowForgotPassword(false)} />}
@@ -266,15 +268,17 @@ export default function LoginPage() {
                 <div className="border p-2">
                     <div className="flex border">
                         <div className="w-1/2 p-4 hidden md:block relative min-h-[400px]">
-                            {getImg('logo')?.url && (
+                            {loginImageAsset?.url ? (
                                 <Image 
-                                    src={getImg('logo')!.url} 
+                                    src={loginImageAsset.url} 
                                     alt="Sikka Industries Login" 
                                     fill 
                                     className="object-contain p-8" 
                                     priority 
                                     unoptimized={true}
                                 />
+                            ) : (
+                                <div className="absolute inset-0 flex items-center justify-center text-slate-300 font-black italic text-xl uppercase tracking-tighter">Sikka Hub</div>
                             )}
                         </div>
                         <div className="w-full md:w-1/2 p-8">

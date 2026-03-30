@@ -1,22 +1,27 @@
+
 'use client';
 
 import ContactForm from '@/components/website/ContactForm';
 import { Mail, Phone } from 'lucide-react';
 import Image from 'next/image';
-import { PlaceHolderImages } from '../../lib/placeholder-images';
+import placeholderData from '@/app/lib/placeholder-images.json';
 
 export default function ContactPage() {
-    const bgImg = PlaceHolderImages.find(p => p.id === 'contact-bg');
+    const bgAsset = placeholderData.placeholderImages.find(p => p.id === 'contact-bg');
 
     return (
         <div className="bg-white">
             <section className="relative py-16 md:py-24 text-white overflow-hidden">
-                 <Image
-                    src={bgImg?.imageUrl || "/assets/contact-bg.jpg"}
-                    alt="Warehouse office background"
-                    fill
-                    className="z-0 object-cover"
-                />
+                 {bgAsset?.url && (
+                    <Image
+                        src={bgAsset.url}
+                        alt="Warehouse office background"
+                        fill
+                        className="z-0 object-cover"
+                        priority
+                        unoptimized={true}
+                    />
+                 )}
                 <div className="absolute inset-0 bg-blue-900/70 z-10" />
                 <div className="container mx-auto px-4 relative z-20 text-center">
                     <h1 className="text-4xl md:text-5xl font-bold mb-4 animate-slide-down">Contact Us</h1>
@@ -35,7 +40,7 @@ export default function ContactPage() {
                                 <div className="space-y-4 text-gray-700">
                                     <div className="flex items-center gap-4">
                                         <Mail className="h-6 w-6 text-blue-600" />
-                                        <a href="mailto:queries@sikkaenterprises.com" className="hover:text-blue-600">queries@sikkaenterprises.com</a>
+                                        <a href="mailto:queries@sikka.com" className="hover:text-blue-600">queries@sikka.com</a>
                                     </div>
                                     <div className="flex items-center gap-4">
                                         <Phone className="h-6 w-6 text-blue-600" />

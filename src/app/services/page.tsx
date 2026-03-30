@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import placeholderData from '@/app/lib/placeholder-images.json';
 
 const services = [
     {
@@ -69,17 +69,21 @@ const features = [
 ];
 
 export default function ServicesPage() {
-    const bgImg = PlaceHolderImages.find(p => p.id === 'services-bg');
+    const bgAsset = placeholderData.placeholderImages.find(p => p.id === 'services-bg');
 
     return (
         <div className="bg-white text-gray-800">
             <section className="relative py-12 md:py-16 text-white bg-blue-900 overflow-hidden">
-                <Image
-                    src={bgImg?.imageUrl || "/assets/services-bg.jpg"}
-                    alt="Logistics background"
-                    fill
-                    className="z-0 opacity-20 object-cover"
-                />
+                {bgAsset?.url && (
+                    <Image
+                        src={bgAsset.url}
+                        alt="Logistics background"
+                        fill
+                        className="z-0 opacity-20 object-cover"
+                        priority
+                        unoptimized={true}
+                    />
+                )}
                 <div className="container mx-auto px-4 relative z-10 text-center">
                     <h1 className="text-4xl md:text-5xl font-bold mb-4 animate-slide-down">Our Services</h1>
                     <p className="text-xl md:text-2xl max-w-3xl mx-auto font-light animate-fade-in">

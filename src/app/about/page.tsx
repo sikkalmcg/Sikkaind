@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -33,18 +34,22 @@ export default function AboutPage() {
         { src: getImg('office-1')?.url, hint: 'logistics office' },
     ];
 
+    const heroImg = getImg('hero-warehouse');
+
     return (
         <div className="bg-white text-slate-800">
             {/* HERO SECTION */}
             <section className="relative py-20 md:py-32 text-white overflow-hidden min-h-[450px] flex items-center">
-                <Image
-                    src={getImg('hero-warehouse')?.url || "https://picsum.photos/seed/wh/1200/800"}
-                    alt="Sikka Logistics Hub"
-                    fill
-                    priority
-                    className="object-cover z-0 brightness-[0.25]"
-                    data-ai-hint="modern warehouse"
-                />
+                {heroImg?.url && (
+                    <Image
+                        src={heroImg.url}
+                        alt="Sikka Logistics Hub"
+                        fill
+                        priority
+                        className="object-cover z-0 brightness-[0.25]"
+                        unoptimized={true}
+                    />
+                )}
                 <div className="container mx-auto px-4 relative z-10">
                     <div className="max-w-4xl space-y-6">
                         <h1 className="text-5xl md:text-7xl font-black tracking-tighter uppercase italic leading-none">
@@ -145,6 +150,7 @@ export default function AboutPage() {
                                                         className="object-cover"
                                                         alt="Capability Slide"
                                                         data-ai-hint={slide.hint}
+                                                        unoptimized={slide.src.startsWith('/assets/')}
                                                     />
                                                 )}
                                             </div>
@@ -215,6 +221,7 @@ export default function AboutPage() {
                                                             className="object-cover"
                                                             alt="Expertise Slide"
                                                             data-ai-hint={slide.hint}
+                                                            unoptimized={slide.src.startsWith('/assets/')}
                                                         />
                                                     )}
                                                 </div>
