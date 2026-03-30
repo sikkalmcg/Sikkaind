@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -206,7 +205,7 @@ function TripBoardContent() {
       if (selectedPlants.length > 0 && !selectedPlants.some(pid => normalizePlantId(pid) === normalizePlantId(t.originPlantId))) return false;
 
       const start = t.startDate;
-      if (!start) return true; // Include missions with pending server timestamps
+      if (!start) return true; 
 
       if (dayStart && start < dayStart) return false;
       if (dayEnd && start > dayEnd) return false;
@@ -227,20 +226,20 @@ function TripBoardContent() {
 
         switch (activeTab) {
             case 'active':
-                return !['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status);
+                // REGISTRY LOGIC: Active trips are non-closed and non-cancelled
+                return !['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status) && !isPod;
             case 'loading':
                 return !isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete');
             case 'transit':
-                // REGISTRY SYNC: Include all movement nodes
                 return status === 'in-transit' || status === 'out-for-delivery' || status === 'break-down' || status === 'pilot-not-available';
             case 'arrived':
-                // REGISTRY SYNC: Include destination arrival nodes
                 return ['arrived', 'arrival-for-delivery', 'arrived-at-destination', 'arrive-for-deliver'].includes(status);
             case 'pod-pending':
-                // REGISTRY SYNC: Missions requiring verified receipt synchronization
+                // REGISTRY LOGIC: Delivered/Arrived missions missing the verified POD node
                 return (['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'delivered'].includes(status)) && !isPod;
             case 'closed':
-                return isPod || status === 'closed' || status === 'trip-closed';
+                // REGISTRY LOGIC: Missions finalized via POD or Status Manual Close
+                return isPod || status === 'closed' || status === 'trip-closed' || status === 'delivered';
             default:
                 return true;
         }
@@ -254,12 +253,12 @@ function TripBoardContent() {
         const isOut = t.entry?.status === 'OUT';
         const isPod = t.podReceived === true;
 
-        if (!['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status)) res.active++;
+        if (!['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status) && !isPod) res.active++;
         if (!isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete')) res.loading++;
         if (status === 'in-transit' || status === 'out-for-delivery' || status === 'break-down' || status === 'pilot-not-available') res.transit++;
         if (['arrived', 'arrival-for-delivery', 'arrived-at-destination', 'arrive-for-deliver'].includes(status)) res.arrived++;
         if ((['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'delivered'].includes(status)) && !isPod) res.podPending++;
-        if (isPod || status === 'closed' || status === 'trip-closed') res.closed++;
+        if (isPod || status === 'closed' || status === 'trip-closed' || status === 'delivered') res.closed++;
     });
     return res;
   }, [finalData]);

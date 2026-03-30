@@ -89,25 +89,29 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
         const currentName = user.displayName || user.email?.split('@')[0] || 'Operator';
         const ts = serverTimestamp();
 
+        // REGISTRY UPDATE: Force close the trip upon POD synchronization
         const updateData = {
             podUrl: base64,
-            podStatus: 'Receipt Soft Copy',
+            podStatus: 'Receipt Soft Copy' as const,
             podReceived: true,
             unloadQty: values.unloadQty,
             podUploadedBy: currentName,
             podUploadDate: ts,
-            lastUpdated: ts
+            lastUpdated: ts,
+            tripStatus: 'Closed' as const, // Force status to Closed
+            currentStatusId: 'closed'      // Sync status id
         };
 
         await updateDoc(tripRef, updateData);
         await updateDoc(globalTripRef, updateData);
         
-        // Finalize shipment status if delivered
-        if (trip.tripStatus === 'Delivered') {
-            await updateDoc(shipmentRef, { currentStatusId: 'Delivered', lastUpdateDate: ts });
-        }
+        // Finalize shipment status as delivered/closed
+        await updateDoc(shipmentRef, { 
+            currentStatusId: 'Delivered', 
+            lastUpdateDate: ts 
+        });
 
-        toast({ title: 'POD Registry Synchronized', description: `Voucher uploaded successfully for ${trip.tripId}` });
+        toast({ title: 'POD Registry Synchronized', description: `Voucher uploaded. Trip ${trip.tripId} is now CLOSED.` });
         onSuccess();
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
