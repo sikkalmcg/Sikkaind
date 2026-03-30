@@ -37,7 +37,11 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
   const items = lr.items || [];
   const totalUnits = items.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
-  const totalWeight = lr.assignedTripWeight || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
+  
+  // Registry Logic: Select weight based on manifest protocol
+  const totalWeight = lr.weightSelection === 'Actual Weight' 
+    ? items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0)
+    : (Number(lr.assignedTripWeight) || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0));
 
   // Registry Logic: Extract City only from From/To strings
   const getCity = (str: string) => {
@@ -128,7 +132,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 4. MANIFEST TABLE (Adjustable height) */}
+      {/* 4. MANIFEST TABLE */}
       <div className="border-2 border-black rounded-xl overflow-hidden mb-6 flex-1 flex flex-col min-h-0">
         <table className="w-full border-collapse">
           <thead className="bg-black text-white text-[7.5pt] font-black uppercase tracking-wider">
@@ -158,12 +162,12 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
               </tr>
             ))}
           </tbody>
-          <tfoot className="bg-slate-100 font-black h-12 border-t-2 border-black">
+          <tfoot className="bg-slate-50 font-black h-12 border-t-2 border-black">
             <tr className="align-middle">
-              <td className="px-4 text-[10pt] font-black">Total:</td>
-              <td className="border-l-2 border-black"></td>
-              <td className="border-l-2 border-black px-4 text-center text-[10pt]">{totalUnits}</td>
-              <td className="border-l-2 border-black px-4 text-right text-[10pt] text-blue-900">{totalWeight.toFixed(3)}</td>
+              <td className="px-4 text-[10pt] font-black uppercase">Total:</td>
+              <td className="border-l-2 border-black px-4"></td>
+              <td className="border-l-2 border-black px-4 text-center text-[10pt] font-black">{totalUnits}</td>
+              <td className="border-l-2 border-black px-4 text-right text-[10pt] font-black text-blue-900">{totalWeight.toFixed(3)}</td>
             </tr>
           </tfoot>
         </table>
@@ -197,7 +201,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 6. FOOTER NODE - Synchronized with Image Manifest */}
+      {/* 6. FOOTER NODE */}
       <div className="mt-auto pt-4 border-t border-slate-200 flex flex-col items-center gap-1.5 shrink-0">
         <p className="text-[7.5pt] font-black uppercase text-blue-400/80 tracking-widest">
             Note: This Lorry Receipt was generated digitally and is to be considered as original | Page {pageNumber} OF {totalInSeries}
