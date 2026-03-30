@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -16,7 +15,7 @@ import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate } from '@/lib/utils';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter } from "lucide-react";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -38,7 +37,7 @@ function TripBoardContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { hideLoader } = useLoading();
+  const { showLoader, hideLoader } = useLoading();
   
   const activeTab = (searchParams.get('tab') as TripBoardTab) || 'active';
   const urlPlants = searchParams.get('plants')?.split(',').filter(Boolean) || [];
@@ -307,7 +306,6 @@ function TripBoardContent() {
                 carrier: carrierObj,
                 shipment: row.shipmentObj || row,
                 plant: plantObj,
-                // Registry Handshake Node: Resolve missing GTINs from shipment if doc is aged
                 consignorGtin: lrDoc.consignorGtin || (row.shipmentObj || row).consignorGtin || '',
                 buyerGtin: lrDoc.buyerGtin || (row.shipmentObj || row).billToGtin || '',
                 shipToGtin: lrDoc.shipToGtin || (row.shipmentObj || row).shipToGtin || '',
@@ -361,7 +359,7 @@ function TripBoardContent() {
   };
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="flex flex-1 flex-col h-full relative">
       {isExtracting && (
           <div className="absolute inset-0 z-[100] flex items-center justify-center bg-white/60 backdrop-blur-[2px]">
               <div className="p-8 bg-white rounded-3xl shadow-2xl border flex flex-col items-center gap-4">
@@ -373,7 +371,7 @@ function TripBoardContent() {
 
       <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="p-2.5 bg-blue-900 text-white rounded-2xl shadow-xl rotate-3">
+          <div className="p-2.5 bg-blue-900 text-white rounded-lg shadow-lg rotate-3">
             <MonitorPlay className="h-7 w-7" />
           </div>
           <div>

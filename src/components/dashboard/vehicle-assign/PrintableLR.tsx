@@ -153,7 +153,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 <td className="px-4 text-right font-black text-blue-900">{Number(item.weight).toFixed(3)}</td>
               </tr>
             ))}
-            {/* Logic: Grow with whitespace if items are few, but keep table compact */}
             {Array.from({ length: Math.max(0, 4 - items.length) }).map((_, i) => (
               <tr key={`empty-${i}`} className="h-10 border-b border-slate-50 opacity-10">
                 <td className="border-r border-slate-200"></td>
@@ -205,7 +204,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       {/* 6. FOOTER NODE */}
       <div className="mt-auto pt-4 border-t border-slate-200 flex flex-col items-center gap-1.5 shrink-0">
         <p className="text-[7.5pt] font-black uppercase text-blue-400/80 tracking-widest">
-            Note: This Lorry Receipt was generated digitally and is to be considered as original | PAGE {pageNumber} OF {totalInSeries}
+            REGISTRY HANDSHAKE | PAGE {pageNumber} OF {totalInSeries}
         </p>
         <div className="flex items-center gap-2">
             <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
