@@ -8,6 +8,7 @@ import {
   ArrowRight, Radar
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 /**
  * @fileOverview Sikka LMC Landing Page.
