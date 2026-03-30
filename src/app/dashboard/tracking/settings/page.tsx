@@ -5,7 +5,7 @@ import { FirebaseAppProvider, AuthProvider, FirestoreProvider, StorageProvider, 
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import { app } from '@/firebase';
+import { app } from '@/lib/firebase';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -177,7 +177,7 @@ function SettingsContent() {
                             {selectedStoppedIcon && (
                                 <div className='relative p-4 border-2 rounded-2xl flex items-center justify-center h-32 w-32 border-red-600 ring-4 ring-red-100'>
                                     <Image src={selectedStoppedIcon} alt="Stopped Icon" width={80} height={80} className="object-contain w-auto h-auto" />
-                                    <CheckCircle2 className="absolute -top-3 -right-3 h-7 w-7 text-white bg-red-600 rounded-full p-1" />
+                                    <CheckCircle2 className="absolute -top-3 -right-3 h-7 w-7 text-white bg-green-600 rounded-full p-1" />
                                 </div>
                             )}
                         </div>
@@ -190,7 +190,7 @@ function SettingsContent() {
                         disabled={isSyncing}
                         className="w-full h-14 mt-4 rounded-2xl bg-blue-900 hover:bg-slate-900 text-white font-black uppercase text-sm tracking-[0.2em] shadow-xl transition-all active:scale-95"
                     >
-                        {isSyncing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShieldCheck className="mr-3 h-5 w-5" />}
+                        {isSyncing ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <ShieldCheck className="mr-3 h-5 w-5" />}
                         Save & Sync Settings
                     </Button>
                 </div>
@@ -200,16 +200,19 @@ function SettingsContent() {
 }
 
 export default function GPSSettingsPage() {
+    // Only initialize providers if app is valid
+    if (!app) return <div className="p-20 text-center">Establishing Registry link...</div>;
+
+    const authInstance = getAuth(app);
     const firestoreInstance = getFirestore(app);
     const storageInstance = getStorage(app);
-    const authInstance = getAuth(app);
 
     return (
         <FirebaseAppProvider firebaseApp={app}>
             <AuthProvider sdk={authInstance}>
                 <FirestoreProvider sdk={firestoreInstance}>
                     <StorageProvider sdk={storageInstance}>
-                        <Suspense fallback={<div className="w-full h-screen flex items-center justify-center">Loading Settings...</div>}>
+                        <Suspense fallback={<div className="w-full h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-blue-900" /></div>}>
                             <SettingsContent />
                         </Suspense>
                     </StorageProvider>

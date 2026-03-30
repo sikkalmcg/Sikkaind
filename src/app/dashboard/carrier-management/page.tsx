@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CreateCarrierForm from '@/components/dashboard/carrier-management/CreateCarrierForm';
@@ -11,7 +11,11 @@ import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebas
 import { collection, query, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
 import { Loader2, WifiOff } from 'lucide-react';
 
-export default function CarrierManagementPage() {
+/**
+ * @fileOverview Carrier Management Terminal.
+ * Wrapped in Suspense to safely handshake with useSearchParams registry.
+ */
+function CarrierManagementContent() {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -161,5 +165,13 @@ export default function CarrierManagementPage() {
         />
       )}
     </>
+  );
+}
+
+export default function CarrierManagementPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-slate-50"><Loader2 className="h-12 w-12 animate-spin text-blue-900" /></div>}>
+      <CarrierManagementContent />
+    </Suspense>
   );
 }
