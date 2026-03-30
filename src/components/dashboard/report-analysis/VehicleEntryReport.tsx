@@ -1,20 +1,19 @@
-
 'use client';
 import { useState, useMemo, useEffect } from 'react';
-import { format, differenceInHours, startOfDay, endOfDay } from 'date-fns';
+import { format, differenceInHours, startOfDay, endOfDay, isValid } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { mockPlants as initialPlants } from '@/lib/mock-data';
-import type { WithId, VehicleEntryExit, Plant, SubUser } from '@/types';
+import type { WithId, VehicleEntryExit, Plant, SubUser, Trip } from '@/types';
 import ReportPagination from './ReportPagination';
 import { ArrowUpDown, FileDown, WifiOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, getDocs, query, Timestamp, orderBy, limit, where } from "firebase/firestore";
-import { cn, normalizePlantId } from '@/lib/utils';
+import { collection, onSnapshot, query, Timestamp, orderBy, limit, where, getDocs } from "firebase/firestore";
+import { cn, normalizePlantId, parseSafeDate } from '@/lib/utils';
 
 interface ReportProps {
   fromDate?: Date;
@@ -50,129 +49,136 @@ const headers = Object.keys(headerLabels);
 export default function VehicleEntryReport({ fromDate, toDate, searchTerm }: ReportProps) {
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
-  const [data, setData] = useState<EnrichedVehicleMovement[]>([]);
+  const [entries, setEntries] = useState<VehicleEntryExit[]>([]);
+  const [trips, setTrips] = useState<Trip[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<{ key: keyof EnrichedVehicleMovement; direction: 'asc' | 'desc' } | null>(null);
+  const [authorizedPlantIds, setAuthorizedPlantIds] = useState<string[]>([]);
 
   const firestore = useFirestore();
   const { user } = useUser();
 
-  const plantsQuery = useMemoFirebase(() => 
+  const masterPlantsQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, "logistics_plants")) : null, 
     [firestore]
   );
-  const { data: allMasterPlants } = useCollection<Plant>(plantsQuery);
+  const { data: allMasterPlants } = useCollection<Plant>(masterPlantsQuery);
 
-  const fetchData = async () => {
-    if (!firestore || !user) return;
-    setLoading(true);
-    setDbError(false);
-    try {
-        const activePlants = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : initialPlants;
-        const plantsMap = new Map(activePlants.map(p => [normalizePlantId(p.id), p.name]));
-
-        // HIGH-FIDELITY IDENTITY HANDSHAKE
-        const lastIdentity = localStorage.getItem('slmc_last_identity');
-        const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
-        
-        let userDocSnap = null;
-        const userQ = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
-        const userQSnap = await getDocs(userQ);
-        if (!userQSnap.empty) {
-            userDocSnap = userQSnap.docs[0];
-        } else {
-            const uidSnap = await getDoc(doc(firestore, "users", user.uid));
-            if (uidSnap.exists()) userDocSnap = uidSnap;
-        }
-        
-        let authorizedPlantIds: string[] = [];
-        const isAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com' || userDocSnap?.data()?.username === 'sikkaind';
-
-        if (userDocSnap) {
-            const userData = userDocSnap.data() as SubUser;
-            const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdmin;
-            authorizedPlantIds = isRoot ? activePlants.map(p => p.id) : (userData.plantIds || []);
-        } else if (isAdmin) {
-            authorizedPlantIds = activePlants.map(p => p.id);
-        }
-
-        if (authorizedPlantIds.length === 0) {
-            setLoading(false);
-            return;
-        }
-
-        const q = query(collection(firestore, "vehicleEntries"), orderBy("entryTimestamp", "desc"), limit(500));
-        const snapshot = await getDocs(q);
-        
-        const results: EnrichedVehicleMovement[] = [];
-        snapshot.forEach((doc) => {
-            const entryData = doc.data();
-            const normalizedEntryPlantId = normalizePlantId(entryData.plantId);
-            
-            const isAuthorized = isAdmin || authorizedPlantIds.some(aid => normalizePlantId(aid) === normalizedEntryPlantId);
-            if (!isAuthorized) return;
-
-            const entry: any = {
-                id: doc.id,
-                ...entryData,
-                entryTimestamp: entryData.entryTimestamp instanceof Timestamp ? entryData.entryTimestamp.toDate() : new Date(entryData.entryTimestamp),
-                exitTimestamp: entryData.exitTimestamp instanceof Timestamp ? entryData.exitTimestamp.toDate() : (entryData.exitTimestamp ? new Date(entryData.exitTimestamp) : undefined),
-            };
-
-            let stayHours;
-            if (entry.exitTimestamp) {
-                stayHours = differenceInHours(new Date(entry.exitTimestamp), new Date(entry.entryTimestamp));
-            } else {
-                stayHours = differenceInHours(new Date(), new Date(entry.entryTimestamp));
-            }
-
-            results.push({ 
-                ...entry, 
-                plantName: plantsMap.get(normalizedEntryPlantId) || entryData.plantId, 
-                stayHours 
-            });
-        });
-
-        setData(results);
-    } catch (error) {
-        console.error("Error fetching vehicle entry report:", error);
-        setDbError(true);
-        setData([]);
-    } finally {
-        setLoading(false);
-    }
-  };
-
+  // 1. Authorization Handshake
   useEffect(() => {
-    fetchData();
+    if (!firestore || !user) return;
+
+    const fetchAuth = async () => {
+        try {
+            const searchEmail = user.email;
+            if (!searchEmail) return;
+            
+            const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
+            const snap = await getDocs(q);
+            
+            let authIds: string[] = [];
+            const activePlants = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : initialPlants;
+            const isAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
+
+            if (!snap.empty) {
+                const userData = snap.docs[0].data() as SubUser;
+                const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdmin;
+                authIds = isRoot ? activePlants.map(p => p.id) : (userData.plantIds || []);
+            } else if (isAdmin) {
+                authIds = activePlants.map(p => p.id);
+            }
+            setAuthorizedPlantIds(authIds);
+        } catch (e) {
+            setDbError(true);
+        }
+    };
+    fetchAuth();
   }, [firestore, user, allMasterPlants]);
 
+  // 2. Real-time Registry Sync
+  useEffect(() => {
+    if (!firestore || authorizedPlantIds.length === 0) return;
+
+    const unsubscribers: (() => void)[] = [];
+    setLoading(true);
+
+    // Sync Gate Entries
+    const unsubEntries = onSnapshot(query(collection(firestore, "vehicleEntries"), orderBy("entryTimestamp", "desc"), limit(500)), (snap) => {
+        setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
+        setLoading(false);
+    }, () => setDbError(true));
+    unsubscribers.push(unsubEntries);
+
+    // Sync Trips for Data Join
+    const unsubTrips = onSnapshot(collection(firestore, "trips"), (snap) => {
+        setTrips(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
+    });
+    unsubscribers.push(unsubTrips);
+
+    return () => unsubscribers.forEach(u => u());
+  }, [firestore, authorizedPlantIds]);
+
+  // 3. Logic Node: Enriched Data Mapping
+  const enrichedData = useMemo(() => {
+    const plantsMap = new Map((allMasterPlants || initialPlants).map(p => [normalizePlantId(p.id), p.name]));
+    const normalizedAuthIds = authorizedPlantIds.map(normalizePlantId);
+    const isAdmin = user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
+
+    return entries
+        .filter(entry => isAdmin || normalizedAuthIds.includes(normalizePlantId(entry.plantId)))
+        .map(entry => {
+            const entryIn = parseSafeDate(entry.entryTimestamp) || new Date();
+            const entryOut = parseSafeDate(entry.exitTimestamp);
+            
+            // MISSION JOIN: Resolve LR/Qty from linked trip if missing in gate entry
+            const linkedTrip = trips.find(t => t.id === entry.tripId || (t.vehicleNumber === entry.vehicleNumber && !['delivered', 'cancelled'].includes(t.currentStatusId?.toLowerCase())));
+            
+            const lrNumber = entry.lrNumber || linkedTrip?.lrNumber || '--';
+            const qty = entry.qty || (linkedTrip?.assignedQtyInTrip ? `${linkedTrip.assignedQtyInTrip} MT` : '--');
+            const tripId = entry.tripId || linkedTrip?.tripId || '--';
+
+            let stayHours;
+            if (entryOut) {
+                stayHours = differenceInHours(entryOut, entryIn);
+            } else {
+                stayHours = differenceInHours(new Date(), entryIn);
+            }
+
+            return {
+                ...entry,
+                entryTimestamp: entryIn,
+                exitTimestamp: entryOut,
+                lrNumber,
+                qty,
+                tripId,
+                plantName: plantsMap.get(normalizePlantId(entry.plantId)) || entry.plantId,
+                stayHours
+            } as EnrichedVehicleMovement;
+        });
+  }, [entries, trips, allMasterPlants, authorizedPlantIds, user]);
+
   const filteredData = useMemo(() => {
-    let filtered = data;
+    let filtered = enrichedData;
     
-    if (fromDate) {
-        filtered = filtered.filter(item => item.entryTimestamp >= startOfDay(fromDate));
-    }
-    if (toDate) {
-        filtered = filtered.filter(item => item.entryTimestamp <= endOfDay(toDate));
-    }
+    if (fromDate) filtered = filtered.filter(item => item.entryTimestamp >= startOfDay(fromDate));
+    if (toDate) filtered = filtered.filter(item => item.entryTimestamp <= endOfDay(toDate));
 
     if (searchTerm) {
-        const lowerSearch = searchTerm.toLowerCase();
+        const s = searchTerm.toLowerCase();
         filtered = filtered.filter(item =>
-            Object.values(item).some(val => val?.toString().toLowerCase().includes(lowerSearch))
+            Object.values(item).some(val => val?.toString().toLowerCase().includes(s))
         );
     }
 
     return filtered;
-  }, [data, fromDate, toDate, searchTerm]);
+  }, [enrichedData, fromDate, toDate, searchTerm]);
   
   const sortedData = useMemo(() => {
     let sortableItems = [...filteredData];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
-        const aVal = a[sortConfig.key as keyof EnrichedVehicleMovement] || '';
-        const bVal = b[sortConfig.key as keyof EnrichedVehicleMovement] || '';
+        const aVal = a[sortConfig.key] || '';
+        const bVal = b[sortConfig.key] || '';
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -189,8 +195,8 @@ export default function VehicleEntryReport({ fromDate, toDate, searchTerm }: Rep
         const row: {[key: string]: any} = {};
         headers.forEach(key => {
             let value = (item as any)[key] ?? 'N/A';
-             if (key.includes('Timestamp') && value !== 'N/A') {
-                value = format(new Date(value), 'dd-MM-yyyy HH:mm');
+             if (key.includes('Timestamp') && value instanceof Date) {
+                value = format(value, 'dd-MM-yyyy HH:mm');
             }
             row[headerLabels[key]] = value;
         });
@@ -200,7 +206,7 @@ export default function VehicleEntryReport({ fromDate, toDate, searchTerm }: Rep
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Vehicle Entry Report");
-    XLSX.writeFile(workbook, "VehicleEntryReport.xlsx");
+    XLSX.writeFile(workbook, `Vehicle_Entry_Report_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
   const requestSort = (key: keyof EnrichedVehicleMovement) => {
@@ -213,7 +219,7 @@ export default function VehicleEntryReport({ fromDate, toDate, searchTerm }: Rep
   
   const getSortIcon = (key: keyof EnrichedVehicleMovement) => {
     if (!sortConfig || sortConfig.key !== key) {
-        return <ArrowUpDown className="ml-2 h-4 w-4 text-slate-400" />;
+        return <ArrowUpDown className="ml-2 h-3 w-3 text-slate-400" />;
     }
     return sortConfig.direction === 'asc' ? '🔼' : '🔽';
   }
@@ -259,7 +265,7 @@ export default function VehicleEntryReport({ fromDate, toDate, searchTerm }: Rep
                   <TableRow key={i} className="h-16"><TableCell colSpan={headers.length} className="px-4 py-2"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                 ))
               ) : paginatedData.length === 0 ? (
-                <TableRow><TableCell colSpan={headers.length} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No movement records found matching criteria.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={headers.length} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No records found matching criteria.</TableCell></TableRow>
               ) : (
                 paginatedData.map(item => (
                   <TableRow key={item.id} className="hover:bg-blue-50/20 h-16 border-b border-slate-50 last:border-0 transition-all group text-[11px] font-medium text-slate-600">
@@ -269,8 +275,8 @@ export default function VehicleEntryReport({ fromDate, toDate, searchTerm }: Rep
                     <TableCell className="px-4 font-bold text-slate-700 truncate max-w-[120px]">{item.driverName || 'N/A'}</TableCell>
                     <TableCell className="px-4 font-mono font-bold text-slate-500">{item.driverMobile || 'N/A'}</TableCell>
                     <TableCell className="px-4 font-mono uppercase font-bold text-slate-400">{item.licenseNumber || 'N/A'}</TableCell>
-                    <TableCell className="px-4 text-slate-500 whitespace-nowrap font-bold">{format(new Date(item.entryTimestamp), 'dd/MM/yy HH:mm')}</TableCell>
-                    <TableCell className="px-4 text-blue-700 whitespace-nowrap font-black">{item.exitTimestamp ? format(new Date(item.exitTimestamp), 'dd/MM/yy HH:mm') : '--:--'}</TableCell>
+                    <TableCell className="px-4 text-slate-500 whitespace-nowrap font-bold">{format(item.entryTimestamp, 'dd/MM/yy HH:mm')}</TableCell>
+                    <TableCell className="px-4 text-blue-700 whitespace-nowrap font-black">{item.exitTimestamp ? format(item.exitTimestamp, 'dd/MM/yy HH:mm') : '--:--'}</TableCell>
                     <TableCell className="px-4">
                         <Badge variant="outline" className={cn("text-[9px] h-6 px-2 font-black uppercase border-slate-200", item.purpose === 'Loading' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700')}>
                             {item.purpose || 'N/A'}
