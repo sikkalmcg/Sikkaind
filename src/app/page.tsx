@@ -1,60 +1,21 @@
 'use client';
 
 import * as React from 'react';
-import Image from 'next/image';
-import Autoplay from 'embla-carousel-autoplay';
-import { 
-  Carousel, 
-  CarouselContent, 
-  CarouselItem, 
-  CarouselNext, 
-  CarouselPrevious,
-  type CarouselApi
-} from '@/components/ui/carousel';
+import Link from 'next/link';
 import { 
   CheckCircle, Truck, Warehouse, Package, BarChart3, 
-  MapPin, Laptop, Users, Globe, Tag, ShieldCheck, Headphones
+  MapPin, Laptop, Users, Globe, Tag, ShieldCheck, Headphones,
+  ArrowRight, Radar
 } from 'lucide-react';
-import placeholderData from '@/app/lib/placeholder-images.json';
+import { Button } from '@/components/ui/button';
 
 /**
  * @fileOverview Sikka LMC Landing Page.
- * Optimized asset handshake node using the local placeholder registry.
+ * Streamlined Typography-Led Node. 
+ * Carousel and image assets purged for a clean registry aesthetic.
  */
 
 export default function HomePage() {
-  const [api, setApi] = React.useState<CarouselApi>();
-  const [current, setCurrent] = React.useState(0);
-
-  const getImg = (id: string) => placeholderData.placeholderImages.find(p => p.id === id);
-
-  const galleryItems = [
-    {
-      id: 'herotruck',
-      title: 'Domestic Transportation',
-      description: 'Optimized movement via road with real-time fleet visibility.',
-      src: getImg('hero-trucks')?.url
-    },
-    {
-      id: 'herowarehouse',
-      title: 'Modern Warehousing',
-      description: 'Advanced inventory management and scalable storage solutions.',
-      src: getImg('hero-warehouse')?.url
-    },
-    {
-      id: 'herorake',
-      title: 'Rake & Bulk Handling',
-      description: 'Specialized railhead clearing and bulk commodity logistics.',
-      src: getImg('hero-rake')?.url
-    },
-    {
-      id: 'herotracking',
-      title: 'Real-Time Tracking',
-      description: 'Advanced shipment monitoring for smarter decision-making.',
-      src: getImg('hero-tracking')?.url
-    }
-  ];
-
   const solutions = [
     { title: 'Transportation Services', icon: Truck, points: ['Full Truck Load (FTL)', 'Dedicated Fleet Services', 'Pan-India Delivery', 'Real-time Tracking'] },
     { title: 'Warehousing Solutions', icon: Warehouse, points: ['Modern Infrastructure', 'Inventory Management', 'Stock Handling', 'System-Based Control'] },
@@ -73,16 +34,8 @@ export default function HomePage() {
     { title: 'Customer Support', icon: Headphones },
   ];
 
-  React.useEffect(() => {
-    if (!api) return;
-    setCurrent(api.selectedScrollSnap());
-    api.on('select', () => {
-      setCurrent(api.selectedScrollSnap());
-    });
-  }, [api]);
-
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    <div className="flex flex-col min-h-screen bg-white font-body">
       {/* Brand Strip */}
       <section className="bg-slate-900 py-12 border-b border-white/5 shadow-inner text-center">
           <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter text-white uppercase italic leading-none">
@@ -90,40 +43,33 @@ export default function HomePage() {
           </h1>
       </section>
 
-      {/* Hero Carousel */}
-      <section className="max-w-[1200px] mx-auto w-full px-4 sm:px-6 -mt-10 relative z-10">
-        <div className="rounded-[2.5rem] md:rounded-[3.5rem] overflow-hidden shadow-2xl border-[6px] border-white bg-slate-100">
-          <Carousel
-            setApi={setApi}
-            plugins={[Autoplay({ delay: 5000 })]}
-            className="w-full"
-            opts={{ loop: true }}
-          >
-            <CarouselContent>
-              {galleryItems.map((item, index) => (
-                <CarouselItem key={index}>
-                  <div className="relative aspect-[16/10] sm:aspect-[16/8] w-full group overflow-hidden bg-slate-900">
-                    {item.src && (
-                        <Image
-                            src={item.src}
-                            alt={item.title}
-                            fill
-                            className="object-cover"
-                            priority={index === 0}
-                        />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/20 to-transparent" />
-                    <div className="absolute inset-0 flex flex-col justify-end pb-12 px-10 text-white">
-                      <h2 className="text-2xl sm:text-5xl font-black uppercase italic drop-shadow-2xl">{item.title}</h2>
-                      <p className="text-sm sm:text-lg text-blue-100 font-bold opacity-90">{item.description}</p>
-                    </div>
-                  </div>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-            <CarouselPrevious className="hidden md:flex left-8 bg-white/10 text-white" />
-            <CarouselNext className="hidden md:flex right-8 bg-white/10 text-white" />
-          </Carousel>
+      {/* Hero Content Section (Replaces Carousel) */}
+      <section className="py-24 md:py-32 bg-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-24 opacity-[0.02] rotate-12 pointer-events-none">
+            <Truck size={400} />
+        </div>
+        <div className="max-w-5xl mx-auto px-6 text-center space-y-8 relative z-10">
+            <Badge variant="outline" className="bg-blue-50 text-blue-900 border-blue-100 font-black uppercase text-[10px] px-6 py-2 tracking-[0.3em] rounded-full shadow-sm mb-4">
+                Enterprise Logistics Registry v2.5
+            </Badge>
+            <h2 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter uppercase italic leading-[1.1]">
+                Intelligence-Driven <span className="text-blue-600">Movement</span> <br/>
+                & Supply Chain Excellence.
+            </h2>
+            <p className="text-lg md:text-xl text-slate-500 font-medium max-w-3xl mx-auto leading-relaxed">
+                Optimizing nationwide distribution through a verified network of lifting nodes, 
+                real-time GIS telemetry, and professional warehouse management.
+            </p>
+            <div className="flex flex-wrap justify-center gap-4 pt-6">
+                <Button asChild size="lg" className="h-14 px-10 bg-blue-900 hover:bg-black text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl shadow-blue-900/20 transition-all active:scale-95 border-none">
+                    <Link href="/track-consignment" className="flex items-center gap-3">
+                        <Radar className="h-5 w-5" /> Track Mission
+                    </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg" className="h-14 px-10 rounded-2xl font-black uppercase text-xs tracking-widest border-slate-200 hover:bg-slate-50 transition-all">
+                    <Link href="/services">View Solutions</Link>
+                </Button>
+            </div>
         </div>
       </section>
         
@@ -174,6 +120,29 @@ export default function HomePage() {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* CTA SECTION */}
+      <section className="py-24 bg-white">
+          <div className="max-w-4xl mx-auto px-6">
+              <div className="bg-blue-900 rounded-[3rem] p-12 md:p-20 text-white relative overflow-hidden group shadow-2xl">
+                  <div className="absolute top-0 right-0 p-12 opacity-10 group-hover:rotate-12 transition-transform duration-1000">
+                      <BarChart3 className="h-48 w-48 md:h-64 md:w-64" />
+                  </div>
+                  <div className="relative z-10 space-y-8">
+                      <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter leading-none italic">Ready to optimize <br/> your supply chain?</h2>
+                      <p className="text-lg text-blue-100 font-medium opacity-90 max-w-xl">
+                          Contact our mission control today to discuss verified logistics solutions 
+                          tailored to your industry node.
+                      </p>
+                      <Button asChild variant="secondary" className="h-14 px-10 rounded-2xl font-black uppercase text-xs tracking-widest bg-white text-blue-900 hover:bg-blue-50 transition-all active:scale-95 border-none">
+                          <Link href="/contact" className="flex items-center gap-2">
+                              Contact Node <ArrowRight className="h-4 w-4" />
+                          </Link>
+                      </Button>
+                  </div>
+              </div>
+          </div>
       </section>
     </div>
   );
