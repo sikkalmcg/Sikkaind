@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import type { WithId, Trip, Plant } from "@/types";
 import { mockPlants } from "@/lib/mock-data";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, startOfDay, endOfDay, subDays, isValid } from "date-fns";
+import { format, startOfDay, endOfDay, subDays } from "date-fns";
 import { useFirestore } from "@/firebase";
 import { collection, getDocs, Timestamp } from "firebase/firestore";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -38,7 +38,6 @@ export default function AssignedVehiclesModal({ isOpen, onClose, plantId, plantN
                 gpsMap.set(vNo, {
                     speed: Number(v.speed || 0),
                     ignition: v.ignition,
-                    // REGISTRY FIX: Show actual latest location from node
                     location: v.location || 'N/A',
                     lastUpdate: v.lastUpdateRaw ? format(new Date(v.lastUpdateRaw), 'HH:mm:ss') : '--:--:--'
                 });
@@ -70,7 +69,7 @@ export default function AssignedVehiclesModal({ isOpen, onClose, plantId, plantN
             const isAllPlants = plantId === 'all-plants';
             const scopePlants = isAllPlants ? authorizedPlantIds : [plantId];
 
-            const dayStart = fromDate ? startOfDay(fromDate) : startOfDay(new Date());
+            const dayStart = fromDate ? startOfDay(fromDate) : startOfDay(subDays(new Date(), 7));
             const dayEnd = toDate ? endOfDay(toDate) : endOfDay(new Date());
 
             const allAssigned: WithId<Trip>[] = [];
@@ -80,9 +79,12 @@ export default function AssignedVehiclesModal({ isOpen, onClose, plantId, plantN
                 tripSnap.forEach(docSnap => {
                     const t = docSnap.data();
                     const startTime = t.startDate instanceof Timestamp ? t.startDate.toDate() : new Date(t.startDate);
-                    const status = t.tripStatus?.toLowerCase();
+                    
+                    // Unified Status Resolution Logic
+                    const rawStatus = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
+                    const isAssigned = rawStatus === 'assigned' || rawStatus === 'vehicle-assigned';
 
-                    if (status === 'assigned' && startTime >= dayStart && startTime <= dayEnd) {
+                    if (isAssigned && startTime >= dayStart && startTime <= dayEnd) {
                         allAssigned.push({
                             id: docSnap.id,
                             ...t,
@@ -92,7 +94,13 @@ export default function AssignedVehiclesModal({ isOpen, onClose, plantId, plantN
                 });
             }
 
-            await fetchRegistryWithGps(allAssigned);
+            // Set data immediately for visibility
+            setData(allAssigned.map(t => ({ ...t })));
+            
+            // Enrich with GPS data in background
+            if (allAssigned.length > 0) {
+                await fetchRegistryWithGps(allAssigned);
+            }
         } catch (error) {
             console.error("Assigned vehicles modal fetch failure:", error);
         } finally {
@@ -152,7 +160,7 @@ export default function AssignedVehiclesModal({ isOpen, onClose, plantId, plantN
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {loading ? (
+                        {loading && data.length === 0 ? (
                         Array.from({length: 10}).map((_, i) => (
                             <TableRow key={i} className="h-16">
                             <TableCell colSpan={8} className="px-6"><Skeleton className="h-8 w-full" /></TableCell>

@@ -138,7 +138,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
 
   return (
     <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
-      <CardHeader className="p-8 bg-slate-900 text-white">
+      <CardHeader className="bg-slate-900 text-white p-8">
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
                 <div className="p-3 bg-blue-600 rounded-xl shadow-lg rotate-3">
