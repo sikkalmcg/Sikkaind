@@ -92,6 +92,7 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
         const updateData = {
             podUrl: base64,
             podStatus: 'Receipt Soft Copy',
+            podReceived: true,
             unloadQty: values.unloadQty,
             podUploadedBy: currentName,
             podUploadDate: ts,
@@ -170,8 +171,8 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
                                                 <div className="p-4 bg-slate-50 rounded-2xl mb-4 group-hover:bg-blue-900 group-hover:text-white transition-colors">
                                                     <ImageIcon className="h-8 w-8 text-slate-400 group-hover:text-white" />
                                                 </div>
-                                                <p className="text-xs font-black uppercase text-slate-500 tracking-widest">Click to upload Registry Document</p>
-                                                <p className="text-[9px] font-bold text-slate-400 mt-2">Max Size: 2MB | Formats: JPG, PNG</p>
+                                                <p className="text-xs font-black uppercase text-slate-500 tracking-widest text-center">Tap to Upload Registry Proof</p>
+                                                <p className="text-[9px] font-bold text-slate-400 mt-2">MAX 2MB | JPG, PNG ONLY</p>
                                             </div>
                                             <Input 
                                                 type="file" 
@@ -192,15 +193,15 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
                     </Form>
                 </div>
 
-                <div className="flex flex-col">
-                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-4 mb-4">Registry Preview</h4>
+                <div className="flex flex-col h-full">
+                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-4 mb-4">Document Preview</h4>
                     <div className="flex-1 bg-slate-200 rounded-[2.5rem] border-4 border-white shadow-2xl overflow-hidden relative group min-h-[400px]">
                         {preview ? (
                             <img src={preview} alt="POD Preview" className="w-full h-full object-contain" />
                         ) : (
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 opacity-20 grayscale">
                                 <AlertTriangle className="h-16 w-16 text-slate-400" />
-                                <span className="text-xs font-black uppercase tracking-widest">Awaiting node upload</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest">Awaiting Voucher Node</span>
                             </div>
                         )}
                         {preview && (
@@ -227,7 +228,7 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
             <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest mr-auto flex items-center gap-2 italic">
                 <ShieldCheck className="h-4 w-4 text-emerald-600" /> Authorized Registry Pulse Sync: OK
             </span>
-            <Button variant="ghost" onClick={onClose} disabled={isSubmitting} className="font-bold text-slate-500 uppercase text-[11px] tracking-widest px-8 h-12">Discard</Button>
+            <Button variant="ghost" onClick={onClose} className="font-bold text-slate-500 uppercase text-[11px] tracking-widest px-8 h-12">Discard</Button>
             <Button 
                 onClick={form.handleSubmit(onSubmit)} 
                 disabled={isSubmitting} 
