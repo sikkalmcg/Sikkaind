@@ -26,6 +26,7 @@ interface PrintableLRProps {
  * Optimized for A4 printing. Removes E-waybill, QR, and Goods Value.
  * Displays City-only routing for From/To.
  * Replaced Consignee Signature with Carrier Terms & Conditions.
+ * Includes a "Total:" row at the bottom of the items manifest.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -138,7 +139,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
               <th className="px-4 text-right w-40">Weight (MT)</th>
             </tr>
           </thead>
-          <tbody className="text-[9pt] font-bold text-slate-900 divide-y border-b border-black">
+          <tbody className="text-[9pt] font-bold text-slate-900 divide-y">
             {items.map((item, idx) => (
               <tr key={idx} className="h-10 align-middle hover:bg-slate-50 transition-colors">
                 <td className="border-r border-slate-200 px-4 font-black uppercase">{item.invoiceNumber}</td>
@@ -157,11 +158,12 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
               </tr>
             ))}
           </tbody>
-          <tfoot className="bg-slate-100 font-black h-12">
+          <tfoot className="bg-slate-100 font-black h-12 border-t-2 border-black">
             <tr className="align-middle">
-              <td colSpan={2} className="px-6 text-[9pt] uppercase tracking-widest">MANIFEST REGISTRY TOTALS:</td>
-              <td className="border-l-2 border-black px-4 text-center text-[10pt]">{totalUnits} PKGS</td>
-              <td className="border-l-2 border-black px-4 text-right text-[10pt] text-blue-900">{totalWeight.toFixed(3)} MT</td>
+              <td className="px-4 text-[10pt] font-black">Total:</td>
+              <td className="border-l-2 border-black"></td>
+              <td className="border-l-2 border-black px-4 text-center text-[10pt]">{totalUnits}</td>
+              <td className="border-l-2 border-black px-4 text-right text-[10pt] text-blue-900">{totalWeight.toFixed(3)}</td>
             </tr>
           </tfoot>
         </table>
@@ -198,11 +200,11 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       {/* 6. FOOTER NODE - Synchronized with Image Manifest */}
       <div className="mt-auto pt-4 border-t border-slate-200 flex flex-col items-center gap-1.5 shrink-0">
         <p className="text-[7.5pt] font-black uppercase text-blue-400/80 tracking-widest">
-            Note: This Lorry Receipt was generated digitally and is to be considered as original
+            Note: This Lorry Receipt was generated digitally and is to be considered as original | Page {pageNumber} OF {totalInSeries}
         </p>
         <div className="flex items-center gap-2">
-           
-            <span className="text-[7.5pt] font-black uppercase tracking-[0.5em] text-slate-500"> Page {pageNumber} OF {totalInSeries}</span>
+            <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
+            <span className="text-[7.5pt] font-black uppercase tracking-[0.5em] text-slate-500">VERIFIED SIKKA LMC REGISTRY DOCUMENT</span>
         </div>
       </div>
     </div>
