@@ -164,6 +164,10 @@ function TripBoardContent() {
       const unloadingPoint = t.unloadingPoint || shipment?.unloadingPoint || t.destination || '--';
       const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
 
+      // REGISTRY HANDSHAKE: Ensure LR Number and Date are prioritized from the joined LR document
+      const lrNumber = lr?.lrNumber || t.lrNumber || shipment?.lrNumber || '';
+      const lrDate = lr?.date || t.lrDate || shipment?.lrDate || null;
+
       return {
         ...t,
         plantName: plants.find(p => p.id === t.originPlantId)?.name || t.originPlantId,
@@ -178,7 +182,9 @@ function TripBoardContent() {
         shipmentObj: shipment,
         lrData: lr,
         carrierObj: carrier,
-        entry
+        entry,
+        lrNumber, // EXPLICIT OVERRIDE FOR VISIBILITY
+        lrDate    // EXPLICIT OVERRIDE FOR VISIBILITY
       };
     });
   }, [trips, shipments, lrs, entries, plants, dbCarriers]);
@@ -188,12 +194,11 @@ function TripBoardContent() {
     const dayEnd = toDate ? endOfDay(toDate) : null;
 
     return allFilteredData.filter(t => {
-      // REGISTRY SYNC FIX: New missions have null/pending timestamps. 
-      // We must treat them as "Today" so they appear in the Active tab.
+      // REGISTRY SYNC FIX: Treat pending timestamps as "Current" to avoid filtering out new missions
       if (!t.startDate) return true; 
       
       const start = t.startDate instanceof Date ? t.startDate : new Date(t.startDate);
-      if (!isValid(start)) return true; // Safety for pending sync
+      if (!isValid(start)) return true;
 
       if (dayStart && start < dayStart) return false;
       if (dayEnd && start > dayEnd) return false;
