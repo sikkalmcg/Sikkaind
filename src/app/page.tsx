@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
  * Streamlined Typography-Led Node. 
  * Carousel and image assets purged for a clean registry aesthetic.
  * Badge node removed as per latest mission requirement.
+ * Hero content section removed as per user request.
  */
 
 export default function HomePage() {
@@ -42,33 +43,6 @@ export default function HomePage() {
           <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter text-white uppercase italic leading-none">
             SIKKA INDUSTRIES & LOGISTICS
           </h1>
-      </section>
-
-      {/* Hero Content Section (Replaces Carousel) */}
-      <section className="py-24 md:py-32 bg-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-24 opacity-[0.02] rotate-12 pointer-events-none">
-            <Truck size={400} />
-        </div>
-        <div className="max-w-5xl mx-auto px-6 text-center space-y-8 relative z-10">
-            <h2 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter uppercase italic leading-[1.1]">
-                Intelligence-Driven <span className="text-blue-600">MOVEMENT</span> <br/>
-                & SUPPLY CHAIN EXCELLENCE.
-            </h2>
-            <p className="text-lg md:text-xl text-slate-500 font-medium max-w-3xl mx-auto leading-relaxed">
-                Optimizing nationwide distribution through a verified network of lifting nodes, 
-                real-time GIS telemetry, and professional warehouse management.
-            </p>
-            <div className="flex flex-wrap justify-center gap-4 pt-6">
-                <Button asChild size="lg" className="h-14 px-10 bg-blue-900 hover:bg-black text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl shadow-blue-900/20 transition-all active:scale-95 border-none">
-                    <Link href="/track-consignment" className="flex items-center gap-3">
-                        <Radar className="h-5 w-5" /> Track Mission
-                    </Link>
-                </Button>
-                <Button asChild variant="outline" size="lg" className="h-14 px-10 rounded-2xl font-black uppercase text-xs tracking-widest border-slate-200 hover:bg-slate-50 transition-all">
-                    <Link href="/services">View Solutions</Link>
-                </Button>
-            </div>
-        </div>
       </section>
         
       {/* LOGISTICS SOLUTIONS */}
