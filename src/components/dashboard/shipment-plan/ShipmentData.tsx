@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -227,8 +228,11 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                 from: row.loadingPoint || row.plantName || '',
                 to: row.unloadingPoint || '',
                 consignorName: row.consignor || '',
+                consignorGtin: row.consignorGtin || '',
                 buyerName: row.billToParty || '',
+                buyerGtin: row.billToGtin || '',
                 shipToParty: row.shipToParty || '',
+                shipToGtin: row.shipToGtin || '',
                 deliveryAddress: row.unloadingPoint || '',
                 id: row.id
             } as any);
@@ -241,7 +245,11 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                 trip: row as any,
                 carrier: row.carrierObj || (allCarriers || [])[0],
                 shipment: row as any,
-                plant: row.plant || { id: row.originPlantId, name: row.plantName }
+                plant: row.plant || { id: row.originPlantId, name: row.plantName },
+                // Registry Resolution Node: Force sync GSTINs from shipment if missing in LR doc
+                consignorGtin: lrDoc.consignorGtin || row.consignorGtin || '',
+                buyerGtin: lrDoc.buyerGtin || row.billToGtin || '',
+                shipToGtin: lrDoc.shipToGtin || row.shipToGtin || '',
             } as EnrichedLR);
         }
     } catch (e) {
@@ -336,8 +344,8 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                         ) : '--'}
                       </TableCell>
                       <TableCell className="px-4 text-center whitespace-nowrap text-slate-500">{formatSafeDateString(s.lrDate, 'dd/MM/yy')}</TableCell>
-                      <TableCell className="px-4 truncate font-bold text-slate-800 uppercase">{s.consignor}</TableCell>
-                      <TableCell className="px-4 truncate font-bold text-slate-800 uppercase">{s.billToParty}</TableCell>
+                      <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={s.consignor}>{s.consignor}</TableCell>
+                      <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={s.billToParty}>{s.billToParty}</TableCell>
                       <TableCell className="px-4 truncate font-medium text-slate-500 italic">"{s.summarizedItems}"</TableCell>
                       <TableCell className="px-4 text-center font-black text-slate-900">{s.totalUnitsCount}</TableCell>
                       <TableCell className="px-4 text-right font-black text-blue-900">

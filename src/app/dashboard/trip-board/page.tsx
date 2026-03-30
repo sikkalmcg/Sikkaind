@@ -289,8 +289,11 @@ function TripBoardContent() {
                 from: row.loadingPoint || shipmentObj.loadingPoint || '',
                 to: row.unloadingPoint || shipmentObj.unloadingPoint || '',
                 consignorName: row.consignor || shipmentObj.consignor || '',
+                consignorGtin: shipmentObj.consignorGtin || '',
                 buyerName: row.billToParty || shipmentObj.billToParty || '',
+                buyerGtin: shipmentObj.billToGtin || '',
                 shipToParty: row.shipToParty || shipmentObj.shipToParty || '',
+                shipToGtin: shipmentObj.shipToGtin || '',
                 deliveryAddress: row.unloadingPoint || shipmentObj.deliveryAddress || '',
                 id: row.id
             } as any);
@@ -303,7 +306,11 @@ function TripBoardContent() {
                 trip: row,
                 carrier: carrierObj,
                 shipment: row.shipmentObj || row,
-                plant: plantObj
+                plant: plantObj,
+                // Registry Handshake Node: Resolve missing GTINs from shipment if doc is aged
+                consignorGtin: lrDoc.consignorGtin || (row.shipmentObj || row).consignorGtin || '',
+                buyerGtin: lrDoc.buyerGtin || (row.shipmentObj || row).billToGtin || '',
+                shipToGtin: lrDoc.shipToGtin || (row.shipmentObj || row).shipToGtin || '',
             } as EnrichedLR);
         }
     } catch (e) {
@@ -407,14 +414,14 @@ function TripBoardContent() {
                 </div>
 
                 <div className="grid gap-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
                         <Filter className="h-3 w-3" /> Start Node
                     </Label>
                     <DatePicker date={fromDate} setDate={setFromDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" />
                 </div>
 
                 <div className="grid gap-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
                         <Filter className="h-3 w-3" /> End Node
                     </Label>
                     <DatePicker date={toDate} setDate={setTodayDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" />

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
@@ -90,12 +91,16 @@ function LRPrintContent({ lrId }: { lrId: string }) {
                 trip.lrDate = parseDate(trip.lrDate);
             }
 
+            // Registry Resolution Node: Ensure GSTINs are populated from shipment if missing in LR
             setLrData({ 
                 ...lr, 
                 trip: trip as any, 
                 carrier: carrier as any, 
                 shipment: shipment as any,
-                plant: plant as any
+                plant: plant as any,
+                consignorGtin: lr.consignorGtin || (shipment as any)?.consignorGtin || '',
+                buyerGtin: lr.buyerGtin || (shipment as any)?.billToGtin || '',
+                shipToGtin: lr.shipToGtin || (shipment as any)?.shipToGtin || '',
             } as EnrichedLR);
 
         } catch (error) {
