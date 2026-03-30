@@ -50,7 +50,8 @@ import {
     IndianRupee,
     TrendingUp,
     Weight,
-    Smartphone
+    Smartphone,
+    User
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser } from '@/types';
@@ -99,6 +100,10 @@ const formSchema = z.object({
     assignQty: z.coerce.number().positive('Assign quantity must be positive'),
     transporterName: z.string().optional().default(''),
     transporterMobile: z.string().optional().or(z.literal('')).refine(val => !val || /^\d{10}$/.test(val), {
+        message: 'Mobile must be 10 digits if provided.'
+    }),
+    ownerName: z.string().optional().default(''),
+    ownerMobile: z.string().optional().or(z.literal('')).refine(val => !val || /^\d{10}$/.test(val), {
         message: 'Mobile must be 10 digits if provided.'
     }),
     distance: z.coerce.number().optional().default(0),
@@ -167,6 +172,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             assignQty: trip?.assignedQtyInTrip ?? safeBalance,
             transporterName: trip?.transporterName || '',
             transporterMobile: (trip as any)?.transporterMobile || '',
+            ownerName: trip?.ownerName || '',
+            ownerMobile: trip?.ownerMobile || '',
             distance: trip?.distance || 0,
             freightRate: trip?.freightRate || 0
         };
@@ -442,7 +449,34 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                 </FormItem>
                             )} />
 
+                            <FormField name="ownerName" control={control} render={({field}) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-black uppercase text-slate-400">Vehicle Owner Name</FormLabel>
+                                    <FormControl>
+                                        <div className="relative group">
+                                            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+                                            <Input placeholder="Enter owner name" {...field} className="h-12 rounded-xl bg-white border-slate-200 font-bold pl-10 uppercase" />
+                                        </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <FormField name="ownerMobile" control={control} render={({field}) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-black uppercase text-slate-400">Owner Mobile Number</FormLabel>
+                                    <FormControl>
+                                        <div className="relative group">
+                                            <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+                                            <Input placeholder="Optional" {...field} maxLength={10} className="h-12 rounded-xl bg-white border-slate-200 font-mono pl-10" />
+                                        </div>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
                             <FormField name="freightRate" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-600">Freight Rate (MT) *</FormLabel><FormControl><Input type="number" step="0.01" {...field} className="h-12 rounded-xl bg-white border-blue-200 font-black text-blue-900 text-lg shadow-inner" /></FormControl><FormMessage /></FormItem>} />
+                            
                             <div className="flex flex-col gap-1.5">
                                 <span className="text-[10px] font-black uppercase text-slate-400">Calculated Freight</span>
                                 <div className="h-12 px-5 flex items-center bg-blue-900 rounded-xl text-white font-black text-xl shadow-lg">₹ {calculatedFreight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>

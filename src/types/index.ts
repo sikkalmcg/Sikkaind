@@ -129,6 +129,7 @@ export interface Trip {
   transporterName?: string;
   transporterMobile?: string;
   ownerName?: string;
+  ownerMobile?: string;
   ownerPan?: string;
   distance?: number;
   otherCharges?: any[];
