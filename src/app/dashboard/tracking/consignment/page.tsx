@@ -29,7 +29,7 @@ import {
 import { useFirestore } from '@/firebase';
 import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { format, addSeconds, isValid } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, parseSafeDate } from '@/lib/utils';
 import { useJsApiLoader, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
@@ -158,7 +158,7 @@ function TrackConsignmentContent() {
             
             setConsignment({ 
                 ...trip, 
-                assignedAt: trip.startDate instanceof Timestamp ? trip.startDate.toDate() : new Date(trip.startDate)
+                assignedAt: parseSafeDate(trip.startDate) || new Date()
             });
 
         } catch (e) {
@@ -245,7 +245,7 @@ function TrackConsignmentContent() {
                                                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">From Location Node</p>
                                                     <p className="text-sm font-black text-slate-900 uppercase leading-tight">{consignment.fromCity}</p>
                                                     <p className="text-[10px] font-bold text-slate-400 mt-2 flex items-center gap-2">
-                                                        <Clock className="h-3 w-3" /> Assigned: {format(consignment.assignedAt, 'dd MMM yyyy p')}
+                                                        <Clock className="h-3 w-3" /> Assigned: {isValid(consignment.assignedAt) ? format(consignment.assignedAt, 'dd MMM yyyy p') : '--'}
                                                     </p>
                                                 </div>
                                             </div>
@@ -262,7 +262,7 @@ function TrackConsignmentContent() {
                                                 <Calendar className="h-10 w-10 text-blue-600 mb-4" />
                                                 <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Expected Delivery Node</p>
                                                 <p className="text-2xl font-black text-blue-900 tracking-tighter">
-                                                    {eta ? format(eta, 'dd MMM yyyy') : '--'}
+                                                    {eta && isValid(eta) ? format(eta, 'dd MMM yyyy') : '--'}
                                                 </p>
                                             </div>
                                         </div>

@@ -31,7 +31,7 @@ import {
 import { useFirestore } from '@/firebase';
 import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { format, addHours, isValid } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, parseSafeDate } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useJsApiLoader } from '@react-google-maps/api';
@@ -118,7 +118,7 @@ function TrackConsignmentContent() {
                     ...tripData,
                     shipment: shipmentData,
                     plantName,
-                    assignDate: tripData.startDate instanceof Timestamp ? tripData.startDate.toDate() : new Date(tripData.startDate),
+                    assignDate: parseSafeDate(tripData.startDate) || new Date(),
                     loadingCity: (shipmentData?.loadingPoint || tripData.loadingPoint || plantName).split(',')[0].trim(),
                     unloadingCity: (shipmentData?.unloadingPoint || tripData.unloadingPoint || tripData.destination).split(',')[0].trim()
                 });
