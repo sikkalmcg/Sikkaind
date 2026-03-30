@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/date-picker';
-import { startOfDay, endOfDay, subDays } from 'date-fns';
+import { startOfDay, endOfDay, subDays, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 
@@ -158,7 +158,6 @@ function TripBoardContent() {
       const description = Array.from(new Set(items.map((i: any) => i.itemDescription || i.description).filter(Boolean))).join(', ') || t.itemDescription || shipment?.material || '--';
       const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
 
-      // REDUNDANCY HANDSHAKE NODE
       const consignor = t.consignor || shipment?.consignor || '--';
       const billToParty = t.billToParty || shipment?.billToParty || '--';
       const shipToParty = t.shipToParty || shipment?.shipToParty || '--';
@@ -189,9 +188,16 @@ function TripBoardContent() {
     const dayEnd = toDate ? endOfDay(toDate) : null;
 
     return allFilteredData.filter(t => {
+      // REGISTRY SYNC FIX: New missions have null/pending timestamps. 
+      // We must treat them as "Today" so they appear in the Active tab.
+      if (!t.startDate) return true; 
+      
       const start = t.startDate instanceof Date ? t.startDate : new Date(t.startDate);
+      if (!isValid(start)) return true; // Safety for pending sync
+
       if (dayStart && start < dayStart) return false;
       if (dayEnd && start > dayEnd) return false;
+      
       if (searchTerm) {
         const s = searchTerm.toLowerCase();
         return Object.values(t).some(val => val?.toString().toLowerCase().includes(s));
@@ -200,7 +206,6 @@ function TripBoardContent() {
     });
   }, [allFilteredData, fromDate, toDate, searchTerm]);
 
-  // REGISTRY LOGIC: CENTRALIZED TAB FILTERING
   const tabFilteredData = useMemo(() => {
     return finalData.filter(t => {
         const status = (t.tripStatus || t.currentStatusId || '').toLowerCase().replace(/[\s_-]+/g, '-');
