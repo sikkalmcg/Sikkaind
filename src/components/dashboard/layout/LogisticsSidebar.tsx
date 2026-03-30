@@ -1,9 +1,8 @@
-
 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils';
+import { cn, normalizePlantId } from '@/lib/utils';
 import { 
   LayoutDashboard, 
   Truck, 
@@ -129,11 +128,11 @@ export default function LogisticsSidebar({ isOpen, onToggle }: LogisticsSidebarP
     <aside 
       className={cn(
         "fixed inset-y-0 left-0 z-50 flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out md:relative",
-        isOpen ? "w-64 translate-x-0" : "w-20 translate-x-0 md:w-20"
+        isOpen ? "w-64 translate-x-0" : "-translate-x-full md:translate-x-0 md:w-20"
       )}
     >
       <div className="flex h-16 items-center justify-between px-6 border-b border-sidebar-border shrink-0 bg-sidebar">
-        <div className={cn("flex items-center gap-2 overflow-hidden whitespace-nowrap transition-all duration-300", !isOpen && "w-0 opacity-0")}>
+        <div className={cn("flex items-center gap-2 overflow-hidden whitespace-nowrap transition-all duration-300", !isOpen && "w-0 opacity-0 md:hidden")}>
           <div className="h-2 w-2 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_rgba(96,165,250,0.4)]" />
           <span className="text-xs font-black uppercase tracking-[0.2em] text-white italic">Sikka LMC</span>
         </div>
@@ -159,7 +158,7 @@ export default function LogisticsSidebar({ isOpen, onToggle }: LogisticsSidebarP
                 <div key={idx} className="space-y-3">
                 <h4 className={cn(
                     "px-4 text-[10px] font-black uppercase tracking-[0.3em] text-sidebar-foreground/30 transition-opacity duration-300",
-                    !isOpen ? "opacity-0 h-0" : "opacity-100"
+                    !isOpen ? "opacity-0 h-0 overflow-hidden" : "opacity-100"
                 )}>
                     {group.group}
                 </h4>

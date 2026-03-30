@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useEffect, useState, Suspense } from "react";
-import { useUser, useFirestore } from "@/firebase";
+import { useUser, useAuth, useFirestore } from "@/firebase";
 import { useRouter, usePathname } from "next/navigation";
 import LogisticsHeader from "@/components/dashboard/layout/LogisticsHeader";
 import LogisticsSidebar from "@/components/dashboard/layout/LogisticsSidebar";
@@ -11,14 +11,26 @@ import type { SubUser } from "@/types";
 import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions } from "@/lib/constants";
 import { Loader2 } from "lucide-react";
 
+/**
+ * @fileOverview Dashboard Layout Node.
+ * Manages core authorization pulse and sidebar/header integration.
+ * Hardened for mobile responsiveness with auto-close logic and backdrop node.
+ */
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, isUserLoading } = useUser();
   const { showLoader, hideLoader } = useLoading();
   const router = useRouter();
   const pathname = usePathname();
   const firestore = useFirestore();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  
+  // REGISTRY STATE: Default to closed for mobile responsiveness
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthorizing, setIsVerifying] = useState(true);
+
+  // MISSION NODE: Auto-close sidebar on navigation (Mobile UX)
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (isUserLoading) {
@@ -38,7 +50,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         try {
             const isRoot = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
 
-            // --- UNIFIED USER LOOKUP (SAME AS MODULES PAGE) ---
+            // --- UNIFIED USER LOOKUP ---
             const searchEmail = user.email;
             if (!searchEmail) {
                 throw new Error("User email not available for access verification.");
@@ -102,7 +114,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
+    <div className="flex h-screen w-full bg-slate-50 overflow-hidden relative">
+      {/* MOBILE OVERLAY NODE: Click anywhere to hide sidebar */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 md:hidden animate-in fade-in duration-300"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       <LogisticsSidebar 
         isOpen={isSidebarOpen} 
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)} 
