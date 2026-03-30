@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -16,19 +17,17 @@ import { mockPlants, mockCarriers } from '@/lib/mock-data';
 import { normalizePlantId, sanitizeRegistryNode, parseSafeDate } from '@/lib/utils';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, doc, getDocs, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, Timestamp } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter } from "lucide-react";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, Card } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
 import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
-import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/date-picker';
 import { startOfDay, endOfDay, subDays, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 
 export type TripBoardTab = 'active' | 'loading' | 'transit' | 'arrived' | 'pod-pending' | 'closed';
 
@@ -90,7 +89,13 @@ function TripBoardContent() {
             let userDocSnap = null;
             const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
             const qSnap = await getDocs(q);
-            if (!qSnap.empty) userDocSnap = qSnap.docs[0];
+            if (qSnap.empty) {
+                const uidRef = doc(firestore, "users", user.uid);
+                const uidSnap = await getDoc(uidRef);
+                if (uidSnap.exists()) userDocSnap = uidSnap;
+            } else {
+                userDocSnap = qSnap.docs[0];
+            }
 
             const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
             let authIds: string[] = [];
@@ -105,12 +110,13 @@ function TripBoardContent() {
 
             setIsAdmin(!!userDocSnap || isAdminSession);
             setAuthorizedPlantIds(authIds);
-            setPlants(baseList.filter(p => authIds.includes(p.id)));
+            // Registry Fix: Use some() with normalization to handle numeric/string ID mismatch
+            setPlants(baseList.filter(p => authIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id))));
             if (authIds.length > 0 && selectedPlants.length === 0) setSelectedPlants(authIds);
         } catch (e) { setDbError(true); } finally { setIsAuthLoading(false); }
     };
     fetchAuth();
-  }, [firestore, user, allMasterPlants]);
+  }, [firestore, user, allMasterPlants, isAdminSession]);
 
   useEffect(() => {
     if (!firestore || selectedPlants.length === 0) return;
@@ -176,7 +182,7 @@ function TripBoardContent() {
 
       return {
         ...t,
-        plantName: plants.find(p => p.id === t.originPlantId)?.name || t.originPlantId,
+        plantName: plants.find(p => normalizePlantId(p.id) === normalizePlantId(t.originPlantId))?.name || t.originPlantId,
         consignor,
         billToParty,
         shipToParty,
@@ -200,7 +206,8 @@ function TripBoardContent() {
     const dayEnd = toDate ? endOfDay(toDate) : null;
 
     return allFilteredData.filter(t => {
-      if (selectedPlants.length > 0 && !selectedPlants.includes(t.originPlantId)) return false;
+      // 1. Strict Plant Scope Enforcement
+      if (selectedPlants.length > 0 && !selectedPlants.some(pid => normalizePlantId(pid) === normalizePlantId(t.originPlantId))) return false;
 
       const start = t.startDate;
       if (!start) return true; // Show trips with pending server timestamps
@@ -268,15 +275,19 @@ function TripBoardContent() {
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
+        // Resolve essential objects with normalization
+        const plantObj = plants.find(p => normalizePlantId(p.id) === normalizePlantId(row.originPlantId)) || { id: row.originPlantId, name: row.plantName || 'Plant Registry' } as any;
+        const carrierObj = row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId) || { name: 'Carrier Registry', address: 'N/A', gstin: 'N/A' } as any;
+
         if (snap.empty) {
             const shipmentObj = row.shipmentObj || row;
             setLrPreviewData({
                 lrNumber: row.lrNumber,
                 date: row.lrDate || new Date(),
                 trip: row,
-                carrier: row.carrierObj || (dbCarriers || [])[0],
+                carrier: carrierObj,
                 shipment: shipmentObj,
-                plant: plants.find(p => p.id === row.originPlantId),
+                plant: plantObj,
                 items: shipmentObj.items || [],
                 weightSelection: 'Assigned Weight',
                 assignedTripWeight: row.dispatchedQty || shipmentObj.quantity,
@@ -295,9 +306,9 @@ function TripBoardContent() {
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
                 trip: row,
-                carrier: row.carrierObj || (dbCarriers || [])[0],
+                carrier: carrierObj,
                 shipment: row.shipmentObj || row,
-                plant: plants.find(p => p.id === row.originPlantId)
+                plant: plantObj
             } as EnrichedLR);
         }
     } catch (e) {
