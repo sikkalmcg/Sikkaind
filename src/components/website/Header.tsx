@@ -1,11 +1,14 @@
+
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Truck, LogIn, Radar } from 'lucide-react';
+import { Menu, X, Truck, LogIn, Radar, ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import placeholderData from '@/app/lib/placeholder-images.json';
 
 const navigation = [
   { name: 'Home', href: '/' },
@@ -17,6 +20,7 @@ const navigation = [
 export default function Header() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const logoImg = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -34,13 +38,17 @@ export default function Header() {
     <header className="bg-white sticky top-0 z-[100] border-b border-slate-200 shadow-sm w-full">
       <nav className="mx-auto flex max-w-7xl items-center justify-between p-4 lg:px-8" aria-label="Global">
         <div className="flex lg:flex-1">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="bg-blue-900 p-2 rounded-xl text-white shadow-lg group-hover:rotate-12 transition-transform">
-              <Truck className="h-5 w-5 md:h-6 md:w-6" />
-            </div>
-            <span className="text-lg md:text-xl font-black tracking-tighter uppercase italic text-slate-900">
-              Sikka LMC
-            </span>
+          <Link href="/" className="flex items-center group">
+            {logoImg?.url && (
+              <Image 
+                src={logoImg.url} 
+                alt="Sikka LMC Logo" 
+                width={140} 
+                height={40} 
+                className="object-contain" 
+                priority
+              />
+            )}
           </Link>
         </div>
         
@@ -97,11 +105,16 @@ export default function Header() {
         mobileMenuOpen ? "translate-x-0" : "translate-x-full"
       )}>
         <div className="flex items-center justify-between p-6 border-b bg-slate-50">
-          <Link href="/" className="flex items-center gap-3" onClick={() => setMobileMenuOpen(false)}>
-            <div className="bg-blue-900 p-2 rounded-xl text-white shadow-md">
-              <Truck className="h-5 w-5" />
-            </div>
-            <span className="text-lg font-black tracking-tighter uppercase italic text-slate-900">Sikka LMC</span>
+          <Link href="/" className="flex items-center" onClick={() => setMobileMenuOpen(false)}>
+            {logoImg?.url && (
+              <Image 
+                src={logoImg.url} 
+                alt="Sikka LMC Logo" 
+                width={120} 
+                height={35} 
+                className="object-contain"
+              />
+            )}
           </Link>
           <button
             type="button"
@@ -149,10 +162,4 @@ export default function Header() {
       </div>
     </header>
   );
-}
-
-function ChevronRight({ className }: { className?: string }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m9 18 6-6-6-6"/></svg>
-    );
 }

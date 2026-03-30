@@ -1,9 +1,14 @@
+
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Truck, Mail, Phone, MapPin, Globe, ShieldCheck } from 'lucide-react';
+import placeholderData from '@/app/lib/placeholder-images.json';
 
 export default function Footer() {
+  const logoImg = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
+
   return (
     <footer className="bg-slate-900 text-white pt-24 pb-12 overflow-hidden relative">
       <div className="absolute top-0 right-0 p-24 opacity-[0.03] rotate-12">
@@ -14,10 +19,17 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 mb-20">
           <div className="space-y-8">
             <div className="flex items-center gap-4">
-              <div className="bg-blue-600 p-3 rounded-2xl shadow-xl">
-                <Truck className="h-6 w-6" />
-              </div>
-              <span className="text-2xl font-black tracking-tighter uppercase italic">Sikka LMC</span>
+              <Link href="/">
+                {logoImg?.url && (
+                  <Image 
+                    src={logoImg.url} 
+                    alt="Sikka LMC Logo" 
+                    width={160} 
+                    height={45} 
+                    className="object-contain brightness-0 invert" 
+                  />
+                )}
+              </Link>
             </div>
             <p className="text-slate-400 text-sm leading-relaxed font-medium">
               A premier logistics and supply chain enterprise delivering excellence across India through intelligence-driven movement and modern infrastructure.
