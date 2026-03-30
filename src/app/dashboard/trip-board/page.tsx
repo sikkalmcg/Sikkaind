@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -220,7 +221,7 @@ function TripBoardContent() {
 
   const tabFilteredData = useMemo(() => {
     return finalData.filter(t => {
-        const status = (t.tripStatus || t.currentStatusId || '').toLowerCase().replace(/[\s_-]+/g, '-');
+        const status = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
         const isOut = t.entry?.status === 'OUT';
         const isPod = t.podReceived === true;
 
@@ -230,11 +231,14 @@ function TripBoardContent() {
             case 'loading':
                 return !isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete');
             case 'transit':
-                return status === 'in-transit';
+                // REGISTRY SYNC: Include all movement nodes
+                return status === 'in-transit' || status === 'out-for-delivery' || status === 'break-down' || status === 'pilot-not-available';
             case 'arrived':
-                return ['arrived', 'arrival-for-delivery', 'arrived-at-destination'].includes(status);
+                // REGISTRY SYNC: Include destination arrival nodes
+                return ['arrived', 'arrival-for-delivery', 'arrived-at-destination', 'arrive-for-deliver'].includes(status);
             case 'pod-pending':
-                return (['arrived', 'arrival-for-delivery', 'delivered'].includes(status)) && !isPod;
+                // REGISTRY SYNC: Missions requiring verified receipt synchronization
+                return (['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'delivered'].includes(status)) && !isPod;
             case 'closed':
                 return isPod || status === 'closed' || status === 'trip-closed';
             default:
@@ -246,15 +250,15 @@ function TripBoardContent() {
   const counts = useMemo(() => {
     const res = { active: 0, loading: 0, transit: 0, arrived: 0, podPending: 0, closed: 0 };
     finalData.forEach(t => {
-        const status = (t.tripStatus || t.currentStatusId || '').toLowerCase().replace(/[\s_-]+/g, '-');
+        const status = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
         const isOut = t.entry?.status === 'OUT';
         const isPod = t.podReceived === true;
 
         if (!['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status)) res.active++;
         if (!isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete')) res.loading++;
-        if (status === 'in-transit') res.transit++;
-        if (['arrived', 'arrival-for-delivery', 'arrived-at-destination'].includes(status)) res.arrived++;
-        if (['arrived', 'arrival-for-delivery', 'delivered'].includes(status) && !isPod) res.podPending++;
+        if (status === 'in-transit' || status === 'out-for-delivery' || status === 'break-down' || status === 'pilot-not-available') res.transit++;
+        if (['arrived', 'arrival-for-delivery', 'arrived-at-destination', 'arrive-for-deliver'].includes(status)) res.arrived++;
+        if ((['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'delivered'].includes(status)) && !isPod) res.podPending++;
         if (isPod || status === 'closed' || status === 'trip-closed') res.closed++;
     });
     return res;
