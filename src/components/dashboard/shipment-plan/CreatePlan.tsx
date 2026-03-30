@@ -47,7 +47,7 @@ const formSchema = z.object({
     invoiceNumber: z.string().min(1, "Doc ref required"),
     ewaybillNumber: z.string().optional(),
     units: z.coerce.number().min(1, "Units required"),
-    unitType: z.string().default('Bag'),
+    unitType: z.string().default('Package'),
     itemDescription: z.string().min(1, "Item desc required"),
     weight: z.coerce.number().min(0.001, "Weight required"),
     hsnSac: z.string().optional(),
@@ -281,6 +281,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
             setValue('shipToGtin', match.gstin || '', { shouldValidate: true });
             const address = (match.address && match.address !== 'N/A') ? match.address : match.city;
             if (address) setValue('unloadingPoint', address, { shouldValidate: true });
+            if (match.address) setValue('deliveryAddress', match.address, { shouldValidate: true });
         }
     }
   }, [isSameAsBillTo, billToParty, setValue, consigneeRegistry]);
@@ -298,12 +299,18 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
             setValue('shipToParty', party.name, { shouldValidate: true });
             setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
             const address = (party.address && party.address !== 'N/A') ? party.address : party.city;
-            if (address) setValue('unloadingPoint', address, { shouldValidate: true });
+            if (address) {
+                setValue('unloadingPoint', address, { shouldValidate: true });
+                setValue('deliveryAddress', party.address || '', { shouldValidate: true });
+            }
         }
     } else if (type === 'shipToParty') {
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
         const address = (party.address && party.address !== 'N/A') ? party.address : party.city;
-        if (address) setValue('unloadingPoint', address, { shouldValidate: true });
+        if (address) {
+            setValue('unloadingPoint', address, { shouldValidate: true });
+            setValue('deliveryAddress', party.address || '', { shouldValidate: true });
+        }
     }
   }, [setValue, isSameAsBillTo]);
 
@@ -337,8 +344,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                 }];
             }
 
-            tx.set(doc(firestore, "counters", "shipments"), { count: newCount }, { merge: true });
-            tx.set(shipRef, {
+            const dataToSave = {
                 ...values,
                 shipmentId,
                 items: manifestItems,
@@ -347,7 +353,10 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                 assignedQty: 0,
                 balanceQty: values.quantity,
                 userId: user.uid
-            });
+            };
+
+            tx.set(doc(firestore, "counters", "shipments"), { count: newCount }, { merge: true });
+            tx.set(shipRef, dataToSave);
         });
         toast({ title: 'Plan Committed Successfully' });
         reset();
@@ -551,7 +560,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                                     <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">Invoice #</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">E-Waybill No.</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead>
-                                    <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center">Units</TableHead>
+                                    <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">Units</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-8 text-right w-40">Weight (MT)</TableHead>
                                     <TableHead className="w-16"></TableHead>
                                 </TableRow>
@@ -585,6 +594,15 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                             </TableFooter>
                         </Table>
                     </div>
+               </section>
+
+               <section className="space-y-4">
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2 px-1">
+                        <MapPin className="h-4 w-4 text-blue-600"/> 4. Delivery Address Registry
+                    </h3>
+                    <FormField control={control} name="deliveryAddress" render={({ field }) => (
+                        <FormItem><FormControl><Textarea rows={3} placeholder="Provide verified delivery address particulars..." className="resize-none bg-white border-slate-200 rounded-3xl p-8 font-bold shadow-sm focus-visible:ring-blue-900 transition-all" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
                </section>
             </form>
           </Form>

@@ -244,11 +244,22 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             const sData = shipmentSnap.data() as Shipment;
             const docId = trip?.id || doc(collection(firestore, 'trips')).id;
             const tripId = trip?.tripId || generateRandomTripId();
+            
+            // CONSOLIDATED DATA HANDSHAKE NODE
             const tripData: any = {
                 ...values,
                 tripId,
                 originPlantId: plantId,
                 shipmentIds: [shipment.id],
+                assignedQtyInTrip: values.assignQty, 
+                consignor: shipment.consignor, 
+                billToParty: shipment.billToParty,
+                shipToParty: shipment.shipToParty || shipment.billToParty, 
+                loadingPoint: shipment.loadingPoint,
+                unloadingPoint: shipment.unloadingPoint, 
+                deliveryAddress: shipment.deliveryAddress || shipment.unloadingPoint,
+                materialTypeId: shipment.materialTypeId,
+                items: shipment.items || [],
                 lastUpdated: timestamp,
                 userName: currentName,
                 userId: user.uid,
@@ -257,14 +268,17 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 podStatus: 'Missing',
                 freightStatus: 'Unpaid'
             };
+
             const diff = isEditing ? values.assignQty - trip!.assignedQtyInTrip : values.assignQty;
             const newAssignedTotal = (sData.assignedQty || 0) + diff;
+            
             transaction.update(shipmentRef, { 
                 assignedQty: newAssignedTotal, 
                 balanceQty: sData.quantity - newAssignedTotal, 
                 currentStatusId: (sData.quantity - newAssignedTotal) > 0 ? 'Partly Vehicle Assigned' : 'Assigned',
                 lastUpdateDate: timestamp
             });
+            
             transaction.set(doc(firestore, `plants/${plantId}/trips`, docId), tripData);
             transaction.set(doc(firestore, 'trips', docId), tripData);
         });
