@@ -1,4 +1,3 @@
-
 'use client';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
@@ -12,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, ShieldCheck, Truck, FileText, MapPin, CheckCircle2, AlertTriangle, Calculator, Layers, Sparkles, Search, UserCircle } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, ShieldCheck, Truck, FileText, MapPin, CheckCircle2, AlertTriangle, Calculator, Layers, Sparkles, Search, UserCircle, X } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -24,13 +23,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, query, serverTimestamp, doc, getDoc, getDocs, limit, runTransaction, orderBy, where, Timestamp } from "firebase/firestore";
-import { cn, incrementSerial, normalizePlantId } from '@/lib/utils';
-
-/**
- * @fileOverview LR Generation Modal Terminal.
- * Synchronized with SIKKA LMC Registry. 
- * Purged QR, E-waybill and Value nodes as per mission requirements.
- */
+import { cn, normalizePlantId } from '@/lib/utils';
 
 const formSchema = z.object({
   lrNumber: z.string().min(1, "LR Number is mandatory."),
@@ -139,8 +132,6 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
   const [activeTrip, setActiveTrip] = useState<WithId<Trip> | null>(providedTrip || null);
   const [activeCarrier, setActiveCarrier] = useState<WithId<Carrier> | null>(providedCarrier || null);
   const [loading, setLoading] = useState(true);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [isSerialLoading, setIsSerialLoading] = useState(false);
   const [helpModal, setHelpModal] = useState<{ type: string; title: string; data: any[] } | null>(null);
 
   const partiesQuery = useMemoFirebase(() => 
@@ -163,7 +154,6 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
   const { handleSubmit, setValue, control, reset, watch } = form;
   const watchedItems = watch("items") || [];
-  const weightSelection = watch("weightSelection");
 
   const consignorRegistry = useMemo(() => (parties || []).filter(p => p.type === 'Consignor'), [parties]);
   const consigneeRegistry = useMemo(() => (parties || []).filter(p => p.type === 'Consignee & Ship to'), [parties]);
@@ -219,6 +209,29 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
     fetchData();
   }, [isOpen, activeTrip, firestore, reset]);
 
+  const selectPartyNode = useCallback((party: Party, type: string) => {
+    setValue(type as any, party.name, { shouldValidate: true });
+    
+    if (type === 'consignorName') {
+        setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
+        setValue('consignorAddress', party.address || party.city || '', { shouldValidate: true });
+    } else if (type === 'buyerName') {
+        setValue('buyerGtin', party.gstin || '', { shouldValidate: true });
+        setValue('shipToParty', party.name, { shouldValidate: true });
+        setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
+        setValue('deliveryAddress', party.address || party.city || '', { shouldValidate: true });
+    } else if (type === 'shipToParty') {
+        setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
+        setValue('deliveryAddress', party.address || party.city || '', { shouldValidate: true });
+    }
+  }, [setValue]);
+
+  const handleRegistrySelect = useCallback((party: Party) => {
+    if (!helpModal) return;
+    selectPartyNode(party, helpModal.type);
+    setHelpModal(null);
+  }, [helpModal, selectPartyNode]);
+
   const totals = useMemo(() => {
     return watchedItems.reduce((acc, item) => ({
         units: acc.units + (Number(item?.units) || 0),
@@ -226,9 +239,8 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
     }), { units: 0, weight: 0 });
   }, [watchedItems]);
 
-  const handlePost = async () => {
+  const handlePost = async (values: FormValues) => {
     if (!firestore || !shipment || !activeTrip || !user) return;
-    const values = form.getValues();
 
     try {
         await runTransaction(firestore, async (transaction) => {
@@ -273,8 +285,16 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[85vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-3xl bg-white rounded-3xl">
         <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-            <DialogTitle className="text-xl font-black uppercase tracking-tight italic">LR GENERATION NODE</DialogTitle>
-            <DialogDescription className="text-blue-300 font-bold uppercase text-[9px]">Mission Registry Synchronization</DialogDescription>
+            <div className="flex items-center justify-between pr-12">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-blue-600 rounded-2xl shadow-xl rotate-3"><FileText className="h-7 w-7" /></div>
+                    <div>
+                        <DialogTitle className="text-xl font-black uppercase tracking-tight italic">LR GENERATION NODE</DialogTitle>
+                        <DialogDescription className="text-blue-300 font-bold uppercase text-[9px]">Mission Registry Synchronization</DialogDescription>
+                    </div>
+                </div>
+                <Button variant="ghost" size="icon" onClick={onClose} className="h-10 w-10 text-white/40 hover:text-white"><X size={24} /></Button>
+            </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-10 py-8 bg-[#f8fafc] space-y-10">
@@ -298,7 +318,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                                 <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR NODE (F4 HELP)</FormLabel><div className="flex gap-2"><FormControl><Input className="h-11 font-bold uppercase" {...field} onKeyDown={(e) => e.key === 'F4' && setHelpModal({ type: 'consignorName', title: 'Search Consignors', data: consignorRegistry })} /></FormControl><Button type="button" variant="outline" onClick={() => setHelpModal({ type: 'consignorName', title: 'Search Consignors', data: consignorRegistry })}><Search size={16}/></Button></div></FormItem>
                             )} />
                             <FormField name="consignorAddress" control={control} render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR ADDRESS (CITY DISPLAYED ON PRINT)</FormLabel><FormControl><Input className="h-11" {...field} /></FormControl></FormItem>
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR ADDRESS</FormLabel><FormControl><Input className="h-11" {...field} /></FormControl></FormItem>
                             )} />
                         </div>
                         <div className="space-y-4">
@@ -306,7 +326,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                                 <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNEE NODE (F4 HELP)</FormLabel><div className="flex gap-2"><FormControl><Input className="h-11 font-bold uppercase" {...field} onKeyDown={(e) => e.key === 'F4' && setHelpModal({ type: 'buyerName', title: 'Search Consignees', data: consigneeRegistry })} /></FormControl><Button type="button" variant="outline" onClick={() => setHelpModal({ type: 'buyerName', title: 'Search Consignees', data: consigneeRegistry })}><Search size={16}/></Button></div></FormItem>
                             )} />
                             <FormField name="deliveryAddress" control={control} render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">DELIVERY ADDRESS (CITY DISPLAYED ON PRINT)</FormLabel><FormControl><Input className="h-11" {...field} /></FormControl></FormItem>
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">DELIVERY ADDRESS</FormLabel><FormControl><Input className="h-11" {...field} /></FormControl></FormItem>
                             )} />
                         </div>
                     </section>

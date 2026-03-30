@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -23,7 +22,7 @@ import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreview
 import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
 import { useLoading } from '@/context/LoadingContext';
 import { useToast } from '@/hooks/use-toast';
-import VehicleAssignModal from '@/components/dashboard/shipment-plan/VehicleAssignModal';
+import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAssignModal';
 
 interface ShipmentDataProps {
   shipments: WithId<Shipment>[];
@@ -113,13 +112,11 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
         const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(shipment.originPlantId));
         const carrier = allCarriers.find(c => c.id === trip?.carrierId || c.id === shipment.carrierId);
 
-        // Registry Data Resolution Node
         const itemsManifest = shipment.items || [];
         const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
         const summarizedItems = Array.from(new Set(itemsManifest.map(i => i.itemDescription || i.description).filter(Boolean))).join(', ') || shipment.itemDescription || shipment.material || '--';
         const totalUnitsCount = itemsManifest.reduce((sum, i) => sum + (Number(i.units) || 0), 0) || shipment.totalUnits || 0;
 
-        // Resolve LR Date with precedence: Trip Registry > Shipment Registry
         const resolvedLrDate = parseSafeDate(trip?.lrDate || shipment.lrDate);
 
         return {
@@ -246,7 +243,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                 carrier: row.carrierObj || (allCarriers || [])[0],
                 shipment: row as any,
                 plant: row.plant || { id: row.originPlantId, name: row.plantName },
-                // Registry Resolution Node: Force sync GSTINs from shipment if missing in LR doc
                 consignorGtin: lrDoc.consignorGtin || row.consignorGtin || '',
                 buyerGtin: lrDoc.buyerGtin || row.billToGtin || '',
                 shipToGtin: lrDoc.shipToGtin || row.shipToGtin || '',
