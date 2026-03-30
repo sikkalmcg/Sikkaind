@@ -125,11 +125,29 @@ export default function TripBoardTable({
                 <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{row.plantName}</TableCell>
                 <TableCell className="px-4 text-center">
                     {row.lrNumber && row.lrNumber !== 'PENDING' ? (
-                        <button onClick={() => onViewLR(row)} className="font-black text-blue-700 hover:underline underline-offset-4 decoration-blue-200 uppercase text-[11px]">
+                        <button 
+                            type="button"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onViewLR(row);
+                            }} 
+                            className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter"
+                        >
                             {row.lrNumber}
                         </button>
                     ) : (
-                        <Button variant="ghost" size="sm" className="h-7 text-[9px] font-black uppercase text-slate-400 hover:text-blue-600" onClick={() => onGenerateLR(row)}>
+                        <Button 
+                            type="button"
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 text-[9px] font-black uppercase text-slate-400 hover:text-blue-600" 
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onGenerateLR(row);
+                            }}
+                        >
                             Pending
                         </Button>
                     )}
