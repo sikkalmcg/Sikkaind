@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -11,7 +12,6 @@ import placeholderData from '@/app/lib/placeholder-images.json';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 
-// --- FORGOT PASSWORD MODAL COMPONENT ---
 function ForgotPasswordModal({ onClose }: { onClose: () => void; }) {
     const [username, setUsername] = useState('');
     const [mobileNumber, setMobileNumber] = useState('');
@@ -181,7 +181,6 @@ function ForgotPasswordModal({ onClose }: { onClose: () => void; }) {
     );
 }
 
-// --- MAIN LOGIN PAGE ---
 export default function LoginPage() {
     const auth = useAuth();
     const [identity, setIdentity] = useState('');
@@ -197,7 +196,6 @@ export default function LoginPage() {
 
     const getImg = (id: string) => placeholderData.placeholderImages.find(p => p.id === id);
 
-    // Typo Detection Logic Node
     const hasTypo = useMemo(() => identity.toLowerCase().trim() === 'sikkiand', [identity]);
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -217,7 +215,6 @@ export default function LoginPage() {
             return;
         }
 
-        // Optimized Identity Mapping Node
         let email = identity;
         if (!email.includes('@')) {
             const username = identity.toLowerCase().trim();
@@ -230,7 +227,6 @@ export default function LoginPage() {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            // Handshake with Backend Registry
             const loginRes = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -270,8 +266,8 @@ export default function LoginPage() {
                 <div className="border p-2">
                     <div className="flex border">
                         <div className="w-1/2 p-4 hidden md:block relative">
-                            {getImg('hero-trucks')?.url && (
-                                <Image src={getImg('hero-trucks')!.url} alt="Sikka Logistics" fill className="object-cover" priority />
+                            {getImg('logo')?.url && (
+                                <Image src={getImg('logo')!.url} alt="Sikka Industries Login" fill className="object-contain p-8" priority />
                             )}
                         </div>
                         <div className="w-full md:w-1/2 p-8">
