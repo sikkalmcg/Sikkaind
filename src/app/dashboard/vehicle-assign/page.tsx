@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -42,7 +43,7 @@ function OpenOrdersContent() {
   
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
-  const [toDate, setToDate] = useState<Date | undefined>(endOfDay(new Date()));
+  const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
@@ -214,52 +215,56 @@ function OpenOrdersContent() {
   const allFilteredData = useMemo(() => {
     const { shipments, trips, entries, lrs } = allData;
 
-    return (shipments || []).map(s => {
-      const normalizedSPlantId = normalizePlantId(s.originPlantId);
-      const masterPlant = plants?.find(p => p.id === s.originPlantId || normalizePlantId(p.id) === normalizedSPlantId);
+    return (shipments || [])
+      .filter(s => selectedPlants.includes(s.originPlantId)) // --- REGISTRY SCOPE ENFORCEMENT ---
+      .map(s => {
+        const normalizedSPlantId = normalizePlantId(s.originPlantId);
+        const masterPlant = plants?.find(p => p.id === s.originPlantId || normalizePlantId(p.id) === normalizedSPlantId);
 
-      const associatedTrips = trips.filter(t => t.shipmentIds?.includes(s.id));
-      const linkedTrips = associatedTrips.map(t => {
-          const carrierObj = (carriers || []).find(c => c.id === t.carrierId);
-          const carrierName = carrierObj?.name || '--';
-          const entry = entries.find(e => e.tripId === t.id);
-          const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId);
-          return { 
-            ...t, 
-            carrier: carrierName, 
-            carrierObj, 
-            entry, 
-            lr,
-            shipmentObj: s,
-            plant: masterPlant
-          };
+        const associatedTrips = trips.filter(t => t.shipmentIds?.includes(s.id));
+        const linkedTrips = associatedTrips.map(t => {
+            const carrierObj = (carriers || []).find(c => c.id === t.carrierId);
+            const carrierName = carrierObj?.name || '--';
+            const entry = entries.find(e => e.tripId === t.id);
+            const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId);
+            return { 
+              ...t, 
+              carrier: carrierName, 
+              carrierObj, 
+              entry, 
+              lr,
+              shipmentObj: s,
+              plant: masterPlant
+            };
+        });
+
+        const itemsManifest = s.items || [];
+        const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber).filter(Boolean))).join(', ') || s.invoiceNumber || '--';
+        const summarizedItems = Array.from(new Set(itemsManifest.map(i => i.itemDescription || i.description).filter(Boolean))).join(', ') || s.itemDescription || s.material || '--';
+        const totalUnitsCount = itemsManifest.reduce((sum, i) => sum + (Number(i.units) || 0), 0) || s.totalUnits || 0;
+
+        const dispatchQty = linkedTrips.reduce((sum, t) => sum + (t.entry?.status === 'OUT' ? (t.assignedQtyInTrip || 0) : 0), 0);
+        
+        return {
+          ...s,
+          linkedTrips,
+          dispatchQty,
+          balanceQty: s.quantity - (s.assignedQty || 0),
+          plantName: masterPlant?.name || s.originPlantId,
+          tripId: linkedTrips[0]?.tripId || '--',
+          tripDate: linkedTrips[0]?.startDate || null,
+          vehicleNumber: linkedTrips[0]?.vehicleNumber || '--',
+          driverMobile: linkedTrips[0]?.driverMobile || '--',
+          carrier: linkedTrips[0]?.carrier || '--',
+          transporterName: linkedTrips[0]?.transporterName || '--',
+          lrNumber: linkedTrips[0]?.lrNumber || s.lrNumber || '',
+          lrDate: linkedTrips[0]?.lrDate || s.lrDate || null,
+          summarizedInvoices,
+          summarizedItems,
+          totalUnitsCount
+        };
       });
-
-      const itemsManifest = s.items || [];
-      const summarizedItems = Array.from(new Set(itemsManifest.map(i => i.itemDescription || i.description).filter(Boolean))).join(', ') || s.itemDescription || s.material || '--';
-      const totalUnitsCount = itemsManifest.reduce((sum, i) => sum + (Number(i.units) || 0), 0) || s.totalUnits || 0;
-
-      const dispatchQty = linkedTrips.reduce((sum, t) => sum + (t.entry?.status === 'OUT' ? (t.assignedQtyInTrip || 0) : 0), 0);
-      
-      return {
-        ...s,
-        linkedTrips,
-        dispatchQty,
-        balanceQty: s.quantity - (s.assignedQty || 0),
-        plantName: masterPlant?.name || s.originPlantId,
-        tripId: linkedTrips[0]?.tripId || '--',
-        tripDate: linkedTrips[0]?.startDate || null,
-        vehicleNumber: linkedTrips[0]?.vehicleNumber || '--',
-        driverMobile: linkedTrips[0]?.driverMobile || '--',
-        carrier: linkedTrips[0]?.carrier || '--',
-        transporterName: linkedTrips[0]?.transporterName || '--',
-        lrNumber: linkedTrips[0]?.lrNumber || s.lrNumber || '',
-        lrDate: linkedTrips[0]?.lrDate || s.lrDate || null,
-        summarizedItems,
-        totalUnitsCount
-      };
-    });
-  }, [allData, carriers, plants]);
+  }, [allData, carriers, plants, selectedPlants]);
 
   const handleOpenLR = async (row: any) => {
     if (!row.lrNumber || !firestore) return;
@@ -477,7 +482,7 @@ function OpenOrdersContent() {
               </div>
               <div className="grid gap-1.5">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">To Date</Label>
-                <DatePicker date={toDate} setDate={setToDate} className="h-9 border-slate-200" />
+                <DatePicker date={toDate} setDate={setTodayDate} className="h-9 border-slate-200" />
               </div>
               <div className="grid gap-1.5">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Global Registry Search</Label>

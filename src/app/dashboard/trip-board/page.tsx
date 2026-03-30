@@ -164,7 +164,6 @@ function TripBoardContent() {
       const unloadingPoint = t.unloadingPoint || shipment?.unloadingPoint || t.destination || '--';
       const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
 
-      // REGISTRY HANDSHAKE: Ensure LR Number and Date are prioritized from the joined LR document
       const lrNumber = lr?.lrNumber || t.lrNumber || shipment?.lrNumber || '';
       const lrDate = lr?.date || t.lrDate || shipment?.lrDate || null;
 
@@ -183,8 +182,8 @@ function TripBoardContent() {
         lrData: lr,
         carrierObj: carrier,
         entry,
-        lrNumber, // EXPLICIT OVERRIDE FOR VISIBILITY
-        lrDate    // EXPLICIT OVERRIDE FOR VISIBILITY
+        lrNumber,
+        lrDate
       };
     });
   }, [trips, shipments, lrs, entries, plants, dbCarriers]);
@@ -194,7 +193,9 @@ function TripBoardContent() {
     const dayEnd = toDate ? endOfDay(toDate) : null;
 
     return allFilteredData.filter(t => {
-      // REGISTRY SYNC FIX: Treat pending timestamps as "Current" to avoid filtering out new missions
+      // --- REGISTRY SCOPE ENFORCEMENT ---
+      if (selectedPlants.length > 0 && !selectedPlants.includes(t.originPlantId)) return false;
+
       if (!t.startDate) return true; 
       
       const start = t.startDate instanceof Date ? t.startDate : new Date(t.startDate);
@@ -209,7 +210,7 @@ function TripBoardContent() {
       }
       return true;
     });
-  }, [allFilteredData, fromDate, toDate, searchTerm]);
+  }, [allFilteredData, fromDate, toDate, searchTerm, selectedPlants]);
 
   const tabFilteredData = useMemo(() => {
     return finalData.filter(t => {
@@ -238,7 +239,7 @@ function TripBoardContent() {
 
   const counts = useMemo(() => {
     const res = { active: 0, loading: 0, transit: 0, arrived: 0, podPending: 0, closed: 0 };
-    allFilteredData.forEach(t => {
+    finalData.forEach(t => {
         const status = (t.tripStatus || t.currentStatusId || '').toLowerCase().replace(/[\s_-]+/g, '-');
         const isOut = t.entry?.status === 'OUT';
         const isPod = t.podReceived === true;
@@ -251,7 +252,7 @@ function TripBoardContent() {
         if (isPod || status === 'closed' || status === 'trip-closed') res.closed++;
     });
     return res;
-  }, [allFilteredData]);
+  }, [finalData]);
 
   const onViewLR = async (row: any) => {
     if (!row.lrNumber || !firestore) return;
