@@ -26,6 +26,7 @@ interface PrintableLRProps {
  * @fileOverview SIKKA LMC - Simplified Enterprise Lorry Receipt (LR) Node.
  * Optimized for A4 printing. Removes E-waybill, QR, and Goods Value.
  * Displays City-only routing for From/To.
+ * Replaced Consignee Signature with Carrier Terms & Conditions.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -43,6 +44,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     if (!str) return 'N/A';
     return str.split(',')[0].trim().toUpperCase();
   };
+
+  const carrierTerms = lr.carrier?.terms || [];
 
   return (
     <div className="A4-page p-[8mm] bg-white text-black font-sans text-[9pt] leading-tight border border-slate-100 print:border-none h-[297mm] flex flex-col relative select-text box-border">
@@ -165,18 +168,28 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </table>
       </div>
 
-      {/* 5. SIGNATURE & TERMS */}
+      {/* 5. TERMS & SIGNATURE */}
       <div className="mt-4 mb-8">
         <div className="grid grid-cols-2 gap-16">
+            {/* REPLACED CONSIGNEE SIGNATURE WITH CARRIER TERMS */}
             <div className="space-y-3">
-                <span className="text-[8pt] font-black uppercase text-slate-900 border-b border-slate-200 block pb-1">CONSIGNEE SIGNATURE</span>
-                <div className="h-20 w-full bg-slate-50/50 rounded-xl border border-slate-100 border-dashed" />
-                <p className="text-[7pt] text-slate-400 font-bold uppercase italic">(Received goods in good condition)</p>
+                <span className="text-[8pt] font-black uppercase text-slate-900 border-b border-slate-200 block pb-1">TERMS & CONDITIONS</span>
+                <div className="min-h-[100px] w-full bg-slate-50/30 p-2 rounded-lg border border-slate-100 text-[7pt] text-slate-600 space-y-1">
+                    {carrierTerms.length > 0 ? (
+                        <ul className="list-decimal pl-4 space-y-0.5">
+                            {carrierTerms.map((term, i) => (
+                                <li key={i} className="font-medium">{term}</li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="italic text-slate-400">Standard transport terms apply.</p>
+                    )}
+                </div>
             </div>
 
             <div className="space-y-3 text-center">
                 <span className="text-[8pt] font-black uppercase text-slate-900 border-b border-slate-200 block pb-1">FOR {lr.carrier?.name || 'SIKKA LOGISTICS'}</span>
-                <div className="h-20 flex flex-col justify-end items-center">
+                <div className="h-24 flex flex-col justify-end items-center">
                     <div className="w-full border-t-2 border-black border-dashed mb-2" />
                     <span className="text-[8pt] font-black uppercase tracking-widest">AUTHORIZED SIGNATORY</span>
                 </div>
