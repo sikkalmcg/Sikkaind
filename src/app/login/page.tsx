@@ -258,7 +258,7 @@ export default function LoginPage() {
         );
     }
 
-    const loginImageAsset = getImg('logo');
+    const loginImageAsset = getImg('loginlogo');
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-gray-200 p-4 font-sans">
