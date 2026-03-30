@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -199,6 +200,32 @@ function TripBoardContent() {
     });
   }, [allFilteredData, fromDate, toDate, searchTerm]);
 
+  // REGISTRY LOGIC: CENTRALIZED TAB FILTERING
+  const tabFilteredData = useMemo(() => {
+    return finalData.filter(t => {
+        const status = (t.tripStatus || t.currentStatusId || '').toLowerCase().replace(/[\s_-]+/g, '-');
+        const isOut = t.entry?.status === 'OUT';
+        const isPod = t.podReceived === true;
+
+        switch (activeTab) {
+            case 'active':
+                return !['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status);
+            case 'loading':
+                return !isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete');
+            case 'transit':
+                return status === 'in-transit';
+            case 'arrived':
+                return ['arrived', 'arrival-for-delivery', 'arrived-at-destination'].includes(status);
+            case 'pod-pending':
+                return (['arrived', 'arrival-for-delivery', 'delivered'].includes(status)) && !isPod;
+            case 'closed':
+                return isPod || status === 'closed' || status === 'trip-closed';
+            default:
+                return true;
+        }
+    });
+  }, [finalData, activeTab]);
+
   const counts = useMemo(() => {
     const res = { active: 0, loading: 0, transit: 0, arrived: 0, podPending: 0, closed: 0 };
     allFilteredData.forEach(t => {
@@ -390,7 +417,7 @@ function TripBoardContent() {
 
                 <TabsContent value={activeTab} className="mt-0 focus-visible:ring-0">
                     <TripBoardTable 
-                        data={finalData} 
+                        data={tabFilteredData} 
                         activeTab={activeTab} 
                         isAdmin={isAdminSession}
                         canVerifyPod={isAdminSession} 
