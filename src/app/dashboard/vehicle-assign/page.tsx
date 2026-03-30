@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -23,7 +22,7 @@ import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilte
 import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreviewModal';
 import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
 import { mockPlants } from '@/lib/mock-data';
-import { normalizePlantId } from '@/lib/utils';
+import { normalizePlantId, parseSafeDate } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import { Card } from '@/components/ui/card';
 
@@ -155,22 +154,21 @@ function OpenOrdersContent() {
         const entries = snap.docs.map(d => ({ 
             id: d.id, 
             ...d.data(),
-            entryTimestamp: d.data().entryTimestamp instanceof Timestamp ? d.data().entryTimestamp.toDate() : new Date(d.data().entryTimestamp),
-            exitTimestamp: d.data().exitTimestamp instanceof Timestamp ? d.data().exitTimestamp.toDate() : (d.data().exitTimestamp ? new Date(d.data().exitTimestamp) : undefined)
+            entryTimestamp: parseSafeDate(d.data().entryTimestamp),
+            exitTimestamp: parseSafeDate(d.data().exitTimestamp)
         } as WithId<VehicleEntryExit>));
         setAllData(prev => ({ ...prev, entries }));
     }));
 
     selectedPlants.forEach((plantId) => {
-      const parseDate = (val: any) => val instanceof Timestamp ? val.toDate() : (val ? new Date(val) : null);
-
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/shipments`), (snap) => {
         const plantShipments = snap.docs.map(d => ({ 
           id: d.id, 
           originPlantId: plantId,
           ...d.data(),
-          creationDate: parseDate(d.data().creationDate),
-          lastUpdateDate: d.data().lastUpdateDate ? parseDate(d.data().lastUpdateDate) : undefined,
+          creationDate: parseSafeDate(d.data().creationDate),
+          lastUpdateDate: parseSafeDate(d.data().lastUpdateDate),
+          lrDate: parseSafeDate(d.data().lrDate)
         } as WithId<Shipment>));
 
         setAllData(prev => ({
@@ -185,7 +183,8 @@ function OpenOrdersContent() {
           id: d.id, 
           originPlantId: plantId, 
           ...d.data(), 
-          startDate: parseDate(d.data().startDate),
+          startDate: parseSafeDate(d.data().startDate),
+          lrDate: parseSafeDate(d.data().lrDate)
         } as WithId<Trip>));
 
         setAllData(prev => ({
@@ -199,7 +198,7 @@ function OpenOrdersContent() {
           id: d.id,
           originPlantId: plantId,
           ...d.data(),
-          date: parseDate(d.data().date)
+          date: parseSafeDate(d.data().date)
         } as WithId<LR>));
 
         setAllData(prev => ({
@@ -216,7 +215,7 @@ function OpenOrdersContent() {
     const { shipments, trips, entries, lrs } = allData;
 
     return (shipments || [])
-      .filter(s => selectedPlants.includes(s.originPlantId)) // --- REGISTRY SCOPE ENFORCEMENT ---
+      .filter(s => selectedPlants.includes(s.originPlantId))
       .map(s => {
         const normalizedSPlantId = normalizePlantId(s.originPlantId);
         const masterPlant = plants?.find(p => p.id === s.originPlantId || normalizePlantId(p.id) === normalizedSPlantId);
@@ -245,6 +244,10 @@ function OpenOrdersContent() {
 
         const dispatchQty = linkedTrips.reduce((sum, t) => sum + (t.entry?.status === 'OUT' ? (t.assignedQtyInTrip || 0) : 0), 0);
         
+        // Finalize LR data with precedence logic
+        const lrNumber = linkedTrips[0]?.lrNumber || s.lrNumber || '';
+        const lrDate = linkedTrips[0]?.lrDate || s.lrDate || null;
+
         return {
           ...s,
           linkedTrips,
@@ -257,8 +260,8 @@ function OpenOrdersContent() {
           driverMobile: linkedTrips[0]?.driverMobile || '--',
           carrier: linkedTrips[0]?.carrier || '--',
           transporterName: linkedTrips[0]?.transporterName || '--',
-          lrNumber: linkedTrips[0]?.lrNumber || s.lrNumber || '',
-          lrDate: linkedTrips[0]?.lrDate || s.lrDate || null,
+          lrNumber,
+          lrDate,
           summarizedInvoices,
           summarizedItems,
           totalUnitsCount
@@ -276,13 +279,11 @@ function OpenOrdersContent() {
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
-        const parseDate = (val: any) => val instanceof Timestamp ? val.toDate() : (val ? new Date(val) : new Date());
-
         if (snap.empty) {
             const shipmentObj = row.shipmentObj || row;
             setPreviewLr({
                 lrNumber: row.lrNumber,
-                date: parseDate(row.lrDate),
+                date: row.lrDate || new Date(),
                 trip: row,
                 carrier: row.carrierObj || (carriers || [])[0],
                 shipment: shipmentObj,
@@ -303,7 +304,7 @@ function OpenOrdersContent() {
             setPreviewLr({
                 ...lrDoc,
                 id: snap.docs[0].id,
-                date: parseDate(lrDoc.date),
+                date: parseSafeDate(lrDoc.date),
                 trip: row,
                 carrier: row.carrierObj || (carriers || [])[0],
                 shipment: row.shipmentObj || row,
@@ -316,50 +317,6 @@ function OpenOrdersContent() {
         hideLoader();
     }
   };
-
-  const counts = useMemo(() => {
-    const res = { pending: 0, process: 0, dispatched: 0, cancelled: 0 };
-    allFilteredData.forEach(s => {
-      const associatedTrips = s.linkedTrips || [];
-      const dispatchedTrips = associatedTrips.filter(t => t.entry?.status === 'OUT');
-      const inProcessTrips = associatedTrips.filter(t => t.entry?.status === 'IN' || (t.assignedQtyInTrip > 0 && !t.entry));
-
-      const isCancelled = ['Cancelled', 'Short Closed'].includes(s.currentStatusId);
-      const isDispatched = dispatchedTrips.length > 0;
-      const isInProcess = inProcessTrips.length > 0;
-
-      if (isCancelled) {
-          res.cancelled++;
-      } else {
-          if (s.balanceQty > 0.001) res.pending++;
-          if (isInProcess) res.process++;
-          if (isDispatched) res.dispatched++;
-      }
-    });
-    return res;
-  }, [allFilteredData]);
-
-  const enrichedOrders = useMemo(() => {
-    return allFilteredData.filter(s => {
-      const associatedTrips = s.linkedTrips || [];
-      const dispatchedTrips = associatedTrips.filter(t => t.entry?.status === 'OUT');
-      const inProcessTrips = associatedTrips.filter(t => t.entry?.status === 'IN' || (t.assignedQtyInTrip > 0 && !t.entry));
-
-      const isCancelled = ['Cancelled', 'Short Closed'].includes(s.currentStatusId);
-      const isDispatched = dispatchedTrips.length > 0;
-      const isInProcess = inProcessTrips.length > 0;
-
-      if (activeTab === 'pending') return !isCancelled && s.balanceQty > 0.001;
-      if (activeTab === 'process') return !isCancelled && isInProcess;
-      if (activeTab === 'dispatched') return !isCancelled && isDispatched;
-      if (activeTab === 'cancelled') return isCancelled;
-      return true;
-    }).filter(o => {
-      if (!searchTerm) return true;
-      const s = searchTerm.toLowerCase();
-      return Object.values(o).some(v => v?.toString().toLowerCase().includes(s));
-    });
-  }, [allFilteredData, activeTab, searchTerm]);
 
   const handleCancelAssignment = async (tripId: string, shipId: string, qty: number) => {
     if (!firestore || !user) return;
@@ -517,7 +474,7 @@ function OpenOrdersContent() {
             <TabsTrigger value="dispatched" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all">
               Dispatched <span className="ml-2 py-0.5 px-2 bg-green-100 text-green-700 rounded-full text-[10px] font-black">{counts.dispatched}</span>
             </TabsTrigger>
-            <TabsTrigger value="cancelled" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all">
+            <TabsTrigger value="cancelled" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all">
               Cancelled <span className="ml-2 py-0.5 px-2 bg-red-100 text-red-700 rounded-full text-[10px] font-black">{counts.cancelled}</span>
             </TabsTrigger>
           </TabsList>

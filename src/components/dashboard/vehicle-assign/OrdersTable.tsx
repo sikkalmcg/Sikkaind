@@ -20,7 +20,7 @@ import {
     ArrowRightLeft,
     MoreHorizontal
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, parseSafeDate } from '@/lib/utils';
 import { format, isValid } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { 
@@ -60,26 +60,10 @@ const getStatusColor = (status: string) => {
     }
 }
 
-/**
- * Registry Logic: Safe Date Handshake
- * Robustly resolves Firestore Timestamps or raw dates into mission-ready strings.
- */
-const formatSafeDate = (date: any, formatStr: string = 'dd/MM/yy') => {
-    if (!date) return '--';
-    try {
-        let d: Date;
-        if (date instanceof Timestamp) {
-            d = date.toDate();
-        } else if (typeof date === 'object' && 'seconds' in date) {
-            d = new Date(date.seconds * 1000);
-        } else {
-            d = new Date(date);
-        }
-        if (!isValid(d)) return '--';
-        return format(d, formatStr);
-    } catch (e) {
-        return '--';
-    }
+const formatSafeDateString = (date: any, formatStr: string = 'dd/MM/yy') => {
+    const d = parseSafeDate(date);
+    if (!d) return '--';
+    return format(d, formatStr);
 }
 
 export default function OrdersTable({ 
@@ -144,7 +128,7 @@ export default function OrdersTable({
                         ) : '--'}
                       </TableCell>
                       <TableCell className="px-4 text-center text-[11px] font-bold text-slate-500">
-                        {formatSafeDate(order.lrDate)}
+                        {formatSafeDateString(order.lrDate)}
                       </TableCell>
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={order.consignor}>{order.consignor}</TableCell>
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={order.billToParty}>{order.billToParty}</TableCell>

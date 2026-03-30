@@ -15,7 +15,7 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc, limit, orderBy } from 'firebase/firestore';
 import DeleteShipmentConfirmationDialog from './DeleteShipmentConfirmationDialog';
 import { Timestamp } from "firebase/firestore";
-import { cn, normalizePlantId } from '@/lib/utils';
+import { cn, normalizePlantId, parseSafeDate } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreviewModal';
@@ -38,7 +38,7 @@ type EnrichedShipment = WithId<Shipment> & {
     driverMobile?: string;
     tripStartDate?: Date;
     lrNumber?: string;
-    lrDate?: Date;
+    lrDate?: Date | null;
     lrData?: any;
     carrierObj?: any;
     plant?: Plant;
@@ -65,15 +65,10 @@ const getStatusColor = (status: string) => {
     }
 }
 
-const formatSafeDate = (date: any, formatStr: string = 'dd/MM/yy') => {
-    if (!date) return '--';
-    try {
-        const d = date instanceof Timestamp ? date.toDate() : new Date(date);
-        if (isNaN(d.getTime())) return '--';
-        return format(d, formatStr);
-    } catch (e) {
-        return '--';
-    }
+const formatSafeDateString = (date: any, formatStr: string = 'dd/MM/yy') => {
+    const d = parseSafeDate(date);
+    if (!d) return '--';
+    return format(d, formatStr);
 }
 
 export default function ShipmentData({ shipments, plants, onEdit, onDelete }: ShipmentDataProps) {
@@ -123,6 +118,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
         const summarizedItems = Array.from(new Set(itemsManifest.map(i => i.itemDescription || i.description).filter(Boolean))).join(', ') || shipment.itemDescription || shipment.material || '--';
         const totalUnitsCount = itemsManifest.reduce((sum, i) => sum + (Number(i.units) || 0), 0) || shipment.totalUnits || 0;
 
+        // Resolve LR Date with precedence: Trip Registry > Shipment Registry
+        const resolvedLrDate = parseSafeDate(trip?.lrDate || shipment.lrDate);
+
         return {
             ...shipment,
             plant,
@@ -130,9 +128,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
             tripId: trip?.tripId,
             vehicleNumber: trip?.vehicleNumber || shipment.vehicleNumber,
             driverMobile: trip?.driverMobile || shipment.driverMobile,
-            tripStartDate: trip?.startDate instanceof Timestamp ? trip.startDate.toDate() : (trip?.startDate ? new Date(trip.startDate) : undefined),
+            tripStartDate: parseSafeDate(trip?.startDate),
             lrNumber: trip?.lrNumber || shipment.lrNumber,
-            lrDate: trip?.lrDate instanceof Timestamp ? trip.lrDate.toDate() : (trip?.lrDate ? new Date(trip.lrDate) : (shipment.lrDate ? new Date(shipment.lrDate) : undefined)),
+            lrDate: resolvedLrDate,
             carrierObj: carrier,
             summarizedInvoices,
             summarizedItems,
@@ -170,13 +168,13 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
     const dataToExport = filteredShipments.map(s => ({
         'Plant': s.plantName,
         'Order ID': s.shipmentId,
-        'Order Date': formatSafeDate(s.creationDate, 'dd/MM/yy HH:mm'),
+        'Order Date': formatSafeDateString(s.creationDate, 'dd/MM/yy HH:mm'),
         'Vehicle Number': s.vehicleNumber || '--',
         'Pilot Mobile': s.driverMobile || '--',
         'Invoice Number': s.summarizedInvoices || '--',
         'E-Waybill Number': s.ewaybillNumber || '--',
         'LR Number': s.lrNumber || '--',
-        'LR Date': s.lrDate ? format(new Date(s.lrDate), 'dd-MM-yyyy') : '--',
+        'LR Date': formatSafeDateString(s.lrDate, 'dd-MM-yyyy'),
         'Item Description': s.summarizedItems || '--',
         'Total Units': s.totalUnitsCount || '--',
         'FROM': s.loadingPoint || s.plantName,
@@ -206,8 +204,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
-        const parseDate = (val: any) => val instanceof Timestamp ? val.toDate() : (val ? new Date(val) : new Date());
-
         if (snap.empty) {
             const manifestItems = row.items && row.items.length > 0 ? row.items : [{
                 invoiceNumber: row.invoiceNumber || 'NA',
@@ -220,7 +216,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
 
             setPreviewLr({
                 lrNumber: row.lrNumber,
-                date: parseDate(row.lrDate),
+                date: row.lrDate || new Date(),
                 trip: row as any,
                 carrier: row.carrierObj || (allCarriers || [])[0],
                 shipment: row as any,
@@ -241,7 +237,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
             setPreviewLr({
                 ...lrDoc,
                 id: snap.docs[0].id,
-                date: parseDate(lrDoc.date),
+                date: parseSafeDate(lrDoc.date),
                 trip: row as any,
                 carrier: row.carrierObj || (allCarriers || [])[0],
                 shipment: row as any,
@@ -323,7 +319,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                     <TableRow key={s.id} className="hover:bg-blue-50/20 transition-colors h-16 border-b border-slate-100 last:border-0 group text-[11px] font-medium text-slate-600">
                       <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{s.plantName}</TableCell>
                       <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs">{s.shipmentId}</TableCell>
-                      <TableCell className="px-4 text-center whitespace-nowrap text-slate-500 font-bold">{formatSafeDate(s.creationDate, 'dd/MM/yy HH:mm')}</TableCell>
+                      <TableCell className="px-4 text-center whitespace-nowrap text-slate-500 font-bold">{formatSafeDateString(s.creationDate, 'dd/MM/yy HH:mm')}</TableCell>
                       <TableCell className="px-4 text-center font-black text-slate-900 uppercase tracking-tighter">{s.vehicleNumber || '--'}</TableCell>
                       <TableCell className="px-4 text-center font-mono font-bold text-slate-400">{s.driverMobile || '--'}</TableCell>
                       <TableCell className="px-4 text-center font-bold text-slate-800">{s.summarizedInvoices}</TableCell>
@@ -339,7 +335,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                             </button>
                         ) : '--'}
                       </TableCell>
-                      <TableCell className="px-4 text-center whitespace-nowrap text-slate-500">{formatSafeDate(s.lrDate, 'dd/MM/yy')}</TableCell>
+                      <TableCell className="px-4 text-center whitespace-nowrap text-slate-500">{formatSafeDateString(s.lrDate, 'dd/MM/yy')}</TableCell>
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase">{s.consignor}</TableCell>
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase">{s.billToParty}</TableCell>
                       <TableCell className="px-4 truncate font-medium text-slate-500 italic">"{s.summarizedItems}"</TableCell>

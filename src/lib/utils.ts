@@ -26,6 +26,33 @@ export function incrementSerial(lastSerial: string): string {
 }
 
 /**
+ * Robust Date Parser Node
+ * Safely resolves Firestore Timestamps, serialized objects, or raw date strings into valid Date objects.
+ */
+export function parseSafeDate(date: any): Date | null {
+    if (!date) return null;
+    try {
+        // Case 1: Standard Date object
+        if (date instanceof Date) {
+            return isNaN(date.getTime()) ? null : date;
+        }
+        // Case 2: Firestore Timestamp instance
+        if (typeof date.toDate === 'function') {
+            return date.toDate();
+        }
+        // Case 3: Serialized Firestore Timestamp (object with seconds/nanoseconds)
+        if (typeof date === 'object' && 'seconds' in date) {
+            return new Date(date.seconds * 1000);
+        }
+        // Case 4: String or other format
+        const d = new Date(date);
+        return isNaN(d.getTime()) ? null : d;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
  * Sanitizes a registry node for archive storage.
  * Removes heavy binary data or non-essential recursive links.
  */

@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -14,7 +13,7 @@ import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilte
 import EditVehicleModal from '@/components/dashboard/trip-board/EditVehicleModal';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants, mockCarriers } from '@/lib/mock-data';
-import { normalizePlantId, sanitizeRegistryNode } from '@/lib/utils';
+import { normalizePlantId, sanitizeRegistryNode, parseSafeDate } from '@/lib/utils';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, doc, getDocs, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, Timestamp } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter } from "lucide-react";
@@ -119,10 +118,13 @@ function TripBoardContent() {
     const unsubscribers: (() => void)[] = [];
 
     selectedPlants.forEach((plantId) => {
-      const parseDate = (val: any) => val instanceof Timestamp ? val.toDate() : (val ? new Date(val) : null);
-
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/trips`), (snap) => {
-        const list = snap.docs.map(d => ({ id: d.id, originPlantId: plantId, ...d.data(), startDate: parseDate(d.data().startDate) } as any));
+        const list = snap.docs.map(d => ({ 
+            id: d.id, 
+            originPlantId: plantId, 
+            ...d.data(), 
+            startDate: parseSafeDate(d.data().startDate) 
+        } as any));
         setTrips(prev => [...prev.filter(t => t.originPlantId !== plantId), ...list]);
         setIsLoading(false);
       }));
@@ -133,7 +135,12 @@ function TripBoardContent() {
       }));
 
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/lrs`), (snap) => {
-        const list = snap.docs.map(d => ({ id: d.id, originPlantId: plantId, ...d.data() } as any));
+        const list = snap.docs.map(d => ({
+          id: d.id,
+          originPlantId: plantId,
+          ...d.data(),
+          date: parseSafeDate(d.data().date)
+        } as any));
         setLrs(prev => [...prev.filter(l => l.originPlantId !== plantId), ...list]);
       }));
     });
@@ -165,7 +172,7 @@ function TripBoardContent() {
       const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
 
       const lrNumber = lr?.lrNumber || t.lrNumber || shipment?.lrNumber || '';
-      const lrDate = lr?.date || t.lrDate || shipment?.lrDate || null;
+      const lrDate = parseSafeDate(lr?.date || t.lrDate || shipment?.lrDate);
 
       return {
         ...t,
@@ -193,13 +200,10 @@ function TripBoardContent() {
     const dayEnd = toDate ? endOfDay(toDate) : null;
 
     return allFilteredData.filter(t => {
-      // --- REGISTRY SCOPE ENFORCEMENT ---
       if (selectedPlants.length > 0 && !selectedPlants.includes(t.originPlantId)) return false;
 
-      if (!t.startDate) return true; 
-      
-      const start = t.startDate instanceof Date ? t.startDate : new Date(t.startDate);
-      if (!isValid(start)) return true;
+      const start = t.startDate;
+      if (!start) return true; // Show trips with pending server timestamps
 
       if (dayStart && start < dayStart) return false;
       if (dayEnd && start > dayEnd) return false;
@@ -264,13 +268,11 @@ function TripBoardContent() {
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
-        const parseDate = (val: any) => val instanceof Timestamp ? val.toDate() : (val ? new Date(val) : new Date());
-
         if (snap.empty) {
             const shipmentObj = row.shipmentObj || row;
             setLrPreviewData({
                 lrNumber: row.lrNumber,
-                date: parseDate(row.lrDate),
+                date: row.lrDate || new Date(),
                 trip: row,
                 carrier: row.carrierObj || (dbCarriers || [])[0],
                 shipment: shipmentObj,
@@ -291,7 +293,7 @@ function TripBoardContent() {
             setLrPreviewData({
                 ...lrDoc,
                 id: snap.docs[0].id,
-                date: parseDate(lrDoc.date),
+                date: parseSafeDate(lrDoc.date),
                 trip: row,
                 carrier: row.carrierObj || (dbCarriers || [])[0],
                 shipment: row.shipmentObj || row,

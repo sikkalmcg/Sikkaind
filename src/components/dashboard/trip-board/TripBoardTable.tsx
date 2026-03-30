@@ -21,7 +21,7 @@ import {
     Info,
     Smartphone
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, parseSafeDate } from '@/lib/utils';
 import { format, isValid } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { 
@@ -67,15 +67,10 @@ const getStatusColor = (status: string) => {
     }
 }
 
-const formatSafeDate = (date: any, formatStr: string = 'dd/MM/yy') => {
-    if (!date) return '--';
-    try {
-        const d = date instanceof Timestamp ? date.toDate() : new Date(date);
-        if (!isValid(d)) return '--';
-        return format(d, formatStr);
-    } catch (e) {
-        return '--';
-    }
+const formatSafeDateString = (date: any, formatStr: string = 'dd/MM/yy') => {
+    const d = parseSafeDate(date);
+    if (!d) return '--';
+    return format(d, formatStr);
 }
 
 export default function TripBoardTable({ 
@@ -110,7 +105,7 @@ export default function TripBoardTable({
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48">Consignee</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-64">Item Description</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40">Destination</TableHead>
-            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-24 text-center">Units</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-4 text-center w-24">Units</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right font-black">Weight (MT)</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 text-center">Trip Status</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 text-center">POD Registry</TableHead>
@@ -140,7 +135,7 @@ export default function TripBoardTable({
                     )}
                 </TableCell>
                 <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap text-[11px]">
-                    {formatSafeDate(row.lrDate)}
+                    {formatSafeDateString(row.lrDate)}
                 </TableCell>
                 <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs uppercase">{row.tripId}</TableCell>
                 <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{row.vehicleNumber}</TableCell>
@@ -186,7 +181,7 @@ export default function TripBoardTable({
                             {(!row.podReceived || canVerifyPod) && (
                                 <>
                                     <DropdownMenuSeparator className="bg-slate-100" />
-                                    <DropdownMenuItem onClick={() => onUpdatePod(row)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-xl hover:bg-blue-50"><Upload className="h-4 w-4 text-blue-600" /> Upload POD</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onUploadPod(row)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-xl hover:bg-blue-50"><Upload className="h-4 w-4 text-blue-600" /> Upload POD</DropdownMenuItem>
                                 </>
                             )}
                             <DropdownMenuSeparator className="bg-slate-100" />
