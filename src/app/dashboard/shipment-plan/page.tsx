@@ -17,6 +17,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { normalizePlantId } from '@/lib/utils';
 import { format } from 'date-fns';
+import { Card } from '@/components/ui/card';
 
 function ShipmentPlanContent() {
   const { toast } = useToast();
@@ -27,7 +28,6 @@ function ShipmentPlanContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   
-  // REGISTRY STABILITY: Maintain local state for active tab to prevent UI snapping
   const [activeTab, setActiveTab] = useState<string>(searchParams.get('tab') || 'create');
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
@@ -36,7 +36,6 @@ function ShipmentPlanContent() {
   const [dbError, setDbError] = useState<boolean>(false);
   const [editingShipment, setEditingShipment] = useState<WithId<Shipment> | null>(null);
 
-  // Sync tab state with URL without causing resets
   useEffect(() => {
     const urlTab = searchParams.get('tab');
     if (urlTab && urlTab !== activeTab) {
@@ -51,7 +50,6 @@ function ShipmentPlanContent() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
-  // Fetch Master Logistics Plants List
   const plantsQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, "logistics_plants")) : null, 
     [firestore]
@@ -101,7 +99,6 @@ function ShipmentPlanContent() {
     fetchData();
   }, [firestore, user, allMasterPlants]);
 
-  // Real-time listener for shipments
   const [allShipments, setAllShipments] = useState<WithId<Shipment>[]>([]);
   const [isLoadingShipments, setIsLoadingShipments] = useState(false);
 
@@ -189,7 +186,6 @@ function ShipmentPlanContent() {
                 cancelledAt: ts
             });
 
-            // Activity Log Entry
             const logRef = doc(collection(firestore, "activity_logs"));
             transaction.set(logRef, {
                 userId: user.uid,
@@ -201,7 +197,6 @@ function ShipmentPlanContent() {
                 description: `Revoked Sale Order ${shipment.shipmentId}. [Assigned: ${shipment.assignedQty} | Cancelled Balance: ${shipment.balanceQty}]`
             });
 
-            // Notification Registry Entry
             const notifRef = doc(collection(firestore, `users/${user.uid}/notifications`));
             transaction.set(notifRef, {
                 userId: user.uid,

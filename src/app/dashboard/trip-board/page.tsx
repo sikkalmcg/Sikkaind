@@ -13,11 +13,11 @@ import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAss
 import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilter';
 import EditVehicleModal from '@/components/dashboard/trip-board/EditVehicleModal';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
-import { mockPlants, mockCarriers } from '@/lib/mock-data';
-import { normalizePlantId, sanitizeRegistryNode, parseSafeDate } from '@/lib/utils';
+import { mockPlants } from '@/lib/mock-data';
+import { normalizePlantId, parseSafeDate } from '@/lib/utils';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, doc, getDocs, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, Timestamp } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, Card } from "lucide-react";
+import { collection, query, doc, getDocs, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot } from "firebase/firestore";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -25,8 +25,9 @@ import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/Printable
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { DatePicker } from '@/components/date-picker';
-import { startOfDay, endOfDay, subDays, isValid } from 'date-fns';
+import { startOfDay, endOfDay, subDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 
 export type TripBoardTab = 'active' | 'loading' | 'transit' | 'arrived' | 'pod-pending' | 'closed';
@@ -50,8 +51,6 @@ function TripBoardContent() {
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
   const [authorizedPlantIds, setAuthorizedPlantIds] = useState<string[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
-  
   const [trips, setTrips] = useState<WithId<Trip>[]>([]);
   const [shipments, setShipments] = useState<WithId<Shipment>[]>([]);
   const [lrs, setLrs] = useState<WithId<LR>[]>([]);
@@ -67,11 +66,7 @@ function TripBoardContent() {
   const [lrGenerateTrip, setLrGenerateTrip] = useState<any | null>(null);
   const [lrPreviewData, setLrPreviewData] = useState<EnrichedLR | null>(null);
   const [cancelTripData, setCancelTripData] = useState<any | null>(null);
-  const [changeVehicleTrip, setChangeVehicleTrip] = useState<any | null>(null);
   const [editVehicleTrip, setEditVehicleTrip] = useState<any | null>(null);
-  const [selectedShipment, setSelectedShipment] = useState<any | null>(null);
-
-  const isAdminSession = user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
 
   const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
   const { data: allMasterPlants } = useCollection<Plant>(plantsQuery);
@@ -99,6 +94,7 @@ function TripBoardContent() {
 
             const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
             let authIds: string[] = [];
+            const isAdminSession = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
 
             if (userDocSnap) {
                 const userData = userDocSnap.data() as SubUser;
@@ -108,15 +104,13 @@ function TripBoardContent() {
                 authIds = baseList.map(p => p.id);
             }
 
-            setIsAdmin(!!userDocSnap || isAdminSession);
             setAuthorizedPlantIds(authIds);
-            // Registry Fix: Use some() with normalization to handle numeric/string ID mismatch
             setPlants(baseList.filter(p => authIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id))));
             if (authIds.length > 0 && selectedPlants.length === 0) setSelectedPlants(authIds);
         } catch (e) { setDbError(true); } finally { setIsAuthLoading(false); }
     };
     fetchAuth();
-  }, [firestore, user, allMasterPlants, isAdminSession]);
+  }, [firestore, user, allMasterPlants]);
 
   useEffect(() => {
     if (!firestore || selectedPlants.length === 0) return;
@@ -206,11 +200,10 @@ function TripBoardContent() {
     const dayEnd = toDate ? endOfDay(toDate) : null;
 
     return allFilteredData.filter(t => {
-      // 1. Strict Plant Scope Enforcement
       if (selectedPlants.length > 0 && !selectedPlants.some(pid => normalizePlantId(pid) === normalizePlantId(t.originPlantId))) return false;
 
       const start = t.startDate;
-      if (!start) return true; // Show trips with pending server timestamps
+      if (!start) return true; 
 
       if (dayStart && start < dayStart) return false;
       if (dayEnd && start > dayEnd) return false;
@@ -275,7 +268,6 @@ function TripBoardContent() {
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
-        // Resolve essential objects with normalization
         const plantObj = plants.find(p => normalizePlantId(p.id) === normalizePlantId(row.originPlantId)) || { id: row.originPlantId, name: row.plantName || 'Plant Registry' } as any;
         const carrierObj = row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId) || { name: 'Carrier Registry', address: 'N/A', gstin: 'N/A' } as any;
 
