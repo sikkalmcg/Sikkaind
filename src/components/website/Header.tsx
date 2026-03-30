@@ -41,6 +41,7 @@ export default function Header() {
                 height={40}
                 className="object-contain"
                 priority
+                unoptimized={true}
               />
             )}
           </Link>
@@ -109,6 +110,7 @@ export default function Header() {
                 height={40}
                 className="object-contain"
                 priority
+                unoptimized={true}
               />
             )}
           </Link>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -219,6 +220,7 @@ export default function ModulesPage() {
                     fill
                     className="object-contain"
                     priority
+                    unoptimized={true}
                 />
               )}
             </div>

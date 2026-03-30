@@ -265,9 +265,16 @@ export default function LoginPage() {
             <div className="w-full max-w-4xl bg-white shadow-lg" style={{ borderTop: '4px solid #F0B800', borderBottom: '4px solid #F0B800' }}>
                 <div className="border p-2">
                     <div className="flex border">
-                        <div className="w-1/2 p-4 hidden md:block relative">
+                        <div className="w-1/2 p-4 hidden md:block relative min-h-[400px]">
                             {getImg('logo')?.url && (
-                                <Image src={getImg('logo')!.url} alt="Sikka Industries Login" fill className="object-contain p-8" priority />
+                                <Image 
+                                    src={getImg('logo')!.url} 
+                                    alt="Sikka Industries Login" 
+                                    fill 
+                                    className="object-contain p-8" 
+                                    priority 
+                                    unoptimized={true}
+                                />
                             )}
                         </div>
                         <div className="w-full md:w-1/2 p-8">
@@ -364,7 +371,14 @@ export default function LoginPage() {
                     <div className="flex justify-between items-center pt-8 pb-2 px-4">
                         <p className="text-[9px] text-gray-400 font-bold uppercase">© SIKKA INDUSTRIES & LOGISTICS. SECURITY NODE 04.</p>
                         {getImg('logo-old')?.url && (
-                            <Image src={getImg('logo-old')!.url} alt="Logo" width={100} height={28} style={{ height: 'auto' }} />
+                            <Image 
+                                src={getImg('logo-old')!.url} 
+                                alt="Logo" 
+                                width={100} 
+                                height={28} 
+                                style={{ height: 'auto' }} 
+                                unoptimized={true}
+                            />
                         )}
                     </div>
                 </div>
