@@ -31,7 +31,7 @@ import {
 import { useFirestore } from '@/firebase';
 import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { format, addHours, isValid } from 'date-fns';
-import { cn, parseSafeDate } from '@/lib/utils';
+import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useJsApiLoader } from '@react-google-maps/api';
@@ -103,27 +103,47 @@ function TrackConsignmentContent() {
                 refreshCaptcha();
             } else {
                 const tripData = { id: snap.docs[0].id, ...snap.docs[0].data() } as any;
+                const plantId = normalizePlantId(tripData.originPlantId);
                 const shipId = tripData.shipmentIds?.[0];
+                
                 let shipmentData = null;
                 if (shipId) {
-                    const shipRef = doc(firestore!, `plants/${tripData.originPlantId}/shipments`, shipId);
+                    const shipRef = doc(firestore!, `plants/${plantId}/shipments`, shipId);
                     const shipSnap = await getDoc(shipRef);
                     if (shipSnap.exists()) shipmentData = shipSnap.data();
                 }
 
-                const plantSnap = await getDoc(doc(firestore!, "logistics_plants", tripData.originPlantId));
-                const plantName = plantSnap.exists() ? plantSnap.data().name : tripData.originPlantId;
+                const plantSnap = await getDoc(doc(firestore!, "logistics_plants", plantId));
+                const plantName = plantSnap.exists() ? plantSnap.data().name : plantId;
+
+                // REGISTRY RESOLUTION NODE: Deep search for LR Number if missing in trip doc
+                let resolvedLrNumber = tripData.lrNumber || shipmentData?.lrNumber || '';
+                let resolvedLrDate = tripData.lrDate || shipmentData?.lrDate || null;
+
+                if (!resolvedLrNumber) {
+                    const lrsRef = collection(firestore!, `plants/${plantId}/lrs`);
+                    const lrQ = query(lrsRef, where("tripDocId", "==", tripData.id), limit(1));
+                    const lrSnap = await getDocs(lrQ);
+                    if (!lrSnap.empty) {
+                        const lrDoc = lrSnap.docs[0].data();
+                        resolvedLrNumber = lrDoc.lrNumber;
+                        resolvedLrDate = lrDoc.date;
+                    }
+                }
 
                 setResult({
                     ...tripData,
                     shipment: shipmentData,
                     plantName,
+                    lrNumber: resolvedLrNumber,
+                    lrDate: resolvedLrDate,
                     assignDate: parseSafeDate(tripData.startDate) || new Date(),
                     loadingCity: (shipmentData?.loadingPoint || tripData.loadingPoint || plantName).split(',')[0].trim(),
                     unloadingCity: (shipmentData?.unloadingPoint || tripData.unloadingPoint || tripData.destination).split(',')[0].trim()
                 });
             }
         } catch (e) {
+            console.error(e);
             setError("Connection Interrupted.");
         } finally {
             setIsSearching(false);
@@ -184,17 +204,17 @@ function TrackConsignmentContent() {
                         <Card className="border-none shadow-3xl rounded-[3.5rem] bg-slate-900 text-white p-12">
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-10">
                                 {[
-                                    { label: 'FROM (City)', value: result.loadingCity, icon: Factory, color: 'text-blue-300' },
-                                    { label: 'TO (Destination)', value: result.unloadingCity, icon: MapPin, color: 'text-emerald-400' },
-                                    { label: 'Vehicle Registry', value: result.vehicleNumber, bold: true },
-                                    { label: 'Trip ID Node', value: result.tripId, mono: true, color: 'text-blue-400' },
-                                    { label: 'LR Number', value: result.lrNumber || '--', bold: true },
-                                    { label: 'Manifest Qty', value: `${result.assignedQtyInTrip} MT`, color: 'text-emerald-400' },
-                                    { label: 'Mission Status', value: result.tripStatus || result.currentStatusId, highlight: true },
+                                    { label: 'PLANT NODE', value: result.plantName, icon: Factory, color: 'text-white' },
+                                    { label: 'VEHICLE', value: result.vehicleNumber, bold: true },
+                                    { label: 'TRIP ID', value: result.tripId, mono: true, color: 'text-blue-400' },
+                                    { label: 'LR NUMBER', value: result.lrNumber || '--', bold: true },
+                                    { label: 'FROM (CITY)', value: result.loadingCity, color: 'text-blue-300' },
+                                    { label: 'TO (CITY)', value: result.unloadingCity, color: 'text-emerald-400' },
+                                    { label: 'WEIGHT', value: `${result.assignedQtyInTrip} MT`, color: 'text-emerald-400', bold: true },
                                 ].map((item, i) => (
                                     <div key={i} className="space-y-1">
                                         <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-1.5">{item.icon && <item.icon size={10}/>} {item.label}</span>
-                                        <p className={cn("text-xs font-bold uppercase truncate", item.bold && "font-black text-sm", item.mono && "font-mono tracking-tighter", item.color, item.highlight && "bg-blue-600 px-2 py-0.5 rounded text-[10px]")}>{item.value}</p>
+                                        <p className={cn("text-xs font-bold uppercase truncate", item.bold && "font-black text-sm", item.mono && "font-mono tracking-tighter", item.color)}>{item.value}</p>
                                     </div>
                                 ))}
                             </div>
