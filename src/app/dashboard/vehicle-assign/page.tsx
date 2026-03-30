@@ -211,7 +211,7 @@ function OpenOrdersContent() {
     return () => unsubscribers.forEach(unsub => unsub());
   }, [firestore, user, JSON.stringify(selectedPlants)]);
 
-  const allFilteredData = useMemo(() => {
+  const enrichedOrders = useMemo(() => {
     const { shipments, trips, entries, lrs } = allData;
 
     return (shipments || [])
@@ -244,7 +244,7 @@ function OpenOrdersContent() {
 
         const dispatchQty = linkedTrips.reduce((sum, t) => sum + (t.entry?.status === 'OUT' ? (t.assignedQtyInTrip || 0) : 0), 0);
         
-        // Finalize LR data with precedence logic
+        // Resolve LR nodes with priority
         const lrNumber = linkedTrips[0]?.lrNumber || s.lrNumber || '';
         const lrDate = linkedTrips[0]?.lrDate || s.lrDate || null;
 
@@ -268,6 +268,50 @@ function OpenOrdersContent() {
         };
       });
   }, [allData, carriers, plants, selectedPlants]);
+
+  const finalData = useMemo(() => {
+    const dayStart = fromDate ? startOfDay(fromDate) : null;
+    const dayEnd = toDate ? endOfDay(toDate) : null;
+
+    return enrichedOrders.filter(t => {
+      const start = t.creationDate;
+      if (!start) return true; 
+
+      if (dayStart && start < dayStart) return false;
+      if (dayEnd && start > dayEnd) return false;
+      
+      if (searchTerm) {
+        const s = searchTerm.toLowerCase();
+        return Object.values(t).some(val => val?.toString().toLowerCase().includes(s));
+      }
+      return true;
+    });
+  }, [enrichedOrders, fromDate, toDate, searchTerm]);
+
+  const counts = useMemo(() => {
+    const res = { pending: 0, process: 0, dispatched: 0, cancelled: 0 };
+    finalData.forEach(s => {
+        const status = s.currentStatusId?.toLowerCase();
+        if (status === 'pending' || status === 'partly vehicle assigned') res.pending++;
+        else if (status === 'assigned' || status === 'vehicle assigned') res.process++;
+        else if (status === 'dispatched' || status === 'delivered') res.dispatched++;
+        else if (status === 'cancelled' || status === 'short closed') res.cancelled++;
+    });
+    return res;
+  }, [finalData]);
+
+  const tabFilteredData = useMemo(() => {
+    return finalData.filter(o => {
+        const status = o.currentStatusId?.toLowerCase();
+        switch (activeTab) {
+            case 'pending': return status === 'pending' || status === 'partly vehicle assigned';
+            case 'process': return status === 'assigned' || status === 'vehicle assigned';
+            case 'dispatched': return status === 'dispatched' || status === 'delivered'; 
+            case 'cancelled': return status === 'cancelled' || status === 'short closed';
+            default: return true;
+        }
+    });
+  }, [finalData, activeTab]);
 
   const handleOpenLR = async (row: any) => {
     if (!row.lrNumber || !firestore) return;
@@ -397,17 +441,6 @@ function OpenOrdersContent() {
     }
   };
 
-  if (isLoading && allData.shipments.length === 0) {
-    return (
-        <div className="flex h-screen items-center justify-center bg-[#f8fafc]">
-            <div className="flex flex-col items-center gap-4">
-                <Loader2 className="h-12 w-12 animate-spin text-blue-900" />
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Syncing Open Orders Registry...</p>
-            </div>
-        </div>
-    );
-  }
-
   return (
     <main className="flex flex-1 flex-col h-full overflow-hidden bg-white">
       <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full w-full">
@@ -488,20 +521,22 @@ function OpenOrdersContent() {
               <p className="text-sm">Select at least one plant from the filter above to view orders.</p>
             </div>
           ) : (
-            <OrdersTable 
-                data={enrichedOrders} 
-                tab={activeTab} 
-                onAssign={(s) => { setSelectedShipment(s); setEditingTrip(null); setIsAssignModalOpen(true); }}
-                onEditAssignment={(s, t) => { setSelectedShipment(s); setEditingTrip(t); setIsAssignModalOpen(true); }}
-                onViewOrder={(s) => setDrawerOrder(s)}
-                onViewTrip={(t) => setDrawerTrip(t)}
-                onViewLR={handleOpenLR}
-                onShortClose={(id) => setCancelModalData({ id, type: 'order' })}
-                onCancelOrder={(id) => setCancelModalData({ id, type: 'order' })}
-                onRestoreOrder={handleRestoreOrder} 
-                onCancelAssignment={(tId, sId, q) => setCancelModalData({ id: sId, type: 'assignment', tripId: tId, qty: q })}
-                isAdmin={isAdminSession}
-            />
+            <Card className="border-none shadow-none bg-transparent">
+                <OrdersTable 
+                    data={tabFilteredData} 
+                    tab={activeTab} 
+                    onAssign={(s) => { setSelectedShipment(s); setEditingTrip(null); setIsAssignModalOpen(true); }}
+                    onEditAssignment={(s, t) => { setSelectedShipment(s); setEditingTrip(t); setIsAssignModalOpen(true); }}
+                    onViewOrder={(s) => setDrawerOrder(s)}
+                    onViewTrip={(t) => setDrawerTrip(t)}
+                    onViewLR={handleOpenLR}
+                    onShortClose={(id) => setCancelModalData({ id, type: 'order' })}
+                    onCancelOrder={(id) => setCancelModalData({ id, type: 'order' })}
+                    onRestoreOrder={handleRestoreOrder} 
+                    onCancelAssignment={(tId, sId, q) => setCancelModalData({ id: sId, type: 'assignment', tripId: tId, qty: q })}
+                    isAdmin={isAdminSession}
+                />
+            </Card>
           )}
         </div>
       </Tabs>
