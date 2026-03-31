@@ -16,7 +16,7 @@ import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, sanitizeRegistryNode } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, addDoc, writeBatch } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, ShieldAlert, Sparkles } from "lucide-react";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, ShieldAlert, Sparkles, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -346,7 +346,6 @@ function TripBoardContent() {
   };
 
   const handleAutomatedCleanup = async () => {
-    // Logic Node: Targets "0 Data" (No LR, No Invoice, 0 Weight, Status Assigned)
     const targets = finalData.filter(t => 
         (!t.lrNumber || t.lrNumber === '' || t.lrNumber === 'PENDING') &&
         (t.invoiceNumbers === '--' || !t.invoiceNumbers) &&
@@ -355,7 +354,7 @@ function TripBoardContent() {
     );
 
     if (targets.length === 0) {
-        toast({ title: 'Registry Clean', description: 'No empty mission nodes detected in current view.' });
+        toast({ title: 'Registry Clean', description: 'No empty mission nodes detected.' });
         return;
     }
 
@@ -374,7 +373,33 @@ function TripBoardContent() {
     }
   };
 
-  if (isLoadingMeta && authorizedPlantIds.length === 0) {
+  const handleCancelTrip = async () => {
+    if (!cancelTripData) return;
+    await executePurge(cancelTripData);
+    toast({ title: 'Mission Revoked', description: `Trip ${cancelTripData.tripId} purged.` });
+    setCancelTripData(null);
+  };
+
+  const handleUpdateVehicle = async (tripId: string, values: any) => {
+    if (!firestore) return;
+    showLoader();
+    try {
+        const tripObj = trips.find(t => t.id === tripId);
+        if (!tripObj) throw new Error("Trip node not found.");
+        const plantId = normalizePlantId(tripObj.originPlantId);
+        
+        await runTransaction(firestore, async (transaction) => {
+            const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
+            const globalTripRef = doc(firestore, 'trips', tripId);
+            const updateData = { vehicleNumber: values.vehicleNumber, driverMobile: values.driverMobile, lastUpdated: serverTimestamp() };
+            transaction.update(tripRef, updateData);
+            transaction.update(globalTripRef, updateData);
+        });
+        toast({ title: 'Identity Corrected' });
+    } catch (e: any) { toast({ variant: 'destructive', title: 'Update Failed', description: e.message }); } finally { hideLoader(); }
+  };
+
+  if (isAuthLoading && authorizedPlantIds.length === 0) {
     return (
         <div className="flex h-screen flex-col items-center justify-center bg-[#f8fafc]">
             <Loader2 className="h-12 w-12 animate-spin text-blue-900 mb-4" />
