@@ -5,6 +5,7 @@ import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -20,7 +21,7 @@ import { DatePicker } from '@/components/date-picker';
 import { Separator } from '@/components/ui/separator';
 import type { Plant, Shipment, WithId, SubUser, Party, MasterQtyType, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save } from 'lucide-react';
+import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save, FileDown, Upload } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDoc, getDocs, limit, Timestamp } from "firebase/firestore";
 import { cn, normalizePlantId, formatSequenceId } from '@/lib/utils';
@@ -205,6 +206,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   const [authorizedPlants, setAuthorizedPlants] = useState<WithId<Plant>[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [helpModal, setHelpModal] = useState<{ type: string; title: string; data: any[] } | null>(null);
+  const [isBulkUploading, setIsBulkUploading] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -368,6 +370,98 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
     } finally { hideLoader(); }
   };
 
+  const handleExportTemplate = () => {
+    const headers = [
+        "Plant ID", "Consignor Name", "Lifting Point", "Consignee Name", "Ship To Name", 
+        "Destination Point", "UOM", "Quantity", "LR Number", "Payment Term", "Delivery Address"
+    ];
+    const sample = [
+        ["1426", "TATA CHEMICALS", "MUMBAI", "BIGMART RETAIL", "BIGMART WH", "GHAZIABAD", "MT", "25.000", "LR123", "Paid", "C-17 UPSIDC GZB"]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...sample]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Order Plan Template");
+    XLSX.writeFile(wb, "Order_Plan_Bulk_Template.xlsx");
+  };
+
+  const handleBulkUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !firestore || !user) return;
+
+    setIsBulkUploading(true);
+    showLoader();
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(sheet) as any[];
+
+            let successCount = 0;
+            let currentOperator = user.displayName || user.email || 'System';
+
+            for (const row of jsonData) {
+                try {
+                    const plantId = normalizePlantId(row['Plant ID'] || '');
+                    if (!plantId) continue;
+
+                    await runTransaction(firestore, async (tx) => {
+                        const countSnap = await tx.get(doc(firestore, "counters", "shipments"));
+                        const newCount = (countSnap.exists() ? countSnap.data().count : 0) + 1;
+                        const shipmentId = formatSequenceId("S", newCount);
+                        const shipRef = doc(collection(firestore, `plants/${plantId}/shipments`));
+
+                        const qty = Number(row['Quantity']) || 0;
+                        const uom = (row['UOM'] || 'METRIC TON').toUpperCase();
+
+                        const dataToSave = {
+                            originPlantId: plantId,
+                            shipmentId,
+                            consignor: row['Consignor Name'] || '',
+                            loadingPoint: row['Lifting Point'] || '',
+                            billToParty: row['Consignee Name'] || '',
+                            shipToParty: row['Ship To Name'] || row['Consignee Name'] || '',
+                            unloadingPoint: row['Destination Point'] || '',
+                            materialTypeId: uom,
+                            quantity: qty,
+                            assignedQty: 0,
+                            balanceQty: qty,
+                            lrNumber: row['LR Number'] || '',
+                            paymentTerm: row['Payment Term'] || 'Paid',
+                            deliveryAddress: row['Delivery Address'] || '',
+                            currentStatusId: 'pending',
+                            creationDate: serverTimestamp(),
+                            userId: user.uid,
+                            items: [{
+                                invoiceNumber: 'BULK-PLAN',
+                                units: 1,
+                                unitType: 'Package',
+                                itemDescription: 'BULK UPLOAD MISSION',
+                                weight: qty
+                            }]
+                        };
+
+                        tx.set(doc(firestore, "counters", "shipments"), { count: newCount }, { merge: true });
+                        tx.set(shipRef, dataToSave);
+                    });
+                    successCount++;
+                } catch (err) { console.error("Row fail", err); }
+            }
+
+            toast({ title: 'Bulk Sync Complete', description: `Established ${successCount} mission nodes.` });
+            onShipmentCreated({ id: 'bulk' } as any);
+        } catch (err) {
+            toast({ variant: 'destructive', title: 'Upload Failed', description: 'Registry file error.' });
+        } finally {
+            setIsBulkUploading(false);
+            hideLoader();
+            event.target.value = '';
+        }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   return (
     <div className="w-full space-y-10">
       <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white">
@@ -380,7 +474,17 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                         <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">Secure Mission Asset Deployment Terminal</CardDescription>
                     </div>
                 </div>
-                <div className="flex gap-4">
+                <div className="flex flex-wrap justify-center gap-4">
+                    <Button variant="outline" onClick={handleExportTemplate} className="h-14 px-8 rounded-2xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-xs tracking-widest gap-2">
+                        <FileDown size={18} /> Export Excel
+                    </Button>
+                    <Button variant="outline" asChild className="h-14 px-8 rounded-2xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-xs tracking-widest gap-2 cursor-pointer">
+                        <label>
+                            {isBulkUploading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
+                            Bulk Upload
+                            <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleBulkUpload} disabled={isBulkUploading} />
+                        </label>
+                    </Button>
                     <Button onClick={handleSubmit(handlePost)} className="h-14 px-12 bg-blue-900 hover:bg-slate-900 rounded-2xl font-black shadow-xl transition-all active:scale-95 text-white border-none uppercase text-xs tracking-widest">
                         Commit Plan (F8)
                     </Button>
@@ -521,7 +625,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                       
                       <div className="flex items-center justify-between px-2">
                         <FormField control={control} name="isSameAsBillTo" render={({ field }) => (
-                            <div className="flex items-center gap-3"><Checkbox checked={field.value} onCheckedChange={field.onChange} id="sameAs" className="h-6 w-6 rounded-lg data-[state=checked]:bg-emerald-600 shadow-md" /><label htmlFor="sameAs" className="text-[11px] font-black uppercase text-slate-400 cursor-pointer tracking-widest">Same as Unloading Point</label></div>
+                            <div className="flex items-center gap-3"><Checkbox checked={field.value} onCheckedChange={field.onChange} id="sameAs" className="h-6 w-6 rounded-lg data-[state=checked]:bg-emerald-600 shadow-md" /><label htmlFor="sameAs" className="text-[11px] font-black uppercase text-slate-400 cursor-pointer tracking-widest">Ship to is same as Consignee</label></div>
                         )} />
                       </div>
 
