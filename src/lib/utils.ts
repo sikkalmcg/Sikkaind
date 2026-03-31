@@ -55,6 +55,7 @@ export function parseSafeDate(date: any): Date | null {
 /**
  * Sanitizes a registry node for archive storage.
  * Removes heavy binary data or non-essential recursive links.
+ * PURGES undefined fields to prevent Firestore Transaction errors.
  */
 export function sanitizeRegistryNode(data: any): any {
     if (!data) return data;
@@ -65,6 +66,13 @@ export function sanitizeRegistryNode(data: any): any {
     heavyFields.forEach(f => {
         if (sanitized[f] && typeof sanitized[f] === 'string' && sanitized[f].length > 1000) {
             sanitized[f] = '[LOG_STRIPPED_FOR_ARCHIVE]';
+        }
+    });
+
+    // MISSION CRITICAL: Purge undefined fields to prevent Firestore Transaction errors
+    Object.keys(sanitized).forEach(key => {
+        if (sanitized[key] === undefined) {
+            delete sanitized[key];
         }
     });
 

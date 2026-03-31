@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -318,11 +317,20 @@ function TripBoardContent() {
 
         const currentOperator = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || "Admin");
         const recycleRef = doc(collection(firestore, "recycle_bin"));
+        
+        // REGISTRY SAFETY: Ensure plantName is defined before transaction.set
+        const archivePlantName = tripData.plantName || tData.originPlantId || 'Unknown Node';
+
         transaction.set(recycleRef, {
             pageName: "Trip Board (Cancelled/Purged)",
             userName: currentOperator,
             deletedAt: serverTimestamp(),
-            data: sanitizeRegistryNode({ ...tData, id: tripData.id, type: 'Trip', plantName: tripData.plantName })
+            data: sanitizeRegistryNode({ 
+                ...tData, 
+                id: tripData.id, 
+                type: 'Trip', 
+                plantName: archivePlantName 
+            })
         });
 
         transaction.delete(tripRef);
@@ -554,7 +562,7 @@ function TripBoardContent() {
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
       {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={handleUpdateVehicle} />}
       {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={handleCancelTrip} />}
-      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
+      {lrPreviewData && <LRPrintPreviewModal isOpen={!!previewLr} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
     </div>
   );
 }
