@@ -31,7 +31,8 @@ import {
     Scale,
     MessageSquare,
     AlertTriangle,
-    Info
+    Info,
+    Weight
 } from 'lucide-react';
 import { useFirestore, useUser } from "@/firebase";
 import { doc, serverTimestamp, collection, runTransaction } from "firebase/firestore";
@@ -44,7 +45,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const itemSchema = z.object({
-    deliveryNo: z.string().min(1, "Mandatory"),
+    deliveryNo: z.string().min(1, "Delivery number is mandatory."),
     invoiceNo: z.string().optional(),
     itemDescription: z.string().min(1, "Required"),
     loadUnit: z.coerce.number().min(0),
@@ -330,22 +331,29 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                             <Input type="number" step="0.001" {...form.register('actualWeight')} className="h-16 text-center font-black text-4xl bg-transparent border-none focus-visible:ring-0 w-full" />
                         </div>
                     </div>
-                    
-                    {unitMismatch !== 0 && (
-                        <Alert variant={unitMismatch > 0 ? "default" : "destructive"} className={cn(
-                            "max-w-md border-2 animate-in zoom-in duration-300 rounded-[1.5rem]",
-                            unitMismatch > 0 ? "border-amber-200 bg-amber-50" : "border-red-200 bg-red-50"
-                        )}>
-                            <AlertTriangle className={cn("h-5 w-5", unitMismatch > 0 ? "text-amber-600" : "text-red-600")} />
-                            <AlertTitle className={cn("font-black uppercase text-xs mb-1", unitMismatch > 0 ? "text-amber-900" : "text-red-900")}>
-                                {unitMismatch > 0 ? "OVER-LOADING DETECTED" : "UNDER-LOADING DETECTED"}
-                            </AlertTitle>
-                            <AlertDescription className={cn("font-bold text-[10px] uppercase", unitMismatch > 0 ? "text-amber-700" : "text-red-700")}>
-                                Mission Variance: {unitMismatch > 0 ? `+${unitMismatch}` : unitMismatch} Units from Planned manifest.
-                            </AlertDescription>
-                        </Alert>
-                    )}
                 </div>
+            </div>
+
+            {/* VARIANCE ALERT NODE - Positioned Bottom-Right per request */}
+            <div className="flex justify-end pr-4">
+                {unitMismatch !== 0 && (
+                    <Alert variant={unitMismatch > 0 ? "default" : "destructive"} className={cn(
+                        "max-w-md border-2 animate-in zoom-in duration-300 rounded-[1.25rem] py-3 px-6 shadow-sm",
+                        unitMismatch > 0 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-red-200 bg-red-50 text-red-900"
+                    )}>
+                        <div className="flex items-center gap-3">
+                            <AlertTriangle className={cn("h-5 w-5", unitMismatch > 0 ? "text-amber-600" : "text-red-600")} />
+                            <div className="flex flex-col gap-0.5">
+                                <AlertTitle className="font-black uppercase text-[11px] m-0 leading-none">
+                                    {unitMismatch > 0 ? "OVER-LOADING DETECTED" : "UNDER-LOADING DETECTED"}
+                                </AlertTitle>
+                                <AlertDescription className="font-bold text-[9px] uppercase leading-none opacity-70 mt-1">
+                                    Mission Variance: {unitMismatch > 0 ? `+${unitMismatch}` : unitMismatch} Units from Planned manifest.
+                                </AlertDescription>
+                            </div>
+                        </div>
+                    </Alert>
+                )}
             </div>
         </div>
 
@@ -374,3 +382,4 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
     </Dialog>
   );
 }
+    
