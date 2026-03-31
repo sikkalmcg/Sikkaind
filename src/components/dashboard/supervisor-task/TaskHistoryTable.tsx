@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { format, isValid } from 'date-fns';
 import { History, Trash2, User, Clock, Edit2, MessageSquare, Package, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, parseSafeDate } from '@/lib/utils';
 import { Timestamp } from 'firebase/firestore';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -20,18 +20,7 @@ interface TaskHistoryTableProps {
 export default function TaskHistoryTable({ data, isAdmin, onRemove, onEdit }: TaskHistoryTableProps) {
   
   const formatSafeDate = (date: any) => {
-    if (!date) return '--:--';
-    let d: Date | null = null;
-    
-    if (date instanceof Timestamp) {
-        d = date.toDate();
-    } else if (date instanceof Date) {
-        d = d;
-    } else if (typeof date === 'string' || typeof date === 'number') {
-        const parsed = new Date(date);
-        if (isValid(parsed)) d = parsed;
-    }
-    
+    const d = parseSafeDate(date);
     return d && isValid(d) ? format(d, 'dd/MM/yy HH:mm') : '--:--';
   };
 
@@ -60,7 +49,7 @@ export default function TaskHistoryTable({ data, isAdmin, onRemove, onEdit }: Ta
                     data.map((item) => {
                         const units = item.manifestTotals || { delivery: 0, load: 0, balance: 0 };
                         const uom = item.items?.[0]?.uom || 'Unit';
-                        const variance = units.load - item.plannedUnits;
+                        const variance = units.load - (item.plannedUnits || 0);
 
                         return (
                             <TableRow key={item.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">

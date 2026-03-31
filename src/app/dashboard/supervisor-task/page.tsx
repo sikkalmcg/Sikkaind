@@ -12,7 +12,7 @@ import { Loader2, WifiOff, ClipboardList, ShieldCheck, Factory, User, Search, Re
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn, normalizePlantId } from '@/lib/utils';
+import { cn, normalizePlantId, parseSafeDate } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import TaskModal from '@/components/dashboard/supervisor-task/TaskModal';
 import TaskHistoryTable from '@/components/dashboard/supervisor-task/TaskHistoryTable';
@@ -162,12 +162,12 @@ export default function SupervisorTaskPage() {
                     id: d.id,
                     originPlantId: pId,
                     ...d.data(),
-                    timestamp: d.data().timestamp instanceof Timestamp ? d.data().timestamp.toDate() : new Date(d.data().timestamp)
+                    timestamp: parseSafeDate(d.data().timestamp)
                 }));
                 setHistory(prev => {
                     const otherPlants = prev.filter(h => h.originPlantId !== pId);
                     const combined = [...otherPlants, ...plantHistory];
-                    return combined.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+                    return combined.sort((a, b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0));
                 });
             });
             unsubscribers.push(unsubHistory);
@@ -225,7 +225,7 @@ export default function SupervisorTaskPage() {
                 entryData: entry,
                 originalTask: entry || { id: trip.id, ...trip },
                 shipmentItems: shipment?.items || [],
-                timestamp: trip.lastUpdated?.toDate ? trip.lastUpdated.toDate() : (trip.lastUpdated ? new Date(trip.lastUpdated) : new Date(trip.startDate))
+                timestamp: parseSafeDate(trip.lastUpdated || trip.startDate) || new Date()
             });
         });
 
@@ -260,7 +260,7 @@ export default function SupervisorTaskPage() {
                 entryData: entry,
                 originalTask: entry,
                 shipmentItems: [],
-                timestamp: entry.entryTimestamp?.toDate ? entry.entryTimestamp.toDate() : new Date(entry.entryTimestamp)
+                timestamp: parseSafeDate(entry.entryTimestamp) || new Date()
             });
         });
 
