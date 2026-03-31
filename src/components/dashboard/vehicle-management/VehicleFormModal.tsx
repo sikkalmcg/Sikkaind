@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -39,7 +40,11 @@ const formSchema = z.object({
   // Category specifics
   ownerName: z.string().optional(),
   ownerMobile: z.string().optional(),
+  contractorName: z.string().optional(),
+  contractorMobile: z.string().optional(),
   transporterName: z.string().optional(),
+  transporterMobile: z.string().optional(),
+  gstin: z.string().optional(),
   pan: z.string().optional(),
 });
 
@@ -56,11 +61,15 @@ export default function VehicleFormModal({ isOpen, onClose, vehicle, type, plant
       vehicleNumber: vehicle?.vehicleNumber || '',
       driverName: vehicle?.driverName || '',
       driverMobile: vehicle?.driverMobile || '',
-      licenseNumber: (vehicle as any)?.licenseNumber || '',
-      ownerName: (vehicle as any)?.ownerName || '',
-      ownerMobile: (vehicle as any)?.ownerMobile || '',
-      transporterName: (vehicle as any)?.transporterName || '',
-      pan: (vehicle as any)?.pan || '',
+      licenseNumber: vehicle?.licenseNumber || '',
+      ownerName: vehicle?.ownerName || '',
+      ownerMobile: vehicle?.ownerMobile || '',
+      contractorName: vehicle?.contractorName || '',
+      contractorMobile: vehicle?.contractorMobile || '',
+      transporterName: vehicle?.transporterName || '',
+      transporterMobile: vehicle?.transporterMobile || '',
+      gstin: vehicle?.gstin || '',
+      pan: vehicle?.pan || '',
     }
   });
 
@@ -90,6 +99,9 @@ export default function VehicleFormModal({ isOpen, onClose, vehicle, type, plant
         toast({ variant: 'destructive', title: "Commit Failed", description: e.message });
     }
   };
+
+  const isContract = type === 'Contract Vehicle';
+  const isMarket = type === 'Market Vehicle';
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -148,16 +160,23 @@ export default function VehicleFormModal({ isOpen, onClose, vehicle, type, plant
                         </div>
                     </section>
 
-                    {(type === 'Contract Vehicle' || type === 'Market Vehicle') && (
+                    {(isContract || isMarket) && (
                         <section className="space-y-6 animate-in slide-in-from-top-4 duration-500">
                             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2 px-1">
-                                <ShieldAlert className="h-4 w-4 text-orange-600" /> 2. {type === 'Contract Vehicle' ? 'Owner' : 'Transporter'} Registry particulars
+                                <ShieldAlert className="h-4 w-4 text-orange-600" /> 2. {isContract ? 'CONTRACTOR' : 'TRANSPORTER'} REGISTRY PARTICULARS
                             </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-10 bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-xl">
-                                <FormField name={type === 'Contract Vehicle' ? 'ownerName' : 'transporterName'} control={form.control} render={({ field }) => (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 p-10 bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-xl">
+                                <FormField name={isContract ? 'contractorName' : 'transporterName'} control={form.control} render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-black uppercase text-slate-500">{type === 'Contract Vehicle' ? 'Owner Name' : 'Transporter Name'} *</FormLabel>
+                                        <FormLabel className="text-[10px] font-black uppercase text-slate-500">{isContract ? 'Contractor Name' : 'Transporter Name'} *</FormLabel>
                                         <FormControl><Input {...field} className="h-12 rounded-xl font-bold uppercase" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField name="gstin" control={form.control} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase text-slate-500">GST Number</FormLabel>
+                                        <FormControl><Input placeholder="GSTIN Registry" {...field} className="h-12 rounded-xl font-mono uppercase font-black" /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
@@ -168,14 +187,13 @@ export default function VehicleFormModal({ isOpen, onClose, vehicle, type, plant
                                         <FormMessage />
                                     </FormItem>
                                 )} />
-                                {type === 'Contract Vehicle' && (
-                                    <FormField name="ownerMobile" control={form.control} render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-[10px] font-black uppercase text-slate-500">Owner Mobile</FormLabel>
-                                            <FormControl><Input {...field} maxLength={10} className="h-12 rounded-xl font-mono font-bold" /></FormControl>
-                                        </FormItem>
-                                    )} />
-                                )}
+                                <FormField name={isContract ? 'contractorMobile' : 'transporterMobile'} control={form.control} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase text-slate-500">{isContract ? 'Contractor Mobile' : 'Transporter Mobile'}</FormLabel>
+                                        <FormControl><Input {...field} maxLength={10} className="h-12 rounded-xl font-mono font-bold" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
                             </div>
                         </section>
                     )}

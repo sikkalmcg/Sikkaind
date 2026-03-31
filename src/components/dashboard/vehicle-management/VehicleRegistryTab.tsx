@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -60,7 +61,9 @@ export default function VehicleRegistryTab({ type }: { type: 'Own Vehicle' | 'Co
         return vehicles.filter(v => 
             v.vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
             v.driverName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            v.driverMobile?.toLowerCase().includes(searchTerm.toLowerCase())
+            v.driverMobile?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (v as any).contractorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (v as any).transporterName?.toLowerCase().includes(searchTerm.toLowerCase())
         ).sort((a, b) => a.vehicleNumber.localeCompare(b.vehicleNumber));
     }, [vehicles, searchTerm]);
 
@@ -128,7 +131,7 @@ export default function VehicleRegistryTab({ type }: { type: 'Own Vehicle' | 'Co
                                 <TableHead className="px-4">Contact Number</TableHead>
                                 <TableHead className="px-4 text-center">GPS Link</TableHead>
                                 {(type === 'Contract Vehicle' || type === 'Market Vehicle') && (
-                                    <TableHead className="px-4">Transporter/Owner</TableHead>
+                                    <TableHead className="px-4">{type === 'Contract Vehicle' ? 'Contractor' : 'Transporter'}</TableHead>
                                 )}
                                 <TableHead className="px-4 text-center">Status</TableHead>
                                 <TableHead className="px-8 text-right">Action</TableHead>
@@ -159,7 +162,7 @@ export default function VehicleRegistryTab({ type }: { type: 'Own Vehicle' | 'Co
                                         </TableCell>
                                         {(type === 'Contract Vehicle' || type === 'Market Vehicle') && (
                                             <TableCell className="px-4 text-[10px] font-bold uppercase text-slate-600 truncate max-w-[150px]">
-                                                {(vehicle as any).ownerName || (vehicle as any).transporterName || '--'}
+                                                {vehicle.contractorName || vehicle.transporterName || vehicle.ownerName || '--'}
                                             </TableCell>
                                         )}
                                         <TableCell className="px-4 text-center">

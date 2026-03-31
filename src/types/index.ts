@@ -54,6 +54,15 @@ export interface Vehicle {
   gpsImeiNo?: string;
   gps_provider?: string;
   isDeleted?: boolean;
+  // Category specifics
+  ownerName?: string;
+  ownerMobile?: string;
+  contractorName?: string;
+  contractorMobile?: string;
+  transporterName?: string;
+  transporterMobile?: string;
+  gstin?: string;
+  pan?: string;
 }
 
 export interface Shipment {
