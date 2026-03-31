@@ -46,6 +46,7 @@ const itemSchema = z.object({
     deliveryNo: z.string().min(1, "Delivery number is mandatory."),
     invoiceNo: z.string().optional(),
     itemDescription: z.string().min(1, "Required"),
+    plannedUnit: z.coerce.number().default(0),
     loadUnit: z.coerce.number().min(0),
     uom: z.string().min(1, "UOM selection is mandatory."),
 });
@@ -90,16 +91,17 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
             const initialItems = (task.shipmentItems || []).map((i: any) => ({
                 deliveryNo: '',
                 invoiceNo: i.invoiceNumber || '',
-                itemDescription: i.itemDescription || i.description || 'Goods particulars',
-                loadUnit: Number(i.units) || 0,
-                uom: '' // Force empty for mandatory selection
+                itemDescription: i.itemDescription || i.description || task.itemDescription || 'Goods particulars',
+                plannedUnit: Number(i.units) || Number(task.plannedUnits) || 0,
+                loadUnit: Number(i.units) || Number(task.plannedUnits) || 0,
+                uom: '' // Force mandatory selection
             }));
 
             if (initialItems.length > 0) {
                 reset({ actualWeight: task.assignedQty, remarks: '', items: initialItems });
             } else {
                 reset({ actualWeight: task.assignedQty, remarks: '' });
-                append({ deliveryNo: '', invoiceNo: '', itemDescription: 'Goods particulars', loadUnit: 0, uom: '' });
+                append({ deliveryNo: '', invoiceNo: '', itemDescription: 'Goods particulars', plannedUnit: 0, loadUnit: 0, uom: '' });
             }
         }
     }
@@ -247,7 +249,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                     type="button" 
                     variant="outline" 
                     size="sm" 
-                    onClick={() => append({ deliveryNo: '', invoiceNo: '', itemDescription: 'Goods particulars', loadUnit: 0, uom: '' })}
+                    onClick={() => append({ deliveryNo: '', invoiceNo: '', itemDescription: 'Goods particulars', plannedUnit: 0, loadUnit: 0, uom: '' })}
                     className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-blue-200 text-blue-700 bg-white hover:bg-blue-50 shadow-md transition-all active:scale-95"
                 >
                     <Plus className="h-4 w-4" /> ADD ROW
@@ -340,7 +342,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
             </div>
         </div>
 
-        {/* FIXED WARNING BAR ABOVE FOOTER */}
         {unitMismatch !== 0 && (
             <div className={cn(
                 "px-10 py-4 border-t border-b flex items-center justify-end animate-in slide-in-from-bottom-2 duration-300 shrink-0",

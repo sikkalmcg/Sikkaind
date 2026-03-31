@@ -251,7 +251,7 @@ export default function SupervisorTaskPage() {
                 destination: entry.unloadingPoint || pName,
                 assignedQty: Number(entry.billedQty) || 0,
                 billedQty: Number(entry.billedQty) || 0,
-                plannedUnits: Number(entry.billedQty) || 0, // Fallback for unloading
+                plannedUnits: Number(entry.billedQty) || 0, 
                 qtyType: entry.qtyType || 'MT',
                 invoiceNo: entry.documentNo || '--',
                 goodsDesc: entry.items || '--',
@@ -286,14 +286,17 @@ export default function SupervisorTaskPage() {
         return filteredTasks.slice(start, start + LIVE_TASKS_PER_PAGE);
     }, [filteredTasks, livePage]);
 
-    const sortedHistory = useMemo(() => {
-        let result = history;
+    const flattenedHistory = useMemo(() => {
+        const flattened: any[] = [];
+        let sorted = history;
+        
         if (selectedPlant !== 'all-plants') {
-            result = result.filter(h => normalizePlantId(h.originPlantId) === normalizePlantId(selectedPlant));
+            sorted = sorted.filter(h => normalizePlantId(h.originPlantId) === normalizePlantId(selectedPlant));
         }
+        
         if (historySearchTerm) {
             const s = historySearchTerm.toLowerCase();
-            result = result.filter(h => 
+            sorted = sorted.filter(h => 
                 h.tripId?.toLowerCase().includes(s) ||
                 h.vehicleNumber?.toLowerCase().includes(s) ||
                 h.lrNumber?.toLowerCase().includes(s) ||
@@ -301,15 +304,30 @@ export default function SupervisorTaskPage() {
                 h.shipTo?.toLowerCase().includes(s)
             );
         }
-        return result;
+
+        sorted.forEach(taskDoc => {
+            const items = taskDoc.items || [];
+            if (items.length === 0) {
+                flattened.push({ ...taskDoc, taskItem: null, taskId: taskDoc.id });
+            } else {
+                items.forEach((item: any, idx: number) => {
+                    flattened.push({
+                        ...taskDoc,
+                        taskItem: item,
+                        taskId: taskDoc.id,
+                        isFirstOfTask: idx === 0
+                    });
+                });
+            }
+        });
+        return flattened;
     }, [history, selectedPlant, historySearchTerm]);
 
+    const totalHistoryPages = Math.ceil(flattenedHistory.length / historyItemsPerPage);
     const paginatedHistory = useMemo(() => {
         const start = (historyPage - 1) * historyItemsPerPage;
-        return sortedHistory.slice(start, start + historyItemsPerPage);
-    }, [sortedHistory, historyPage, historyItemsPerPage]);
-
-    const totalHistoryPages = Math.ceil(sortedHistory.length / historyItemsPerPage);
+        return flattenedHistory.slice(start, start + historyItemsPerPage);
+    }, [flattenedHistory, historyPage, historyItemsPerPage]);
 
     const handleRemoveHistoryTask = async (taskId: string, plantId: string) => {
         if (!isAdmin || !firestore) return;
@@ -535,7 +553,7 @@ export default function SupervisorTaskPage() {
                                 currentPage={historyPage} 
                                 totalPages={totalHistoryPages} 
                                 onPageChange={setHistoryPage} 
-                                itemCount={sortedHistory.length}
+                                itemCount={flattenedHistory.length}
                                 canPreviousPage={historyPage > 1}
                                 canNextPage={historyPage < totalHistoryPages}
                             />
