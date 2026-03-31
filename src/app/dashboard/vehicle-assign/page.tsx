@@ -1,10 +1,9 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
+import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
 import { collection, query, doc, getDocs, getDoc, Timestamp, where, limit, onSnapshot, serverTimestamp, runTransaction } from "firebase/firestore";
 import { Label } from "@/components/ui/label";
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/date-picker';
 import { Loader2, WifiOff, Settings2, Search, RefreshCcw, Factory, ShieldCheck, ArrowRightLeft } from "lucide-react";
 import { subDays, startOfDay, endOfDay } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 import type { WithId, Shipment, Trip, Plant, SubUser, VehicleEntryExit, LR, Carrier } from '@/types';
 import OrdersTable from '@/components/dashboard/vehicle-assign/OrdersTable';
 import LayoutSettingsModal from '@/components/dashboard/vehicle-assign/LayoutSettingsModal';
@@ -46,6 +47,10 @@ function OpenOrdersContent() {
   const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   
+  // Pagination State Node
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
   const [authorizedPlantIds, setAuthorizedPlantIds] = useState<string[]>([]);
   const [allData, setAllData] = useState<{ 
@@ -68,10 +73,12 @@ function OpenOrdersContent() {
   const [selectedShipment, setSelectedShipment] = useState<any | null>(null);
   const [editingTrip, setEditingTrip] = useState<WithId<Trip> | null>(null);
 
-  const isAdminSession = user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
+  const isAdminSession = useMemo(() => {
+    return user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
+  }, [user]);
 
-  const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
-  const { data: allMasterPlants } = useCollection<Plant>(plantsQuery);
+  const masterPlantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
+  const { data: allMasterPlants } = useCollection<Plant>(masterPlantsQuery);
   const carriersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "carriers")) : null, [firestore]);
   const { data: carriers } = useCollection<Carrier>(carriersQuery);
 
@@ -314,6 +321,17 @@ function OpenOrdersContent() {
     });
   }, [finalData, activeTab]);
 
+  // Registry Pagination Logic
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, selectedPlants, fromDate, toDate, searchTerm]);
+
+  const totalPages = Math.ceil(tabFilteredData.length / itemsPerPage);
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return tabFilteredData.slice(start, start + itemsPerPage);
+  }, [tabFilteredData, currentPage, itemsPerPage]);
+
   const handleOpenLR = async (row: any) => {
     if (!row.lrNumber || !firestore) return;
     showLoader();
@@ -522,21 +540,49 @@ function OpenOrdersContent() {
               <p className="text-sm">Select at least one plant from the filter above to view orders.</p>
             </div>
           ) : (
-            <Card className="border-none shadow-none bg-transparent">
-                <OrdersTable 
-                    data={tabFilteredData} 
-                    tab={activeTab} 
-                    onAssign={(s) => { setSelectedShipment(s); setEditingTrip(null); setIsAssignModalOpen(true); }}
-                    onEditAssignment={(s, t) => { setSelectedShipment(s); setEditingTrip(t); setIsAssignModalOpen(true); }}
-                    onViewOrder={(s) => setDrawerOrder(s)}
-                    onViewTrip={(t) => setDrawerTrip(t)}
-                    onViewLR={handleOpenLR}
-                    onShortClose={(id) => setCancelModalData({ id, type: 'order' })}
-                    onCancelOrder={(id) => setCancelModalData({ id, type: 'order' })}
-                    onRestoreOrder={handleRestoreOrder} 
-                    onCancelAssignment={(tId, sId, q) => setCancelModalData({ id: sId, type: 'assignment', tripId: tId, qty: q })}
-                    isAdmin={isAdminSession}
-                />
+            <Card className="border-none shadow-none bg-transparent flex flex-col h-full">
+                <div className="flex-1">
+                    <OrdersTable 
+                        data={paginatedData} 
+                        tab={activeTab} 
+                        onAssign={(s) => { setSelectedShipment(s); setEditingTrip(null); setIsAssignModalOpen(true); }}
+                        onEditAssignment={(s, t) => { setSelectedShipment(s); setEditingTrip(t); setIsAssignModalOpen(true); }}
+                        onViewOrder={(s) => setDrawerOrder(s)}
+                        onViewTrip={(t) => setDrawerTrip(t)}
+                        onViewLR={handleOpenLR}
+                        onShortClose={(id) => setCancelModalData({ id, type: 'order' })}
+                        onCancelOrder={(id) => setCancelModalData({ id, type: 'order' })}
+                        onRestoreOrder={handleRestoreOrder} 
+                        onCancelAssignment={(tId, sId, q) => setCancelModalData({ id: sId, type: 'assignment', tripId: tId, qty: q })}
+                        isAdmin={isAdminSession}
+                    />
+                </div>
+                
+                <div className="mt-6 flex flex-col md:flex-row items-center justify-between bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                    <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows per page:</span>
+                        <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
+                            <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                                <SelectItem value="10" className="font-bold py-2">10</SelectItem>
+                                <SelectItem value="25" className="font-bold py-2">25</SelectItem>
+                                <SelectItem value="50" className="font-bold py-2">50</SelectItem>
+                                <SelectItem value="100" className="font-bold py-2">100</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <Pagination 
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={setCurrentPage}
+                        canPreviousPage={currentPage > 1}
+                        canNextPage={currentPage < totalPages}
+                        itemCount={tabFilteredData.length}
+                    />
+                </div>
             </Card>
           )}
         </div>
