@@ -434,6 +434,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                             deliveryAddress: row['Delivery Address'] || '',
                             currentStatusId: 'pending',
                             creationDate: serverTimestamp(),
+                            lrDate: serverTimestamp(), // REGISTRY SYNC: LR Date handshakes with Order Date during bulk pulse
                             userId: user.uid,
                             items: [{
                                 invoiceNumber: invoiceNo,
