@@ -49,7 +49,7 @@ const itemSchema = z.object({
     invoiceNo: z.string().optional(),
     itemDescription: z.string().min(1, "Required"),
     loadUnit: z.coerce.number().min(0),
-    uom: z.string().default('Bag'),
+    uom: z.string().min(1, "UOM selection is mandatory."),
 });
 
 const formSchema = z.object({
@@ -93,14 +93,14 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 invoiceNo: i.invoiceNumber || '',
                 itemDescription: i.itemDescription || i.description || 'Goods particulars',
                 loadUnit: Number(i.units) || 0,
-                uom: i.unitType || 'Bag'
+                uom: i.unitType || ''
             }));
 
             if (initialItems.length > 0) {
                 reset({ actualWeight: task.assignedQty, remarks: '', items: initialItems });
             } else {
                 reset({ actualWeight: task.assignedQty, remarks: '' });
-                append({ deliveryNo: '', invoiceNo: '', itemDescription: 'Goods particulars', loadUnit: 0, uom: 'Bag' });
+                append({ deliveryNo: '', invoiceNo: '', itemDescription: 'Goods particulars', loadUnit: 0, uom: '' });
             }
         }
     }
@@ -248,7 +248,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                     type="button" 
                     variant="outline" 
                     size="sm" 
-                    onClick={() => append({ deliveryNo: '', invoiceNo: '', itemDescription: 'Goods particulars', loadUnit: 0, uom: 'Bag' })}
+                    onClick={() => append({ deliveryNo: '', invoiceNo: '', itemDescription: 'Goods particulars', loadUnit: 0, uom: '' })}
                     className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-blue-200 text-blue-700 bg-white hover:bg-blue-50 shadow-md transition-all active:scale-95"
                 >
                     <Plus className="h-4 w-4" /> ADD ROW
@@ -263,7 +263,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                             <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">INVOICE NO</TableHead>
                             <TableHead className="text-white text-[10px] font-black uppercase px-4">ITEM DESCRIPTION *</TableHead>
                             <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">LOAD UNIT *</TableHead>
-                            <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-32">UOM</TableHead>
+                            <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-32">UOM *</TableHead>
                             <TableHead className="w-16"></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -283,9 +283,15 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                                     <Input type="number" {...form.register(`items.${index}.loadUnit`)} className="h-11 text-center font-black text-blue-900 bg-white border-blue-900/20 rounded-xl text-lg shadow-inner focus-visible:ring-blue-900" />
                                 </TableCell>
                                 <TableCell className="px-4 py-3">
-                                    <Select onValueChange={(val) => setValue(`items.${index}.uom`, val)} defaultValue={watchedItems[index]?.uom || 'Bag'}>
-                                        <SelectTrigger className="h-11 bg-transparent border-none shadow-none focus:ring-0 font-bold text-xs uppercase">
-                                            <SelectValue />
+                                    <Select 
+                                        onValueChange={(val) => setValue(`items.${index}.uom`, val, { shouldValidate: true })} 
+                                        value={watchedItems[index]?.uom || ''}
+                                    >
+                                        <SelectTrigger className={cn(
+                                            "h-11 bg-transparent border-none shadow-none focus:ring-0 font-black text-xs uppercase",
+                                            !watchedItems[index]?.uom && "text-red-500 animate-pulse"
+                                        )}>
+                                            <SelectValue placeholder="SELECT" />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-xl">
                                             {LRUnitTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
@@ -334,7 +340,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 </div>
             </div>
 
-            {/* VARIANCE ALERT NODE - Positioned Bottom-Right per request */}
             <div className="flex justify-end pr-4">
                 {unitMismatch !== 0 && (
                     <Alert variant={unitMismatch > 0 ? "default" : "destructive"} className={cn(
@@ -382,4 +387,3 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
     </Dialog>
   );
 }
-    
