@@ -15,8 +15,8 @@ import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryE
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, sanitizeRegistryNode } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, addDoc } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft } from "lucide-react";
+import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, addDoc, writeBatch } from "firebase/firestore";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, ShieldAlert, Sparkles } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -30,6 +30,17 @@ import { startOfDay, endOfDay, subDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export type TripBoardTab = 'active' | 'loading' | 'transit' | 'arrived' | 'pod-pending' | 'closed';
 
@@ -71,6 +82,10 @@ function TripBoardContent() {
   const [lrPreviewData, setLrPreviewData] = useState<EnrichedLR | null>(null);
   const [cancelTripData, setCancelTripData] = useState<any | null>(null);
   const [editVehicleTrip, setEditVehicleTrip] = useState<any | null>(null);
+
+  // Bulk Selection Registry
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   const isAdminSession = useMemo(() => {
     return user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
@@ -227,7 +242,7 @@ function TripBoardContent() {
     });
   }, [finalData, activeTab]);
 
-  useEffect(() => { setCurrentPage(1); }, [activeTab, selectedPlants, fromDate, toDate, searchTerm]);
+  useEffect(() => { setCurrentPage(1); setSelectedIds([]); }, [activeTab, selectedPlants, fromDate, toDate, searchTerm]);
 
   const totalPages = Math.ceil(tabFilteredData.length / itemsPerPage);
   const paginatedData = useMemo(() => tabFilteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [tabFilteredData, currentPage, itemsPerPage]);
@@ -267,98 +282,106 @@ function TripBoardContent() {
     } catch (e) { toast({ variant: 'destructive', title: "Registry Error" }); } finally { setIsExtracting(false); }
   }, [firestore, plants, dbCarriers, toast]);
 
-  const handleCancelTrip = async () => {
-    if (!firestore || !user || !cancelTripData) return;
-    
-    showLoader();
-    try {
-        await runTransaction(firestore, async (transaction) => {
-            const plantId = normalizePlantId(cancelTripData.originPlantId);
-            const tripId = cancelTripData.id;
-            const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
-            const globalTripRef = doc(firestore, 'trips', tripId);
-            
-            const tripSnap = await transaction.get(tripRef);
-            if (!tripSnap.exists()) throw new Error("Trip node not found in registry.");
-            const tData = tripSnap.data() as Trip;
+  const executePurge = async (tripData: any) => {
+    if (!firestore || !user) return;
+    await runTransaction(firestore, async (transaction) => {
+        const plantId = normalizePlantId(tripData.originPlantId);
+        const tripRef = doc(firestore, `plants/${plantId}/trips`, tripData.id);
+        const globalTripRef = doc(firestore, 'trips', tripData.id);
+        
+        const tripSnap = await transaction.get(tripRef);
+        if (!tripSnap.exists()) return;
+        const tData = tripSnap.data() as Trip;
 
-            // 1. Revert Shipment quantities
-            const shipId = tData.shipmentIds[0];
-            const shipRef = doc(firestore, `plants/${plantId}/shipments`, shipId);
-            const shipSnap = await transaction.get(shipRef);
-            if (shipSnap.exists()) {
-                const sData = shipSnap.data() as Shipment;
-                const weightToRevert = Number(tData.assignedQtyInTrip || 0);
-                const newAssigned = Math.max(0, (sData.assignedQty || 0) - weightToRevert);
-                const newBalance = sData.quantity - newAssigned;
-                
-                transaction.update(shipRef, {
-                    assignedQty: newAssigned,
-                    balanceQty: newBalance,
-                    currentStatusId: newAssigned === 0 ? 'pending' : 'Partly Vehicle Assigned',
-                    lastUpdateDate: serverTimestamp()
-                });
-            }
-
-            // 2. Revert Vehicle status
-            if (tData.vehicleId) {
-                const vehicleRef = doc(firestore, 'vehicles', tData.vehicleId);
-                transaction.update(vehicleRef, { status: 'Available' });
-            }
-
-            // 3. Move to Recycle Bin
-            const currentOperator = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || "Admin");
-            const recycleRef = doc(collection(firestore, "recycle_bin"));
-            transaction.set(recycleRef, {
-                pageName: "Trip Monitoring Hub (Cancelled)",
-                userName: currentOperator,
-                deletedAt: serverTimestamp(),
-                data: sanitizeRegistryNode({ ...tData, id: tripId, type: 'Trip', plantName: cancelTripData.plantName })
+        const shipId = tData.shipmentIds[0];
+        const shipRef = doc(firestore, `plants/${plantId}/shipments`, shipId);
+        const shipSnap = await transaction.get(shipRef);
+        if (shipSnap.exists()) {
+            const sData = shipSnap.data() as Shipment;
+            const weightToRevert = Number(tData.assignedQtyInTrip || 0);
+            const newAssigned = Math.max(0, (sData.assignedQty || 0) - weightToRevert);
+            transaction.update(shipRef, {
+                assignedQty: newAssigned,
+                balanceQty: sData.quantity - newAssigned,
+                currentStatusId: newAssigned === 0 ? 'pending' : 'Partly Vehicle Assigned',
+                lastUpdateDate: serverTimestamp()
             });
+        }
 
-            // 4. Delete nodes
-            transaction.delete(tripRef);
-            transaction.delete(globalTripRef);
+        if (tData.vehicleId) {
+            transaction.update(doc(firestore, 'vehicles', tData.vehicleId), { status: 'Available' });
+        }
+
+        const currentOperator = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || "Admin");
+        const recycleRef = doc(collection(firestore, "recycle_bin"));
+        transaction.set(recycleRef, {
+            pageName: "Trip Board (Cancelled/Purged)",
+            userName: currentOperator,
+            deletedAt: serverTimestamp(),
+            data: sanitizeRegistryNode({ ...tData, id: tripData.id, type: 'Trip', plantName: tripData.plantName })
         });
 
-        toast({ title: 'Mission Revoked', description: `Trip ${cancelTripData.tripId} purged from registry.` });
-        setCancelTripData(null);
-    } catch (e: any) {
-        console.error("Cancel Trip Error:", e);
-        toast({ variant: 'destructive', title: 'Action Failed', description: e.message });
-    } finally {
-        hideLoader();
-    }
+        transaction.delete(tripRef);
+        transaction.delete(globalTripRef);
+    });
   };
 
-  const handleUpdateVehicle = async (tripId: string, values: any) => {
-    if (!firestore || !user) return;
+  const handleBulkCancel = async () => {
+    if (!selectedIds.length || !firestore || !user) return;
+    setIsBulkProcessing(true);
     showLoader();
     try {
-        const tripToUpdate = trips.find(t => t.id === tripId);
-        if (!tripToUpdate) throw new Error("Trip not found.");
-
-        const plantId = normalizePlantId(tripToUpdate.originPlantId);
-        const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
-        const globalTripRef = doc(firestore, 'trips', tripId);
-
-        const updateData = {
-            vehicleNumber: values.vehicleNumber,
-            driverMobile: values.driverMobile,
-            lastUpdated: serverTimestamp()
-        };
-
-        await updateDoc(tripRef, updateData);
-        await updateDoc(globalTripRef, updateData);
-
-        toast({ title: 'Registry Synchronized', description: 'Vehicle identity updated successfully.' });
-        setEditVehicleTrip(null);
+        for (const id of selectedIds) {
+            const tripObj = trips.find(t => t.id === id);
+            if (tripObj) await executePurge(tripObj);
+        }
+        toast({ title: 'Bulk Purge Complete', description: `Successfully revoked ${selectedIds.length} mission nodes.` });
+        setSelectedIds([]);
     } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Correction Failed', description: e.message });
+        toast({ variant: 'destructive', title: 'Action Failed', description: e.message });
     } finally {
+        setIsBulkProcessing(false);
         hideLoader();
     }
   };
+
+  const handleAutomatedCleanup = async () => {
+    // Logic Node: Targets "0 Data" (No LR, No Invoice, 0 Weight, Status Assigned)
+    const targets = finalData.filter(t => 
+        (!t.lrNumber || t.lrNumber === '' || t.lrNumber === 'PENDING') &&
+        (t.invoiceNumbers === '--' || !t.invoiceNumbers) &&
+        (Number(t.dispatchedQty) === 0) &&
+        (t.tripStatus === 'Assigned')
+    );
+
+    if (targets.length === 0) {
+        toast({ title: 'Registry Clean', description: 'No empty mission nodes detected in current view.' });
+        return;
+    }
+
+    setIsBulkProcessing(true);
+    showLoader();
+    try {
+        for (const target of targets) {
+            await executePurge(target);
+        }
+        toast({ title: 'Registry Scrubbed', description: `Purged ${targets.length} empty mission nodes.` });
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Scrub Failed', description: e.message });
+    } finally {
+        setIsBulkProcessing(false);
+        hideLoader();
+    }
+  };
+
+  if (isLoadingMeta && authorizedPlantIds.length === 0) {
+    return (
+        <div className="flex h-screen flex-col items-center justify-center bg-[#f8fafc]">
+            <Loader2 className="h-12 w-12 animate-spin text-blue-900 mb-4" />
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 animate-pulse">Syncing Lifting Node Registry...</p>
+        </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col h-full relative">
@@ -381,6 +404,30 @@ function TripBoardContent() {
         </div>
         
         <div className="flex items-center gap-3">
+          {isAdminSession && (
+              <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                      <Button variant="ghost" className="h-11 px-6 rounded-2xl font-black text-[10px] uppercase text-blue-600 gap-2 hover:bg-blue-50 border border-blue-100">
+                          <RefreshCcw className="h-4 w-4" /> Registry Cleanup
+                      </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="border-none shadow-3xl rounded-[2rem]">
+                      <AlertDialogHeader>
+                          <div className="flex items-center gap-4 mb-2">
+                              <div className="p-2 bg-blue-100 text-blue-900 rounded-lg"><Sparkles className="h-5 w-5" /></div>
+                              <AlertDialogTitle className="text-xl font-black uppercase tracking-tight">Execute Automated Scrub?</AlertDialogTitle>
+                          </div>
+                          <AlertDialogDescription className="text-sm font-medium">
+                              This will automatically identify and purge all **"0 Data"** mission nodes (No LR, No Invoices, 0 Weight) from the registry. This action is permanent.
+                          </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter className="bg-slate-50 -mx-6 -mb-6 p-6 flex-row justify-end gap-3">
+                          <AlertDialogCancel className="font-bold rounded-xl m-0 h-11 px-8">Abort</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleAutomatedCleanup} className="bg-blue-900 hover:bg-black text-white font-black uppercase text-[10px] tracking-widest px-10 h-11 rounded-xl shadow-lg border-none">Start Cleanup</AlertDialogAction>
+                      </AlertDialogFooter>
+                  </AlertDialogContent>
+              </AlertDialog>
+          )}
           <div className="relative group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
             <Input placeholder="Search board registry..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-[320px] h-11 rounded-2xl bg-slate-50 border-slate-200 font-bold shadow-inner" />
@@ -391,13 +438,39 @@ function TripBoardContent() {
 
       <div className="flex-1 p-4 md:p-8 overflow-y-auto space-y-10">
         <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
-            <div className="bg-slate-50 border-b p-8 flex flex-wrap items-end gap-10">
-                <div className="grid gap-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Factory className="h-3 w-3" /> Plant Node Registry</Label>
-                    <MultiSelectPlantFilter options={plants} selected={selectedPlants} onChange={setSelectedPlants} isLoading={isAuthLoading} />
+            <div className="bg-slate-50 border-b p-8 flex flex-wrap items-end justify-between gap-6">
+                <div className="flex flex-wrap items-end gap-10">
+                    <div className="grid gap-2">
+                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Factory className="h-3 w-3" /> Plant Node Registry</Label>
+                        <MultiSelectPlantFilter options={plants} selected={selectedPlants} onChange={setSelectedPlants} isLoading={isAuthLoading} />
+                    </div>
+                    <div className="grid gap-2"><Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Filter className="h-3 w-3" /> Start Node</Label><DatePicker date={fromDate} setDate={setFromDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" /></div>
+                    <div className="grid gap-2"><Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Filter className="h-3 w-3" /> End Node</Label><DatePicker date={toDate} setDate={setTodayDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" /></div>
                 </div>
-                <div className="grid gap-2"><Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Filter className="h-3 w-3" /> Start Node</Label><DatePicker date={fromDate} setDate={setFromDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" /></div>
-                <div className="grid gap-2"><Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Filter className="h-3 w-3" /> End Node</Label><DatePicker date={toDate} setDate={setTodayDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" /></div>
+
+                {selectedIds.length > 0 && isAdminSession && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" className="h-12 px-8 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] gap-3 shadow-xl shadow-red-100 animate-in zoom-in duration-300 border-none transition-all active:scale-95">
+                                <Ban className="h-5 w-5" /> Revoke Selected ({selectedIds.length})
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="border-none shadow-3xl rounded-[2rem] p-0 overflow-hidden">
+                            <div className="p-8 bg-red-50 border-b border-red-100 flex items-center gap-5">
+                                <div className="p-3 bg-red-600 text-white rounded-2xl shadow-xl"><ShieldAlert className="h-8 w-8" /></div>
+                                <div>
+                                    <AlertDialogTitle className="text-xl font-black uppercase tracking-tight text-red-900 leading-none">Bulk Registry Purge?</AlertDialogTitle>
+                                    <p className="text-red-700 font-bold uppercase text-[9px] tracking-widest mt-2">Authorized System Override Node</p>
+                                </div>
+                            </div>
+                            <div className="p-10"><p className="text-sm font-medium text-slate-600 leading-relaxed italic border-l-4 border-red-100 pl-4">"Executing this action will permanently remove <span className="font-black text-slate-900">{selectedIds.length} mission nodes</span> from the active hub. All vehicle allocations will be reverted. This cannot be undone."</p></div>
+                            <AlertDialogFooter className="bg-slate-50 p-6 flex-row justify-end gap-3 border-t">
+                                <AlertDialogCancel className="font-bold border-slate-200 h-11 px-8 rounded-xl m-0">Abort</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleBulkCancel} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest px-10 h-11 rounded-xl shadow-lg border-none">Confirm Purge</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
             </div>
 
             <Tabs value={activeTab} onValueChange={(v) => { const params = new URLSearchParams(searchParams); params.set('tab', v); router.replace(`${pathname}?${params.toString()}`, { scroll: false }); }} className="w-full">
@@ -411,7 +484,25 @@ function TripBoardContent() {
                 </TabsList>
 
                 <TabsContent value={activeTab} className="mt-0 focus-visible:ring-0">
-                    <TripBoardTable data={paginatedData} activeTab={activeTab} isAdmin={isAdminSession} canVerifyPod={isAdminSession} onVerifyPod={() => {}} onUploadPod={setPodUploadTrip} onGenerateLR={(t) => setLrGenerateTrip({ trip: t, carrier: (dbCarriers || []).find(c => c.id === t.carrierId) })} onViewLR={onViewLR} onViewTrip={setViewTripData} onUpdatePod={setPodUploadTrip} onCancelTrip={setCancelTripData} onEditTrip={() => {}} onTrack={(row) => router.push(`/dashboard/tracking/consignment?search=${row.tripId}`)} onEditVehicle={setEditVehicleTrip} />
+                    <TripBoardTable 
+                        data={paginatedData} 
+                        activeTab={activeTab} 
+                        isAdmin={isAdminSession} 
+                        canVerifyPod={isAdminSession} 
+                        selectedIds={selectedIds}
+                        onSelectRow={(id, checked) => setSelectedIds(prev => checked ? [...prev, id] : prev.filter(i => i !== id))}
+                        onSelectAll={(checked) => setSelectedIds(checked ? paginatedData.map(t => t.id) : [])}
+                        onVerifyPod={() => {}} 
+                        onUploadPod={setPodUploadTrip} 
+                        onGenerateLR={(t) => setLrGenerateTrip({ trip: t, carrier: (dbCarriers || []).find(c => c.id === t.carrierId) })} 
+                        onViewLR={onViewLR} 
+                        onViewTrip={setViewTripData} 
+                        onUpdatePod={setPodUploadTrip} 
+                        onCancelTrip={(t) => setCancelTripData(t)} 
+                        onEditTrip={() => {}} 
+                        onTrack={(row) => router.push(`/dashboard/tracking/consignment?search=${row.tripId}`)} 
+                        onEditVehicle={setEditVehicleTrip} 
+                    />
                     <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="flex items-center gap-3">
                             <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows per page:</span>

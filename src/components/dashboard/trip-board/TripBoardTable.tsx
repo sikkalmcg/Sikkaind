@@ -34,12 +34,16 @@ import {
     DropdownMenuLabel
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface TripBoardTableProps {
   data: any[];
   activeTab: string;
   isAdmin: boolean;
   canVerifyPod: boolean;
+  selectedIds: string[];
+  onSelectRow: (id: string, checked: boolean) => void;
+  onSelectAll: (checked: boolean) => void;
   onVerifyPod: (trip: any) => void;
   onUploadPod: (trip: any) => void;
   onGenerateLR: (trip: any) => void;
@@ -79,6 +83,9 @@ export default function TripBoardTable({
     activeTab, 
     isAdmin,
     canVerifyPod, 
+    selectedIds,
+    onSelectRow,
+    onSelectAll,
     onVerifyPod, 
     onUploadPod, 
     onGenerateLR, 
@@ -91,11 +98,22 @@ export default function TripBoardTable({
     onEditVehicle 
 }: TripBoardTableProps) {
   
+  const isAllSelected = data.length > 0 && data.every(item => selectedIds.includes(item.id));
+
   return (
     <div className="overflow-x-auto">
       <Table className="border-collapse w-full min-w-[3000px] table-fixed">
         <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b">
           <TableRow className="h-14 hover:bg-transparent">
+            {isAdmin && (
+                <TableHead className="w-16 px-6">
+                    <Checkbox 
+                        checked={isAllSelected}
+                        onCheckedChange={(checked) => onSelectAll(!!checked)}
+                        className="h-5 w-5 data-[state=checked]:bg-blue-900 shadow-md border-slate-300"
+                    />
+                </TableHead>
+            )}
             <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500 w-32">Plant</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36">LR No</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 text-center">LR Date</TableHead>
@@ -116,13 +134,25 @@ export default function TripBoardTable({
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={15} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
+              <TableCell colSpan={isAdmin ? 16 : 15} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
                 No mission nodes detected in current registry view.
               </TableCell>
             </TableRow>
           ) : (
             data.map((row) => (
-              <TableRow key={row.id} className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 transition-all group">
+              <TableRow key={row.id} className={cn(
+                  "h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 transition-all group",
+                  selectedIds.includes(row.id) && "bg-blue-50/40"
+              )}>
+                {isAdmin && (
+                    <TableCell className="px-6">
+                        <Checkbox 
+                            checked={selectedIds.includes(row.id)}
+                            onCheckedChange={(checked) => onSelectRow(row.id, !!checked)}
+                            className="h-5 w-5 data-[state=checked]:bg-blue-900 shadow-sm border-slate-300"
+                        />
+                    </TableCell>
+                )}
                 <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{row.plantName}</TableCell>
                 <TableCell className="px-4 text-center">
                     {row.lrNumber && row.lrNumber !== 'PENDING' ? (
