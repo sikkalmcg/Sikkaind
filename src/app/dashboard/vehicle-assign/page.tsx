@@ -402,7 +402,10 @@ function OpenOrdersContent() {
                 const tripData = tripSnap.data() as Trip;
                 if (tripData.vehicleId) {
                     const vehicleRef = doc(firestore, 'vehicles', tripData.vehicleId);
-                    transaction.update(vehicleRef, { status: 'Available' });
+                    const vSnap = await transaction.get(vehicleRef);
+                    if (vSnap.exists()) {
+                        transaction.update(vehicleRef, { status: 'Available' });
+                    }
                 }
             }
 
@@ -412,7 +415,12 @@ function OpenOrdersContent() {
             
             transaction.delete(tripRef);
             transaction.delete(globalTripRef);
-            transaction.update(shipRef, { assignedQty: newAssigned, balanceQty: newBalance, currentStatusId: newAssigned === 0 ? 'pending' : 'Partly Vehicle Assigned', lastUpdateDate: serverTimestamp() });
+            transaction.update(shipRef, { 
+                assignedQty: newAssigned, 
+                balanceQty: newBalance, 
+                currentStatusId: newAssigned === 0 ? 'pending' : 'Partly Vehicle Assigned', 
+                lastUpdateDate: serverTimestamp() 
+            });
         });
         toast({ title: "Assignment Detached", description: "Vehicle removed and quantities reverted." });
         setCancelModalData(null);

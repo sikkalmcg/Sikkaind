@@ -292,7 +292,6 @@ function TripBoardContent() {
         if (!tripSnap.exists()) return;
         const tData = tripSnap.data() as Trip;
 
-        // MISSION FIX Node: Handle potential empty shipment IDs to avoid undefined access
         const shipId = (tData.shipmentIds && tData.shipmentIds.length > 0) ? tData.shipmentIds[0] : null;
         
         if (shipId) {
@@ -312,13 +311,15 @@ function TripBoardContent() {
         }
 
         if (tData.vehicleId) {
-            transaction.update(doc(firestore, 'vehicles', tData.vehicleId), { status: 'Available' });
+            const vRef = doc(firestore, 'vehicles', tData.vehicleId);
+            const vSnap = await transaction.get(vRef);
+            if (vSnap.exists()) {
+                transaction.update(vRef, { status: 'Available' });
+            }
         }
 
         const currentOperator = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || "Admin");
         const recycleRef = doc(collection(firestore, "recycle_bin"));
-        
-        // REGISTRY SAFETY: Ensure plantName is defined before transaction.set
         const archivePlantName = tripData.plantName || tData.originPlantId || 'Unknown Node';
 
         transaction.set(recycleRef, {
@@ -562,7 +563,7 @@ function TripBoardContent() {
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
       {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={handleUpdateVehicle} />}
       {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={handleCancelTrip} />}
-      {lrPreviewData && <LRPrintPreviewModal isOpen={!!previewLr} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
+      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
     </div>
   );
 }
