@@ -293,19 +293,23 @@ function TripBoardContent() {
         if (!tripSnap.exists()) return;
         const tData = tripSnap.data() as Trip;
 
-        const shipId = tData.shipmentIds[0];
-        const shipRef = doc(firestore, `plants/${plantId}/shipments`, shipId);
-        const shipSnap = await transaction.get(shipRef);
-        if (shipSnap.exists()) {
-            const sData = shipSnap.data() as Shipment;
-            const weightToRevert = Number(tData.assignedQtyInTrip || 0);
-            const newAssigned = Math.max(0, (sData.assignedQty || 0) - weightToRevert);
-            transaction.update(shipRef, {
-                assignedQty: newAssigned,
-                balanceQty: sData.quantity - newAssigned,
-                currentStatusId: newAssigned === 0 ? 'pending' : 'Partly Vehicle Assigned',
-                lastUpdateDate: serverTimestamp()
-            });
+        // MISSION FIX Node: Handle potential empty shipment IDs to avoid undefined access
+        const shipId = (tData.shipmentIds && tData.shipmentIds.length > 0) ? tData.shipmentIds[0] : null;
+        
+        if (shipId) {
+            const shipRef = doc(firestore, `plants/${plantId}/shipments`, shipId);
+            const shipSnap = await transaction.get(shipRef);
+            if (shipSnap.exists()) {
+                const sData = shipSnap.data() as Shipment;
+                const weightToRevert = Number(tData.assignedQtyInTrip || 0);
+                const newAssigned = Math.max(0, (sData.assignedQty || 0) - weightToRevert);
+                transaction.update(shipRef, {
+                    assignedQty: newAssigned,
+                    balanceQty: sData.quantity - newAssigned,
+                    currentStatusId: newAssigned === 0 ? 'pending' : 'Partly Vehicle Assigned',
+                    lastUpdateDate: serverTimestamp()
+                });
+            }
         }
 
         if (tData.vehicleId) {
@@ -529,14 +533,16 @@ function TripBoardContent() {
                         onEditVehicle={setEditVehicleTrip} 
                     />
                     <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows per page:</span>
-                            <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
-                                <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm"><SelectValue /></SelectTrigger>
-                                <SelectContent className="rounded-xl"><SelectItem value="10" className="font-bold py-2">10</SelectItem><SelectItem value="25" className="font-bold py-2">25</SelectItem><SelectItem value="50" className="font-bold py-2">50</SelectItem><SelectItem value="100" className="font-bold py-2">100</SelectItem></SelectContent>
-                            </Select>
+                        <div className="flex items-center gap-10">
+                            <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows per page:</span>
+                                <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
+                                    <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm"><SelectValue /></SelectTrigger>
+                                    <SelectContent className="rounded-xl"><SelectItem value="10" className="font-bold py-2">10</SelectItem><SelectItem value="25" className="font-bold py-2">25</SelectItem><SelectItem value="50" className="font-bold py-2">50</SelectItem><SelectItem value="100" className="font-bold py-2">100</SelectItem></SelectContent>
+                                </Select>
+                            </div>
+                            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPages} itemCount={tabFilteredData.length} />
                         </div>
-                        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPages} itemCount={tabFilteredData.length} />
                     </div>
                 </TabsContent>
             </Tabs>
