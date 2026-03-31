@@ -156,6 +156,8 @@ export default function VehicleOut() {
     try {
         const ts = serverTimestamp();
         const entryRef = doc(firestore, "vehicleEntries", values.entryId);
+        
+        // 1. Finalize Gate OUT Registry
         await updateDoc(entryRef, {
             status: 'OUT',
             outType: values.exitStatus,
@@ -167,12 +169,24 @@ export default function VehicleOut() {
             weightUnit: values.weightUnit
         });
 
+        // 2. Synchronize Trip Registry (Safe Handshake)
         if (entry.tripId) {
-            const globalTripRef = doc(firestore, 'trips', entry.tripId);
-            const plantTripRef = doc(firestore, `plants/${entry.plantId}/trips`, entry.tripId);
-            const tripUpdate = { tripStatus: 'In Transit', outDate: ts, lastUpdated: ts };
-            await updateDoc(globalTripRef, tripUpdate);
-            try { await updateDoc(plantTripRef, tripUpdate); } catch(e) {}
+            try {
+                const globalTripRef = doc(firestore, 'trips', entry.tripId);
+                const plantTripRef = doc(firestore, `plants/${entry.plantId}/trips`, entry.tripId);
+                const tripUpdate = { tripStatus: 'In Transit', outDate: ts, lastUpdated: ts };
+                
+                // Use getDoc to prevent 'No document to update' error
+                const [gSnap, pSnap] = await Promise.all([
+                    getDoc(globalTripRef),
+                    getDoc(plantTripRef)
+                ]);
+
+                if (gSnap.exists()) await updateDoc(globalTripRef, tripUpdate);
+                if (pSnap.exists()) await updateDoc(plantTripRef, tripUpdate);
+            } catch (syncError) {
+                console.warn("Trip node synchronization skipped: Document may have been purged.");
+            }
         }
 
         toast({ title: 'Success', description: `Vehicle ${entry.vehicleNumber} marked as OUT.` });

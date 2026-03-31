@@ -404,12 +404,25 @@ function TripBoardContent() {
         await runTransaction(firestore, async (transaction) => {
             const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
             const globalTripRef = doc(firestore, 'trips', tripId);
-            const updateData = { vehicleNumber: values.vehicleNumber, driverMobile: values.driverMobile, lastUpdated: serverTimestamp() };
-            transaction.update(tripRef, updateData);
-            transaction.update(globalTripRef, updateData);
+            
+            const [tSnap, gSnap] = await Promise.all([
+                transaction.get(tripRef),
+                transaction.get(globalTripRef)
+            ]);
+
+            const updateData = { 
+                vehicleNumber: values.vehicleNumber, 
+                driverMobile: values.driverMobile, 
+                lastUpdated: serverTimestamp() 
+            };
+
+            if (tSnap.exists()) transaction.update(tripRef, updateData);
+            if (gSnap.exists()) transaction.update(globalTripRef, updateData);
         });
         toast({ title: 'Identity Corrected' });
-    } catch (e: any) { toast({ variant: 'destructive', title: 'Update Failed', description: e.message }); } finally { hideLoader(); }
+    } catch (e: any) { 
+        toast({ variant: 'destructive', title: 'Update Failed', description: e.message }); 
+    } finally { hideLoader(); }
   };
 
   if (isAuthLoading && authorizedPlantIds.length === 0) {
@@ -563,7 +576,7 @@ function TripBoardContent() {
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
       {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={handleUpdateVehicle} />}
       {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={handleCancelTrip} />}
-      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
+      {lrPreviewData && <LRPrintPreviewModal isOpen={!!previewLr} onClose={() => setPreviewLr(null)} lr={previewLr} />}
     </div>
   );
 }

@@ -118,8 +118,8 @@ function StatusControlContent() {
         const qVeh = query(collection(firestore, "vehicleEntries"), where("status", "==", "IN"));
         const unsubVehicles = onSnapshot(qVeh, (snap) => {
             const vehicles = snap.docs
-                .map(d => ({ id: d.id, ...d.data() } as WithId<VehicleEntryExit>))
-                .filter(v => authorizedPlantIds.some(aid => normalizePlantId(aid) === normalizePlantId(v.plantId)));
+                .map(d => ({ id: d.id, ...d.data() } as any))
+                .filter(d => isAdmin || authorizedPlantIds.some(aid => normalizePlantId(aid) === normalizePlantId(d.plantId)));
             setAvailableVehicles(vehicles);
         });
         unsubscribers.push(unsubVehicles);
@@ -209,8 +209,17 @@ function StatusControlContent() {
                     const globalTripRef = doc(firestore, 'trips', trip.id);
                     const historyRef = doc(collection(firestore, `plants/${trip.originPlantId}/status_updates`));
                     
+                    // Safe verification of mission node existence
+                    const [tripSnap, globalSnap] = await Promise.all([
+                        transaction.get(tripRef),
+                        transaction.get(globalTripRef)
+                    ]);
+
+                    if (!tripSnap.exists() && !globalSnap.exists()) {
+                        throw new Error("Registry Error: Mission node not found or purged.");
+                    }
+
                     const currentStatus = trip.tripStatus;
-                    
                     const updateData: any = {
                         tripStatus: newStatus as TripStatus,
                         currentStatusId: newStatus,
@@ -232,8 +241,8 @@ function StatusControlContent() {
                         }
                     }
 
-                    transaction.update(tripRef, updateData);
-                    transaction.update(globalTripRef, updateData);
+                    if (tripSnap.exists()) transaction.update(tripRef, updateData);
+                    if (globalSnap.exists()) transaction.update(globalTripRef, updateData);
 
                     // HIGH-FIDELITY HISTORY LOGGING
                     transaction.set(historyRef, {
@@ -270,9 +279,18 @@ function StatusControlContent() {
             const shipmentRef = doc(firestore, `plants/${trip.originPlantId}/shipments`, trip.shipmentIds[0]);
             const historyRef = doc(collection(firestore, `plants/${trip.originPlantId}/status_updates`));
 
+            const [tripSnap, globalSnap, shipSnap] = await Promise.all([
+                transaction.get(tripRef),
+                transaction.get(globalTripRef),
+                transaction.get(shipmentRef)
+            ]);
+
+            if (!tripSnap.exists() && !globalSnap.exists()) {
+                throw new Error("Registry Error: Trip node not found.");
+            }
+
             const ts = serverTimestamp();
             const currentName = operatorFullName || (user.displayName || user.email?.split('@')[0] || 'Operator');
-
             const podStatus: PODStatus = podBase64 ? 'Receipt Soft Copy' : 'Missing';
 
             const updateData = {
@@ -286,13 +304,14 @@ function StatusControlContent() {
                 podUrl: podBase64 || null,
             };
 
-            transaction.update(tripRef, updateData);
-            transaction.update(globalTripRef, updateData);
-
-            transaction.update(shipmentRef, {
-                currentStatusId: 'Delivered',
-                lastUpdateDate: ts,
-            });
+            if (tripSnap.exists()) transaction.update(tripRef, updateData);
+            if (globalSnap.exists()) transaction.update(globalTripRef, updateData);
+            if (shipSnap.exists()) {
+                transaction.update(shipmentRef, {
+                    currentStatusId: 'Delivered',
+                    lastUpdateDate: ts,
+                });
+            }
 
             // HIGH-FIDELITY DELIVERY LOGGING
             transaction.set(historyRef, {
@@ -327,7 +346,7 @@ function StatusControlContent() {
       <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-4">
             <div className="p-2.5 bg-blue-900 text-white rounded-2xl shadow-xl rotate-3">
-                <ShieldCheck className="h-7 w-7" />
+                <Activity className="h-7 w-7" />
             </div>
             <div>
                 <h1 className="text-2xl md:text-3xl font-black text-blue-900 uppercase tracking-tight italic">Status Control Center</h1>
