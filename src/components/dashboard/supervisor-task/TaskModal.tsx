@@ -22,7 +22,6 @@ import {
     Save, 
     Plus, 
     Trash2, 
-    History, 
     X, 
     ClipboardList, 
     Calculator, 
@@ -31,7 +30,6 @@ import {
     Scale,
     MessageSquare,
     AlertTriangle,
-    Info,
     Weight
 } from 'lucide-react';
 import { useFirestore, useUser } from "@/firebase";
@@ -42,7 +40,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { LRUnitTypes } from '@/lib/constants';
 import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 const itemSchema = z.object({
     deliveryNo: z.string().min(1, "Delivery number is mandatory."),
@@ -68,6 +66,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
+    mode: 'onChange',
     defaultValues: {
         actualWeight: task?.actualWeight || task?.assignedQty || 0,
         remarks: task?.remarks || '',
@@ -75,7 +74,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
     }
   });
 
-  const { control, handleSubmit, reset, setValue } = form;
+  const { control, handleSubmit, reset, setValue, formState: { isSubmitting, isValid } } = form;
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
   const watchedItems = useWatch({ control, name: "items" }) || [];
 
@@ -93,7 +92,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 invoiceNo: i.invoiceNumber || '',
                 itemDescription: i.itemDescription || i.description || 'Goods particulars',
                 loadUnit: Number(i.units) || 0,
-                uom: i.unitType || ''
+                uom: '' // Force empty for mandatory selection
             }));
 
             if (initialItems.length > 0) {
@@ -288,8 +287,8 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                                         value={watchedItems[index]?.uom || ''}
                                     >
                                         <SelectTrigger className={cn(
-                                            "h-11 bg-transparent border-none shadow-none focus:ring-0 font-black text-xs uppercase",
-                                            !watchedItems[index]?.uom && "text-red-500 animate-pulse"
+                                            "h-11 bg-transparent border-none shadow-none focus:ring-0 font-black text-xs uppercase text-center",
+                                            !watchedItems[index]?.uom && "text-red-500 animate-pulse border-red-200 bg-red-50/20"
                                         )}>
                                             <SelectValue placeholder="SELECT" />
                                         </SelectTrigger>
@@ -339,35 +338,34 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                     </div>
                 </div>
             </div>
-
-            <div className="flex justify-end pr-4">
-                {unitMismatch !== 0 && (
-                    <Alert variant={unitMismatch > 0 ? "default" : "destructive"} className={cn(
-                        "max-w-md border-2 animate-in zoom-in duration-300 rounded-[1.25rem] py-3 px-6 shadow-sm",
-                        unitMismatch > 0 ? "border-amber-200 bg-amber-50 text-amber-900" : "border-red-200 bg-red-50 text-red-900"
-                    )}>
-                        <div className="flex items-center gap-3">
-                            <AlertTriangle className={cn("h-5 w-5", unitMismatch > 0 ? "text-amber-600" : "text-red-600")} />
-                            <div className="flex flex-col gap-0.5">
-                                <AlertTitle className="font-black uppercase text-[11px] m-0 leading-none">
-                                    {unitMismatch > 0 ? "OVER-LOADING DETECTED" : "UNDER-LOADING DETECTED"}
-                                </AlertTitle>
-                                <AlertDescription className="font-bold text-[9px] uppercase leading-none opacity-70 mt-1">
-                                    Mission Variance: {unitMismatch > 0 ? `+${unitMismatch}` : unitMismatch} Units from Planned manifest.
-                                </AlertDescription>
-                            </div>
-                        </div>
-                    </Alert>
-                )}
-            </div>
         </div>
 
-        <DialogFooter className="p-10 bg-slate-950 shrink-0 flex flex-col md:flex-row items-center justify-between sm:justify-between border-t border-white/5">
+        {/* FIXED WARNING BAR ABOVE FOOTER */}
+        {unitMismatch !== 0 && (
+            <div className={cn(
+                "px-10 py-4 border-t border-b flex items-center justify-end animate-in slide-in-from-bottom-2 duration-300 shrink-0",
+                unitMismatch > 0 ? "bg-amber-50 border-amber-100" : "bg-red-50 border-red-100"
+            )}>
+                <div className="flex items-center gap-4">
+                    <AlertTriangle className={cn("h-6 w-6", unitMismatch > 0 ? "text-amber-600" : "text-red-600 animate-pulse")} />
+                    <div className="flex flex-col">
+                        <span className={cn("text-[11px] font-black uppercase tracking-[0.2em]", unitMismatch > 0 ? "text-amber-900" : "text-red-900")}>
+                            {unitMismatch > 0 ? "OVER-LOADING DETECTED" : "UNDER-LOADING DETECTED"}
+                        </span>
+                        <p className={cn("text-[10px] font-bold uppercase opacity-70 mt-0.5", unitMismatch > 0 ? "text-amber-800" : "text-red-800")}>
+                            Mission Variance: {unitMismatch > 0 ? `+${unitMismatch}` : unitMismatch} Units from Planned manifest.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        <DialogFooter className="p-8 bg-slate-950 shrink-0 flex flex-col md:flex-row items-center justify-between sm:justify-between border-t border-white/5">
             <div className="flex items-center gap-6 px-8 py-4 bg-white/5 rounded-3xl border border-white/10 shadow-2xl">
                 <div className="p-3 bg-blue-600/20 rounded-2xl"><Calculator className="h-6 w-6 text-blue-400" /></div>
                 <div className="flex flex-col">
                     <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-1">MANIFEST NODE PROCESSING</span>
-                    <span className="text-3xl font-black text-white tracking-tighter leading-none">{totals.load.toFixed(0)} Units / {(form.getValues('actualWeight') || 0).toFixed(3)} MT</span>
+                    <span className="text-3xl font-black text-white tracking-tighter leading-none">{totals.load.toFixed(0)} Units / {Number(form.getValues('actualWeight') || 0).toFixed(3)} MT</span>
                 </div>
             </div>
 
@@ -375,10 +373,10 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 <button onClick={onClose} className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500 hover:text-white transition-all">DISCARD</button>
                 <Button 
                     onClick={handleSubmit(handleCommit)} 
-                    disabled={form.formState.isSubmitting} 
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-20 h-14 rounded-[1.5rem] font-black uppercase text-sm tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
+                    disabled={isSubmitting || !isValid} 
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-20 h-14 rounded-[1.5rem] font-black uppercase text-sm tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none disabled:opacity-20 disabled:grayscale"
                 >
-                    {form.formState.isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <Save className="h-5 w-5 mr-3" />}
+                    {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <Save className="h-5 w-5 mr-3" />}
                     {task.isHistoryEdit ? 'UPDATE AUDIT NODE' : 'POST TASK REGISTRY'}
                 </Button>
             </div>
