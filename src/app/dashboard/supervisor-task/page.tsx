@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where, onSnapshot, doc, getDoc, getDocs, Timestamp, orderBy, limit, deleteDoc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore";
-import { Loader2, WifiOff, ClipboardList, ShieldCheck, Factory, User, Search, RefreshCcw, Trash2, AlertTriangle, ClipboardCheck, Weight, MapPin, Truck, AlertCircle, Smartphone } from "lucide-react";
+import { Loader2, WifiOff, ClipboardList, ShieldCheck, Factory, User, Search, RefreshCcw, Trash2, AlertTriangle, ClipboardCheck, Weight, MapPin, Truck, AlertCircle, Smartphone, ListTree, History } from "lucide-react";
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -46,7 +46,10 @@ export default function SupervisorTaskPage() {
 
     const [selectedPlant, setSelectedPlant] = useState('all-plants');
     const [searchTerm, setSearchTerm] = useState('');
+    const [historySearchTerm, setHistorySearchTerm] = useState('');
     const [livePage, setLivePage] = useState(1);
+    const [historyPage, setHistoryPage] = useState(1);
+    const [historyItemsPerPage, setHistoryItemsPerPage] = useState(10);
     
     const [vehicleEntries, setVehicleEntries] = useState<any[]>([]);
     const [trips, setTrips] = useState<any[]>([]);
@@ -151,7 +154,7 @@ export default function SupervisorTaskPage() {
             const historyRef = query(
                 collection(firestore, `plants/${pId}/supervisor_tasks`), 
                 orderBy("timestamp", "desc"), 
-                limit(50)
+                limit(100)
             );
             const unsubHistory = onSnapshot(historyRef, (snap) => {
                 const plantHistory = snap.docs.map(d => ({
@@ -181,11 +184,9 @@ export default function SupervisorTaskPage() {
 
             const vehicleNum = trip.vehicleNumber || '--';
             
-            // REGISTRY NODE: Match with Gate Entry
             const entry = vehicleEntries.find(e => e.tripId === trip.id || (e.vehicleNumber === trip.vehicleNumber && e.status === 'IN'));
             if (entry?.isTaskCompleted) return;
 
-            // Handshake with Lorry Receipt node
             const lr = lrs.find(l => l.tripDocId === trip.id || l.tripId === trip.tripId);
 
             const shipId = Array.isArray(trip.shipmentIds) ? trip.shipmentIds[0] : trip.shipmentIds;
@@ -195,7 +196,6 @@ export default function SupervisorTaskPage() {
             const normalizedPlantIdStr = normalizePlantId(trip.originPlantId);
             const pName = allPlants?.find((p: any) => normalizePlantId(p.id) === normalizedPlantIdStr)?.name || trip.originPlantId;
 
-            // USE TRIP DATA IF SHIPMENT IS MISSING (REDUNDANCY NODE)
             const consignor = trip.consignor || shipment?.consignor || '--';
             const shipTo = trip.shipToParty || shipment?.shipToParty || '--';
             const destination = trip.unloadingPoint || shipment?.unloadingPoint || trip.destination || '--';
@@ -220,7 +220,8 @@ export default function SupervisorTaskPage() {
                 isReadyForTask: !!entry, 
                 entryData: entry,
                 originalTask: entry || { id: trip.id, ...trip },
-                shipmentItems: shipment?.items || []
+                shipmentItems: shipment?.items || [],
+                timestamp: trip.lastUpdated?.toDate ? trip.lastUpdated.toDate() : (trip.lastUpdated ? new Date(trip.lastUpdated) : new Date(trip.startDate))
             });
         });
 
@@ -253,11 +254,13 @@ export default function SupervisorTaskPage() {
                 isReadyForTask: true,
                 entryData: entry,
                 originalTask: entry,
-                shipmentItems: [] 
+                shipmentItems: [],
+                timestamp: entry.entryTimestamp?.toDate ? entry.entryTimestamp.toDate() : new Date(entry.entryTimestamp)
             });
         });
 
-        return tasks;
+        // REGISTRY RULE: SORT LATEST FIRST
+        return tasks.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
     }, [trips, vehicleEntries, shipments, allPlants, lrs]);
 
     const filteredTasks = useMemo(() => {
@@ -284,8 +287,23 @@ export default function SupervisorTaskPage() {
         if (selectedPlant !== 'all-plants') {
             result = result.filter(h => normalizePlantId(h.originPlantId) === normalizePlantId(selectedPlant));
         }
+        if (historySearchTerm) {
+            const s = historySearchTerm.toLowerCase();
+            result = result.filter(h => 
+                h.tripId?.toLowerCase().includes(s) ||
+                h.vehicleNumber?.toLowerCase().includes(s) ||
+                h.lrNumber?.toLowerCase().includes(s)
+            );
+        }
         return result;
-    }, [history, selectedPlant]);
+    }, [history, selectedPlant, historySearchTerm]);
+
+    const paginatedHistory = useMemo(() => {
+        const start = (historyPage - 1) * historyItemsPerPage;
+        return sortedHistory.slice(start, start + historyItemsPerPage);
+    }, [sortedHistory, historyPage, historyItemsPerPage]);
+
+    const totalHistoryPages = Math.ceil(sortedHistory.length / historyItemsPerPage);
 
     const handleRemoveHistoryTask = async (taskId: string, plantId: string) => {
         if (!isAdmin || !firestore) return;
@@ -323,7 +341,7 @@ export default function SupervisorTaskPage() {
                                 <ShieldCheck className="h-3.5 w-3.5 mr-2 text-blue-600" /> {allPlants?.find((p: any) => normalizePlantId(p.id) === normalizePlantId(authorizedPlantIds[0]))?.name || authorizedPlantIds[0]}
                             </div>
                         ) : (
-                            <Select value={selectedPlant} onValueChange={(v) => { setSelectedPlant(v); setLivePage(1); }}>
+                            <Select value={selectedPlant} onValueChange={(v) => { setSelectedPlant(v); setLivePage(1); setHistoryPage(1); }}>
                                 <SelectTrigger className="w-[220px] h-10 rounded-xl bg-white border-slate-200 font-bold shadow-sm">
                                     <SelectValue placeholder="Pick node" />
                                 </SelectTrigger>
@@ -467,7 +485,56 @@ export default function SupervisorTaskPage() {
                     </CardContent>
                 </Card>
 
-                <TaskHistoryTable data={sortedHistory} isAdmin={isAdmin} onRemove={handleRemoveHistoryTask} />
+                <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
+                    <CardHeader className="bg-slate-50 border-b p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white rounded-lg border shadow-sm"><History className="h-5 w-5 text-blue-900" /></div>
+                            <div>
+                                <CardTitle className="text-lg font-black uppercase tracking-tight text-blue-900 italic">Task Completion Ledger</CardTitle>
+                                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Audit trail of verified yard missions</CardDescription>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4">
+                            <div className="relative group">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
+                                <Input 
+                                    placeholder="Filter Ledger (Trip, LR, Vehicle)..." 
+                                    value={historySearchTerm} 
+                                    onChange={e => { setHistorySearchTerm(e.target.value); setHistoryPage(1); }}
+                                    className="pl-10 h-10 w-[300px] rounded-xl bg-white border-slate-200 shadow-sm font-bold focus-visible:ring-blue-900"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase text-slate-400">Rows:</span>
+                                <Select value={historyItemsPerPage.toString()} onValueChange={(v) => { setHistoryItemsPerPage(Number(v)); setHistoryPage(1); }}>
+                                    <SelectTrigger className="h-9 w-[80px] rounded-lg border-slate-200 bg-white font-black text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        {[10, 25, 50, 100].map(v => <SelectItem key={v} value={v.toString()} className="font-bold py-2">{v}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <TaskHistoryTable 
+                            data={paginatedHistory} 
+                            isAdmin={isAdmin} 
+                            onRemove={handleRemoveHistoryTask} 
+                        />
+                        <div className="p-6 bg-slate-50 border-t flex items-center justify-between">
+                            <Pagination 
+                                currentPage={historyPage} 
+                                totalPages={totalHistoryPages} 
+                                onPageChange={setHistoryPage} 
+                                itemCount={sortedHistory.length}
+                                canPreviousPage={historyPage > 1}
+                                canNextPage={historyPage < totalHistoryPages}
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
             {taskModalData && (
