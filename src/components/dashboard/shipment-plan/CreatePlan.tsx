@@ -373,10 +373,10 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   const handleExportTemplate = () => {
     const headers = [
         "Plant ID", "Consignor Name", "Lifting Point", "Consignee Name", "Ship To Name", 
-        "Destination Point", "UOM", "Quantity", "LR Number", "Payment Term", "Delivery Address"
+        "Destination Point", "UOM", "Quantity", "Invoice Number", "LR Number", "Payment Term", "Delivery Address"
     ];
     const sample = [
-        ["1426", "TATA CHEMICALS", "MUMBAI", "BIGMART RETAIL", "BIGMART WH", "GHAZIABAD", "MT", "25.000", "LR123", "Paid", "C-17 UPSIDC GZB"]
+        ["1426", "TATA CHEMICALS", "MUMBAI", "BIGMART RETAIL", "BIGMART WH", "GHAZIABAD", "MT", "25.000", "INV-9988", "LR123", "Paid", "C-17 UPSIDC GZB"]
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers, ...sample]);
     const wb = XLSX.utils.book_new();
@@ -399,7 +399,6 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
             const jsonData = XLSX.utils.sheet_to_json(sheet) as any[];
 
             let successCount = 0;
-            let currentOperator = user.displayName || user.email || 'System';
 
             for (const row of jsonData) {
                 try {
@@ -414,6 +413,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
 
                         const qty = Number(row['Quantity']) || 0;
                         const uom = (row['UOM'] || 'METRIC TON').toUpperCase();
+                        const invoiceNo = row['Invoice Number']?.toString() || 'NA';
 
                         const dataToSave = {
                             originPlantId: plantId,
@@ -434,7 +434,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                             creationDate: serverTimestamp(),
                             userId: user.uid,
                             items: [{
-                                invoiceNumber: 'BULK-PLAN',
+                                invoiceNumber: invoiceNo,
                                 units: 1,
                                 unitType: 'Package',
                                 itemDescription: 'BULK UPLOAD MISSION',
@@ -505,7 +505,11 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                     <FormItem>
                         <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Plant Node Registry *</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-black text-slate-700 shadow-sm border-slate-200"><SelectValue placeholder="Select Node" /></SelectTrigger></FormControl>
+                            <FormControl>
+                                <SelectTrigger className="h-14 bg-white rounded-xl font-black text-slate-700 shadow-sm border-slate-200">
+                                    <SelectValue placeholder="Select Node" />
+                                </SelectTrigger>
+                            </FormControl>
                             <SelectContent className="rounded-xl">{authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>)}</SelectContent>
                         </Select>
                     </FormItem>
