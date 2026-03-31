@@ -155,7 +155,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Type to filter registry handbook..." 
                             value={search} 
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold focus-visible:ring-blue-900 shadow-inner"
                             autoFocus
                         />
@@ -372,11 +372,11 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
 
   const handleExportTemplate = () => {
     const headers = [
-        "Plant ID", "Consignor Name", "Lifting Point", "Consignee Name", "Ship To Name", 
+        "Plant ID", "Consignor Name", "Consignor GSTIN", "Lifting Point", "Consignee Name", "Consignee GSTIN", "Ship To Name", "Ship To GSTIN", 
         "Destination Point", "UOM", "Quantity", "Invoice Number", "LR Number", "Payment Term", "Delivery Address", "Item Description", "Units"
     ];
     const sample = [
-        ["1426", "TATA CHEMICALS", "MUMBAI", "BIGMART RETAIL", "BIGMART WH", "GHAZIABAD", "MT", "25.000", "INV-9988", "LR123", "Paid", "C-17 UPSIDC GZB", "TATA SALT 50KG BAGS", "500"]
+        ["1426", "TATA CHEMICALS", "27AABCU9567L1Z5", "MUMBAI", "BIGMART RETAIL", "07AABCD1234E1Z3", "BIGMART WH", "07AABCD1234E1Z3", "GHAZIABAD", "MT", "25.000", "INV-9988", "LR123", "Paid", "C-17 UPSIDC GZB", "TATA SALT 50KG BAGS", "500"]
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers, ...sample]);
     const wb = XLSX.utils.book_new();
@@ -400,9 +400,14 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
 
             let successCount = 0;
 
+            const getVal = (row: any, keys: string[]) => {
+                const foundKey = Object.keys(row).find(k => keys.some(search => k.toLowerCase().replace(/\s/g, '') === search.toLowerCase().replace(/\s/g, '')));
+                return foundKey ? row[foundKey]?.toString().trim() : '';
+            };
+
             for (const row of jsonData) {
                 try {
-                    const plantId = normalizePlantId(row['Plant ID'] || '');
+                    const plantId = normalizePlantId(getVal(row, ["Plant ID", "Plant"]));
                     if (!plantId) continue;
 
                     await runTransaction(firestore, async (tx) => {
@@ -411,30 +416,33 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                         const shipmentId = formatSequenceId("S", newCount);
                         const shipRef = doc(collection(firestore, `plants/${plantId}/shipments`));
 
-                        const qty = Number(row['Quantity']) || 0;
-                        const uom = (row['UOM'] || 'METRIC TON').toUpperCase();
-                        const invoiceNo = row['Invoice Number']?.toString() || 'NA';
-                        const itemDesc = row['Item Description']?.toString() || 'BULK UPLOAD MISSION';
-                        const unitCount = Number(row['Units']) || 1;
+                        const qty = Number(getVal(row, ["Quantity", "Qty"])) || 0;
+                        const uom = (getVal(row, ["UOM", "Unit"]) || 'METRIC TON').toUpperCase();
+                        const invoiceNo = getVal(row, ["Invoice Number", "Invoice No"]) || 'NA';
+                        const itemDesc = getVal(row, ["Item Description", "Description"]) || 'BULK UPLOAD MISSION';
+                        const unitCount = Number(getVal(row, ["Units", "Packages"])) || 1;
 
                         const dataToSave = {
                             originPlantId: plantId,
                             shipmentId,
-                            consignor: row['Consignor Name'] || '',
-                            loadingPoint: row['Lifting Point'] || '',
-                            billToParty: row['Consignee Name'] || '',
-                            shipToParty: row['Ship To Name'] || row['Consignee Name'] || '',
-                            unloadingPoint: row['Destination Point'] || '',
+                            consignor: getVal(row, ["Consignor Name", "Consignor"]),
+                            consignorGtin: getVal(row, ["Consignor GSTIN", "Consignor Gst"]),
+                            loadingPoint: getVal(row, ["Lifting Point", "From"]),
+                            billToParty: getVal(row, ["Consignee Name", "Consignee"]),
+                            billToGtin: getVal(row, ["Consignee GSTIN", "Consignee Gst"]),
+                            shipToParty: getVal(row, ["Ship To Name", "Ship To"]),
+                            shipToGtin: getVal(row, ["Ship To GSTIN", "Ship To Gst"]),
+                            unloadingPoint: getVal(row, ["Destination Point", "To"]),
                             materialTypeId: uom,
                             quantity: qty,
                             assignedQty: 0,
                             balanceQty: qty,
-                            lrNumber: row['LR Number'] || '',
-                            paymentTerm: row['Payment Term'] || 'Paid',
-                            deliveryAddress: row['Delivery Address'] || '',
+                            lrNumber: getVal(row, ["LR Number", "LR No"]),
+                            paymentTerm: getVal(row, ["Payment Term", "Term"]) || 'Paid',
+                            deliveryAddress: getVal(row, ["Delivery Address", "Address"]),
                             currentStatusId: 'pending',
                             creationDate: serverTimestamp(),
-                            lrDate: serverTimestamp(), // REGISTRY SYNC: LR Date handshakes with Order Date during bulk pulse
+                            lrDate: serverTimestamp(), 
                             userId: user.uid,
                             items: [{
                                 invoiceNumber: invoiceNo,

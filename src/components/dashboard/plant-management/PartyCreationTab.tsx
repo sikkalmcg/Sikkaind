@@ -20,7 +20,7 @@ import type { Party, WithId, PartyType, Plant, SubUser } from '@/types';
 import { statesAndUTs } from '@/lib/states';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 import EditPartyModal from './EditPartyModal';
-import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
+import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, getDoc, where, onSnapshot, orderBy } from "firebase/firestore";
 import { Badge } from '@/components/ui/badge';
 import { cn, normalizePlantId } from '@/lib/utils';
@@ -165,41 +165,53 @@ export default function PartyCreationTab() {
         let successCount = 0;
         let failedRecords: { row: number; error: string }[] = [];
 
+        // Mapping Logic: Case-insensitive header handshake
+        const getVal = (row: any, keys: string[]) => {
+            const foundKey = Object.keys(row).find(k => keys.some(search => k.toLowerCase().replace(/\s/g, '') === search.toLowerCase().replace(/\s/g, '')));
+            return foundKey ? row[foundKey]?.toString().trim() : '';
+        };
+
         for (let i = 0; i < jsonData.length; i++) {
           const row = jsonData[i];
           const rowNum = i + 2; 
           try {
-            const name = row['Party Name']?.toString().trim();
-            const type = row['Type']?.toString().trim();
-            const gstin = row['GSTIN']?.toString().trim()?.toUpperCase() || '';
-            const address = row['Address']?.toString().trim();
-            const city = row['City']?.toString().trim();
-            const state = row['State']?.toString().trim() || '';
+            const name = getVal(row, ["Party Name", "Name", "Client Name"]);
+            const type = getVal(row, ["Type", "Party Type", "Client Type"]);
+            const gstin = getVal(row, ["GSTIN", "Gst No", "Gst", "GST Number"])?.toUpperCase() || '';
+            const address = getVal(row, ["Address", "Location", "Full Address"]);
+            const city = getVal(row, ["City", "Place"]);
+            const state = getVal(row, ["State", "Province"]) || '';
 
             if (!name || !type || !address || !city) throw new Error("Missing Mandatory Field (Name, Type, Address, or City)");
-            if (!PartyTypes.includes(type as any)) throw new Error(`Invalid Type: ${type}`);
+            
+            // Validate Type node
+            const matchedType = PartyTypes.find(t => t.toLowerCase() === type.toLowerCase());
+            if (!matchedType) throw new Error(`Invalid Type: ${type}. Expected: ${PartyTypes.join(', ')}`);
             
             const isDup = (parties || []).some(p => 
                 !p.isDeleted && 
                 p.name.trim().toUpperCase() === name.toUpperCase() &&
                 (p.city || '').trim().toUpperCase() === city.toUpperCase() &&
-                (p.state || '').trim().toUpperCase() === state.toUpperCase() &&
                 (p.address || '').trim().toUpperCase() === address.toUpperCase()
             );
-            if (isDup) throw new Error("Duplicate Name, City, State, and Address combination");
+            if (isDup) throw new Error("Duplicate Name, City, and Address combination detected.");
 
-            const code = gstin?.length === 15 ? gstin.substring(0, 2) : 'N/A';
+            // Extract State Code node from GSTIN
+            let finalStateCode = getVal(row, ["State Code", "Code"]) || '';
+            if (!finalStateCode && gstin.length === 15) {
+                finalStateCode = gstin.substring(0, 2);
+            }
 
             await addDoc(collection(firestore, "logistics_parties"), {
                 name, 
-                type: type as PartyType, 
+                type: matchedType as PartyType, 
                 gstin: gstin || '', 
-                pan: row['PAN Number']?.toString().trim()?.toUpperCase() || (gstin?.length === 15 ? gstin.substring(2, 12) : ''),
-                mobile: row['Contact Number']?.toString().trim() || '',
+                pan: getVal(row, ["PAN Number", "Pan No", "PAN"])?.toUpperCase() || (gstin?.length === 15 ? gstin.substring(2, 12) : ''),
+                mobile: getVal(row, ["Contact Number", "Mobile", "Phone"]) || '',
                 address,
                 city,
                 state,
-                stateCode: code,
+                stateCode: finalStateCode,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
                 isDeleted: false,
@@ -213,10 +225,10 @@ export default function PartyCreationTab() {
         toast({
             variant: failedRecords.length > 0 ? 'destructive' : 'success',
             title: 'Bulk Upload Summary',
-            description: `Registered: ${successCount} | Failed: ${failedRecords.length}.`,
+            description: `Established: ${successCount} | Errors: ${failedRecords.length}.`,
         });
       } catch (err) {
-        toast({ variant: 'destructive', title: 'Upload Failed', description: 'Error reading file node.' });
+        toast({ variant: 'destructive', title: 'Upload Failed', description: 'Registry file read error.' });
       } finally {
         setIsUploading(false);
         hideLoader();
@@ -549,7 +561,7 @@ export default function PartyCreationTab() {
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             </AlertDialogTrigger>
-                            <AlertDialogContent className="border-none shadow-2xl p-0 overflow-hidden bg-white">
+                            <AlertDialogContent className="border-none shadow-2xl p-0 overflow-hidden bg-white rounded-3xl">
                                 <div className="p-8 bg-red-50 border-b border-red-100 flex items-center gap-5">
                                     <div className="p-3 bg-red-600 text-white rounded-2xl shadow-xl"><AlertCircle className="h-6 w-6" /></div>
                                     <div>
