@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -35,11 +36,13 @@ export default function CancelTripModal({ isOpen, onClose, trip, onConfirm }: Ca
     setIsDeleting(false);
   };
 
+  const manifestWeight = Number(trip.dispatchedQty) || Number(trip.assignedQtyInTrip) || 0;
+
   const manifestSummary = [
     { label: 'Plant Node', value: trip.plantName || trip.originPlantId, icon: Factory },
     { label: 'Registry Trip ID', value: trip.tripId, icon: Package, mono: true },
     { label: 'Vehicle Registry', value: trip.vehicleNumber, icon: Truck, bold: true },
-    { label: 'Manifest weight', value: `${trip.assignedQtyInTrip} MT`, icon: Calculator, color: 'text-red-600' },
+    { label: 'Manifest weight', value: manifestWeight > 0 ? `${manifestWeight.toFixed(3)} MT` : 'REVERTING...', icon: Calculator, color: 'text-red-600' },
   ];
 
   return (
@@ -93,7 +96,7 @@ export default function CancelTripModal({ isOpen, onClose, trip, onConfirm }: Ca
                 disabled={isDeleting} 
                 className="bg-red-600 hover:bg-red-700 text-white px-10 h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl border-none transition-all active:scale-95 disabled:grayscale"
             >
-                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4 mr-2" />}
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Ban className="h-4 w-4 mr-2" />}
                 Confirm Purge
             </Button>
         </DialogFooter>

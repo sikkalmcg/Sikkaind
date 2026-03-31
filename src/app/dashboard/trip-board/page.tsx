@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -12,9 +13,9 @@ import EditVehicleModal from '@/components/dashboard/trip-board/EditVehicleModal
 import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilter';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
-import { normalizePlantId, parseSafeDate } from '@/lib/utils';
+import { normalizePlantId, parseSafeDate, sanitizeRegistryNode } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs } from "firebase/firestore";
+import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, addDoc } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -266,6 +267,99 @@ function TripBoardContent() {
     } catch (e) { toast({ variant: 'destructive', title: "Registry Error" }); } finally { setIsExtracting(false); }
   }, [firestore, plants, dbCarriers, toast]);
 
+  const handleCancelTrip = async () => {
+    if (!firestore || !user || !cancelTripData) return;
+    
+    showLoader();
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const plantId = normalizePlantId(cancelTripData.originPlantId);
+            const tripId = cancelTripData.id;
+            const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
+            const globalTripRef = doc(firestore, 'trips', tripId);
+            
+            const tripSnap = await transaction.get(tripRef);
+            if (!tripSnap.exists()) throw new Error("Trip node not found in registry.");
+            const tData = tripSnap.data() as Trip;
+
+            // 1. Revert Shipment quantities
+            const shipId = tData.shipmentIds[0];
+            const shipRef = doc(firestore, `plants/${plantId}/shipments`, shipId);
+            const shipSnap = await transaction.get(shipRef);
+            if (shipSnap.exists()) {
+                const sData = shipSnap.data() as Shipment;
+                const weightToRevert = Number(tData.assignedQtyInTrip || 0);
+                const newAssigned = Math.max(0, (sData.assignedQty || 0) - weightToRevert);
+                const newBalance = sData.quantity - newAssigned;
+                
+                transaction.update(shipRef, {
+                    assignedQty: newAssigned,
+                    balanceQty: newBalance,
+                    currentStatusId: newAssigned === 0 ? 'pending' : 'Partly Vehicle Assigned',
+                    lastUpdateDate: serverTimestamp()
+                });
+            }
+
+            // 2. Revert Vehicle status
+            if (tData.vehicleId) {
+                const vehicleRef = doc(firestore, 'vehicles', tData.vehicleId);
+                transaction.update(vehicleRef, { status: 'Available' });
+            }
+
+            // 3. Move to Recycle Bin
+            const currentOperator = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || "Admin");
+            const recycleRef = doc(collection(firestore, "recycle_bin"));
+            transaction.set(recycleRef, {
+                pageName: "Trip Monitoring Hub (Cancelled)",
+                userName: currentOperator,
+                deletedAt: serverTimestamp(),
+                data: sanitizeRegistryNode({ ...tData, id: tripId, type: 'Trip', plantName: cancelTripData.plantName })
+            });
+
+            // 4. Delete nodes
+            transaction.delete(tripRef);
+            transaction.delete(globalTripRef);
+        });
+
+        toast({ title: 'Mission Revoked', description: `Trip ${cancelTripData.tripId} purged from registry.` });
+        setCancelTripData(null);
+    } catch (e: any) {
+        console.error("Cancel Trip Error:", e);
+        toast({ variant: 'destructive', title: 'Action Failed', description: e.message });
+    } finally {
+        hideLoader();
+    }
+  };
+
+  const handleUpdateVehicle = async (tripId: string, values: any) => {
+    if (!firestore || !user) return;
+    showLoader();
+    try {
+        const tripToUpdate = trips.find(t => t.id === tripId);
+        if (!tripToUpdate) throw new Error("Trip not found.");
+
+        const plantId = normalizePlantId(tripToUpdate.originPlantId);
+        const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
+        const globalTripRef = doc(firestore, 'trips', tripId);
+
+        const updateData = {
+            vehicleNumber: values.vehicleNumber,
+            driverMobile: values.driverMobile,
+            lastUpdated: serverTimestamp()
+        };
+
+        await updateDoc(tripRef, updateData);
+        await updateDoc(globalTripRef, updateData);
+
+        toast({ title: 'Registry Synchronized', description: 'Vehicle identity updated successfully.' });
+        setEditVehicleTrip(null);
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Correction Failed', description: e.message });
+    } finally {
+        hideLoader();
+    }
+  };
+
   return (
     <div className="flex flex-1 flex-col h-full relative">
       {isExtracting && (
@@ -288,7 +382,7 @@ function TripBoardContent() {
         
         <div className="flex items-center gap-3">
           <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-900" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
             <Input placeholder="Search board registry..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-[320px] h-11 rounded-2xl bg-slate-50 border-slate-200 font-bold shadow-inner" />
           </div>
           <Button variant="outline" onClick={() => window.location.reload()} size="icon" className="h-11 w-11 rounded-xl text-blue-900 border-slate-200"><RefreshCcw className="h-5 w-5" /></Button>
@@ -336,8 +430,8 @@ function TripBoardContent() {
       {lrGenerateTrip && <LRGenerationModal isOpen={!!lrGenerateTrip} onClose={() => setLrGenerateTrip(null)} trip={lrGenerateTrip.trip} carrier={lrGenerateTrip.carrier} onGenerate={() => setLrGenerateTrip(null)} />}
       {podUploadTrip && <PodUploadModal isOpen={!!podUploadTrip} onClose={() => setPodUploadTrip(null)} trip={podUploadTrip} onSuccess={() => setPodUploadTrip(null)} />}
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
-      {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={async () => {}} />}
-      {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={() => {}} />}
+      {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={handleUpdateVehicle} />}
+      {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={handleCancelTrip} />}
       {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
     </div>
   );
