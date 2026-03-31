@@ -259,7 +259,6 @@ export default function SupervisorTaskPage() {
             });
         });
 
-        // REGISTRY RULE: SORT LATEST FIRST
         return tasks.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
     }, [trips, vehicleEntries, shipments, allPlants, lrs]);
 
@@ -292,7 +291,9 @@ export default function SupervisorTaskPage() {
             result = result.filter(h => 
                 h.tripId?.toLowerCase().includes(s) ||
                 h.vehicleNumber?.toLowerCase().includes(s) ||
-                h.lrNumber?.toLowerCase().includes(s)
+                h.lrNumber?.toLowerCase().includes(s) ||
+                h.consignor?.toLowerCase().includes(s) ||
+                h.shipTo?.toLowerCase().includes(s)
             );
         }
         return result;
@@ -522,6 +523,7 @@ export default function SupervisorTaskPage() {
                             data={paginatedHistory} 
                             isAdmin={isAdmin} 
                             onRemove={handleRemoveHistoryTask} 
+                            onEdit={(task) => setTaskModalData({ ...task, isHistoryEdit: true })}
                         />
                         <div className="p-6 bg-slate-50 border-t flex items-center justify-between">
                             <Pagination 

@@ -26,7 +26,8 @@ import {
     Calculator, 
     Loader2, 
     UserCircle,
-    Scale
+    Scale,
+    MessageSquare
 } from 'lucide-react';
 import { useFirestore, useUser } from "@/firebase";
 import { doc, serverTimestamp, collection, runTransaction } from "firebase/firestore";
@@ -35,6 +36,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { LRUnitTypes } from '@/lib/constants';
+import { Textarea } from '@/components/ui/textarea';
 
 const itemSchema = z.object({
     deliveryNo: z.string().optional(),
@@ -48,6 +50,7 @@ const itemSchema = z.object({
 
 const formSchema = z.object({
     actualWeight: z.coerce.number().min(0).default(0),
+    remarks: z.string().optional().default(''),
     items: z.array(itemSchema).min(1, "Manifest node requires at least one row.")
 });
 
@@ -62,7 +65,8 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-        actualWeight: task?.assignedQty || 0,
+        actualWeight: task?.actualWeight || task?.assignedQty || 0,
+        remarks: task?.remarks || '',
         items: []
     }
   });
@@ -72,23 +76,31 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
   const watchedItems = useWatch({ control, name: "items" }) || [];
 
   useEffect(() => {
-    if (isOpen && task && fields.length === 0) {
-        // Automatic Manifest Resolution Node
-        const initialItems = (task.shipmentItems || []).map((i: any) => ({
-            deliveryNo: 'DEL-',
-            invoiceNo: i.invoiceNumber ? `INV-${i.invoiceNumber}` : 'INV-',
-            itemDescription: i.itemDescription || i.description || 'Goods particulars',
-            deliveryUnit: Number(i.units) || 0,
-            loadUnit: Number(i.units) || 0,
-            uom: i.unitType || 'Bag',
-            weight: Number(i.weight) || 0
-        }));
+    if (isOpen && task) {
+        if (task.isHistoryEdit) {
+            reset({
+                actualWeight: task.actualWeight,
+                remarks: task.remarks || '',
+                items: task.items || []
+            });
+        } else if (fields.length === 0) {
+            // Automatic Manifest Resolution Node
+            const initialItems = (task.shipmentItems || []).map((i: any) => ({
+                deliveryNo: 'DEL-',
+                invoiceNo: i.invoiceNumber ? `INV-${i.invoiceNumber}` : 'INV-',
+                itemDescription: i.itemDescription || i.description || 'Goods particulars',
+                deliveryUnit: Number(i.units) || 0,
+                loadUnit: Number(i.units) || 0,
+                uom: i.unitType || 'Bag',
+                weight: Number(i.weight) || 0
+            }));
 
-        if (initialItems.length > 0) {
-            reset({ actualWeight: task.assignedQty, items: initialItems });
-        } else {
-            reset({ actualWeight: task.assignedQty });
-            append({ deliveryNo: 'DEL-', invoiceNo: 'INV-', itemDescription: 'Goods particulars', deliveryUnit: 0, loadUnit: 0, uom: 'Bag', weight: 0 });
+            if (initialItems.length > 0) {
+                reset({ actualWeight: task.assignedQty, remarks: '', items: initialItems });
+            } else {
+                reset({ actualWeight: task.assignedQty, remarks: '' });
+                append({ deliveryNo: 'DEL-', invoiceNo: 'INV-', itemDescription: 'Goods particulars', deliveryUnit: 0, loadUnit: 0, uom: 'Bag', weight: 0 });
+            }
         }
     }
   }, [isOpen, task, fields.length, append, reset]);
@@ -112,10 +124,12 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
     showLoader();
     try {
         await runTransaction(firestore, async (transaction) => {
-            const plantId = task.plantId;
-            const historyRef = doc(collection(firestore, `plants/${plantId}/supervisor_tasks`));
+            const plantId = task.plantId || task.originPlantId;
+            const historyId = task.isHistoryEdit ? task.id : doc(collection(firestore, `plants/${plantId}/supervisor_tasks`)).id;
+            const historyRef = doc(firestore, `plants/${plantId}/supervisor_tasks`, historyId);
             
-            if (task.entryData?.id) {
+            // 1. Update Gate Entry if not history edit
+            if (!task.isHistoryEdit && task.entryData?.id) {
                 const entryRef = doc(firestore, 'vehicleEntries', task.entryData.id);
                 transaction.update(entryRef, { 
                     isTaskCompleted: true, 
@@ -126,18 +140,24 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 });
             }
 
-            const tripRef = doc(firestore, `plants/${plantId}/trips`, task.realTripId);
-            const globalTripRef = doc(firestore, 'trips', task.realTripId);
-            const tripUpdate = {
-                tripStatus: 'Loaded',
-                loadingVerified: true,
-                actualWeight: values.actualWeight,
-                lastUpdated: serverTimestamp()
-            };
-            transaction.update(tripRef, tripUpdate);
-            transaction.update(globalTripRef, tripUpdate);
+            // 2. Update Trip (Global and Local)
+            const realTripId = task.isHistoryEdit ? (task.realTripId || task.tripDocId) : task.realTripId;
+            if (realTripId) {
+                const tripRef = doc(firestore, `plants/${plantId}/trips`, realTripId);
+                const globalTripRef = doc(firestore, 'trips', realTripId);
+                const tripUpdate = {
+                    tripStatus: 'Loaded',
+                    loadingVerified: true,
+                    actualWeight: values.actualWeight,
+                    lastUpdated: serverTimestamp()
+                };
+                transaction.update(tripRef, tripUpdate);
+                transaction.update(globalTripRef, tripUpdate);
+            }
 
-            transaction.set(historyRef, {
+            // 3. Commit History Node
+            const currentName = user.displayName || user.email;
+            const historyData: any = {
                 tripId: task.tripId,
                 vehicleNumber: task.vehicleNumber,
                 purpose: task.purpose,
@@ -145,13 +165,21 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 actualWeight: values.actualWeight,
                 manifestTotals: totals,
                 items: values.items,
-                timestamp: serverTimestamp(),
-                supervisor: user.displayName || user.email,
-                originPlantId: plantId
-            });
+                remarks: values.remarks || '',
+                timestamp: task.isHistoryEdit ? task.timestamp : serverTimestamp(),
+                lastModified: serverTimestamp(),
+                supervisor: task.isHistoryEdit ? task.supervisor : currentName,
+                modifiedBy: currentName,
+                originPlantId: plantId,
+                consignor: task.consignor || task.from || '--',
+                shipTo: task.shipTo || '--',
+                realTripId: realTripId || null
+            };
+
+            transaction.set(historyRef, historyData, { merge: true });
         });
 
-        toast({ title: 'Task Verified', description: 'Yard loading manifest synchronized with registry.' });
+        toast({ title: task.isHistoryEdit ? 'Registry Corrected' : 'Task Verified', description: 'Manifest synchronized with mission registry.' });
         onSuccess();
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Registry Error', description: e.message });
@@ -163,9 +191,9 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
   const manifestHeaderNodes = [
     { label: 'Vehicle Number', value: task.vehicleNumber, icon: Truck },
     { label: 'Pilot Detail', value: task.driverMobile, icon: Smartphone, color: 'text-blue-600' },
-    { label: 'Dispatch From', value: task.from, icon: Factory },
+    { label: 'Dispatch From', value: task.from || task.consignor, icon: Factory },
     { label: 'Ship To Party', value: task.shipTo, icon: UserCircle },
-    { label: 'Destination', value: task.destination, icon: MapPin },
+    { label: 'Destination', value: task.destination || task.shipTo, icon: MapPin },
     { label: 'Allotted Weight (MT)', value: `${task.assignedQty} MT`, icon: Scale, bold: true, color: 'text-blue-900' },
   ];
 
@@ -179,14 +207,18 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                     <Truck className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                    <DialogTitle className="text-3xl font-black uppercase tracking-tight italic leading-none">LOADING MANIFEST VERIFICATION</DialogTitle>
+                    <DialogTitle className="text-3xl font-black uppercase tracking-tight italic leading-none">
+                        {task.isHistoryEdit ? "CORRECT LOADING MANIFEST" : "LOADING MANIFEST VERIFICATION"}
+                    </DialogTitle>
                     <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-[0.2em] mt-2">
                         OPERATOR: {(user?.displayName || user?.email || 'SIKKAIND.ADMIN').toUpperCase()} | REGISTRY HANDSHAKE
                     </DialogDescription>
                 </div>
             </div>
             <div className="flex items-center gap-4">
-                <Badge variant="outline" className="bg-white/10 border-white/10 text-white font-black uppercase text-[10px] px-6 h-10 border-none rounded-full">VERIFIED MISSION NODE</Badge>
+                <Badge variant="outline" className="bg-white/10 border-white/10 text-emerald-400 font-black uppercase text-[10px] px-6 h-10 border-none rounded-full">
+                    {task.isHistoryEdit ? "ADMIN OVERRIDE ACTIVE" : "VERIFIED MISSION NODE"}
+                </Badge>
                 <button onClick={onClose} className="h-10 w-10 bg-white p-0 text-red-600 hover:bg-red-50 transition-all rounded-xl shadow-lg flex items-center justify-center border-none">
                     <X className="h-6 w-6 stroke-[3]" />
                 </button>
@@ -222,7 +254,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                         variant="outline" 
                         size="sm" 
                         onClick={() => append({ deliveryNo: 'DEL-', invoiceNo: 'INV-', itemDescription: 'Goods particulars', deliveryUnit: 0, loadUnit: 0, uom: 'Bag', weight: 0 })}
-                        className="h-10 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white hover:bg-blue-50 shadow-md transition-all active:scale-95"
+                        className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-blue-200 text-blue-700 bg-white hover:bg-blue-50 shadow-md transition-all active:scale-95"
                     >
                         <Plus className="h-4 w-4" /> ADD ROW
                     </Button>
@@ -295,12 +327,26 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 </Table>
             </div>
 
-            <div className="flex flex-col md:flex-row items-center gap-8 justify-center">
-                <div className="max-w-md w-full p-8 bg-blue-900 text-white rounded-[2.5rem] shadow-2xl flex flex-col items-center gap-4 text-center border-4 border-blue-800">
-                    <Scale className="h-10 w-10 text-blue-400" />
-                    <div className="space-y-1">
-                        <p className="text-[10px] font-black uppercase text-blue-300 tracking-widest">TOTAL ACTUAL WEIGHT (MT)</p>
-                        <Input type="number" step="0.001" {...form.register('actualWeight')} className="h-16 text-center font-black text-4xl bg-transparent border-none focus-visible:ring-0 w-full" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <Card className="p-8 border-2 border-slate-100 shadow-xl rounded-3xl bg-white space-y-4">
+                    <div className="flex items-center gap-3 px-1 border-b pb-3">
+                        <MessageSquare className="h-4 w-4 text-blue-600" />
+                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Audit Ledger Remarks</h4>
+                    </div>
+                    <Textarea 
+                        {...form.register('remarks')}
+                        placeholder="Provide mission context or variance justification..." 
+                        className="min-h-[120px] rounded-2xl bg-slate-50/50 border-slate-200 font-bold text-slate-700 italic"
+                    />
+                </Card>
+
+                <div className="flex items-center justify-center">
+                    <div className="max-w-md w-full p-8 bg-blue-900 text-white rounded-[2.5rem] shadow-2xl flex flex-col items-center gap-4 text-center border-4 border-blue-800">
+                        <Scale className="h-10 w-10 text-blue-400" />
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-black uppercase text-blue-300 tracking-widest">TOTAL ACTUAL WEIGHT (MT)</p>
+                            <Input type="number" step="0.001" {...form.register('actualWeight')} className="h-16 text-center font-black text-4xl bg-transparent border-none focus-visible:ring-0 w-full" />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -323,7 +369,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                     className="bg-blue-600 hover:bg-blue-700 text-white px-20 h-14 rounded-[1.5rem] font-black uppercase text-sm tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
                 >
                     {form.formState.isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <Save className="h-5 w-5 mr-3" />}
-                    POST TASK REGISTRY
+                    {task.isHistoryEdit ? 'UPDATE AUDIT NODE' : 'POST TASK REGISTRY'}
                 </Button>
             </div>
         </DialogFooter>
