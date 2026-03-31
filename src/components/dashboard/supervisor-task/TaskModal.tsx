@@ -26,10 +26,8 @@ import {
     Calculator, 
     Loader2, 
     UserCircle,
-    Scale,
     MessageSquare,
-    AlertTriangle,
-    Weight
+    AlertTriangle
 } from 'lucide-react';
 import { useFirestore, useUser } from "@/firebase";
 import { doc, serverTimestamp, collection, runTransaction } from "firebase/firestore";
@@ -51,7 +49,6 @@ const itemSchema = z.object({
 });
 
 const formSchema = z.object({
-    actualWeight: z.coerce.number().min(0).default(0),
     remarks: z.string().optional().default(''),
     items: z.array(itemSchema).min(1, "Manifest node requires at least one row.")
 });
@@ -68,7 +65,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
     resolver: zodResolver(formSchema),
     mode: 'onChange',
     defaultValues: {
-        actualWeight: task?.actualWeight || task?.assignedQty || 0,
         remarks: task?.remarks || '',
         items: []
     }
@@ -82,7 +78,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
     if (isOpen && task) {
         if (task.isHistoryEdit) {
             reset({
-                actualWeight: task.actualWeight,
                 remarks: task.remarks || '',
                 items: task.items || []
             });
@@ -93,13 +88,13 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 itemDescription: i.itemDescription || i.description || task.itemDescription || 'Goods particulars',
                 plannedUnit: Number(i.units) || Number(task.plannedUnits) || 0,
                 loadUnit: Number(i.units) || Number(task.plannedUnits) || 0,
-                uom: '' // Force mandatory selection
+                uom: '' 
             }));
 
             if (initialItems.length > 0) {
-                reset({ actualWeight: task.assignedQty, remarks: '', items: initialItems });
+                reset({ remarks: '', items: initialItems });
             } else {
-                reset({ actualWeight: task.assignedQty, remarks: '' });
+                reset({ remarks: '' });
                 append({ deliveryNo: '', invoiceNo: '', itemDescription: 'Goods particulars', plannedUnit: 0, loadUnit: 0, uom: '' });
             }
         }
@@ -107,12 +102,9 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
   }, [isOpen, task, fields.length, append, reset]);
 
   const totals = useMemo(() => {
-    return watchedItems.reduce((acc, curr) => {
-        const l = Number(curr?.loadUnit) || 0;
-        return {
-            load: acc.load + l,
-        };
-    }, { load: 0 });
+    return watchedItems.reduce((acc, curr) => ({
+        load: acc.load + (Number(curr?.loadUnit) || 0),
+    }), { load: 0 });
   }, [watchedItems]);
 
   const unitMismatch = totals.load - task.plannedUnits;
@@ -131,7 +123,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 transaction.update(entryRef, { 
                     isTaskCompleted: true, 
                     verifiedItems: values.items,
-                    actualWeight: values.actualWeight,
                     taskCompletedAt: serverTimestamp(),
                     taskCompletedBy: user.displayName || user.email
                 });
@@ -144,7 +135,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 const tripUpdate = {
                     tripStatus: 'Loaded',
                     loadingVerified: true,
-                    actualWeight: values.actualWeight,
                     lastUpdated: serverTimestamp()
                 };
                 transaction.update(tripRef, tripUpdate);
@@ -158,7 +148,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 purpose: task.purpose,
                 assignedQty: task.assignedQty,
                 plannedUnits: task.plannedUnits,
-                actualWeight: values.actualWeight,
                 manifestTotals: totals,
                 items: values.items,
                 remarks: values.remarks || '',
@@ -328,16 +317,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                         className="min-h-[120px] rounded-2xl bg-slate-50/50 border-slate-200 font-bold text-slate-700 italic"
                     />
                 </Card>
-
-                <div className="flex flex-col gap-6 items-center justify-center">
-                    <div className="max-w-md w-full p-8 bg-blue-900 text-white rounded-[2.5rem] shadow-2xl flex flex-col items-center gap-4 text-center border-4 border-blue-800">
-                        <Scale className="h-10 w-10 text-blue-400" />
-                        <div className="space-y-1">
-                            <p className="text-[10px] font-black uppercase text-blue-300 tracking-widest">TOTAL ACTUAL WEIGHT (MT)</p>
-                            <Input type="number" step="0.001" {...form.register('actualWeight')} className="h-16 text-center font-black text-4xl bg-transparent border-none focus-visible:ring-0 w-full" />
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -365,7 +344,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 <div className="p-3 bg-blue-600/20 rounded-2xl"><Calculator className="h-6 w-6 text-blue-400" /></div>
                 <div className="flex flex-col">
                     <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-1">MANIFEST NODE PROCESSING</span>
-                    <span className="text-3xl font-black text-white tracking-tighter leading-none">{totals.load.toFixed(0)} Units / {Number(form.getValues('actualWeight') || 0).toFixed(3)} MT</span>
+                    <span className="text-3xl font-black text-white tracking-tighter leading-none">{totals.load.toFixed(0)} Units</span>
                 </div>
             </div>
 

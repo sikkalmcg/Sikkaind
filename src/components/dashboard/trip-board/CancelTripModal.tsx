@@ -11,7 +11,8 @@ import {
     Package,
     Truck,
     Factory,
-    Calculator
+    Calculator,
+    Loader2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -69,7 +70,7 @@ export default function CancelTripModal({ isOpen, onClose, trip, onConfirm }: Ca
                         </span>
                         <p className={cn(
                             "text-xs uppercase leading-tight",
-                            item.bold ? "font-black text-slate-900" : "font-bold text-slate-600",
+                            item.bold ? "font-black text-slate-900" : "font-bold text-slate-700",
                             item.mono && "font-mono tracking-tighter text-blue-700",
                             item.color
                         )}>{item.value}</p>
