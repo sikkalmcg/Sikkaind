@@ -21,8 +21,8 @@ import {
     Loader2
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, where, deleteDoc, doc, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
-import { format, isBefore, addDays } from 'date-fns';
+import { collection, query, where, deleteDoc, doc, addDoc, serverTimestamp, getDoc, updateDoc } from 'firebase/firestore';
+import { format } from 'date-fns';
 import type { Vehicle, WithId, Plant } from '@/types';
 import VehicleFormModal from './VehicleFormModal';
 import { useToast } from '@/hooks/use-toast';
@@ -75,9 +75,11 @@ export default function VehicleRegistryTab({ type }: { type: 'Own Vehicle' | 'Co
             const snap = await getDoc(vehicleRef);
             if (snap.exists()) {
                 const data = snap.data();
+                const currentOperator = user?.email?.split('@')[0] || "Admin";
+                
                 await addDoc(collection(firestore, "recycle_bin"), {
                     pageName: "Vehicle Registry",
-                    userName: user?.email?.split('@')[0] || "Admin",
+                    userName: currentOperator,
                     deletedAt: serverTimestamp(),
                     data: { ...data, id, type: 'Vehicle' }
                 });
@@ -89,22 +91,6 @@ export default function VehicleRegistryTab({ type }: { type: 'Own Vehicle' | 'Co
         } finally {
             hideLoader();
         }
-    };
-
-    const getExpiryBadge = (date: any) => {
-        if (!date) return <Badge variant="outline" className="text-[8px] opacity-30">N/A</Badge>;
-        const d = date instanceof Date ? date : (date?.toDate ? date.toDate() : new Date(date));
-        const isExpired = isBefore(d, new Date());
-        const isExpiringSoon = isBefore(d, addDays(new Date(), 30));
-
-        return (
-            <Badge className={cn(
-                "text-[9px] font-black uppercase border-none",
-                isExpired ? "bg-red-600 text-white" : (isExpiringSoon ? "bg-amber-500 text-white" : "bg-emerald-600 text-white")
-            )}>
-                {format(d, 'dd MMM yy')}
-            </Badge>
-        );
     };
 
     return (
@@ -138,15 +124,9 @@ export default function VehicleRegistryTab({ type }: { type: 'Own Vehicle' | 'Co
                         <TableHeader className="bg-slate-50">
                             <TableRow className="h-12 hover:bg-transparent text-[10px] font-black uppercase text-slate-400">
                                 <TableHead className="px-8">Vehicle Number</TableHead>
-                                <TableHead className="px-4">Lifting Node</TableHead>
-                                <TableHead className="px-4">Pilot Detail</TableHead>
+                                <TableHead className="px-4">Pilot Name</TableHead>
+                                <TableHead className="px-4">Contact Number</TableHead>
                                 <TableHead className="px-4 text-center">GPS Link</TableHead>
-                                {type === 'Own Vehicle' && (
-                                    <>
-                                        <TableHead className="px-4 text-center">Pollution Exp.</TableHead>
-                                        <TableHead className="px-4 text-center">Fitness Exp.</TableHead>
-                                    </>
-                                )}
                                 {(type === 'Contract Vehicle' || type === 'Market Vehicle') && (
                                     <TableHead className="px-4">Transporter/Owner</TableHead>
                                 )}
@@ -165,14 +145,11 @@ export default function VehicleRegistryTab({ type }: { type: 'Own Vehicle' | 'Co
                                 paginatedVehicles.map((vehicle) => (
                                     <TableRow key={vehicle.id} className="h-16 hover:bg-blue-50/20 transition-all border-b border-slate-50 last:border-0 group">
                                         <TableCell className="px-8 font-black text-slate-900 uppercase text-xs tracking-tighter">{vehicle.vehicleNumber}</TableCell>
-                                        <TableCell className="px-4 text-[10px] font-black uppercase text-slate-400">
-                                            {plants?.find(p => normalizePlantId(p.id) === normalizePlantId(vehicle.plantId))?.name || vehicle.plantId}
+                                        <TableCell className="px-4 text-xs font-bold text-slate-700 uppercase">
+                                            {vehicle.driverName || '--'}
                                         </TableCell>
-                                        <TableCell className="px-4">
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-slate-700 uppercase">{vehicle.driverName || '--'}</span>
-                                                <span className="text-[10px] font-mono text-slate-400">{vehicle.driverMobile || '--'}</span>
-                                            </div>
+                                        <TableCell className="px-4 font-mono text-[10px] font-bold text-slate-400">
+                                            {vehicle.driverMobile || '--'}
                                         </TableCell>
                                         <TableCell className="px-4 text-center">
                                             <Badge variant="outline" className={cn(
@@ -180,12 +157,6 @@ export default function VehicleRegistryTab({ type }: { type: 'Own Vehicle' | 'Co
                                                 vehicle.gps_enabled ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-slate-50 text-slate-400"
                                             )}>{vehicle.gps_enabled ? 'Active Link' : 'No GPS'}</Badge>
                                         </TableCell>
-                                        {type === 'Own Vehicle' && (
-                                            <>
-                                                <TableCell className="px-4 text-center">{getExpiryBadge((vehicle as any).pollutionCertValidity)}</TableCell>
-                                                <TableCell className="px-4 text-center">{getExpiryBadge((vehicle as any).fitnessCertValidity)}</TableCell>
-                                            </>
-                                        )}
                                         {(type === 'Contract Vehicle' || type === 'Market Vehicle') && (
                                             <TableCell className="px-4 text-[10px] font-bold uppercase text-slate-600 truncate max-w-[150px]">
                                                 {(vehicle as any).ownerName || (vehicle as any).transporterName || '--'}

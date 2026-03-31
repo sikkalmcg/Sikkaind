@@ -7,7 +7,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { 
     Loader2, 
@@ -24,7 +23,6 @@ import {
 import { useFirestore } from '@/firebase';
 import { doc, setDoc, updateDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
 import type { Vehicle, WithId, Plant } from '@/types';
-import { DatePicker } from '@/components/date-picker';
 import { cn } from '@/lib/utils';
 
 const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/;
@@ -43,9 +41,6 @@ const formSchema = z.object({
   ownerMobile: z.string().optional(),
   transporterName: z.string().optional(),
   pan: z.string().optional(),
-  pollutionCertValidity: z.date().optional().nullable(),
-  fitnessCertValidity: z.date().optional().nullable(),
-  permitCertValidity: z.date().optional().nullable(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -66,9 +61,6 @@ export default function VehicleFormModal({ isOpen, onClose, vehicle, type, plant
       ownerMobile: (vehicle as any)?.ownerMobile || '',
       transporterName: (vehicle as any)?.transporterName || '',
       pan: (vehicle as any)?.pan || '',
-      pollutionCertValidity: (vehicle as any)?.pollutionCertValidity?.toDate ? (vehicle as any).pollutionCertValidity.toDate() : null,
-      fitnessCertValidity: (vehicle as any)?.fitnessCertValidity?.toDate ? (vehicle as any).fitnessCertValidity.toDate() : null,
-      permitCertValidity: (vehicle as any)?.permitCertValidity?.toDate ? (vehicle as any).permitCertValidity.toDate() : null,
     }
   });
 
@@ -155,34 +147,6 @@ export default function VehicleFormModal({ isOpen, onClose, vehicle, type, plant
                             )} />
                         </div>
                     </section>
-
-                    {type === 'Own Vehicle' && (
-                        <section className="space-y-6 animate-in slide-in-from-top-4 duration-500">
-                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2 px-1">
-                                <FileText className="h-4 w-4 text-emerald-600" /> 2. Compliance Registry (Validity)
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-10 bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-xl">
-                                <FormField name="pollutionCertValidity" control={form.control} render={({ field }) => (
-                                    <FormItem className="flex flex-col">
-                                        <FormLabel className="text-[10px] font-black uppercase text-slate-500">Pollution Expiry</FormLabel>
-                                        <FormControl><DatePicker date={field.value || undefined} setDate={field.onChange} className="h-12" /></FormControl>
-                                    </FormItem>
-                                )} />
-                                <FormField name="fitnessCertValidity" control={form.control} render={({ field }) => (
-                                    <FormItem className="flex flex-col">
-                                        <FormLabel className="text-[10px] font-black uppercase text-slate-500">Fitness Expiry</FormLabel>
-                                        <FormControl><DatePicker date={field.value || undefined} setDate={field.onChange} className="h-12" /></FormControl>
-                                    </FormItem>
-                                )} />
-                                <FormField name="permitCertValidity" control={form.control} render={({ field }) => (
-                                    <FormItem className="flex flex-col">
-                                        <FormLabel className="text-[10px] font-black uppercase text-slate-500">Permit Expiry</FormLabel>
-                                        <FormControl><DatePicker date={field.value || undefined} setDate={field.onChange} className="h-12" /></FormControl>
-                                    </FormItem>
-                                )} />
-                            </div>
-                        </section>
-                    )}
 
                     {(type === 'Contract Vehicle' || type === 'Market Vehicle') && (
                         <section className="space-y-6 animate-in slide-in-from-top-4 duration-500">
