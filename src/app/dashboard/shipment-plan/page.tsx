@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -8,14 +7,14 @@ import EditShipmentModal from '@/components/dashboard/shipment-plan/EditShipment
 import type { WithId, Shipment, Plant, SubUser } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, getDocs, where, limit, onSnapshot } from "firebase/firestore";
+import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, getDocs, where, limit, onSnapshot, writeBatch } from "firebase/firestore";
 import { Loader2, WifiOff, Package, ListTree } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
-import { normalizePlantId } from '@/lib/utils';
+import { normalizePlantId, sanitizeRegistryNode } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Card } from '@/components/ui/card';
 
@@ -50,6 +49,10 @@ function ShipmentPlanContent() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
+  const isAdminSession = useMemo(() => {
+    return user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
+  }, [user]);
+
   const plantsQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, "logistics_plants")) : null, 
     [firestore]
@@ -76,8 +79,6 @@ function ShipmentPlanContent() {
         const baseList = (allMasterPlants && allMasterPlants.length > 0) ? allMasterPlants : mockPlants;
         let authIds: string[] = [];
 
-        const isAdminSession = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
-
         if (userDocSnap && userDocSnap.exists()) {
             const userData = userDocSnap.data() as SubUser;
             const isSikkaind = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
@@ -97,7 +98,7 @@ function ShipmentPlanContent() {
     };
     
     fetchData();
-  }, [firestore, user, allMasterPlants]);
+  }, [firestore, user, allMasterPlants, isAdminSession]);
 
   const [allShipments, setAllShipments] = useState<WithId<Shipment>[]>([]);
   const [isLoadingShipments, setIsLoadingShipments] = useState(false);
@@ -176,8 +177,7 @@ function ShipmentPlanContent() {
             const shipRef = doc(firestore, `plants/${shipment.originPlantId}/shipments`, id);
             const ts = serverTimestamp();
             
-            const isAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
-            const currentName = isAdmin ? 'AJAY SOMRA' : (user.displayName || user.email || 'System Operator');
+            const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email || 'System Operator');
 
             transaction.update(shipRef, {
                 currentStatusId: 'Cancelled',
@@ -214,6 +214,44 @@ function ShipmentPlanContent() {
     } catch (e: any) {
         console.error("Transaction Error:", e);
         toast({ variant: 'destructive', title: 'Commit Failed', description: 'Could not update registry. Please try again.' });
+    } finally {
+        hideLoader();
+    }
+  };
+
+  const handleBulkDelete = async (ids: string[]) => {
+    if (!firestore || !user || ids.length === 0) return;
+    
+    showLoader();
+    try {
+        const batch = writeBatch(firestore);
+        const ts = serverTimestamp();
+        const currentOperator = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || "Admin");
+
+        for (const id of ids) {
+            const shipment = allShipments.find(s => s.id === id);
+            if (!shipment) continue;
+
+            // Mission Node Archival Node: Move to recycle bin
+            const recycleRef = doc(collection(firestore, "recycle_bin"));
+            const sanitizedData = sanitizeRegistryNode({ ...shipment, id: shipment.id, type: 'Shipment' });
+            batch.set(recycleRef, {
+                pageName: "Order Plan Registry (Bulk)",
+                userName: currentOperator,
+                deletedAt: ts,
+                data: sanitizedData
+            });
+
+            // Purge Node from primary registry
+            const shipRef = doc(firestore, `plants/${shipment.originPlantId}/shipments`, id);
+            batch.delete(shipRef);
+        }
+
+        await batch.commit();
+        toast({ title: 'Bulk Purge Complete', description: `Successfully removed ${ids.length} mission nodes from registry.` });
+    } catch (e: any) {
+        console.error("Bulk Delete Error:", e);
+        toast({ variant: 'destructive', title: 'Purge Failed', description: 'Registry synchronization error.' });
     } finally {
         hideLoader();
     }
@@ -270,6 +308,7 @@ function ShipmentPlanContent() {
                     plants={plants} 
                     onEdit={setEditingShipment} 
                     onDelete={handleCancelOrder} 
+                    onBulkDelete={handleBulkDelete}
                 />
             </TabsContent>
         </Tabs>

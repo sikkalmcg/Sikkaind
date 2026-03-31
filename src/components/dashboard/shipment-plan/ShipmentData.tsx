@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { FileDown, Search, Ban, Edit2, FileText, Printer, PlusCircle, WifiOff } from 'lucide-react';
+import { FileDown, Search, Ban, Edit2, FileText, Printer, PlusCircle, WifiOff, Trash2, CheckCircle2, X } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import type { Shipment, Plant, Trip, WithId, Carrier, LR } from '@/types';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -23,12 +23,25 @@ import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/Printable
 import { useLoading } from '@/context/LoadingContext';
 import { useToast } from '@/hooks/use-toast';
 import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAssignModal';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface ShipmentDataProps {
   shipments: WithId<Shipment>[];
   plants: WithId<Plant>[];
   onEdit: (shipment: WithId<Shipment>) => void;
   onDelete: (shipmentId: string) => void;
+  onBulkDelete?: (ids: string[]) => Promise<void>;
 }
 
 type EnrichedShipment = WithId<Shipment> & {
@@ -71,7 +84,7 @@ const formatSafeDateString = (date: any, formatStr: string = 'dd/MM/yy') => {
     return format(d, formatStr);
 }
 
-export default function ShipmentData({ shipments, plants, onEdit, onDelete }: ShipmentDataProps) {
+export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBulkDelete }: ShipmentDataProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState<WithId<Trip>[]>([]);
@@ -80,6 +93,10 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
   const [isAssignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState<WithId<Shipment> | null>(null);
   const [plantCarriers, setPlantCarriers] = useState<WithId<Carrier>[]>([]);
+  
+  // Selection Registry State
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   
   const { user } = useUser();
   const firestore = useFirestore();
@@ -153,6 +170,36 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
   }, [filteredShipments, currentPage]);
 
   const totalPages = Math.ceil(filteredShipments.length / ITEMS_PER_PAGE);
+
+  // Selection Logic Nodes
+  const handleSelectRow = (id: string, checked: boolean) => {
+    setSelectedIds(prev => 
+      checked ? [...prev, id] : prev.filter(i => i !== id)
+    );
+  };
+
+  const handleSelectAllOnPage = (checked: boolean) => {
+    const pageIds = paginatedShipments.map(s => s.id);
+    if (checked) {
+      setSelectedIds(prev => Array.from(new Set([...prev, ...pageIds])));
+    } else {
+      setSelectedIds(prev => prev.filter(id => !pageIds.includes(id)));
+    }
+  };
+
+  const isAllOnPageSelected = paginatedShipments.length > 0 && 
+    paginatedShipments.every(s => selectedIds.includes(s.id));
+
+  const handleBulkDeleteAction = async () => {
+    if (!onBulkDelete || selectedIds.length === 0) return;
+    setIsBulkDeleting(true);
+    try {
+        await onBulkDelete(selectedIds);
+        setSelectedIds([]);
+    } finally {
+        setIsBulkDeleting(false);
+    }
+  };
 
   const handleOpenAssignModal = (shipment: WithId<Shipment>) => {
     if (!allCarriers) return;
@@ -267,6 +314,33 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
                 </div>
             </div>
             <div className="flex items-center gap-3">
+                {selectedIds.length > 0 && isAdmin && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" className="h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest gap-2 shadow-lg shadow-red-100 animate-in zoom-in duration-300 border-none transition-all active:scale-95">
+                                <Trash2 className="h-4 w-4" /> Purge Selected ({selectedIds.length})
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="border-none shadow-3xl rounded-[2rem] p-0 overflow-hidden bg-white">
+                            <div className="p-8 bg-red-50 border-b border-red-100 flex items-center gap-5">
+                                <div className="p-3 bg-red-600 text-white rounded-2xl shadow-xl"><Ban className="h-8 w-8" /></div>
+                                <div>
+                                    <AlertDialogTitle className="text-xl font-black uppercase tracking-tight italic text-red-900 leading-none">Bulk Mission Revocation?</AlertDialogTitle>
+                                    <p className="text-red-700 font-bold uppercase text-[9px] tracking-widest mt-2">Authorized Admin Override Node</p>
+                                </div>
+                            </div>
+                            <div className="p-10">
+                                <p className="text-sm font-medium text-slate-600 leading-relaxed italic border-l-4 border-red-100 pl-4">
+                                    "You are about to permanently erase <span className="font-black text-slate-900">{selectedIds.length} mission nodes</span> from the active registry. All associated vehicle allocations will be reverted and records moved to system archive. This action is irreversible."
+                                </p>
+                            </div>
+                            <AlertDialogFooter className="bg-slate-50 p-6 flex-row justify-end gap-3 border-t">
+                                <AlertDialogCancel className="font-bold border-slate-200 h-11 px-8 rounded-xl m-0">Abort</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleBulkDeleteAction} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest px-10 h-11 rounded-xl shadow-lg border-none">Confirm Bulk Purge</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
                 <div className="relative group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
                     <Input
@@ -287,6 +361,15 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
           <Table className="border-collapse w-full min-w-[2800px] table-fixed">
             <TableHeader className="bg-slate-100/90 backdrop-blur sticky top-0 z-20">
               <TableRow className="hover:bg-transparent border-b-2 border-slate-200 h-14">
+                {isAdmin && (
+                    <TableHead className="w-16 px-6">
+                        <Checkbox 
+                            checked={isAllOnPageSelected}
+                            onCheckedChange={(checked) => handleSelectAllOnPage(!!checked)}
+                            className="h-5 w-5 data-[state=checked]:bg-blue-900 shadow-md border-slate-300"
+                        />
+                    </TableHead>
+                )}
                 <TableHead className="text-[10px] font-black uppercase px-6 w-32">Plant</TableHead>
                 <TableHead className="text-[10px] font-black uppercase px-4 w-36">Order ID</TableHead>
                 <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40">Order Date</TableHead>
@@ -308,19 +391,32 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete }: Sh
             <TableBody>
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}><TableCell colSpan={17} className="p-6"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                  <TableRow key={i}><TableCell colSpan={isAdmin ? 17 : 16} className="p-6"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                 ))
               ) : paginatedShipments.length === 0 ? (
-                <TableRow><TableCell colSpan={17} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={isAdmin ? 17 : 16} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
               ) : (
                 paginatedShipments.map(s => {
+                  const isChecked = selectedIds.includes(s.id);
                   const isCancelled = s.currentStatusId?.toLowerCase() === 'cancelled';
                   const isShortClosed = s.currentStatusId?.toLowerCase() === 'short closed';
                   const canAssign = !isCancelled && !isShortClosed && (s.materialTypeId === 'FTL' ? s.assignedQty < 1 : s.balanceQty > 0);
                   const canEdit = isAdmin || (!isCancelled && !isShortClosed && (s.currentStatusId === 'pending' || s.currentStatusId === 'partly vehicle assigned'));
                   
                   return (
-                    <TableRow key={s.id} className="hover:bg-blue-50/20 transition-colors h-16 border-b border-slate-100 last:border-0 group text-[11px] font-medium text-slate-600">
+                    <TableRow key={s.id} className={cn(
+                        "hover:bg-blue-50/20 transition-all h-16 border-b border-slate-100 last:border-0 group text-[11px] font-medium text-slate-600",
+                        isChecked && "bg-blue-50/40"
+                    )}>
+                      {isAdmin && (
+                        <TableCell className="px-6">
+                            <Checkbox 
+                                checked={isChecked}
+                                onCheckedChange={(checked) => handleSelectRow(s.id, !!checked)}
+                                className="h-5 w-5 data-[state=checked]:bg-blue-900 shadow-sm border-slate-300"
+                            />
+                        </TableCell>
+                      )}
                       <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{s.plantName}</TableCell>
                       <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs">{s.shipmentId}</TableCell>
                       <TableCell className="px-4 text-center whitespace-nowrap text-slate-500 font-bold">{formatSafeDateString(s.creationDate, 'dd/MM/yy HH:mm')}</TableCell>
