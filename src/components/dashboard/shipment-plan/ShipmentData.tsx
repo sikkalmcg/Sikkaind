@@ -25,6 +25,13 @@ import { useToast } from '@/hooks/use-toast';
 import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAssignModal';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -60,8 +67,6 @@ type EnrichedShipment = WithId<Shipment> & {
     totalUnitsCount?: number;
 };
 
-const ITEMS_PER_PAGE = 10;
-
 const getStatusColor = (status: string) => {
     const s = status?.toLowerCase() || '';
     switch(s) {
@@ -89,6 +94,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState<WithId<Trip>[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [previewLr, setPreviewLr] = useState<EnrichedLR | null>(null);
   const [isAssignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState<WithId<Shipment> | null>(null);
@@ -165,11 +171,11 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
   }, [enrichedShipments, searchTerm]);
 
   const paginatedShipments = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredShipments.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filteredShipments, currentPage]);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredShipments.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredShipments, currentPage, itemsPerPage]);
 
-  const totalPages = Math.ceil(filteredShipments.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredShipments.length / itemsPerPage);
 
   // Selection Logic Nodes
   const handleSelectRow = (id: string, checked: boolean) => {
@@ -306,11 +312,11 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
     <Card className="border-none shadow-md bg-white rounded-[2.5rem] overflow-hidden">
       <CardHeader className="bg-slate-50 border-b p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-900 text-white rounded-lg shadow-lg rotate-3"><FileText className="h-5 w-5" /></div>
+            <div className="flex items-center gap-4">
+                <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3"><FileText className="h-6 w-6" /></div>
                 <div>
-                    <CardTitle className="text-xl font-black uppercase text-blue-900 italic">Order Ledger Registry</CardTitle>
-                    <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Consolidated mission plans across authorized nodes</CardDescription>
+                    <CardTitle className="text-xl font-black uppercase text-blue-900 italic leading-none">Order Ledger Registry</CardTitle>
+                    <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-2">Consolidated mission plans across authorized nodes</CardDescription>
                 </div>
             </div>
             <div className="flex items-center gap-3">
@@ -346,7 +352,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                     <Input
                         placeholder="Quick filter registry..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                         className="pl-10 w-[320px] h-11 rounded-2xl bg-white border-slate-200 shadow-sm font-bold focus-visible:ring-blue-900"
                     />
                 </div>
@@ -501,7 +507,31 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
           </Table>
         </div>
         
-        <div className="p-8 bg-slate-50 border-t flex items-center justify-between">
+        <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-10">
+                <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows per page:</span>
+                    <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
+                        <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                            <SelectItem value="10" className="font-bold py-2">10</SelectItem>
+                            <SelectItem value="25" className="font-bold py-2">25</SelectItem>
+                            <SelectItem value="50" className="font-bold py-2">50</SelectItem>
+                            <SelectItem value="100" className="font-bold py-2">100</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                {selectedIds.length > 0 && (
+                    <div className="flex items-center gap-2 animate-in slide-in-from-left-2">
+                        <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                        <span className="text-[10px] font-black uppercase text-blue-900">{selectedIds.length} Mission Nodes Selected</span>
+                        <button onClick={() => setSelectedIds([])} className="text-[10px] font-bold text-slate-400 hover:text-red-600 underline ml-2">Clear</button>
+                    </div>
+                )}
+            </div>
+
             <Pagination 
                 currentPage={currentPage}
                 totalPages={totalPages}
