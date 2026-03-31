@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -28,7 +29,9 @@ import {
     Loader2, 
     UserCircle,
     Scale,
-    MessageSquare
+    MessageSquare,
+    AlertTriangle,
+    Info
 } from 'lucide-react';
 import { useFirestore, useUser } from "@/firebase";
 import { doc, serverTimestamp, collection, runTransaction } from "firebase/firestore";
@@ -38,15 +41,14 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { LRUnitTypes } from '@/lib/constants';
 import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const itemSchema = z.object({
-    deliveryNo: z.string().optional(),
+    deliveryNo: z.string().min(1, "Mandatory"),
     invoiceNo: z.string().optional(),
     itemDescription: z.string().min(1, "Required"),
-    deliveryUnit: z.coerce.number().min(0),
     loadUnit: z.coerce.number().min(0),
     uom: z.string().default('Bag'),
-    weight: z.coerce.number().min(0).default(0),
 });
 
 const formSchema = z.object({
@@ -85,22 +87,19 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 items: task.items || []
             });
         } else if (fields.length === 0) {
-            // Automatic Manifest Resolution Node
             const initialItems = (task.shipmentItems || []).map((i: any) => ({
-                deliveryNo: 'DEL-',
-                invoiceNo: i.invoiceNumber ? `INV-${i.invoiceNumber}` : 'INV-',
+                deliveryNo: '',
+                invoiceNo: i.invoiceNumber || '',
                 itemDescription: i.itemDescription || i.description || 'Goods particulars',
-                deliveryUnit: Number(i.units) || 0,
                 loadUnit: Number(i.units) || 0,
-                uom: i.unitType || 'Bag',
-                weight: Number(i.weight) || 0
+                uom: i.unitType || 'Bag'
             }));
 
             if (initialItems.length > 0) {
                 reset({ actualWeight: task.assignedQty, remarks: '', items: initialItems });
             } else {
                 reset({ actualWeight: task.assignedQty, remarks: '' });
-                append({ deliveryNo: 'DEL-', invoiceNo: 'INV-', itemDescription: 'Goods particulars', deliveryUnit: 0, loadUnit: 0, uom: 'Bag', weight: 0 });
+                append({ deliveryNo: '', invoiceNo: '', itemDescription: 'Goods particulars', loadUnit: 0, uom: 'Bag' });
             }
         }
     }
@@ -108,17 +107,14 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
 
   const totals = useMemo(() => {
     return watchedItems.reduce((acc, curr) => {
-        const d = Number(curr?.deliveryUnit) || 0;
         const l = Number(curr?.loadUnit) || 0;
-        const w = Number(curr?.weight) || 0;
         return {
-            delivery: acc.delivery + d,
             load: acc.load + l,
-            weight: acc.weight + w,
-            balance: acc.balance + (d - l)
         };
-    }, { delivery: 0, load: 0, weight: 0, balance: 0 });
+    }, { load: 0 });
   }, [watchedItems]);
+
+  const unitMismatch = totals.load - task.plannedUnits;
 
   const handleCommit = async (values: FormValues) => {
     if (!firestore || !user) return;
@@ -129,7 +125,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
             const historyId = task.isHistoryEdit ? task.id : doc(collection(firestore, `plants/${plantId}/supervisor_tasks`)).id;
             const historyRef = doc(firestore, `plants/${plantId}/supervisor_tasks`, historyId);
             
-            // 1. Update Gate Entry if not history edit
             if (!task.isHistoryEdit && task.entryData?.id) {
                 const entryRef = doc(firestore, 'vehicleEntries', task.entryData.id);
                 transaction.update(entryRef, { 
@@ -141,7 +136,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 });
             }
 
-            // 2. Update Trip (Global and Local)
             const realTripId = task.isHistoryEdit ? (task.realTripId || task.tripDocId) : task.realTripId;
             if (realTripId) {
                 const tripRef = doc(firestore, `plants/${plantId}/trips`, realTripId);
@@ -156,13 +150,13 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 transaction.update(globalTripRef, tripUpdate);
             }
 
-            // 3. Commit History Node
             const currentName = user.displayName || user.email;
             const historyData: any = {
                 tripId: task.tripId,
                 vehicleNumber: task.vehicleNumber,
                 purpose: task.purpose,
                 assignedQty: task.assignedQty,
+                plannedUnits: task.plannedUnits,
                 actualWeight: values.actualWeight,
                 manifestTotals: totals,
                 items: values.items,
@@ -195,7 +189,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
     { label: 'Dispatch From', value: task.from || task.consignor, icon: Factory },
     { label: 'Ship To Party', value: task.shipTo, icon: UserCircle },
     { label: 'Destination', value: task.destination || task.shipTo, icon: MapPin },
-    { label: 'Allotted Weight (MT)', value: `${task.assignedQty} MT`, icon: Scale, bold: true, color: 'text-blue-900' },
+    { label: 'Planned Units', value: `${task.plannedUnits} Units`, icon: ClipboardList, bold: true, color: 'text-blue-900' },
   ];
 
   return (
@@ -245,34 +239,30 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
         </div>
 
         <div className="flex-1 overflow-y-auto p-10 space-y-10 bg-[#f8fafc]">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
-                <div className="flex items-center justify-between px-2 col-span-2">
-                    <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3">
-                        <ClipboardList className="h-5 w-5 text-blue-600" /> 1. PHYSICAL LOADING MANIFEST
-                    </h3>
-                    <Button 
-                        type="button" 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => append({ deliveryNo: 'DEL-', invoiceNo: 'INV-', itemDescription: 'Goods particulars', deliveryUnit: 0, loadUnit: 0, uom: 'Bag', weight: 0 })}
-                        className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-blue-200 text-blue-700 bg-white hover:bg-blue-50 shadow-md transition-all active:scale-95"
-                    >
-                        <Plus className="h-4 w-4" /> ADD ROW
-                    </Button>
-                </div>
+            <div className="flex items-center justify-between px-2">
+                <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3">
+                    <ClipboardList className="h-5 w-5 text-blue-600" /> 1. PHYSICAL LOADING MANIFEST
+                </h3>
+                <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => append({ deliveryNo: '', invoiceNo: '', itemDescription: 'Goods particulars', loadUnit: 0, uom: 'Bag' })}
+                    className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-blue-200 text-blue-700 bg-white hover:bg-blue-50 shadow-md transition-all active:scale-95"
+                >
+                    <Plus className="h-4 w-4" /> ADD ROW
+                </Button>
             </div>
 
             <div className="rounded-3xl border-2 border-slate-200 bg-white shadow-2xl overflow-hidden">
                 <Table>
                     <TableHeader className="bg-slate-900">
                         <TableRow className="hover:bg-transparent border-none h-14">
-                            <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">DELIVERY NO</TableHead>
+                            <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">DELIVERY NO *</TableHead>
                             <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">INVOICE NO</TableHead>
                             <TableHead className="text-white text-[10px] font-black uppercase px-4">ITEM DESCRIPTION *</TableHead>
-                            <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">DELIVERY UNIT</TableHead>
                             <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">LOAD UNIT *</TableHead>
                             <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-32">UOM</TableHead>
-                            <TableHead className="text-white text-[10px] font-black uppercase px-8 text-right w-40">MT WEIGHT</TableHead>
                             <TableHead className="w-16"></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -280,16 +270,13 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                         {fields.map((field, index) => (
                             <TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/10 transition-colors group">
                                 <TableCell className="px-8 py-3">
-                                    <Input {...form.register(`items.${index}.deliveryNo`)} className="h-11 bg-slate-50 border-slate-200 rounded-xl font-bold uppercase text-xs" />
+                                    <Input {...form.register(`items.${index}.deliveryNo`)} placeholder="Enter delivery#" className="h-11 bg-slate-50 border-slate-200 rounded-xl font-bold uppercase text-xs" />
                                 </TableCell>
                                 <TableCell className="px-4 py-3">
-                                    <Input {...form.register(`items.${index}.invoiceNo`)} className="h-11 bg-slate-50 border-slate-200 rounded-xl font-bold uppercase text-xs" />
+                                    <Input {...form.register(`items.${index}.invoiceNo`)} placeholder="Enter invoice#" className="h-11 bg-slate-50 border-slate-200 rounded-xl font-bold uppercase text-xs" />
                                 </TableCell>
                                 <TableCell className="px-4 py-3">
                                     <Input {...form.register(`items.${index}.itemDescription`)} className="h-11 bg-slate-50 border-slate-200 rounded-xl font-bold italic text-slate-500 text-xs" />
-                                </TableCell>
-                                <TableCell className="px-4 py-3">
-                                    <Input type="number" {...form.register(`items.${index}.deliveryUnit`)} className="h-11 text-center font-black text-slate-900 bg-slate-50 border-slate-200 rounded-xl text-lg" />
                                 </TableCell>
                                 <TableCell className="px-4 py-3">
                                     <Input type="number" {...form.register(`items.${index}.loadUnit`)} className="h-11 text-center font-black text-blue-900 bg-white border-blue-900/20 rounded-xl text-lg shadow-inner focus-visible:ring-blue-900" />
@@ -304,10 +291,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                                         </SelectContent>
                                     </Select>
                                 </TableCell>
-                                <TableCell className="px-8 py-3 text-right">
-                                    <Input type="number" step="0.001" {...form.register(`items.${index}.weight`)} className="h-11 text-right font-black text-blue-900 bg-white border-blue-900/20 rounded-xl text-lg shadow-inner" />
-                                </TableCell>
-                                <TableCell className="pr-6">
+                                <TableCell className="pr-6 text-right">
                                     <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length === 1} className="h-8 w-8 text-slate-200 hover:text-red-600 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -318,11 +302,8 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                     <TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16">
                         <TableRow className="hover:bg-transparent border-none">
                             <TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL MANIFEST REGISTRY</TableCell>
-                            <TableCell className="text-center font-black text-lg text-slate-900">{totals.delivery.toFixed(0)}</TableCell>
-                            <TableCell className="text-center font-black text-lg text-blue-900">{totals.load.toFixed(0)}</TableCell>
-                            <TableCell></TableCell>
-                            <TableCell className="text-right px-8 font-black text-xl text-blue-900 tracking-tighter">{totals.weight.toFixed(3)} MT</TableCell>
-                            <TableCell></TableCell>
+                            <TableCell className="text-center font-black text-lg text-blue-900">{totals.load.toFixed(0)} Units</TableCell>
+                            <TableCell colSpan={2}></TableCell>
                         </TableRow>
                     </TableFooter>
                 </Table>
@@ -341,7 +322,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                     />
                 </Card>
 
-                <div className="flex items-center justify-center">
+                <div className="flex flex-col gap-6 items-center justify-center">
                     <div className="max-w-md w-full p-8 bg-blue-900 text-white rounded-[2.5rem] shadow-2xl flex flex-col items-center gap-4 text-center border-4 border-blue-800">
                         <Scale className="h-10 w-10 text-blue-400" />
                         <div className="space-y-1">
@@ -349,6 +330,21 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                             <Input type="number" step="0.001" {...form.register('actualWeight')} className="h-16 text-center font-black text-4xl bg-transparent border-none focus-visible:ring-0 w-full" />
                         </div>
                     </div>
+                    
+                    {unitMismatch !== 0 && (
+                        <Alert variant={unitMismatch > 0 ? "default" : "destructive"} className={cn(
+                            "max-w-md border-2 animate-in zoom-in duration-300 rounded-[1.5rem]",
+                            unitMismatch > 0 ? "border-amber-200 bg-amber-50" : "border-red-200 bg-red-50"
+                        )}>
+                            <AlertTriangle className={cn("h-5 w-5", unitMismatch > 0 ? "text-amber-600" : "text-red-600")} />
+                            <AlertTitle className={cn("font-black uppercase text-xs mb-1", unitMismatch > 0 ? "text-amber-900" : "text-red-900")}>
+                                {unitMismatch > 0 ? "OVER-LOADING DETECTED" : "UNDER-LOADING DETECTED"}
+                            </AlertTitle>
+                            <AlertDescription className={cn("font-bold text-[10px] uppercase", unitMismatch > 0 ? "text-amber-700" : "text-red-700")}>
+                                Mission Variance: {unitMismatch > 0 ? `+${unitMismatch}` : unitMismatch} Units from Planned manifest.
+                            </AlertDescription>
+                        </Alert>
+                    )}
                 </div>
             </div>
         </div>
@@ -358,7 +354,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 <div className="p-3 bg-blue-600/20 rounded-2xl"><Calculator className="h-6 w-6 text-blue-400" /></div>
                 <div className="flex flex-col">
                     <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-1">MANIFEST NODE PROCESSING</span>
-                    <span className="text-3xl font-black text-white tracking-tighter leading-none">{totals.load.toFixed(0)} Units / {totals.weight.toFixed(3)} MT</span>
+                    <span className="text-3xl font-black text-white tracking-tighter leading-none">{totals.load.toFixed(0)} Units / {(form.getValues('actualWeight') || 0).toFixed(3)} MT</span>
                 </div>
             </div>
 

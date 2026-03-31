@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -193,6 +194,8 @@ export default function SupervisorTaskPage() {
             const shipment = shipments.find(s => s.id === shipId || s.shipmentId === shipId);
             if (shipment?.currentStatusId === 'Cancelled') return;
 
+            const plannedUnits = (shipment?.items || []).reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0) || Number(shipment?.totalUnits || 0);
+
             const normalizedPlantIdStr = normalizePlantId(trip.originPlantId);
             const pName = allPlants?.find((p: any) => normalizePlantId(p.id) === normalizedPlantIdStr)?.name || trip.originPlantId;
 
@@ -216,6 +219,7 @@ export default function SupervisorTaskPage() {
                 shipTo: shipTo,
                 destination: destination,
                 assignedQty: weight,
+                plannedUnits,
                 status: entry ? 'IN' : 'AWAITING ARRIVAL',
                 isReadyForTask: !!entry, 
                 entryData: entry,
@@ -247,6 +251,7 @@ export default function SupervisorTaskPage() {
                 destination: entry.unloadingPoint || pName,
                 assignedQty: Number(entry.billedQty) || 0,
                 billedQty: Number(entry.billedQty) || 0,
+                plannedUnits: Number(entry.billedQty) || 0, // Fallback for unloading
                 qtyType: entry.qtyType || 'MT',
                 invoiceNo: entry.documentNo || '--',
                 goodsDesc: entry.items || '--',
