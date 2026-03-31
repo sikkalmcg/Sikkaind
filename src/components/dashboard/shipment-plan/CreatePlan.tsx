@@ -22,7 +22,7 @@ import { Separator } from '@/components/ui/separator';
 import type { Plant, Shipment, WithId, SubUser, Party, MasterQtyType, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save, FileDown, Upload } from 'lucide-react';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDoc, getDocs, limit, Timestamp } from "firebase/firestore";
 import { cn, normalizePlantId, formatSequenceId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
@@ -373,10 +373,10 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   const handleExportTemplate = () => {
     const headers = [
         "Plant ID", "Consignor Name", "Lifting Point", "Consignee Name", "Ship To Name", 
-        "Destination Point", "UOM", "Quantity", "Invoice Number", "LR Number", "Payment Term", "Delivery Address"
+        "Destination Point", "UOM", "Quantity", "Invoice Number", "LR Number", "Payment Term", "Delivery Address", "Item Description", "Units"
     ];
     const sample = [
-        ["1426", "TATA CHEMICALS", "MUMBAI", "BIGMART RETAIL", "BIGMART WH", "GHAZIABAD", "MT", "25.000", "INV-9988", "LR123", "Paid", "C-17 UPSIDC GZB"]
+        ["1426", "TATA CHEMICALS", "MUMBAI", "BIGMART RETAIL", "BIGMART WH", "GHAZIABAD", "MT", "25.000", "INV-9988", "LR123", "Paid", "C-17 UPSIDC GZB", "TATA SALT 50KG BAGS", "500"]
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers, ...sample]);
     const wb = XLSX.utils.book_new();
@@ -414,6 +414,8 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                         const qty = Number(row['Quantity']) || 0;
                         const uom = (row['UOM'] || 'METRIC TON').toUpperCase();
                         const invoiceNo = row['Invoice Number']?.toString() || 'NA';
+                        const itemDesc = row['Item Description']?.toString() || 'BULK UPLOAD MISSION';
+                        const unitCount = Number(row['Units']) || 1;
 
                         const dataToSave = {
                             originPlantId: plantId,
@@ -435,9 +437,9 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
                             userId: user.uid,
                             items: [{
                                 invoiceNumber: invoiceNo,
-                                units: 1,
+                                units: unitCount,
                                 unitType: 'Package',
-                                itemDescription: 'BULK UPLOAD MISSION',
+                                itemDescription: itemDesc,
                                 weight: qty
                             }]
                         };
