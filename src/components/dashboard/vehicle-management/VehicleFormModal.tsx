@@ -33,10 +33,11 @@ const formSchema = z.object({
   vehicleNumber: z.string().min(1, "Required").transform(v => v.toUpperCase().replace(/\s/g, '')).refine(val => vehicleNumberRegex.test(val), {
     message: 'Invalid Format (e.g. MH12AB1234)'
   }),
-  driverName: z.string().min(3, "Pilot name required."),
-  driverMobile: z.string().regex(/^\d{10}$/, "10 digit mobile required."),
+  driverName: z.string().optional().default(''),
+  driverMobile: z.string().optional().or(z.literal('')).refine(val => !val || /^\d{10}$/.test(val), {
+    message: 'Mobile must be 10 digits if provided.'
+  }),
   licenseNumber: z.string().optional().default(''),
-  plantId: z.string().min(1, "Base plant node required."),
   // Category specifics
   ownerName: z.string().optional(),
   ownerMobile: z.string().optional(),
@@ -61,7 +62,6 @@ export default function VehicleFormModal({ isOpen, onClose, vehicle, type, plant
       driverName: vehicle?.driverName || '',
       driverMobile: vehicle?.driverMobile || '',
       licenseNumber: (vehicle as any)?.licenseNumber || '',
-      plantId: vehicle?.plantId || '',
       ownerName: (vehicle as any)?.ownerName || '',
       ownerMobile: (vehicle as any)?.ownerMobile || '',
       transporterName: (vehicle as any)?.transporterName || '',
@@ -132,29 +132,17 @@ export default function VehicleFormModal({ isOpen, onClose, vehicle, type, plant
                                     <FormMessage />
                                 </FormItem>
                             )} />
-                            <FormField name="plantId" control={form.control} render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase text-slate-500">Primary Plant Node *</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue placeholder="Pick Base" /></SelectTrigger></FormControl>
-                                        <SelectContent className="rounded-xl">
-                                            {plants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-2.5">{p.name}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
                             <FormField name="driverName" control={form.control} render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase text-slate-500">Assigned Pilot *</FormLabel>
-                                    <FormControl><Input placeholder="Full Name" {...field} className="h-12 rounded-xl font-bold" /></FormControl>
+                                    <FormLabel className="text-[10px] font-black uppercase text-slate-500">Assigned Pilot</FormLabel>
+                                    <FormControl><Input placeholder="Full Name (Optional)" {...field} className="h-12 rounded-xl font-bold" /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />
                             <FormField name="driverMobile" control={form.control} render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase text-slate-500">Pilot Mobile *</FormLabel>
-                                    <FormControl><Input placeholder="10 Digits" {...field} maxLength={10} className="h-12 rounded-xl font-mono font-black" /></FormControl>
+                                    <FormLabel className="text-[10px] font-black uppercase text-slate-500">Pilot Mobile</FormLabel>
+                                    <FormControl><Input placeholder="10 Digits (Optional)" {...field} maxLength={10} className="h-12 rounded-xl font-mono font-bold" /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />
