@@ -272,11 +272,43 @@ function TripBoardContent() {
         let snap = await getDocs(q);
         const plantObj = plants.find(p => normalizePlantId(p.id) === normalizePlantId(row.originPlantId)) || { id: row.originPlantId, name: row.plantName } as any;
         const carrierObj = row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId) || { name: 'Carrier' } as any;
+        const shipmentObj = row.shipmentObj || row;
+
         if (snap.empty) {
-            setLrPreviewData({ lrNumber: row.lrNumber, date: row.lrDate || new Date(), trip: row, carrier: carrierObj, shipment: row.shipmentObj || row, plant: plantObj, items: (row.shipmentObj || row).items || [], weightSelection: 'Assigned Weight', assignedTripWeight: row.dispatchedQty, from: row.loadingPoint || '', to: row.unloadingPoint || '', consignorName: row.consignor || '', buyerName: row.billToParty || '', shipToParty: row.shipToParty || '', id: row.id } as any);
+            setLrPreviewData({ 
+                lrNumber: row.lrNumber, 
+                date: row.lrDate || new Date(), 
+                trip: row, 
+                carrier: carrierObj, 
+                shipment: shipmentObj, 
+                plant: plantObj, 
+                items: shipmentObj.items || [], 
+                weightSelection: 'Assigned Weight', 
+                assignedTripWeight: row.dispatchedQty, 
+                from: row.loadingPoint || '', 
+                to: row.unloadingPoint || '', 
+                consignorName: row.consignor || '', 
+                consignorGtin: shipmentObj.consignorGtin || '',
+                buyerName: row.billToParty || '', 
+                buyerGtin: shipmentObj.billToGtin || '',
+                shipToParty: row.shipToParty || '', 
+                shipToGtin: shipmentObj.shipToGtin || '',
+                id: row.id 
+            } as any);
         } else {
             const lrDoc = snap.docs[0].data() as LR;
-            setLrPreviewData({ ...lrDoc, id: snap.docs[0].id, date: parseSafeDate(lrDoc.date), trip: row, carrier: carrierObj, shipment: row.shipmentObj || row, plant: plantObj } as any);
+            setLrPreviewData({ 
+                ...lrDoc, 
+                id: snap.docs[0].id, 
+                date: parseSafeDate(lrDoc.date), 
+                trip: row, 
+                carrier: carrierObj, 
+                shipment: shipmentObj, 
+                plant: plantObj,
+                consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
+                buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
+                shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || '',
+            } as any);
         }
     } catch (e) { toast({ variant: 'destructive', title: "Registry Error" }); } finally { setIsExtracting(false); }
   }, [firestore, plants, dbCarriers, toast]);

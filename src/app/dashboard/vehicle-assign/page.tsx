@@ -357,21 +357,28 @@ function OpenOrdersContent() {
                 from: shipmentObj.loadingPoint || '',
                 to: shipmentObj.unloadingPoint || '',
                 consignorName: shipmentObj.consignor || '',
+                consignorGtin: shipmentObj.consignorGtin || '',
                 buyerName: shipmentObj.billToParty || '',
+                buyerGtin: shipmentObj.billToGtin || '',
                 shipToParty: shipmentObj.shipToParty || '',
+                shipToGtin: shipmentObj.shipToGtin || '',
                 deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
                 id: row.id
             } as any);
         } else {
             const lrDoc = snap.docs[0].data() as LR;
+            const shipmentObj = row.shipmentObj || row;
             setPreviewLr({
                 ...lrDoc,
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
                 trip: row,
                 carrier: row.carrierObj || (carriers || [])[0],
-                shipment: row.shipmentObj || row,
-                plant: row.plant
+                shipment: shipmentObj,
+                plant: row.plant,
+                consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
+                buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
+                shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || '',
             } as EnrichedLR);
         }
     } catch (e) {
