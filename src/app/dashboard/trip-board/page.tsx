@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -27,6 +28,8 @@ import { Card } from '@/components/ui/card';
 import { DatePicker } from '@/components/date-picker';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import Pagination from '@/components/dashboard/vehicle-management/Pagination';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export type TripBoardTab = 'active' | 'loading' | 'transit' | 'arrived' | 'pod-pending' | 'closed';
 
@@ -47,6 +50,10 @@ function TripBoardContent() {
   const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
+  
+  // Pagination State Registry
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
   const [authorizedPlantIds, setAuthorizedPlantIds] = useState<string[]>([]);
@@ -108,14 +115,19 @@ function TripBoardContent() {
 
             setAuthorizedPlantIds(authIds);
             setPlants(baseList.filter(p => authIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id))));
-            if (authIds.length > 0 && selectedPlants.length === 0) setSelectedPlants(authIds);
+            if (authIds.length > 0 && selectedPlants.length === 0) {
+                setSelectedPlants(authIds);
+            }
         } catch (e) { setDbError(true); } finally { setIsAuthLoading(false); }
     };
     fetchAuth();
   }, [firestore, user, allMasterPlants, isAdminSession]);
 
   useEffect(() => {
-    if (!firestore || selectedPlants.length === 0) return;
+    if (!firestore || selectedPlants.length === 0) {
+        setIsLoading(false);
+        return;
+    }
     setIsLoading(true);
     const unsubscribers: (() => void)[] = [];
 
@@ -226,7 +238,6 @@ function TripBoardContent() {
 
         switch (activeTab) {
             case 'active':
-                // REGISTRY LOGIC: Active trips are non-closed and non-cancelled
                 return !['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status) && !isPod;
             case 'loading':
                 return !isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete');
@@ -235,16 +246,25 @@ function TripBoardContent() {
             case 'arrived':
                 return ['arrived', 'arrival-for-delivery', 'arrived-at-destination', 'arrive-for-deliver'].includes(status);
             case 'pod-pending':
-                // REGISTRY LOGIC: Delivered/Arrived missions missing the verified POD node
                 return (['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'delivered'].includes(status)) && !isPod;
             case 'closed':
-                // REGISTRY LOGIC: Missions finalized via POD or Status Manual Close
                 return isPod || status === 'closed' || status === 'trip-closed' || status === 'delivered';
             default:
                 return true;
         }
     });
   }, [finalData, activeTab]);
+
+  // Registry Pagination Logic node
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, selectedPlants, fromDate, toDate, searchTerm]);
+
+  const totalPages = Math.ceil(tabFilteredData.length / itemsPerPage);
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return tabFilteredData.slice(startIndex, startIndex + itemsPerPage);
+  }, [tabFilteredData, currentPage, itemsPerPage]);
 
   const counts = useMemo(() => {
     const res = { active: 0, loading: 0, transit: 0, arrived: 0, podPending: 0, closed: 0 };
@@ -453,7 +473,7 @@ function TripBoardContent() {
 
                 <TabsContent value={activeTab} className="mt-0 focus-visible:ring-0">
                     <TripBoardTable 
-                        data={tabFilteredData} 
+                        data={paginatedData} 
                         activeTab={activeTab} 
                         isAdmin={isAdminSession}
                         canVerifyPod={isAdminSession} 
@@ -468,6 +488,34 @@ function TripBoardContent() {
                         onTrack={(row) => router.push(`/dashboard/tracking/consignment?search=${row.tripId}`)} 
                         onEditVehicle={setEditVehicleTrip} 
                     />
+                    
+                    <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-10">
+                            <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows per page:</span>
+                                <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
+                                    <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        <SelectItem value="10" className="font-bold py-2">10</SelectItem>
+                                        <SelectItem value="25" className="font-bold py-2">25</SelectItem>
+                                        <SelectItem value="50" className="font-bold py-2">50</SelectItem>
+                                        <SelectItem value="100" className="font-bold py-2">100</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        <Pagination 
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={setCurrentPage}
+                            canPreviousPage={currentPage > 1}
+                            canNextPage={currentPage < totalPages}
+                            itemCount={tabFilteredData.length}
+                        />
+                    </div>
                 </TabsContent>
             </Tabs>
         </Card>
