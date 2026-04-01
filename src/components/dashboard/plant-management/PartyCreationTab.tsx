@@ -139,7 +139,7 @@ export default function PartyCreationTab() {
   const handleTemplateDownload = () => {
     const headers = ["Party Name", "Type", "GSTIN", "PAN Number", "Contact Number", "Address", "City", "State"];
     const sampleData = [
-        ["BigMart Retail", "Consignee & Ship to", "07AABCD1234E1Z3", "AABCD1234E", "9876543210", "123 Industrial Hub", "New Delhi", "Delhi"],
+        ["BigMart Retail", "Consignee & Ship to party", "07AABCD1234E1Z3", "AABCD1234E", "9876543210", "123 Industrial Hub", "New Delhi", "Delhi"],
         ["Tata Chemicals", "Consignor", "27AABCU9567L1Z5", "AABCU9567L", "9988776655", "Plot 42, Port Area", "Mumbai", "Maharashtra"]
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleData]);
@@ -184,9 +184,15 @@ export default function PartyCreationTab() {
 
             if (!name || !type || !address || !city) throw new Error("Missing Mandatory Field (Name, Type, Address, or City)");
             
-            // Validate Type node
-            const matchedType = PartyTypes.find(t => t.toLowerCase() === type.toLowerCase());
-            if (!matchedType) throw new Error(`Invalid Type: ${type}. Expected: ${PartyTypes.join(', ')}`);
+            // Validate Type node with flexible mapping
+            let matchedType = PartyTypes.find(t => t.toLowerCase() === type.toLowerCase());
+            
+            // Fallback for legacy "Consignee" label
+            if (!matchedType && (type.toLowerCase() === 'consignee' || type.toLowerCase() === 'consignee & ship to')) {
+                matchedType = 'Consignee & Ship to party';
+            }
+
+            if (!matchedType) throw new Error(`Invalid Type: ${type}. Expected: Consignor or Consignee & Ship to party`);
             
             const isDup = (parties || []).some(p => 
                 !p.isDeleted && 
