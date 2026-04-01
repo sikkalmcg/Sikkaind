@@ -8,6 +8,8 @@ export const SikkaLogisticsPagePermissions = [
   { id: 'supervisor-task', name: 'Supervisor Task' },
   { id: 'freight-process', name: 'Freight Process' },
   { id: 'shipment-tracking', name: 'Shipment Tracking' },
+  { id: 'fleet-live-map', name: 'Fleet Live Map' },
+  { id: 'track-consignment', name: 'Track Consignment' },
   { id: 'status-management', name: 'Status Management' },
   { id: 'shipment-summary', name: 'Shipment Summary' },
   { id: 'freight-management', name: 'Freight Management' },
