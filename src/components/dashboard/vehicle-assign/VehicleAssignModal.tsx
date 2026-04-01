@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -24,14 +23,6 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -48,7 +39,6 @@ import {
     AlertCircle,
     X,
     IndianRupee,
-    TrendingUp,
     Weight,
     Smartphone,
     User
@@ -253,7 +243,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             const docId = trip?.id || doc(collection(firestore, 'trips')).id;
             const tripId = trip?.tripId || generateRandomTripId();
             
-            // CONSOLIDATED DATA HANDSHAKE NODE
             const tripData: any = {
                 ...values,
                 tripId,
@@ -318,27 +307,27 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
           <div className="flex items-center gap-4">
             <div className="p-3 bg-blue-600 rounded-2xl shadow-xl rotate-3"><Truck className="h-7 w-7" /></div>
             <div>
-                <DialogTitle className="text-2xl font-black uppercase tracking-tight italic leading-none">SIKKA LMC | ALLOCATION BOARD</DialogTitle>
+                <DialogTitle className="text-xl font-black uppercase tracking-tight italic leading-none">SIKKA LMC | ALLOCATION BOARD</DialogTitle>
                 <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-2">Registry Terminal Node</DialogDescription>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <Badge variant="outline" className="bg-white/5 border-white/10 text-white font-mono h-10 px-6 rounded-xl flex items-center">{format(currentTime, 'HH:mm:ss')}</Badge>
+            <Badge variant="outline" className="bg-white/5 border-white/10 text-white font-mono h-10 px-6 rounded-xl flex items-center hidden sm:flex">{format(currentTime, 'HH:mm:ss')}</Badge>
             <Button variant="ghost" size="icon" onClick={onClose} className="h-10 w-10 text-white/40 hover:text-white"><X size={24} /></Button>
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-10 space-y-10">
-          <Card className="p-10 border-2 border-slate-100 shadow-xl rounded-[2.5rem] bg-white relative overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-10">
+          <Card className="p-6 md:p-10 border-2 border-slate-100 shadow-xl rounded-[2rem] md:rounded-[2.5rem] bg-white relative overflow-hidden">
             <div className="absolute top-0 left-0 w-2 h-full bg-blue-900" />
             <div className="flex items-center gap-4 mb-8">
                 <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100 shadow-sm"><ShieldCheck className="h-6 w-6 text-blue-600" /></div>
                 <div>
                     <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Order Manifest</h3>
-                    <p className="text-2xl font-black text-slate-900 tracking-tighter uppercase">{shipment.shipmentId}</p>
+                    <p className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter uppercase">{shipment.shipmentId}</p>
                 </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-10">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-6 md:gap-10">
                 <ContextNode label="Lifting Node" value={plantNameDisplay} icon={Factory} />
                 <ContextNode label="Consignor" value={shipment.consignor} icon={UserCircle} />
                 <ContextNode label="Site point" value={shipment.loadingPoint} icon={MapPin} />
@@ -349,81 +338,88 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
           <Form {...form}>
             <form className="space-y-10" onSubmit={handleSubmit(onSubmit, onInvalid)}>
-                <Card className="border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden">
-                    <div className="p-8 bg-slate-50 border-b flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <Card className="border-none shadow-2xl rounded-[2rem] md:rounded-[2.5rem] bg-white overflow-hidden">
+                    <div className="p-6 md:p-8 bg-slate-50 border-b flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <h3 className="font-black text-xs uppercase tracking-[0.3em] text-slate-500 flex items-center gap-3"><Truck className="h-5 w-5 text-blue-600"/> Fleet Entry Control</h3>
                         <div className="bg-white p-1 rounded-xl border-2 border-slate-200 shadow-inner flex items-center gap-1">
-                            <button type="button" onClick={() => setValue('isNewVehicle', false)} className={cn("px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all", !isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>At Gate Registry</button>
-                            <button type="button" onClick={() => setValue('isNewVehicle', true)} className={cn("px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all", isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>Direct Manual Entry</button>
+                            <button type="button" onClick={() => setValue('isNewVehicle', false)} className={cn("px-4 md:px-6 py-2 rounded-lg text-[9px] md:text-[10px] font-black uppercase transition-all", !isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>At Gate Registry</button>
+                            <button type="button" onClick={() => setValue('isNewVehicle', true)} className={cn("px-4 md:px-6 py-2 rounded-lg text-[9px] md:text-[10px] font-black uppercase transition-all", isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>Direct Manual Entry</button>
                         </div>
                     </div>
-                    <div className="p-10">
-                        <Table>
-                            <TableHeader className="bg-slate-50/50">
-                                <TableRow className="h-12 border-b-2 hover:bg-transparent">
-                                    <TableHead className="text-[10px] font-black uppercase px-4 w-64">Vehicle Number *</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase px-4">Pilot Name</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase px-4">Pilot Mobile</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase px-4 w-64">Carrier Agent *</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase px-4 w-48">Fleet Type</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase px-4 text-right">Assign Qty (MT) *</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                <TableRow className="align-top h-20 hover:bg-transparent">
-                                    <TableCell className="px-4 py-6">
-                                        {isNewVehicle ? (
-                                            <FormField name="vehicleNumber" control={control} render={({field}) => <FormItem><FormControl><div className="relative"><Input placeholder="XX00XX0000" className="h-12 rounded-xl font-black uppercase text-lg border-blue-200 focus-visible:ring-blue-900" {...field} /></div></FormControl><FormMessage /></FormItem>} />
-                                        ) : (
-                                            <FormField name="vehicleId" control={control} render={({field}) => (
-                                                <FormItem>
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl><SelectTrigger className="h-12 rounded-xl font-black text-blue-900"><SelectValue placeholder={isDataLoading ? "Syncing Gate..." : "Resolve from Gate"} /></SelectTrigger></FormControl>
-                                                    <SelectContent className="rounded-xl">{vehiclesAtGate.map(v => <SelectItem key={v.id} value={v.id} className="font-bold py-3 uppercase italic text-black">{v.vehicleNumber} ({v.driverName})</SelectItem>)}</SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                                </FormItem>
-                                            )} />
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="px-4 py-6"><FormField name="driverName" control={control} render={({field}) => <FormItem><FormControl><Input placeholder="Pilot Name" className="h-12 rounded-xl font-bold" {...field} /></FormControl><FormMessage /></FormItem>} /></TableCell>
-                                    <TableCell className="px-4 py-6"><FormField name="driverMobile" control={control} render={({field}) => <FormItem><FormControl><Input {...field} maxLength={10} placeholder="Optional" className="h-12 rounded-xl font-mono font-black" /></FormControl><FormMessage /></FormItem>} /></TableCell>
-                                    <TableCell className="px-4 py-6">
-                                        <FormField name="carrierId" control={control} render={({ field }) => (
-                                            <FormItem>
-                                            <SearchableSelect 
-                                                options={carrierOptions} 
-                                                onChange={field.onChange} 
-                                                value={field.value} 
-                                                placeholder="Pick Agent"
-                                                className="h-12"
-                                            />
-                                            <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                    </TableCell>
-                                    <TableCell className="px-4 py-6">
-                                        <FormField name="vehicleType" control={control} render={({ field }) => (
-                                            <FormItem>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue placeholder="Select Type"/></SelectTrigger></FormControl>
-                                                <SelectContent className="rounded-xl">{VehicleTypes.map(t => <SelectItem key={t} value={t} className="font-bold py-2.5">{t}</SelectItem>)}</SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                    </TableCell>
-                                    <TableCell className="px-4 py-6">
-                                        <FormField name="assignQty" control={control} render={({field}) => (
-                                            <FormItem>
-                                            <FormControl><Input {...field} value={field.value ?? ''} type="number" step="0.001" className="h-12 rounded-xl text-right font-black text-xl text-blue-900 shadow-inner" /></FormControl>
-                                            <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                    </TableCell>
-                                </TableRow>
-                            </TableBody>
-                        </Table>
+                    <div className="p-6 md:p-10 space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                            {/* Vehicle Number / ID Field */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Vehicle Number *</label>
+                                {isNewVehicle ? (
+                                    <FormField name="vehicleNumber" control={control} render={({field}) => <FormItem><FormControl><div className="relative"><Input placeholder="XX00XX0000" className="h-12 rounded-xl font-black uppercase text-lg border-blue-200 focus-visible:ring-blue-900" {...field} /></div></FormControl><FormMessage /></FormItem>} />
+                                ) : (
+                                    <FormField name="vehicleId" control={control} render={({field}) => (
+                                        <FormItem>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl><SelectTrigger className="h-12 rounded-xl font-black text-blue-900"><SelectValue placeholder={isDataLoading ? "Syncing Gate..." : "Resolve from Gate"} /></SelectTrigger></FormControl>
+                                            <SelectContent className="rounded-xl">{vehiclesAtGate.map(v => <SelectItem key={v.id} value={v.id} className="font-bold py-3 uppercase italic text-black">{v.vehicleNumber} ({v.driverName})</SelectItem>)}</SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                )}
+                            </div>
+
+                            {/* Pilot Name Field */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Pilot Name</label>
+                                <FormField name="driverName" control={control} render={({field}) => <FormItem><FormControl><Input placeholder="Pilot Name" className="h-12 rounded-xl font-bold uppercase" {...field} /></FormControl><FormMessage /></FormItem>} />
+                            </div>
+
+                            {/* Pilot Mobile Field */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Pilot Mobile</label>
+                                <FormField name="driverMobile" control={control} render={({field}) => <FormItem><FormControl><Input {...field} maxLength={10} placeholder="10 Digits" className="h-12 rounded-xl font-mono font-black" /></FormControl><FormMessage /></FormItem>} />
+                            </div>
+
+                            {/* Carrier Agent Field */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Carrier Agent *</label>
+                                <FormField name="carrierId" control={control} render={({ field }) => (
+                                    <FormItem>
+                                    <SearchableSelect 
+                                        options={carrierOptions} 
+                                        onChange={field.onChange} 
+                                        value={field.value} 
+                                        placeholder="Pick Agent"
+                                        className="h-12"
+                                    />
+                                    <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
+
+                            {/* Fleet Type Field */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Fleet Type *</label>
+                                <FormField name="vehicleType" control={control} render={({ field }) => (
+                                    <FormItem>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue placeholder="Select Type"/></SelectTrigger></FormControl>
+                                        <SelectContent className="rounded-xl">{VehicleTypes.map(t => <SelectItem key={t} value={t} className="font-bold py-2.5">{t}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
+
+                            {/* Assign Quantity Field */}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Assign Qty (MT) *</label>
+                                <FormField name="assignQty" control={control} render={({field}) => (
+                                    <FormItem>
+                                    <FormControl><Input {...field} value={field.value ?? ''} type="number" step="0.001" className="h-12 rounded-xl text-right font-black text-xl text-blue-900 shadow-inner" /></FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
+                        </div>
                     </div>
                 </Card>
 
@@ -488,22 +484,22 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                         <div className="flex flex-col gap-1">
                             <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Routing Distance Node</span>
                             <div className="flex items-center gap-3">
-                                <h4 className="text-5xl font-black text-blue-900 tracking-tighter">
+                                <h4 className="text-4xl md:text-5xl font-black text-blue-900 tracking-tighter">
                                     {calculatingDistance ? <Loader2 className="h-10 w-10 animate-spin" /> : (currentDistance || '--')}
                                 </h4>
-                                <span className="text-xl font-black text-slate-300">KM</span>
+                                <span className="text-lg md:text-xl font-black text-slate-300">KM</span>
                             </div>
                         </div>
                         <div className="h-16 w-px bg-slate-100 mx-2" />
                         <div className="flex items-start gap-4">
-                            <AlertCircle className="h-6 w-6 text-blue-600 shrink-0 mt-1" />
+                            <AlertCircle className="h-6 w-6 text-blue-600 shrink-0 mt-1 hidden sm:block" />
                             <p className="text-[9px] font-bold text-slate-500 uppercase leading-normal max-w-[200px]">Distance synchronized with Google Maps mission routing protocol.</p>
                         </div>
                     </Card>
                 </div>
 
-                <div className="flex justify-end pt-10 border-t border-white/5 gap-6">
-                    <button type="button" onClick={onClose} className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-blue-900 transition-all">ABORT ALLOCATION</button>
+                <div className="flex flex-col md:flex-row justify-end pt-10 border-t border-white/5 gap-6">
+                    <button type="button" onClick={onClose} className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-blue-900 transition-all py-2">ABORT ALLOCATION</button>
                     <Button 
                         type="submit" 
                         disabled={isSubmitting || calculatingDistance} 
@@ -516,11 +512,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
           </Form>
         </div>
 
-        <DialogFooter className="p-8 bg-slate-900 flex flex-col md:flex-row justify-between items-center shrink-0 gap-8">
+        <DialogFooter className="p-6 md:p-8 bg-slate-900 flex flex-col md:flex-row justify-between items-center shrink-0 gap-8">
             <div className="flex items-center gap-10">
                 <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><Calculator className="h-3 w-3" /> Balance remaining</span>
-                    <span className={cn("text-3xl font-black tracking-tighter transition-all duration-500", balanceQty > 0.001 ? "text-orange-400" : "text-emerald-400")}>
+                    <span className={cn("text-2xl md:text-3xl font-black tracking-tighter transition-all duration-500", balanceQty > 0.001 ? "text-orange-400" : "text-emerald-400")}>
                         {balanceQty.toFixed(3)} MT
                     </span>
                 </div>
