@@ -155,7 +155,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Type to filter registry handbook..." 
                             value={search} 
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => setSearch(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold focus-visible:ring-blue-900 shadow-inner"
                             autoFocus
                         />
@@ -258,7 +258,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   }, [firestore, originPlantId]));
 
   const consignorRegistry = useMemo(() => (parties || []).filter(p => p.type === 'Consignor'), [parties]);
-  const consigneeRegistry = useMemo(() => (parties || []).filter(p => p.type === 'Consignee & Ship to'), [parties]);
+  const consigneeRegistry = useMemo(() => (parties || []).filter(p => p.type === 'Consignee & Ship to party' || p.type === 'Consignee'), [parties]);
 
   useEffect(() => {
     if (allPlants && user) {

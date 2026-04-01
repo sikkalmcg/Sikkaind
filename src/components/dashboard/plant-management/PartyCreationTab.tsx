@@ -189,7 +189,7 @@ export default function PartyCreationTab() {
             
             // Fallback for legacy "Consignee" label
             if (!matchedType && (type.toLowerCase() === 'consignee' || type.toLowerCase() === 'consignee & ship to')) {
-                matchedType = 'Consignee & Ship to party';
+                matchedType = 'Consignee & ship to';
             }
 
             if (!matchedType) throw new Error(`Invalid Type: ${type}. Expected: Consignor or Consignee & Ship to party`);

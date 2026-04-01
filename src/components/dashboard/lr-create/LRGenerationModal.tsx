@@ -156,7 +156,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
   const watchedItems = watch("items") || [];
 
   const consignorRegistry = useMemo(() => (parties || []).filter(p => p.type === 'Consignor'), [parties]);
-  const consigneeRegistry = useMemo(() => (parties || []).filter(p => p.type === 'Consignee & Ship to'), [parties]);
+  const consigneeRegistry = useMemo(() => (parties || []).filter(p => p.type === 'Consignee & Ship to party' || p.type === 'Consignee'), [parties]);
 
   useEffect(() => {
     if (!isOpen || !firestore) return;
@@ -334,7 +334,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                     <section className="rounded-3xl border-2 border-slate-200 bg-white shadow-xl overflow-hidden">
                         <Table>
                             <TableHeader className="bg-slate-900">
-                                <TableRow className="h-12 hover:bg-transparent text-white">
+                                <TableRow className="hover:bg-transparent border-none h-14">
                                     <TableHead className="text-white px-6">INVOICE NO</TableHead>
                                     <TableHead className="text-white px-4">ITEM DESCRIPTION</TableHead>
                                     <TableHead className="text-white px-4 text-center">PKGS</TableHead>
@@ -344,7 +344,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                             </TableHeader>
                             <TableBody>
                                 {fields.map((field, index) => (
-                                    <TableRow key={field.id} className="h-14 border-b border-slate-100 hover:bg-blue-50/10">
+                                    <TableRow key={field.id} className="h-14 border-b border-slate-100 hover:bg-blue-50/10 transition-colors group">
                                         <TableCell className="px-6"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-9 font-bold" /></TableCell>
                                         <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-9 font-bold uppercase" /></TableCell>
                                         <TableCell className="px-4 text-center"><Input type="number" {...form.register(`items.${index}.units`)} className="h-9 text-center font-black" /></TableCell>
