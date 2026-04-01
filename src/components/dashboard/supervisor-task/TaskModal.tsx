@@ -39,6 +39,7 @@ import { Separator } from '@/components/ui/separator';
 import { LRUnitTypes } from '@/lib/constants';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Label } from '@/components/ui/label';
 
 const itemSchema = z.object({
     deliveryNo: z.string().min(1, "Delivery number is mandatory."),
@@ -185,7 +186,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-[1400px] h-[95vh] md:h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white rounded-[2rem] md:rounded-3xl">
+      <DialogContent className="max-w-[95vw] w-full h-[95vh] md:h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white rounded-[2rem] md:rounded-3xl">
         <DialogHeader className="p-6 md:p-8 bg-slate-900 text-white shrink-0 pr-12">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4 md:gap-5">
