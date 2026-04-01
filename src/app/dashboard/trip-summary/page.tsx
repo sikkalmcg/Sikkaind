@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -8,20 +8,85 @@ import {
     FileDown, 
     ArrowRightLeft,
     Search,
-    ListTree
+    ListTree,
+    Factory,
+    ShieldCheck,
+    Loader2
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, getDocs, where, limit } from 'firebase/firestore';
+import type { Plant, SubUser } from '@/types';
+import { normalizePlantId } from '@/lib/utils';
 
 /**
  * @fileOverview Trip Summary Hub.
  * Optimized UI node for visualizing consolidated mission analytics.
- * This version is initialized with an empty registry as per data clearance request.
+ * Registry is maintained as empty per data clearance request, while UI elements like Plant Node are preserved.
  */
-export default function TripSummaryPage() {
+function TripSummaryContent() {
+  const firestore = useFirestore();
+  const { user } = useUser();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPlant, setSelectedPlant] = useState('all-plants');
+  const [authorizedPlantIds, setAuthorizedPlantIds] = useState<string[]>([]);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // MISSION DATA NODE: Initialized as empty to satisfy data clearance requirements.
-  // This ensures no historical mission data is surfaced in the registry hub.
+  const plantsQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
+    [firestore]
+  );
+  const { data: allPlants } = useCollection<Plant>(plantsQuery);
+
+  useEffect(() => {
+    if (!firestore || !user) return;
+
+    const fetchAuth = async () => {
+        setIsAuthLoading(true);
+        try {
+            const lastIdentity = localStorage.getItem('slmc_last_identity');
+            const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
+            
+            let userDocSnap = null;
+            const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
+            const qSnap = await getDocs(q);
+            if (!qSnap.empty) {
+                userDocSnap = qSnap.docs[0];
+            }
+
+            let authIds: string[] = [];
+            const activePlants = allPlants || [];
+            const isRootAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
+
+            if (userDocSnap) {
+                const userData = userDocSnap.data() as SubUser;
+                const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isRootAdmin;
+                authIds = isRoot ? activePlants.map(p => p.id) : (userData.plantIds || []);
+                setIsAdmin(isRoot);
+            } else if (isRootAdmin) {
+                authIds = activePlants.map(p => p.id);
+                setIsAdmin(true);
+            }
+            
+            setAuthorizedPlantIds(authIds);
+            if (authIds.length > 0) {
+                if (isRootAdmin) setSelectedPlant('all-plants');
+                else setSelectedPlant(authIds[0]);
+            }
+        } catch (error) {
+            console.error("Auth Sync Error:", error);
+        } finally {
+            setIsAuthLoading(false);
+        }
+    };
+
+    fetchAuth();
+  }, [firestore, user, allPlants]);
+
+  // DATA CLEARANCE RULE: The trips array is forced to empty to satisfy privacy/cleanup requirements.
   const trips: any[] = [];
 
   const filteredTrips = useMemo(() => {
@@ -32,6 +97,9 @@ export default function TripSummaryPage() {
     );
   }, [searchTerm]);
 
+  const filteredPlants = (allPlants || []).filter(p => isAdmin || authorizedPlantIds.includes(p.id));
+  const isReadOnlyScope = !isAdmin && authorizedPlantIds.length === 1;
+
   return (
     <main className="flex flex-1 flex-col h-full bg-[#f8fafc] animate-in fade-in duration-500">
       <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
@@ -40,22 +108,47 @@ export default function TripSummaryPage() {
                 <ArrowRightLeft className="h-7 w-7" />
             </div>
             <div>
-                <h1 className="text-2xl md:text-3xl font-black text-blue-600 tracking-tight uppercase italic">Trip Summary Hub</h1>
+                <h1 className="text-2xl md:text-3xl font-black text-blue-600 tracking-tight uppercase italic leading-none">Trip Summary Hub</h1>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">LMC Registry &gt; Consolidated Analytics</p>
             </div>
         </div>
         
-        <div className="flex items-center gap-3">
-          <div className="relative group">
+        <div className="flex items-center gap-6">
+          <div className="flex flex-col gap-1">
+              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
+                  <Factory className="h-3 w-3" /> Plant Node Registry
+              </Label>
+              {isReadOnlyScope ? (
+                  <div className="h-10 px-5 flex items-center bg-blue-50 border border-blue-100 rounded-xl text-blue-900 font-black text-xs shadow-sm uppercase tracking-tighter min-w-[220px]">
+                      <ShieldCheck className="h-4 w-4 mr-2 text-blue-600" /> {allPlants?.find(p => p.id === authorizedPlantIds[0])?.name || authorizedPlantIds[0]}
+                  </div>
+              ) : (
+                  <Select value={selectedPlant} onValueChange={setSelectedPlant} disabled={isAuthLoading}>
+                      <SelectTrigger className="w-[220px] h-10 rounded-xl bg-white border-slate-200 font-bold shadow-sm">
+                          <SelectValue placeholder={isAuthLoading ? "Syncing..." : "Select Node"} />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                          {isAdmin && (
+                              <SelectItem value="all-plants" className="font-black uppercase text-[10px] tracking-widest text-blue-600">
+                                  All Authorized Nodes
+                              </SelectItem>
+                          )}
+                          {filteredPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-2.5">{p.name}</SelectItem>)}
+                      </SelectContent>
+                  </Select>
+              )}
+          </div>
+
+          <div className="relative group self-end">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
             <Input 
                 placeholder="Search registry..." 
                 value={searchTerm} 
                 onChange={e => setSearchTerm(e.target.value)}
-                className="pl-10 w-[320px] h-11 rounded-2xl bg-slate-50 border-slate-200 shadow-inner font-bold focus-visible:ring-blue-600"
+                className="pl-10 w-[280px] h-11 rounded-2xl bg-slate-50 border-slate-200 shadow-inner font-bold focus-visible:ring-blue-600"
             />
           </div>
-          <Button variant="outline" className="h-11 px-6 rounded-2xl font-black text-[11px] uppercase tracking-widest border-slate-200 text-blue-900 bg-white shadow-sm hover:bg-slate-50 transition-all">
+          <Button variant="outline" className="h-11 px-6 rounded-2xl font-black text-[11px] uppercase tracking-widest border-slate-200 text-blue-900 bg-white shadow-sm hover:bg-slate-50 transition-all self-end">
             <FileDown className="h-4 w-4 mr-2" /> Export Ledger
           </Button>
         </div>
@@ -88,26 +181,11 @@ export default function TripSummaryPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredTrips.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={8} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
-                                        Registry node is empty. No mission data detected.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredTrips.map((trip) => (
-                                    <TableRow key={trip.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
-                                        <TableCell className="px-8 font-black text-slate-600 uppercase text-xs">{trip.plant}</TableCell>
-                                        <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs uppercase">{trip.tripId}</TableCell>
-                                        <TableCell className="px-4 font-black text-slate-900 uppercase text-xs">{trip.lrNumber}</TableCell>
-                                        <TableCell className="px-4 text-center text-[11px] font-bold text-slate-500 font-mono">{trip.date}</TableCell>
-                                        <TableCell className="px-4 font-bold text-slate-700 uppercase text-xs truncate max-w-[150px]">{trip.consignor}</TableCell>
-                                        <TableCell className="px-4 text-[11px] font-medium text-slate-500 uppercase italic truncate max-w-[120px]">{trip.from}</TableCell>
-                                        <TableCell className="px-4 font-bold text-slate-700 uppercase text-xs truncate max-w-[150px]">{trip.consignee}</TableCell>
-                                        <TableCell className="px-8 font-bold text-slate-700 uppercase text-xs truncate max-w-[200px]">{trip.shipTo}</TableCell>
-                                    </TableRow>
-                                ))
-                            )}
+                            <TableRow>
+                                <TableCell colSpan={8} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
+                                    Registry node is empty. No mission data detected.
+                                </TableCell>
+                            </TableRow>
                         </TableBody>
                     </Table>
                 </div>
@@ -116,4 +194,12 @@ export default function TripSummaryPage() {
       </div>
     </main>
   );
+}
+
+export default function TripSummaryPage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-blue-900" /></div>}>
+            <TripSummaryContent />
+        </Suspense>
+    );
 }
