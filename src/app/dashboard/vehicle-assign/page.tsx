@@ -531,17 +531,17 @@ function OpenOrdersContent() {
             </div>
           </div>
 
-          <TabsList className="flex w-full justify-start gap-8 bg-transparent border-b border-slate-100 rounded-none h-12 px-0">
-            <TabsTrigger value="pending" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all">
+          <TabsList className="bg-transparent border-b border-slate-100 rounded-none h-12 px-4 md:px-0 w-full justify-start gap-6 md:gap-8 overflow-x-auto overflow-y-hidden flex-nowrap scrollbar-hide shrink-0">
+            <TabsTrigger value="pending" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all whitespace-nowrap">
               Pending Orders <span className="ml-2 py-0.5 px-2 bg-orange-100 text-orange-700 rounded-full text-[10px] font-black">{counts.pending}</span>
             </TabsTrigger>
-            <TabsTrigger value="process" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all">
+            <TabsTrigger value="process" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all whitespace-nowrap">
               Under Process <span className="ml-2 py-0.5 px-2 bg-blue-100 text-blue-700 rounded-full text-[10px] font-black">{counts.process}</span>
             </TabsTrigger>
-            <TabsTrigger value="dispatched" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all">
+            <TabsTrigger value="dispatched" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all whitespace-nowrap">
               Dispatched <span className="ml-2 py-0.5 px-2 bg-green-100 text-green-700 rounded-full text-[10px] font-black">{counts.dispatched}</span>
             </TabsTrigger>
-            <TabsTrigger value="cancelled" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all">
+            <TabsTrigger value="cancelled" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all whitespace-nowrap">
               Cancelled <span className="ml-2 py-0.5 px-2 bg-red-100 text-red-700 rounded-full text-[10px] font-black">{counts.cancelled}</span>
             </TabsTrigger>
           </TabsList>
