@@ -241,6 +241,45 @@ function TripBoardContent() {
     });
   }, [finalData, activeTab]);
 
+  const handleCancelTrip = async () => {
+    if (!cancelTripData) return;
+    await executePurge(cancelTripData);
+    toast({ title: 'Mission Revoked', description: `Trip ${cancelTripData.tripId} purged.` });
+    setCancelTripData(null);
+  };
+
+  const handleUpdateVehicle = async (tripId: string, values: any) => {
+    if (!firestore) return;
+    showLoader();
+    try {
+        const tripObj = trips.find(t => t.id === tripId);
+        if (!tripObj) throw new Error("Trip node not found.");
+        const plantId = normalizePlantId(tripObj.originPlantId);
+        
+        await runTransaction(firestore, async (transaction) => {
+            const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
+            const globalTripRef = doc(firestore, 'trips', tripId);
+            
+            const [tSnap, gSnap] = await Promise.all([
+                transaction.get(tripRef),
+                transaction.get(globalTripRef)
+            ]);
+
+            const updateData = { 
+                vehicleNumber: values.vehicleNumber, 
+                driverMobile: values.driverMobile, 
+                lastUpdated: serverTimestamp() 
+            };
+
+            if (tSnap.exists()) transaction.update(tripRef, updateData);
+            if (gSnap.exists()) transaction.update(globalTripRef, updateData);
+        });
+        toast({ title: 'Identity Corrected' });
+    } catch (e: any) { 
+        toast({ variant: 'destructive', title: 'Update Failed', description: e.message }); 
+    } finally { hideLoader(); }
+  };
+
   useEffect(() => { setCurrentPage(1); setSelectedIds([]); }, [activeTab, selectedPlants, fromDate, toDate, searchTerm]);
 
   const totalPages = Math.ceil(tabFilteredData.length / itemsPerPage);
@@ -418,45 +457,6 @@ function TripBoardContent() {
     }
   };
 
-  const handleCancelTrip = async () => {
-    if (!cancelTripData) return;
-    await executePurge(cancelTripData);
-    toast({ title: 'Mission Revoked', description: `Trip ${cancelTripData.tripId} purged.` });
-    setCancelTripData(null);
-  };
-
-  const handleUpdateVehicle = async (tripId: string, values: any) => {
-    if (!firestore) return;
-    showLoader();
-    try {
-        const tripObj = trips.find(t => t.id === tripId);
-        if (!tripObj) throw new Error("Trip node not found.");
-        const plantId = normalizePlantId(tripObj.originPlantId);
-        
-        await runTransaction(firestore, async (transaction) => {
-            const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
-            const globalTripRef = doc(firestore, 'trips', tripId);
-            
-            const [tSnap, gSnap] = await Promise.all([
-                transaction.get(tripRef),
-                transaction.get(globalTripRef)
-            ]);
-
-            const updateData = { 
-                vehicleNumber: values.vehicleNumber, 
-                driverMobile: values.driverMobile, 
-                lastUpdated: serverTimestamp() 
-            };
-
-            if (tSnap.exists()) transaction.update(tripRef, updateData);
-            if (gSnap.exists()) transaction.update(globalTripRef, updateData);
-        });
-        toast({ title: 'Identity Corrected' });
-    } catch (e: any) { 
-        toast({ variant: 'destructive', title: 'Update Failed', description: e.message }); 
-    } finally { hideLoader(); }
-  };
-
   if (isAuthLoading && authorizedPlantIds.length === 0) {
     return (
         <div className="flex h-screen flex-col items-center justify-center bg-[#f8fafc]">
@@ -538,11 +538,11 @@ function TripBoardContent() {
                                 <Ban className="h-5 w-5" /> Revoke Selected ({selectedIds.length})
                             </Button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent className="border-none shadow-3xl rounded-[2rem] p-0 overflow-hidden">
+                        <AlertDialogContent className="border-none shadow-3xl rounded-[2rem] p-0 overflow-hidden bg-white">
                             <div className="p-8 bg-red-50 border-b border-red-100 flex items-center gap-5">
                                 <div className="p-3 bg-red-600 text-white rounded-2xl shadow-xl"><ShieldAlert className="h-8 w-8" /></div>
                                 <div>
-                                    <AlertDialogTitle className="text-xl font-black uppercase tracking-tight text-red-900 leading-none">Bulk Registry Purge?</AlertDialogTitle>
+                                    <AlertDialogTitle className="text-xl font-black uppercase tracking-tight italic text-red-900 leading-none">Bulk Registry Purge?</AlertDialogTitle>
                                     <p className="text-red-700 font-bold uppercase text-[9px] tracking-widest mt-2">Authorized System Override Node</p>
                                 </div>
                             </div>
@@ -557,13 +557,13 @@ function TripBoardContent() {
             </div>
 
             <Tabs value={activeTab} onValueChange={(v) => { const params = new URLSearchParams(searchParams); params.set('tab', v); router.replace(`${pathname}?${params.toString()}`, { scroll: false }); }} className="w-full">
-                <TabsList className="bg-white px-8 h-14 border-b rounded-none w-full justify-start gap-10">
-                    <TabsTrigger value="active" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2">Active ({counts.active})</TabsTrigger>
-                    <TabsTrigger value="loading" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2">In-Yard ({counts.loading})</TabsTrigger>
-                    <TabsTrigger value="transit" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2">Transit ({counts.transit})</TabsTrigger>
-                    <TabsTrigger value="arrived" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2">Arrived ({counts.arrived})</TabsTrigger>
-                    <TabsTrigger value="pod-pending" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2">POD Pending ({counts.podPending})</TabsTrigger>
-                    <TabsTrigger value="closed" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2">Closed ({counts.closed})</TabsTrigger>
+                <TabsList className="bg-white px-4 md:px-8 h-14 border-b rounded-none w-full justify-start gap-6 md:gap-10 overflow-x-auto overflow-y-hidden flex-nowrap scrollbar-hide shrink-0">
+                    <TabsTrigger value="active" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">Active ({counts.active})</TabsTrigger>
+                    <TabsTrigger value="loading" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">In-Yard ({counts.loading})</TabsTrigger>
+                    <TabsTrigger value="transit" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">Transit ({counts.transit})</TabsTrigger>
+                    <TabsTrigger value="arrived" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">Arrived ({counts.arrived})</TabsTrigger>
+                    <TabsTrigger value="pod-pending" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">POD Pending ({counts.podPending})</TabsTrigger>
+                    <TabsTrigger value="closed" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">Closed ({counts.closed})</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value={activeTab} className="mt-0 focus-visible:ring-0">
@@ -583,7 +583,7 @@ function TripBoardContent() {
                         onUpdatePod={setPodUploadTrip} 
                         onCancelTrip={(t) => setCancelTripData(t)} 
                         onEditTrip={() => {}} 
-                        onTrack={(row) => router.push(`/dashboard/tracking/consignment?search=${row.tripId}`)} 
+                        onTrack={(row) => router.push(`/dashboard/shipment-tracking?search=${row.tripId}`)} 
                         onEditVehicle={setEditVehicleTrip} 
                     />
                     <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
