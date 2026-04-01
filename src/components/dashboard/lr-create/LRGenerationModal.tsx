@@ -72,14 +72,12 @@ function SearchRegistryModal({
     onSelect: (party: Party) => void;
 }) {
     const [search, setSearch] = useState('');
-    const filtered = useMemo(() => {
+    const filtered = data.filter(item => {
         const s = search.toLowerCase();
-        return data.filter(item => 
-            item.name?.toLowerCase().includes(s) || 
-            item.gstin?.toLowerCase().includes(s) || 
+        return item.name?.toLowerCase().includes(s) ||
+            item.gstin?.toLowerCase().includes(s) ||
             item.city?.toLowerCase().includes(s)
-        );
-    }, [data, search]);
+    });
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
