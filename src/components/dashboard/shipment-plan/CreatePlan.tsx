@@ -73,7 +73,7 @@ function AutocompleteInput({ value, onChange, onSearchClick, suggestions, placeh
 
     const filteredSuggestions = useMemo(() => {
         if (!value) return [];
-        return suggestions.filter(s => s.name.toLowerCase().includes(value.toLowerCase())).slice(0, 8);
+        return suggestions.filter(s => s.name?.toLowerCase().includes(value.toLowerCase())).slice(0, 8);
     }, [value, suggestions]);
 
     useEffect(() => {
@@ -135,7 +135,11 @@ function SearchRegistryModal({
     const [search, setSearch] = useState('');
     const filtered = useMemo(() => {
         const s = search.toLowerCase();
-        return data.filter(item => item.name.toLowerCase().includes(s));
+        return data.filter(item => 
+            item.name?.toLowerCase().includes(s) || 
+            item.gstin?.toLowerCase().includes(s) || 
+            item.city?.toLowerCase().includes(s)
+        );
     }, [data, search]);
 
     return (
@@ -153,7 +157,7 @@ function SearchRegistryModal({
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input 
-                            placeholder="Type to filter registry handbook..." 
+                            placeholder="Search by Name, GSTIN, or City..." 
                             value={search} 
                             onChange={(e) => setSearch(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold focus-visible:ring-blue-900 shadow-inner"
@@ -249,7 +253,7 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
   }, [isFtl, setValue]);
 
   const { data: qtyTypes } = useCollection<MasterQtyType>(useMemoFirebase(() => firestore ? query(collection(firestore, "material_types")) : null, [firestore]));
-  const { data: parties } = useCollection<Party>(useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_parties"), where("isDeleted", "==", false)) : null, [firestore]));
+  const { data: parties } = useCollection<Party>(useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_parties")) : null, [firestore]));
   const { data: allPlants } = useCollection<Plant>(useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, [firestore]));
   
   const { data: carriers } = useCollection<Carrier>(useMemoFirebase(() => {
@@ -257,8 +261,14 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
     return query(collection(firestore, "carriers"), where("plantId", "==", originPlantId));
   }, [firestore, originPlantId]));
 
-  const consignorRegistry = useMemo(() => (parties || []).filter(p => p.type === 'Consignor'), [parties]);
-  const consigneeRegistry = useMemo(() => (parties || []).filter(p => p.type === 'Consignee & Ship to party' || p.type === 'Consignee'), [parties]);
+  const activeParties = useMemo(() => (parties || []).filter(p => p.isDeleted === false || p.isDeleted === undefined), [parties]);
+  
+  const consignorRegistry = useMemo(() => activeParties.filter(p => p.type?.toLowerCase() === 'consignor'), [activeParties]);
+  
+  const consigneeRegistry = useMemo(() => activeParties.filter(p => {
+    const type = p.type?.toLowerCase() || '';
+    return type.includes('consignee') || type.includes('buyer') || type.includes('ship to');
+  }), [activeParties]);
 
   useEffect(() => {
     if (allPlants && user) {

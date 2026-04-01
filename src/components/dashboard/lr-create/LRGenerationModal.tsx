@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, ShieldCheck, Truck, FileText, MapPin, CheckCircle2, AlertTriangle, Calculator, Layers, Sparkles, Search, UserCircle, X } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, ShieldCheck, Truck, FileText, MapPin, CheckCircle2, AlertCircle, Calculator, Layers, Sparkles, Search, UserCircle, X } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -74,7 +74,11 @@ function SearchRegistryModal({
     const [search, setSearch] = useState('');
     const filtered = useMemo(() => {
         const s = search.toLowerCase();
-        return data.filter(item => item.name.toLowerCase().includes(s));
+        return data.filter(item => 
+            item.name?.toLowerCase().includes(s) || 
+            item.gstin?.toLowerCase().includes(s) || 
+            item.city?.toLowerCase().includes(s)
+        );
     }, [data, search]);
 
     return (
@@ -86,29 +90,40 @@ function SearchRegistryModal({
                     </DialogTitle>
                 </DialogHeader>
                 <div className="p-6 space-y-4">
-                    <Input 
-                        placeholder="Search registry handbook..." 
-                        value={search} 
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="h-12 rounded-xl font-bold"
-                        autoFocus
-                    />
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input 
+                            placeholder="Search by Name, GSTIN, or City..." 
+                            value={search} 
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold focus-visible:ring-blue-900 shadow-inner"
+                            autoFocus
+                        />
+                    </div>
                     <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-inner bg-white">
                         <ScrollArea className="h-[40vh]">
                             <Table>
                                 <TableBody>
-                                    {filtered.map(item => (
-                                        <TableRow key={item.id} className="cursor-pointer h-12 hover:bg-blue-50" onClick={() => onSelect(item)}>
-                                            <TableCell className="px-4 font-black text-slate-800 uppercase text-xs">{item.name}</TableCell>
-                                            <TableCell className="px-4 text-center font-mono text-[10px] text-slate-500">{item.city}</TableCell>
-                                            <TableCell className="px-4 text-right"><Button variant="ghost" size="sm" className="font-black text-[10px] uppercase">Select</Button></TableCell>
-                                        </TableRow>
-                                    ))}
+                                    {filtered.length === 0 ? (
+                                        <TableRow><TableCell colSpan={3} className="h-32 text-center text-slate-400 italic">No nodes matching search.</TableCell></TableRow>
+                                    ) : (
+                                        filtered.map(item => (
+                                            <TableRow key={item.id} className="cursor-pointer h-12 hover:bg-blue-50" onClick={() => onSelect(item)}>
+                                                <TableCell className="px-4 font-black text-slate-800 uppercase text-xs">{item.name}</TableCell>
+                                                <TableCell className="px-4 text-center font-mono text-[10px] text-slate-500">{item.gstin || '--'}</TableCell>
+                                                <TableCell className="px-4 text-right">
+                                                    <Button variant="ghost" size="sm" className="h-7 text-blue-600 font-black text-[10px] uppercase">Select</Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
                                 </TableBody>
                             </Table>
                         </ScrollArea>
                     </div>
                 </div>
+                <DialogFooter className="p-4 bg-slate-50 border-t flex-row justify-end gap-3">
+                    <Button variant="ghost" onClick={onClose} className="font-bold text-slate-400 uppercase text-[10px]">Cancel</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
@@ -135,7 +150,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
   const [helpModal, setHelpModal] = useState<{ type: string; title: string; data: any[] } | null>(null);
 
   const partiesQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, "logistics_parties"), where("isDeleted", "==", false)) : null, 
+    firestore ? query(collection(firestore, "logistics_parties")) : null, 
     [firestore]
   );
   const { data: parties } = useCollection<Party>(partiesQuery);
@@ -155,8 +170,14 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
   const { handleSubmit, setValue, control, reset, watch } = form;
   const watchedItems = watch("items") || [];
 
-  const consignorRegistry = useMemo(() => (parties || []).filter(p => p.type === 'Consignor'), [parties]);
-  const consigneeRegistry = useMemo(() => (parties || []).filter(p => p.type === 'Consignee & Ship to party' || p.type === 'Consignee'), [parties]);
+  const activeParties = useMemo(() => (parties || []).filter(p => p.isDeleted === false || p.isDeleted === undefined), [parties]);
+  
+  const consignorRegistry = useMemo(() => activeParties.filter(p => p.type?.toLowerCase() === 'consignor'), [activeParties]);
+  
+  const consigneeRegistry = useMemo(() => activeParties.filter(p => {
+    const type = p.type?.toLowerCase() || '';
+    return type.includes('consignee') || type.includes('buyer') || type.includes('ship to');
+  }), [activeParties]);
 
   useEffect(() => {
     if (!isOpen || !firestore) return;
