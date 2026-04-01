@@ -113,7 +113,7 @@ function SearchRegistryModal({
                                                     <Button variant="ghost" size="sm" className="h-7 text-blue-600 font-black text-[10px] uppercase">Select</Button>
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
+                                        )))}
                                 </TableBody>
                             </Table>
                         </ScrollArea>
