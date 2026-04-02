@@ -91,7 +91,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, GSTIN, or City..." 
                             value={search} 
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => setSearch(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
@@ -158,6 +158,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
         date: new Date(),
         from: '',
         to: '',
+        vehicleNumber: '',
         paymentTerm: 'Paid',
         weightSelection: 'Assigned Weight',
         items: []
@@ -213,7 +214,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                     paymentTerm: (sData.paymentTerm || 'Paid') as any,
                     weightSelection: 'Assigned Weight',
                     consignorName: sData.consignor || '',
-                    consignorAddress: sData.consignorAddress || sData.loadingPoint || '', // Fix: Prioritize full address
+                    consignorAddress: sData.consignorAddress || sData.loadingPoint || '', 
                     consignorGtin: sData.consignorGtin || '',
                     buyerName: sData.billToParty || '',
                     buyerGtin: sData.billToGtin || '',
@@ -288,8 +289,8 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
             };
 
             transaction.set(lrRef, lrData, { merge: true });
-            transaction.update(tripRef, { lrGenerated: true, lrNumber: values.lrNumber, lrDate: values.date, assignedQtyInTrip: finalWeight });
-            transaction.update(globalTripRef, { lrGenerated: true, lrNumber: values.lrNumber, lrDate: values.date, assignedQtyInTrip: finalWeight });
+            transaction.update(tripRef, { lrGenerated: true, lrNumber: values.lrNumber, lrDate: values.date, assignedQtyInTrip: finalWeight, vehicleNumber: values.vehicleNumber });
+            transaction.update(globalTripRef, { lrGenerated: true, lrNumber: values.lrNumber, lrDate: values.date, assignedQtyInTrip: finalWeight, vehicleNumber: values.vehicleNumber });
             transaction.update(shipmentRef, { lastUpdateDate: serverTimestamp() });
         });
 
@@ -340,13 +341,25 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                         )} />
                     </section>
 
+                    <section className="grid grid-cols-1 md:grid-cols-3 gap-8 p-8 bg-white rounded-3xl border border-slate-200 shadow-sm">
+                        <FormField name="vehicleNumber" control={control} render={({ field }) => (
+                            <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-600">VEHICLE NO *</FormLabel><FormControl><Input className="h-11 font-black uppercase" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField name="driverName" control={control} render={({ field }) => (
+                            <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">PILOT NAME</FormLabel><FormControl><Input className="h-11 uppercase" {...field} /></FormControl></FormItem>
+                        )} />
+                        <FormField name="driverMobile" control={control} render={({ field }) => (
+                            <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">PILOT MOBILE</FormLabel><FormControl><Input className="h-11 font-mono" {...field} maxLength={10} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                    </section>
+
                     <section className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 bg-white rounded-3xl border border-slate-200 shadow-sm">
                         <div className="space-y-4">
                             <FormField name="consignorName" control={control} render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR NODE (F4 HELP)</FormLabel><div className="flex gap-2"><FormControl><Input className="h-11 font-bold uppercase" {...field} onKeyDown={(e) => e.key === 'F4' && setHelpModal({ type: 'consignorName', title: 'Search Consignors', data: consignorRegistry })} /></FormControl><Button type="button" variant="outline" onClick={() => setHelpModal({ type: 'consignorName', title: 'Search Consignors', data: consignorRegistry })}><Search size={16}/></Button></div></FormItem>
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR NODE (F4 HELP)</FormLabel><div className="flex gap-2"><FormControl><Input className="h-11 font-bold uppercase" {...field} onKeyDown={(e) => e.key === 'F4' && setHelpModal({ type: 'consignor', title: 'Search Consignors', data: consignorRegistry })} /></FormControl><Button type="button" variant="outline" onClick={() => setHelpModal({ type: 'consignorName', title: 'Search Consignors', data: consignorRegistry })}><Search size={16}/></Button></div></FormItem>
                             )} />
                             <FormField name="consignorAddress" control={control} render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR ADDRESS</FormLabel><FormControl><Input className="h-11" {...field} /></FormControl></FormItem>
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR ADDRESS (FULL)</FormLabel><FormControl><Input className="h-11" {...field} /></FormControl></FormItem>
                             )} />
                         </div>
                         <div className="space-y-4">
@@ -354,7 +367,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                                 <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNEE NODE (F4 HELP)</FormLabel><div className="flex gap-2"><FormControl><Input className="h-11 font-bold uppercase" {...field} onKeyDown={(e) => e.key === 'F4' && setHelpModal({ type: 'buyerName', title: 'Search Consignees', data: consigneeRegistry })} /></FormControl><Button type="button" variant="outline" onClick={() => setHelpModal({ type: 'buyerName', title: 'Search Consignees', data: consigneeRegistry })}><Search size={16}/></Button></div></FormItem>
                             )} />
                             <FormField name="deliveryAddress" control={control} render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">DELIVERY ADDRESS</FormLabel><FormControl><Input className="h-11" {...field} /></FormControl></FormItem>
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">DELIVERY ADDRESS (FULL)</FormLabel><FormControl><Input className="h-11" {...field} /></FormControl></FormItem>
                             )} />
                         </div>
                     </section>

@@ -102,7 +102,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       {/* 2. MISSION PARTICULARS */}
       <div className="grid grid-cols-5 border-2 border-black rounded-lg overflow-hidden mb-6 bg-white divide-x-2 divide-black">
         {[
-            { label: 'Vehicle Number', value: lr.vehicleNumber },
+            { label: 'Vehicle Number', value: lr.vehicleNumber || lr.trip?.vehicleNumber || '--' },
             { label: 'Pilot Contact', value: lr.driverMobile || lr.trip?.driverMobile || 'N/A' },
             { label: 'Vehicle Type', value: lr.trip?.vehicleType || 'Truck' },
             { label: 'Payment Term', value: lr.paymentTerm || 'Paid' },
@@ -122,7 +122,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <div className="text-[8.5pt] space-y-1 flex-1">
                 <p className="font-black uppercase">{lr.consignorName}</p>
                 {/* FULL ADDRESS NODE */}
-                <p className="text-slate-700 font-bold leading-tight">{lr.consignorAddress || lr.plant?.address}</p>
+                <p className="text-slate-700 font-bold leading-tight italic">{lr.consignorAddress || lr.plant?.address}</p>
             </div>
             <p className="font-black text-slate-900 text-[8pt]">GSTIN: <span className="font-mono">{lr.consignorGtin || '--'}</span></p>
         </div>
@@ -131,7 +131,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <div className="text-[8.5pt] space-y-1 flex-1">
                 <p className="font-black uppercase">{lr.buyerName}</p>
                 {/* FULL ADDRESS NODE */}
-                <p className="text-slate-700 font-bold leading-tight">{lr.deliveryAddress || lr.to}</p>
+                <p className="text-slate-700 font-bold leading-tight italic">{lr.deliveryAddress || lr.to}</p>
             </div>
             <p className="font-black text-slate-900 text-[8pt]">GSTIN: <span className="font-mono">{lr.buyerGtin || '--'}</span></p>
         </div>
