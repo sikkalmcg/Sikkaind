@@ -23,7 +23,7 @@ import { Separator } from '@/components/ui/separator';
 import type { Plant, Shipment, WithId, SubUser, Party, MasterQtyType, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save, FileDown, Upload } from 'lucide-react';
-import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
+import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDoc, getDocs, limit, Timestamp } from "firebase/firestore";
 import { cn, normalizePlantId, formatSequenceId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
@@ -161,7 +161,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, GSTIN, or City..." 
                             value={search} 
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold focus-visible:ring-blue-900 shadow-inner"
                             autoFocus
                         />
@@ -267,10 +267,11 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     if (originPlantId && authorizedPlants.length > 0) {
         const plant = authorizedPlants.find(p => p.id === originPlantId);
         if (plant) {
-            const cityNode = plant.city && plant.city !== 'N/A' ? plant.city : plant.name;
+            // Registry Logic: Resolve City Name for Loading Point Handshake
+            const cityNode = (plant.city && plant.city !== 'N/A' ? plant.city : (plant.address && plant.address !== 'N/A' ? plant.address.split(',')[0] : plant.name)).toUpperCase();
             setValue('loadingPoint', cityNode, { shouldValidate: true });
             
-            // REGISTRY SYNC: Initialize Consignor Address with full Plant Address manifest
+            // Registry Sync: Initialize Consignor Address with full Plant Address manifest
             const fullAddress = plant.address && plant.address !== 'N/A' ? plant.address : (plant.city || plant.name);
             setValue('consignorAddress', fullAddress, { shouldValidate: true });
         }
@@ -624,7 +625,16 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                       <FormField control={control} name="loadingPoint" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase text-slate-400 px-1">Lifting City (Point) *</FormLabel>
-                            <FormControl><div className="relative group"><MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-400 opacity-20" /><Input {...field} className="h-14 pl-12 rounded-2xl font-bold bg-slate-50/30 border-slate-200 uppercase" /></div></FormControl>
+                            <FormControl>
+                                <div className="relative group">
+                                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-400 opacity-20" />
+                                    <Input 
+                                        {...field} 
+                                        disabled
+                                        className="h-14 pl-12 rounded-2xl font-black text-slate-900 border-slate-200 bg-slate-100 uppercase cursor-not-allowed" 
+                                    />
+                                </div>
+                            </FormControl>
                         </FormItem>
                       )} />
                   </div>
