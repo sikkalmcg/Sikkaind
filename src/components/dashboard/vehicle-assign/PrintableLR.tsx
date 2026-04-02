@@ -24,8 +24,8 @@ interface PrintableLRProps {
 
 /**
  * @fileOverview SIKKA LMC - Enterprise Lorry Receipt (LR) Node.
- * Optimized for A4 printing with Dynamic Plant Header Handshake.
- * Registry Rule: Consignor Site Address always syncs with the verified Plant Node.
+ * Optimized for A4 printing with Dynamic Carrier Header & Full Entity Addresses.
+ * Registry Rule: Consignor/Consignee display full address; FROM/TO show City.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -41,21 +41,12 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     ? items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0)
     : (Number(lr.assignedTripWeight) || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0));
 
-  const getCity = (str: string) => {
-    if (!str) return 'N/A';
-    const parts = str.split(',').map(part => part.trim()).filter(Boolean);
-    if (parts.length >= 2) {
-        return parts[parts.length - 2].toUpperCase();
-    }
-    return parts[0].toUpperCase();
-  };
-
   const carrierTerms = lr.carrier?.terms || [];
 
   return (
     <div className="A4-page p-[8mm] bg-white text-black font-sans text-[9pt] leading-tight border border-slate-100 print:border-none h-[297mm] flex flex-col relative select-text box-border">
       
-      {/* 1. TOP HEADER REGISTRY */}
+      {/* 1. TOP HEADER REGISTRY - CARRIER FOCUSED */}
       <div className="text-center mb-4 border-b border-black pb-2">
         <span className="text-[10pt] font-black uppercase tracking-[0.5em] text-slate-900">{copyType}</span>
       </div>
@@ -71,14 +62,15 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           </div>
           <div className="space-y-1">
             <h1 className="text-[14pt] font-black uppercase tracking-tight leading-none text-slate-900">
-              {lr.plant?.name || lr.carrier?.name || 'SIKKA LMC'}
+              {lr.carrier?.name || 'SIKKA INDUSTRIES & LOGISTICS'}
             </h1>
-            <p className="text-[9pt] font-black uppercase text-slate-600">
-              {lr.plant?.city || getCity(lr.plant?.address) || ''}
+            <p className="text-[9pt] font-bold text-slate-600 uppercase max-w-[400px]">
+              {lr.carrier?.address || 'GHAZIABAD, UTTAR PRADESH'}
             </p>
-            <div className="text-[8pt] font-black text-slate-600 flex flex-wrap gap-x-4">
+            <div className="text-[8pt] font-black text-slate-600 flex flex-wrap gap-x-4 pt-1">
               <p>PHONE: {lr.carrier?.mobile || '9136688004, 9136688006'}</p>
-              <p>GSTIN: <span className="font-mono">{lr.carrier?.gstin || lr.plant?.id || '--'}</span></p>
+              <p>GSTIN: <span className="font-mono">{lr.carrier?.gstin || '--'}</span></p>
+              <p className="text-blue-600">NODE: {lr.plant?.name || lr.originPlantId}</p>
             </div>
           </div>
         </div>
@@ -91,8 +83,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             </div>
             <div className="text-[8.5pt] font-black text-slate-900 uppercase space-y-1">
                 <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>DATE:</span> <span>{formatDate(lr.date)}</span></p>
-                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>FROM:</span> <span>{getCity(lr.from)}</span></p>
-                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>TO:</span> <span>{getCity(lr.to)}</span></p>
+                {/* MISSION HANDSHAKE: Display City only in these boxes */}
+                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>FROM:</span> <span>{lr.from?.toUpperCase()}</span></p>
+                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>TO:</span> <span>{lr.to?.toUpperCase()}</span></p>
             </div>
         </div>
       </div>
@@ -113,24 +106,25 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         ))}
       </div>
 
-      {/* 3. ENTITY REGISTRY */}
-      <div className="grid grid-cols-2 border-2 border-black rounded-xl overflow-hidden mb-6 divide-x-2 divide-black">
-        <div className="p-4 space-y-2">
-            <span className="text-[8pt] font-black uppercase text-white bg-black px-2 py-0.5 inline-block rounded mb-1">CONSIGNOR (SENDER)</span>
-            <div className="text-[8.5pt] space-y-1">
+      {/* 3. ENTITY REGISTRY - FULL ADDRESS VISIBILITY */}
+      <div className="grid grid-cols-2 border-2 border-black rounded-xl overflow-hidden mb-6 divide-x-2 divide-black min-h-[120px]">
+        <div className="p-4 space-y-2 flex flex-col">
+            <span className="text-[8pt] font-black uppercase text-white bg-black px-2 py-0.5 inline-block rounded mb-1 w-fit">CONSIGNOR (SENDER)</span>
+            <div className="text-[8.5pt] space-y-1 flex-1">
                 <p className="font-black uppercase">{lr.consignorName}</p>
-                {/* REGISTRY SYNC: Consignor site address must handshake with the verified Plant Node */}
-                <p className="text-slate-700 font-bold leading-tight">{lr.plant?.address || lr.consignorAddress || lr.from}</p>
-                <p className="font-black text-slate-900 mt-2">GSTIN: <span className="font-mono">{lr.consignorGtin || '--'}</span></p>
+                {/* FULL ADDRESS NODE */}
+                <p className="text-slate-700 font-bold leading-tight">{lr.consignorAddress || lr.plant?.address}</p>
             </div>
+            <p className="font-black text-slate-900 text-[8pt]">GSTIN: <span className="font-mono">{lr.consignorGtin || '--'}</span></p>
         </div>
-        <div className="p-4 space-y-2 bg-slate-50/30">
-            <span className="text-[8pt] font-black uppercase text-white bg-black px-2 py-0.5 inline-block rounded mb-1">CONSIGNEE (RECEIVER)</span>
-            <div className="text-[8.5pt] space-y-1">
+        <div className="p-4 space-y-2 bg-slate-50/30 flex flex-col">
+            <span className="text-[8pt] font-black uppercase text-white bg-black px-2 py-0.5 inline-block rounded mb-1 w-fit">CONSIGNEE (RECEIVER)</span>
+            <div className="text-[8.5pt] space-y-1 flex-1">
                 <p className="font-black uppercase">{lr.buyerName}</p>
+                {/* FULL ADDRESS NODE */}
                 <p className="text-slate-700 font-bold leading-tight">{lr.deliveryAddress || lr.to}</p>
-                <p className="font-black text-slate-900 mt-2">GSTIN: <span className="font-mono">{lr.buyerGtin || '--'}</span></p>
             </div>
+            <p className="font-black text-slate-900 text-[8pt]">GSTIN: <span className="font-mono">{lr.buyerGtin || '--'}</span></p>
         </div>
       </div>
 
