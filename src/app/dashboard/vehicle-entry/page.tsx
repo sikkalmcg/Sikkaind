@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import VehicleIn from '@/components/dashboard/vehicle-entry/VehicleIn';
 import VehicleOut from '@/components/dashboard/vehicle-entry/VehicleOut';
@@ -14,11 +13,12 @@ import { Loader2, Truck, FileDown, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { normalizePlantId } from '@/lib/utils';
 import type { SubUser, VehicleEntryExit, Trip, Shipment, Plant } from '@/types';
+import { mockPlants } from '@/lib/mock-data';
 
 /**
  * @fileOverview Gate Control Registry (Parent Page).
  * Centralizes real-time data fetching to ensure synchronization between badges and tables.
- * Implements "All Plant" upcoming view for authorized nodes.
+ * Hardened for multi-node plant authorization.
  */
 function VehicleEntryContent() {
   const firestore = useFirestore();
@@ -42,7 +42,7 @@ function VehicleEntryContent() {
   );
   const { data: allMasterPlants } = useCollection<Plant>(plantsQuery);
 
-  // 1. Authorization Handshake
+  // 1. Authorization Handshake - Hardened for Multi-Node Accuracy
   useEffect(() => {
     if (!firestore || !user) return;
 
@@ -57,6 +57,10 @@ function VehicleEntryContent() {
             
             if (!userQSnap.empty) {
                 userDocSnap = userQSnap.docs[0];
+            } else {
+                const directRef = doc(firestore, "users", user.uid);
+                const directSnap = await getDoc(directRef);
+                if (directSnap.exists()) userDocSnap = directSnap;
             }
 
             let ids: string[] = [];
@@ -66,15 +70,12 @@ function VehicleEntryContent() {
                 const userData = userDocSnap.data() as SubUser;
                 const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isSystemAdmin;
                 
-                // Optimized: Use master plants if admin, else use profile-defined IDs
-                if (isRoot && allMasterPlants) {
-                    ids = allMasterPlants.map(p => p.id);
-                } else {
-                    ids = userData.plantIds || [];
-                }
+                const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
+                ids = isRoot ? baseList.map(p => p.id) : (userData.plantIds || []);
                 setIsAdmin(isRoot);
-            } else if (isSystemAdmin && allMasterPlants) {
-                ids = allMasterPlants.map(p => p.id);
+            } else if (isSystemAdmin) {
+                const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
+                ids = baseList.map(p => p.id);
                 setIsAdmin(true);
             }
             setAuthPlantIds(ids);
@@ -86,36 +87,60 @@ function VehicleEntryContent() {
     fetchAuth();
   }, [firestore, user, allMasterPlants]);
 
-  // 2. Real-time Registry Sync
+  // 2. Real-time Registry Sync - Transitioned to Partitioned Scanning
   useEffect(() => {
     if (!firestore || authPlantIds.length === 0) return;
 
     const unsubscribers: (() => void)[] = [];
+    setIsLoading(true);
 
-    // Sync Gate Entries
+    const normalizedAuthIds = authPlantIds.map(normalizePlantId);
+
+    // Sync Gate Entries (Global but filtered by auth context)
     const unsubIn = onSnapshot(collection(firestore, "vehicleEntries"), (snap) => {
-        const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+        const list = snap.docs
+            .map(d => ({ id: d.id, ...d.data() } as any))
+            .filter(d => isAdmin || normalizedAuthIds.includes(normalizePlantId(d.plantId)));
         setEntries(list);
         setIsLoading(false);
     }, () => setDbError(true));
     unsubscribers.push(unsubIn);
 
-    // Sync ALL Assigned Trips (For Upcoming Logic)
-    const unsubTrips = onSnapshot(collection(firestore, "trips"), (snap) => {
-        setTrips(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
-    });
-    unsubscribers.push(unsubTrips);
-
-    // Sync Shipments for Enrichment
+    // Sync Partitioned Data (Trips & Shipments) for each authorized node
     authPlantIds.forEach(pId => {
-        unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/shipments`), (snap) => {
-            const list = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() } as any));
-            setShipments(prev => [...prev.filter(s => s.originPlantId !== pId), ...list]);
+        const pIdStr = normalizePlantId(pId);
+        
+        // Sync Trips for "Upcoming" logic
+        unsubscribers.push(onSnapshot(collection(firestore, `plants/${pIdStr}/trips`), (snap) => {
+            const plantTrips = snap.docs.map(d => ({ 
+                id: d.id, 
+                originPlantId: pIdStr, 
+                ...d.data() 
+            } as any));
+            
+            setTrips(prev => {
+                const others = prev.filter(t => normalizePlantId(t.originPlantId) !== pIdStr);
+                return [...others, ...plantTrips];
+            });
+        }));
+
+        // Sync Shipments for Enrichment
+        unsubscribers.push(onSnapshot(collection(firestore, `plants/${pIdStr}/shipments`), (snap) => {
+            const plantShipments = snap.docs.map(d => ({ 
+                id: d.id, 
+                originPlantId: pIdStr, 
+                ...d.data() 
+            } as any));
+            
+            setShipments(prev => {
+                const others = prev.filter(s => normalizePlantId(s.originPlantId) !== pIdStr);
+                return [...others, ...plantShipments];
+            });
         }));
     });
 
     return () => unsubscribers.forEach(u => u());
-  }, [firestore, authPlantIds]);
+  }, [firestore, JSON.stringify(authPlantIds), isAdmin]);
 
   // 3. Centralized Logic Nodes
   const inVehiclesSet = useMemo(() => {
@@ -123,9 +148,11 @@ function VehicleEntryContent() {
   }, [entries]);
 
   const upcomingList = useMemo(() => {
+    const normalizedAuthIds = authPlantIds.map(normalizePlantId);
+    
     return trips.filter(t => {
         const normPId = normalizePlantId(t.originPlantId);
-        const isAuth = authPlantIds.some(aid => normalizePlantId(aid) === normPId);
+        const isAuth = isAdmin || normalizedAuthIds.includes(normPId);
         const rawStatus = (t.tripStatus || t.currentStatusId || '').toLowerCase().replace(/[\s_-]+/g, '-');
         const isAssigned = ['assigned', 'vehicle-assigned'].includes(rawStatus);
         const isNotInYard = !inVehiclesSet.has(t.vehicleNumber?.toUpperCase().trim());
@@ -140,12 +167,15 @@ function VehicleEntryContent() {
             materialTypeId: shipment?.materialTypeId || 'MT'
         };
     });
-  }, [trips, authPlantIds, inVehiclesSet, shipments]);
+  }, [trips, authPlantIds, inVehiclesSet, shipments, isAdmin]);
 
-  const counts = useMemo(() => ({
-    in: entries.filter(e => e.status === 'IN' && authPlantIds.some(aid => normalizePlantId(aid) === normalizePlantId(e.plantId))).length,
-    upcoming: upcomingList.length
-  }), [entries, upcomingList, authPlantIds]);
+  const counts = useMemo(() => {
+    const normalizedAuthIds = authPlantIds.map(normalizePlantId);
+    return {
+        in: entries.filter(e => e.status === 'IN' && (isAdmin || normalizedAuthIds.includes(normalizePlantId(e.plantId)))).length,
+        upcoming: upcomingList.length
+    };
+  }, [entries, upcomingList, authPlantIds, isAdmin]);
 
   const handleVehicleInFromUpcoming = (tripData: any) => {
     setUpcomingVehicleData(tripData);

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -10,6 +9,7 @@ import { Clock, Radar, Loader2, Factory } from 'lucide-react';
 import { useCollection, useMemoFirebase, useFirestore } from "@/firebase";
 import { collection, query } from "firebase/firestore";
 import type { Plant } from '@/types';
+import { normalizePlantId } from '@/lib/utils';
 
 /**
  * @fileOverview Upcoming Missions Component.
@@ -72,39 +72,42 @@ export default function UpcomingVehicles({
                             </TableCell>
                         </TableRow>
                     ) : (
-                        data.map((trip) => (
-                            <TableRow key={trip.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
-                                <TableCell className="px-8 font-black text-slate-600 uppercase text-xs">
-                                    {plants?.find(p => p.id === trip.originPlantId)?.name || trip.originPlantId}
-                                </TableCell>
-                                <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs uppercase">
-                                    {trip.tripId}
-                                </TableCell>
-                                <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter text-[13px]">
-                                    {trip.vehicleNumber}
-                                </TableCell>
-                                <TableCell className="px-4">
-                                    <div className="flex flex-col">
-                                        <span className="text-xs font-bold text-slate-700 uppercase">{trip.driverName || 'N/A'}</span>
-                                        <span className="text-[9px] font-mono text-slate-400">{trip.driverMobile || '--'}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="px-4 font-bold text-slate-700 uppercase text-xs truncate max-w-[200px]">
-                                    {trip.shipToParty || '--'}
-                                </TableCell>
-                                <TableCell className="px-4 text-right font-black text-blue-900">
-                                    {Number(trip.assignedQtyInTrip || 0).toFixed(3)} {trip.materialTypeId}
-                                </TableCell>
-                                <TableCell className="px-8 text-right">
-                                    <Button 
-                                        onClick={() => onVehicleInClick(trip)}
-                                        className="h-9 px-6 rounded-xl bg-blue-900 hover:bg-black text-white font-black uppercase text-[10px] tracking-widest shadow-lg transition-all active:scale-95 border-none"
-                                    >
-                                        Initialize IN
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        ))
+                        data.map((trip) => {
+                            const plantMatch = plants?.find(p => normalizePlantId(p.id) === normalizePlantId(trip.originPlantId));
+                            return (
+                                <TableRow key={trip.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
+                                    <TableCell className="px-8 font-black text-slate-600 uppercase text-xs">
+                                        {plantMatch?.name || trip.originPlantId}
+                                    </TableCell>
+                                    <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs uppercase">
+                                        {trip.tripId}
+                                    </TableCell>
+                                    <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter text-[13px]">
+                                        {trip.vehicleNumber}
+                                    </TableCell>
+                                    <TableCell className="px-4">
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-bold text-slate-700 uppercase">{trip.driverName || 'N/A'}</span>
+                                            <span className="text-[9px] font-mono text-slate-400">{trip.driverMobile || '--'}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="px-4 font-bold text-slate-700 uppercase text-xs truncate max-w-[200px]">
+                                        {trip.shipToParty || '--'}
+                                    </TableCell>
+                                    <TableCell className="px-4 text-right font-black text-blue-900">
+                                        {Number(trip.assignedQtyInTrip || 0).toFixed(3)} {trip.materialTypeId}
+                                    </TableCell>
+                                    <TableCell className="px-8 text-right">
+                                        <Button 
+                                            onClick={() => onVehicleInClick(trip)}
+                                            className="h-9 px-6 rounded-xl bg-blue-900 hover:bg-black text-white font-black uppercase text-[10px] tracking-widest shadow-lg transition-all active:scale-95 border-none"
+                                        >
+                                            Initialize IN
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })
                     )}
                 </TableBody>
             </Table>
