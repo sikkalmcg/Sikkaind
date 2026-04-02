@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -33,6 +32,7 @@ const formSchema = z.object({
   originPlantId: z.string().min(1, 'Plant node selection is required.'),
   consignor: z.string().min(1, 'Consignor is mandatory.'),
   consignorGtin: z.string().optional(),
+  consignorAddress: z.string().optional().default(''),
   loadingPoint: z.string().min(1, 'Lifting city is required.'),
   billToParty: z.string().min(1, 'Consignee is mandatory.'),
   billToGtin: z.string().optional(),
@@ -168,13 +168,6 @@ function SearchRegistryModal({
                     <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-inner bg-white">
                         <ScrollArea className="h-[40vh]">
                             <Table>
-                                <TableHeader className="sticky top-0 bg-slate-50 z-10 border-b">
-                                    <TableRow className="hover:bg-transparent h-12">
-                                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-10 px-4">Registry Node Name</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-10 px-4 text-center">GSTIN</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase tracking-widest h-10 px-4 text-right">Action</TableHead>
-                                    </TableRow>
-                                </TableHeader>
                                 <TableBody>
                                     {filtered.length === 0 ? (
                                         <TableRow><TableCell colSpan={3} className="h-32 text-center text-slate-400 italic">No nodes matching search.</TableCell></TableRow>
@@ -220,7 +213,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-        originPlantId: '', consignor: '', billToParty: '', shipToParty: '', loadingPoint: '', unloadingPoint: '',
+        originPlantId: '', consignor: '', consignorAddress: '', billToParty: '', shipToParty: '', loadingPoint: '', unloadingPoint: '',
         materialTypeId: 'METRIC TON', quantity: 0, lrNumber: '', carrierId: '', paymentTerm: 'Paid',
         isSameAsBillTo: false, lrDate: null, items: []
     },
@@ -273,8 +266,12 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     if (originPlantId && authorizedPlants.length > 0) {
         const plant = authorizedPlants.find(p => p.id === originPlantId);
         if (plant) {
-            const location = plant.city && plant.city !== 'N/A' ? plant.city : (plant.address && plant.address !== 'N/A' ? plant.address : plant.name);
-            setValue('loadingPoint', location, { shouldValidate: true });
+            const cityNode = plant.city && plant.city !== 'N/A' ? plant.city : plant.name;
+            setValue('loadingPoint', cityNode, { shouldValidate: true });
+            
+            // REGISTRY SYNC: Initialize Consignor Address with full Plant Address manifest
+            const fullAddress = plant.address && plant.address !== 'N/A' ? plant.address : (plant.city || plant.name);
+            setValue('consignorAddress', fullAddress, { shouldValidate: true });
         }
     }
   }, [originPlantId, authorizedPlants, setValue]);
@@ -297,8 +294,10 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     
     if (type === 'consignor') {
         setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
+        // REGISTRY SYNC: When selecting consignor, keep loading city but use party address if specific
         const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
         if(city) setValue('loadingPoint', city, { shouldValidate: true });
+        if(party.address) setValue('consignorAddress', party.address, { shouldValidate: true });
     } else if (type === 'billToParty') {
         setValue('billToGtin', party.gstin || '', { shouldValidate: true });
         if(isSameAsBillTo) {
@@ -429,6 +428,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                             shipmentId,
                             consignor: getVal(row, ["Consignor Name", "Consignor"]),
                             consignorGtin: getVal(row, ["Consignor GSTIN", "Consignor Gst"]),
+                            consignorAddress: getVal(row, ["Consignor Address", "Consignor Site"]),
                             loadingPoint: getVal(row, ["Lifting Point", "From"]),
                             billToParty: getVal(row, ["Consignee Name", "Consignee"]),
                             billToGtin: getVal(row, ["Consignee GSTIN", "Consignee Gst"]),
@@ -680,7 +680,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         <Table>
                             <TableHeader className="bg-slate-900">
                                 <TableRow className="hover:bg-transparent border-none h-14">
-                                    <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">Invoice #</TableHead>
+                                    <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">INVOICE #</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">E-Waybill No.</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">Units</TableHead>
@@ -707,7 +707,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                             <TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16">
                                 <TableRow className="hover:bg-transparent border-none">
                                     <TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL MANIFEST REGISTRY</TableCell>
-                                    <TableCell className="text-center font-black text-lg text-slate-900">{totals.units}</TableCell>
+                                    <TableCell className="text-center font-black text-lg text-blue-900">{totals.load.toFixed(0)}</TableCell>
                                     <TableCell colSpan={1}></TableCell>
                                     <TableCell className="text-right px-8 font-black text-xl text-blue-900 tracking-tighter">
                                         {Number(totals.weight).toFixed(3)} MT

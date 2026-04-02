@@ -24,6 +24,7 @@ interface PrintableLRProps {
 /**
  * @fileOverview SIKKA LMC - Enterprise Lorry Receipt (LR) Node.
  * Optimized for A4 printing with Dynamic Plant Header Handshake.
+ * Registry Rule: Consignor Site Address always syncs with the verified Plant Node.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -35,21 +36,14 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const items = lr.items || [];
   const totalUnits = items.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
   
-  // Registry Logic: Select weight based on manifest protocol
   const totalWeight = lr.weightSelection === 'Actual Weight' 
     ? items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0)
     : (Number(lr.assignedTripWeight) || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0));
 
-  /**
-   * Registry Logic: Smart City Extraction
-   * Resolves the primary city node from address strings.
-   */
   const getCity = (str: string) => {
     if (!str) return 'N/A';
     const parts = str.split(',').map(part => part.trim()).filter(Boolean);
-    
     if (parts.length >= 2) {
-        // Mission logic: City is typically the segment before the state/code
         return parts[parts.length - 2].toUpperCase();
     }
     return parts[0].toUpperCase();
@@ -124,7 +118,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <span className="text-[8pt] font-black uppercase text-white bg-black px-2 py-0.5 inline-block rounded mb-1">CONSIGNOR (SENDER)</span>
             <div className="text-[8.5pt] space-y-1">
                 <p className="font-black uppercase">{lr.consignorName}</p>
-                <p className="text-slate-700 font-bold leading-tight">{lr.consignorAddress || lr.from}</p>
+                {/* REGISTRY SYNC: Consignor site address must handshake with the verified Plant Node */}
+                <p className="text-slate-700 font-bold leading-tight">{lr.plant?.address || lr.consignorAddress || lr.from}</p>
                 <p className="font-black text-slate-900 mt-2">GSTIN: <span className="font-mono">{lr.consignorGtin || '--'}</span></p>
             </div>
         </div>
@@ -178,7 +173,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </table>
       </div>
 
-      {/* 5. TERMS & SIGNATURE */}
       <div className="mt-4 mb-8">
         <div className="grid grid-cols-2 gap-16">
             <div className="space-y-3">
@@ -206,7 +200,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 6. FOOTER NODE */}
       <div className="mt-auto pt-4 border-t border-slate-200 flex flex-col items-center gap-1.5 shrink-0">
         <p className="text-[7.5pt] font-black uppercase text-blue-400/80 tracking-widest">
             Note: This Lorry Receipt was generated digitally and is to be considered as original

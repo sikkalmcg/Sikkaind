@@ -1,11 +1,10 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -27,6 +26,7 @@ interface EditShipmentModalProps {
 const formSchema = z.object({
   originPlantId: z.string().min(1, 'Plant is required'),
   consignor: z.string().min(1, 'Consignor is required'),
+  consignorAddress: z.string().optional().default(''),
   loadingPoint: z.string().min(1, 'Loading point is required'),
   billToParty: z.string().min(1, 'Consignee is required'),
   isSameAsBillTo: z.boolean().default(false),
@@ -59,6 +59,7 @@ export default function EditShipmentModal({ isOpen, onClose, shipment, onShipmen
       reset({
         originPlantId: shipment.originPlantId,
         consignor: shipment.consignor || '',
+        consignorAddress: shipment.consignorAddress || '',
         loadingPoint: shipment.loadingPoint || '',
         billToParty: shipment.billToParty || '',
         shipToParty: shipment.shipToParty || '',
@@ -110,6 +111,9 @@ export default function EditShipmentModal({ isOpen, onClose, shipment, onShipmen
                     <FormField control={form.control} name="consignor" render={({ field }) => (
                         <FormItem><FormLabel>Consignor</FormLabel><FormControl><Input placeholder="e.g., Tata Steel" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
+                    <FormField control={form.control} name="consignorAddress" render={({ field }) => (
+                        <FormItem><FormLabel>Consignor Address</FormLabel><FormControl><Input placeholder="Full Address" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
                     <FormField control={form.control} name="loadingPoint" render={({ field }) => (
                         <FormItem><FormLabel>Loading Point</FormLabel><FormControl><Input placeholder="e.g., Ghaziabad" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -143,7 +147,7 @@ export default function EditShipmentModal({ isOpen, onClose, shipment, onShipmen
                         <FormItem>
                         <FormLabel>Qty Type</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select a type" /></SelectTrigger></FormControl>
+                            <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Select a type" /></SelectTrigger></FormControl>
                             <SelectContent>
                                 <SelectItem value="MT">MT</SelectItem>
                                 <SelectItem value="Other">Other</SelectItem>
