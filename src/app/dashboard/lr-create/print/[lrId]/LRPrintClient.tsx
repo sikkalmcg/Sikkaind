@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
@@ -37,7 +36,6 @@ function LRPrintContent({ lrId }: { lrId: string }) {
             let lr: any = null;
             let currentPlantId = plantId;
 
-            // 1. Resolve LR Document from Node Registry
             if (currentPlantId) {
                 const lrRef = doc(firestore, `plants/${currentPlantId}/lrs`, lrId);
                 const lrSnap = await getDoc(lrRef);
@@ -46,7 +44,6 @@ function LRPrintContent({ lrId }: { lrId: string }) {
                 }
             }
 
-            // 2. Global Registry Search (Fallback if plantId missing)
             if (!lr) {
                 const possiblePlants = ['1214', '1426', 'Id23', 'SIL', 'RAKE'];
                 for (const p of possiblePlants) {
@@ -65,7 +62,6 @@ function LRPrintContent({ lrId }: { lrId: string }) {
                 return;
             }
 
-            // 3. Sequential Handshake: Trip -> Shipment -> Carrier -> Plant
             const [tripSnap, carrierSnap, plantSnap] = await Promise.all([
                 getDoc(doc(firestore, `plants/${currentPlantId}/trips`, lr.tripDocId || lr.tripId)),
                 getDoc(doc(firestore, "carriers", lr.carrierId)),
@@ -83,7 +79,6 @@ function LRPrintContent({ lrId }: { lrId: string }) {
                 shipment = shipSnap.exists() ? { id: shipSnap.id, ...shipSnap.data() } : null;
             }
 
-            // Standardize Dates
             const parseDate = (d: any) => d instanceof Timestamp ? d.toDate() : (d ? new Date(d) : undefined);
             lr.date = parseDate(lr.date);
             if (trip) {
@@ -91,7 +86,6 @@ function LRPrintContent({ lrId }: { lrId: string }) {
                 trip.lrDate = parseDate(trip.lrDate);
             }
 
-            // Registry Resolution Node: Ensure GSTINs are populated from shipment if missing in LR
             setLrData({ 
                 ...lr, 
                 trip: trip as any, 
