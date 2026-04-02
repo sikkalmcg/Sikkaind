@@ -120,7 +120,7 @@ export default function SupervisorTaskPage() {
         const qGate = collection(firestore, "vehicleEntries");
         const unsubGate = onSnapshot(qGate, (snap) => {
             const activeVehicles = snap.docs
-                .map(d => ({ id: d.id, ...d.data() } as any))
+                .map(d => ({ ...d.data(), id: d.id } as any))
                 .filter(d => isAdmin || normalizedAuthIds.includes(normalizePlantId(d.plantId)));
             setVehicleEntries(activeVehicles);
             setIsLoading(false);
@@ -129,7 +129,7 @@ export default function SupervisorTaskPage() {
 
         authorizedPlantIds.forEach(pId => {
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/trips`), (snap) => {
-                const plantTrips = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() }));
+                const plantTrips = snap.docs.map(d => ({ ...d.data(), id: d.id, originPlantId: pId }));
                 setTrips(prev => {
                     const otherPlants = prev.filter(t => t.originPlantId !== pId);
                     return [...otherPlants, ...plantTrips];
@@ -137,7 +137,7 @@ export default function SupervisorTaskPage() {
             }));
 
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/shipments`), (snap) => {
-                const plantShipments = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() }));
+                const plantShipments = snap.docs.map(d => ({ ...d.data(), id: d.id, originPlantId: pId }));
                 setShipments(prev => {
                     const otherPlants = prev.filter(s => s.originPlantId !== pId);
                     return [...otherPlants, ...plantShipments];
@@ -145,7 +145,7 @@ export default function SupervisorTaskPage() {
             }));
 
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/lrs`), (snap) => {
-                const plantLrs = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() }));
+                const plantLrs = snap.docs.map(d => ({ ...d.data(), id: d.id, originPlantId: pId }));
                 setLrs(prev => {
                     const otherPlants = prev.filter(l => l.originPlantId !== pId);
                     return [...otherPlants, ...plantLrs];
@@ -159,9 +159,9 @@ export default function SupervisorTaskPage() {
             );
             const unsubHistory = onSnapshot(historyRef, (snap) => {
                 const plantHistory = snap.docs.map(d => ({
+                    ...d.data(),
                     id: d.id,
                     originPlantId: pId,
-                    ...d.data(),
                     timestamp: parseSafeDate(d.data().timestamp)
                 }));
                 setHistory(prev => {
@@ -185,7 +185,7 @@ export default function SupervisorTaskPage() {
 
             const vehicleNum = trip.vehicleNumber || '--';
             
-            const entry = vehicleEntries.find(e => e.tripId === trip.id || (e.vehicleNumber === trip.vehicleNumber && e.status === 'IN'));
+            const entry = vehicleEntries.find(e => e.tripId === trip.id || (e.vehicleNumber === trip.vehicleNumber && e.status === 'IN' && normalizePlantId(e.plantId) === normalizePlantId(trip.originPlantId)));
             if (entry?.isTaskCompleted) return;
 
             const lr = lrs.find(l => l.tripDocId === trip.id || l.tripId === trip.tripId);
@@ -269,6 +269,7 @@ export default function SupervisorTaskPage() {
 
     const filteredTasks = useMemo(() => {
         return activeTasks.filter(t => {
+            // Registry Comparison Node: Ensure strict string handshake for plant filtering
             const matchesPlant = selectedPlant === 'all-plants' || normalizePlantId(t.plantId) === normalizePlantId(selectedPlant);
             const s = searchTerm.toLowerCase();
             const matchesSearch = !searchTerm || 
@@ -434,16 +435,16 @@ export default function SupervisorTaskPage() {
                                             <TableRow key={task.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
                                                 <TableCell className="px-6 font-bold text-slate-600 uppercase text-[11px]">{task.plantName}</TableCell>
                                                 <TableCell className="px-4 text-center">
-                                                    <Badge variant="outline" className={cn("text-[9px] uppercase font-black px-2 py-0.5", task.purpose === 'Loading' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-orange-50 text-orange-700 border-orange-200')}>
+                                                    <Badge variant="outline" className={cn("text-[9px] font-black px-2 py-0.5 uppercase", task.purpose === 'Loading' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-orange-50 text-orange-700 border-orange-200')}>
                                                         {task.purpose}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter uppercase text-[11px] text-center">{task.tripId}</TableCell>
+                                                <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs text-center uppercase">{task.tripId}</TableCell>
                                                 <TableCell className="px-4 font-bold text-slate-900 text-center uppercase">{task.lrNumber}</TableCell>
-                                                <TableCell className="px-4 font-black text-slate-900 tracking-tighter uppercase text-[13px] text-center">{task.vehicleNumber}</TableCell>
+                                                <TableCell className="px-4 font-black text-slate-900 tracking-tighter text-[13px] text-center uppercase">{task.vehicleNumber}</TableCell>
                                                 <TableCell className="px-4">
                                                     <div className="flex flex-col">
-                                                        <span className="text-xs font-bold text-slate-700">{task.driverName || '--'}</span>
+                                                        <span className="text-xs font-bold text-slate-700 uppercase">{task.driverName || '--'}</span>
                                                         <span className="text-[9px] font-mono text-slate-400">{task.driverMobile}</span>
                                                     </div>
                                                 </TableCell>
