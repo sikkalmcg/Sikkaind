@@ -31,6 +31,7 @@ function VehicleEntryContent() {
   const [entries, setEntries] = useState<VehicleEntryExit[]>([]);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [authPlantIds, setAuthPlantIds] = useState<string[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
@@ -59,11 +60,11 @@ function VehicleEntryContent() {
             }
 
             let ids: string[] = [];
-            const isAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
+            const isSystemAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
 
             if (userDocSnap) {
                 const userData = userDocSnap.data() as SubUser;
-                const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdmin;
+                const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isSystemAdmin;
                 
                 // Optimized: Use master plants if admin, else use profile-defined IDs
                 if (isRoot && allMasterPlants) {
@@ -71,8 +72,10 @@ function VehicleEntryContent() {
                 } else {
                     ids = userData.plantIds || [];
                 }
-            } else if (isAdmin && allMasterPlants) {
+                setIsAdmin(isRoot);
+            } else if (isSystemAdmin && allMasterPlants) {
                 ids = allMasterPlants.map(p => p.id);
+                setIsAdmin(true);
             }
             setAuthPlantIds(ids);
         } catch (e) {
@@ -200,7 +203,7 @@ function VehicleEntryContent() {
                   <VehicleOut />
               </TabsContent>
               <TabsContent value="gate-register" className="m-0 focus-visible:ring-0">
-                  <GateRegister />
+                  <GateRegister authPlantIds={authPlantIds} isAdmin={isAdmin} />
               </TabsContent>
               <TabsContent value="upcoming-vehicle" className="m-0 focus-visible:ring-0">
                   <UpcomingVehicles data={upcomingList} isLoading={isLoading} onVehicleInClick={handleVehicleInFromUpcoming} />

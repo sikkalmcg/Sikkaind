@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -14,7 +15,12 @@ import { cn, normalizePlantId } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import type { VehicleEntryExit, Plant } from '@/types';
 
-export default function GateRegister() {
+interface GateRegisterProps {
+    authPlantIds?: string[];
+    isAdmin?: boolean;
+}
+
+export default function GateRegister({ authPlantIds = [], isAdmin = false }: GateRegisterProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,6 +36,7 @@ export default function GateRegister() {
   useEffect(() => {
     if (!firestore || !user) return;
 
+    // Registry Listener: Real-time pulse from global collection
     const q = query(collection(firestore, "vehicleEntries"), orderBy("entryTimestamp", "desc"), limit(100));
     const unsubscribe = onSnapshot(q, (snap) => {
         const allEntries = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
@@ -44,15 +51,26 @@ export default function GateRegister() {
   }, [firestore, user]);
 
   const filteredData = useMemo(() => {
-    if (!searchTerm) return entries;
-    const s = searchTerm.toLowerCase();
-    return entries.filter(e => 
-        e.vehicleNumber?.toLowerCase().includes(s) ||
-        e.driverName?.toLowerCase().includes(s) ||
-        e.lrNumber?.toLowerCase().includes(s) ||
-        e.purpose?.toLowerCase().includes(s)
-    );
-  }, [entries, searchTerm]);
+    let result = entries;
+    
+    // Authorization Node: Enforce plant node scope
+    if (!isAdmin && authPlantIds.length > 0) {
+        const normalizedAuthIds = authPlantIds.map(normalizePlantId);
+        result = result.filter(e => normalizedAuthIds.includes(normalizePlantId(e.plantId)));
+    }
+
+    if (searchTerm) {
+        const s = searchTerm.toLowerCase();
+        result = result.filter(e => 
+            e.vehicleNumber?.toLowerCase().includes(s) ||
+            e.driverName?.toLowerCase().includes(s) ||
+            e.lrNumber?.toLowerCase().includes(s) ||
+            e.purpose?.toLowerCase().includes(s)
+        );
+    }
+
+    return result;
+  }, [entries, searchTerm, authPlantIds, isAdmin]);
 
   const handleExport = () => {
     const exportData = filteredData.map(e => ({
