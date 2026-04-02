@@ -285,8 +285,8 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         const match = consigneeRegistry.find(p => p.name === billToParty);
         if (match) {
             setValue('shipToGtin', match.gstin || '', { shouldValidate: true });
-            const address = (match.address && match.address !== 'N/A') ? match.address : match.city;
-            if (address) setValue('unloadingPoint', address, { shouldValidate: true });
+            const city = match.city && match.city !== 'N/A' ? match.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
+            if (city) setValue('unloadingPoint', city, { shouldValidate: true });
             if (match.address) setValue('deliveryAddress', match.address, { shouldValidate: true });
         }
     }
@@ -297,24 +297,24 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     
     if (type === 'consignor') {
         setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
-        const addr = (party.address && party.address !== 'N/A') ? party.address : party.city;
-        if(addr) setValue('loadingPoint', addr, { shouldValidate: true });
+        const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
+        if(city) setValue('loadingPoint', city, { shouldValidate: true });
     } else if (type === 'billToParty') {
         setValue('billToGtin', party.gstin || '', { shouldValidate: true });
         if(isSameAsBillTo) {
             setValue('shipToParty', party.name, { shouldValidate: true });
             setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-            const address = (party.address && party.address !== 'N/A') ? party.address : party.city;
-            if (address) {
-                setValue('unloadingPoint', address, { shouldValidate: true });
+            const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
+            if (city) {
+                setValue('unloadingPoint', city, { shouldValidate: true });
                 setValue('deliveryAddress', party.address || '', { shouldValidate: true });
             }
         }
     } else if (type === 'shipToParty') {
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-        const address = (party.address && party.address !== 'N/A') ? party.address : party.city;
-        if (address) {
-            setValue('unloadingPoint', address, { shouldValidate: true });
+        const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
+        if (city) {
+            setValue('unloadingPoint', city, { shouldValidate: true });
             setValue('deliveryAddress', party.address || '', { shouldValidate: true });
         }
     }
@@ -591,7 +591,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                             <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl><SelectTrigger className="h-14 border-blue-200 bg-white rounded-xl font-bold"><SelectValue placeholder="Select Carrier" /></SelectTrigger></FormControl>
                                 <SelectContent className="rounded-xl">
-                                    {carriers?.map(c => <SelectItem key={c.id} value={c.id} className="font-bold py-2.5 uppercase">{c.name}</SelectItem>)}
+                                    {carriers?.map(c => <SelectItem key={c.id} value={c.id} className="font-bold py-3 uppercase italic text-black">{c.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </FormItem>

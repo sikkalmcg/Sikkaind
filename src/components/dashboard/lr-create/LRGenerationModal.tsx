@@ -1,3 +1,4 @@
+
 'use client';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
@@ -9,25 +10,23 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, ShieldCheck, Truck, FileText, MapPin, CheckCircle2, AlertCircle, Calculator, Layers, Sparkles, Search, UserCircle, X } from 'lucide-react';
-import { Label } from '@/components/ui/label';
+import { Loader2, PlusCircle, Trash2, ShieldCheck, FileText, Search, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import type { WithId, Trip, Carrier, Shipment, LR, Party } from '@/types';
 import { PaymentTerms, LRUnitTypes } from '@/lib/constants';
 import { DatePicker } from '@/components/date-picker';
-import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
-import { collection, query, serverTimestamp, doc, getDoc, getDocs, limit, runTransaction, orderBy, where, Timestamp } from "firebase/firestore";
-import { cn, normalizePlantId } from '@/lib/utils';
+import { collection, query, serverTimestamp, doc, getDoc, getDocs, limit, runTransaction, where, Timestamp } from "firebase/firestore";
+import { cn, normalizePlantId, parseSafeDate } from '@/lib/utils';
 
 const formSchema = z.object({
   lrNumber: z.string().min(1, "LR Number is mandatory."),
   date: z.date({ required_error: "Registration date is required." }),
+  from: z.string().min(1, "From location required."),
+  to: z.string().min(1, "To location required."),
   vehicleNumber: z.string().min(1, "Vehicle number is required."),
   driverName: z.string().optional().default(''),
   driverMobile: z.string().optional().default('').refine(val => !val || val === '' || /^\d{10}$/.test(val), {
@@ -148,7 +147,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
   const [helpModal, setHelpModal] = useState<{ type: string; title: string; data: any[] } | null>(null);
 
   const partiesQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, "logistics_parties")) : null, 
+    firestore ? query(collection(firestore, "logistics_parties"), where("isDeleted", "==", false)) : null, 
     [firestore]
   );
   const { data: parties } = useCollection<Party>(partiesQuery);
@@ -158,6 +157,8 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
     defaultValues: {
         lrNumber: '',
         date: new Date(),
+        from: '',
+        to: '',
         paymentTerm: 'Paid',
         weightSelection: 'Assigned Weight',
         items: []
@@ -169,9 +170,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
   const watchedItems = watch("items") || [];
 
   const activeParties = useMemo(() => (parties || []).filter(p => p.isDeleted === false || p.isDeleted === undefined), [parties]);
-  
   const consignorRegistry = useMemo(() => activeParties.filter(p => p.type?.toLowerCase() === 'consignor'), [activeParties]);
-  
   const consigneeRegistry = useMemo(() => activeParties.filter(p => {
     const type = p.type?.toLowerCase() || '';
     return type.includes('consignee') || type.includes('buyer') || type.includes('ship to');
@@ -207,6 +206,8 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                 reset({
                     lrNumber: sData.lrNumber || '',
                     date: sData.lrDate?.toDate ? sData.lrDate.toDate() : new Date(),
+                    from: sData.loadingPoint || '',
+                    to: sData.unloadingPoint || '',
                     vehicleNumber: activeTrip!.vehicleNumber,
                     driverName: activeTrip!.driverName,
                     driverMobile: activeTrip!.driverMobile,
@@ -234,14 +235,17 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
     if (type === 'consignorName') {
         setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
         setValue('consignorAddress', party.address || party.city || '', { shouldValidate: true });
+        setValue('from', party.city || '', { shouldValidate: true });
     } else if (type === 'buyerName') {
         setValue('buyerGtin', party.gstin || '', { shouldValidate: true });
         setValue('shipToParty', party.name, { shouldValidate: true });
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
         setValue('deliveryAddress', party.address || party.city || '', { shouldValidate: true });
+        setValue('to', party.city || '', { shouldValidate: true });
     } else if (type === 'shipToParty') {
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
         setValue('deliveryAddress', party.address || party.city || '', { shouldValidate: true });
+        setValue('to', party.city || '', { shouldValidate: true });
     }
   }, [setValue]);
 
@@ -319,12 +323,18 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
         <div className="flex-1 overflow-y-auto px-10 py-8 bg-[#f8fafc] space-y-10">
             <Form {...form}>
                 <form className="space-y-10">
-                    <section className="grid grid-cols-1 md:grid-cols-3 gap-8 p-8 bg-white rounded-3xl border border-slate-200 shadow-sm">
+                    <section className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-8 p-8 bg-white rounded-3xl border border-slate-200 shadow-sm">
                         <FormField name="lrNumber" control={control} render={({ field }) => (
                             <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">LR NUMBER *</FormLabel><FormControl><Input className="h-12 font-black text-blue-900 uppercase" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
                         <FormField name="date" control={control} render={({ field }) => (
                             <FormItem className="flex flex-col"><FormLabel className="text-[10px] font-black uppercase text-slate-400">LR DATE *</FormLabel><DatePicker date={field.value} setDate={field.onChange} className="h-12" /></FormItem>
+                        )} />
+                        <FormField name="from" control={control} render={({ field }) => (
+                            <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">FROM CITY *</FormLabel><FormControl><Input className="h-12 font-bold uppercase" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField name="to" control={control} render={({ field }) => (
+                            <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">TO CITY *</FormLabel><FormControl><Input className="h-12 font-bold uppercase" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
                         <FormField name="paymentTerm" control={control} render={({ field }) => (
                             <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">PAYMENT TERM</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{PaymentTerms.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></FormItem>
@@ -363,7 +373,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                             </TableHeader>
                             <TableBody>
                                 {fields.map((field, index) => (
-                                    <TableRow key={field.id} className="h-14 border-b border-slate-100 hover:bg-blue-50/10 transition-colors group">
+                                    <TableRow key={field.id} className="h-16 border-b border-slate-100 hover:bg-blue-50/10 transition-colors group">
                                         <TableCell className="px-6"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-9 font-bold" /></TableCell>
                                         <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-9 font-bold uppercase" /></TableCell>
                                         <TableCell className="px-4 text-center"><Input type="number" {...form.register(`items.${index}.units`)} className="h-9 text-center font-black" /></TableCell>
