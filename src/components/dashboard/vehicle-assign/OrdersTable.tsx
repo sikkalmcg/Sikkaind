@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -81,6 +82,17 @@ export default function OrdersTable({
     isAdmin 
 }: OrdersTableProps) {
   
+  const getCity = (str: string) => {
+    if (!str || str === 'N/A' || str === '--') return '--';
+    const parts = str.split(',').map(p => p.trim()).filter(Boolean);
+    if (parts.length > 1) {
+        // Registry Logic: Identify city node (usually second to last if state is included)
+        const cityIndex = parts.length >= 2 ? parts.length - 2 : 0;
+        return parts[cityIndex].toUpperCase();
+    }
+    return str.toUpperCase();
+  };
+
   return (
     <div className="rounded-[2rem] border border-slate-200 shadow-xl bg-white overflow-hidden">
       <div className="overflow-x-auto">
@@ -107,7 +119,7 @@ export default function OrdersTable({
             {data.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={14} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
-                  No mission plans detected in current registry view.
+                  No mission nodes detected in current registry view.
                 </TableCell>
               </TableRow>
             ) : (
@@ -117,7 +129,7 @@ export default function OrdersTable({
 
                 return (
                   <React.Fragment key={order.id}>
-                    <TableRow className="h-16 hover:bg-blue-50/20 transition-all border-b border-slate-100 group">
+                    <TableRow className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 transition-all group text-[11px] font-medium text-slate-600">
                       <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{order.plantName}</TableCell>
                       <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs">{order.shipmentId}</TableCell>
                       <TableCell className="px-4 text-center">
@@ -134,7 +146,9 @@ export default function OrdersTable({
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={order.billToParty}>{order.billToParty}</TableCell>
                       <TableCell className="px-4 truncate font-medium text-slate-500 uppercase italic text-[10px]" title={order.summarizedItems}>"{order.summarizedItems}"</TableCell>
                       <TableCell className="px-4 text-center font-black text-slate-900">{order.totalUnitsCount || '--'}</TableCell>
-                      <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-xs" title={order.unloadingPoint}>{order.unloadingPoint}</TableCell>
+                      <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-xs" title={order.unloadingPoint}>
+                        {getCity(order.unloadingPoint)}
+                      </TableCell>
                       <TableCell className="px-4 text-center font-bold text-slate-400 text-xs">{order.materialTypeId}</TableCell>
                       <TableCell className="px-4 text-right font-black text-slate-900 text-xs">{(order.quantity || 0).toFixed(3)}</TableCell>
                       <TableCell className="px-4 text-right font-black text-orange-600 text-xs bg-orange-50/10">{(order.balanceQty || 0).toFixed(3)}</TableCell>
