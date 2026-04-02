@@ -231,20 +231,21 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
 
   const selectPartyNode = useCallback((party: Party, type: string) => {
     setValue(type as any, party.name, { shouldValidate: true });
-    
+    const fullAddress = `${party.name}, ${party.address || party.city || ''}`.trim().replace(/, $/, '');
+
     if (type === 'consignorName') {
         setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
-        setValue('consignorAddress', party.address || party.city || '', { shouldValidate: true });
+        setValue('consignorAddress', fullAddress, { shouldValidate: true });
         setValue('from', party.city || '', { shouldValidate: true });
     } else if (type === 'buyerName') {
         setValue('buyerGtin', party.gstin || '', { shouldValidate: true });
         setValue('shipToParty', party.name, { shouldValidate: true });
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-        setValue('deliveryAddress', party.address || party.city || '', { shouldValidate: true });
+        setValue('deliveryAddress', fullAddress, { shouldValidate: true });
         setValue('to', party.city || '', { shouldValidate: true });
     } else if (type === 'shipToParty') {
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-        setValue('deliveryAddress', party.address || party.city || '', { shouldValidate: true });
+        setValue('deliveryAddress', fullAddress, { shouldValidate: true });
         setValue('to', party.city || '', { shouldValidate: true });
     }
   }, [setValue]);
@@ -414,7 +415,6 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                 COMMIT MISSION RECEIPT
             </Button>
         </DialogFooter>
-      </DialogContent>
 
       {helpModal && (
           <SearchRegistryModal 
