@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -307,7 +306,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     if (type === 'consignor') {
         setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
         if(party.address) setValue('consignorAddress', party.address, { shouldValidate: true });
-        // MISSION CRITICAL: Lifting Point MUST follow Consignor's City Registry
+        // MISSION CRITICAL: Lifting Point MUST follow Consignor's City Registry (Parties Tab)
         if(party.city) setValue('loadingPoint', party.city.toUpperCase(), { shouldValidate: true });
     } else if (type === 'billToParty') {
         setValue('billToGtin', party.gstin || '', { shouldValidate: true });
@@ -384,7 +383,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
   const handleExportTemplate = () => {
     const headers = [
-        "Plant ID", "Consignor Name", "Consignor GSTIN", "Lifting Point", "Consignee Name", "Consignee GSTIN", "Ship To Name", "Ship To GSTIN", 
+        "Plant ID", "Consignor Name", "Consignor GSTIN", "From (City)", "Consignee Name", "Consignee GSTIN", "Ship To Name", "Ship To GSTIN", 
         "Destination Point", "UOM", "Quantity", "Invoice Number", "LR Number", "Payment Term", "Delivery Address", "Item Description", "Units"
     ];
     const sample = [
@@ -432,7 +431,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         consignor: getVal(row, ["Consignor Name", "Consignor"]),
                         consignorGtin: getVal(row, ["Consignor GSTIN", "Consignor Gst"]),
                         consignorAddress: getVal(row, ["Consignor Address", "Consignor Site"]),
-                        loadingPoint: getVal(row, ["Lifting Point", "From"]),
+                        loadingPoint: getVal(row, ["From", "From (City)", "Lifting Point"]),
                         billToParty: consignee,
                         billToGtin: getVal(row, ["Consignee GSTIN", "Consignee Gst"]),
                         shipToParty: getVal(row, ["Ship To Name", "Ship To"]),
@@ -648,7 +647,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                       />
                       <FormField control={control} name="loadingPoint" render={({ field }) => (
                         <FormItem>
-                            <FormLabel className="text-[10px] font-bold uppercase text-slate-400 px-1">Lifting City (Point) *</FormLabel>
+                            <FormLabel className="text-[10px] font-bold uppercase text-slate-400 px-1">From *</FormLabel>
                             <FormControl>
                                 <div className="relative group">
                                     <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-400 opacity-20" />
