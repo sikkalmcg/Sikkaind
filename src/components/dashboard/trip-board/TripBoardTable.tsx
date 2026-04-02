@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -47,6 +46,7 @@ interface TripBoardTableProps {
   onVerifyPod: (trip: any) => void;
   onUploadPod: (trip: any) => void;
   onGenerateLR: (trip: any) => void;
+  onEditLR: (trip: any) => void;
   onViewLR: (row: any) => void;
   onViewTrip: (trip: any) => void;
   onUpdatePod: (trip: any) => void;
@@ -89,6 +89,7 @@ export default function TripBoardTable({
     onVerifyPod, 
     onUploadPod, 
     onGenerateLR, 
+    onEditLR,
     onViewLR, 
     onViewTrip, 
     onUpdatePod, 
@@ -225,6 +226,13 @@ export default function TripBoardTable({
                             <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Mission Actions</DropdownMenuLabel>
                             <DropdownMenuItem onClick={() => onViewTrip(row)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-xl hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => onTrack(row)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-xl hover:bg-blue-50"><Navigation className="h-4 w-4 text-emerald-600" /> Track GIS</DropdownMenuItem>
+                            
+                            {row.lrNumber && row.lrNumber !== 'PENDING' && (
+                                <DropdownMenuItem onClick={() => onEditLR(row)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-xl hover:bg-blue-50">
+                                    <Edit2 className="h-4 w-4 text-amber-600" /> Edit LR Manifest
+                                </DropdownMenuItem>
+                            )}
+
                             {(!row.podReceived || canVerifyPod) && (
                                 <>
                                     <DropdownMenuSeparator className="bg-slate-100" />

@@ -78,6 +78,7 @@ function TripBoardContent() {
   const [podUploadTrip, setPodUploadTrip] = useState<any | null>(null);
   const [viewTripData, setViewTripData] = useState<any | null>(null);
   const [lrGenerateTrip, setLrGenerateTrip] = useState<any | null>(null);
+  const [lrEditData, setLrEditData] = useState<{ trip: any, carrier: any, lr: any } | null>(null);
   const [lrPreviewData, setLrPreviewData] = useState<EnrichedLR | null>(null);
   const [cancelTripData, setCancelTripData] = useState<any | null>(null);
   const [editVehicleTrip, setEditVehicleTrip] = useState<any | null>(null);
@@ -352,6 +353,30 @@ function TripBoardContent() {
     } catch (e) { toast({ variant: 'destructive', title: "Registry Error" }); } finally { setIsExtracting(false); }
   }, [firestore, plants, dbCarriers, toast]);
 
+  const onEditLR = useCallback(async (row: any) => {
+    if (!row.lrNumber || !firestore) return;
+    setIsExtracting(true);
+    try {
+        const plantId = normalizePlantId(row.originPlantId);
+        const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
+        let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
+        let snap = await getDocs(q);
+        
+        const carrierObj = row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId);
+
+        if (!snap.empty) {
+            const lrDoc = { id: snap.docs[0].id, ...snap.docs[0].data() };
+            setLrEditData({ trip: row, carrier: carrierObj, lr: lrDoc });
+        } else {
+            toast({ variant: 'destructive', title: "LR node not found", description: "Lorry Receipt document missing from registry." });
+        }
+    } catch (e) { 
+        toast({ variant: 'destructive', title: "Handshake Error" }); 
+    } finally { 
+        setIsExtracting(false); 
+    }
+  }, [firestore, dbCarriers, toast]);
+
   const executePurge = async (tripData: any) => {
     if (!firestore || !user) return;
     await runTransaction(firestore, async (transaction) => {
@@ -578,6 +603,7 @@ function TripBoardContent() {
                         onVerifyPod={() => {}} 
                         onUploadPod={setPodUploadTrip} 
                         onGenerateLR={(t) => setLrGenerateTrip({ trip: t, carrier: (dbCarriers || []).find(c => c.id === t.carrierId) })} 
+                        onEditLR={onEditLR}
                         onViewLR={onViewLR} 
                         onViewTrip={setViewTripData} 
                         onUpdatePod={setPodUploadTrip} 
@@ -604,6 +630,7 @@ function TripBoardContent() {
       </div>
 
       {lrGenerateTrip && <LRGenerationModal isOpen={!!lrGenerateTrip} onClose={() => setLrGenerateTrip(null)} trip={lrGenerateTrip.trip} carrier={lrGenerateTrip.carrier} onGenerate={() => setLrGenerateTrip(null)} />}
+      {lrEditData && <LRGenerationModal isOpen={!!lrEditData} onClose={() => setLrEditData(null)} trip={lrEditData.trip} carrier={lrEditData.carrier} lrToEdit={lrEditData.lr} onGenerate={() => setLrEditData(null)} />}
       {podUploadTrip && <PodUploadModal isOpen={!!podUploadTrip} onClose={() => setPodUploadTrip(null)} trip={podUploadTrip} onSuccess={() => setPodUploadTrip(null)} />}
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
       {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={handleUpdateVehicle} />}
