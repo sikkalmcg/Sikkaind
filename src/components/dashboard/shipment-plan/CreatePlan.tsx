@@ -411,70 +411,86 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(sheet) as any[];
 
-            let successCount = 0;
-
             const getVal = (row: any, keys: string[]) => {
                 const foundKey = Object.keys(row).find(k => keys.some(search => k.toLowerCase().replace(/\s/g, '') === search.toLowerCase().replace(/\s/g, '')));
                 return foundKey ? row[foundKey]?.toString().trim() : '';
             };
 
-            for (const row of jsonData) {
-                try {
-                    const plantId = normalizePlantId(getVal(row, ["Plant ID", "Plant"]));
-                    if (!plantId) continue;
+            // REGISTRY CONSOLIDATION Node: Group rows by Plant + Consignee + LR Number
+            const orderGroups: Record<string, any> = {};
 
+            jsonData.forEach(row => {
+                const pId = normalizePlantId(getVal(row, ["Plant ID", "Plant"]));
+                const consignee = getVal(row, ["Consignee Name", "Consignee"]);
+                const lr = getVal(row, ["LR Number", "LR No"]);
+                
+                if (!pId || !consignee) return;
+
+                const groupKey = `${pId}_${consignee}_${lr}`;
+                
+                if (!orderGroups[groupKey]) {
+                    orderGroups[groupKey] = {
+                        originPlantId: pId,
+                        consignor: getVal(row, ["Consignor Name", "Consignor"]),
+                        consignorGtin: getVal(row, ["Consignor GSTIN", "Consignor Gst"]),
+                        consignorAddress: getVal(row, ["Consignor Address", "Consignor Site"]),
+                        loadingPoint: getVal(row, ["Lifting Point", "From"]),
+                        billToParty: consignee,
+                        billToGtin: getVal(row, ["Consignee GSTIN", "Consignee Gst"]),
+                        shipToParty: getVal(row, ["Ship To Name", "Ship To"]),
+                        shipToGtin: getVal(row, ["Ship To GSTIN", "Ship To Gst"]),
+                        unloadingPoint: getVal(row, ["Destination Point", "To"]),
+                        materialTypeId: (getVal(row, ["UOM", "Unit"]) || 'METRIC TON').toUpperCase(),
+                        quantity: 0,
+                        lrNumber: lr,
+                        paymentTerm: getVal(row, ["Payment Term", "Term"]) || 'Paid',
+                        deliveryAddress: getVal(row, ["Delivery Address", "Address"]),
+                        items: []
+                    };
+                }
+                
+                const itemQty = Number(getVal(row, ["Quantity", "Qty"])) || 0;
+                orderGroups[groupKey].quantity += itemQty;
+                orderGroups[groupKey].items.push({
+                    invoiceNumber: getVal(row, ["Invoice Number", "Invoice No"]) || 'NA',
+                    ewaybillNumber: getVal(row, ["E-Waybill Number", "Ewaybill No"]),
+                    units: Number(getVal(row, ["Units", "Packages"])) || 1,
+                    unitType: 'Package',
+                    itemDescription: getVal(row, ["Item Description", "Description"]) || 'BULK UPLOAD MISSION',
+                    weight: itemQty
+                });
+            });
+
+            let successCount = 0;
+            const groups = Object.values(orderGroups);
+
+            for (const g of groups) {
+                try {
                     await runTransaction(firestore, async (tx) => {
                         const countSnap = await tx.get(doc(firestore, "counters", "shipments"));
                         const newCount = (countSnap.exists() ? countSnap.data().count : 0) + 1;
                         const shipmentId = formatSequenceId("S", newCount);
-                        const shipRef = doc(collection(firestore, `plants/${plantId}/shipments`));
-
-                        const qty = Number(getVal(row, ["Quantity", "Qty"])) || 0;
-                        const uom = (getVal(row, ["UOM", "Unit"]) || 'METRIC TON').toUpperCase();
-                        const invoiceNo = getVal(row, ["Invoice Number", "Invoice No"]) || 'NA';
-                        const itemDesc = getVal(row, ["Item Description", "Description"]) || 'BULK UPLOAD MISSION';
-                        const unitCount = Number(getVal(row, ["Units", "Packages"])) || 1;
+                        const shipRef = doc(collection(firestore, `plants/${g.originPlantId}/shipments`));
 
                         const dataToSave = {
-                            originPlantId: plantId,
+                            ...g,
                             shipmentId,
-                            consignor: getVal(row, ["Consignor Name", "Consignor"]),
-                            consignorGtin: getVal(row, ["Consignor GSTIN", "Consignor Gst"]),
-                            consignorAddress: getVal(row, ["Consignor Address", "Consignor Site"]),
-                            loadingPoint: getVal(row, ["Lifting Point", "From"]),
-                            billToParty: getVal(row, ["Consignee Name", "Consignee"]),
-                            billToGtin: getVal(row, ["Consignee GSTIN", "Consignee Gst"]),
-                            shipToParty: getVal(row, ["Ship To Name", "Ship To"]),
-                            shipToGtin: getVal(row, ["Ship To GSTIN", "Ship To Gst"]),
-                            unloadingPoint: getVal(row, ["Destination Point", "To"]),
-                            materialTypeId: uom,
-                            quantity: qty,
                             assignedQty: 0,
-                            balanceQty: qty,
-                            lrNumber: getVal(row, ["LR Number", "LR No"]),
-                            paymentTerm: getVal(row, ["Payment Term", "Term"]) || 'Paid',
-                            deliveryAddress: getVal(row, ["Delivery Address", "Address"]),
+                            balanceQty: g.quantity,
                             currentStatusId: 'pending',
                             creationDate: serverTimestamp(),
                             lrDate: serverTimestamp(), 
-                            userId: user.uid,
-                            items: [{
-                                invoiceNumber: invoiceNo,
-                                units: unitCount,
-                                unitType: 'Package',
-                                itemDescription: itemDesc,
-                                weight: qty
-                            }]
+                            userId: user.uid
                         };
 
                         tx.set(doc(firestore, "counters", "shipments"), { count: newCount }, { merge: true });
                         tx.set(shipRef, dataToSave);
                     });
                     successCount++;
-                } catch (err) { console.error("Row fail", err); }
+                } catch (err) { console.error("Transaction failed for group", err); }
             }
 
-            toast({ title: 'Bulk Sync Complete', description: `Established ${successCount} mission nodes.` });
+            toast({ title: 'Bulk Sync Complete', description: `Established ${successCount} consolidated mission nodes.` });
             onShipmentCreated({ id: 'bulk' } as any);
         } catch (err) {
             toast({ variant: 'destructive', title: 'Upload Failed', description: 'Registry file error.' });
