@@ -34,7 +34,7 @@ const formSchema = z.object({
   paymentTerm: z.enum(PaymentTerms),
   weightSelection: z.enum(['Assigned Weight', 'Actual Weight']),
   items: z.array(z.object({
-    invoiceNumber: z.string().min(1, "Doc ref required."),
+    deliveryNumber: z.string().min(1, "Doc ref required."),
     units: z.coerce.number().positive("Unit count mandatory."),
     unitType: z.string().optional(),
     itemDescription: z.string().min(1, "Item description required."),
@@ -191,7 +191,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                 setShipment({ id: shipmentSnap.id, ...sData } as WithId<Shipment>);
 
                 let initialItems = (sData.items || []).map(i => ({
-                    invoiceNumber: i.invoiceNumber,
+                    deliveryNumber: i.invoiceNumber,
                     units: i.units || 1,
                     unitType: i.unitType || 'Package',
                     itemDescription: i.itemDescription || i.description || sData.material || '',
@@ -200,7 +200,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                 }));
 
                 if (initialItems.length === 0) {
-                    initialItems = [{ invoiceNumber: sData.invoiceNumber || 'NA', units: Number(sData.totalUnits) || 1, unitType: 'Package', itemDescription: sData.itemDescription || sData.material || 'GENERAL CARGO', weight: Number(activeTrip!.assignedQtyInTrip || 0.001), hsnSac: '' }];
+                    initialItems = [{ deliveryNumber: sData.invoiceNumber || 'NA', units: Number(sData.totalUnits) || 1, unitType: 'Package', itemDescription: sData.itemDescription || sData.material || 'GENERAL CARGO', weight: Number(activeTrip!.assignedQtyInTrip || 0.001), hsnSac: '' }];
                 }
 
                 reset({
@@ -383,7 +383,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                             <Table>
                                 <TableHeader className="bg-slate-900">
                                     <TableRow className="hover:bg-transparent border-none h-14">
-                                        <TableHead className="text-white px-6">INVOICE NO</TableHead>
+                                        <TableHead className="text-white px-6">DELIVERY NO</TableHead>
                                         <TableHead className="text-white px-4">ITEM DESCRIPTION</TableHead>
                                         <TableHead className="text-white px-4 text-center">PKGS</TableHead>
                                         <TableHead className="text-white px-8 text-right">WEIGHT (MT)</TableHead>
@@ -393,7 +393,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                                 <TableBody>
                                     {fields.map((field, index) => (
                                         <TableRow key={field.id} className="h-16 border-b border-slate-100 hover:bg-blue-50/10 transition-colors group">
-                                            <TableCell className="px-6"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-9 font-bold" /></TableCell>
+                                            <TableCell className="px-6"><Input {...form.register(`items.${index}.deliveryNumber`)} className="h-9 font-bold" /></TableCell>
                                             <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-9 font-bold uppercase" /></TableCell>
                                             <TableCell className="px-4 text-center"><Input type="number" {...form.register(`items.${index}.units`)} className="h-9 text-center font-black" /></TableCell>
                                             <TableCell className="px-8 text-right"><Input type="number" step="0.001" {...form.register(`items.${index}.weight`)} className="h-9 text-right font-black" /></TableCell>
