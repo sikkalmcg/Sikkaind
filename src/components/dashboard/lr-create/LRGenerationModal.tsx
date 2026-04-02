@@ -1,4 +1,3 @@
-
 'use client';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
@@ -92,8 +91,8 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, GSTIN, or City..." 
                             value={search} 
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold focus-visible:ring-blue-900 shadow-inner"
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
                     </div>
@@ -214,7 +213,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                     paymentTerm: (sData.paymentTerm || 'Paid') as any,
                     weightSelection: 'Assigned Weight',
                     consignorName: sData.consignor || '',
-                    consignorAddress: sData.loadingPoint || '',
+                    consignorAddress: sData.consignorAddress || sData.loadingPoint || '', // Fix: Prioritize full address
                     consignorGtin: sData.consignorGtin || '',
                     buyerName: sData.billToParty || '',
                     buyerGtin: sData.billToGtin || '',

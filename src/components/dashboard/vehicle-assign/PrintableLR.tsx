@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -32,6 +31,17 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     if (!date) return 'N/A';
     const d = date instanceof Timestamp ? date.toDate() : new Date(date);
     return isValid(d) ? format(d, pattern) : 'N/A';
+  };
+
+  // Registry Logic: Extract City Node from Address String
+  const getCityNode = (address: string) => {
+    if (!address || address === 'N/A' || address === '--') return '--';
+    const parts = address.split(',').map(p => p.trim()).filter(Boolean);
+    if (parts.length > 1) {
+        // Return the segment before the state (usually city)
+        return parts[parts.length >= 2 ? parts.length - 2 : 0].toUpperCase();
+    }
+    return address.toUpperCase();
   };
 
   const items = lr.items || [];
@@ -70,7 +80,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <div className="text-[8pt] font-black text-slate-600 flex flex-wrap gap-x-4 pt-1">
               <p>PHONE: {lr.carrier?.mobile || '9136688004, 9136688006'}</p>
               <p>GSTIN: <span className="font-mono">{lr.carrier?.gstin || '--'}</span></p>
-              <p className="text-blue-600">NODE: {lr.plant?.name || lr.originPlantId}</p>
             </div>
           </div>
         </div>
@@ -84,8 +93,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <div className="text-[8.5pt] font-black text-slate-900 uppercase space-y-1">
                 <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>DATE:</span> <span>{formatDate(lr.date)}</span></p>
                 {/* MISSION HANDSHAKE: Display City only in these boxes */}
-                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>FROM:</span> <span>{lr.from?.toUpperCase()}</span></p>
-                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>TO:</span> <span>{lr.to?.toUpperCase()}</span></p>
+                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>FROM:</span> <span>{getCityNode(lr.from)}</span></p>
+                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>TO:</span> <span>{getCityNode(lr.to)}</span></p>
             </div>
         </div>
       </div>
