@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
-import { collection, query, doc, getDocs, getDoc, Timestamp, where, limit, onSnapshot, serverTimestamp, runTransaction } from "firebase/firestore";
+import { collection, query, doc, getDocs, getDoc, Timestamp, where, limit, onSnapshot, serverTimestamp, runTransaction, updateDoc } from "firebase/firestore";
 import { Label } from "@/components/ui/label";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,7 +48,6 @@ function OpenOrdersContent() {
   const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   
-  // Pagination State Node
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   
@@ -69,7 +68,7 @@ function OpenOrdersContent() {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [drawerOrder, setDrawerOrder] = useState<any | null>(null);
   const [drawerTrip, setDrawerTrip] = useState<any | null>(null);
-  const [previewLr, setPreviewLr] = useState<EnrichedLR | null>(null);
+  const [lrPreviewData, setLrPreviewData] = useState<EnrichedLR | null>(null);
   const [cancelModalData, setCancelModalData] = useState<{ id: string, type: 'order' | 'assignment', tripId?: string, qty?: number } | null>(null);
   const [selectedShipment, setSelectedShipment] = useState<any | null>(null);
   const [editingTrip, setEditingTrip] = useState<WithId<Trip> | null>(null);
@@ -253,7 +252,6 @@ function OpenOrdersContent() {
 
         const dispatchQty = linkedTrips.reduce((sum, t) => sum + (t.entry?.status === 'OUT' ? (t.assignedQtyInTrip || 0) : 0), 0);
         
-        // Resolve LR nodes with priority
         const lrNumber = linkedTrips[0]?.lrNumber || s.lrNumber || '';
         const lrDate = linkedTrips[0]?.lrDate || s.lrDate || null;
 
@@ -322,16 +320,12 @@ function OpenOrdersContent() {
     });
   }, [finalData, activeTab]);
 
-  // Registry Pagination Logic
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab, selectedPlants, fromDate, toDate, searchTerm]);
 
   const totalPages = Math.ceil(tabFilteredData.length / itemsPerPage);
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return tabFilteredData.slice(start, start + itemsPerPage);
-  }, [tabFilteredData, currentPage, itemsPerPage]);
+  const paginatedData = tabFilteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handleOpenLR = async (row: any) => {
     if (!row.lrNumber || !firestore) return;
@@ -345,7 +339,7 @@ function OpenOrdersContent() {
         
         if (snap.empty) {
             const shipmentObj = row.shipmentObj || row;
-            setPreviewLr({
+            setLrPreviewData({
                 lrNumber: row.lrNumber,
                 date: row.lrDate || new Date(),
                 trip: row,
@@ -369,7 +363,7 @@ function OpenOrdersContent() {
         } else {
             const lrDoc = snap.docs[0].data() as LR;
             const shipmentObj = row.shipmentObj || row;
-            setPreviewLr({
+            setLrPreviewData({
                 ...lrDoc,
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
@@ -609,8 +603,8 @@ function OpenOrdersContent() {
       {drawerOrder && <OrderDetailsDrawer isOpen={!!drawerOrder} onClose={() => setDrawerOrder(null)} shipment={drawerOrder} />}
       {drawerTrip && <TripDetailsDrawer isOpen={!!drawerTrip} onClose={() => setDrawerTrip(null)} trip={drawerTrip} />}
       {cancelModalData && <CancelReasonModal isOpen={!!cancelModalData} onClose={() => setCancelModalData(null)} onConfirm={(reason) => { if (cancelModalData.type === 'assignment' && cancelModalData.tripId) { handleCancelAssignment(cancelModalData.tripId, cancelModalData.id, cancelModalData.qty || 0); } else if (cancelModalData.type === 'order') { handleShortCloseOrder(cancelModalData.id, reason); } else { setCancelModalData(null); } }} />}
-      {previewLr && <LRPrintPreviewModal isOpen={!!previewLr} onClose={() => setPreviewLr(null)} lr={previewLr} />}
-    </div>
+      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
+    </main>
   );
 }
 

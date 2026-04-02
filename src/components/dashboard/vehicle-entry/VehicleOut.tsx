@@ -188,6 +188,7 @@ export default function VehicleOut() {
                     if (tripData.shipmentIds && tripData.shipmentIds.length > 0) {
                         for (const shipId of tripData.shipmentIds) {
                             const shipRef = doc(firestore, `plants/${entry.plantId}/shipments`, shipId);
+                            // MISSION CRITICAL: Move to Dispatched status upon yard departure
                             await updateDoc(shipRef, { 
                                 currentStatusId: 'Dispatched', 
                                 lastUpdateDate: ts 
