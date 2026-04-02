@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -33,15 +34,14 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     return isValid(d) ? format(d, pattern) : 'N/A';
   };
 
-  // Registry Logic: Extract City Node from Address String
-  const getCityNode = (address: string) => {
-    if (!address || address === 'N/A' || address === '--') return '--';
-    const parts = address.split(',').map(p => p.trim()).filter(Boolean);
-    if (parts.length > 1) {
-        // Return the segment before the state (usually city)
-        return parts[parts.length >= 2 ? parts.length - 2 : 0].toUpperCase();
-    }
-    return address.toUpperCase();
+  /**
+   * Registry Logic: Extract Primary City Node
+   * Identifies the first significant segment of an address string.
+   */
+  const getCityNode = (val: string) => {
+    if (!val || val === 'N/A' || val === '--') return '--';
+    const parts = val.split(',').map(p => p.trim()).filter(Boolean);
+    return parts[0].toUpperCase(); 
   };
 
   const items = lr.items || [];
@@ -92,7 +92,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             </div>
             <div className="text-[8.5pt] font-black text-slate-900 uppercase space-y-1">
                 <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>DATE:</span> <span>{formatDate(lr.date)}</span></p>
-                {/* MISSION HANDSHAKE: Display City only in these boxes */}
                 <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>FROM:</span> <span>{getCityNode(lr.from)}</span></p>
                 <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>TO:</span> <span>{getCityNode(lr.to)}</span></p>
             </div>
@@ -121,7 +120,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <span className="text-[8pt] font-black uppercase text-white bg-black px-2 py-0.5 inline-block rounded mb-1 w-fit">CONSIGNOR (SENDER)</span>
             <div className="text-[8.5pt] space-y-1 flex-1">
                 <p className="font-black uppercase">{lr.consignorName}</p>
-                {/* FULL ADDRESS NODE */}
                 <p className="text-slate-700 font-bold leading-tight italic">{lr.consignorAddress || lr.plant?.address}</p>
             </div>
             <p className="font-black text-slate-900 text-[8pt]">GSTIN: <span className="font-mono">{lr.consignorGtin || '--'}</span></p>
@@ -130,7 +128,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <span className="text-[8pt] font-black uppercase text-white bg-black px-2 py-0.5 inline-block rounded mb-1 w-fit">CONSIGNEE (RECEIVER)</span>
             <div className="text-[8.5pt] space-y-1 flex-1">
                 <p className="font-black uppercase">{lr.buyerName}</p>
-                {/* FULL ADDRESS NODE */}
                 <p className="text-slate-700 font-bold leading-tight italic">{lr.deliveryAddress || lr.to}</p>
             </div>
             <p className="font-black text-slate-900 text-[8pt]">GSTIN: <span className="font-mono">{lr.buyerGtin || '--'}</span></p>

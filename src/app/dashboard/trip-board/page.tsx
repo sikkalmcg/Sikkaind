@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -308,8 +309,16 @@ function TripBoardContent() {
     try {
         const plantId = normalizePlantId(row.originPlantId);
         const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
+        
+        // Robust Registry Handshake Node
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
+        
+        if (snap.empty) {
+            q = query(lrsRef, where("tripDocId", "==", row.id), limit(1));
+            snap = await getDocs(q);
+        }
+
         const plantObj = plants.find(p => normalizePlantId(p.id) === normalizePlantId(row.originPlantId)) || { id: row.originPlantId, name: row.plantName } as any;
         const carrierObj = row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId) || { name: 'Carrier' } as any;
         const shipmentObj = row.shipmentObj || row;
@@ -329,10 +338,12 @@ function TripBoardContent() {
                 to: row.unloadingPoint || '', 
                 consignorName: row.consignor || '', 
                 consignorGtin: shipmentObj.consignorGtin || '',
+                consignorAddress: shipmentObj.consignorAddress || shipmentObj.loadingPoint || '',
                 buyerName: row.billToParty || '', 
                 buyerGtin: shipmentObj.billToGtin || '',
                 shipToParty: row.shipToParty || '', 
                 shipToGtin: shipmentObj.shipToGtin || '',
+                deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
                 id: row.id 
             } as any);
         } else {
@@ -346,8 +357,10 @@ function TripBoardContent() {
                 shipment: shipmentObj, 
                 plant: plantObj,
                 consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
+                consignorAddress: lrDoc.consignorAddress || shipmentObj.consignorAddress || '',
                 buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
                 shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || '',
+                deliveryAddress: lrDoc.deliveryAddress || shipmentObj.deliveryAddress || '',
             } as any);
         }
     } catch (e) { toast({ variant: 'destructive', title: "Registry Error" }); } finally { setIsExtracting(false); }
@@ -359,8 +372,15 @@ function TripBoardContent() {
     try {
         const plantId = normalizePlantId(row.originPlantId);
         const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
+        
+        // High-Fidelity Registry Search
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
+        
+        if (snap.empty) {
+            q = query(lrsRef, where("tripDocId", "==", row.id), limit(1));
+            snap = await getDocs(q);
+        }
         
         const carrierObj = row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId);
 
@@ -368,7 +388,9 @@ function TripBoardContent() {
             const lrDoc = { id: snap.docs[0].id, ...snap.docs[0].data() };
             setLrEditData({ trip: row, carrier: carrierObj, lr: lrDoc });
         } else {
-            toast({ variant: 'destructive', title: "LR node not found", description: "Lorry Receipt document missing from registry." });
+            // Document missing from partition: Transition to Generation Node
+            setLrGenerateTrip({ trip: row, carrier: carrierObj });
+            toast({ title: "Registry Handshake", description: "Lorry Receipt document missing. Opening generation terminal." });
         }
     } catch (e) { 
         toast({ variant: 'destructive', title: "Handshake Error" }); 
@@ -549,7 +571,9 @@ function TripBoardContent() {
             <div className="bg-slate-50 border-b p-8 flex flex-wrap items-end justify-between gap-6">
                 <div className="flex flex-wrap items-end gap-10">
                     <div className="grid gap-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><Factory className="h-3 w-3" /> Plant Node Registry</Label>
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1">
+                          <Factory className="h-3 w-3" /> Plant Node Registry
+                        </Label>
                         <MultiSelectPlantFilter options={plants} selected={selectedPlants} onChange={setSelectedPlants} isLoading={isAuthLoading} />
                     </div>
                     <div className="grid gap-2"><Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Filter className="h-3 w-3" /> Start Node</Label><DatePicker date={fromDate} setDate={setFromDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" /></div>
@@ -635,7 +659,7 @@ function TripBoardContent() {
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
       {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={handleUpdateVehicle} />}
       {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={handleCancelTrip} />}
-      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
+      {lrPreviewData && <LRPrintPreviewModal isOpen={!!previewLr} onClose={() => setPreviewLr(null)} lr={previewLr} />}
     </div>
   );
 }
