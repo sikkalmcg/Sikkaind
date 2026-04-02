@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -54,8 +53,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     ? items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0)
     : (Number(lr.assignedTripWeight) || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0));
 
+  // MISSION IDENTITY NODE: Prioritize assigned carrier manifest
   const carrierName = lr.carrier?.name || lr.trip?.carrier || 'SIKKA INDUSTRIES & LOGISTICS';
-  const carrierAddress = lr.carrier?.address || 'GHAZIABAD, UTTAR PRADESH';
+  const carrierAddress = lr.carrier?.address || lr.plant?.address || 'GHAZIABAD, UTTAR PRADESH';
   const carrierMobile = lr.carrier?.mobile || '9136688004, 9136688006';
   const carrierGstin = lr.carrier?.gstin || '--';
   const carrierTerms = lr.carrier?.terms || [];

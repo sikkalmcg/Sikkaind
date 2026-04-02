@@ -151,9 +151,26 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   const plantNameDisplay = selectedPlant?.name || shipment.originPlantId;
   const plantAddressDisplay = selectedPlant?.address || shipment.loadingPoint;
 
+  // REGISTRY LOCK: Filter carriers strictly by the current shipment's plant node
+  const carrierOptions = useMemo(() => {
+    const targetPlantId = normalizePlantId(shipment.originPlantId);
+    return (carriers || [])
+      .filter(c => normalizePlantId(c.plantId) === targetPlantId)
+      .map(c => ({ value: c.id, label: c.name }));
+  }, [carriers, shipment.originPlantId]);
+
   useEffect(() => {
     if (isOpen) {
         const safeBalance = shipment.balanceQty !== undefined ? Number(Number(shipment.balanceQty).toFixed(3)) : 0;
+        
+        // Find if current trip carrier exists in filtered list, else default
+        let initialCarrierId = trip?.carrierId || shipment.carrierId || '';
+        if (initialCarrierId && !carrierOptions.find(o => o.value === initialCarrierId)) {
+            initialCarrierId = carrierOptions.length > 0 ? carrierOptions[0].value : '';
+        } else if (!initialCarrierId && carrierOptions.length > 0) {
+            initialCarrierId = carrierOptions[0].value;
+        }
+
         const defaultValues = {
             isNewVehicle: false,
             vehicleId: trip?.vehicleId || '',
@@ -161,7 +178,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             driverName: trip?.driverName || '',
             driverMobile: trip?.driverMobile || '',
             vehicleType: trip?.vehicleType || 'Own Vehicle',
-            carrierId: trip?.carrierId || shipment.carrierId || (carriers.length > 0 ? carriers[0].id : ''),
+            carrierId: initialCarrierId,
             assignQty: trip?.assignedQtyInTrip ?? safeBalance,
             transporterName: trip?.transporterName || '',
             transporterMobile: (trip as any)?.transporterMobile || '',
@@ -172,7 +189,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
         };
         reset(defaultValues as any);
     }
-  }, [isOpen, trip, shipment, carriers, reset]);
+  }, [isOpen, trip, shipment, carrierOptions, reset]);
 
   useEffect(() => {
     if (!isOpen || isNewVehicle || !vehicleId) return;
@@ -300,7 +317,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
       }
   };
 
-  const carrierOptions = useMemo(() => carriers.map(c => ({ value: c.id, label: c.name })), [carriers]);
   const calculatedFreight = (Number(assignQty) || 0) * (Number(freightRate) || 0);
 
   return (
@@ -351,11 +367,10 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                     </div>
                     <div className="p-6 md:p-10 space-y-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                            {/* Vehicle Number / ID Field */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Vehicle Number *</label>
                                 {isNewVehicle ? (
-                                    <FormField name="vehicleNumber" control={control} render={({field}) => <FormItem><FormControl><div className="relative"><Input placeholder="XX00XX0000" className="h-12 rounded-xl font-black uppercase text-lg border-blue-200 focus-visible:ring-blue-900" {...field} /></div></FormControl><FormMessage /></FormItem>} />
+                                    <FormField name="vehicleNumber" control={control} render={({field}) => <FormItem><FormControl><div className="relative"><Input placeholder="XX00XX0000" className="h-12 rounded-xl font-black text-blue-900 uppercase text-lg border-blue-200 focus-visible:ring-blue-900" {...field} /></div></FormControl><FormMessage /></FormItem>} />
                                 ) : (
                                     <FormField name="vehicleId" control={control} render={({field}) => (
                                         <FormItem>
@@ -369,19 +384,16 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                 )}
                             </div>
 
-                            {/* Pilot Name Field */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Pilot Name</label>
                                 <FormField name="driverName" control={control} render={({field}) => <FormItem><FormControl><Input placeholder="Pilot Name" className="h-12 rounded-xl font-bold uppercase" {...field} /></FormControl><FormMessage /></FormItem>} />
                             </div>
 
-                            {/* Pilot Mobile Field */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Pilot Mobile</label>
                                 <FormField name="driverMobile" control={control} render={({field}) => <FormItem><FormControl><Input {...field} maxLength={10} placeholder="10 Digits" className="h-12 rounded-xl font-mono font-black" /></FormControl><FormMessage /></FormItem>} />
                             </div>
 
-                            {/* Carrier Agent Field */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Carrier Agent *</label>
                                 <FormField name="carrierId" control={control} render={({ field }) => (
@@ -390,15 +402,15 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                         options={carrierOptions} 
                                         onChange={field.onChange} 
                                         value={field.value} 
-                                        placeholder="Pick Agent"
+                                        placeholder={carrierOptions.length === 0 ? "No carriers for this plant" : "Pick Agent"}
                                         className="h-12"
+                                        disabled={carrierOptions.length === 0}
                                     />
                                     <FormMessage />
                                     </FormItem>
                                 )} />
                             </div>
 
-                            {/* Fleet Type Field */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Fleet Type *</label>
                                 <FormField name="vehicleType" control={control} render={({ field }) => (
@@ -412,7 +424,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                 )} />
                             </div>
 
-                            {/* Assign Quantity Field */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Assign Qty (MT) *</label>
                                 <FormField name="assignQty" control={control} render={({field}) => (
@@ -540,7 +551,7 @@ function ContextNode({ label, value, icon: Icon, className, bold }: any) {
             <span className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 tracking-widest leading-none">
                 {Icon && <Icon className="h-3 w-3" />} {label}
             </span>
-            <p className={cn("text-xs leading-tight", bold ? "font-black" : "font-bold text-slate-700")}>{value || '--'}</p>
+            <p className={cn("text-xs leading-tight wrap", bold ? "font-black" : "font-bold text-slate-700")}>{value || '--'}</p>
         </div>
     );
 }
