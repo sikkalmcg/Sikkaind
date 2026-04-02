@@ -22,12 +22,8 @@ interface PrintableLRProps {
 }
 
 /**
- * @fileOverview SIKKA LMC - Simplified Enterprise Lorry Receipt (LR) Node.
- * Optimized for A4 printing.
- * - Removed E-waybill, QR, and Goods Value.
- * - Displays City-only routing for From/To.
- * - Compact Table layout (not full page height).
- * - Consolidated Totals row for Packages and Weight.
+ * @fileOverview SIKKA LMC - Enterprise Lorry Receipt (LR) Node.
+ * Optimized for A4 printing with Dynamic Plant Header Handshake.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -44,17 +40,17 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     ? items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0)
     : (Number(lr.assignedTripWeight) || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0));
 
-  // Registry Logic: Extract City only from From/To strings
+  /**
+   * Registry Logic: Smart City Extraction
+   * Resolves the primary city node from address strings.
+   */
   const getCity = (str: string) => {
     if (!str) return 'N/A';
     const parts = str.split(',').map(part => part.trim()).filter(Boolean);
     
-    // If the string contains commas, assume "City, State" or "Area, City, State"
-    if (parts.length > 1) {
-        // Usually the city is the second to last element if formatted as "City, State"
-        // or just the first element if formatted as "City, Country"
-        const cityIndex = parts.length >= 2 ? parts.length - 2 : 0;
-        return parts[cityIndex].toUpperCase();
+    if (parts.length >= 2) {
+        // Mission logic: City is typically the segment before the state/code
+        return parts[parts.length - 2].toUpperCase();
     }
     return parts[0].toUpperCase();
   };
@@ -80,14 +76,14 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           </div>
           <div className="space-y-1">
             <h1 className="text-[14pt] font-black uppercase tracking-tight leading-none text-slate-900">
-              {lr.carrier?.name || 'SIKKA INDUSTRIES & LOGISTICS'}
+              {lr.plant?.name || lr.carrier?.name || 'SIKKA LMC'}
             </h1>
-            <p className="text-[8pt] font-bold text-slate-700 max-w-[400px] leading-snug">
-              {lr.carrier?.address || 'C - 17, South Side Of GT Road UPSIDC, Ghaziabad - 201009'}
+            <p className="text-[8pt] font-bold text-slate-700 max-w-[450px] leading-snug">
+              {lr.plant?.address || lr.carrier?.address || 'C - 17, South Side Of GT Road UPSIDC, Ghaziabad - 201009'}
             </p>
             <div className="text-[8pt] font-black text-slate-600 flex flex-wrap gap-x-4">
-              <p>PHONE: {lr.carrier?.mobile || 'N/A'}</p>
-              <p>GSTIN: <span className="font-mono">{lr.carrier?.gstin || '--'}</span></p>
+              <p>PHONE: {lr.carrier?.mobile || '9136688004, 9136688006'}</p>
+              <p>GSTIN: <span className="font-mono">{lr.carrier?.gstin || lr.plant?.id || '--'}</span></p>
             </div>
           </div>
         </div>
@@ -142,7 +138,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 4. MANIFEST TABLE (Compact Mode) */}
+      {/* 4. MANIFEST TABLE */}
       <div className="border-2 border-black rounded-xl overflow-hidden mb-6 flex flex-col min-h-0">
         <table className="w-full border-collapse">
           <thead className="bg-black text-white text-[7.5pt] font-black uppercase tracking-wider">
@@ -201,7 +197,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             </div>
 
             <div className="space-y-3 text-center">
-                <span className="text-[8pt] font-black uppercase text-slate-900 border-b border-slate-200 block pb-1">FOR {lr.carrier?.name || 'SIKKA LOGISTICS'}</span>
+                <span className="text-[8pt] font-black uppercase text-slate-900 border-b border-slate-200 block pb-1">FOR {lr.carrier?.name || 'SIKKA LMC'}</span>
                 <div className="h-24 flex flex-col justify-end items-center">
                     <div className="w-full border-t-2 border-black border-dashed mb-2" />
                     <span className="text-[8pt] font-black uppercase tracking-widest">AUTHORIZED SIGNATORY</span>
@@ -213,10 +209,10 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       {/* 6. FOOTER NODE */}
       <div className="mt-auto pt-4 border-t border-slate-200 flex flex-col items-center gap-1.5 shrink-0">
         <p className="text-[7.5pt] font-black uppercase text-blue-400/80 tracking-widest">
-            Note: This Lorry Receipt was generated digitallyand is to be considered as original
+            Note: This Lorry Receipt was generated digitally and is to be considered as original
         </p>
         <div className="flex items-center gap-2">
-            <span className="text-[7.5pt] font-black uppercase tracking-[0.5em] text-slate-500"> PAGE{pageNumber} OF {totalInSeries}</span>
+            <span className="text-[7.5pt] font-black uppercase tracking-[0.5em] text-slate-500"> PAGE {pageNumber} OF {totalInSeries}</span>
         </div>
       </div>
     </div>
