@@ -707,7 +707,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                             <TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16">
                                 <TableRow className="hover:bg-transparent border-none">
                                     <TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL MANIFEST REGISTRY</TableCell>
-                                    <TableCell className="text-center font-black text-lg text-blue-900">{totals.load.toFixed(0)}</TableCell>
+                                    <TableCell className="text-center font-black text-lg text-blue-900">{totals.units.toFixed(0)}</TableCell>
                                     <TableCell colSpan={1}></TableCell>
                                     <TableCell className="text-right px-8 font-black text-xl text-blue-900 tracking-tighter">
                                         {Number(totals.weight).toFixed(3)} MT
