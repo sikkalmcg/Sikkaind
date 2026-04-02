@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -53,9 +54,15 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     ? items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0)
     : (Number(lr.assignedTripWeight) || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0));
 
+  // Registry Scrub Node: Remove "NODE XXXX" from address strings for clean header
+  const cleanRegistryAddress = (addr: string) => {
+    if (!addr) return '';
+    return addr.replace(/NODE\s+\d+/gi, '').replace(/,\s*,/g, ',').replace(/^\s*,\s*/, '').trim();
+  };
+
   // MISSION IDENTITY NODE: Prioritize assigned carrier manifest
   const carrierName = lr.carrier?.name || lr.trip?.carrier || 'SIKKA INDUSTRIES & LOGISTICS';
-  const carrierAddress = lr.carrier?.address || lr.plant?.address || 'GHAZIABAD, UTTAR PRADESH';
+  const carrierAddress = cleanRegistryAddress(lr.carrier?.address || lr.plant?.address || 'GHAZIABAD, UTTAR PRADESH');
   const carrierMobile = lr.carrier?.mobile || '9136688004, 9136688006';
   const carrierGstin = lr.carrier?.gstin || '--';
   const carrierTerms = lr.carrier?.terms || [];
@@ -127,7 +134,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <span className="text-[8pt] font-black uppercase text-white bg-black px-2 py-0.5 inline-block rounded mb-1 w-fit">CONSIGNOR (SENDER)</span>
             <div className="text-[8.5pt] space-y-1 flex-1">
                 <p className="font-black uppercase">{lr.consignorName}</p>
-                <p className="text-slate-700 font-bold leading-tight italic">{lr.consignorAddress || lr.plant?.address}</p>
+                <p className="text-slate-700 font-bold leading-tight italic">{lr.consignorAddress}</p>
             </div>
             <p className="font-black text-slate-900 text-[8pt]">GSTIN: <span className="font-mono">{lr.consignorGtin || '--'}</span></p>
         </div>
@@ -135,7 +142,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <span className="text-[8pt] font-black uppercase text-white bg-black px-2 py-0.5 inline-block rounded mb-1 w-fit">CONSIGNEE (RECEIVER)</span>
             <div className="text-[8.5pt] space-y-1 flex-1">
                 <p className="font-black uppercase">{lr.buyerName}</p>
-                <p className="text-slate-700 font-bold leading-tight italic">{lr.deliveryAddress || lr.to}</p>
+                <p className="text-slate-700 font-bold leading-tight italic">{lr.deliveryAddress}</p>
             </div>
             <p className="font-black text-slate-900 text-[8pt]">GSTIN: <span className="font-mono">{lr.buyerGtin || '--'}</span></p>
         </div>

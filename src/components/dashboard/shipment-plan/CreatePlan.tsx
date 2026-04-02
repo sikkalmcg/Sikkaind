@@ -272,7 +272,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
             let resolvedCity = plant.city && plant.city !== 'N/A' ? plant.city : '';
             
             if (!resolvedCity && addrParts.length > 0) {
-                // Heuristic: If first segment contains numbers or is too short, handshake with second node
                 if ((/\d/.test(addrParts[0]) || addrParts[0].length < 5) && addrParts.length > 1) {
                     resolvedCity = addrParts[1];
                 } else {
@@ -283,7 +282,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
             const cityNode = (resolvedCity || plant.name).toUpperCase();
             setValue('loadingPoint', cityNode, { shouldValidate: true });
             
-            // Registry Sync: Initialize Consignor Address with full Plant Address manifest
             const fullAddress = plant.address && plant.address !== 'N/A' ? plant.address : (plant.city || plant.name);
             setValue('consignorAddress', fullAddress, { shouldValidate: true });
         }
@@ -308,8 +306,9 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     
     if (type === 'consignor') {
         setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
-        // Registry Sync: Explicitly preserve full physical address for mission manifest
         if(party.address) setValue('consignorAddress', party.address, { shouldValidate: true });
+        // MISSION CRITICAL: Lifting Point MUST follow Consignor's City Registry
+        if(party.city) setValue('loadingPoint', party.city.toUpperCase(), { shouldValidate: true });
     } else if (type === 'billToParty') {
         setValue('billToGtin', party.gstin || '', { shouldValidate: true });
         if(isSameAsBillTo) {
@@ -416,7 +415,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 return foundKey ? row[foundKey]?.toString().trim() : '';
             };
 
-            // REGISTRY CONSOLIDATION Node: Group rows by Plant + Consignee + LR Number
             const orderGroups: Record<string, any> = {};
 
             jsonData.forEach(row => {
