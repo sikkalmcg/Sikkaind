@@ -54,7 +54,11 @@ const getStatusColor = (status: string) => {
     switch(s) {
         case 'pending': return 'bg-yellow-500/10 text-yellow-700 border-yellow-200';
         case 'partly vehicle assigned': return 'bg-orange-500/10 text-orange-700 border-orange-200';
-        case 'assigned': return 'bg-emerald-500/10 text-emerald-700 border-emerald-200';
+        case 'assigned': 
+        case 'vehicle assigned': return 'bg-blue-500/10 text-blue-700 border-blue-200';
+        case 'dispatched':
+        case 'in-transit': return 'bg-indigo-500/10 text-indigo-700 border-indigo-200';
+        case 'delivered': return 'bg-emerald-500/10 text-emerald-700 border-emerald-200';
         case 'cancelled': return 'bg-red-500/10 text-red-700 border-red-200';
         case 'short closed': return 'bg-slate-500/10 text-slate-700 border-slate-200';
         default: return 'bg-gray-500/10 text-gray-700 border-gray-200';

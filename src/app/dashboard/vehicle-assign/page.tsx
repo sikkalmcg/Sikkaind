@@ -283,7 +283,7 @@ function OpenOrdersContent() {
     const dayEnd = toDate ? endOfDay(toDate) : null;
 
     return enrichedOrders.filter(t => {
-      const start = t.creationDate;
+      const start = t.creationDate; 
       if (!start) return true; 
 
       if (dayStart && start < dayStart) return false;
@@ -300,10 +300,10 @@ function OpenOrdersContent() {
   const counts = useMemo(() => {
     const res = { pending: 0, process: 0, dispatched: 0, cancelled: 0 };
     finalData.forEach(s => {
-        const status = s.currentStatusId?.toLowerCase();
+        const status = s.currentStatusId?.toLowerCase() || '';
         if (status === 'pending' || status === 'partly vehicle assigned') res.pending++;
         else if (status === 'assigned' || status === 'vehicle assigned') res.process++;
-        else if (status === 'dispatched' || status === 'delivered') res.dispatched++;
+        else if (status === 'dispatched' || status === 'delivered' || status === 'in-transit') res.dispatched++;
         else if (status === 'cancelled' || status === 'short closed') res.cancelled++;
     });
     return res;
@@ -311,11 +311,11 @@ function OpenOrdersContent() {
 
   const tabFilteredData = useMemo(() => {
     return finalData.filter(o => {
-        const status = o.currentStatusId?.toLowerCase();
+        const status = o.currentStatusId?.toLowerCase() || '';
         switch (activeTab) {
             case 'pending': return status === 'pending' || status === 'partly vehicle assigned';
             case 'process': return status === 'assigned' || status === 'vehicle assigned';
-            case 'dispatched': return status === 'dispatched' || status === 'delivered'; 
+            case 'dispatched': return status === 'dispatched' || status === 'delivered' || status === 'in-transit'; 
             case 'cancelled': return status === 'cancelled' || status === 'short closed';
             default: return true;
         }
@@ -610,7 +610,7 @@ function OpenOrdersContent() {
       {drawerTrip && <TripDetailsDrawer isOpen={!!drawerTrip} onClose={() => setDrawerTrip(null)} trip={drawerTrip} />}
       {cancelModalData && <CancelReasonModal isOpen={!!cancelModalData} onClose={() => setCancelModalData(null)} onConfirm={(reason) => { if (cancelModalData.type === 'assignment' && cancelModalData.tripId) { handleCancelAssignment(cancelModalData.tripId, cancelModalData.id, cancelModalData.qty || 0); } else if (cancelModalData.type === 'order') { handleShortCloseOrder(cancelModalData.id, reason); } else { setCancelModalData(null); } }} />}
       {previewLr && <LRPrintPreviewModal isOpen={!!previewLr} onClose={() => setPreviewLr(null)} lr={previewLr} />}
-    </main>
+    </div>
   );
 }
 

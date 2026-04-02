@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -176,13 +177,24 @@ export default function VehicleOut() {
                 const plantTripRef = doc(firestore, `plants/${entry.plantId}/trips`, entry.tripId);
                 const tripUpdate = { tripStatus: 'In Transit', outDate: ts, lastUpdated: ts };
                 
-                // Use getDoc to prevent 'No document to update' error
                 const [gSnap, pSnap] = await Promise.all([
                     getDoc(globalTripRef),
                     getDoc(plantTripRef)
                 ]);
 
-                if (gSnap.exists()) await updateDoc(globalTripRef, tripUpdate);
+                if (gSnap.exists()) {
+                    await updateDoc(globalTripRef, tripUpdate);
+                    const tripData = gSnap.data();
+                    if (tripData.shipmentIds && tripData.shipmentIds.length > 0) {
+                        for (const shipId of tripData.shipmentIds) {
+                            const shipRef = doc(firestore, `plants/${entry.plantId}/shipments`, shipId);
+                            await updateDoc(shipRef, { 
+                                currentStatusId: 'Dispatched', 
+                                lastUpdateDate: ts 
+                            });
+                        }
+                    }
+                }
                 if (pSnap.exists()) await updateDoc(plantTripRef, tripUpdate);
             } catch (syncError) {
                 console.warn("Trip node synchronization skipped: Document may have been purged.");
@@ -271,7 +283,7 @@ export default function VehicleOut() {
                     )}
                     <div className="flex items-center justify-end gap-8 pt-4">
                         <button type="button" onClick={() => reset()} className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-900 transition-all">DISCARD ENTRY</button>
-                        <Button type="submit" disabled={isSubmitting || !selectedEntryId} className="bg-blue-900 hover:bg-black text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none p-0 flex items-center justify-center">
+                        <Button type="submit" disabled={isSubmitting} className="bg-blue-900 hover:bg-black text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none p-0 flex items-center justify-center">
                             {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <><ShieldCheck className="h-5 w-5 mr-3" />FINALIZE SYSTEM OUT</>}
                         </Button>
                     </div>
