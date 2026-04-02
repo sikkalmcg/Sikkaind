@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import VehicleIn from '@/components/dashboard/vehicle-entry/VehicleIn';
 import VehicleOut from '@/components/dashboard/vehicle-entry/VehicleOut';
@@ -64,7 +64,7 @@ function VehicleEntryContent() {
             }
 
             let ids: string[] = [];
-            const isSystemAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
+            const isSystemAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkaind.admin@sikka.com';
 
             if (userDocSnap) {
                 const userData = userDocSnap.data() as SubUser;
