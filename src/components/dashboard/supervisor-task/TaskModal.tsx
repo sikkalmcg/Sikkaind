@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -43,7 +43,7 @@ import { Label } from '@/components/ui/label';
 
 const itemSchema = z.object({
     deliveryNo: z.string().min(1, "Delivery number is mandatory."),
-    invoiceNo: z.string().optional(),
+    invoiceNo: z.string().optional().default(''),
     itemDescription: z.string().min(1, "Required"),
     plannedUnit: z.coerce.number().default(0),
     loadUnit: z.coerce.number().min(0, "Must be positive"),
@@ -62,12 +62,13 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
   const firestore = useFirestore();
   const { user } = useUser();
   const { showLoader, hideLoader } = useLoading();
+  const [initializedTaskId, setInitializedTaskId] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     mode: 'onChange',
     defaultValues: {
-        remarks: task?.remarks || '',
+        remarks: '',
         items: []
     }
   });
@@ -76,32 +77,44 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
   const watchedItems = useWatch({ control, name: "items" }) || [];
 
+  // STABLE REGISTRY INITIALIZATION Node
   useEffect(() => {
-    if (isOpen && task) {
+    if (isOpen && task && initializedTaskId !== task.id) {
+        setInitializedTaskId(task.id);
+        
         if (task.isHistoryEdit) {
             reset({
                 remarks: task.remarks || '',
                 items: task.items || []
             });
-        } else if (fields.length === 0) {
+        } else {
             const initialItems = (task.shipmentItems || []).map((i: any) => ({
                 deliveryNo: '',
                 invoiceNo: i.invoiceNumber || '',
                 itemDescription: i.itemDescription || i.description || task.itemDescription || 'Goods particulars',
                 plannedUnit: Number(i.units) || Number(task.plannedUnits) || 0,
                 loadUnit: Number(i.units) || Number(task.plannedUnits) || 0,
-                uom: '' 
+                uom: i.unitType || 'Package'
             }));
 
             if (initialItems.length > 0) {
                 reset({ remarks: '', items: initialItems });
             } else {
-                reset({ remarks: '' });
-                append({ deliveryNo: '', invoiceNo: '', itemDescription: 'Goods particulars', plannedUnit: 0, loadUnit: 0, uom: '' });
+                reset({ remarks: '', items: [] });
+                append({ 
+                    deliveryNo: '', 
+                    invoiceNo: '', 
+                    itemDescription: 'Goods particulars', 
+                    plannedUnit: Number(task.plannedUnits) || 0, 
+                    loadUnit: Number(task.plannedUnits) || 0, 
+                    uom: 'Package' 
+                });
             }
         }
+    } else if (!isOpen) {
+        setInitializedTaskId(null);
     }
-  }, [isOpen, task, fields.length, append, reset]);
+  }, [isOpen, task, initializedTaskId, reset, append]);
 
   const totals = useMemo(() => {
     return watchedItems.reduce((acc, curr) => ({
@@ -246,7 +259,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 </Button>
             </div>
 
-            {/* RESPONSIVE MANIFEST CONTAINER */}
+            {/* HIGH-FIDELITY TABLE VIEW */}
             <div className="hidden md:block rounded-3xl border-2 border-slate-200 bg-white shadow-2xl overflow-hidden">
                 <Table>
                     <TableHeader className="bg-slate-900">
@@ -263,32 +276,56 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                         {fields.map((field, index) => (
                             <TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/10 transition-colors group">
                                 <TableCell className="px-8 py-3">
-                                    <Input {...form.register(`items.${index}.deliveryNo`)} placeholder="Enter delivery#" className="h-11 bg-slate-50 border-slate-200 rounded-xl font-bold uppercase text-xs" />
+                                    <Controller
+                                        name={`items.${index}.deliveryNo`}
+                                        control={control}
+                                        render={({ field }) => (
+                                            <Input {...field} placeholder="Enter delivery#" className="h-11 bg-slate-50 border-slate-200 rounded-xl font-bold uppercase text-xs" />
+                                        )}
+                                    />
                                 </TableCell>
                                 <TableCell className="px-4 py-3">
-                                    <Input {...form.register(`items.${index}.invoiceNo`)} placeholder="Enter invoice#" className="h-11 bg-slate-50 border-slate-200 rounded-xl font-bold uppercase text-xs" />
+                                    <Controller
+                                        name={`items.${index}.invoiceNo`}
+                                        control={control}
+                                        render={({ field }) => (
+                                            <Input {...field} placeholder="Enter invoice#" className="h-11 bg-slate-50 border-slate-200 rounded-xl font-bold uppercase text-xs" />
+                                        )}
+                                    />
                                 </TableCell>
                                 <TableCell className="px-4 py-3">
-                                    <Input {...form.register(`items.${index}.itemDescription`)} className="h-11 bg-slate-50 border-slate-200 rounded-xl font-bold italic text-slate-500 text-xs" />
+                                    <Controller
+                                        name={`items.${index}.itemDescription`}
+                                        control={control}
+                                        render={({ field }) => (
+                                            <Input {...field} className="h-11 bg-slate-50 border-slate-200 rounded-xl font-bold italic text-slate-500 text-xs" />
+                                        )}
+                                    />
                                 </TableCell>
                                 <TableCell className="px-4 py-3">
-                                    <Input type="number" {...form.register(`items.${index}.loadUnit`)} className="h-11 text-center font-black text-blue-900 bg-white border-blue-900/20 rounded-xl text-lg shadow-inner focus-visible:ring-blue-900" />
+                                    <Controller
+                                        name={`items.${index}.loadUnit`}
+                                        control={control}
+                                        render={({ field }) => (
+                                            <Input type="number" {...field} className="h-11 text-center font-black text-blue-900 bg-white border-blue-900/20 rounded-xl text-lg shadow-inner focus-visible:ring-blue-900" />
+                                        )}
+                                    />
                                 </TableCell>
                                 <TableCell className="px-4 py-3">
-                                    <Select 
-                                        onValueChange={(val) => setValue(`items.${index}.uom`, val, { shouldValidate: true })} 
-                                        value={watchedItems[index]?.uom || ''}
-                                    >
-                                        <SelectTrigger className={cn(
-                                            "h-11 bg-transparent border-none shadow-none focus:ring-0 font-black text-xs uppercase text-center",
-                                            !watchedItems[index]?.uom && "text-red-500 animate-pulse border-red-200 bg-red-50/20"
-                                        )}>
-                                            <SelectValue placeholder="SELECT" />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-xl">
-                                            {LRUnitTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
+                                    <Controller
+                                        name={`items.${index}.uom`}
+                                        control={control}
+                                        render={({ field }) => (
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <SelectTrigger className="h-11 bg-transparent border-none shadow-none focus:ring-0 font-black text-xs uppercase text-center">
+                                                    <SelectValue placeholder="SELECT" />
+                                                </SelectTrigger>
+                                                <SelectContent className="rounded-xl">
+                                                    {LRUnitTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    />
                                 </TableCell>
                                 <TableCell className="pr-6 text-right">
                                     <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length === 1} className="h-8 w-8 text-slate-200 hover:text-red-600 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
@@ -308,7 +345,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 </Table>
             </div>
 
-            {/* MOBILE CARD VIEW FOR MANIFEST ITEMS */}
+            {/* MOBILE CARD VIEW */}
             <div className="md:hidden space-y-6">
                 {fields.map((field, index) => (
                     <Card key={field.id} className="p-6 rounded-[2rem] border-2 border-slate-100 shadow-lg bg-white relative group">
@@ -321,30 +358,32 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                         <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <Label className="text-[9px] font-black uppercase text-slate-400">Delivery No *</Label>
-                                <Input {...form.register(`items.${index}.deliveryNo`)} className="h-11 rounded-xl bg-slate-50 border-slate-200 font-bold text-xs" />
+                                <Controller name={`items.${index}.deliveryNo`} control={control} render={({field}) => <Input {...field} className="h-11 rounded-xl bg-slate-50 border-slate-200 font-bold text-xs" />} />
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-[9px] font-black uppercase text-slate-400">Invoice No</Label>
-                                <Input {...form.register(`items.${index}.invoiceNo`)} className="h-11 rounded-xl bg-slate-50 border-slate-200 font-bold text-xs" />
+                                <Controller name={`items.${index}.invoiceNo`} control={control} render={({field}) => <Input {...field} className="h-11 rounded-xl bg-slate-50 border-slate-200 font-bold text-xs" />} />
                             </div>
                             <div className="col-span-2 space-y-2">
                                 <Label className="text-[9px] font-black uppercase text-slate-400">Item Description *</Label>
-                                <Input {...form.register(`items.${index}.itemDescription`)} className="h-11 rounded-xl bg-slate-50 border-slate-200 font-bold text-xs" />
+                                <Controller name={`items.${index}.itemDescription`} control={control} render={({field}) => <Input {...field} className="h-11 rounded-xl bg-slate-50 border-slate-200 font-bold text-xs" />} />
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-[9px] font-black uppercase text-blue-600">Load Unit *</Label>
-                                <Input type="number" {...form.register(`items.${index}.loadUnit`)} className="h-11 text-center font-black text-blue-900 bg-blue-50 border-blue-100 rounded-xl text-lg shadow-inner" />
+                                <Controller name={`items.${index}.loadUnit`} control={control} render={({field}) => <Input type="number" {...field} className="h-11 text-center font-black text-blue-900 bg-blue-50 border-blue-100 rounded-xl text-lg shadow-inner" />} />
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-[9px] font-black uppercase text-slate-400">UOM *</Label>
-                                <Select onValueChange={(val) => setValue(`items.${index}.uom`, val)} value={watchedItems[index]?.uom || ''}>
-                                    <SelectTrigger className="h-11 rounded-xl font-bold text-xs">
-                                        <SelectValue placeholder="SELECT" />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl">
-                                        {LRUnitTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
+                                <Controller name={`items.${index}.uom`} control={control} render={({field}) => (
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <SelectTrigger className="h-11 rounded-xl font-bold text-xs">
+                                            <SelectValue placeholder="SELECT" />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-xl">
+                                            {LRUnitTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                )} />
                             </div>
                         </div>
                     </Card>
