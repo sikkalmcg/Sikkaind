@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -72,8 +73,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <h1 className="text-[14pt] font-black uppercase tracking-tight leading-none text-slate-900">
               {lr.plant?.name || lr.carrier?.name || 'SIKKA LMC'}
             </h1>
-            <p className="text-[8pt] font-bold text-slate-700 max-w-[450px] leading-snug">
-              {lr.plant?.address || lr.carrier?.address || 'C - 17, South Side Of GT Road UPSIDC, Ghaziabad - 201009'}
+            <p className="text-[9pt] font-black uppercase text-slate-600">
+              {lr.plant?.city || getCity(lr.plant?.address) || ''}
             </p>
             <div className="text-[8pt] font-black text-slate-600 flex flex-wrap gap-x-4">
               <p>PHONE: {lr.carrier?.mobile || '9136688004, 9136688006'}</p>
