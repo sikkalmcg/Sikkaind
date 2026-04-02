@@ -303,128 +303,137 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
     }
   };
 
-  if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-900" /></div>;
+  if (loading) {
+      return (
+        <div className="flex h-screen items-center justify-center">
+            <Loader2 className="animate-spin text-blue-900" />
+        </div>
+      );
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[85vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-3xl bg-white rounded-3xl">
-        <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center justify-between pr-12">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 bg-blue-600 rounded-2xl shadow-xl rotate-3"><FileText className="h-7 w-7" /></div>
-                    <div>
-                        <DialogTitle className="text-xl font-black uppercase tracking-tight italic">LR GENERATION NODE</DialogTitle>
-                        <DialogDescription className="text-blue-300 font-bold uppercase text-[9px]">Mission Registry Synchronization</DialogDescription>
+    <>
+        <Dialog open={isOpen} onOpenChange={onClose}>
+          <DialogContent className="max-w-[85vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-3xl bg-white rounded-3xl">
+            <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+                <div className="flex items-center justify-between pr-12">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-blue-600 rounded-2xl shadow-xl rotate-3"><FileText className="h-7 w-7" /></div>
+                        <div>
+                            <DialogTitle className="text-xl font-black uppercase tracking-tight italic">LR GENERATION NODE</DialogTitle>
+                            <DialogDescription className="text-blue-300 font-bold uppercase text-[9px]">Mission Registry Synchronization</DialogDescription>
+                        </div>
                     </div>
+                    <Button variant="ghost" size="icon" onClick={onClose} className="h-10 w-10 text-white/40 hover:text-white"><X size={24} /></Button>
                 </div>
-                <Button variant="ghost" size="icon" onClick={onClose} className="h-10 w-10 text-white/40 hover:text-white"><X size={24} /></Button>
-            </div>
-        </DialogHeader>
+            </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-10 py-8 bg-[#f8fafc] space-y-10">
-            <Form {...form}>
-                <form className="space-y-10">
-                    <section className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-8 p-8 bg-white rounded-3xl border border-slate-200 shadow-sm">
-                        <FormField name="lrNumber" control={control} render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">LR NUMBER *</FormLabel><FormControl><Input className="h-12 font-black text-blue-900 uppercase" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField name="date" control={control} render={({ field }) => (
-                            <FormItem className="flex flex-col"><FormLabel className="text-[10px] font-black uppercase text-slate-400">LR DATE *</FormLabel><DatePicker date={field.value} setDate={field.onChange} className="h-12" /></FormItem>
-                        )} />
-                        <FormField name="from" control={control} render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">FROM CITY *</FormLabel><FormControl><Input className="h-12 font-bold uppercase" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField name="to" control={control} render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">TO CITY *</FormLabel><FormControl><Input className="h-12 font-bold uppercase" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField name="paymentTerm" control={control} render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">PAYMENT TERM</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{PaymentTerms.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></FormItem>
-                        )} />
-                    </section>
+            <div className="flex-1 overflow-y-auto px-10 py-8 bg-[#f8fafc] space-y-10">
+                <Form {...form}>
+                    <form className="space-y-10">
+                        <section className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-8 p-8 bg-white rounded-3xl border border-slate-200 shadow-sm">
+                            <FormField name="lrNumber" control={control} render={({ field }) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">LR NUMBER *</FormLabel><FormControl><Input className="h-12 font-black text-blue-900 uppercase" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField name="date" control={control} render={({ field }) => (
+                                <FormItem className="flex flex-col"><FormLabel className="text-[10px] font-black uppercase text-slate-400">LR DATE *</FormLabel><DatePicker date={field.value} setDate={field.onChange} className="h-12" /></FormItem>
+                            )} />
+                            <FormField name="from" control={control} render={({ field }) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">FROM CITY *</FormLabel><FormControl><Input className="h-12 font-bold uppercase" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField name="to" control={control} render={({ field }) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">TO CITY *</FormLabel><FormControl><Input className="h-12 font-bold uppercase" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField name="paymentTerm" control={control} render={({ field }) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">PAYMENT TERM</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent>{PaymentTerms.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></FormItem>
+                            )} />
+                        </section>
 
-                    <section className="grid grid-cols-1 md:grid-cols-3 gap-8 p-8 bg-white rounded-3xl border border-slate-200 shadow-sm">
-                        <FormField name="vehicleNumber" control={control} render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-600">VEHICLE NO *</FormLabel><FormControl><Input className="h-11 font-black uppercase" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField name="driverName" control={control} render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">PILOT NAME</FormLabel><FormControl><Input className="h-11 uppercase" {...field} /></FormControl></FormItem>
-                        )} />
-                        <FormField name="driverMobile" control={control} render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">PILOT MOBILE</FormLabel><FormControl><Input className="h-11 font-mono" {...field} maxLength={10} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                    </section>
+                        <section className="grid grid-cols-1 md:grid-cols-3 gap-8 p-8 bg-white rounded-3xl border border-slate-200 shadow-sm">
+                            <FormField name="vehicleNumber" control={control} render={({ field }) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-600">VEHICLE NO *</FormLabel><FormControl><Input className="h-11 font-black uppercase" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField name="driverName" control={control} render={({ field }) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">PILOT NAME</FormLabel><FormControl><Input className="h-11 uppercase" {...field} /></FormControl></FormItem>
+                            )} />
+                            <FormField name="driverMobile" control={control} render={({ field }) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">PILOT MOBILE</FormLabel><FormControl><Input className="h-11 font-mono" {...field} maxLength={10} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                        </section>
 
-                    <section className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 bg-white rounded-3xl border border-slate-200 shadow-sm">
-                        <div className="space-y-4">
-                            <FormField name="consignorName" control={control} render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR NODE (F4 HELP)</FormLabel><div className="flex gap-2"><FormControl><Input className="h-11 font-bold uppercase" {...field} onKeyDown={(e) => e.key === 'F4' && setHelpModal({ type: 'consignor', title: 'Search Consignors', data: consignorRegistry })} /></FormControl><Button type="button" variant="outline" onClick={() => setHelpModal({ type: 'consignorName', title: 'Search Consignors', data: consignorRegistry })}><Search size={16}/></Button></div></FormItem>
-                            )} />
-                            <FormField name="consignorAddress" control={control} render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR ADDRESS (FULL)</FormLabel><FormControl><Input className="h-11" {...field} /></FormControl></FormItem>
-                            )} />
-                        </div>
-                        <div className="space-y-4">
-                            <FormField name="buyerName" control={control} render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNEE NODE (F4 HELP)</FormLabel><div className="flex gap-2"><FormControl><Input className="h-11 font-bold uppercase" {...field} onKeyDown={(e) => e.key === 'F4' && setHelpModal({ type: 'buyerName', title: 'Search Consignees', data: consigneeRegistry })} /></FormControl><Button type="button" variant="outline" onClick={() => setHelpModal({ type: 'buyerName', title: 'Search Consignees', data: consigneeRegistry })}><Search size={16}/></Button></div></FormItem>
-                            )} />
-                            <FormField name="deliveryAddress" control={control} render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">DELIVERY ADDRESS (FULL)</FormLabel><FormControl><Input className="h-11" {...field} /></FormControl></FormItem>
-                            )} />
-                        </div>
-                    </section>
+                        <section className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 bg-white rounded-3xl border border-slate-200 shadow-sm">
+                            <div className="space-y-4">
+                                <FormField name="consignorName" control={control} render={({ field }) => (
+                                    <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR NODE (F4 HELP)</FormLabel><div className="flex gap-2"><FormControl><Input className="h-11 font-bold uppercase" {...field} onKeyDown={(e) => e.key === 'F4' && setHelpModal({ type: 'consignor', title: 'Search Consignors', data: consignorRegistry })} /></FormControl><Button type="button" variant="outline" onClick={() => setHelpModal({ type: 'consignorName', title: 'Search Consignors', data: consignorRegistry })}><Search size={16}/></Button></div></FormItem>
+                                )} />
+                                <FormField name="consignorAddress" control={control} render={({ field }) => (
+                                    <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR ADDRESS (FULL)</FormLabel><FormControl><Input className="h-11" {...field} /></FormControl></FormItem>
+                                )} />
+                            </div>
+                            <div className="space-y-4">
+                                <FormField name="buyerName" control={control} render={({ field }) => (
+                                    <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNEE NODE (F4 HELP)</FormLabel><div className="flex gap-2"><FormControl><Input className="h-11 font-bold uppercase" {...field} onKeyDown={(e) => e.key === 'F4' && setHelpModal({ type: 'buyerName', title: 'Search Consignees', data: consigneeRegistry })} /></FormControl><Button type="button" variant="outline" onClick={() => setHelpModal({ type: 'buyerName', title: 'Search Consignees', data: consigneeRegistry })}><Search size={16}/></Button></div></FormItem>
+                                )} />
+                                <FormField name="deliveryAddress" control={control} render={({ field }) => (
+                                    <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">DELIVERY ADDRESS (FULL)</FormLabel><FormControl><Input className="h-11" {...field} /></FormControl></FormItem>
+                                )} />
+                            </div>
+                        </section>
 
-                    <section className="rounded-3xl border-2 border-slate-200 bg-white shadow-xl overflow-hidden">
-                        <Table>
-                            <TableHeader className="bg-slate-900">
-                                <TableRow className="hover:bg-transparent border-none h-14">
-                                    <TableHead className="text-white px-6">INVOICE NO</TableHead>
-                                    <TableHead className="text-white px-4">ITEM DESCRIPTION</TableHead>
-                                    <TableHead className="text-white px-4 text-center">PKGS</TableHead>
-                                    <TableHead className="text-white px-8 text-right">WEIGHT (MT)</TableHead>
-                                    <TableHead className="w-16"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {fields.map((field, index) => (
-                                    <TableRow key={field.id} className="h-16 border-b border-slate-100 hover:bg-blue-50/10 transition-colors group">
-                                        <TableCell className="px-6"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-9 font-bold" /></TableCell>
-                                        <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-9 font-bold uppercase" /></TableCell>
-                                        <TableCell className="px-4 text-center"><Input type="number" {...form.register(`items.${index}.units`)} className="h-9 text-center font-black" /></TableCell>
-                                        <TableCell className="px-8 text-right"><Input type="number" step="0.001" {...form.register(`items.${index}.weight`)} className="h-9 text-right font-black" /></TableCell>
-                                        <TableCell className="pr-6"><Button variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length === 1} className="text-red-400"><Trash2 size={16}/></Button></TableCell>
+                        <section className="rounded-3xl border-2 border-slate-200 bg-white shadow-xl overflow-hidden">
+                            <Table>
+                                <TableHeader className="bg-slate-900">
+                                    <TableRow className="hover:bg-transparent border-none h-14">
+                                        <TableHead className="text-white px-6">INVOICE NO</TableHead>
+                                        <TableHead className="text-white px-4">ITEM DESCRIPTION</TableHead>
+                                        <TableHead className="text-white px-4 text-center">PKGS</TableHead>
+                                        <TableHead className="text-white px-8 text-right">WEIGHT (MT)</TableHead>
+                                        <TableHead className="w-16"></TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                            <TableFooter className="bg-slate-50 h-14 border-t-2">
-                                <TableRow className="hover:bg-transparent font-black">
-                                    <TableCell colSpan={2} className="px-6 text-[10px] uppercase text-slate-400">REGISTRY TOTALS</TableCell>
-                                    <TableCell className="text-center text-blue-900">{totals.units}</TableCell>
-                                    <TableCell className="text-right px-8 text-blue-900">{totals.weight.toFixed(3)} MT</TableCell>
-                                    <TableCell></TableCell>
-                                </TableRow>
-                            </TableFooter>
-                        </Table>
-                    </section>
-                </form>
-            </Form>
-        </div>
+                                </TableHeader>
+                                <TableBody>
+                                    {fields.map((field, index) => (
+                                        <TableRow key={field.id} className="h-16 border-b border-slate-100 hover:bg-blue-50/10 transition-colors group">
+                                            <TableCell className="px-6"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-9 font-bold" /></TableCell>
+                                            <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-9 font-bold uppercase" /></TableCell>
+                                            <TableCell className="px-4 text-center"><Input type="number" {...form.register(`items.${index}.units`)} className="h-9 text-center font-black" /></TableCell>
+                                            <TableCell className="px-8 text-right"><Input type="number" step="0.001" {...form.register(`items.${index}.weight`)} className="h-9 text-right font-black" /></TableCell>
+                                            <TableCell className="pr-6"><Button variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length === 1} className="text-red-400"><Trash2 size={16}/></Button></TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                                <TableFooter className="bg-slate-50 h-14 border-t-2">
+                                    <TableRow className="hover:bg-transparent font-black">
+                                        <TableCell colSpan={2} className="px-6 text-[10px] uppercase text-slate-400">REGISTRY TOTALS</TableCell>
+                                        <TableCell className="text-center text-blue-900">{totals.units}</TableCell>
+                                        <TableCell className="text-right px-8 text-blue-900">{totals.weight.toFixed(3)} MT</TableCell>
+                                        <TableCell></TableCell>
+                                    </TableRow>
+                                </TableFooter>
+                            </Table>
+                        </section>
+                    </form>
+                </Form>
+            </div>
 
-        <DialogFooter className="p-8 bg-slate-50 border-t flex-row justify-end gap-4">
-            <Button variant="ghost" onClick={onClose} className="font-black uppercase text-[10px] px-8">Discard</Button>
-            <Button onClick={handleSubmit(handlePost)} className="bg-blue-900 hover:bg-black text-white px-12 h-12 rounded-xl font-black uppercase text-[10px] shadow-xl">
-                COMMIT MISSION RECEIPT
-            </Button>
-        </DialogFooter>
+            <DialogFooter className="p-8 bg-slate-50 border-t flex-row justify-end gap-4">
+                <Button variant="ghost" onClick={onClose} className="font-black uppercase text-[10px] px-8">Discard</Button>
+                <Button onClick={handleSubmit(handlePost)} className="bg-blue-900 hover:bg-black text-white px-12 h-12 rounded-xl font-black uppercase text-[10px] shadow-xl">
+                    COMMIT MISSION RECEIPT
+                </Button>
+            </DialogFooter>
+          </DialogContent>
 
-      {helpModal && (
-          <SearchRegistryModal 
-            isOpen={!!helpModal}
-            onClose={() => setHelpModal(null)}
-            title={helpModal.title}
-            data={helpModal.data}
-            onSelect={handleRegistrySelect}
-          />
-      )}
-    </Dialog>
+          {helpModal && (
+              <SearchRegistryModal 
+                isOpen={!!helpModal}
+                onClose={() => setHelpModal(null)}
+                title={helpModal.title}
+                data={helpModal.data}
+                onSelect={handleRegistrySelect}
+              />
+          )}
+        </Dialog>
+    </>
   );
 }
