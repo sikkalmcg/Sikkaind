@@ -161,8 +161,8 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, GSTIN, or City..." 
                             value={search} 
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold focus-visible:ring-blue-900 shadow-inner"
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
                     </div>
@@ -296,9 +296,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     
     if (type === 'consignor') {
         setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
-        // REGISTRY SYNC: When selecting consignor, keep loading city but use party address if specific
-        const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
-        if(city) setValue('loadingPoint', city, { shouldValidate: true });
+        // REGISTRY SYNC: Consignor selection DOES NOT change the Lifting Point city (locked to plant)
         if(party.address) setValue('consignorAddress', party.address, { shouldValidate: true });
     } else if (type === 'billToParty') {
         setValue('billToGtin', party.gstin || '', { shouldValidate: true });
