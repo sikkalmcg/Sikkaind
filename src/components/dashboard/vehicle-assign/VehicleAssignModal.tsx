@@ -307,7 +307,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
           <div className="flex items-center gap-4">
             <div className="p-3 bg-blue-600 rounded-2xl shadow-xl rotate-3"><Truck className="h-7 w-7" /></div>
             <div>
-                <DialogTitle className="text-xl font-black uppercase tracking-tight italic leading-none">SIKKA LMC | ALLOCATION BOARD</DialogTitle>
+                <DialogTitle className="text-2xl font-black uppercase tracking-tight italic leading-none">SIKKA LMC | ALLOCATION BOARD</DialogTitle>
                 <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-2">Registry Terminal Node</DialogDescription>
             </div>
           </div>
@@ -332,7 +332,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 <ContextNode label="Consignor" value={shipment.consignor} icon={UserCircle} />
                 <ContextNode label="Site point" value={shipment.loadingPoint} icon={MapPin} />
                 <ContextNode label="Consignee" value={shipment.billToParty} icon={UserCircle} />
-                <ContextNode label="Drop node" value={shipment.unloadingPoint} icon={MapPin} className="col-span-2 text-blue-900" bold />
+                <ContextNode label="Drop node" value={shipment.deliveryAddress || shipment.unloadingPoint} icon={MapPin} className="col-span-2 text-blue-900" bold />
             </div>
           </Card>
 
@@ -537,7 +537,7 @@ function ContextNode({ label, value, icon: Icon, className, bold }: any) {
             <span className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 tracking-widest leading-none">
                 {Icon && <Icon className="h-3 w-3" />} {label}
             </span>
-            <p className={cn("text-xs leading-tight truncate", bold ? "font-black" : "font-bold text-slate-700")}>{value || '--'}</p>
+            <p className={cn("text-xs leading-tight", bold ? "font-black" : "font-bold text-slate-700")}>{value || '--'}</p>
         </div>
     );
 }
