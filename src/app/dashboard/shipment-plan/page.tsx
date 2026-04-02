@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -299,7 +300,7 @@ function ShipmentPlanContent() {
             </TabsList>
 
             <TabsContent value="create" className="focus-visible:ring-0">
-                <CreatePlan onShipmentCreated={() => handleTabChange('history')} />
+                <CreatePlan onShipmentCreated={() => handleTabChange('history')} authorizedPlants={plants} />
             </TabsContent>
 
             <TabsContent value="history" className="focus-visible:ring-0">

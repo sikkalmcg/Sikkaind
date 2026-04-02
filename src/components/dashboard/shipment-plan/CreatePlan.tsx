@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -201,13 +202,12 @@ function SearchRegistryModal({
     );
 }
 
-export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (shipment: any) => void }) {
+export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { onShipmentCreated: (shipment: any) => void, authorizedPlants: WithId<Plant>[] }) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
   const { showLoader, hideLoader } = useLoading();
   
-  const [authorizedPlants, setAuthorizedPlants] = useState<WithId<Plant>[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [helpModal, setHelpModal] = useState<{ type: string; title: string; data: any[] } | null>(null);
   const [isBulkUploading, setIsBulkUploading] = useState(false);
@@ -254,7 +254,6 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
 
   const { data: qtyTypes } = useCollection<MasterQtyType>(useMemoFirebase(() => firestore ? query(collection(firestore, "material_types")) : null, [firestore]));
   const { data: parties } = useCollection<Party>(useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_parties")) : null, [firestore]));
-  const { data: allPlants } = useCollection<Plant>(useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, [firestore]));
   
   const { data: carriers } = useCollection<Carrier>(useMemoFirebase(() => {
     if (!firestore || !originPlantId) return null;
@@ -269,13 +268,6 @@ export default function CreatePlan({ onShipmentCreated }: { onShipmentCreated: (
     const type = p.type?.toLowerCase() || '';
     return type.includes('consignee') || type.includes('buyer') || type.includes('ship to');
   }), [activeParties]);
-
-  useEffect(() => {
-    if (allPlants && user) {
-        const isAdminSession = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
-        setAuthorizedPlants(isAdminSession ? allPlants : allPlants.filter(p => p.id === '1426')); 
-    }
-  }, [allPlants, user]);
 
   useEffect(() => {
     if (originPlantId && authorizedPlants.length > 0) {
