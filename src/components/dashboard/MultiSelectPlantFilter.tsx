@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -27,6 +28,10 @@ interface MultiSelectPlantFilterProps {
   isLoading?: boolean;
 }
 
+/**
+ * @fileOverview Multi-Select Plant Filter Node.
+ * Hardened for accurate pluralization and count-based status display.
+ */
 export default function MultiSelectPlantFilter({
   options,
   selected,
@@ -58,16 +63,21 @@ export default function MultiSelectPlantFilter({
   };
 
   const getButtonLabel = () => {
-    if (isLoading) return 'Loading Plants...';
-    if (selected.length === 0) return 'Select Plant';
-    if (isAllSelected) return 'All Plants';
-    if (selected.length <= 2) {
-      return selected
-        .map((id) => options.find((o) => o.id === id)?.name)
-        .filter(Boolean)
-        .join(', ');
+    if (isLoading) return 'Syncing Nodes...';
+    if (selected.length === 0) return 'Select Node';
+    if (isAllSelected && options.length > 1) return 'All Authorized Nodes';
+    
+    // Mission Logic: Explicit count-based labeling with pluralization support
+    const count = selected.length;
+    const unit = count === 1 ? 'Plant' : 'Plants';
+    
+    if (count === 1) {
+        const plant = options.find(o => o.id === selected[0]);
+        // Format: "1 Plant Selected (ID)"
+        return `1 Plant Selected${plant ? ` (${plant.id})` : ''}`;
     }
-    return `${selected.length} Plants Selected`;
+    
+    return `${count} ${unit} Selected`;
   };
 
   return (
@@ -81,12 +91,12 @@ export default function MultiSelectPlantFilter({
         >
           <div className="flex items-center gap-2 truncate">
             <Factory className="h-3.5 w-3.5 text-blue-900 shrink-0" />
-            <span className="truncate">{getButtonLabel()}</span>
+            <span className="truncate uppercase text-[10px] font-black tracking-tight">{getButtonLabel()}</span>
           </div>
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0 border-slate-200 shadow-xl" align="start">
+      <PopoverContent className="w-[300px] p-0 border-slate-200 shadow-2xl rounded-2xl overflow-hidden" align="start">
         <div className="flex items-center border-b p-2 bg-slate-50/50">
           <Search className="mr-2 h-4 w-4 shrink-0 text-slate-400" />
           <Input
@@ -151,15 +161,12 @@ export default function MultiSelectPlantFilter({
                   <label
                     htmlFor={`plant-${option.id}`}
                     className={cn(
-                      "text-sm font-medium cursor-pointer flex-1 transition-colors",
-                      selected.includes(option.id) ? "text-blue-900 font-bold" : "text-slate-600"
+                      "text-sm font-medium cursor-pointer flex-1 transition-colors uppercase",
+                      selected.includes(option.id) ? "text-blue-900 font-black" : "text-slate-600"
                     )}
                   >
                     {option.name}
                   </label>
-                  {selected.includes(option.id) && (
-                    <Check className="h-3.5 w-3.5 text-blue-900 animate-in zoom-in-50 duration-200" />
-                  )}
                 </div>
               ))
             )}
