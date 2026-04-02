@@ -267,8 +267,20 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     if (originPlantId && authorizedPlants.length > 0) {
         const plant = authorizedPlants.find(p => p.id === originPlantId);
         if (plant) {
-            // Registry Logic: Resolve City Name for Loading Point Handshake
-            const cityNode = (plant.city && plant.city !== 'N/A' ? plant.city : (plant.address && plant.address !== 'N/A' ? plant.address.split(',')[0] : plant.name)).toUpperCase();
+            // Registry Logic: Skip plot numbers (like C-17) to find actual City Node
+            const addrParts = (plant.address || '').split(',').map(p => p.trim()).filter(Boolean);
+            let resolvedCity = plant.city && plant.city !== 'N/A' ? plant.city : '';
+            
+            if (!resolvedCity && addrParts.length > 0) {
+                // Heuristic: If first segment contains numbers or is too short, handshake with second node
+                if ((/\d/.test(addrParts[0]) || addrParts[0].length < 5) && addrParts.length > 1) {
+                    resolvedCity = addrParts[1];
+                } else {
+                    resolvedCity = addrParts[0];
+                }
+            }
+            
+            const cityNode = (resolvedCity || plant.name).toUpperCase();
             setValue('loadingPoint', cityNode, { shouldValidate: true });
             
             // Registry Sync: Initialize Consignor Address with full Plant Address manifest
@@ -296,7 +308,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     
     if (type === 'consignor') {
         setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
-        // REGISTRY SYNC: Consignor selection DOES NOT change the Lifting Point city (locked to plant)
+        // Registry Sync: Explicitly preserve full physical address for mission manifest
         if(party.address) setValue('consignorAddress', party.address, { shouldValidate: true });
     } else if (type === 'billToParty') {
         setValue('billToGtin', party.gstin || '', { shouldValidate: true });

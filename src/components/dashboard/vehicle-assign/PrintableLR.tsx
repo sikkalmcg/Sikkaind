@@ -36,11 +36,14 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
   /**
    * Registry Logic: Extract Primary City Node
-   * Identifies the first significant segment of an address string.
+   * Skips plot/block numbers (e.g., C-17) to find the actual city segment.
    */
   const getCityNode = (val: string) => {
     if (!val || val === 'N/A' || val === '--') return '--';
     const parts = val.split(',').map(p => p.trim()).filter(Boolean);
+    if (parts.length > 1 && (/\d/.test(parts[0]) || parts[0].length < 5)) {
+        return parts[1].toUpperCase();
+    }
     return parts[0].toUpperCase(); 
   };
 
@@ -51,6 +54,10 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     ? items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0)
     : (Number(lr.assignedTripWeight) || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0));
 
+  const carrierName = lr.carrier?.name || lr.trip?.carrier || 'SIKKA INDUSTRIES & LOGISTICS';
+  const carrierAddress = lr.carrier?.address || 'GHAZIABAD, UTTAR PRADESH';
+  const carrierMobile = lr.carrier?.mobile || '9136688004, 9136688006';
+  const carrierGstin = lr.carrier?.gstin || '--';
   const carrierTerms = lr.carrier?.terms || [];
 
   return (
@@ -72,14 +79,14 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           </div>
           <div className="space-y-1">
             <h1 className="text-[14pt] font-black uppercase tracking-tight leading-none text-slate-900">
-              {lr.carrier?.name || 'SIKKA INDUSTRIES & LOGISTICS'}
+              {carrierName}
             </h1>
             <p className="text-[9pt] font-bold text-slate-600 uppercase max-w-[400px]">
-              {lr.carrier?.address || 'GHAZIABAD, UTTAR PRADESH'}
+              {carrierAddress}
             </p>
             <div className="text-[8pt] font-black text-slate-600 flex flex-wrap gap-x-4 pt-1">
-              <p>PHONE: {lr.carrier?.mobile || '9136688004, 9136688006'}</p>
-              <p>GSTIN: <span className="font-mono">{lr.carrier?.gstin || '--'}</span></p>
+              <p>PHONE: {carrierMobile}</p>
+              <p>GSTIN: <span className="font-mono">{carrierGstin}</span></p>
             </div>
           </div>
         </div>
@@ -192,7 +199,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             </div>
 
             <div className="space-y-3 text-center">
-                <span className="text-[8pt] font-black uppercase text-slate-900 border-b border-slate-200 block pb-1">FOR {lr.carrier?.name || 'SIKKA LMC'}</span>
+                <span className="text-[8pt] font-black uppercase text-slate-900 border-b border-slate-200 block pb-1">FOR {carrierName}</span>
                 <div className="h-24 flex flex-col justify-end items-center">
                     <div className="w-full border-t-2 border-black border-dashed mb-2" />
                     <span className="text-[8pt] font-black uppercase tracking-widest">AUTHORIZED SIGNATORY</span>
