@@ -143,10 +143,13 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
   const { data: plants } = useCollection<Plant>(plantsQuery);
 
-  const plantNameDisplay = useMemo(() => {
-    if (!plants) return shipment.originPlantId;
-    return plants.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(shipment.originPlantId).toLowerCase())?.name || shipment.originPlantId;
+  const selectedPlant = useMemo(() => {
+    if (!plants) return null;
+    return plants.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(shipment.originPlantId).toLowerCase());
   }, [plants, shipment.originPlantId]);
+
+  const plantNameDisplay = selectedPlant?.name || shipment.originPlantId;
+  const plantAddressDisplay = selectedPlant?.address || shipment.loadingPoint;
 
   useEffect(() => {
     if (isOpen) {
@@ -330,7 +333,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             <div className="grid grid-cols-2 md:grid-cols-6 gap-6 md:gap-10">
                 <ContextNode label="Lifting Node" value={plantNameDisplay} icon={Factory} />
                 <ContextNode label="Consignor" value={shipment.consignor} icon={UserCircle} />
-                <ContextNode label="Site point" value={shipment.loadingPoint} icon={MapPin} />
+                <ContextNode label="Site point" value={plantAddressDisplay} icon={MapPin} />
                 <ContextNode label="Consignee" value={shipment.billToParty} icon={UserCircle} />
                 <ContextNode label="Drop node" value={shipment.deliveryAddress || shipment.unloadingPoint} icon={MapPin} className="col-span-2 text-blue-900" bold />
             </div>
