@@ -235,8 +235,8 @@ function TripBoardContent() {
             case 'active': return !['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status) && !isPod;
             case 'loading': return !isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete');
             case 'transit': return status === 'in-transit' || status === 'out-for-delivery' || status === 'break-down';
-            case 'arrived': return ['arrived', 'arrival-for-delivery'].includes(status);
-            case 'pod-pending': return (['arrived', 'arrival-for-delivery', 'delivered'].includes(status)) && !isPod;
+            case 'arrived': return ['arrived', 'arrival-for-delivery', 'arrive-for-deliver'].includes(status);
+            case 'pod-pending': return (['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'delivered'].includes(status)) && !isPod;
             case 'closed': return isPod || status === 'closed' || status === 'trip-closed' || status === 'delivered';
             default: return true;
         }
@@ -296,8 +296,8 @@ function TripBoardContent() {
         if (!['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status) && !isPod) res.active++;
         if (!isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete')) res.loading++;
         if (status === 'in-transit' || status === 'out-for-delivery' || status === 'break-down') res.transit++;
-        if (['arrived', 'arrival-for-delivery'].includes(status)) res.arrived++;
-        if ((['arrived', 'arrival-for-delivery', 'delivered'].includes(status)) && !isPod) res.podPending++;
+        if (['arrived', 'arrival-for-delivery', 'arrive-for-deliver'].includes(status)) res.arrived++;
+        if ((['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'delivered'].includes(status)) && !isPod) res.podPending++;
         if (isPod || status === 'closed' || status === 'trip-closed' || status === 'delivered') res.closed++;
     });
     return res;

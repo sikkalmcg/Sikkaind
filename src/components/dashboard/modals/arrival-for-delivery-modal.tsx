@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
@@ -62,7 +63,7 @@ export default function ArrivalForDeliveryModal({ isOpen, onClose, plantId, plan
             const plantTrips = snap.docs.map(docSnap => {
                 const t = docSnap.data();
                 const statusRaw = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
-                if (['arrived', 'arrival-for-delivery'].includes(statusRaw)) {
+                if (['arrived', 'arrival-for-delivery', 'arrive-for-deliver'].includes(statusRaw)) {
                     return {
                         id: docSnap.id,
                         ...t,

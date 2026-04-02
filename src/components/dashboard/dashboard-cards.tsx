@@ -222,7 +222,7 @@ export function DashboardCards({
 
         if (statusRaw === 'assigned' || statusRaw === 'vehicle-assigned') assigned++;
         else if (statusRaw === 'in-transit') transit++;
-        else if (statusRaw === 'arrived' || statusRaw === 'arrival-for-delivery') arrived++;
+        else if (statusRaw === 'arrived' || statusRaw === 'arrival-for-delivery' || statusRaw === 'arrive-for-deliver') arrived++;
         else if (statusRaw === 'delivered' && isDateMatch) completed++;
         else if (statusRaw === 'loaded' || statusRaw === 'loading-complete') loadedTrips++;
     });
