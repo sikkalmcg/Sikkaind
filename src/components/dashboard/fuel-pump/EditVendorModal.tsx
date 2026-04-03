@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -27,7 +26,7 @@ const formSchema = z.object({
   route: z.string().min(1, 'Operational Route is mandatory'),
   gstin: z.string().optional().or(z.literal('')),
   pan: z.string().optional().or(z.literal('')),
-  paymentMethod: z.enum(FuelPumpPaymentMethods, { required_error: 'Payment method is required' }),
+  category: z.enum(FuelPumpPaymentMethods, { required_error: 'Category is required' }),
   receiverName: z.string().optional().or(z.literal('')),
   bankName: z.string().optional().or(z.literal('')),
   accountNumber: z.string().optional().or(z.literal('')),
@@ -41,21 +40,6 @@ const formSchema = z.object({
             message: "Either GSTIN or PAN is required.",
             path: ["pan"],
         });
-    }
-
-    if (data.paymentMethod && data.paymentMethod !== 'Cash') {
-        if (!data.receiverName) {
-             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Receiver Name is required.", path: ["receiverName"] });
-        }
-    }
-    
-    if (data.paymentMethod === 'Banking' || data.paymentMethod === 'Cheque' || data.paymentMethod === 'Multiple') {
-        if (!data.bankName) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Bank Name is required.", path: ["bankName"] });
-        if (!data.accountNumber) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Account Number is required.", path: ["accountNumber"] });
-        if (!data.ifsc) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "IFSC Code is required.", path: ["ifsc"] });
-    }
-    if (data.paymentMethod === 'UPI Payment' || data.paymentMethod === 'Multiple') {
-        if (!data.upiId) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "UPI ID is required.", path: ["upiId"] });
     }
 });
 
@@ -81,7 +65,7 @@ export default function EditVendorModal({ isOpen, onClose, vendor, onSave }: Edi
       route: vendor.route || '',
       gstin: vendor.gstin || '',
       pan: vendor.pan || '',
-      paymentMethod: (vendor.paymentMethod as any) || 'Cash',
+      category: (vendor.category as any) || 'All Type',
       receiverName: vendor.receiverName || '',
       bankName: vendor.bankName || '',
       accountNumber: vendor.accountNumber || '',
@@ -90,8 +74,7 @@ export default function EditVendorModal({ isOpen, onClose, vendor, onSave }: Edi
     },
   });
 
-  const { watch, handleSubmit, formState: { isSubmitting }, reset } = form;
-  const paymentMethod = watch('paymentMethod');
+  const { handleSubmit, formState: { isSubmitting }, reset } = form;
 
   useEffect(() => {
     if (vendor && isOpen) {
@@ -103,7 +86,7 @@ export default function EditVendorModal({ isOpen, onClose, vendor, onSave }: Edi
         route: vendor.route || '',
         gstin: vendor.gstin || '',
         pan: vendor.pan || '',
-        paymentMethod: (vendor.paymentMethod as any) || 'Cash',
+        category: (vendor.category as any) || 'All Type',
         receiverName: vendor.receiverName || '',
         bankName: vendor.bankName || '',
         accountNumber: vendor.accountNumber || '',
@@ -165,11 +148,13 @@ export default function EditVendorModal({ isOpen, onClose, vendor, onSave }: Edi
                     <FormMessage />
                 </FormItem>
               )} />
-              <FormField control={form.control} name="route" render={({ field }) => (
+              <FormField control={form.control} name="category" render={({ field }) => (
                 <FormItem>
-                    <FormLabel className="text-[10px] font-black uppercase text-slate-400">Operational Route *</FormLabel>
-                    <FormControl><Input {...field} className="h-12 rounded-xl font-black uppercase text-blue-900" /></FormControl>
-                    <FormMessage />
+                    <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Vendor Category *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger className="h-12 rounded-xl font-black text-blue-900 border-blue-200 shadow-inner"><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent className="rounded-xl" modal={false}>{FuelPumpPaymentMethods.map(pm => <SelectItem key={pm} value={pm} className="font-bold py-2">{pm}</SelectItem>)}</SelectContent>
+                    </Select>
                 </FormItem>
               )} />
             </div>
@@ -177,31 +162,14 @@ export default function EditVendorModal({ isOpen, onClose, vendor, onSave }: Edi
             <Separator />
 
             <div className="space-y-6">
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Payment Handbook</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <FormField control={form.control} name="paymentMethod" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase text-slate-400">Primary Method</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue /></SelectTrigger></FormControl>
-                                <SelectContent className="rounded-xl" modal={false}>{FuelPumpPaymentMethods.map(pm => <SelectItem key={pm} value={pm} className="font-bold py-2">{pm}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </FormItem>
-                    )} />
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Financial Handbook (Optional)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <FormField control={form.control} name="receiverName" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Receiver Name</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl font-bold" /></FormControl></FormItem>)} />
+                    <FormField control={form.control} name="bankName" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Bank Node</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl" /></FormControl></FormItem>)} />
+                    <FormField control={form.control} name="accountNumber" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">A/C Number</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl font-mono" /></FormControl></FormItem>)} />
+                    <FormField control={form.control} name="ifsc" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">IFSC Node</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl uppercase font-mono" /></FormControl></FormItem>)} />
+                    <FormField control={form.control} name="upiId" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">UPI ID Registry</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl" /></FormControl></FormItem>)} />
                 </div>
-
-                {paymentMethod !== 'Cash' && (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2">
-                        <FormField control={form.control} name="receiverName" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Receiver Name</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl font-bold" /></FormControl></FormItem>)} />
-                        {(paymentMethod === 'Banking' || paymentMethod === 'Cheque' || paymentMethod === 'Multiple') && (
-                            <>
-                                <FormField control={form.control} name="bankName" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Bank Node</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl" /></FormControl></FormItem>)} />
-                                <FormField control={form.control} name="accountNumber" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">A/C Number</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl font-mono" /></FormControl></FormItem>)} />
-                                <FormField control={form.control} name="ifsc" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">IFSC Node</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl uppercase font-mono" /></FormControl></FormItem>)} />
-                            </>
-                        )}
-                    </div>
-                )}
             </div>
 
             <DialogFooter className="pt-8 border-t flex-row justify-end gap-4">

@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import type { FuelPump, WithId } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Search, Edit2, Trash2, Loader2, MapPin, Smartphone, Truck } from 'lucide-react';
+import { Search, Edit2, Trash2, Loader2, MapPin, Smartphone, Truck, Layers } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface PumpHistoryTableProps {
@@ -33,6 +33,7 @@ export default function PumpHistoryTable({ pumps, isLoading, onEdit, onDelete }:
     p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.mobile?.includes(searchTerm) ||
     p.route?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (p.pan && p.pan.toLowerCase().includes(searchTerm.toLowerCase()))
   );
   
@@ -44,7 +45,7 @@ export default function PumpHistoryTable({ pumps, isLoading, onEdit, onDelete }:
             <div className="relative group">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
                 <Input
-                    placeholder="Search name, route, mobile..."
+                    placeholder="Search name, route, mobile, category..."
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
                     className="pl-10 w-[350px] h-11 rounded-2xl border-slate-200 bg-white font-bold shadow-sm focus-visible:ring-blue-900"
@@ -55,10 +56,11 @@ export default function PumpHistoryTable({ pumps, isLoading, onEdit, onDelete }:
       <CardContent className="p-0">
         <div className="rounded-[2.5rem] border border-slate-200 shadow-xl bg-white overflow-hidden">
             <div className="overflow-x-auto">
-                <Table className="min-w-[1200px]">
+                <Table className="min-w-[1400px]">
                     <TableHeader className="bg-slate-50/50">
                         <TableRow className="h-14 hover:bg-transparent border-b border-slate-100">
                             <TableHead className="text-[10px] font-black uppercase px-8 text-slate-400">Vendor Identity</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400 text-center">Fleet Category</TableHead>
                             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Contact Node</TableHead>
                             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Route Registry</TableHead>
                             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">TAX Node</TableHead>
@@ -67,9 +69,9 @@ export default function PumpHistoryTable({ pumps, isLoading, onEdit, onDelete }:
                     </TableHeader>
                     <TableBody>
                         {isLoading ? (
-                            <TableRow><TableCell colSpan={5} className="h-64 text-center"><Loader2 className="h-10 w-10 animate-spin inline-block text-blue-900 opacity-20" /></TableCell></TableRow>
+                            <TableRow><TableCell colSpan={6} className="h-64 text-center"><Loader2 className="h-10 w-10 animate-spin inline-block text-blue-900 opacity-20" /></TableCell></TableRow>
                         ) : filteredPumps.length === 0 ? (
-                            <TableRow><TableCell colSpan={5} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No vendors detected in registry.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={6} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No vendors detected in registry.</TableCell></TableRow>
                         ) : (
                             filteredPumps.map(pump => (
                                 <TableRow key={pump.id} className="h-20 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
@@ -80,6 +82,12 @@ export default function PumpHistoryTable({ pumps, isLoading, onEdit, onDelete }:
                                                 <MapPin className="h-2 w-2" /> {pump.address || 'N/A'}
                                             </span>
                                         </div>
+                                    </TableCell>
+                                    <TableCell className="px-4 text-center">
+                                        <Badge className="bg-blue-50 text-blue-700 border-blue-100 font-black uppercase text-[9px] h-6 px-3 shadow-sm">
+                                            <Layers className="h-3 w-3 mr-1.5 opacity-40" />
+                                            {pump.category || 'All Type'}
+                                        </Badge>
                                     </TableCell>
                                     <TableCell className="px-4">
                                         <div className="space-y-1">

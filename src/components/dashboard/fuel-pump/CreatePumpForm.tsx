@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -25,7 +24,7 @@ const formSchema = z.object({
   route: z.string().min(1, 'Operational Route is mandatory'),
   gstin: z.string().optional(),
   pan: z.string().optional(),
-  paymentMethod: z.enum(FuelPumpPaymentMethods, { required_error: 'Payment method is required' }),
+  category: z.enum(FuelPumpPaymentMethods, { required_error: 'Category is required' }),
   receiverName: z.string().optional(),
   bankName: z.string().optional(),
   accountNumber: z.string().optional(),
@@ -41,21 +40,6 @@ const formSchema = z.object({
             message: "Either GSTIN or PAN is required.",
             path: ["pan"],
         });
-    }
-
-    if (data.paymentMethod && data.paymentMethod !== 'Cash') {
-        if (!data.receiverName) {
-             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Receiver Name is required.", path: ["receiverName"] });
-        }
-    }
-    
-    if (data.paymentMethod === 'Banking' || data.paymentMethod === 'Cheque' || data.paymentMethod === 'Multiple') {
-        if (!data.bankName) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Bank Name is required.", path: ["bankName"] });
-        if (!data.accountNumber) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Account Number is required.", path: ["accountNumber"] });
-        if (!data.ifsc) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "IFSC Code is required.", path: ["ifsc"] });
-    }
-    if (data.paymentMethod === 'UPI Payment' || data.paymentMethod === 'Multiple') {
-        if (!data.upiId) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "UPI ID is required.", path: ["upiId"] });
     }
 });
 
@@ -76,12 +60,11 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
       route: '',
       gstin: '',
       pan: '',
-      paymentMethod: 'Cash',
+      category: 'All Type',
     },
   });
 
   const { watch, setValue, handleSubmit, formState: { isSubmitting } } = form;
-  const paymentMethod = watch('paymentMethod');
 
   const convertFileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -126,10 +109,13 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
                 <FormMessage />
             </FormItem>
           )} />
-          <FormField control={form.control} name="phone" render={({ field }) => (
+          <FormField control={form.control} name="category" render={({ field }) => (
             <FormItem>
-                <FormLabel className="text-[10px] font-black uppercase text-slate-400">Vendor Phone</FormLabel>
-                <FormControl><Input type="tel" placeholder="Landline Node" {...field} className="h-12 rounded-xl font-mono" /></FormControl>
+                <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Vendor Category *</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl><SelectTrigger className="h-12 rounded-xl font-black text-blue-900 border-blue-200 shadow-inner"><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent className="rounded-xl" modal={false}>{FuelPumpPaymentMethods.map(pm => <SelectItem key={pm} value={pm} className="font-bold py-2">{pm}</SelectItem>)}</SelectContent>
+                </Select>
                 <FormMessage />
             </FormItem>
           )} />
@@ -160,38 +146,15 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
         <Separator className="my-6" />
 
         <div className="space-y-6">
-            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Payment Handbook</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <FormField control={form.control} name="paymentMethod" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-slate-400">Primary Method</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue placeholder="Select method" /></SelectTrigger></FormControl>
-                            <SelectContent className="rounded-xl" modal={false}>{FuelPumpPaymentMethods.map(pm => <SelectItem key={pm} value={pm} className="font-bold py-2">{pm}</SelectItem>)}</SelectContent>
-                        </Select>
-                        <FormMessage />
-                    </FormItem>
-                )} />
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Financial Handbook (Optional)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <FormField control={form.control} name="receiverName" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Receiver Name</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl font-bold" /></FormControl></FormItem>)} />
+                <FormField control={form.control} name="bankName" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Bank Node</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl" /></FormControl></FormItem>)} />
+                <FormField control={form.control} name="accountNumber" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">A/C Number</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl font-mono" /></FormControl></FormItem>)} />
+                <FormField control={form.control} name="ifsc" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">IFSC Node</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl uppercase font-mono" /></FormControl></FormItem>)} />
+                <FormField control={form.control} name="upiId" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">UPI ID Registry</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl" /></FormControl></FormItem>)} />
+                <FormField control={form.control} name="qrCode" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">QR Manifest</FormLabel><FormControl><Input type="file" accept="image/*" onChange={e => field.onChange(e.target.files)} className="h-11 pt-3" /></FormControl></FormItem>)} />
             </div>
-
-            {paymentMethod && paymentMethod !== 'Cash' && (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-500">
-                    <FormField control={form.control} name="receiverName" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Receiver Name</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl font-bold" /></FormControl><FormMessage /></FormItem>)} />
-                    {(paymentMethod === 'Banking' || paymentMethod === 'Cheque' || paymentMethod === 'Multiple') && (
-                        <>
-                            <FormField control={form.control} name="bankName" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Bank Node</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl" /></FormControl></FormItem>)} />
-                            <FormField control={form.control} name="accountNumber" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">A/C Number</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl font-mono" /></FormControl></FormItem>)} />
-                            <FormField control={form.control} name="ifsc" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">IFSC Node</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl uppercase font-mono" /></FormControl></FormItem>)} />
-                        </>
-                    )}
-                     {(paymentMethod === 'UPI Payment' || paymentMethod === 'Multiple') && (
-                        <>
-                            <FormField control={form.control} name="upiId" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">UPI ID Registry</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl" /></FormControl></FormItem>)} />
-                            <FormField control={form.control} name="qrCode" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">QR Manifest</FormLabel><FormControl><Input type="file" accept="image/*" onChange={e => field.onChange(e.target.files)} className="h-11 pt-3" /></FormControl></FormItem>)} />
-                        </>
-                    )}
-                </div>
-            )}
         </div>
 
         <div className="flex gap-4 pt-8 border-t border-slate-100 justify-end">

@@ -289,7 +289,7 @@ export interface FuelPump {
   gstin?: string;
   address?: string;
   route?: string;
-  paymentMethod?: string;
+  category?: string;
   receiverName?: string;
   bankName?: string;
   accountNumber?: string;
