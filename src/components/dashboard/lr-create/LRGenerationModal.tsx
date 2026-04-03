@@ -38,7 +38,7 @@ const formSchema = z.object({
     invoiceNumber: z.string().min(1, "Invoice number required."),
     units: z.coerce.number().positive("Unit count mandatory."),
     unitType: z.string().optional(),
-    itemDescription: z.string().min(1, "Item description required."),
+    itemDescription: z.string().min(1, "Required"),
     weight: z.coerce.number().positive("Weight must be positive."),
     hsnSac: z.string().optional(),
   })).min(1, "At least one row is required."),
@@ -154,6 +154,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
+    mode: 'onChange',
     defaultValues: {
         lrNumber: '',
         date: new Date(),
@@ -211,6 +212,8 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                     }];
                 }
 
+                const pTerm = sData.paymentTerm?.toLowerCase().includes('to pay') ? 'To Pay' : 'Paid';
+
                 reset({
                     lrNumber: sData.lrNumber || '',
                     date: sData.lrDate?.toDate ? sData.lrDate.toDate() : new Date(),
@@ -219,7 +222,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                     vehicleNumber: activeTrip!.vehicleNumber,
                     driverName: activeTrip!.driverName,
                     driverMobile: activeTrip!.driverMobile,
-                    paymentTerm: (sData.paymentTerm || 'Paid') as any,
+                    paymentTerm: pTerm as any,
                     weightSelection: 'Assigned Weight',
                     consignorName: sData.consignor || '',
                     consignorAddress: sData.consignorAddress || sData.loadingPoint || '', 
@@ -303,7 +306,8 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                 lrDate: values.date, 
                 assignedQtyInTrip: finalWeight, 
                 vehicleNumber: values.vehicleNumber,
-                items: values.items
+                items: values.items,
+                paymentTerm: values.paymentTerm
             });
             transaction.update(globalTripRef, { 
                 lrGenerated: true, 
@@ -311,7 +315,8 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                 lrDate: values.date, 
                 assignedQtyInTrip: finalWeight, 
                 vehicleNumber: values.vehicleNumber,
-                items: values.items
+                items: values.items,
+                paymentTerm: values.paymentTerm
             });
             transaction.update(shipmentRef, { lastUpdateDate: serverTimestamp() });
         });

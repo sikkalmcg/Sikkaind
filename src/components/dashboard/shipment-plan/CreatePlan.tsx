@@ -161,7 +161,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, GSTIN, or City..." 
                             value={search} 
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => setSearch(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
@@ -473,6 +473,9 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 const groupKey = `${pId}_${consignee}_${lr}`;
                 
                 if (!orderGroups[groupKey]) {
+                    const termRaw = getVal(row, ["Payment Term", "Term"]) || 'Paid';
+                    const term = termRaw.toLowerCase().includes('to pay') ? 'To Pay' : 'Paid';
+
                     orderGroups[groupKey] = {
                         originPlantId: pId,
                         consignor: getVal(row, ["Consignor Name", "Consignor"]),
@@ -487,7 +490,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         materialTypeId: (getVal(row, ["UOM", "Unit"]) || 'METRIC TON').toUpperCase(),
                         quantity: 0,
                         lrNumber: lr,
-                        paymentTerm: getVal(row, ["Payment Term", "Term"]) || 'Paid',
+                        paymentTerm: term,
                         deliveryAddress: getVal(row, ["Delivery Address", "Address"]),
                         rawItems: []
                     };

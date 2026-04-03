@@ -184,7 +184,7 @@ function TripBoardContent() {
       const entry = entries.find(e => e.tripId === t.id);
       const carrier = dbCarriers?.find(c => c.id === t.carrierId);
 
-      const items = lr?.items || shipment?.items || [];
+      const items = lr?.items || t.items || shipment?.items || [];
       const invoiceNumbers = Array.from(new Set(items.map((i: any) => i.invoiceNumber).filter(Boolean))).join(', ');
       const description = Array.from(new Set(items.map((i: any) => i.itemDescription || i.description).filter(Boolean))).join(', ') || t.itemDescription || shipment?.material || '--';
       const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
@@ -344,7 +344,8 @@ function TripBoardContent() {
                 shipToParty: row.shipToParty || '', 
                 shipToGtin: shipmentObj.shipToGtin || '',
                 deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
-                id: row.id 
+                id: row.id,
+                paymentTerm: shipmentObj.paymentTerm || 'Paid'
             } as any);
         } else {
             const lrDoc = snap.docs[0].data() as LR;
