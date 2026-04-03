@@ -33,7 +33,7 @@ import PumpHistoryTable from '@/components/dashboard/fuel-pump/PumpHistoryTable'
 import { Loader2, WifiOff, Building2, Fuel, Tag, Settings2, Users, Save, Edit2, ShieldCheck, MapPin, History, Trash2, Activity, Truck } from "lucide-react";
 import { useSearchParams, useRouter } from 'next/navigation';
 import { cn, normalizePlantId } from '@/lib/utils';
-import { FuelPumpPaymentMethods } from '@/lib/constants';
+import { FuelPumpPaymentMethods, VendorCapacities } from '@/lib/constants';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLoading } from '@/context/LoadingContext';
 import { Badge } from '@/components/ui/badge';
@@ -93,7 +93,7 @@ function PlantManagementContent() {
       <Tabs value={defaultTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="bg-transparent border-b h-12 rounded-none gap-8 p-0 mb-8 overflow-x-auto justify-start">
             <TabsTrigger value="create-plant" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Building2 className="h-4 w-4" /> Plant Configuration</TabsTrigger>
-            <TabsTrigger value="fuel-pump" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Truck className="h-4 w-4" /> Vendors</TabsTrigger>
+            <TabsTrigger value="vendors" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Truck className="h-4 w-4" /> Vendors</TabsTrigger>
             <TabsTrigger value="party-creation" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Users className="h-4 w-4" /> Party Registry</TabsTrigger>
             <TabsTrigger value="create-status" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Activity className="h-4 w-4" /> Status Master</TabsTrigger>
             <TabsTrigger value="create-qty-type" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Tag className="h-4 w-4" /> Qty Types</TabsTrigger>
@@ -101,7 +101,7 @@ function PlantManagementContent() {
 
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
             <TabsContent value="create-plant"><CreatePlantSection /></TabsContent>
-            <TabsContent value="fuel-pump"><FuelPumpSection /></TabsContent>
+            <TabsContent value="vendors"><FuelPumpSection /></TabsContent>
             <TabsContent value="party-creation"><PartyCreationTab /></TabsContent>
             <TabsContent value="create-status"><CreateStatusSection /></TabsContent>
             <TabsContent value="create-qty-type"><CreateQtyTypeSection /></TabsContent>

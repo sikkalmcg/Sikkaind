@@ -6,12 +6,13 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Save } from 'lucide-react';
 import type { FuelPump } from '@/types';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FuelPumpPaymentMethods, VendorCapacities } from '@/lib/constants';
 import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
 
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -80,7 +81,7 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
     },
   });
 
-  const { watch, setValue, formState: { isSubmitting } } = form;
+  const { watch, setValue, handleSubmit, formState: { isSubmitting } } = form;
   const paymentMethod = watch('paymentMethod');
   const selectedCapacities = watch('capacities') || [];
 
