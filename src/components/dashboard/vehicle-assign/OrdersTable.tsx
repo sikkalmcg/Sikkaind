@@ -13,24 +13,21 @@ import {
     Ban, 
     RotateCcw,
     Truck,
-    Clock,
-    CheckCircle2,
-    AlertCircle,
     UserCircle,
     MapPin,
     ArrowRightLeft,
     MoreHorizontal
 } from 'lucide-react';
 import { cn, parseSafeDate } from '@/lib/utils';
-import { format, isValid } from 'date-fns';
-import { Timestamp } from 'firebase/firestore';
+import { format } from 'date-fns';
 import { 
     DropdownMenu, 
     DropdownMenuContent, 
     DropdownMenuItem, 
     DropdownMenuTrigger,
     DropdownMenuSeparator,
-    DropdownMenuLabel
+    DropdownMenuLabel,
+    DropdownMenuPortal
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -165,33 +162,35 @@ export default function OrdersTable({
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white text-slate-400 hover:text-blue-900 transition-all"><MoreHorizontal className="h-5 w-5" /></Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-slate-200 shadow-2xl">
-                            <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Mission Control</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => onViewOrder(order)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-xl hover:bg-blue-50">
-                                <Eye className="h-4 w-4 text-blue-600" /> View Payload
-                            </DropdownMenuItem>
-                            {tab === 'pending' && !isCancelled && (
-                                <DropdownMenuItem onClick={() => onAssign(order)} className="gap-3 font-black py-2.5 cursor-pointer rounded-xl bg-blue-900 text-white hover:bg-slate-900 focus:bg-slate-900 focus:text-white">
-                                    <PlusCircle className="h-4 w-4" /> Assign Fleet
+                          <DropdownMenuPortal>
+                            <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-slate-200 shadow-2xl z-[100] bg-white">
+                                <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Mission Control</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => onViewOrder(order)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-xl hover:bg-blue-50">
+                                    <Eye className="h-4 w-4 text-blue-600" /> View Payload
                                 </DropdownMenuItem>
-                            )}
-                            {!isCancelled && (
-                                <>
-                                    <DropdownMenuSeparator className="bg-slate-100" />
-                                    <DropdownMenuItem onClick={() => onShortClose(order.id)} className="gap-3 font-bold py-2.5 text-orange-600 cursor-pointer rounded-xl hover:bg-orange-50">
-                                        <ArrowRightLeft className="h-4 w-4" /> Short Close Node
+                                {tab === 'pending' && !isCancelled && (
+                                    <DropdownMenuItem onClick={() => onAssign(order)} className="gap-3 font-black py-2.5 cursor-pointer rounded-xl bg-blue-900 text-white hover:bg-slate-900 focus:bg-slate-900 focus:text-white">
+                                        <PlusCircle className="h-4 w-4" /> Assign Fleet
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => onCancelOrder(order.id)} className="gap-3 font-bold py-2.5 text-red-600 cursor-pointer rounded-xl hover:bg-red-50">
-                                        <Ban className="h-4 w-4" /> Cancel Registry
+                                )}
+                                {!isCancelled && (
+                                    <>
+                                        <DropdownMenuSeparator className="bg-slate-100" />
+                                        <DropdownMenuItem onClick={() => onShortClose(order.id)} className="gap-3 font-bold py-2.5 text-orange-600 cursor-pointer rounded-xl hover:bg-orange-50">
+                                            <ArrowRightLeft className="h-4 w-4" /> Short Close Node
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => onCancelOrder(order.id)} className="gap-3 font-bold py-2.5 text-red-600 cursor-pointer rounded-xl hover:bg-red-50">
+                                            <Ban className="h-4 w-4" /> Cancel Registry
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
+                                {isCancelled && isAdmin && (
+                                    <DropdownMenuItem onClick={() => onRestoreOrder(order.id)} className="gap-3 font-bold py-2.5 text-emerald-600 cursor-pointer rounded-xl hover:bg-emerald-50">
+                                        <RotateCcw className="h-4 w-4" /> Restore Mission
                                     </DropdownMenuItem>
-                                </>
-                            )}
-                            {isCancelled && isAdmin && (
-                                <DropdownMenuItem onClick={() => onRestoreOrder(order.id)} className="gap-3 font-bold py-2.5 text-emerald-600 cursor-pointer rounded-xl hover:bg-emerald-50">
-                                    <RotateCcw className="h-4 w-4" /> Restore Mission
-                                </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
+                                )}
+                            </DropdownMenuContent>
+                          </DropdownMenuPortal>
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>

@@ -1,8 +1,8 @@
+
 'use client';
-import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
+import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import TripBoardTable from '@/components/dashboard/trip-board/TripBoardTable';
-import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreviewModal';
 import TripViewModal from '@/components/dashboard/trip-board/TripViewModal';
 import CancelTripModal from '@/components/dashboard/trip-board/CancelTripModal';
 import EditVehicleModal from '@/components/dashboard/trip-board/EditVehicleModal';
@@ -21,7 +21,6 @@ import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, Arr
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
-import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -44,7 +43,7 @@ function TripBoardContent() {
   const { showLoader, hideLoader } = useLoading();
   
   const activeTab = (searchParams.get('tab') as TripBoardTab) || 'loading';
-  const urlPlants = searchParams.get('plants')?.split(',').filter(Boolean) || [];
+  const urlPlants = useMemo(() => searchParams.get('plants')?.split(',').filter(Boolean) || [], [searchParams]);
 
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
@@ -61,12 +60,13 @@ function TripBoardContent() {
   const [lrs, setLrs] = useState<WithId<LR>[]>([]);
   const [entries, setEntries] = useState<WithId<VehicleEntryExit>[]>([]);
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
   
+  const isInitialized = useRef(false);
+
   const [viewTripData, setViewTripData] = useState<any | null>(null);
-  const [lrPreviewData, setLrPreviewData] = useState<EnrichedLR | null>(null);
   const [cancelTripData, setCancelTripData] = useState<any | null>(null);
   const [editVehicleTrip, setEditVehicleTrip] = useState<any | null>(null);
 
@@ -85,54 +85,66 @@ function TripBoardContent() {
   const carriersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "carriers")) : null, [firestore]);
   const { data: dbCarriers } = useCollection<Carrier>(carriersQuery);
 
-  useEffect(() => {
-    const urlTab = searchParams.get('tab');
-    if (urlTab && urlTab !== activeTab) {
-      // Logic Node: Only update local state if different from URL to prevent loop
-    }
-  }, [searchParams, activeTab]);
+  const updateURL = useCallback((plantIds: string[], tabVal?: string) => {
+    const params = new URLSearchParams();
+    if (plantIds.length > 0) params.set('plants', plantIds.join(','));
+    params.set('tab', tabVal || activeTab);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [pathname, router, activeTab]);
 
+  // Pulse-Protected Authorization Effect
   useEffect(() => {
     if (!firestore || !user) return;
     const fetchAuth = async () => {
-        setIsAuthLoading(true);
         try {
-            const lastIdentity = localStorage.getItem('slmc_last_identity');
-            const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
-            
-            let userDocSnap = null;
+            const searchEmail = user.email;
+            if (!searchEmail) return;
             const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
             const qSnap = await getDocs(q);
-            if (!qSnap.empty) userDocSnap = qSnap.docs[0];
-
+            
             const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
             let authIds: string[] = [];
 
-            if (userDocSnap) {
-                const userData = userDocSnap.data() as SubUser;
+            if (!qSnap.empty) {
+                const userData = qSnap.docs[0].data() as SubUser;
                 const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
                 authIds = isRoot ? baseList.map(p => p.id) : (userData.plantIds || []);
             } else if (isAdminSession) {
                 authIds = baseList.map(p => p.id);
             }
 
-            const currentAuth = JSON.stringify(authorizedPlantIds);
-            const nextAuth = JSON.stringify(authIds);
-            if (currentAuth !== nextAuth) {
-                setAuthorizedPlantIds(authIds);
-                setPlants(baseList.filter(p => authIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id))));
-                if (authIds.length > 0 && selectedPlants.length === 0) {
+            setAuthorizedPlantIds(authIds);
+            const authPlants = baseList.filter(p => authIds.includes(p.id));
+            setPlants(authPlants);
+
+            // MISSION LOGIC: Default to all plants if none in URL
+            if (!isInitialized.current) {
+                if (urlPlants.length > 0) {
+                    setSelectedPlants(urlPlants);
+                } else if (authIds.length > 0) {
                     setSelectedPlants(authIds);
+                    updateURL(authIds);
                 }
+                isInitialized.current = true;
             }
         } catch (e) { setDbError(true); } finally { setIsAuthLoading(false); }
     };
     fetchAuth();
-  }, [firestore, user, allMasterPlants, isAdminSession, authorizedPlantIds, selectedPlants.length]);
+  }, [firestore, user, allMasterPlants, isAdminSession, urlPlants, updateURL]);
+
+  const handlePlantChange = (ids: string[]) => {
+    setSelectedPlants(ids);
+    updateURL(ids);
+  };
 
   useEffect(() => {
     if (!firestore || selectedPlants.length === 0) {
-        setIsLoading(false);
+        if (selectedPlants.length === 0) {
+            setTrips([]);
+            setShipments([]);
+            setLrs([]);
+            setIsLoading(false);
+        }
         return;
     }
     setIsLoading(true);
@@ -146,13 +158,19 @@ function TripBoardContent() {
             ...d.data(), 
             startDate: parseSafeDate(d.data().startDate) 
         } as any));
-        setTrips(prev => [...prev.filter(t => t.originPlantId !== plantId), ...list]);
+        setTrips(prev => {
+            const others = prev.filter(t => t.originPlantId !== plantId);
+            return [...others, ...list];
+        });
         setIsLoading(false);
       }));
 
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/shipments`), (snap) => {
         const list = snap.docs.map(d => ({ id: d.id, originPlantId: plantId, ...d.data() } as any));
-        setShipments(prev => [...prev.filter(s => s.originPlantId !== plantId), ...list]);
+        setShipments(prev => {
+            const others = prev.filter(s => s.originPlantId !== plantId);
+            return [...others, ...list];
+        });
       }));
 
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/lrs`), (snap) => {
@@ -162,7 +180,10 @@ function TripBoardContent() {
           ...d.data(),
           date: parseSafeDate(d.data().date)
         } as any));
-        setLrs(prev => [...prev.filter(l => l.originPlantId !== plantId), ...list]);
+        setLrs(prev => {
+            const others = prev.filter(l => l.originPlantId !== plantId);
+            return [...others, ...list];
+        });
       }));
     });
 
@@ -244,11 +265,8 @@ function TripBoardContent() {
     });
   }, [finalData, activeTab]);
 
-  const totalPages = Math.ceil(tabFilteredData.length / itemsPerPage);
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return tabFilteredData.slice(start, start + itemsPerPage);
-  }, [tabFilteredData, currentPage, itemsPerPage]);
+  const totalPagesCount = Math.ceil(tabFilteredData.length / itemsPerPage);
+  const paginatedData = tabFilteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const counts = useMemo(() => {
     const res = { loading: 0, transit: 0, arrived: 0, podStatus: 0, rejection: 0, closed: 0 };
@@ -343,7 +361,7 @@ function TripBoardContent() {
                         <Label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1">
                           <Factory className="h-3 w-3" /> Plant Node Registry
                         </Label>
-                        <MultiSelectPlantFilter options={plants} selected={selectedPlants} onChange={setSelectedPlants} isLoading={isAuthLoading} />
+                        <MultiSelectPlantFilter options={plants} selected={selectedPlants} onChange={handlePlantChange} isLoading={isAuthLoading} />
                     </div>
                     <div className="grid gap-2"><Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Filter className="h-3 w-3" /> Start Node</Label><DatePicker date={fromDate} setDate={setFromDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" /></div>
                     <div className="grid gap-2"><Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Filter className="h-3 w-3" /> End Node</Label><DatePicker date={toDate} setDate={setTodayDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" /></div>
@@ -387,7 +405,7 @@ function TripBoardContent() {
                                     <SelectContent className="rounded-xl"><SelectItem value="10" className="font-bold py-2">10</SelectItem><SelectItem value="25" className="font-bold py-2">25</SelectItem><SelectItem value="50" className="font-bold py-2">50</SelectItem><SelectItem value="100" className="font-bold py-2">100</SelectItem></SelectContent>
                                 </Select>
                             </div>
-                            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPages} itemCount={tabFilteredData.length} />
+                            <Pagination currentPage={currentPage} totalPages={totalPagesCount} onPageChange={setCurrentPage} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPagesCount} itemCount={tabFilteredData.length} />
                         </div>
                     </div>
                 </TabsContent>

@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -41,7 +41,7 @@ function OpenOrdersContent() {
   const { showLoader, hideLoader } = useLoading();
   
   const activeTab = (searchParams.get('tab') as OrderTab) || 'pending';
-  const urlPlants = searchParams.get('plants')?.split(',').filter(Boolean) || [];
+  const urlPlants = useMemo(() => searchParams.get('plants')?.split(',').filter(Boolean) || [], [searchParams]);
   
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
@@ -60,7 +60,7 @@ function OpenOrdersContent() {
     lrs: WithId<LR>[] 
   }>({ shipments: [], trips: [], entries: [], lrs: [] });
   
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
   
@@ -72,6 +72,8 @@ function OpenOrdersContent() {
   const [cancelModalData, setCancelModalData] = useState<{ id: string, type: 'order' | 'assignment', tripId?: string, qty?: number } | null>(null);
   const [selectedShipment, setSelectedShipment] = useState<any | null>(null);
   const [editingTrip, setEditingTrip] = useState<WithId<Trip> | null>(null);
+
+  const isInitialized = useRef(false);
 
   const isAdminSession = useMemo(() => {
     return user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
@@ -92,7 +94,6 @@ function OpenOrdersContent() {
   useEffect(() => {
     if (!firestore || !user) return;
     const fetchAuth = async () => {
-        setIsAuthLoading(true);
         try {
             const searchEmail = user.email;
             if (!searchEmail) return;
@@ -111,16 +112,23 @@ function OpenOrdersContent() {
             }
 
             setAuthorizedPlantIds(authIds);
-            setPlants(baseList.filter(p => authIds.some(aid => normalizePlantId(aid).toLowerCase() === normalizePlantId(p.id).toLowerCase())));
-            
-            if (authIds.length > 0 && selectedPlants.length === 0 && urlPlants.length === 0) {
-                setSelectedPlants(authIds);
-                updateURL(authIds);
+            const authorizedPlants = baseList.filter(p => authIds.includes(p.id));
+            setPlants(authorizedPlants);
+
+            // MISSION LOGIC: If no plants in URL and not initialized, select all authorized
+            if (!isInitialized.current) {
+                if (urlPlants.length > 0) {
+                    setSelectedPlants(urlPlants);
+                } else if (authIds.length > 0) {
+                    setSelectedPlants(authIds);
+                    updateURL(authIds);
+                }
+                isInitialized.current = true;
             }
         } catch (e) { setDbError(true); } finally { setIsAuthLoading(false); }
     };
     fetchAuth();
-  }, [firestore, user, allMasterPlants, isAdminSession]);
+  }, [firestore, user, allMasterPlants, isAdminSession, urlPlants, updateURL]);
 
   const handlePlantChange = (ids: string[]) => {
     setSelectedPlants(ids);
@@ -129,8 +137,10 @@ function OpenOrdersContent() {
 
   useEffect(() => {
     if (!firestore || !user || selectedPlants.length === 0) {
-      setAllData({ shipments: [], trips: [], entries: [], lrs: [] });
-      setIsLoading(false);
+      if (selectedPlants.length === 0) {
+          setAllData({ shipments: [], trips: [], entries: [], lrs: [] });
+          setIsLoading(false);
+      }
       return;
     }
 
@@ -138,13 +148,13 @@ function OpenOrdersContent() {
     const unsubscribers: (() => void)[] = [];
 
     unsubscribers.push(onSnapshot(collection(firestore, "vehicleEntries"), (snap) => {
-        const entries = snap.docs.map(d => ({ 
+        const entriesList = snap.docs.map(d => ({ 
             id: d.id, 
             ...d.data(),
             entryTimestamp: parseSafeDate(d.data().entryTimestamp),
             exitTimestamp: parseSafeDate(d.data().exitTimestamp)
         } as WithId<VehicleEntryExit>));
-        setAllData(prev => ({ ...prev, entries }));
+        setAllData(prev => ({ ...prev, entries: entriesList }));
     }));
 
     selectedPlants.forEach((plantId) => {
@@ -299,6 +309,9 @@ function OpenOrdersContent() {
     });
   }, [finalData, activeTab]);
 
+  const totalPagesCount = Math.ceil(tabFilteredData.length / itemsPerPage);
+  const paginatedData = tabFilteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   const handleOpenLR = async (row: any) => {
     if (!row.lrNumber || !firestore) return;
     showLoader();
@@ -340,7 +353,7 @@ function OpenOrdersContent() {
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
                 trip: row as any,
-                carrier: row.carrierObj || (carriers || [])[0],
+                carrier: row.carrierObj || (allCarriers || [])[0],
                 shipment: shipmentObj,
                 plant: row.plant,
                 consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
@@ -417,8 +430,8 @@ function OpenOrdersContent() {
         await updateDoc(shipRef, { currentStatusId: 'Short Closed', cancelReason: reason, shortClosedBy: currentName, shortClosedAt: serverTimestamp(), lastUpdateDate: serverTimestamp() });
         toast({ title: "Order Short Closed", description: `Shipment ${shipment.shipmentId} moved to cancelled registry.` });
         setCancelModalData(null);
-    } catch (e: any) {
-        toast({ variant: 'destructive', title: "Error", description: e.message });
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: "Error", description: error.message });
     } finally {
         hideLoader();
     }
@@ -435,8 +448,8 @@ function OpenOrdersContent() {
         const nextStatus = shipment.assignedQty > 0.001 ? 'Partly Vehicle Assigned' : 'pending';
         await updateDoc(shipRef, { currentStatusId: nextStatus, lastUpdateDate: serverTimestamp(), cancelledAt: null, cancelledBy: null, cancelReason: null });
         toast({ title: "Order Restored", description: `Shipment ${shipment.shipmentId} returned to active registry.` });
-    } catch (e: any) {
-        toast({ variant: 'destructive', title: "Restoration Failed", description: e.message });
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: "Restoration Failed", description: error.message });
     } finally {
         hideLoader();
     }
@@ -444,7 +457,7 @@ function OpenOrdersContent() {
 
   return (
     <main className="flex flex-1 flex-col h-full overflow-hidden bg-white">
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full w-full">
+      <Tabs value={activeTab} onValueChange={(v) => updateURL(selectedPlants, v)} className="flex flex-col h-full w-full">
         <div className="sticky top-0 z-30 bg-white/95 backdrop-blur px-4 md:px-8 pt-2 md:pt-4 pb-4 border-b">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-4">
@@ -456,16 +469,12 @@ function OpenOrdersContent() {
                 <Label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1">
                   <Factory className="h-2.5 w-2.5" /> Plant Node Registry
                 </Label>
-                {isAuthLoading ? (
-                    <div className="h-9 w-[180px] bg-slate-100 animate-pulse rounded-lg" />
-                ) : (
-                    <MultiSelectPlantFilter 
-                        options={plants || []}
-                        selected={selectedPlants}
-                        onChange={handlePlantChange}
-                        isLoading={isAuthLoading}
-                    />
-                )}
+                <MultiSelectPlantFilter 
+                    options={plants || []}
+                    selected={selectedPlants}
+                    onChange={handlePlantChange}
+                    isLoading={isAuthLoading}
+                />
               </div>
               <div className="grid gap-1.5">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">From Date</Label>
@@ -518,7 +527,7 @@ function OpenOrdersContent() {
             <Card className="border-none shadow-none bg-transparent flex flex-col h-full">
                 <div className="flex-1">
                     <OrdersTable 
-                        data={paginatedData.slice(0, itemsPerPage)} 
+                        data={paginatedData} 
                         tab={activeTab} 
                         onAssign={(s) => { setSelectedShipment(s); setEditingTrip(null); setIsAssignModalOpen(true); }}
                         onEditAssignment={(s, t) => { setSelectedShipment(s); setEditingTrip(t); setIsAssignModalOpen(true); }}
@@ -551,10 +560,10 @@ function OpenOrdersContent() {
 
                     <Pagination 
                         currentPage={currentPage}
-                        totalPages={totalPages}
+                        totalPages={totalPagesCount}
                         onPageChange={setCurrentPage}
                         canPreviousPage={currentPage > 1}
-                        canNextPage={currentPage < totalPages}
+                        canNextPage={currentPage < totalPagesCount}
                         itemCount={tabFilteredData.length}
                     />
                 </div>
