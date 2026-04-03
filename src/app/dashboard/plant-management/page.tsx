@@ -30,6 +30,7 @@ import { collection, query, addDoc, serverTimestamp, doc, deleteDoc, updateDoc, 
 import type { WithId, Plant, ShipmentStatusMaster, MasterQtyType, FuelPump } from '@/types';
 import PartyCreationTab from '@/components/dashboard/plant-management/PartyCreationTab';
 import CreatePumpForm from '@/components/dashboard/fuel-pump/CreatePumpForm';
+import EditVendorModal from '@/components/dashboard/fuel-pump/EditVendorModal';
 import PumpHistoryTable from '@/components/dashboard/fuel-pump/PumpHistoryTable';
 import { Loader2, WifiOff, Building2, Fuel, Tag, Settings2, Users, Save, Edit2, ShieldCheck, MapPin, History, Trash2, Activity, Truck } from "lucide-react";
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -249,9 +250,15 @@ const CreatePlantSection = () => {
 
 const FuelPumpSection = () => {
   const firestore = useFirestore();
+  const { user } = useUser();
+  const { showLoader, hideLoader } = useLoading();
+  const { toast } = useToast();
+  
   const [pumps, setPumps] = useState<WithId<FuelPump>[]>([]);
   const [pumpsLoading, setPumpsLoading] = useState(true);
   const [isCreateOpen, setCreateOpen] = useState(false);
+  const [isEditOpen, setEditOpen] = useState(false);
+  const [editingVendor, setEditingVendor] = useState<WithId<FuelPump> | null>(null);
 
     useEffect(() => {
         if (firestore) {
@@ -268,8 +275,49 @@ const FuelPumpSection = () => {
             return () => unsubscribe();
         }
     }, [firestore]);
+
+    const handleDeleteVendor = async (id: string) => {
+        if (!firestore || !user) return;
+        showLoader();
+        try {
+            const vendorRef = doc(firestore, "fuel_pumps", id);
+            const vendorSnap = await getDoc(vendorRef);
+            if (vendorSnap.exists()) {
+                const data = vendorSnap.data();
+                const operator = user.email?.split('@')[0] || "Admin";
+                await addDoc(collection(firestore, "recycle_bin"), {
+                    pageName: "Vendor Management",
+                    userName: operator,
+                    deletedAt: serverTimestamp(),
+                    data: { ...data, id, type: 'FuelPump' }
+                });
+                await deleteDoc(vendorRef);
+                toast({ title: 'Vendor Removed', description: 'Identity moved to system archive.' });
+            }
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Error', description: e.message });
+        } finally {
+            hideLoader();
+        }
+    };
+
+    const handleUpdateVendor = async (id: string, data: Partial<FuelPump>) => {
+        if (!firestore) return;
+        showLoader();
+        try {
+            const sanitized = sanitizeRegistryNode(data);
+            await updateDoc(doc(firestore, "fuel_pumps", id), { ...sanitized, updatedAt: serverTimestamp() });
+            toast({ title: 'Registry Updated', description: 'Vendor particulars modified successfully.' });
+            setEditOpen(false);
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Update Failed', description: e.message });
+        } finally {
+            hideLoader();
+        }
+    };
   
   return (
+    <>
     <Card>
         <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -279,7 +327,12 @@ const FuelPumpSection = () => {
             <Button onClick={() => setCreateOpen(true)}>Add New Vendor</Button>
         </CardHeader>
         <CardContent>
-            <PumpHistoryTable pumps={pumps} isLoading={pumpsLoading} onEdit={() => {}} onDelete={() => {}} />
+            <PumpHistoryTable 
+                pumps={pumps} 
+                isLoading={pumpsLoading} 
+                onEdit={(p) => { setEditingVendor(p); setEditOpen(true); }} 
+                onDelete={handleDeleteVendor} 
+            />
             <Dialog open={isCreateOpen} onOpenChange={setCreateOpen}>
                 <DialogContent className="sm:max-w-4xl">
                     <DialogHeader><DialogTitle>Register New Vendor</DialogTitle></DialogHeader>
@@ -294,6 +347,15 @@ const FuelPumpSection = () => {
             </Dialog>
         </CardContent>
     </Card>
+    {editingVendor && (
+        <EditVendorModal 
+            isOpen={isEditOpen}
+            onClose={() => setEditOpen(false)}
+            vendor={editingVendor}
+            onSave={handleUpdateVendor}
+        />
+    )}
+    </>
   );
 }
 
