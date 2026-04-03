@@ -49,6 +49,12 @@ const getStatusColor = (status: string) => {
     }
 }
 
+const formatDate = (date: any) => {
+    if (!date) return '--';
+    const d = parseSafeDate(date);
+    return d ? format(d, 'dd/MM/yy HH:mm') : '--';
+};
+
 export default function TripBoardTable({ 
     data, 
     activeTab, 
@@ -56,6 +62,105 @@ export default function TripBoardTable({
     onAction 
 }: TripBoardTableProps) {
   
+  if (activeTab === 'closed') {
+    return (
+        <div className="overflow-x-auto">
+            <Table className="border-collapse w-full min-w-[4500px] table-fixed">
+                <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b">
+                    <TableRow className="h-14 hover:bg-transparent text-[10px] font-black uppercase text-slate-500">
+                        <TableHead className="px-6 w-32">Plant</TableHead>
+                        <TableHead className="px-4 w-36">Order No.</TableHead>
+                        <TableHead className="px-4 w-40">Order Creator</TableHead>
+                        <TableHead className="px-4 w-48">Consignor</TableHead>
+                        <TableHead className="px-4 w-48">Consignee</TableHead>
+                        <TableHead className="px-4 w-48">Ship To Party</TableHead>
+                        <TableHead className="px-4 w-64">Route Registry</TableHead>
+                        <TableHead className="px-4 w-36">Vehicle No</TableHead>
+                        <TableHead className="px-4 w-36">Pilot Mobile</TableHead>
+                        <TableHead className="px-4 w-36 text-center">Fleet Type</TableHead>
+                        <TableHead className="px-4 w-48">Vendor Name</TableHead>
+                        <TableHead className="px-4 w-40">Assigned User</TableHead>
+                        <TableHead className="px-4 w-48">Invoice No</TableHead>
+                        <TableHead className="px-4 w-40">Ewaybill No</TableHead>
+                        <TableHead className="px-4 w-32 text-center">Unit-UOM</TableHead>
+                        <TableHead className="px-4 w-32 text-right">Qty-UOM</TableHead>
+                        <TableHead className="px-4 w-36">LR Number</TableHead>
+                        <TableHead className="px-4 w-32 text-center">LR Date</TableHead>
+                        <TableHead className="px-4 w-40 text-center">Assigned At</TableHead>
+                        <TableHead className="px-4 w-40 text-center">Gate Out At</TableHead>
+                        <TableHead className="px-4 w-40 text-center">Arrived At</TableHead>
+                        <TableHead className="px-4 w-40 text-center">Unloaded At</TableHead>
+                        <TableHead className="px-4 w-40 text-center text-red-600">Reject At</TableHead>
+                        <TableHead className="px-4 w-40 text-center text-blue-600">Re-sent At</TableHead>
+                        <TableHead className="px-4 w-40">Resent User</TableHead>
+                        <TableHead className="px-4 w-36">SRN Number</TableHead>
+                        <TableHead className="px-4 w-32 text-center">SRN Date</TableHead>
+                        <TableHead className="px-4 w-40">SRN User</TableHead>
+                        <TableHead className="px-4 w-32 text-center">POD Status</TableHead>
+                        <TableHead className="px-4 w-40">POD Operator</TableHead>
+                        <TableHead className="px-4 w-32 text-center bg-blue-50/50">Dispatch (Hr)</TableHead>
+                        <TableHead className="px-4 w-32 text-center bg-blue-50/50">Transit (Hr)</TableHead>
+                        <TableHead className="px-4 w-32 text-center bg-blue-50/50">Unload (Hr)</TableHead>
+                        <TableHead className="px-8 w-32 text-right sticky right-0 bg-slate-50 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">Action</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {data.length === 0 ? (
+                        <TableRow><TableCell colSpan={34} className="h-64 text-center text-slate-400 italic">No historical records matching registry scope.</TableCell></TableRow>
+                    ) : (
+                        data.map((row) => (
+                            <TableRow key={row.id} className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 transition-all group text-[11px] font-medium text-slate-600">
+                                <TableCell className="px-6 font-bold uppercase truncate">{row.plantName}</TableCell>
+                                <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs">{row.orderNo}</TableCell>
+                                <TableCell className="px-4 font-bold uppercase text-[10px] text-slate-400 truncate">{row.orderCreatedUser}</TableCell>
+                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs">{row.consignor}</TableCell>
+                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs">{row.consignee}</TableCell>
+                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs">{row.shipToParty}</TableCell>
+                                <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-xs">{row.loadingPoint} → {row.unloadingPoint}</TableCell>
+                                <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{row.vehicleNumber}</TableCell>
+                                <TableCell className="px-4 font-mono font-bold text-slate-400">{row.driverMobile || '--'}</TableCell>
+                                <TableCell className="px-4 text-center"><Badge variant="outline" className="text-[9px] font-black uppercase bg-slate-50">{row.fleetType}</Badge></TableCell>
+                                <TableCell className="px-4 font-bold text-slate-700 uppercase truncate">{row.vendorName}</TableCell>
+                                <TableCell className="px-4 font-black text-blue-900 uppercase text-[10px]">{row.assignedUsername}</TableCell>
+                                <TableCell className="px-4 truncate font-bold text-slate-800">{row.invoiceNumbers}</TableCell>
+                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase">{row.ewaybillNumber}</TableCell>
+                                <TableCell className="px-4 text-center font-black text-slate-900">{row.unitUom}</TableCell>
+                                <TableCell className="px-4 text-right font-black text-blue-900">{row.qtyUom}</TableCell>
+                                <TableCell className="px-4 font-black text-slate-900 uppercase">{row.lrNumber}</TableCell>
+                                <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.lrDate)}</TableCell>
+                                <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.assignedDateTime)}</TableCell>
+                                <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.gateOutDateTime)}</TableCell>
+                                <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.arrivedDateTime)}</TableCell>
+                                <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.unloadDateTime)}</TableCell>
+                                <TableCell className="px-4 text-center text-red-600 font-bold whitespace-nowrap">{formatDate(row.rejectDateTime)}</TableCell>
+                                <TableCell className="px-4 text-center text-blue-600 font-bold whitespace-nowrap">{formatDate(row.resentDateTime)}</TableCell>
+                                <TableCell className="px-4 font-black text-slate-400 uppercase text-[10px]">{row.resentUsername || '--'}</TableCell>
+                                <TableCell className="px-4 font-black text-blue-900 uppercase font-mono">{row.srnNumber}</TableCell>
+                                <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.srnDate)}</TableCell>
+                                <TableCell className="px-4 font-black text-slate-400 uppercase text-[10px]">{row.srnUsername || '--'}</TableCell>
+                                <TableCell className="px-4 text-center">
+                                    <Badge className={cn("text-[9px] font-black uppercase h-6 px-3 border-none", row.podStatus === 'Received' ? "bg-emerald-600 text-white" : "bg-red-600 text-white")}>
+                                        {row.podStatus}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell className="px-4 font-black text-slate-400 uppercase text-[10px]">{row.podUpdateUsername}</TableCell>
+                                <TableCell className="px-4 text-center font-black text-blue-900 bg-blue-50/20">{row.dispatchHour}</TableCell>
+                                <TableCell className="px-4 text-center font-black text-blue-900 bg-blue-50/20">{row.transitHour}</TableCell>
+                                <TableCell className="px-4 text-center font-black text-blue-900 bg-blue-50/20">{row.unloadHour}</TableCell>
+                                <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
+                                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white text-slate-400 hover:text-blue-900 transition-all" onClick={() => onAction('view', row)}>
+                                        <Eye className="h-4 w-4" />
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    )}
+                </TableBody>
+            </Table>
+        </div>
+    );
+  }
+
   return (
     <div className="overflow-x-auto">
       <Table className="border-collapse w-full min-w-[2500px] table-fixed">

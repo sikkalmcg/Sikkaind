@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { differenceInMinutes, isValid } from "date-fns"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -50,6 +51,21 @@ export function parseSafeDate(date: any): Date | null {
     } catch (e) {
         return null;
     }
+}
+
+/**
+ * Calculates duration between two dates in HH:MM format.
+ */
+export function calculateDuration(start: any, end: any): string {
+    const s = parseSafeDate(start);
+    const e = parseSafeDate(end);
+    if (!s || !e) return '--:--';
+    const diffMs = e.getTime() - s.getTime();
+    if (diffMs < 0) return '00:00';
+    const diffMins = Math.floor(diffMs / 60000);
+    const h = Math.floor(diffMins / 60);
+    const m = diffMins % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
 /**

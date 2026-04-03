@@ -2,6 +2,7 @@
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import * as XLSX from 'xlsx';
 import TripBoardTable from '@/components/dashboard/trip-board/TripBoardTable';
 import TripViewModal from '@/components/dashboard/trip-board/TripViewModal';
 import CancelTripModal from '@/components/dashboard/trip-board/CancelTripModal';
@@ -14,10 +15,10 @@ import SrnModal from '@/components/dashboard/trip-board/SrnModal';
 import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilter';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
-import { normalizePlantId, parseSafeDate } from '@/lib/utils';
+import { normalizePlantId, parseSafeDate, calculateDuration } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban } from "lucide-react";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -92,7 +93,6 @@ function TripBoardContent() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }, [pathname, router, activeTab]);
 
-  // Pulse-Protected Authorization Effect
   useEffect(() => {
     if (!firestore || !user) return;
     const fetchAuth = async () => {
@@ -117,7 +117,6 @@ function TripBoardContent() {
             const authPlants = baseList.filter(p => authIds.includes(p.id));
             setPlants(authPlants);
 
-            // MISSION LOGIC: Default to all plants if none in URL
             if (!isInitialized.current) {
                 if (urlPlants.length > 0) {
                     setSelectedPlants(urlPlants);
@@ -156,7 +155,15 @@ function TripBoardContent() {
             id: d.id, 
             originPlantId: plantId, 
             ...d.data(), 
-            startDate: parseSafeDate(d.data().startDate) 
+            startDate: parseSafeDate(d.data().startDate),
+            outDate: parseSafeDate(d.data().outDate),
+            arrivalDate: parseSafeDate(d.data().arrivalDate),
+            actualCompletionDate: parseSafeDate(d.data().actualCompletionDate),
+            lrDate: parseSafeDate(d.data().lrDate),
+            srnDate: parseSafeDate(d.data().srnDate),
+            podUploadDate: parseSafeDate(d.data().podUploadDate),
+            rejectedAt: parseSafeDate(d.data().rejectedAt),
+            lastUpdated: parseSafeDate(d.data().lastUpdated)
         } as any));
         setTrips(prev => {
             const others = prev.filter(t => t.originPlantId !== plantId);
@@ -166,7 +173,12 @@ function TripBoardContent() {
       }));
 
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/shipments`), (snap) => {
-        const list = snap.docs.map(d => ({ id: d.id, originPlantId: plantId, ...d.data() } as any));
+        const list = snap.docs.map(d => ({ 
+            id: d.id, 
+            originPlantId: plantId, 
+            ...d.data(),
+            creationDate: parseSafeDate(d.data().creationDate)
+        } as any));
         setShipments(prev => {
             const others = prev.filter(s => s.originPlantId !== plantId);
             return [...others, ...list];
@@ -188,7 +200,12 @@ function TripBoardContent() {
     });
 
     unsubscribers.push(onSnapshot(collection(firestore, "vehicleEntries"), (snap) => {
-        setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
+        setEntries(snap.docs.map(d => ({ 
+            id: d.id, 
+            ...d.data(),
+            entryTimestamp: parseSafeDate(d.data().entryTimestamp),
+            exitTimestamp: parseSafeDate(d.data().exitTimestamp)
+        } as any)));
     }));
 
     return () => unsubscribers.forEach(u => u());
@@ -199,7 +216,7 @@ function TripBoardContent() {
       const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : t.shipmentIds;
       const shipment = shipments.find(s => s.id === shipId || s.shipmentId === shipId);
       const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId);
-      const entry = entries.find(e => e.tripId === t.id);
+      const entry = entries.find(e => e.tripId === t.id || (e.vehicleNumber === t.vehicleNumber && e.status === 'OUT' && normalizePlantId(e.plantId) === normalizePlantId(t.originPlantId)));
       const carrier = dbCarriers?.find(c => c.id === t.carrierId);
 
       const items = lr?.items || t.items || shipment?.items || [];
@@ -212,20 +229,43 @@ function TripBoardContent() {
       return {
         ...t,
         plantName: plants.find(p => normalizePlantId(p.id) === normalizePlantId(t.originPlantId))?.name || t.originPlantId,
+        orderNo: shipment?.shipmentId || '--',
+        orderCreatedUser: shipment?.userName || '--',
+        consignor: t.consignor || shipment?.consignor || '--',
+        consignee: t.billToParty || shipment?.billToParty || '--',
+        shipToParty: t.shipToParty || shipment?.shipToParty || '--',
+        loadingPoint: t.loadingPoint || shipment?.loadingPoint || '--',
+        unloadingPoint: t.unloadingPoint || shipment?.unloadingPoint || t.destination || '--',
+        vehicleNumber: t.vehicleNumber,
+        driverMobile: t.driverMobile,
+        fleetType: t.vehicleType,
+        vendorName: t.transporterName || '--',
+        assignedUsername: t.userName || '--',
         invoiceNumbers: invoiceNumbers || shipment?.invoiceNumber || '--',
-        itemDescription: description,
-        lrUnits: units || shipment?.totalUnits || '--',
-        dispatchedQty,
+        ewaybillNumber: shipment?.ewaybillNumber || '--',
+        unitUom: `${units || shipment?.totalUnits || '--'} PKG`,
+        qtyUom: `${dispatchedQty.toFixed(3)} ${shipment?.materialTypeId || 'MT'}`,
+        lrNumber: lr?.lrNumber || t.lrNumber || shipment?.lrNumber || '',
+        lrDate: parseSafeDate(lr?.date || t.lrDate || shipment?.lrDate),
+        assignedDateTime: t.startDate,
+        gateOutDateTime: t.outDate || entry?.exitTimestamp,
+        arrivedDateTime: t.arrivalDate,
+        unloadDateTime: t.actualCompletionDate,
+        rejectDateTime: t.rejectedAt,
+        resentDateTime: t.resentAt,
+        resentUsername: t.resentBy,
+        srnNumber: t.srnNumber || '--',
+        srnDate: t.srnDate,
+        srnUsername: t.srnBy,
+        podStatus: t.podReceived ? 'Received' : 'Pending',
+        podUpdateUsername: t.podUploadedBy || '--',
+        dispatchHour: calculateDuration(t.startDate, t.outDate || entry?.exitTimestamp),
+        transitHour: calculateDuration(t.outDate || entry?.exitTimestamp, t.arrivalDate),
+        unloadHour: calculateDuration(t.arrivalDate, t.actualCompletionDate),
         shipmentObj: shipment,
         lrData: lr,
         carrierObj: carrier,
-        entry,
-        lrNumber: lr?.lrNumber || t.lrNumber || shipment?.lrNumber || '',
-        lrDate: parseSafeDate(lr?.date || t.lrDate || shipment?.lrDate),
-        consignor: t.consignor || shipment?.consignor || '--',
-        consignee: t.billToParty || shipment?.billToParty || '--',
-        material: shipment?.itemDescription || shipment?.material || '--',
-        qtyUom: `${t.assignedQtyInTrip} ${shipment?.materialTypeId || 'MT'}`
+        entry
       };
     });
   }, [trips, shipments, lrs, entries, plants, dbCarriers]);
@@ -236,9 +276,11 @@ function TripBoardContent() {
 
     return allFilteredData.filter(t => {
       if (selectedPlants.length > 0 && !selectedPlants.some(pid => normalizePlantId(pid) === normalizePlantId(t.originPlantId))) return false;
-      const start = t.startDate;
-      if (dayStart && start && start < dayStart) return false;
-      if (dayEnd && start && start > dayEnd) return false;
+      
+      const checkDate = t.startDate;
+      if (dayStart && checkDate && checkDate < dayStart) return false;
+      if (dayEnd && checkDate && checkDate > dayEnd) return false;
+      
       if (searchTerm) {
         const s = searchTerm.toLowerCase();
         return Object.values(t).some(val => val?.toString().toLowerCase().includes(s));
@@ -250,13 +292,12 @@ function TripBoardContent() {
   const tabFilteredData = useMemo(() => {
     return finalData.filter(t => {
         const status = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
-        const isOut = t.entry?.status === 'OUT';
         const isPod = t.podReceived === true;
 
         switch (activeTab) {
-            case 'loading': return !isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete');
-            case 'transit': return status === 'in-transit' || status === 'out-for-delivery' || status === 'break-down';
-            case 'arrived': return ['arrived', 'arrival-for-delivery', 'arrive-for-deliver'].includes(status);
+            case 'loading': return (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete') && !t.gateOutDateTime;
+            case 'transit': return (status === 'in-transit' || status === 'out-for-delivery' || status === 'break-down') && t.gateOutDateTime && !t.arrivedDateTime;
+            case 'arrived': return ['arrived', 'arrival-for-delivery', 'arrive-for-deliver'].includes(status) && t.arrivedDateTime && !t.unloadDateTime;
             case 'pod-status': return (['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'delivered'].includes(status)) && !isPod;
             case 'rejection': return status === 'rejected';
             case 'closed': return isPod || status === 'closed' || status === 'trip-closed' || status === 'delivered';
@@ -272,18 +313,60 @@ function TripBoardContent() {
     const res = { loading: 0, transit: 0, arrived: 0, podStatus: 0, rejection: 0, closed: 0 };
     finalData.forEach(t => {
         const status = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
-        const isOut = t.entry?.status === 'OUT';
         const isPod = t.podReceived === true;
         
-        if (!isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete')) res.loading++;
-        if (status === 'in-transit' || status === 'out-for-delivery' || status === 'break-down') res.transit++;
-        if (['arrived', 'arrival-for-delivery', 'arrive-for-deliver'].includes(status)) res.arrived++;
+        if ((status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete') && !t.gateOutDateTime) res.loading++;
+        if ((status === 'in-transit' || status === 'out-for-delivery' || status === 'break-down') && t.gateOutDateTime && !t.arrivedDateTime) res.transit++;
+        if (['arrived', 'arrival-for-delivery', 'arrive-for-deliver'].includes(status) && t.arrivedDateTime && !t.unloadDateTime) res.arrived++;
         if ((['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'delivered'].includes(status)) && !isPod) res.podStatus++;
         if (status === 'rejected') res.rejection++;
         if (isPod || status === 'closed' || status === 'trip-closed' || status === 'delivered') res.closed++;
     });
     return res;
   }, [finalData]);
+
+  const handleExport = () => {
+    const dataToExport = tabFilteredData.map(item => ({
+        'Plant': item.plantName,
+        'Order No': item.orderNo,
+        'Order Creator': item.orderCreatedUser,
+        'Consignor': item.consignor,
+        'Consignee': item.consignee,
+        'Ship To': item.shipToParty,
+        'Route': `${item.loadingPoint} → ${item.unloadingPoint}`,
+        'Vehicle No': item.vehicleNumber,
+        'Pilot Mobile': item.driverMobile,
+        'Fleet Type': item.fleetType,
+        'Vendor': item.vendorName,
+        'Assigned User': item.assignedUsername,
+        'Invoice No': item.invoiceNumbers,
+        'E-Waybill': item.ewaybillNumber,
+        'Units': item.unitUom,
+        'Quantity': item.qtyUom,
+        'LR No': item.lrNumber,
+        'LR Date': item.lrDate ? format(item.lrDate, 'dd-MM-yyyy') : '--',
+        'Assigned At': item.assignedDateTime ? format(item.assignedDateTime, 'dd-MM-yyyy HH:mm') : '--',
+        'Gate Out At': item.gateOutDateTime ? format(item.gateOutDateTime, 'dd-MM-yyyy HH:mm') : '--',
+        'Arrived At': item.arrivedDateTime ? format(item.arrivedDateTime, 'dd-MM-yyyy HH:mm') : '--',
+        'Unloaded At': item.unloadDateTime ? format(item.unloadDateTime, 'dd-MM-yyyy HH:mm') : '--',
+        'Rejected At': item.rejectDateTime ? format(item.rejectDateTime, 'dd-MM-yyyy HH:mm') : '--',
+        'Re-sent At': item.resentDateTime ? format(item.resentDateTime, 'dd-MM-yyyy HH:mm') : '--',
+        'Resent By': item.resentUsername,
+        'SRN No': item.srnNumber,
+        'SRN Date': item.srnDate ? format(item.srnDate, 'dd-MM-yyyy') : '--',
+        'SRN User': item.srnUsername,
+        'POD Status': item.podStatus,
+        'POD User': item.podUpdateUsername,
+        'Dispatch (Hr)': item.dispatchHour,
+        'Transit (Hr)': item.transitHour,
+        'Unload (Hr)': item.unloadHour,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Mission Registry");
+    XLSX.writeFile(wb, `Closed_Missions_Registry_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+  };
 
   const handlePostAction = async (id: string, updateData: any) => {
     if (!firestore) return;
@@ -302,32 +385,6 @@ function TripBoardContent() {
         toast({ title: 'Registry Updated' });
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Action Failed', description: e.message });
-    } finally {
-        hideLoader();
-    }
-  };
-
-  const handleReSentAction = async (trip: any) => {
-    showLoader();
-    try {
-        const plantId = normalizePlantId(trip.originPlantId);
-        const tripRef = doc(firestore!, `plants/${plantId}/trips`, trip.id);
-        const globalTripRef = doc(firestore!, 'trips', trip.id);
-        const ts = serverTimestamp();
-
-        const updateData = {
-            tripStatus: 'Assigned',
-            currentStatusId: 'assigned',
-            lastUpdated: ts,
-            rejectedAt: null,
-            rejectReason: null
-        };
-
-        await updateDoc(tripRef, updateData);
-        await updateDoc(globalTripRef, updateData);
-        toast({ title: 'Mission Re-Initialized', description: 'Trip moved back to Loading tab.' });
-    } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Resent Failed', description: e.message });
     } finally {
         hideLoader();
     }
@@ -366,6 +423,11 @@ function TripBoardContent() {
                     <div className="grid gap-2"><Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Filter className="h-3 w-3" /> Start Node</Label><DatePicker date={fromDate} setDate={setFromDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" /></div>
                     <div className="grid gap-2"><Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Filter className="h-3 w-3" /> End Node</Label><DatePicker date={toDate} setDate={setTodayDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" /></div>
                 </div>
+                {activeTab === 'closed' && (
+                    <Button onClick={handleExport} variant="outline" className="h-11 px-6 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white border-slate-200 text-emerald-700 shadow-sm hover:bg-emerald-50">
+                        <FileDown className="h-4 w-4 mr-2" /> Export to Excel
+                    </Button>
+                )}
             </div>
 
             <Tabs value={activeTab} onValueChange={(v) => { const params = new URLSearchParams(searchParams); params.set('tab', v); router.replace(`${pathname}?${params.toString()}`, { scroll: false }); }} className="w-full">
@@ -389,7 +451,6 @@ function TripBoardContent() {
                             else if (type === 'reject') setRejectTrip(trip);
                             else if (type === 'pod-status') setPodStatusTrip(trip);
                             else if (type === 'srn') setSrnTrip(trip);
-                            else if (type === 're-sent') handleReSentAction(trip);
                             else if (type === 'view') setViewTripData(trip);
                             else if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${trip.vehicleNumber}`);
                             else if (type === 'edit-vehicle') setEditVehicleTrip(trip);
