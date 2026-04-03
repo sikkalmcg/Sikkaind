@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -13,8 +12,6 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 
 interface PlantOption {
   id: string;
@@ -30,7 +27,8 @@ interface MultiSelectPlantFilterProps {
 
 /**
  * @fileOverview Multi-Select Plant Filter Node.
- * Hardened for accurate pluralization and count-based status display.
+ * Hardened for accurate pluralization and staged selection logic.
+ * Staged logic prevents page reloads during the selection process.
  */
 export default function MultiSelectPlantFilter({
   options,
@@ -40,32 +38,50 @@ export default function MultiSelectPlantFilter({
 }: MultiSelectPlantFilterProps) {
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState('');
+  // Registry Staging Node: Buffer selections internally to prevent repeated page reloads
+  const [stagedSelected, setStagedSelected] = React.useState<string[]>(selected);
+
+  // Synchronize staging buffer when the popover opens
+  React.useEffect(() => {
+    if (open) {
+      setStagedSelected(selected);
+    }
+  }, [open, selected]);
 
   const filteredOptions = options.filter((option) =>
     option.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const isAllSelected = options.length > 0 && selected.length === options.length;
+  const isAllSelected = options.length > 0 && stagedSelected.length === options.length;
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      onChange(options.map((o) => o.id));
+      setStagedSelected(options.map((o) => o.id));
     } else {
-      onChange([]);
+      setStagedSelected([]);
     }
   };
 
   const handleToggle = (id: string) => {
-    const newSelected = selected.includes(id)
-      ? selected.filter((item) => item !== id)
-      : [...selected, id];
-    onChange(newSelected);
+    setStagedSelected(prev => 
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleApply = () => {
+    onChange(stagedSelected);
+    setOpen(false);
+  };
+
+  const handleClear = () => {
+    setStagedSelected([]);
   };
 
   const getButtonLabel = () => {
     if (isLoading) return 'Syncing Nodes...';
     if (selected.length === 0) return 'Select Node';
-    if (isAllSelected && options.length > 1) return 'All Authorized Nodes';
+    const isAll = options.length > 0 && selected.length === options.length;
+    if (isAll && options.length > 1) return 'All Authorized Nodes';
     
     // Mission Logic: Explicit count-based labeling with pluralization support
     const count = selected.length;
@@ -118,7 +134,10 @@ export default function MultiSelectPlantFilter({
         </div>
         
         <div className="p-2 border-b bg-white sticky top-0 z-10">
-          <div className="flex items-center space-x-2 px-2 py-1.5 hover:bg-slate-50 rounded-md transition-colors cursor-pointer group">
+          <div 
+            className="flex items-center space-x-2 px-2 py-1.5 hover:bg-slate-50 rounded-md transition-colors cursor-pointer group"
+            onClick={() => handleSelectAll(!isAllSelected)}
+          >
             <Checkbox
               id="select-all"
               checked={isAllSelected}
@@ -146,15 +165,15 @@ export default function MultiSelectPlantFilter({
                   key={option.id}
                   className={cn(
                     "flex items-center space-x-2 px-2 py-2 rounded-md transition-all cursor-pointer",
-                    selected.includes(option.id) 
-                      ? "bg-blue-50/50" 
+                    stagedSelected.includes(option.id) 
+                      ? "bg-blue-50/50 font-black" 
                       : "hover:bg-slate-50"
                   )}
                   onClick={() => handleToggle(option.id)}
                 >
                   <Checkbox
                     id={`plant-${option.id}`}
-                    checked={selected.includes(option.id)}
+                    checked={stagedSelected.includes(option.id)}
                     onCheckedChange={() => handleToggle(option.id)}
                     className="border-slate-300 data-[state=checked]:bg-blue-900 data-[state=checked]:border-blue-900"
                   />
@@ -162,7 +181,7 @@ export default function MultiSelectPlantFilter({
                     htmlFor={`plant-${option.id}`}
                     className={cn(
                       "text-sm font-medium cursor-pointer flex-1 transition-colors uppercase",
-                      selected.includes(option.id) ? "text-blue-900 font-black" : "text-slate-600"
+                      stagedSelected.includes(option.id) ? "text-blue-900 font-black" : "text-slate-600"
                     )}
                   >
                     {option.name}
@@ -178,14 +197,14 @@ export default function MultiSelectPlantFilter({
             variant="ghost"
             size="sm"
             className="text-[10px] uppercase font-bold text-slate-500 hover:text-red-600"
-            onClick={() => onChange([])}
+            onClick={handleClear}
           >
             Clear All
           </Button>
           <Button
             size="sm"
             className="text-[10px] uppercase font-black bg-blue-900 hover:bg-slate-900 px-4 h-7"
-            onClick={() => setOpen(false)}
+            onClick={handleApply}
           >
             Apply Filters
           </Button>

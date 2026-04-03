@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -132,6 +131,8 @@ function TripBoardContent() {
   }, [firestore, user, allMasterPlants, isAdminSession, urlPlants, updateURL]);
 
   const handlePlantChange = (ids: string[]) => {
+    // Registry Selection Node: Update internal state and URL. 
+    // Data fetching effect handles the rest.
     setSelectedPlants(ids);
     updateURL(ids);
   };
@@ -146,6 +147,7 @@ function TripBoardContent() {
         }
         return;
     }
+    // Only show loading state if we're doing a primary pulse change
     setIsLoading(true);
     const unsubscribers: (() => void)[] = [];
 
@@ -211,70 +213,69 @@ function TripBoardContent() {
     return () => unsubscribers.forEach(u => u());
   }, [firestore, JSON.stringify(selectedPlants)]);
 
-  const allFilteredData = useMemo(() => {
+ const joinedData = useMemo(() => {
     return trips.map(t => {
-      const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : t.shipmentIds;
-      const shipment = shipments.find(s => s.id === shipId || s.shipmentId === shipId);
-      const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId);
-      const entry = entries.find(e => e.tripId === t.id || (e.vehicleNumber === t.vehicleNumber && e.status === 'OUT' && normalizePlantId(e.plantId) === normalizePlantId(t.originPlantId)));
-      const carrier = dbCarriers?.find(c => c.id === t.carrierId);
+        const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : t.shipmentIds;
+        const shipment = shipments.find(s => s.id === shipId || s.shipmentId === shipId);
+        const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId);
+        const entry = entries.find(e => e.tripId === t.id || (e.vehicleNumber === t.vehicleNumber && e.status === 'OUT' && normalizePlantId(e.plantId) === normalizePlantId(t.originPlantId)));
+        const carrier = dbCarriers?.find(c => c.id === t.carrierId);
 
-      const items = lr?.items || t.items || shipment?.items || [];
-      const invoiceNumbers = Array.from(new Set(items.map((i: any) => i.invoiceNumber).filter(Boolean))).join(', ');
-      const description = Array.from(new Set(items.map((i: any) => i.itemDescription || i.description).filter(Boolean))).join(', ') || t.itemDescription || shipment?.material || '--';
-      const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
+        const items = lr?.items || t.items || shipment?.items || [];
+        const invoiceNumbers = Array.from(new Set(items.map((i: any) => i.invoiceNumber).filter(Boolean))).join(', ');
+        const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
 
-      const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
+        const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
 
-      return {
-        ...t,
-        plantName: plants.find(p => normalizePlantId(p.id) === normalizePlantId(t.originPlantId))?.name || t.originPlantId,
-        orderNo: shipment?.shipmentId || '--',
-        orderCreatedUser: shipment?.userName || '--',
-        consignor: t.consignor || shipment?.consignor || '--',
-        consignee: t.billToParty || shipment?.billToParty || '--',
-        shipToParty: t.shipToParty || shipment?.shipToParty || '--',
-        loadingPoint: t.loadingPoint || shipment?.loadingPoint || '--',
-        unloadingPoint: t.unloadingPoint || shipment?.unloadingPoint || t.destination || '--',
-        vehicleNumber: t.vehicleNumber,
-        driverMobile: t.driverMobile,
-        fleetType: t.vehicleType,
-        vendorName: t.transporterName || '--',
-        assignedUsername: t.userName || '--',
-        invoiceNumbers: invoiceNumbers || shipment?.invoiceNumber || '--',
-        ewaybillNumber: shipment?.ewaybillNumber || '--',
-        unitUom: `${units || shipment?.totalUnits || '--'} PKG`,
-        qtyUom: `${dispatchedQty.toFixed(3)} ${shipment?.materialTypeId || 'MT'}`,
-        lrNumber: lr?.lrNumber || t.lrNumber || shipment?.lrNumber || '',
-        lrDate: parseSafeDate(lr?.date || t.lrDate || shipment?.lrDate),
-        assignedDateTime: t.startDate,
-        gateOutDateTime: t.outDate || entry?.exitTimestamp,
-        arrivedDateTime: t.arrivalDate,
-        unloadDateTime: t.actualCompletionDate,
-        rejectDateTime: t.rejectedAt,
-        resentDateTime: t.resentAt,
-        resentUsername: t.resentBy,
-        srnNumber: t.srnNumber || '--',
-        srnDate: t.srnDate,
-        srnUsername: t.srnBy,
-        podStatus: t.podReceived ? 'Received' : 'Pending',
-        podUpdateUsername: t.podUploadedBy || '--',
-        dispatchHour: calculateDuration(t.startDate, t.outDate || entry?.exitTimestamp),
-        transitHour: calculateDuration(t.outDate || entry?.exitTimestamp, t.arrivalDate),
-        unloadHour: calculateDuration(t.arrivalDate, t.actualCompletionDate),
-        shipmentObj: shipment,
-        lrData: lr,
-        carrierObj: carrier,
-        entry
-      };
+        return {
+            ...t,
+            plantName: plants.find(p => normalizePlantId(p.id) === normalizePlantId(t.originPlantId))?.name || t.originPlantId,
+            orderNo: shipment?.shipmentId || '--',
+            orderCreatedUser: shipment?.userName || '--',
+            consignor: t.consignor || shipment?.consignor || '--',
+            consignee: t.billToParty || shipment?.billToParty || '--',
+            shipToParty: t.shipToParty || shipment?.shipToParty || '--',
+            loadingPoint: t.loadingPoint || shipment?.loadingPoint || '--',
+            unloadingPoint: t.unloadingPoint || shipment?.unloadingPoint || t.destination || '--',
+            vehicleNumber: t.vehicleNumber,
+            driverMobile: t.driverMobile,
+            fleetType: t.vehicleType,
+            vendorName: t.transporterName || '--',
+            assignedUsername: t.userName || '--',
+            invoiceNumbers: invoiceNumbers || shipment?.invoiceNumber || '--',
+            ewaybillNumber: shipment?.ewaybillNumber || '--',
+            unitUom: `${units || shipment?.totalUnits || '--'} PKG`,
+            qtyUom: `${dispatchedQty.toFixed(3)} ${shipment?.materialTypeId || 'MT'}`,
+            lrNumber: lr?.lrNumber || t.lrNumber || shipment?.lrNumber || '',
+            lrDate: parseSafeDate(lr?.date || t.lrDate || shipment?.lrDate),
+            assignedDateTime: t.startDate,
+            gateOutDateTime: t.outDate || entry?.exitTimestamp,
+            arrivedDateTime: t.arrivalDate,
+            unloadDateTime: t.actualCompletionDate,
+            rejectDateTime: t.rejectedAt,
+            resentDateTime: t.resentAt,
+            resentUsername: t.resentBy,
+            srnNumber: t.srnNumber || '--',
+            srnDate: t.srnDate,
+            srnUsername: t.srnBy,
+            podStatus: t.podReceived ? 'Received' : 'Pending',
+            podUpdateUsername: t.podUploadedBy || '--',
+            dispatchHour: calculateDuration(t.startDate, t.outDate || entry?.exitTimestamp),
+            transitHour: calculateDuration(t.outDate || entry?.exitTimestamp, t.arrivalDate),
+            unloadHour: calculateDuration(t.arrivalDate, t.actualCompletionDate),
+            shipmentObj: shipment,
+            lrData: lr,
+            carrierObj: carrier,
+            entry
+        };
     });
-  }, [trips, shipments, lrs, entries, plants, dbCarriers]);
+}, [trips, shipments, lrs, entries, plants, dbCarriers]);
 
   const finalData = useMemo(() => {
     const dayStart = fromDate ? startOfDay(fromDate) : null;
     const dayEnd = toDate ? endOfDay(toDate) : null;
 
-    return allFilteredData.filter(t => {
+    return joinedData.filter(t => {
       if (selectedPlants.length > 0 && !selectedPlants.some(pid => normalizePlantId(pid) === normalizePlantId(t.originPlantId))) return false;
       
       const checkDate = t.startDate;
@@ -287,7 +288,7 @@ function TripBoardContent() {
       }
       return true;
     });
-  }, [allFilteredData, fromDate, toDate, searchTerm, selectedPlants]);
+  }, [joinedData, fromDate, toDate, searchTerm, selectedPlants]);
 
   const tabFilteredData = useMemo(() => {
     return finalData.filter(t => {

@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -131,6 +130,7 @@ function OpenOrdersContent() {
   }, [firestore, user, allMasterPlants, isAdminSession, urlPlants, updateURL]);
 
   const handlePlantChange = (ids: string[]) => {
+    // Staged Selection Handshake: Only update state and URL on explicit Apply click
     setSelectedPlants(ids);
     updateURL(ids);
   };
