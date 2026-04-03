@@ -1,3 +1,4 @@
+
 import { adminDb as db, FieldValue } from "@/firebase/admin";
 import { NextRequest, NextResponse } from "next/server";
 import type { SubUser } from "@/types";
@@ -27,6 +28,11 @@ export async function POST(req: NextRequest) {
 
         const profile = userSnap.data() as SubUser;
         
+        // Repair Node: Ensure UID is stored in the email-keyed document for accurate activity indexing
+        if (userSnap.id === email && (profile as any).uid !== uid) {
+            await db.collection("users").doc(email).update({ uid: uid });
+        }
+
         // Log Activity Node
         await db.collection("activity_logs").add({
             userId: uid,

@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -111,7 +112,7 @@ export default function UserManagementPage() {
                 body: JSON.stringify({
                     action: 'createUser',
                     email: systemEmail,
-                    password: data.password // Assuming data has a password field
+                    password: data.password
                 })
             });
 
@@ -120,10 +121,13 @@ export default function UserManagementPage() {
                 throw new Error(errorData.error || "Auth provisioning failed.");
             }
 
+            const { uid } = await authResponse.json();
+
             // 2. Create in Firestore
             await setDoc(doc(firestore, "users", systemEmail), {
                 ...data,
                 id: systemEmail,
+                uid: uid,
                 username: cleanUsername,
                 email: systemEmail,
                 createdAt: ts,
@@ -144,7 +148,6 @@ export default function UserManagementPage() {
     const handleUserUpdated = async (userId: string, data: Partial<SubUser>) => {
         if (!firestore) return;
         
-        // DUPLICATE PLANT RESTRICTION
         if (data.plantIds && new Set(data.plantIds).size !== data.plantIds.length) {
             toast({ variant: 'destructive', title: "Validation Error", description: "Duplicate plant assignment not allowed." });
             return;
@@ -156,7 +159,6 @@ export default function UserManagementPage() {
 
         showLoader();
         try {
-            // 1. Update Firebase Auth if password is changed
             if (data.password) {
                 const userSnap = await getDoc(doc(firestore, "users", userId));
                 if (userSnap.exists()) {
@@ -180,7 +182,6 @@ export default function UserManagementPage() {
                 }
             }
 
-            // 2. Update Firestore
             await updateDoc(doc(firestore, "users", userId), { ...data, lastUpdated: serverTimestamp() });
             toast({ title: 'Registry Updated', description: 'User profile modified.' });
             setEditingUser(null);

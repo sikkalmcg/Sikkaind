@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -81,8 +82,11 @@ export default function UserActivityLogPage() {
             return;
         }
 
+        // IDENTITY HANDSHAKE: Use the internal UID node if available, otherwise fallback to document ID
+        const targetUserId = (selectedUser as any).uid || selectedUser.id;
+
         const logsRef = collection(firestore, "activity_logs");
-        const q = query(logsRef, where("userId", "==", values.userId));
+        const q = query(logsRef, where("userId", "==", targetUserId));
         const snapshot = await getDocs(q);
         
         let userLogs: Activity[] = snapshot.docs.map(doc => {
@@ -110,6 +114,7 @@ export default function UserActivityLogPage() {
         setErrorDetails('Cloud Query Failed: A connection issue occurred.');
         toast({ variant: 'destructive', title: 'Investigation Failed', description: 'Database Error' });
     } finally {
+        setInvestigationData(prev => prev); // maintain state
         setIsSubmitting(false);
     }
   };
@@ -120,7 +125,7 @@ export default function UserActivityLogPage() {
     <>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold font-headline">User Activity Log</h1>
+            <h1 className="text-2xl font-semibold font-headline text-blue-900 uppercase">User Activity Investigation</h1>
             {(dbError || usersError) && (
                 <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full text-xs font-medium border border-orange-200">
                     <WifiOff className="h-3 w-3" />
@@ -129,37 +134,57 @@ export default function UserActivityLogPage() {
             )}
         </div>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2"><CardTitle>Investigate User Activity</CardTitle><History className="h-4 w-4 text-muted-foreground" /></div>
-            <CardDescription>Select a user and a date to view their activity log (last 21 days).</CardDescription>
+        <Card className="rounded-[2rem] border-none shadow-xl overflow-hidden bg-white">
+          <CardHeader className="bg-slate-50 border-b p-8">
+            <div className="flex items-center gap-3">
+                <div className="p-2 bg-white rounded-lg border shadow-sm"><History className="h-5 w-5 text-blue-900" /></div>
+                <div>
+                    <CardTitle className="text-lg font-black uppercase italic text-blue-900 leading-none">Investigate Personnel Activity</CardTitle>
+                    <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-2">Authorized audit node - 21 day retention scope</CardDescription>
+                </div>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {errorDetails && <div className="p-3 bg-red-50 border border-red-100 rounded-md flex items-start gap-3 text-red-800 text-sm"><AlertCircle className="h-4 w-4 mt-0.5 shrink-0" /><p>{errorDetails}</p></div>}
+          <CardContent className="p-10 space-y-8">
+            {errorDetails && <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 text-red-800 text-sm font-bold uppercase text-[10px]"><AlertCircle className="h-4 w-4 mt-0.5 shrink-0" /><p>{errorDetails}</p></div>}
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="flex flex-wrap items-end gap-4 max-w-2xl">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10">
+                <div className="flex flex-wrap items-end gap-8 max-w-4xl">
                   <FormField control={form.control} name="userId" render={({ field }) => (
-                      <FormItem className="flex-1 min-w-[250px]">
-                        <FormLabel>User Selection</FormLabel>
+                      <FormItem className="flex-1 min-w-[300px]">
+                        <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Operator Identity *</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl><SelectTrigger><SelectValue placeholder={isLoadingUsers ? "Loading users..." : "Select a user"} /></SelectTrigger></FormControl>
-                          <SelectContent>{users.map(user => (<SelectItem key={user.id} value={user.id}>{user.fullName} (@{user.username})</SelectItem>))}</SelectContent>
+                          <FormControl>
+                            <SelectTrigger className="h-14 rounded-2xl font-black text-blue-900 border-slate-200 bg-slate-50/30 shadow-inner">
+                                <SelectValue placeholder={isLoadingUsers ? "Syncing personnel..." : "Pick operator node"} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="rounded-2xl shadow-2xl">
+                            {users.map(user => (
+                                <SelectItem key={user.id} value={user.id} className="py-3 px-4 font-bold uppercase italic text-black">
+                                    {user.fullName} (@{user.username})
+                                </SelectItem>
+                            ))}
+                          </SelectContent>
                         </Select>
                         <FormMessage />
                       </FormItem>
                     )} />
                   <FormField control={form.control} name="date" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Activity Date</FormLabel>
-                        <DatePicker date={field.value} setDate={field.onChange} />
+                        <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Activity Period node *</FormLabel>
+                        <FormControl>
+                            <DatePicker date={field.value} setDate={field.onChange} className="h-14 rounded-2xl bg-white border-slate-200 font-bold px-6 shadow-sm" />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
                 </div>
-                <div className="flex gap-4">
-                  <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 min-w-[120px]">{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Investigate'}</Button>
-                  <Button type="button" variant="outline" onClick={() => form.reset({ userId: '', date: new Date() })}>Clear</Button>
+                <div className="flex gap-4 pt-4">
+                  <Button type="submit" disabled={isSubmitting} className="h-14 px-12 bg-blue-900 hover:bg-black text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all active:scale-95 border-none">
+                    {isSubmitting ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Search className="mr-3 h-5 w-5" />} 
+                    EXECUTE INVESTIGATION
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => form.reset({ userId: '', date: new Date() })} className="h-14 px-8 font-black uppercase text-[10px] tracking-widest text-slate-400">Clear Terminal</Button>
                 </div>
               </form>
             </Form>
