@@ -18,7 +18,7 @@ import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryE
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
-import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs } from "firebase/firestore";
+import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -406,55 +406,60 @@ function TripBoardContent() {
     showLoader();
     try {
         const plantId = normalizePlantId(row.originPlantId);
-        const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
+        if (!plantId) throw new Error("Plant ID node missing.");
         
-        let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
-        let snap = await getDocs(q);
+        const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
+        const q = query(lrsRef, where("lrNumber", "==", row.lrNumber.trim().toUpperCase()), limit(1));
+        const snap = await getDocs(q);
         
         const plantNode = row.plant || { id: row.originPlantId, name: row.plantName };
         const carrierNode = row.carrierObj || (dbCarriers || [])[0] || { name: 'SIKKA INDUSTRIES & LOGISTICS' };
         const shipmentObj = row.shipmentObj || row;
 
+        let finalLrData: any;
+
         if (snap.empty) {
-            setPreviewLrData({
+            finalLrData = {
                 lrNumber: row.lrNumber,
                 date: row.lrDate || new Date(),
-                trip: row as any,
+                trip: row,
                 carrier: carrierNode,
                 shipment: shipmentObj,
                 plant: plantNode,
                 items: shipmentObj.items || [],
                 weightSelection: 'Assigned Weight',
-                assignedTripWeight: row.assignedQtyInTrip || shipmentObj.quantity,
-                from: shipmentObj.loadingPoint || '',
-                to: shipmentObj.unloadingPoint || '',
-                consignorName: shipmentObj.consignor || '',
-                consignorGtin: shipmentObj.consignorGtin || '',
-                buyerName: shipmentObj.billToParty || '',
-                buyerGtin: shipmentObj.billToGtin || '',
-                shipToParty: shipmentObj.shipToParty || '',
-                shipToGtin: shipmentObj.shipToGtin || '',
-                deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
-                id: row.id
-            } as any);
+                assignedTripWeight: row.assignedQtyInTrip || shipmentObj.quantity || 0,
+                from: shipmentObj.loadingPoint || row.loadingPoint || '',
+                to: shipmentObj.unloadingPoint || row.unloadingPoint || '',
+                consignorName: shipmentObj.consignor || row.consignor || '',
+                consignorGtin: shipmentObj.consignorGtin || row.consignorGtin || '',
+                buyerName: shipmentObj.billToParty || row.billToParty || '',
+                buyerGtin: shipmentObj.billToGtin || row.billToGtin || '',
+                shipToParty: shipmentObj.shipToParty || row.shipToParty || '',
+                shipToGtin: shipmentObj.shipToGtin || row.shipToGtin || '',
+                deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || row.unloadingPoint || '',
+                id: `tmp-${Date.now()}`
+            };
         } else {
             const lrDoc = snap.docs[0].data() as LR;
-            setPreviewLrData({
+            finalLrData = {
                 ...lrDoc,
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
-                trip: row as any,
+                trip: row,
                 carrier: carrierNode,
                 shipment: shipmentObj,
                 plant: plantNode,
                 consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
                 buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
                 shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || '',
-            } as EnrichedLR);
+            };
         }
-    } catch (e) {
-        console.error("LR Fetch Error:", e);
-        toast({ variant: 'destructive', title: "Registry Error", description: "Could not extract LR manifest." });
+        
+        setPreviewLrData(finalLrData);
+    } catch (e: any) {
+        console.error("LR Registry Fetch Error:", e);
+        toast({ variant: 'destructive', title: "Registry Error", description: e.message || "Could not extract LR manifest." });
     } finally {
         hideLoader();
     }

@@ -62,6 +62,23 @@ export default function TripBoardTable({
     onAction 
 }: TripBoardTableProps) {
   
+  const LRButton = ({ row }: { row: any }) => {
+    if (!row.lrNumber) return <span>--</span>;
+    return (
+        <button 
+            type="button"
+            onClick={(e) => { 
+                e.preventDefault(); 
+                e.stopPropagation(); 
+                onAction('view-lr', row); 
+            }} 
+            className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter"
+        >
+            {row.lrNumber}
+        </button>
+    );
+  };
+
   if (activeTab === 'closed') {
     return (
         <div className="overflow-x-auto">
@@ -127,15 +144,7 @@ export default function TripBoardTable({
                                 <TableCell className="px-4 text-center font-black text-slate-900">{row.unitUom}</TableCell>
                                 <TableCell className="px-4 text-right font-black text-blue-900">{row.qtyUom}</TableCell>
                                 <TableCell className="px-4 text-center">
-                                    {row.lrNumber ? (
-                                        <button 
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAction('view-lr', row); }} 
-                                            className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter"
-                                        >
-                                            {row.lrNumber}
-                                        </button>
-                                    ) : '--'}
+                                    <LRButton row={row} />
                                 </TableCell>
                                 <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.lrDate)}</TableCell>
                                 <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.assignedDateTime)}</TableCell>
@@ -158,9 +167,18 @@ export default function TripBoardTable({
                                 <TableCell className="px-4 text-center font-black text-blue-900 bg-blue-50/20">{row.transitHour}</TableCell>
                                 <TableCell className="px-4 text-center font-black text-blue-900 bg-blue-50/20">{row.unloadHour}</TableCell>
                                 <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
-                                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white text-slate-400 hover:text-blue-900 transition-all" onClick={() => onAction('view', row)}>
-                                        <Eye className="h-4 w-4" />
-                                    </Button>
+                                    <DropdownMenu modal={false}>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white text-slate-400 hover:text-blue-900"><MoreHorizontal className="h-4 w-4" /></Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuPortal>
+                                            <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl border-slate-200 shadow-2xl z-[100] bg-white">
+                                                <DropdownMenuLabel className="text-[9px] font-black uppercase text-slate-400 px-2 pb-2">Archived Node</DropdownMenuLabel>
+                                                <DropdownMenuItem onClick={() => onAction('view', row)} className="gap-3 font-bold py-2.5 rounded-lg cursor-pointer hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Summary</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => onAction('edit-lr', row)} className="gap-3 font-bold py-2.5 rounded-lg cursor-pointer hover:bg-blue-50"><FileText className="h-4 w-4 text-orange-600" /> Correct LR manifest</DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenuPortal>
+                                    </DropdownMenu>
                                 </TableCell>
                             </TableRow>
                         ))
@@ -202,15 +220,7 @@ export default function TripBoardTable({
               <TableRow key={row.id} className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 transition-all group text-[11px] font-medium text-slate-600">
                 <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{row.plantName}</TableCell>
                 <TableCell className="px-4 text-center">
-                    {row.lrNumber ? (
-                        <button 
-                            type="button"
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAction('view-lr', row); }} 
-                            className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter"
-                        >
-                            {row.lrNumber}
-                        </button>
-                    ) : '--'}
+                    <LRButton row={row} />
                 </TableCell>
                 <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap text-[11px]">
                     {row.lrDate ? format(new Date(row.lrDate), 'dd/MM/yy') : '--'}
