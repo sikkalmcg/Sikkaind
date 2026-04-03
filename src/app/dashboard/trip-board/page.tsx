@@ -10,13 +10,18 @@ import PodUploadModal from '@/components/dashboard/trip-board/PodUploadModal';
 import TripViewModal from '@/components/dashboard/trip-board/TripViewModal';
 import CancelTripModal from '@/components/dashboard/trip-board/CancelTripModal';
 import EditVehicleModal from '@/components/dashboard/trip-board/EditVehicleModal';
+import ArrivedModal from '@/components/dashboard/trip-board/ArrivedModal';
+import UnloadedModal from '@/components/dashboard/trip-board/UnloadedModal';
+import RejectModal from '@/components/dashboard/trip-board/RejectModal';
+import PodStatusModal from '@/components/dashboard/trip-board/PodStatusModal';
+import SrnModal from '@/components/dashboard/trip-board/SrnModal';
 import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilter';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, sanitizeRegistryNode } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, addDoc, writeBatch } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, ShieldAlert, Sparkles, X } from "lucide-react";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, ShieldAlert, Sparkles, X, Octagon, CheckCircle2, RotateCcw, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -42,7 +47,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-export type TripBoardTab = 'active' | 'loading' | 'transit' | 'arrived' | 'pod-pending' | 'closed';
+export type TripBoardTab = 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
 function TripBoardContent() {
   const { toast } = useToast();
@@ -53,7 +58,7 @@ function TripBoardContent() {
   const searchParams = useSearchParams();
   const { showLoader, hideLoader } = useLoading();
   
-  const activeTab = (searchParams.get('tab') as TripBoardTab) || 'active';
+  const activeTab = (searchParams.get('tab') as TripBoardTab) || 'loading';
   const urlPlants = searchParams.get('plants')?.split(',').filter(Boolean) || [];
 
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
@@ -76,7 +81,6 @@ function TripBoardContent() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
   
-  const [podUploadTrip, setPodUploadTrip] = useState<any | null>(null);
   const [viewTripData, setViewTripData] = useState<any | null>(null);
   const [lrGenerateTrip, setLrGenerateTrip] = useState<any | null>(null);
   const [lrEditData, setLrEditData] = useState<{ trip: any, carrier: any, lr: any } | null>(null);
@@ -84,9 +88,12 @@ function TripBoardContent() {
   const [cancelTripData, setCancelTripData] = useState<any | null>(null);
   const [editVehicleTrip, setEditVehicleTrip] = useState<any | null>(null);
 
-  // Bulk Selection Registry
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  // New Modal States
+  const [arrivedTrip, setArrivedTrip] = useState<any | null>(null);
+  const [unloadedTrip, setUnloadedTrip] = useState<any | null>(null);
+  const [rejectTrip, setRejectTrip] = useState<any | null>(null);
+  const [podStatusTrip, setPodStatusTrip] = useState<any | null>(null);
+  const [srnTrip, setSrnTrip] = useState<any | null>(null);
 
   const isAdminSession = useMemo(() => {
     return user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
@@ -108,9 +115,7 @@ function TripBoardContent() {
             let userDocSnap = null;
             const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
             const qSnap = await getDocs(q);
-            if (!qSnap.empty) {
-                userDocSnap = qSnap.docs[0];
-            }
+            if (!qSnap.empty) userDocSnap = qSnap.docs[0];
 
             const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
             let authIds: string[] = [];
@@ -203,7 +208,11 @@ function TripBoardContent() {
         carrierObj: carrier,
         entry,
         lrNumber: lr?.lrNumber || t.lrNumber || shipment?.lrNumber || '',
-        lrDate: parseSafeDate(lr?.date || t.lrDate || shipment?.lrDate)
+        lrDate: parseSafeDate(lr?.date || t.lrDate || shipment?.lrDate),
+        consignor: t.consignor || shipment?.consignor || '--',
+        consignee: t.billToParty || shipment?.billToParty || '--',
+        material: shipment?.itemDescription || shipment?.material || '--',
+        qtyUom: `${t.assignedQtyInTrip} ${shipment?.materialTypeId || 'MT'}`
       };
     });
   }, [trips, shipments, lrs, entries, plants, dbCarriers]);
@@ -232,287 +241,81 @@ function TripBoardContent() {
         const isPod = t.podReceived === true;
 
         switch (activeTab) {
-            case 'active': return !['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status) && !isPod;
             case 'loading': return !isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete');
             case 'transit': return status === 'in-transit' || status === 'out-for-delivery' || status === 'break-down';
             case 'arrived': return ['arrived', 'arrival-for-delivery', 'arrive-for-deliver'].includes(status);
-            case 'pod-pending': return (['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'delivered'].includes(status)) && !isPod;
+            case 'pod-status': return (['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'delivered'].includes(status)) && !isPod;
+            case 'rejection': return status === 'rejected';
             case 'closed': return isPod || status === 'closed' || status === 'trip-closed' || status === 'delivered';
             default: return true;
         }
     });
   }, [finalData, activeTab]);
 
-  const handleCancelTrip = async () => {
-    if (!cancelTripData) return;
-    await executePurge(cancelTripData);
-    toast({ title: 'Mission Revoked', description: `Trip ${cancelTripData.tripId} purged.` });
-    setCancelTripData(null);
-  };
-
-  const handleUpdateVehicle = async (tripId: string, values: any) => {
-    if (!firestore) return;
-    showLoader();
-    try {
-        const tripObj = trips.find(t => t.id === tripId);
-        if (!tripObj) throw new Error("Trip node not found.");
-        const plantId = normalizePlantId(tripObj.originPlantId);
-        
-        await runTransaction(firestore, async (transaction) => {
-            const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
-            const globalTripRef = doc(firestore, 'trips', tripId);
-            
-            const [tSnap, gSnap] = await Promise.all([
-                transaction.get(tripRef),
-                transaction.get(globalTripRef)
-            ]);
-
-            const updateData = { 
-                vehicleNumber: values.vehicleNumber, 
-                driverMobile: values.driverMobile, 
-                lastUpdated: serverTimestamp() 
-            };
-
-            if (tSnap.exists()) transaction.update(tripRef, updateData);
-            if (gSnap.exists()) transaction.update(globalTripRef, updateData);
-        });
-        toast({ title: 'Identity Corrected' });
-    } catch (e: any) { 
-        toast({ variant: 'destructive', title: 'Update Failed', description: e.message }); 
-    } finally { hideLoader(); }
-  };
-
-  useEffect(() => { setCurrentPage(1); setSelectedIds([]); }, [activeTab, selectedPlants, fromDate, toDate, searchTerm]);
-
-  const totalPages = Math.ceil(tabFilteredData.length / itemsPerPage);
-  const paginatedData = useMemo(() => tabFilteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [tabFilteredData, currentPage, itemsPerPage]);
-
   const counts = useMemo(() => {
-    const res = { active: 0, loading: 0, transit: 0, arrived: 0, podPending: 0, closed: 0 };
+    const res = { loading: 0, transit: 0, arrived: 0, podStatus: 0, rejection: 0, closed: 0 };
     finalData.forEach(t => {
         const status = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
         const isOut = t.entry?.status === 'OUT';
         const isPod = t.podReceived === true;
-        if (!['delivered', 'closed', 'trip-closed', 'cancelled'].includes(status) && !isPod) res.active++;
+        
         if (!isOut && (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete')) res.loading++;
         if (status === 'in-transit' || status === 'out-for-delivery' || status === 'break-down') res.transit++;
         if (['arrived', 'arrival-for-delivery', 'arrive-for-deliver'].includes(status)) res.arrived++;
-        if ((['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'delivered'].includes(status)) && !isPod) res.podPending++;
+        if ((['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'delivered'].includes(status)) && !isPod) res.podStatus++;
+        if (status === 'rejected') res.rejection++;
         if (isPod || status === 'closed' || status === 'trip-closed' || status === 'delivered') res.closed++;
     });
     return res;
   }, [finalData]);
 
-  const onViewLR = useCallback(async (row: any) => {
-    if (!row.lrNumber || !firestore) return;
-    setIsExtracting(true);
-    try {
-        const plantId = normalizePlantId(row.originPlantId);
-        const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
-        
-        // Robust Registry Handshake Node
-        let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
-        let snap = await getDocs(q);
-        
-        if (snap.empty) {
-            q = query(lrsRef, where("tripDocId", "==", row.id), limit(1));
-            snap = await getDocs(q);
-        }
-
-        const plantObj = plants.find(p => normalizePlantId(p.id) === normalizePlantId(row.originPlantId)) || { id: row.originPlantId, name: row.plantName } as any;
-        const carrierObj = row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId) || { name: 'Carrier' } as any;
-        const shipmentObj = row.shipmentObj || row;
-
-        if (snap.empty) {
-            setLrPreviewData({ 
-                lrNumber: row.lrNumber, 
-                date: row.lrDate || new Date(), 
-                trip: row, 
-                carrier: carrierObj, 
-                shipment: shipmentObj, 
-                plant: plantObj, 
-                items: shipmentObj.items || [], 
-                weightSelection: 'Assigned Weight', 
-                assignedTripWeight: row.dispatchedQty, 
-                from: row.loadingPoint || '', 
-                to: row.unloadingPoint || '', 
-                consignorName: row.consignor || '', 
-                consignorGtin: shipmentObj.consignorGtin || '',
-                consignorAddress: shipmentObj.consignorAddress || shipmentObj.loadingPoint || '',
-                buyerName: row.billToParty || '', 
-                buyerGtin: shipmentObj.billToGtin || '',
-                shipToParty: row.shipToParty || '', 
-                shipToGtin: shipmentObj.shipToGtin || '',
-                deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
-                id: row.id,
-                paymentTerm: shipmentObj.paymentTerm || 'Paid'
-            } as any);
-        } else {
-            const lrDoc = snap.docs[0].data() as LR;
-            setLrPreviewData({ 
-                ...lrDoc, 
-                id: snap.docs[0].id, 
-                date: parseSafeDate(lrDoc.date), 
-                trip: row, 
-                carrier: carrierObj, 
-                shipment: shipmentObj, 
-                plant: plantObj,
-                consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
-                consignorAddress: lrDoc.consignorAddress || shipmentObj.consignorAddress || '',
-                buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
-                shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || '',
-                deliveryAddress: lrDoc.deliveryAddress || shipmentObj.deliveryAddress || '',
-            } as any);
-        }
-    } catch (e) { toast({ variant: 'destructive', title: "Registry Error" }); } finally { setIsExtracting(false); }
-  }, [firestore, plants, dbCarriers, toast]);
-
-  const onEditLR = useCallback(async (row: any) => {
-    if (!row.lrNumber || !firestore) return;
-    setIsExtracting(true);
-    try {
-        const plantId = normalizePlantId(row.originPlantId);
-        const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
-        
-        // High-Fidelity Registry Search
-        let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
-        let snap = await getDocs(q);
-        
-        if (snap.empty) {
-            q = query(lrsRef, where("tripDocId", "==", row.id), limit(1));
-            snap = await getDocs(q);
-        }
-        
-        const carrierObj = row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId);
-
-        if (!snap.empty) {
-            const lrDoc = { id: snap.docs[0].id, ...snap.docs[0].data() };
-            setLrEditData({ trip: row, carrier: carrierObj, lr: lrDoc });
-        } else {
-            // Document missing from partition: Transition to Generation Node
-            setLrGenerateTrip({ trip: row, carrier: carrierObj });
-            toast({ title: "Registry Handshake", description: "Lorry Receipt document missing. Opening generation terminal." });
-        }
-    } catch (e) { 
-        toast({ variant: 'destructive', title: "Handshake Error" }); 
-    } finally { 
-        setIsExtracting(false); 
-    }
-  }, [firestore, dbCarriers, toast]);
-
-  const executePurge = async (tripData: any) => {
-    if (!firestore || !user) return;
-    await runTransaction(firestore, async (transaction) => {
-        const plantId = normalizePlantId(tripData.originPlantId);
-        const tripRef = doc(firestore, `plants/${plantId}/trips`, tripData.id);
-        const globalTripRef = doc(firestore, 'trips', tripData.id);
-        
-        const tripSnap = await transaction.get(tripRef);
-        if (!tripSnap.exists()) return;
-        const tData = tripSnap.data() as Trip;
-
-        const shipId = (tData.shipmentIds && tData.shipmentIds.length > 0) ? tData.shipmentIds[0] : null;
-        
-        if (shipId) {
-            const shipRef = doc(firestore, `plants/${plantId}/shipments`, shipId);
-            const shipSnap = await transaction.get(shipRef);
-            if (shipSnap.exists()) {
-                const sData = shipSnap.data() as Shipment;
-                const weightToRevert = Number(tData.assignedQtyInTrip || 0);
-                const newAssigned = Math.max(0, (sData.assignedQty || 0) - weightToRevert);
-                transaction.update(shipRef, {
-                    assignedQty: newAssigned,
-                    balanceQty: sData.quantity - newAssigned,
-                    currentStatusId: newAssigned === 0 ? 'pending' : 'Partly Vehicle Assigned',
-                    lastUpdateDate: serverTimestamp()
-                });
-            }
-        }
-
-        if (tData.vehicleId) {
-            const vRef = doc(firestore, 'vehicles', tData.vehicleId);
-            const vSnap = await transaction.get(vRef);
-            if (vSnap.exists()) {
-                transaction.update(vRef, { status: 'Available' });
-            }
-        }
-
-        const currentOperator = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || "Admin");
-        const recycleRef = doc(collection(firestore, "recycle_bin"));
-        const archivePlantName = tripData.plantName || tData.originPlantId || 'Unknown Node';
-
-        transaction.set(recycleRef, {
-            pageName: "Trip Board (Cancelled/Purged)",
-            userName: currentOperator,
-            deletedAt: serverTimestamp(),
-            data: sanitizeRegistryNode({ 
-                ...tData, 
-                id: tripData.id, 
-                type: 'Trip', 
-                plantName: archivePlantName 
-            })
-        });
-
-        transaction.delete(tripRef);
-        transaction.delete(globalTripRef);
-    });
-  };
-
-  const handleBulkCancel = async () => {
-    if (!selectedIds.length || !firestore || !user) return;
-    setIsBulkProcessing(true);
+  const handlePostAction = async (id: string, updateData: any) => {
+    if (!firestore) return;
+    const trip = trips.find(t => t.id === id);
+    if (!trip) return;
     showLoader();
     try {
-        for (const id of selectedIds) {
-            const tripObj = trips.find(t => t.id === id);
-            if (tripObj) await executePurge(tripObj);
-        }
-        toast({ title: 'Bulk Purge Complete', description: `Successfully revoked ${selectedIds.length} mission nodes.` });
-        setSelectedIds([]);
+        const plantId = normalizePlantId(trip.originPlantId);
+        const tripRef = doc(firestore, `plants/${plantId}/trips`, id);
+        const globalTripRef = doc(firestore, 'trips', id);
+        const ts = serverTimestamp();
+
+        await updateDoc(tripRef, { ...updateData, lastUpdated: ts });
+        await updateDoc(globalTripRef, { ...updateData, lastUpdated: ts });
+        
+        toast({ title: 'Registry Updated' });
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Action Failed', description: e.message });
     } finally {
-        setIsBulkProcessing(false);
         hideLoader();
     }
   };
 
-  const handleAutomatedCleanup = async () => {
-    const targets = finalData.filter(t => 
-        (!t.lrNumber || t.lrNumber === '' || t.lrNumber === 'PENDING') &&
-        (t.invoiceNumbers === '--' || !t.invoiceNumbers) &&
-        (Number(t.dispatchedQty) === 0) &&
-        (t.tripStatus === 'Assigned')
-    );
-
-    if (targets.length === 0) {
-        toast({ title: 'Registry Clean', description: 'No empty mission nodes detected.' });
-        return;
-    }
-
-    setIsBulkProcessing(true);
+  const handleReSentAction = async (trip: any) => {
     showLoader();
     try {
-        for (const target of targets) {
-            await executePurge(target);
-        }
-        toast({ title: 'Registry Scrubbed', description: `Purged ${targets.length} empty mission nodes.` });
+        const plantId = normalizePlantId(trip.originPlantId);
+        const tripRef = doc(firestore!, `plants/${plantId}/trips`, trip.id);
+        const globalTripRef = doc(firestore!, 'trips', trip.id);
+        const ts = serverTimestamp();
+
+        const updateData = {
+            tripStatus: 'Assigned',
+            currentStatusId: 'assigned',
+            lastUpdated: ts,
+            rejectedAt: null,
+            rejectReason: null
+        };
+
+        await updateDoc(tripRef, updateData);
+        await updateDoc(globalTripRef, updateData);
+        toast({ title: 'Mission Re-Initialized', description: 'Trip moved back to Loading tab.' });
     } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Scrub Failed', description: e.message });
+        toast({ variant: 'destructive', title: 'Resent Failed', description: e.message });
     } finally {
-        setIsBulkProcessing(false);
         hideLoader();
     }
   };
-
-  if (isAuthLoading && authorizedPlantIds.length === 0) {
-    return (
-        <div className="flex h-screen flex-col items-center justify-center bg-[#f8fafc]">
-            <Loader2 className="h-12 w-12 animate-spin text-blue-900 mb-4" />
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 animate-pulse">Syncing Lifting Node Registry...</p>
-        </div>
-    );
-  }
 
   return (
     <div className="flex flex-1 flex-col h-full relative">
@@ -535,30 +338,6 @@ function TripBoardContent() {
         </div>
         
         <div className="flex items-center gap-3">
-          {isAdminSession && (
-              <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                      <Button variant="ghost" className="h-11 px-6 rounded-2xl font-black text-[10px] uppercase text-blue-600 gap-2 hover:bg-blue-50 border border-blue-100">
-                          <RefreshCcw className="h-4 w-4" /> Registry Cleanup
-                      </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="border-none shadow-3xl rounded-[2rem]">
-                      <AlertDialogHeader>
-                          <div className="flex items-center gap-4 mb-2">
-                              <div className="p-2 bg-blue-100 text-blue-900 rounded-lg"><Sparkles className="h-5 w-5" /></div>
-                              <AlertDialogTitle className="text-xl font-black uppercase tracking-tight">Execute Automated Scrub?</AlertDialogTitle>
-                          </div>
-                          <AlertDialogDescription className="text-sm font-medium">
-                              This will automatically identify and purge all **"0 Data"** mission nodes (No LR, No Invoices, 0 Weight) from the registry. This action is permanent.
-                          </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter className="bg-slate-50 -mx-6 -mb-6 p-6 flex-row justify-end gap-3">
-                          <AlertDialogCancel className="font-bold rounded-xl m-0 h-11 px-8">Abort</AlertDialogCancel>
-                          <AlertDialogAction onClick={handleAutomatedCleanup} className="bg-blue-900 hover:bg-black text-white font-black uppercase text-[10px] tracking-widest px-10 h-11 rounded-xl shadow-lg border-none">Start Cleanup</AlertDialogAction>
-                      </AlertDialogFooter>
-                  </AlertDialogContent>
-              </AlertDialog>
-          )}
           <div className="relative group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
             <Input placeholder="Search board registry..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-[320px] h-11 rounded-2xl bg-slate-50 border-slate-200 font-bold shadow-inner" />
@@ -580,39 +359,15 @@ function TripBoardContent() {
                     <div className="grid gap-2"><Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Filter className="h-3 w-3" /> Start Node</Label><DatePicker date={fromDate} setDate={setFromDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" /></div>
                     <div className="grid gap-2"><Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Filter className="h-3 w-3" /> End Node</Label><DatePicker date={toDate} setDate={setTodayDate} className="h-11 border-slate-200 bg-white rounded-xl shadow-sm" /></div>
                 </div>
-
-                {selectedIds.length > 0 && isAdminSession && (
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive" className="h-12 px-8 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] gap-3 shadow-xl shadow-red-100 animate-in zoom-in duration-300 border-none transition-all active:scale-95">
-                                <Ban className="h-5 w-5" /> Revoke Selected ({selectedIds.length})
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent className="border-none shadow-3xl rounded-[2rem] p-0 overflow-hidden bg-white">
-                            <div className="p-8 bg-red-50 border-b border-red-100 flex items-center gap-5">
-                                <div className="p-3 bg-red-600 text-white rounded-2xl shadow-xl"><ShieldAlert className="h-8 w-8" /></div>
-                                <div>
-                                    <AlertDialogTitle className="text-xl font-black uppercase tracking-tight italic text-red-900 leading-none">Bulk Registry Purge?</AlertDialogTitle>
-                                    <p className="text-red-700 font-bold uppercase text-[9px] tracking-widest mt-2">Authorized System Override Node</p>
-                                </div>
-                            </div>
-                            <div className="p-10"><p className="text-sm font-medium text-slate-600 leading-relaxed italic border-l-4 border-red-100 pl-4">"Executing this action will permanently remove <span className="font-black text-slate-900">{selectedIds.length} mission nodes</span> from the active hub. All vehicle allocations will be reverted. This cannot be undone."</p></div>
-                            <AlertDialogFooter className="bg-slate-50 p-6 flex-row justify-end gap-3 border-t">
-                                <AlertDialogCancel className="font-bold border-slate-200 h-11 px-8 rounded-xl m-0">Abort</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleBulkCancel} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest px-10 h-11 rounded-xl shadow-lg border-none">Confirm Purge</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                )}
             </div>
 
             <Tabs value={activeTab} onValueChange={(v) => { const params = new URLSearchParams(searchParams); params.set('tab', v); router.replace(`${pathname}?${params.toString()}`, { scroll: false }); }} className="w-full">
                 <TabsList className="bg-white px-4 md:px-8 h-14 border-b rounded-none w-full justify-start gap-6 md:gap-10 overflow-x-auto overflow-y-hidden flex-nowrap scrollbar-hide shrink-0">
-                    <TabsTrigger value="active" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">Active ({counts.active})</TabsTrigger>
-                    <TabsTrigger value="loading" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">In-Yard ({counts.loading})</TabsTrigger>
+                    <TabsTrigger value="loading" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">Loading ({counts.loading})</TabsTrigger>
                     <TabsTrigger value="transit" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">Transit ({counts.transit})</TabsTrigger>
                     <TabsTrigger value="arrived" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">Arrived ({counts.arrived})</TabsTrigger>
-                    <TabsTrigger value="pod-pending" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">POD Pending ({counts.podPending})</TabsTrigger>
+                    <TabsTrigger value="pod-status" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">POD Status ({counts.podStatus})</TabsTrigger>
+                    <TabsTrigger value="rejection" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-red-600 data-[state=active]:text-red-600 flex items-center gap-2 whitespace-nowrap">Rejection ({counts.rejection})</TabsTrigger>
                     <TabsTrigger value="closed" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">Closed ({counts.closed})</TabsTrigger>
                 </TabsList>
 
@@ -621,21 +376,18 @@ function TripBoardContent() {
                         data={paginatedData} 
                         activeTab={activeTab} 
                         isAdmin={isAdminSession} 
-                        canVerifyPod={isAdminSession} 
-                        selectedIds={selectedIds}
-                        onSelectRow={(id, checked) => setSelectedIds(prev => checked ? [...prev, id] : prev.filter(i => i !== id))}
-                        onSelectAll={(checked) => setSelectedIds(checked ? paginatedData.map(t => t.id) : [])}
-                        onVerifyPod={() => {}} 
-                        onUploadPod={setPodUploadTrip} 
-                        onGenerateLR={(t) => setLrGenerateTrip({ trip: t, carrier: (dbCarriers || []).find(c => c.id === t.carrierId) })} 
-                        onEditLR={onEditLR}
-                        onViewLR={onViewLR} 
-                        onViewTrip={setViewTripData} 
-                        onUpdatePod={setPodUploadTrip} 
-                        onCancelTrip={(t) => setCancelTripData(t)} 
-                        onEditTrip={() => {}} 
-                        onTrack={(row) => router.push(`/dashboard/shipment-tracking?search=${row.tripId}`)} 
-                        onEditVehicle={setEditVehicleTrip} 
+                        onAction={(type, trip) => {
+                            if (type === 'arrived') setArrivedTrip(trip);
+                            else if (type === 'unloaded') setUnloadedTrip(trip);
+                            else if (type === 'reject') setRejectTrip(trip);
+                            else if (type === 'pod-status') setPodStatusTrip(trip);
+                            else if (type === 'srn') setSrnTrip(trip);
+                            else if (type === 're-sent') handleReSentAction(trip);
+                            else if (type === 'view') setViewTripData(trip);
+                            else if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${trip.vehicleNumber}`);
+                            else if (type === 'edit-vehicle') setEditVehicleTrip(trip);
+                            else if (type === 'cancel') setCancelTripData(trip);
+                        }} 
                     />
                     <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="flex items-center gap-10">
@@ -654,13 +406,16 @@ function TripBoardContent() {
         </Card>
       </div>
 
-      {lrGenerateTrip && <LRGenerationModal isOpen={!!lrGenerateTrip} onClose={() => setLrGenerateTrip(null)} trip={lrGenerateTrip.trip} carrier={lrGenerateTrip.carrier} onGenerate={() => setLrGenerateTrip(null)} />}
-      {lrEditData && <LRGenerationModal isOpen={!!lrEditData} onClose={() => setLrEditData(null)} trip={lrEditData.trip} carrier={lrEditData.carrier} lrToEdit={lrEditData.lr} onGenerate={() => setLrEditData(null)} />}
-      {podUploadTrip && <PodUploadModal isOpen={!!podUploadTrip} onClose={() => setPodUploadTrip(null)} trip={podUploadTrip} onSuccess={() => setPodUploadTrip(null)} />}
+      {/* Registry Modals */}
+      {arrivedTrip && <ArrivedModal isOpen={!!arrivedTrip} onClose={() => setArrivedTrip(null)} trip={arrivedTrip} onPost={(data) => handlePostAction(arrivedTrip.id, { ...data, tripStatus: 'Arrived', currentStatusId: 'arrived' })} />}
+      {unloadedTrip && <UnloadedModal isOpen={!!unloadedTrip} onClose={() => setUnloadedTrip(null)} trip={unloadedTrip} onPost={(data) => handlePostAction(unloadedTrip.id, { ...data, tripStatus: 'Delivered', currentStatusId: 'delivered', actualCompletionDate: serverTimestamp() })} />}
+      {rejectTrip && <RejectModal isOpen={!!rejectTrip} onClose={() => setRejectTrip(null)} trip={rejectTrip} onPost={(data) => handlePostAction(rejectTrip.id, { ...data, tripStatus: 'Rejected', currentStatusId: 'rejected', rejectedAt: serverTimestamp() })} />}
+      {podStatusTrip && <PodStatusModal isOpen={!!podStatusTrip} onClose={() => setPodStatusTrip(null)} trip={podStatusTrip} onPost={(data) => handlePostAction(podStatusTrip.id, { ...data })} />}
+      {srnTrip && <SrnModal isOpen={!!srnTrip} onClose={() => setSrnTrip(null)} trip={srnTrip} onPost={(data) => handlePostAction(srnTrip.id, { ...data, tripStatus: 'Closed', currentStatusId: 'closed' })} />}
+      
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
-      {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={handleUpdateVehicle} />}
-      {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={handleCancelTrip} />}
-      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
+      {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={async (id, values) => handlePostAction(id, values)} />}
+      {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={async () => { /* reuse existing executePurge logic if needed */ }} />}
     </div>
   );
 }

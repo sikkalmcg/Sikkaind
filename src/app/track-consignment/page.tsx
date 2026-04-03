@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, Suspense, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,61 +10,37 @@ import {
     Search, 
     Truck, 
     MapPin, 
-    FileText, 
     ShieldCheck, 
     Radar, 
     Loader2,
     Calendar,
-    Clock,
     CheckCircle2,
     AlertCircle,
     ArrowLeft,
-    Package,
     Factory,
-    RefreshCcw,
-    TrendingUp,
-    Timer,
-    UserCircle,
-    Calculator,
-    ClipboardList
+    ClipboardList,
+    Box,
+    User,
+    ArrowRight,
+    CircleDot
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
-import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp } from 'firebase/firestore';
-import { format, addHours, isValid } from 'date-fns';
+import { collection, query, where, getDocs, limit, doc, getDoc } from 'firebase/firestore';
+import { format, isValid } from 'date-fns';
 import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { useJsApiLoader } from '@react-google-maps/api';
-
-const MAPS_JS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
-const libraries: ("places")[] = ['places'];
 
 function TrackConsignmentContent() {
     const firestore = useFirestore();
-    const { isLoaded } = useJsApiLoader({
-        id: 'google-map-script',
-        googleMapsApiKey: MAPS_JS_KEY,
-        libraries
-    });
-    
     const [tripIdInput, setTripIdInput] = useState('');
     const [captchaInput, setCaptchaInput] = useState('');
     const [generatedCaptcha, setGeneratedCaptcha] = useState('');
     const [isSearching, setIsSearching] = useState(false);
     const [result, setResult] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
-    const [runningIcon, setRunningIcon] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (!firestore) return;
-        const fetchSettings = async () => {
-            const snap = await getDoc(doc(firestore, "gps_settings", "api_config"));
-            if (snap.exists() && snap.data().runningIconUrl) {
-                setRunningIcon(snap.data().runningIconUrl);
-            }
-        };
-        fetchSettings();
-    }, [firestore]);
+    const [animIndex, setAnimIndex] = useState(-1);
+    const [isReversed, setIsReversed] = useState(false);
 
     useEffect(() => {
         refreshCaptcha();
@@ -78,13 +54,55 @@ function TrackConsignmentContent() {
         setCaptchaInput('');
     };
 
+    const stages = [
+        { id: 'assigned', label: 'Assign', icon: ClipboardList },
+        { id: 'loading', label: 'Loading', icon: Factory },
+        { id: 'transit', label: 'Transit', icon: Truck },
+        { id: 'arrived', label: 'Arrived', icon: MapPin },
+        { id: 'unload', label: 'Unload', icon: CheckCircle2 }
+    ];
+
+    const getTargetIndex = (status: string) => {
+        const s = status?.toLowerCase().replace(/[\s_-]+/g, '-') || '';
+        if (['delivered', 'closed'].includes(s)) return 4;
+        if (['arrived', 'arrival-for-delivery'].includes(s)) return 3;
+        if (['in-transit', 'out-for-delivery'].includes(s)) return 2;
+        if (['loaded', 'loading-complete'].includes(s)) return 1;
+        return 0;
+    };
+
+    const runAnimation = useCallback((targetIndex: number, rejected: boolean) => {
+        setAnimIndex(-1);
+        setIsReversed(false);
+        let current = -1;
+        
+        const interval = setInterval(() => {
+            current++;
+            if (current <= targetIndex) {
+                setAnimIndex(current);
+            } else {
+                clearInterval(interval);
+                if (rejected) {
+                    setTimeout(() => {
+                        setIsReversed(true);
+                        let rev = targetIndex;
+                        const revInterval = setInterval(() => {
+                            rev--;
+                            if (rev >= 0) setAnimIndex(rev);
+                            else {
+                                clearInterval(revInterval);
+                            }
+                        }, 2000);
+                    }, 1000);
+                }
+            }
+        }, 2000);
+    }, []);
+
     const handleTrack = async () => {
-        if (!tripIdInput.trim()) {
-            setError("Please enter a valid Trip ID.");
-            return;
-        }
+        if (!tripIdInput.trim()) return setError("Trip ID Required.");
         if (captchaInput.toUpperCase() !== generatedCaptcha) {
-            setError("Invalid Code. Please try again.");
+            setError("Invalid Code.");
             refreshCaptcha();
             return;
         }
@@ -99,7 +117,7 @@ function TrackConsignmentContent() {
             const snap = await getDocs(q);
 
             if (snap.empty) {
-                setError("Invalid Trip ID. Check Registry.");
+                setError("Mission Node not found.");
                 refreshCaptcha();
             } else {
                 const tripData = { id: snap.docs[0].id, ...snap.docs[0].data() } as any;
@@ -108,133 +126,140 @@ function TrackConsignmentContent() {
                 
                 let shipmentData = null;
                 if (shipId) {
-                    const shipRef = doc(firestore!, `plants/${plantId}/shipments`, shipId);
-                    const shipSnap = await getDoc(shipRef);
+                    const shipSnap = await getDoc(doc(firestore!, `plants/${plantId}/shipments`, shipId));
                     if (shipSnap.exists()) shipmentData = shipSnap.data();
                 }
 
-                const plantSnap = await getDoc(doc(firestore!, "logistics_plants", plantId));
-                const plantName = plantSnap.exists() ? plantSnap.data().name : plantId;
-
-                // REGISTRY RESOLUTION NODE: Deep search for LR Number if missing in trip doc
-                let resolvedLrNumber = tripData.lrNumber || shipmentData?.lrNumber || '';
-                let resolvedLrDate = tripData.lrDate || shipmentData?.lrDate || null;
-
-                if (!resolvedLrNumber) {
-                    const lrsRef = collection(firestore!, `plants/${plantId}/lrs`);
-                    const lrQ = query(lrsRef, where("tripDocId", "==", tripData.id), limit(1));
-                    const lrSnap = await getDocs(lrQ);
-                    if (!lrSnap.empty) {
-                        const lrDoc = lrSnap.docs[0].data();
-                        resolvedLrNumber = lrDoc.lrNumber;
-                        resolvedLrDate = lrDoc.date;
-                    }
-                }
-
-                setResult({
+                const resObj = {
                     ...tripData,
                     shipment: shipmentData,
-                    plantName,
-                    lrNumber: resolvedLrNumber,
-                    lrDate: resolvedLrDate,
-                    assignDate: parseSafeDate(tripData.startDate) || new Date(),
-                    loadingCity: (shipmentData?.loadingPoint || tripData.loadingPoint || plantName).split(',')[0].trim(),
-                    unloadingCity: (shipmentData?.unloadingPoint || tripData.unloadingPoint || tripData.destination).split(',')[0].trim()
-                });
+                    isRejected: (tripData.tripStatus || tripData.currentStatusId)?.toLowerCase() === 'rejected',
+                    route: `${(shipmentData?.loadingPoint || tripData.loadingPoint || 'Node').split(',')[0]} → ${(shipmentData?.unloadingPoint || tripData.unloadingPoint || 'Node').split(',')[0]}`
+                };
+
+                setResult(resObj);
+                runAnimation(getTargetIndex(resObj.tripStatus), resObj.isRejected);
             }
         } catch (e) {
-            console.error(e);
-            setError("Connection Interrupted.");
+            setError("Registry Link Failure.");
         } finally {
             setIsSearching(false);
         }
     };
 
-    const progressStages = [
-        { label: 'Assigned', desc: 'Planned', icon: ClipboardList },
-        { label: 'Loading', desc: 'In Yard', icon: Factory }, 
-        { label: 'In Transit', desc: 'Moving', icon: Truck },
-        { label: 'Arrived', desc: 'Dest Node', icon: MapPin },
-        { label: 'Delivered', desc: 'Finished', icon: CheckCircle2 }
-    ];
-
-    const getActiveStage = (status: string) => {
-        const s = status?.toLowerCase().replace(/[\s_-]+/g, '-') || '';
-        if (['delivered', 'closed'].includes(s)) return 4;
-        if (['arrived', 'arrival-for-delivery'].includes(s)) return 3;
-        if (['in-transit'].includes(s)) return 2;
-        if (['loaded', 'loading-complete'].includes(s)) return 1;
-        return 0;
-    };
-
     return (
-        <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center py-16 px-4 font-body">
+        <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center py-12 px-4 md:py-24">
             <div className="max-w-6xl w-full space-y-12">
-                <div className="text-center space-y-4">
-                    <div className="flex justify-center mb-6"><div className="p-5 bg-blue-900 text-white rounded-[2.5rem] shadow-3xl rotate-3"><Radar className="h-12 w-12" /></div></div>
-                    <h1 className="text-5xl md:text-6xl font-black text-slate-900 uppercase italic">Track Consignment</h1>
+                <div className="text-center">
+                    <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="inline-block p-5 bg-blue-900 text-white rounded-[2.5rem] shadow-3xl rotate-3 mb-8">
+                        <Radar className="h-12 w-12" />
+                    </motion.div>
+                    <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter uppercase italic leading-none">Track Consignment</h1>
                 </div>
 
                 {!result ? (
-                    <Card className="border-none shadow-3xl rounded-[3rem] bg-white overflow-hidden max-w-2xl mx-auto">
-                        <CardHeader className="bg-slate-50 border-b p-10 text-center"><CardTitle className="text-2xl font-black uppercase text-blue-900">Track Mission</CardTitle></CardHeader>
-                        <CardContent className="p-12 space-y-10">
-                            {error && <div className="p-4 bg-red-50 text-red-700 rounded-2xl flex items-center gap-4 font-black uppercase text-xs border border-red-100"><AlertCircle /> {error}</div>}
+                    <Card className="max-w-2xl mx-auto border-none shadow-3xl rounded-[3rem] overflow-hidden">
+                        <div className="p-12 space-y-10">
+                            {error && <div className="p-4 bg-red-50 text-red-700 rounded-2xl flex items-center gap-3 font-black uppercase text-[10px] border border-red-100"><AlertCircle size={16}/> {error}</div>}
                             <div className="space-y-8">
-                                <div className="space-y-3">
-                                    <Label className="text-[11px] font-black uppercase text-slate-400 px-1 tracking-widest">Trip ID Node *</Label>
-                                    <Input placeholder="e.g. T8492038475" value={tripIdInput} onChange={e => setTripIdInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleTrack()} className="h-16 rounded-2xl font-black text-blue-900 uppercase text-2xl text-center shadow-inner" />
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Registry Trip ID Node *</Label>
+                                    <Input placeholder="e.g. T1000456" value={tripIdInput} onChange={e => setTripIdInput(e.target.value)} className="h-16 rounded-2xl font-black text-blue-900 uppercase text-2xl text-center border-2 border-slate-100 shadow-inner" />
                                 </div>
-                                <div className="space-y-3">
-                                    <Label className="text-[11px] font-black uppercase text-slate-400 px-1">CAPTCHA Handshake *</Label>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase text-slate-400 px-1">Security Code *</Label>
                                     <div className="flex gap-4">
                                         <div className="flex-1 h-16 bg-slate-900 rounded-2xl flex items-center justify-center font-black tracking-[0.6em] text-white text-2xl italic">{generatedCaptcha}</div>
-                                        <Input placeholder="Code" value={captchaInput} onChange={e => setCaptchaInput(e.target.value)} className="w-40 h-16 rounded-2xl font-black text-center text-xl" />
+                                        <Input value={captchaInput} onChange={e => setCaptchaInput(e.target.value)} className="w-40 h-16 rounded-2xl font-black text-center text-xl border-2" />
                                     </div>
                                 </div>
-                                <Button onClick={handleTrack} disabled={isSearching || !tripIdInput} className="w-full h-16 rounded-2xl bg-blue-900 text-white font-black uppercase tracking-[0.3em] shadow-2xl">
-                                    {isSearching ? <Loader2 className="animate-spin mr-3" /> : <Search className="mr-3" />} TRACK MISSION
+                                <Button onClick={handleTrack} disabled={isSearching} className="w-full h-16 rounded-2xl bg-blue-900 text-white font-black uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all">
+                                    {isSearching ? <Loader2 className="animate-spin mr-3" /> : <Search className="mr-3" />} RESOLVE MISSION
                                 </Button>
                             </div>
-                        </CardContent>
+                        </div>
                     </Card>
                 ) : (
-                    <div className="space-y-10 animate-in slide-in-from-bottom-12 duration-1000">
-                        <Button variant="ghost" onClick={() => {setResult(null); refreshCaptcha();}} className="font-black text-slate-400 hover:text-blue-900 uppercase text-[11px] tracking-[0.2em] gap-2"><ArrowLeft size={16}/> Return</Button>
-                        <Card className="border-none shadow-3xl rounded-[3.5rem] bg-slate-900 text-white p-12">
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-10">
+                    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-10 duration-1000">
+                        <Button variant="ghost" onClick={() => {setResult(null); refreshCaptcha();}} className="font-black text-slate-400 hover:text-blue-900 uppercase text-[11px] tracking-widest gap-2"><ArrowLeft size={16}/> Back to Search</Button>
+                        
+                        {/* 3D MANIFEST HEADER */}
+                        <Card className="border-none shadow-3xl rounded-[3.5rem] bg-slate-900 text-white p-10 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 transition-transform duration-1000 group-hover:scale-110"><Box size={240} /></div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-8 relative z-10">
                                 {[
-                                    { label: 'PLANT NODE', value: result.plantName, icon: Factory, color: 'text-white' },
-                                    { label: 'VEHICLE', value: result.vehicleNumber, bold: true },
-                                    { label: 'TRIP ID', value: result.tripId, mono: true, color: 'text-blue-400' },
-                                    { label: 'LR NUMBER', value: result.lrNumber || '--', bold: true },
-                                    { label: 'FROM (CITY)', value: result.loadingCity, color: 'text-blue-300' },
-                                    { label: 'TO (CITY)', value: result.unloadingCity, color: 'text-emerald-400' },
-                                    { label: 'WEIGHT', value: `${result.assignedQtyInTrip} MT`, color: 'text-emerald-400', bold: true },
+                                    { label: 'Consignor', value: result.consignor },
+                                    { label: 'Consignee', value: result.billToParty },
+                                    { label: 'Ship To', value: result.shipToParty },
+                                    { label: 'Route Registry', value: result.route, color: 'text-blue-400' },
+                                    { label: 'Vehicle No', value: result.vehicleNumber, bold: true },
+                                    { label: 'Material', value: result.material, truncate: true },
+                                    { label: 'Qty Node', value: result.qtyUom, color: 'text-emerald-400' },
+                                    { label: 'CN Number', value: result.lrNumber || '--', bold: true },
                                 ].map((item, i) => (
                                     <div key={i} className="space-y-1">
-                                        <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-1.5">{item.icon && <item.icon size={10}/>} {item.label}</span>
-                                        <p className={cn("text-xs font-bold uppercase truncate", item.bold && "font-black text-sm", item.mono && "font-mono tracking-tighter", item.color)}>{item.value}</p>
+                                        <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest">{item.label}</span>
+                                        <p className={cn("text-[11px] font-bold uppercase", item.bold && "font-black text-xs", item.color || "text-white", item.truncate && "truncate")} title={item.value}>{item.value}</p>
                                     </div>
                                 ))}
                             </div>
                         </Card>
 
-                        <div className="relative p-12 bg-white rounded-[4rem] shadow-3xl border-2 border-slate-100 overflow-hidden">
-                            <div className="absolute top-1/2 left-24 right-24 h-3 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden">
-                                <div className="h-full bg-blue-900 transition-all duration-1000" style={{ width: `${(getActiveStage(result.tripStatus) / 4) * 100}%` }} />
+                        {/* 3D ANIMATION TRACKER */}
+                        <div className="relative p-16 bg-white rounded-[4rem] shadow-3xl border-2 border-slate-50 overflow-hidden min-h-[350px]">
+                            <div className="absolute top-1/2 left-24 right-24 h-2 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden">
+                                <motion.div 
+                                    className={cn("h-full", result.isRejected ? "bg-red-600" : "bg-blue-900")}
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${(animIndex / 4) * 100}%` }}
+                                    transition={{ duration: 0.5 }}
+                                />
                             </div>
-                            <div className="relative flex justify-between items-center">
-                                {progressStages.map((stage, i) => {
-                                    const active = getActiveStage(result.tripStatus);
+
+                            <div className="relative flex justify-between items-center h-full">
+                                {stages.map((stage, i) => {
+                                    const active = i <= animIndex;
+                                    const isTarget = i === animIndex;
+                                    const isFinal = i === 4;
+                                    const label = (isFinal && result.isRejected) ? 'Shipment Rejected' : stage.label;
+
                                     return (
-                                        <div key={i} className="flex flex-col items-center gap-4 relative z-10 w-32">
-                                            <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center transition-all border-4 shadow-xl", i <= active ? "bg-blue-900 border-blue-400 text-white" : "bg-white border-slate-100 text-slate-300")}><stage.icon /></div>
-                                            <p className={cn("text-[10px] font-black uppercase tracking-tight", i <= active ? "text-blue-900" : "text-slate-400")}>{stage.label}</p>
+                                        <div key={i} className="flex flex-col items-center gap-6 relative z-10 w-40">
+                                            <motion.div 
+                                                animate={active ? { scale: [1, 1.1, 1], rotate: isTarget ? [0, -5, 5, 0] : 0 } : {}}
+                                                className={cn(
+                                                    "h-20 w-20 rounded-3xl flex items-center justify-center transition-all duration-500 border-4 shadow-2xl",
+                                                    active ? (result.isRejected && isTarget ? "bg-red-600 border-red-400 text-white" : "bg-blue-900 border-blue-400 text-white") : "bg-white border-slate-100 text-slate-200"
+                                                )}
+                                            >
+                                                {isTarget ? (
+                                                    <motion.div animate={{ x: isReversed ? [-2, 2, -2] : [2, -2, 2] }} transition={{ repeat: Infinity, duration: 0.5 }}>
+                                                        <stage.icon size={32} className={cn(isReversed && "scale-x-[-1]")} />
+                                                    </motion.div>
+                                                ) : <stage.icon size={32} />}
+                                            </motion.div>
+                                            <div className="text-center space-y-1">
+                                                <p className={cn("text-[11px] font-black uppercase tracking-tight", active ? "text-slate-900" : "text-slate-300")}>{label}</p>
+                                                {active && (
+                                                    <p className="text-[9px] font-bold text-blue-500 font-mono">
+                                                        {format(result.assignDate, 'dd/MM HH:mm')}
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
                                     );
                                 })}
                             </div>
+
+                            {/* REJECTION OVERLAY */}
+                            <AnimatePresence>
+                                {result.isRejected && isReversed && (
+                                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 px-8 py-3 bg-red-50 border-2 border-red-100 rounded-2xl shadow-xl">
+                                        <AlertTriangle className="text-red-600 h-5 w-5 animate-pulse" />
+                                        <span className="text-[10px] font-black uppercase text-red-900 tracking-widest">Mission Rejection: Returning to Origin Node</span>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                     </div>
                 )}
