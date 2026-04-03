@@ -1,4 +1,3 @@
-
 'use client';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
@@ -35,7 +34,7 @@ const formSchema = z.object({
   paymentTerm: z.enum(PaymentTerms),
   weightSelection: z.enum(['Assigned Weight', 'Actual Weight']),
   items: z.array(z.object({
-    invoiceNumber: z.string().min(1, "Invoice number required."),
+    deliveryNumber: z.string().min(1, "Delivery number required."),
     units: z.coerce.number().positive("Unit count mandatory."),
     unitType: z.string().optional(),
     itemDescription: z.string().min(1, "Required"),
@@ -193,7 +192,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                 setShipment({ id: shipmentSnap.id, ...sData } as WithId<Shipment>);
 
                 let initialItems = (sData.items || []).map(i => ({
-                    invoiceNumber: i.invoiceNumber || (i as any).deliveryNumber || '',
+                    deliveryNumber: i.invoiceNumber || (i as any).deliveryNumber || '',
                     units: i.units || 1,
                     unitType: i.unitType || 'Package',
                     itemDescription: i.itemDescription || i.description || sData.material || '',
@@ -203,7 +202,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
 
                 if (initialItems.length === 0) {
                     initialItems = [{ 
-                        invoiceNumber: sData.invoiceNumber || 'NA', 
+                        deliveryNumber: sData.invoiceNumber || 'NA', 
                         units: Number(sData.totalUnits) || 1, 
                         unitType: 'Package', 
                         itemDescription: sData.itemDescription || sData.material || 'GENERAL CARGO', 
@@ -390,7 +389,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                         <section className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 bg-white rounded-3xl border border-slate-200 shadow-sm">
                             <div className="space-y-4">
                                 <FormField name="consignorName" control={control} render={({ field }) => (
-                                    <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR NODE (F4 HELP)</FormLabel><div className="flex gap-2"><FormControl><Input className="h-11 font-bold uppercase" {...field} onKeyDown={(e) => e.key === 'F4' && setHelpModal({ type: 'consignor', title: 'Search Consignors', data: consignorRegistry })} /></FormControl><Button type="button" variant="outline" onClick={() => setHelpModal({ type: 'consignorName', title: 'Search Consignors', data: consignorRegistry })}><Search size={16}/></Button></div></FormItem>
+                                    <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR NODE (F4 HELP)</FormLabel><div className="flex gap-2"><FormControl><Input className="h-11 font-bold uppercase" {...field} onKeyDown={(e) => e.key === 'F4' && setHelpModal({ type: 'consignorName', title: 'Search Consignors', data: consignorRegistry })} /></FormControl><Button type="button" variant="outline" onClick={() => setHelpModal({ type: 'consignorName', title: 'Search Consignors', data: consignorRegistry })}><Search size={16}/></Button></div></FormItem>
                                 )} />
                                 <FormField name="consignorAddress" control={control} render={({ field }) => (
                                     <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR ADDRESS (FULL)</FormLabel><FormControl><Input className="h-11" {...field} /></FormControl></FormItem>
@@ -410,7 +409,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                             <Table>
                                 <TableHeader className="bg-slate-900">
                                     <TableRow className="hover:bg-transparent border-none h-14">
-                                        <TableHead className="text-white px-6">INVOICE NO *</TableHead>
+                                        <TableHead className="text-white px-6">DELIVERY NO *</TableHead>
                                         <TableHead className="text-white px-4">ITEM DESCRIPTION *</TableHead>
                                         <TableHead className="text-white px-4 text-center">PKGS</TableHead>
                                         <TableHead className="text-white px-8 text-right">WEIGHT (MT)</TableHead>
@@ -420,7 +419,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                                 <TableBody>
                                     {fields.map((field, index) => (
                                         <TableRow key={field.id} className="h-16 border-b border-slate-100 hover:bg-blue-50/10 transition-colors group">
-                                            <TableCell className="px-6"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-9 font-bold" /></TableCell>
+                                            <TableCell className="px-6"><Input {...form.register(`items.${index}.deliveryNumber`)} className="h-9 font-bold" /></TableCell>
                                             <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-9 font-bold uppercase" /></TableCell>
                                             <TableCell className="px-4 text-center"><Input type="number" {...form.register(`items.${index}.units`)} className="h-9 text-center font-black" /></TableCell>
                                             <TableCell className="px-8 text-right"><Input type="number" step="0.001" {...form.register(`items.${index}.weight`)} className="h-9 text-right font-black" /></TableCell>

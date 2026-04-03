@@ -2,10 +2,10 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
@@ -431,10 +431,10 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   const handleExportTemplate = () => {
     const headers = [
         "Plant ID", "Consignor Name", "Consignor GSTIN", "From (City)", "Consignee Name", "Consignee GSTIN", "Ship To Name", "Ship To GSTIN", 
-        "Destination Point", "UOM", "Quantity", "Invoice Number", "LR Number", "Payment Term", "Delivery Address", "Item Description", "Units"
+        "Destination Point", "UOM", "Quantity", "Invoice Number", "LR Number", "LR Date", "Payment Term", "Delivery Address", "Item Description", "Units"
     ];
     const sample = [
-        ["1426", "TATA CHEMICALS", "27AABCU9567L1Z5", "MUMBAI", "BIGMART RETAIL", "07AABCD1234E1Z3", "BIGMART WH", "07AABCD1234E1Z3", "GHAZIABAD", "MT", "25.000", "INV-9988", "LR123", "Paid", "C-17 UPSIDC GZB", "TATA SALT 50KG BAGS", "500"]
+        ["1426", "TATA CHEMICALS", "27AABCU9567L1Z5", "MUMBAI", "BIGMART RETAIL", "07AABCD1234E1Z3", "BIGMART WH", "07AABCD1234E1Z3", "GHAZIABAD", "MT", "25.000", "INV-9988", "LR123", "01-04-2026", "Paid", "C-17 UPSIDC GZB", "TATA SALT 50KG BAGS", "500"]
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers, ...sample]);
     const wb = XLSX.utils.book_new();
@@ -459,6 +459,20 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
             const getVal = (row: any, keys: string[]) => {
                 const foundKey = Object.keys(row).find(k => keys.some(search => k.toLowerCase().replace(/\s/g, '') === search.toLowerCase().replace(/\s/g, '')));
                 return foundKey ? row[foundKey]?.toString().trim() : '';
+            };
+
+            const getDateVal = (row: any, keys: string[]) => {
+                const foundKey = Object.keys(row).find(k => keys.some(search => k.toLowerCase().replace(/\s/g, '') === search.toLowerCase().replace(/\s/g, '')));
+                if (!foundKey) return null;
+                const raw = row[foundKey];
+                if (!raw) return null;
+                if (raw instanceof Date) return raw;
+                if (typeof raw === 'number') {
+                    // Excel serial date to JS Date
+                    return new Date(Math.round((raw - 25569) * 86400 * 1000));
+                }
+                const d = new Date(raw);
+                return isValid(d) ? d : null;
             };
 
             const orderGroups: Record<string, any> = {};
@@ -490,6 +504,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         materialTypeId: (getVal(row, ["UOM", "Unit"]) || 'METRIC TON').toUpperCase(),
                         quantity: 0,
                         lrNumber: lr,
+                        lrDate: getDateVal(row, ["LR Date", "LRDate", "Date"]),
                         paymentTerm: term,
                         deliveryAddress: getVal(row, ["Delivery Address", "Address"]),
                         rawItems: []
