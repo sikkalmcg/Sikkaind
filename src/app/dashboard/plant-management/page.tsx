@@ -31,7 +31,7 @@ import type { WithId, Plant, ShipmentStatusMaster, MasterQtyType, FuelPump } fro
 import PartyCreationTab from '@/components/dashboard/plant-management/PartyCreationTab';
 import CreatePumpForm from '@/components/dashboard/fuel-pump/CreatePumpForm';
 import PumpHistoryTable from '@/components/dashboard/fuel-pump/PumpHistoryTable';
-import { Loader2, WifiOff, Building2, Fuel, Tag, Settings2, Users, Save, Edit2, ShieldCheck, MapPin, History, Trash2, Activity } from "lucide-react";
+import { Loader2, WifiOff, Building2, Fuel, Tag, Settings2, Users, Save, Edit2, ShieldCheck, MapPin, History, Trash2, Activity, Truck } from "lucide-react";
 import { useSearchParams, useRouter } from 'next/navigation';
 import { cn, normalizePlantId } from '@/lib/utils';
 import { FuelPumpPaymentMethods } from '@/lib/constants';
@@ -94,7 +94,7 @@ function PlantManagementContent() {
       <Tabs value={defaultTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="bg-transparent border-b h-12 rounded-none gap-8 p-0 mb-8 overflow-x-auto justify-start">
             <TabsTrigger value="create-plant" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Building2 className="h-4 w-4" /> Plant Configuration</TabsTrigger>
-            <TabsTrigger value="fuel-pump" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Fuel className="h-4 w-4" /> Fuel Pumps</TabsTrigger>
+            <TabsTrigger value="fuel-pump" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Truck className="h-4 w-4" /> Vendor Registry</TabsTrigger>
             <TabsTrigger value="party-creation" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Users className="h-4 w-4" /> Party Registry</TabsTrigger>
             <TabsTrigger value="create-status" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Activity className="h-4 w-4" /> Status Master</TabsTrigger>
             <TabsTrigger value="create-qty-type" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Tag className="h-4 w-4" /> Qty Types</TabsTrigger>
@@ -273,17 +273,22 @@ const FuelPumpSection = () => {
     <Card>
         <CardHeader className="flex flex-row items-center justify-between">
             <div>
-                <CardTitle>Fuel Pumps</CardTitle>
-                <CardDescription>Manage all registered fuel pumps.</CardDescription>
+                <CardTitle>Vendor Registry</CardTitle>
+                <CardDescription>Manage all registered service and lifting vendors.</CardDescription>
             </div>
-            <Button onClick={() => setCreateOpen(true)}>Add New Pump</Button>
+            <Button onClick={() => setCreateOpen(true)}>Add New Vendor</Button>
         </CardHeader>
         <CardContent>
-            <PumpHistoryTable pumps={pumps} isLoading={pumpsLoading} />
+            <PumpHistoryTable pumps={pumps} isLoading={pumpsLoading} onEdit={() => {}} onDelete={() => {}} />
             <Dialog open={isCreateOpen} onOpenChange={setCreateOpen}>
                 <DialogContent className="sm:max-w-4xl">
-                    <DialogHeader><DialogTitle>Create New Fuel Pump</DialogTitle></DialogHeader>
-                    <CreatePumpForm onFinished={() => setCreateOpen(false)} />
+                    <DialogHeader><DialogTitle>Register New Vendor</DialogTitle></DialogHeader>
+                    <CreatePumpForm onSave={async (data) => {
+                        if(firestore) {
+                            await addDoc(collection(firestore, 'fuel_pumps'), { ...data, createdAt: serverTimestamp() });
+                            setCreateOpen(false);
+                        }
+                    }} />
                 </DialogContent>
             </Dialog>
         </CardContent>

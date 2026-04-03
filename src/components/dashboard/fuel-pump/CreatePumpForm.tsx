@@ -17,7 +17,7 @@ const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 const formSchema = z.object({
-  name: z.string().min(1, 'Fuel Pump Name is required'),
+  name: z.string().min(1, 'Vendor Name is required'),
   address: z.string().optional(),
   ownerName: z.string().min(1, 'Owner Name is required'),
   mobile: z.string().regex(/^\d{10}$/, 'Mobile number must be 10 digits'),
@@ -33,12 +33,10 @@ const formSchema = z.object({
     .refine((files) => !files || files?.length === 0 || files?.[0]?.size <= MAX_FILE_SIZE, `Max image size is 1MB.`)
     .refine((files) => !files || files?.length === 0 || ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type), "Only .jpg, .jpeg, .png and .webp formats are supported."),
 }).superRefine((data, ctx) => {
-    // Mandatory Check: Pump Name, Owner Name, Mobile
-    if (!data.name) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Fuel Pump Name is required.", path: ["name"] });
+    if (!data.name) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Vendor Name is required.", path: ["name"] });
     if (!data.ownerName) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Owner Name is required.", path: ["ownerName"] });
     if (!data.mobile) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Mobile Number is required.", path: ["mobile"] });
 
-    // Conditional validation for GSTIN or PAN: Either one must be provided
     if (!data.gstin && !data.pan) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -120,7 +118,7 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <FormField control={form.control} name="name" render={({ field }) => (
-            <FormItem><FormLabel>Fuel Pump Name *</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Vendor Name *</FormLabel><FormControl><Input placeholder="e.g. Reliance Fuel Hub" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
           )} />
           <FormField control={form.control} name="address" render={({ field }) => (
             <FormItem><FormLabel>Address</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
@@ -142,7 +140,7 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
         <Separator className="my-6" />
 
         <div>
-            <h3 className="text-md font-medium mb-4">Payment Details</h3>
+            <h3 className="text-md font-medium mb-4">Payment Registry</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField control={form.control} name="paymentMethod" render={({ field }) => (
                     <FormItem>
@@ -157,7 +155,7 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
             </div>
 
             {paymentMethod && paymentMethod !== 'Cash' && (
-                <div className="mt-6 space-y-6">
+                <div className="mt-6 space-y-6 animate-in fade-in slide-in-from-top-2">
                     {(paymentMethod === 'Banking' || paymentMethod === 'Cheque' || paymentMethod === 'Multiple') && (
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                             <FormField control={form.control} name="receiverName" render={({ field }) => (<FormItem><FormLabel>Receiver Name</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
@@ -179,11 +177,11 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
 
 
         <div className="flex gap-4 pt-4">
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save
+          <Button type="submit" disabled={isSubmitting} className="bg-blue-900 hover:bg-slate-900 text-white px-8">
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Vendor
           </Button>
-          <Button type="button" variant="destructive" onClick={() => form.reset()}>
-            Cancel
+          <Button type="button" variant="ghost" onClick={() => form.reset()} className="text-slate-400">
+            Discard
           </Button>
         </div>
       </form>
