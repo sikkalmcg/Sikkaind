@@ -16,9 +16,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import type { FuelPump, WithId } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Search, Edit2, Trash2, User, Loader2, MapPin, Smartphone, Truck, ShieldCheck } from 'lucide-react';
+import { Search, Edit2, Trash2, Loader2, MapPin, Smartphone, Truck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 
 interface PumpHistoryTableProps {
   pumps: WithId<FuelPump>[];
@@ -56,22 +55,21 @@ export default function PumpHistoryTable({ pumps, isLoading, onEdit, onDelete }:
       <CardContent className="p-0">
         <div className="rounded-[2.5rem] border border-slate-200 shadow-xl bg-white overflow-hidden">
             <div className="overflow-x-auto">
-                <Table className="min-w-[1400px]">
+                <Table className="min-w-[1200px]">
                     <TableHeader className="bg-slate-50/50">
                         <TableRow className="h-14 hover:bg-transparent border-b border-slate-100">
                             <TableHead className="text-[10px] font-black uppercase px-8 text-slate-400">Vendor Identity</TableHead>
                             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Contact Node</TableHead>
                             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Route Registry</TableHead>
-                            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Fleet Capacity</TableHead>
                             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">TAX Node</TableHead>
                             <TableHead className="text-[10px] font-black uppercase px-8 text-right text-slate-400 sticky right-0 bg-slate-50/50">Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {isLoading ? (
-                            <TableRow><TableCell colSpan={6} className="h-64 text-center"><Loader2 className="h-10 w-10 animate-spin inline-block text-blue-900 opacity-20" /></TableCell></TableRow>
+                            <TableRow><TableCell colSpan={5} className="h-64 text-center"><Loader2 className="h-10 w-10 animate-spin inline-block text-blue-900 opacity-20" /></TableCell></TableRow>
                         ) : filteredPumps.length === 0 ? (
-                            <TableRow><TableCell colSpan={6} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No vendors detected in registry.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={5} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No vendors detected in registry.</TableCell></TableRow>
                         ) : (
                             filteredPumps.map(pump => (
                                 <TableRow key={pump.id} className="h-20 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
@@ -97,13 +95,6 @@ export default function PumpHistoryTable({ pumps, isLoading, onEdit, onDelete }:
                                         <div className="flex items-center gap-2">
                                             <div className="p-1.5 bg-blue-50 rounded-lg"><Truck className="h-3.5 w-3.5 text-blue-600" /></div>
                                             <span className="text-xs font-black text-blue-900 uppercase tracking-widest">{pump.route || '--'}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="px-4">
-                                        <div className="flex flex-wrap gap-1.5 max-w-[250px]">
-                                            {pump.capacities?.map(cap => (
-                                                <Badge key={cap} variant="outline" className="bg-slate-50 text-[8px] font-black uppercase px-2 h-5 border-slate-200">{cap}</Badge>
-                                            ))}
                                         </div>
                                     </TableCell>
                                     <TableCell className="px-4">

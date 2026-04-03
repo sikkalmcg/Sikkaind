@@ -66,12 +66,3 @@ export const FuelPumpPaymentMethods = ['Cash', 'Banking', 'UPI Payment', 'Cheque
 export const FuelPaymentTransactionMethods = ['Cash', 'Banking', 'Cheque'] as const;
 export const LRUnitTypes = ['Package', 'Bag', 'Metric Ton', 'Box', 'Drum', 'Pallet', 'Others'] as const;
 export const PartyTypes = ['Consignor', 'Consignee & Ship to party'] as const;
-
-export const VendorCapacities = [
-  'All Type',
-  'Small Capacity (1 – 5 MT)',
-  'Medium Capacity (6 – 10 MT)',
-  'Upper Medium (11 – 20 MT)',
-  'Heavy Vehicles (21 – 30 MT)',
-  'Extra Heavy (31 – 45 MT)',
-] as const;

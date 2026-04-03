@@ -289,7 +289,6 @@ export interface FuelPump {
   gstin?: string;
   address?: string;
   route?: string;
-  capacities?: string[];
   paymentMethod?: string;
   receiverName?: string;
   bankName?: string;

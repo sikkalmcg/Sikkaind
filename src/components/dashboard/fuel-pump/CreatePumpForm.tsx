@@ -10,8 +10,7 @@ import { Loader2, Save } from 'lucide-react';
 import type { FuelPump } from '@/types';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FuelPumpPaymentMethods, VendorCapacities } from '@/lib/constants';
-import { Checkbox } from '@/components/ui/checkbox';
+import { FuelPumpPaymentMethods } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
@@ -23,7 +22,6 @@ const formSchema = z.object({
   phone: z.string().optional().or(z.literal('')),
   address: z.string().min(1, 'Physical Address is mandatory'),
   route: z.string().min(1, 'Operational Route is mandatory'),
-  capacities: z.array(z.string()).min(1, 'Select at least one capacity node'),
   gstin: z.string().optional(),
   pan: z.string().optional(),
   paymentMethod: z.enum(FuelPumpPaymentMethods).optional(),
@@ -75,7 +73,6 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
       phone: '',
       address: '',
       route: '',
-      capacities: [],
       gstin: '',
       pan: '',
     },
@@ -83,7 +80,6 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
 
   const { watch, setValue, handleSubmit, formState: { isSubmitting } } = form;
   const paymentMethod = watch('paymentMethod');
-  const selectedCapacities = watch('capacities') || [];
 
   const convertFileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -92,13 +88,6 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = (error) => reject(error);
     });
-  };
-
-  const toggleCapacity = (val: string) => {
-    const next = selectedCapacities.includes(val)
-        ? selectedCapacities.filter(c => c !== val)
-        : [...selectedCapacities, val];
-    setValue('capacities', next, { shouldValidate: true });
   };
 
   const onSubmit = async (values: FormValues) => {
@@ -157,22 +146,6 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
                 <FormMessage />
             </FormItem>
           )} />
-
-          <div className="md:col-span-3 space-y-4 p-6 bg-slate-50 rounded-[2rem] border-2 border-slate-100 shadow-inner">
-            <FormLabel className="text-[10px] font-black uppercase text-slate-500 tracking-widest px-1">Asset Capacity Authorization *</FormLabel>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                {VendorCapacities.map(cap => (
-                    <div key={cap} onClick={() => toggleCapacity(cap)} className={cn(
-                        "flex items-center gap-3 p-3 rounded-2xl border-2 transition-all cursor-pointer group",
-                        selectedCapacities.includes(cap) ? "bg-blue-900 border-blue-900 shadow-lg text-white" : "bg-white border-slate-100 hover:border-slate-300 text-slate-400"
-                    )}>
-                        <Checkbox checked={selectedCapacities.includes(cap)} className="hidden" />
-                        <span className="text-[9px] font-black uppercase leading-tight">{cap}</span>
-                    </div>
-                ))}
-            </div>
-            <FormMessage>{form.formState.errors.capacities?.message}</FormMessage>
-          </div>
 
           <FormField control={form.control} name="gstin" render={({ field }) => (
             <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">GSTIN Registry</FormLabel><FormControl><Input {...field} value={field.value ?? ''} placeholder="09AAAAA..." className="h-11 rounded-xl uppercase font-mono" /></FormControl><FormMessage /></FormItem>
