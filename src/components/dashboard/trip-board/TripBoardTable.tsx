@@ -130,7 +130,7 @@ export default function TripBoardTable({
                                     {row.lrNumber ? (
                                         <button 
                                             type="button"
-                                            onClick={(e) => { e.stopPropagation(); onAction('view-lr', row); }} 
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAction('view-lr', row); }} 
                                             className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter"
                                         >
                                             {row.lrNumber}
@@ -205,7 +205,7 @@ export default function TripBoardTable({
                     {row.lrNumber ? (
                         <button 
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); onAction('view-lr', row); }} 
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAction('view-lr', row); }} 
                             className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter"
                         >
                             {row.lrNumber}
