@@ -161,7 +161,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, GSTIN, or City..." 
                             value={search} 
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
@@ -341,7 +341,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         if(isSameAsBillTo) {
             setValue('shipToParty', party.name, { shouldValidate: true });
             setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-            const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
+            const city = party.city && party.city !== 'N/A' ? party.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
             if (city) {
                 setValue('unloadingPoint', city, { shouldValidate: true });
                 setValue('deliveryAddress', party.address || '', { shouldValidate: true });
@@ -349,7 +349,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         }
     } else if (type === 'shipToParty') {
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-        const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
+        const city = party.city && party.city !== 'N/A' ? party.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
         if (city) {
             setValue('unloadingPoint', city, { shouldValidate: true });
             setValue('deliveryAddress', party.address || '', { shouldValidate: true });
@@ -515,25 +515,35 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
                 for (const g of groups) {
                     let finalItems = g.rawItems;
+                    // MISSION LOGIC: If items > 4, aggregate by "Unique Same Name" (First word + Category)
                     if (g.rawItems.length > 4) {
                         const aggMap: Record<string, any> = {};
                         g.rawItems.forEach((item: any) => {
-                            const desc = item.itemDescription.toUpperCase().trim();
-                            if (!aggMap[desc]) {
-                                aggMap[desc] = { ...item, invoiceNumbers: [item.invoiceNumber] };
+                            const descRaw = item.itemDescription.toUpperCase().trim();
+                            const words = descRaw.split(/\s+/);
+                            const firstWord = words[0] || '';
+                            const categories = ['SALT', 'TEA', 'RICE', 'SUGAR', 'DAL', 'OIL', 'FLOUR', 'ATTA', 'MAIDA', 'BESAN', 'MASALA', 'SPICE', 'CEMENT', 'CHEMICAL', 'FERTILIZER', 'IRON', 'STEEL', 'METAL'];
+                            // Find product category keyword anywhere in description
+                            const category = words.find(w => categories.includes(w)) || words[1] || '';
+                            const descKey = `${firstWord} ${category}`.trim();
+
+                            if (!aggMap[descKey]) {
+                                aggMap[descKey] = { 
+                                    ...item, 
+                                    itemDescription: descKey,
+                                    invoiceNumbers: new Set([item.invoiceNumber]) 
+                                };
                             } else {
-                                aggMap[desc].units += item.units;
-                                aggMap[desc].weight += item.weight;
-                                if (!aggMap[desc].invoiceNumbers.includes(item.invoiceNumber)) {
-                                    aggMap[desc].invoiceNumbers.push(item.invoiceNumber);
-                                }
+                                aggMap[descKey].units += item.units;
+                                aggMap[descKey].weight += item.weight;
+                                aggMap[descKey].invoiceNumbers.add(item.invoiceNumber);
                             }
                         });
                         finalItems = Object.values(aggMap).map(agg => {
                             const { invoiceNumbers, ...rest } = agg;
                             return {
                                 ...rest,
-                                invoiceNumber: invoiceNumbers.join(', ')
+                                invoiceNumber: Array.from(invoiceNumbers).join(', ')
                             };
                         });
                     }
