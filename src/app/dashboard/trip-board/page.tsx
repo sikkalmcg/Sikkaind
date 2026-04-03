@@ -227,6 +227,7 @@ function TripBoardContent() {
         const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId);
         const entry = entries.find(e => e.tripId === t.id || (e.vehicleNumber === t.vehicleNumber && e.status === 'OUT' && normalizePlantId(e.plantId) === normalizePlantId(t.originPlantId)));
         const carrier = dbCarriers?.find(c => c.id === t.carrierId);
+        const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(t.originPlantId));
 
         const items = lr?.items || t.items || shipment?.items || [];
         const invoiceNumbers = Array.from(new Set(items.map((i: any) => i.invoiceNumber).filter(Boolean))).join(', ');
@@ -236,7 +237,8 @@ function TripBoardContent() {
 
         return {
             ...t,
-            plantName: plants.find(p => normalizePlantId(p.id) === normalizePlantId(t.originPlantId))?.name || t.originPlantId,
+            plant,
+            plantName: plant?.name || t.originPlantId,
             orderNo: shipment?.shipmentId || '--',
             orderCreatedUser: shipment?.userName || '--',
             consignor: t.consignor || shipment?.consignor || '--',
@@ -409,15 +411,18 @@ function TripBoardContent() {
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
+        const plantNode = row.plant || { id: row.originPlantId, name: row.plantName };
+        const carrierNode = row.carrierObj || (dbCarriers || [])[0] || { name: 'SIKKA INDUSTRIES & LOGISTICS' };
+        const shipmentObj = row.shipmentObj || row;
+
         if (snap.empty) {
-            const shipmentObj = row.shipmentObj || row;
             setPreviewLrData({
                 lrNumber: row.lrNumber,
                 date: row.lrDate || new Date(),
                 trip: row as any,
-                carrier: row.carrierObj || (dbCarriers || [])[0],
+                carrier: carrierNode,
                 shipment: shipmentObj,
-                plant: row.plant || { id: row.originPlantId, name: row.plantName },
+                plant: plantNode,
                 items: shipmentObj.items || [],
                 weightSelection: 'Assigned Weight',
                 assignedTripWeight: row.assignedQtyInTrip || shipmentObj.quantity,
@@ -434,25 +439,31 @@ function TripBoardContent() {
             } as any);
         } else {
             const lrDoc = snap.docs[0].data() as LR;
-            const shipmentObj = row.shipmentObj || row;
             setPreviewLrData({
                 ...lrDoc,
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
                 trip: row as any,
-                carrier: row.carrierObj || (dbCarriers || [])[0],
+                carrier: carrierNode,
                 shipment: shipmentObj,
-                plant: row.plant || { id: row.originPlantId, name: row.plantName },
+                plant: plantNode,
                 consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
                 buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
                 shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || '',
             } as EnrichedLR);
         }
     } catch (e) {
+        console.error("LR Fetch Error:", e);
         toast({ variant: 'destructive', title: "Registry Error", description: "Could not extract LR manifest." });
     } finally {
         hideLoader();
     }
+  };
+
+  const handleEditAction = (type: string, trip: any) => {
+      if (type === 'edit-lr') {
+          setEditLrTrip(trip);
+      }
   };
 
   return (

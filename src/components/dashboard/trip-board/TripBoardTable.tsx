@@ -126,9 +126,13 @@ export default function TripBoardTable({
                                 <TableCell className="px-4 truncate font-bold text-slate-800 uppercase">{row.ewaybillNumber}</TableCell>
                                 <TableCell className="px-4 text-center font-black text-slate-900">{row.unitUom}</TableCell>
                                 <TableCell className="px-4 text-right font-black text-blue-900">{row.qtyUom}</TableCell>
-                                <TableCell className="px-4">
+                                <TableCell className="px-4 text-center">
                                     {row.lrNumber ? (
-                                        <button onClick={() => onAction('view-lr', row)} className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter">
+                                        <button 
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); onAction('view-lr', row); }} 
+                                            className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter"
+                                        >
                                             {row.lrNumber}
                                         </button>
                                     ) : '--'}
@@ -199,7 +203,11 @@ export default function TripBoardTable({
                 <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{row.plantName}</TableCell>
                 <TableCell className="px-4 text-center">
                     {row.lrNumber ? (
-                        <button onClick={() => onAction('view-lr', row)} className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter">
+                        <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onAction('view-lr', row); }} 
+                            className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter"
+                        >
                             {row.lrNumber}
                         </button>
                     ) : '--'}
@@ -240,7 +248,6 @@ export default function TripBoardTable({
                             </>
                         )}
 
-                        {/* PERMANENT FIX NODE: Set modal={false} to avoid compose-refs loop in scrolling tables */}
                         <DropdownMenu modal={false}>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-white text-slate-400 hover:text-blue-900"><MoreHorizontal className="h-4 w-4" /></Button>
