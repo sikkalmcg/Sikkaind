@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -13,6 +12,8 @@ import RejectModal from '@/components/dashboard/trip-board/RejectModal';
 import PodStatusModal from '@/components/dashboard/trip-board/PodStatusModal';
 import SrnModal from '@/components/dashboard/trip-board/SrnModal';
 import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilter';
+import LRGenerationModal from '@/components/dashboard/lr-create/LRGenerationModal';
+import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreviewModal';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration } from '@/lib/utils';
@@ -31,6 +32,7 @@ import { startOfDay, endOfDay, subDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
 
 export type TripBoardTab = 'active' | 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
@@ -76,6 +78,9 @@ function TripBoardContent() {
   const [rejectTrip, setRejectTrip] = useState<any | null>(null);
   const [podStatusTrip, setPodStatusTrip] = useState<any | null>(null);
   const [srnTrip, setSrnTrip] = useState<any | null>(null);
+
+  const [editLrTrip, setEditLrTrip] = useState<any | null>(null);
+  const [previewLrData, setPreviewLrData] = useState<EnrichedLR | null>(null);
 
   const isAdminSession = useMemo(() => {
     return user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
@@ -211,7 +216,7 @@ function TripBoardContent() {
     return () => unsubscribers.forEach(u => u());
   }, [firestore, JSON.stringify(selectedPlants)]);
 
- const joinedData = useMemo(() => {
+  const joinedData = useMemo(() => {
     const normalizedSelected = selectedPlants.map(normalizePlantId);
     
     return trips
@@ -394,6 +399,62 @@ function TripBoardContent() {
     }
   };
 
+  const handleOpenLR = async (row: any) => {
+    if (!row.lrNumber || !firestore) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(row.originPlantId);
+        const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
+        
+        let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
+        let snap = await getDocs(q);
+        
+        if (snap.empty) {
+            const shipmentObj = row.shipmentObj || row;
+            setPreviewLrData({
+                lrNumber: row.lrNumber,
+                date: row.lrDate || new Date(),
+                trip: row as any,
+                carrier: row.carrierObj || (dbCarriers || [])[0],
+                shipment: shipmentObj,
+                plant: row.plant || { id: row.originPlantId, name: row.plantName },
+                items: shipmentObj.items || [],
+                weightSelection: 'Assigned Weight',
+                assignedTripWeight: row.assignedQtyInTrip || shipmentObj.quantity,
+                from: shipmentObj.loadingPoint || '',
+                to: shipmentObj.unloadingPoint || '',
+                consignorName: shipmentObj.consignor || '',
+                consignorGtin: shipmentObj.consignorGtin || '',
+                buyerName: shipmentObj.billToParty || '',
+                buyerGtin: shipmentObj.billToGtin || '',
+                shipToParty: shipmentObj.shipToParty || '',
+                shipToGtin: shipmentObj.shipToGtin || '',
+                deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
+                id: row.id
+            } as any);
+        } else {
+            const lrDoc = snap.docs[0].data() as LR;
+            const shipmentObj = row.shipmentObj || row;
+            setPreviewLrData({
+                ...lrDoc,
+                id: snap.docs[0].id,
+                date: parseSafeDate(lrDoc.date),
+                trip: row as any,
+                carrier: row.carrierObj || (dbCarriers || [])[0],
+                shipment: shipmentObj,
+                plant: row.plant || { id: row.originPlantId, name: row.plantName },
+                consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
+                buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
+                shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || '',
+            } as EnrichedLR);
+        }
+    } catch (e) {
+        toast({ variant: 'destructive', title: "Registry Error", description: "Could not extract LR manifest." });
+    } finally {
+        hideLoader();
+    }
+  };
+
   return (
     <div className="flex flex-1 flex-col h-full relative">
       <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
@@ -460,6 +521,8 @@ function TripBoardContent() {
                             else if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${trip.vehicleNumber}`);
                             else if (type === 'edit-vehicle') setEditVehicleTrip(trip);
                             else if (type === 'cancel') setCancelTripData(trip);
+                            else if (type === 'edit-lr') setEditLrTrip(trip);
+                            else if (type === 'view-lr') handleOpenLR(trip);
                         }} 
                     />
                     <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
@@ -488,6 +551,25 @@ function TripBoardContent() {
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
       {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={async (id, values) => handlePostAction(id, values)} />}
       {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={async () => {}} />}
+      
+      {editLrTrip && (
+          <LRGenerationModal 
+            isOpen={!!editLrTrip}
+            onClose={() => setEditLrTrip(null)}
+            trip={editLrTrip}
+            carrier={editLrTrip.carrierObj}
+            lrToEdit={editLrTrip.lrData}
+            onGenerate={() => setEditLrTrip(null)}
+          />
+      )}
+
+      {previewLrData && (
+          <LRPrintPreviewModal 
+            isOpen={!!previewLrData}
+            onClose={() => setPreviewLrData(null)}
+            lr={previewLrData}
+          />
+      )}
     </div>
   );
 }

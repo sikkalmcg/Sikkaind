@@ -11,7 +11,8 @@ import {
     MoreHorizontal,
     Truck,
     RotateCcw,
-    Trash2
+    Trash2,
+    FileText
 } from 'lucide-react';
 import { cn, parseSafeDate } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -125,7 +126,13 @@ export default function TripBoardTable({
                                 <TableCell className="px-4 truncate font-bold text-slate-800 uppercase">{row.ewaybillNumber}</TableCell>
                                 <TableCell className="px-4 text-center font-black text-slate-900">{row.unitUom}</TableCell>
                                 <TableCell className="px-4 text-right font-black text-blue-900">{row.qtyUom}</TableCell>
-                                <TableCell className="px-4 font-black text-slate-900 uppercase">{row.lrNumber}</TableCell>
+                                <TableCell className="px-4">
+                                    {row.lrNumber ? (
+                                        <button onClick={() => onAction('view-lr', row)} className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter">
+                                            {row.lrNumber}
+                                        </button>
+                                    ) : '--'}
+                                </TableCell>
                                 <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.lrDate)}</TableCell>
                                 <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.assignedDateTime)}</TableCell>
                                 <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.gateOutDateTime)}</TableCell>
@@ -190,7 +197,13 @@ export default function TripBoardTable({
             data.map((row) => (
               <TableRow key={row.id} className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 transition-all group text-[11px] font-medium text-slate-600">
                 <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{row.plantName}</TableCell>
-                <TableCell className="px-4 text-center font-black text-blue-700 text-[11px] uppercase tracking-tighter">{row.lrNumber || '--'}</TableCell>
+                <TableCell className="px-4 text-center">
+                    {row.lrNumber ? (
+                        <button onClick={() => onAction('view-lr', row)} className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter">
+                            {row.lrNumber}
+                        </button>
+                    ) : '--'}
+                </TableCell>
                 <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap text-[11px]">
                     {row.lrDate ? format(new Date(row.lrDate), 'dd/MM/yy') : '--'}
                 </TableCell>
@@ -233,12 +246,13 @@ export default function TripBoardTable({
                                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-white text-slate-400 hover:text-blue-900"><MoreHorizontal className="h-4 w-4" /></Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuPortal>
-                                <DropdownMenuContent align="end" className="w-52 p-2 rounded-xl border-slate-200 shadow-2xl z-[100] bg-white">
-                                    <DropdownMenuLabel className="text-[9px] font-black uppercase text-slate-400">Registry Control</DropdownMenuLabel>
-                                    <DropdownMenuItem onClick={() => onAction('view', row)} className="gap-3 font-bold py-2.5 rounded-lg cursor-pointer"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => onAction('track', row)} className="gap-3 font-bold py-2.5 rounded-lg cursor-pointer"><Navigation className="h-4 w-4 text-emerald-600" /> Track GIS</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => onAction('edit-vehicle', row)} className="gap-3 font-bold py-2.5 rounded-lg cursor-pointer"><Truck className="h-4 w-4 text-slate-600" /> Correct Vehicle</DropdownMenuItem>
-                                    {isAdmin && <DropdownMenuItem onClick={() => onAction('cancel', row)} className="gap-3 font-bold py-2.5 text-red-600 rounded-lg cursor-pointer"><Trash2 className="h-4 w-4" /> Purge Mission</DropdownMenuItem>}
+                                <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl border-slate-200 shadow-2xl z-[100] bg-white">
+                                    <DropdownMenuLabel className="text-[9px] font-black uppercase text-slate-400 px-2 pb-2">Registry Control</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => onAction('view', row)} className="gap-3 font-bold py-2.5 rounded-lg cursor-pointer hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onAction('track', row)} className="gap-3 font-bold py-2.5 rounded-lg cursor-pointer hover:bg-blue-50"><Navigation className="h-4 w-4 text-emerald-600" /> Track GIS</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onAction('edit-lr', row)} className="gap-3 font-bold py-2.5 rounded-lg cursor-pointer hover:bg-blue-50"><FileText className="h-4 w-4 text-orange-600" /> Edit LR manifest</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onAction('edit-vehicle', row)} className="gap-3 font-bold py-2.5 rounded-lg cursor-pointer hover:bg-blue-50"><Truck className="h-4 w-4 text-slate-600" /> Correct Vehicle</DropdownMenuItem>
+                                    {isAdmin && <DropdownMenuItem onClick={() => onAction('cancel', row)} className="gap-3 font-bold py-2.5 text-red-600 rounded-lg cursor-pointer hover:bg-red-50"><Trash2 className="h-4 w-4" /> Purge Mission</DropdownMenuItem>}
                                 </DropdownMenuContent>
                             </DropdownMenuPortal>
                         </DropdownMenu>
