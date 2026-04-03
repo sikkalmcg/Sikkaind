@@ -1,17 +1,18 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/form';
 import { Input } from '@/components/ui/input';
 import { Loader2, Save } from 'lucide-react';
 import type { FuelPump } from '@/types';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FuelPumpPaymentMethods } from '@/lib/constants';
-import { cn } from '@/lib/utils';
+import { cn, sanitizeRegistryNode } from '@/lib/utils';
 
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -24,7 +25,7 @@ const formSchema = z.object({
   route: z.string().min(1, 'Operational Route is mandatory'),
   gstin: z.string().optional(),
   pan: z.string().optional(),
-  paymentMethod: z.enum(FuelPumpPaymentMethods).optional(),
+  paymentMethod: z.enum(FuelPumpPaymentMethods, { required_error: 'Payment method is required' }),
   receiverName: z.string().optional(),
   bankName: z.string().optional(),
   accountNumber: z.string().optional(),
@@ -75,6 +76,7 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
       route: '',
       gstin: '',
       pan: '',
+      paymentMethod: 'Cash',
     },
   });
 
@@ -97,12 +99,12 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
     }
 
     const { qrCode: _, ...rest } = values;
-    const dataToSave = {
+    const dataToSave = sanitizeRegistryNode({
       ...rest,
       qrCodeUrl,
-    } as Omit<FuelPump, 'id'>;
+    });
 
-    await onSave(dataToSave);
+    await onSave(dataToSave as Omit<FuelPump, 'id'>);
     form.reset();
   };
 
@@ -164,8 +166,8 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
                     <FormItem>
                         <FormLabel className="text-[10px] font-black uppercase text-slate-400">Primary Method</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger className="h-11 rounded-xl font-bold"><SelectValue placeholder="Select method" /></SelectTrigger></FormControl>
-                            <SelectContent className="rounded-xl">{FuelPumpPaymentMethods.map(pm => <SelectItem key={pm} value={pm} className="font-bold py-2">{pm}</SelectItem>)}</SelectContent>
+                            <FormControl><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue placeholder="Select method" /></SelectTrigger></FormControl>
+                            <SelectContent className="rounded-xl" modal={false}>{FuelPumpPaymentMethods.map(pm => <SelectItem key={pm} value={pm} className="font-bold py-2">{pm}</SelectItem>)}</SelectContent>
                         </Select>
                         <FormMessage />
                     </FormItem>
@@ -193,7 +195,7 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
         </div>
 
         <div className="flex gap-4 pt-8 border-t border-slate-100 justify-end">
-          <Button type="button" variant="ghost" onClick={() => form.reset()} className="font-black text-slate-400 uppercase text-[10px] tracking-widest px-8 h-12">Discard</Button>
+          <Button type="button" variant="ghost" onClick={() => form.reset()} className="font-black text-slate-400 uppercase text-[11px] tracking-widest px-8 h-12">Discard</Button>
           <Button type="submit" disabled={isSubmitting} className="bg-blue-900 hover:bg-black text-white px-16 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl border-none transition-all active:scale-95">
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Commit Vendor Node
           </Button>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
@@ -9,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/form';
 import { 
     AlertDialog, 
     AlertDialogAction, 
@@ -32,8 +33,8 @@ import CreatePumpForm from '@/components/dashboard/fuel-pump/CreatePumpForm';
 import PumpHistoryTable from '@/components/dashboard/fuel-pump/PumpHistoryTable';
 import { Loader2, WifiOff, Building2, Fuel, Tag, Settings2, Users, Save, Edit2, ShieldCheck, MapPin, History, Trash2, Activity, Truck } from "lucide-react";
 import { useSearchParams, useRouter } from 'next/navigation';
-import { cn, normalizePlantId } from '@/lib/utils';
-import { FuelPumpPaymentMethods, VendorCapacities } from '@/lib/constants';
+import { cn, normalizePlantId, sanitizeRegistryNode } from '@/lib/utils';
+import { FuelPumpPaymentMethods } from '@/lib/constants';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLoading } from '@/context/LoadingContext';
 import { Badge } from '@/components/ui/badge';
@@ -284,7 +285,8 @@ const FuelPumpSection = () => {
                     <DialogHeader><DialogTitle>Register New Vendor</DialogTitle></DialogHeader>
                     <CreatePumpForm onSave={async (data) => {
                         if(firestore) {
-                            await addDoc(collection(firestore, 'fuel_pumps'), { ...data, createdAt: serverTimestamp() });
+                            const sanitizedData = sanitizeRegistryNode(data);
+                            await addDoc(collection(firestore, 'fuel_pumps'), { ...sanitizedData, createdAt: serverTimestamp() });
                             setCreateOpen(false);
                         }
                     }} />
