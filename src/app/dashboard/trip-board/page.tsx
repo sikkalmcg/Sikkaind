@@ -401,15 +401,20 @@ function TripBoardContent() {
     }
   };
 
+  /**
+   * Registry Handshake: LR Preview Extraction
+   * Resolves finalized LR documents or generates a pseudo-preview manifest.
+   */
   const handleOpenLR = async (row: any) => {
     if (!row.lrNumber || !firestore) return;
     showLoader();
     try {
         const plantId = normalizePlantId(row.originPlantId);
-        if (!plantId) throw new Error("Plant ID node missing.");
+        if (!plantId) throw new Error("Plant node identification failure.");
         
+        // 1. Search for finalized document node
         const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
-        const q = query(lrsRef, where("lrNumber", "==", row.lrNumber.trim().toUpperCase()), limit(1));
+        const q = query(lrsRef, where("lrNumber", "==", String(row.lrNumber).trim().toUpperCase()), limit(1));
         const snap = await getDocs(q);
         
         const plantNode = row.plant || { id: row.originPlantId, name: row.plantName };
@@ -419,6 +424,16 @@ function TripBoardContent() {
         let finalLrData: any;
 
         if (snap.empty) {
+            // 2. Fallback: Reconstruct manifest from Trip/Order registry
+            const manifestItems = row.items && row.items.length > 0 ? row.items : [{
+                invoiceNumber: row.invoiceNumbers || 'NA',
+                ewaybillNumber: row.ewaybillNumber || '',
+                units: parseInt(row.unitUom) || 1,
+                unitType: 'Package',
+                itemDescription: row.summarizedItems || 'GENERAL CARGO',
+                weight: parseFloat(row.assignedQtyInTrip) || 0
+            }];
+
             finalLrData = {
                 lrNumber: row.lrNumber,
                 date: row.lrDate || new Date(),
@@ -426,7 +441,7 @@ function TripBoardContent() {
                 carrier: carrierNode,
                 shipment: shipmentObj,
                 plant: plantNode,
-                items: shipmentObj.items || [],
+                items: manifestItems,
                 weightSelection: 'Assigned Weight',
                 assignedTripWeight: row.assignedQtyInTrip || shipmentObj.quantity || 0,
                 from: shipmentObj.loadingPoint || row.loadingPoint || '',
@@ -438,9 +453,10 @@ function TripBoardContent() {
                 shipToParty: shipmentObj.shipToParty || row.shipToParty || '',
                 shipToGtin: shipmentObj.shipToGtin || row.shipToGtin || '',
                 deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || row.unloadingPoint || '',
-                id: `tmp-${Date.now()}`
+                id: `pseudo-${Date.now()}`
             };
         } else {
+            // 3. Finalized Node: Load document from cloud
             const lrDoc = snap.docs[0].data() as LR;
             finalLrData = {
                 ...lrDoc,
@@ -458,8 +474,8 @@ function TripBoardContent() {
         
         setPreviewLrData(finalLrData);
     } catch (e: any) {
-        console.error("LR Registry Fetch Error:", e);
-        toast({ variant: 'destructive', title: "Registry Error", description: e.message || "Could not extract LR manifest." });
+        console.error("LR Manifest Resolution Failure:", e);
+        toast({ variant: 'destructive', title: "Registry Handshake Error", description: e.message || "Could not resolve document node." });
     } finally {
         hideLoader();
     }

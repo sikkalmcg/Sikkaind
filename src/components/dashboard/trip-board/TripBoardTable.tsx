@@ -72,7 +72,7 @@ export default function TripBoardTable({
                 e.stopPropagation(); 
                 onAction('view-lr', row); 
             }} 
-            className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter"
+            className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter transition-all active:scale-95"
         >
             {row.lrNumber}
         </button>
@@ -101,7 +101,7 @@ export default function TripBoardTable({
                         <TableHead className="px-4 w-40">Ewaybill No</TableHead>
                         <TableHead className="px-4 w-32 text-center">Unit-UOM</TableHead>
                         <TableHead className="px-4 w-32 text-right">Qty-UOM</TableHead>
-                        <TableHead className="px-4 w-36">LR Number</TableHead>
+                        <TableHead className="px-4 w-36 text-center">LR Number</TableHead>
                         <TableHead className="px-4 w-32 text-center">LR Date</TableHead>
                         <TableHead className="px-4 w-40 text-center">Assigned At</TableHead>
                         <TableHead className="px-4 w-40 text-center">Gate Out At</TableHead>
@@ -195,7 +195,7 @@ export default function TripBoardTable({
         <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b">
           <TableRow className="h-14 hover:bg-transparent">
             <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500 w-32">Plant</TableHead>
-            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36">LR No</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36 text-center">LR No</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36 text-center">LR Date</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36">Trip ID</TableHead>
             <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36">Vehicle No</TableHead>
