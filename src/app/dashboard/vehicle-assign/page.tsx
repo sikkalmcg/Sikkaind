@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -114,7 +115,6 @@ function OpenOrdersContent() {
             const authorizedPlants = baseList.filter(p => authIds.includes(p.id));
             setPlants(authorizedPlants);
 
-            // PERMANENT FIX NODE: Loop prevention logic
             if (!isInitialized.current) {
                 if (urlPlants.length > 0) {
                     setSelectedPlants(urlPlants);
@@ -126,7 +126,7 @@ function OpenOrdersContent() {
         } catch (e) { setDbError(true); } finally { setIsAuthLoading(false); }
     };
     fetchAuth();
-  }, [firestore, user, allMasterPlants, isAdminSession]); // Pruned deps to stop loop
+  }, [firestore, user, allMasterPlants, isAdminSession]);
 
   const handlePlantChange = (ids: string[]) => {
     setSelectedPlants(ids);
@@ -208,9 +208,11 @@ function OpenOrdersContent() {
 
   const enrichedOrders = useMemo(() => {
     const { shipments, trips, entries, lrs } = allData;
+    // FIX: Normalize and strictly filter shipments by current plant selection
+    const normalizedSelected = selectedPlants.map(normalizePlantId);
 
     return (shipments || [])
-      .filter(s => selectedPlants.includes(s.originPlantId))
+      .filter(s => normalizedSelected.includes(normalizePlantId(s.originPlantId)))
       .map(s => {
         const normalizedSPlantId = normalizePlantId(s.originPlantId);
         const masterPlant = plants?.find(p => p.id === s.originPlantId || normalizePlantId(p.id) === normalizedSPlantId);

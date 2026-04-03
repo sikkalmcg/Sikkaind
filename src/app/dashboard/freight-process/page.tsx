@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -45,8 +46,6 @@ export default function FreightRequestPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [operatorName, setOperatorName] = useState('');
   
   const isInitialized = useRef(false);
 
@@ -74,34 +73,24 @@ export default function FreightRequestPage() {
       const qSnap = await getDocs(q);
       if (!qSnap.empty) {
         userDocSnap = qSnap.docs[0];
-      } else {
-        const uidSnap = await getDoc(doc(firestore, "users", user.uid));
-        if (uidSnap.exists()) userDocSnap = uidSnap;
       }
 
       const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
       let authIds: string[] = [];
-      let isRoot = false;
-
       const isAdminSession = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
 
       if (userDocSnap) {
         const userData = userDocSnap.data() as SubUser;
-        isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
+        const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
         authIds = isRoot ? baseList.map(p => p.id) : (userData.plantIds || []);
-        setOperatorName(userData.fullName || userData.username || 'Operator');
       } else if (isAdminSession) {
-        isRoot = true;
         authIds = baseList.map(p => p.id);
-        setOperatorName('AJAY SOMRA');
       }
 
-      setIsAdmin(isRoot);
       setAuthorizedPlantIds(authIds);
       const filtered = baseList.filter(p => authIds.includes(p.id));
       setPlants(filtered);
       
-      // PERMANENT FIX NODE: Loop prevention
       if (!isInitialized.current && filtered.length > 0 && selectedPlants.length === 0) {
           setSelectedPlants(filtered.map(p => p.id));
           isInitialized.current = true;
@@ -168,7 +157,12 @@ export default function FreightRequestPage() {
   }, [firestore, JSON.stringify(selectedPlants)]);
 
  const joinedData = useMemo(() => {
-    return trips.map(t => {
+    // FIX: Filter by currently selected plants only
+    const normalizedSelected = selectedPlants.map(normalizePlantId);
+
+    return trips
+      .filter(t => normalizedSelected.includes(normalizePlantId(t.originPlantId)))
+      .map(t => {
         const shipment = shipments.find(s => s.id === t.shipmentIds?.[0]);
         const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId);
         const freight = freights.find(f => f.tripId === t.id);
@@ -203,7 +197,7 @@ export default function FreightRequestPage() {
             podStatus,
         };
     });
-}, [trips, shipments, lrs, freights, plants, dbCarriers]);
+}, [trips, shipments, lrs, freights, plants, dbCarriers, selectedPlants]);
 
   const baseFiltered = useMemo(() => {
     const dayStart = fromDate ? startOfDay(fromDate) : null;
@@ -235,13 +229,6 @@ export default function FreightRequestPage() {
     if (!t.freightData) return false;
     return t.remainingBalance <= 50;
   }), [baseFiltered]);
-
-  const transporters = useMemo(() => {
-    const names = tripRegistry
-        .map(t => t.transporterName)
-        .filter((name): name is string => !!name && name.trim() !== '');
-    return Array.from(new Set(names)).sort();
-  }, [tripRegistry]);
 
   const handleEditAction = (type: 'banking' | 'freight' | 'charges' | 'debit', trip: any) => {
       setEditSelectionTrip(null);
@@ -318,8 +305,8 @@ export default function FreightRequestPage() {
               <TabsContent value="trip-freight" className="mt-0 focus-visible:ring-0">
                 <TripFreightTable 
                   data={tripFreightData} 
-                  isAdmin={isAdmin}
-                  operatorName={operatorName}
+                  isAdmin={isAdminSession}
+                  operatorName={user?.displayName || user?.email || 'Operator'}
                   onAction={(type, trip) => {
                       if (type === 'banking') setBankingTrip(trip);
                       if (type === 'freight') setFreightRequestTrip(trip);

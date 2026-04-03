@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -117,20 +118,18 @@ function TripBoardContent() {
             const authPlants = baseList.filter(p => authIds.includes(p.id));
             setPlants(authPlants);
 
-            // PERMANENT FIX NODE: Prevent updateURL loop by only initializing if needed
             if (!isInitialized.current) {
                 if (urlPlants.length > 0) {
                     setSelectedPlants(urlPlants);
                 } else if (authIds.length > 0) {
                     setSelectedPlants(authIds);
-                    // Do not call updateURL here if unnecessary to avoid loop
                 }
                 isInitialized.current = true;
             }
         } catch (e) { setDbError(true); } finally { setIsAuthLoading(false); }
     };
     fetchAuth();
-  }, [firestore, user, allMasterPlants, isAdminSession]); // Removed urlPlants and updateURL to break loop
+  }, [firestore, user, allMasterPlants, isAdminSession]);
 
   const handlePlantChange = (ids: string[]) => {
     setSelectedPlants(ids);
@@ -213,7 +212,12 @@ function TripBoardContent() {
   }, [firestore, JSON.stringify(selectedPlants)]);
 
  const joinedData = useMemo(() => {
-    return trips.map(t => {
+    // FIX: Only map trips that are in the currently selected plants
+    const normalizedSelected = selectedPlants.map(normalizePlantId);
+    
+    return trips
+      .filter(t => normalizedSelected.includes(normalizePlantId(t.originPlantId)))
+      .map(t => {
         const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : t.shipmentIds;
         const shipment = shipments.find(s => s.id === shipId || s.shipmentId === shipId);
         const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId);
@@ -234,6 +238,7 @@ function TripBoardContent() {
             consignor: t.consignor || shipment?.consignor || '--',
             consignee: t.billToParty || shipment?.billToParty || '--',
             shipToParty: t.shipToParty || shipment?.shipToParty || '--',
+            from: t.loadingPoint || shipment?.loadingPoint || '--',
             loadingPoint: t.loadingPoint || shipment?.loadingPoint || '--',
             unloadingPoint: t.unloadingPoint || shipment?.unloadingPoint || t.destination || '--',
             vehicleNumber: t.vehicleNumber,
@@ -268,7 +273,7 @@ function TripBoardContent() {
             entry
         };
     });
-}, [trips, shipments, lrs, entries, plants, dbCarriers]);
+}, [trips, shipments, lrs, entries, plants, dbCarriers, selectedPlants]);
 
   const finalData = useMemo(() => {
     const dayStart = fromDate ? startOfDay(fromDate) : null;
