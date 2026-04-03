@@ -16,7 +16,7 @@ import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilte
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration } from '@/lib/utils';
-import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
+import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,7 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export type TripBoardTab = 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
+export type TripBoardTab = 'active' | 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
 function TripBoardContent() {
   const { toast } = useToast();
@@ -43,7 +43,7 @@ function TripBoardContent() {
   const searchParams = useSearchParams();
   const { showLoader, hideLoader } = useLoading();
   
-  const activeTab = (searchParams.get('tab') as TripBoardTab) || 'loading';
+  const activeTab = (searchParams.get('tab') as TripBoardTab) || 'active';
   const urlPlants = useMemo(() => searchParams.get('plants')?.split(',').filter(Boolean) || [], [searchParams]);
 
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
@@ -129,7 +129,7 @@ function TripBoardContent() {
         } catch (e) { setDbError(true); } finally { setIsAuthLoading(false); }
     };
     fetchAuth();
-  }, [firestore, user, allMasterPlants, isAdminSession]);
+  }, [firestore, user, allMasterPlants, isAdminSession, urlPlants]);
 
   const handlePlantChange = (ids: string[]) => {
     setSelectedPlants(ids);
@@ -212,7 +212,6 @@ function TripBoardContent() {
   }, [firestore, JSON.stringify(selectedPlants)]);
 
  const joinedData = useMemo(() => {
-    // FIX: Only map trips that are in the currently selected plants
     const normalizedSelected = selectedPlants.map(normalizePlantId);
     
     return trips
@@ -298,6 +297,7 @@ function TripBoardContent() {
         const isPod = t.podReceived === true;
 
         switch (activeTab) {
+            case 'active': return !isPod && !['cancelled', 'rejected'].includes(status);
             case 'loading': return (status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete') && !t.gateOutDateTime;
             case 'transit': return (status === 'in-transit' || status === 'out-for-delivery' || status === 'break-down') && t.gateOutDateTime && !t.arrivedDateTime;
             case 'arrived': return ['arrived', 'arrival-for-delivery', 'arrive-for-deliver'].includes(status) && t.arrivedDateTime && !t.unloadDateTime;
@@ -313,11 +313,12 @@ function TripBoardContent() {
   const paginatedData = tabFilteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const counts = useMemo(() => {
-    const res = { loading: 0, transit: 0, arrived: 0, podStatus: 0, rejection: 0, closed: 0 };
+    const res = { active: 0, loading: 0, transit: 0, arrived: 0, podStatus: 0, rejection: 0, closed: 0 };
     finalData.forEach(t => {
         const status = (t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
         const isPod = t.podReceived === true;
         
+        if (!isPod && !['cancelled', 'rejected'].includes(status)) res.active++;
         if ((status === 'assigned' || status === 'vehicle-assigned' || status === 'loaded' || status === 'loading-complete') && !t.gateOutDateTime) res.loading++;
         if ((status === 'in-transit' || status === 'out-for-delivery' || status === 'break-down') && t.gateOutDateTime && !t.arrivedDateTime) res.transit++;
         if (['arrived', 'arrival-for-delivery', 'arrive-for-deliver'].includes(status) && t.arrivedDateTime && !t.unloadDateTime) res.arrived++;
@@ -368,7 +369,7 @@ function TripBoardContent() {
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Mission Registry");
-    XLSX.writeFile(wb, `Closed_Missions_Registry_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    XLSX.writeFile(wb, `Mission_Ledger_Registry_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
   const handlePostAction = async (id: string, updateData: any) => {
@@ -435,6 +436,7 @@ function TripBoardContent() {
 
             <Tabs value={activeTab} onValueChange={(v) => { const params = new URLSearchParams(searchParams); params.set('tab', v); router.replace(`${pathname}?${params.toString()}`, { scroll: false }); }} className="w-full">
                 <TabsList className="bg-white px-4 md:px-8 h-14 border-b rounded-none w-full justify-start gap-6 md:gap-10 overflow-x-auto overflow-y-hidden flex-nowrap scrollbar-hide shrink-0">
+                    <TabsTrigger value="active" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">Active ({counts.active})</TabsTrigger>
                     <TabsTrigger value="loading" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">Loading ({counts.loading})</TabsTrigger>
                     <TabsTrigger value="transit" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">Transit ({counts.transit})</TabsTrigger>
                     <TabsTrigger value="arrived" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">Arrived ({counts.arrived})</TabsTrigger>
