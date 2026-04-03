@@ -90,7 +90,6 @@ export default function OrdersTable({
     if (!str || str === 'N/A' || str === '--') return '--';
     const parts = str.split(',').map(p => p.trim()).filter(Boolean);
     if (parts.length > 1) {
-        // Registry Logic: Identify city node (usually second to last if state is included)
         const cityIndex = parts.length >= 2 ? parts.length - 2 : 0;
         return parts[cityIndex].toUpperCase();
     }
@@ -162,7 +161,7 @@ export default function OrdersTable({
                         </Badge>
                       </TableCell>
                       <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
-                        <DropdownMenu modal={false}>
+                        <DropdownMenu modal={true}>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white text-slate-400 hover:text-blue-900 transition-all"><MoreHorizontal className="h-5 w-5" /></Button>
                           </DropdownMenuTrigger>
@@ -202,7 +201,7 @@ export default function OrdersTable({
                                 <div className="flex items-center gap-3 pl-4">
                                     <div className="h-6 w-px bg-slate-200" />
                                     <div className="p-1.5 bg-blue-100 rounded-lg"><Truck className="h-3 w-3 text-blue-700" /></div>
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fleet Node {tIdx + 1}</span>
+                                    <span className="text-[10px] font-black text-sidebar-foreground/40 uppercase tracking-widest">Fleet Node {tIdx + 1}</span>
                                 </div>
                             </TableCell>
                             <TableCell colSpan={2} className="px-4 font-black text-slate-900 uppercase text-xs tracking-tighter">

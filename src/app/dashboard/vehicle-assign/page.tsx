@@ -83,65 +83,44 @@ function OpenOrdersContent() {
   const { data: carriers } = useCollection<Carrier>(carriersQuery);
 
   const updateURL = useCallback((plantIds: string[], tabVal?: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (plantIds.length > 0) {
-      params.set('plants', plantIds.join(','));
-    } else {
-      params.delete('plants');
-    }
-    if (tabVal) {
-        params.set('tab', tabVal);
-    }
+    const params = new URLSearchParams();
+    if (plantIds.length > 0) params.set('plants', plantIds.join(','));
+    params.set('tab', tabVal || activeTab);
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [pathname, router, searchParams]);
+  }, [pathname, router, activeTab]);
 
-  const handleTabChange = useCallback((v: string) => {
-    updateURL(selectedPlants, v);
-  }, [selectedPlants, updateURL]);
-
-  const fetchAuthorizedPlants = useCallback(async () => {
+  useEffect(() => {
     if (!firestore || !user) return;
-    setIsAuthLoading(true);
-    try {
-      const lastIdentity = localStorage.getItem('slmc_last_identity');
-      const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
-      
-      let userDocSnap = null;
-      const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
-      const qSnap = await getDocs(q);
-      if (!qSnap.empty) {
-        userDocSnap = qSnap.docs[0];
-      }
+    const fetchAuth = async () => {
+        setIsAuthLoading(true);
+        try {
+            const searchEmail = user.email;
+            if (!searchEmail) return;
+            const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
+            const qSnap = await getDocs(q);
+            
+            const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
+            let authIds: string[] = [];
 
-      const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
-      let authIds: string[] = [];
+            if (!qSnap.empty) {
+                const userData = qSnap.docs[0].data() as SubUser;
+                const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
+                authIds = isRoot ? baseList.map(p => p.id) : (userData.plantIds || []);
+            } else if (isAdminSession) {
+                authIds = baseList.map(p => p.id);
+            }
 
-      if (userDocSnap) {
-        const userData = userDocSnap.data() as SubUser;
-        const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
-        authIds = isRoot ? baseList.map(p => p.id) : (userData.plantIds || []);
-      } else if (isAdminSession) {
-        authIds = baseList.map(p => p.id);
-      }
-
-      setAuthorizedPlantIds(authIds);
-      const filtered = baseList.filter(p => authIds.some(aid => normalizePlantId(aid).toLowerCase() === normalizePlantId(p.id).toLowerCase()));
-      setPlants(filtered);
-      
-      if (filtered.length > 0 && selectedPlants.length === 0 && urlPlants.length === 0) {
-        const allIds = filtered.map(p => p.id);
-        setSelectedPlants(allIds);
-        updateURL(allIds);
-      }
-    } catch (e) {
-      console.error(e);
-      setDbError(true);
-    } finally {
-      setIsAuthLoading(false);
-    }
-  }, [firestore, user, allMasterPlants, updateURL, selectedPlants.length, urlPlants.length, isAdminSession]);
-
-  useEffect(() => { fetchAuthorizedPlants(); }, [fetchAuthorizedPlants]);
+            setAuthorizedPlantIds(authIds);
+            setPlants(baseList.filter(p => authIds.some(aid => normalizePlantId(aid).toLowerCase() === normalizePlantId(p.id).toLowerCase())));
+            
+            if (authIds.length > 0 && selectedPlants.length === 0 && urlPlants.length === 0) {
+                setSelectedPlants(authIds);
+                updateURL(authIds);
+            }
+        } catch (e) { setDbError(true); } finally { setIsAuthLoading(false); }
+    };
+    fetchAuth();
+  }, [firestore, user, allMasterPlants, isAdminSession]);
 
   const handlePlantChange = (ids: string[]) => {
     setSelectedPlants(ids);
@@ -320,13 +299,6 @@ function OpenOrdersContent() {
     });
   }, [finalData, activeTab]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab, selectedPlants, fromDate, toDate, searchTerm]);
-
-  const totalPages = Math.ceil(tabFilteredData.length / itemsPerPage);
-  const paginatedData = tabFilteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
   const handleOpenLR = async (row: any) => {
     if (!row.lrNumber || !firestore) return;
     showLoader();
@@ -342,7 +314,7 @@ function OpenOrdersContent() {
             setLrPreviewData({
                 lrNumber: row.lrNumber,
                 date: row.lrDate || new Date(),
-                trip: row,
+                trip: row as any,
                 carrier: row.carrierObj || (carriers || [])[0],
                 shipment: shipmentObj,
                 plant: row.plant,
@@ -367,7 +339,7 @@ function OpenOrdersContent() {
                 ...lrDoc,
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
-                trip: row,
+                trip: row as any,
                 carrier: row.carrierObj || (carriers || [])[0],
                 shipment: shipmentObj,
                 plant: row.plant,
@@ -519,13 +491,6 @@ function OpenOrdersContent() {
             </div>
           </div>
 
-          <div className="px-4 md:px-8 py-2 bg-slate-50 flex items-center justify-between border-b">
-            <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-900 text-white rounded-lg shadow-lg rotate-3"><ArrowRightLeft className="h-4 w-4" /></div>
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Authorized registry transition node</span>
-            </div>
-          </div>
-
           <TabsList className="bg-transparent border-b border-slate-100 rounded-none h-12 px-4 md:px-0 w-full justify-start gap-6 md:gap-8 overflow-x-auto overflow-y-hidden flex-nowrap scrollbar-hide shrink-0">
             <TabsTrigger value="pending" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all whitespace-nowrap">
               Pending Orders <span className="ml-2 py-0.5 px-2 bg-orange-100 text-orange-700 rounded-full text-[10px] font-black">{counts.pending}</span>
@@ -553,7 +518,7 @@ function OpenOrdersContent() {
             <Card className="border-none shadow-none bg-transparent flex flex-col h-full">
                 <div className="flex-1">
                     <OrdersTable 
-                        data={paginatedData} 
+                        data={paginatedData.slice(0, itemsPerPage)} 
                         tab={activeTab} 
                         onAssign={(s) => { setSelectedShipment(s); setEditingTrip(null); setIsAssignModalOpen(true); }}
                         onEditAssignment={(s, t) => { setSelectedShipment(s); setEditingTrip(t); setIsAssignModalOpen(true); }}

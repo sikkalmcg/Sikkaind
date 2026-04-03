@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -98,13 +99,13 @@ export default function TripFreightTable({ data, isAdmin, operatorName, onAction
                         </Badge>
                       </TableCell>
                       <TableCell className="sticky right-0 bg-white group-hover:bg-blue-50/30 z-30 border-l shadow-[-2px_0_5px_rgba(0,0,0,0.02)] px-4 text-right">
-                        <DropdownMenu modal={false}>
+                        <DropdownMenu modal={true}>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-white text-slate-400 hover:text-blue-900 transition-colors"><MoreHorizontal className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuPortal>
                             <DropdownMenuContent align="end" className="w-64 p-2 border-slate-200 shadow-xl z-[100] bg-white rounded-xl">
-                                <DropdownMenuLabel className="text-[9px] uppercase tracking-widest text-slate-400 mb-1 px-2">Control Node</DropdownMenuLabel>
+                                <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-slate-400 mb-1 px-2">Control Node</DropdownMenuLabel>
                                 
                                 <DropdownMenuItem disabled={!hasOwnership || isPaymentInitiated} onClick={() => onAction('banking', row)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-lg">
                                     <Landmark className="h-4 w-4 text-blue-600" /> 
