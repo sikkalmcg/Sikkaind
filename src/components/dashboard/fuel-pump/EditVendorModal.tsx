@@ -1,22 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Save, Edit2, Upload, X } from 'lucide-react';
+import { Loader2, Save, Edit2, MapPin, ShieldCheck, X } from 'lucide-react';
 import { FuelPumpPaymentMethods } from '@/lib/constants';
 import type { FuelPump, WithId } from '@/types';
 import { cn, sanitizeRegistryNode } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
-
-const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 const formSchema = z.object({
   name: z.string().min(1, 'Vendor Name is required'),
@@ -25,22 +22,8 @@ const formSchema = z.object({
   address: z.string().min(1, 'Physical Address is mandatory'),
   route: z.string().min(1, 'Operational Route is mandatory'),
   gstin: z.string().optional().or(z.literal('')),
-  pan: z.string().optional().or(z.literal('')),
+  pan: z.string().min(1, 'PAN Number is mandatory').transform(v => v.toUpperCase()),
   category: z.enum(FuelPumpPaymentMethods, { required_error: 'Category is required' }),
-  receiverName: z.string().optional().or(z.literal('')),
-  bankName: z.string().optional().or(z.literal('')),
-  accountNumber: z.string().optional().or(z.literal('')),
-  ifsc: z.string().optional().or(z.literal('')),
-  upiId: z.string().optional().or(z.literal('')),
-  qrCode: z.any().optional(),
-}).superRefine((data, ctx) => {
-    if (!data.gstin && !data.pan) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Either GSTIN or PAN is required.",
-            path: ["pan"],
-        });
-    }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -53,8 +36,6 @@ interface EditVendorModalProps {
 }
 
 export default function EditVendorModal({ isOpen, onClose, vendor, onSave }: EditVendorModalProps) {
-  const [preview, setPreview] = useState<string | null>(vendor.qrCodeUrl || null);
-
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -66,11 +47,6 @@ export default function EditVendorModal({ isOpen, onClose, vendor, onSave }: Edi
       gstin: vendor.gstin || '',
       pan: vendor.pan || '',
       category: (vendor.category as any) || 'All Type',
-      receiverName: vendor.receiverName || '',
-      bankName: vendor.bankName || '',
-      accountNumber: vendor.accountNumber || '',
-      ifsc: vendor.ifsc || '',
-      upiId: vendor.upiId || '',
     },
   });
 
@@ -87,44 +63,19 @@ export default function EditVendorModal({ isOpen, onClose, vendor, onSave }: Edi
         gstin: vendor.gstin || '',
         pan: vendor.pan || '',
         category: (vendor.category as any) || 'All Type',
-        receiverName: vendor.receiverName || '',
-        bankName: vendor.bankName || '',
-        accountNumber: vendor.accountNumber || '',
-        ifsc: vendor.ifsc || '',
-        upiId: vendor.upiId || '',
       });
-      setPreview(vendor.qrCodeUrl || null);
     }
   }, [vendor, isOpen, reset]);
 
-  const convertFileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
   const onSubmit = async (values: FormValues) => {
-    let qrCodeUrl = vendor.qrCodeUrl;
-    if (values.qrCode?.[0]) {
-      qrCodeUrl = await convertFileToBase64(values.qrCode[0]);
-    }
-
-    const { qrCode: _, ...rest } = values;
-    const sanitizedData = sanitizeRegistryNode({
-      ...rest,
-      qrCodeUrl,
-    });
-
+    const sanitizedData = sanitizeRegistryNode(values);
     await onSave(vendor.id, sanitizedData);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] border-none shadow-3xl">
-        <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] border-none shadow-3xl p-0">
+        <DialogHeader className="p-8 bg-slate-900 text-white shrink-0">
           <DialogTitle className="text-xl font-black uppercase tracking-tight italic flex items-center gap-2">
             <Edit2 className="h-5 w-5 text-blue-400" /> Edit Vendor Node
           </DialogTitle>
@@ -132,19 +83,19 @@ export default function EditVendorModal({ isOpen, onClose, vendor, onSave }: Edi
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 p-8">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 p-10 bg-[#f8fafc]">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <FormField control={form.control} name="name" render={({ field }) => (
                 <FormItem>
                     <FormLabel className="text-[10px] font-black uppercase text-slate-400">Vendor Name *</FormLabel>
-                    <FormControl><Input {...field} className="h-12 rounded-xl font-bold" /></FormControl>
+                    <FormControl><Input {...field} className="h-12 rounded-xl font-bold bg-white" /></FormControl>
                     <FormMessage />
                 </FormItem>
               )} />
               <FormField control={form.control} name="mobile" render={({ field }) => (
                 <FormItem>
                     <FormLabel className="text-[10px] font-black uppercase text-slate-400">Vendor Mobile *</FormLabel>
-                    <FormControl><Input {...field} maxLength={10} className="h-12 rounded-xl font-mono font-bold" /></FormControl>
+                    <FormControl><Input {...field} maxLength={10} className="h-12 rounded-xl font-mono font-bold bg-white" /></FormControl>
                     <FormMessage />
                 </FormItem>
               )} />
@@ -152,9 +103,23 @@ export default function EditVendorModal({ isOpen, onClose, vendor, onSave }: Edi
                 <FormItem>
                     <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Vendor Category *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl><SelectTrigger className="h-12 rounded-xl font-black text-blue-900 border-blue-200 shadow-inner"><SelectValue /></SelectTrigger></FormControl>
+                        <FormControl><SelectTrigger className="h-12 rounded-xl font-black text-blue-900 border-blue-200 bg-white shadow-inner"><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent className="rounded-xl" modal={false}>{FuelPumpPaymentMethods.map(pm => <SelectItem key={pm} value={pm} className="font-bold py-2">{pm}</SelectItem>)}</SelectContent>
                     </Select>
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="route" render={({ field }) => (
+                <FormItem>
+                    <FormLabel className="text-[10px] font-black uppercase text-slate-400">Operational Route *</FormLabel>
+                    <FormControl><Input placeholder="e.g. GZB - MUM" {...field} className="h-12 rounded-xl font-black uppercase text-blue-900 bg-white" /></FormControl>
+                    <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="gstin" render={({ field }) => (
+                <FormItem>
+                    <FormLabel className="text-[10px] font-black uppercase text-slate-400">GSTIN Registry</FormLabel>
+                    <FormControl><Input {...field} value={field.value ?? ''} className="h-12 rounded-xl uppercase font-mono bg-white" /></FormControl>
+                    <FormMessage />
                 </FormItem>
               )} />
             </div>
@@ -162,13 +127,29 @@ export default function EditVendorModal({ isOpen, onClose, vendor, onSave }: Edi
             <Separator />
 
             <div className="space-y-6">
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Financial Handbook (Optional)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <FormField control={form.control} name="receiverName" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Receiver Name</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl font-bold" /></FormControl></FormItem>)} />
-                    <FormField control={form.control} name="bankName" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Bank Node</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl" /></FormControl></FormItem>)} />
-                    <FormField control={form.control} name="accountNumber" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">A/C Number</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl font-mono" /></FormControl></FormItem>)} />
-                    <FormField control={form.control} name="ifsc" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">IFSC Node</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl uppercase font-mono" /></FormControl></FormItem>)} />
-                    <FormField control={form.control} name="upiId" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">UPI ID Registry</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl" /></FormControl></FormItem>)} />
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-blue-600" /> Registry Particulars
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-8 bg-white rounded-[2rem] border border-slate-200 shadow-sm items-end">
+                    <FormField control={form.control} name="address" render={({ field }) => (
+                        <FormItem className="md:col-span-2">
+                            <FormLabel className="text-[10px] font-black uppercase text-slate-500">Physical Address node *</FormLabel>
+                            <FormControl>
+                                <div className="relative group">
+                                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+                                    <Input {...field} className="h-12 pl-12 rounded-xl bg-slate-50/50 border-slate-200 font-medium" />
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="pan" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-[10px] font-black uppercase text-slate-500">PAN Registry Number *</FormLabel>
+                            <FormControl><Input placeholder="ABCDE1234F" {...field} className="h-12 rounded-xl uppercase font-black tracking-widest bg-slate-50/50 border-slate-200" /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
                 </div>
             </div>
 

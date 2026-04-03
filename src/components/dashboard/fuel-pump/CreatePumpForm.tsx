@@ -6,15 +6,12 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, MapPin, ShieldCheck } from 'lucide-react';
 import type { FuelPump } from '@/types';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FuelPumpPaymentMethods } from '@/lib/constants';
 import { cn, sanitizeRegistryNode } from '@/lib/utils';
-
-const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 const formSchema = z.object({
   name: z.string().min(1, 'Vendor Name is required'),
@@ -22,25 +19,9 @@ const formSchema = z.object({
   phone: z.string().optional().or(z.literal('')),
   address: z.string().min(1, 'Physical Address is mandatory'),
   route: z.string().min(1, 'Operational Route is mandatory'),
-  gstin: z.string().optional(),
-  pan: z.string().optional(),
+  gstin: z.string().optional().or(z.literal('')),
+  pan: z.string().min(1, 'PAN Number is mandatory').transform(v => v.toUpperCase()),
   category: z.enum(FuelPumpPaymentMethods, { required_error: 'Category is required' }),
-  receiverName: z.string().optional(),
-  bankName: z.string().optional(),
-  accountNumber: z.string().optional(),
-  ifsc: z.string().optional(),
-  upiId: z.string().optional(),
-  qrCode: z.any().optional()
-    .refine((files) => !files || files?.length === 0 || files?.[0]?.size <= MAX_FILE_SIZE, `Max image size is 1MB.`)
-    .refine((files) => !files || files?.length === 0 || ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type), "Only .jpg, .jpeg, .png and .webp formats are supported."),
-}).superRefine((data, ctx) => {
-    if (!data.gstin && !data.pan) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Either GSTIN or PAN is required.",
-            path: ["pan"],
-        });
-    }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -64,36 +45,18 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
     },
   });
 
-  const { watch, setValue, handleSubmit, formState: { isSubmitting } } = form;
-
-  const convertFileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
-  };
+  const { handleSubmit, formState: { isSubmitting } } = form;
 
   const onSubmit = async (values: FormValues) => {
-    let qrCodeUrl = undefined;
-    if (values.qrCode?.[0]) {
-      qrCodeUrl = await convertFileToBase64(values.qrCode[0]);
-    }
-
-    const { qrCode: _, ...rest } = values;
-    const dataToSave = sanitizeRegistryNode({
-      ...rest,
-      qrCodeUrl,
-    });
-
+    const dataToSave = sanitizeRegistryNode(values);
     await onSave(dataToSave as Omit<FuelPump, 'id'>);
     form.reset();
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        {/* TOP MANIFEST GRID */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <FormField control={form.control} name="name" render={({ field }) => (
             <FormItem>
@@ -120,13 +83,6 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
             </FormItem>
           )} />
           
-          <FormField control={form.control} name="address" render={({ field }) => (
-            <FormItem className="md:col-span-2">
-                <FormLabel className="text-[10px] font-black uppercase text-slate-400">Address Node *</FormLabel>
-                <FormControl><Input placeholder="Physical business address" {...field} className="h-12 rounded-xl" /></FormControl>
-                <FormMessage />
-            </FormItem>
-          )} />
           <FormField control={form.control} name="route" render={({ field }) => (
             <FormItem>
                 <FormLabel className="text-[10px] font-black uppercase text-slate-400">Operational Route *</FormLabel>
@@ -136,24 +92,41 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
           )} />
 
           <FormField control={form.control} name="gstin" render={({ field }) => (
-            <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">GSTIN Registry</FormLabel><FormControl><Input {...field} value={field.value ?? ''} placeholder="09AAAAA..." className="h-11 rounded-xl uppercase font-mono" /></FormControl><FormMessage /></FormItem>
-          )} />
-          <FormField control={form.control} name="pan" render={({ field }) => (
-            <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">PAN Registry</FormLabel><FormControl><Input {...field} value={field.value ?? ''} placeholder="ABCDE1234F" className="h-11 rounded-xl uppercase font-mono" /></FormControl><FormMessage /></FormItem>
+            <FormItem>
+                <FormLabel className="text-[10px] font-black uppercase text-slate-400">GSTIN Registry</FormLabel>
+                <FormControl><Input {...field} value={field.value ?? ''} placeholder="09AAAAA..." className="h-12 rounded-xl uppercase font-mono shadow-sm" /></FormControl>
+                <FormMessage />
+            </FormItem>
           )} />
         </div>
         
         <Separator className="my-6" />
 
+        {/* REGISTRY PARTICULARS SECTION (REPLACED FINANCIAL HANDBOOK) */}
         <div className="space-y-6">
-            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Financial Handbook (Optional)</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <FormField control={form.control} name="receiverName" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Receiver Name</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl font-bold" /></FormControl></FormItem>)} />
-                <FormField control={form.control} name="bankName" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Bank Node</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl" /></FormControl></FormItem>)} />
-                <FormField control={form.control} name="accountNumber" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">A/C Number</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl font-mono" /></FormControl></FormItem>)} />
-                <FormField control={form.control} name="ifsc" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">IFSC Node</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl uppercase font-mono" /></FormControl></FormItem>)} />
-                <FormField control={form.control} name="upiId" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">UPI ID Registry</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl" /></FormControl></FormItem>)} />
-                <FormField control={form.control} name="qrCode" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">QR Manifest</FormLabel><FormControl><Input type="file" accept="image/*" onChange={e => field.onChange(e.target.files)} className="h-11 pt-3" /></FormControl></FormItem>)} />
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-blue-600" /> Registry Particulars
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 p-8 bg-slate-50/50 rounded-[2rem] border border-slate-100 shadow-inner">
+                <FormField control={form.control} name="address" render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                        <FormLabel className="text-[10px] font-black uppercase text-slate-500">Physical Address node *</FormLabel>
+                        <FormControl>
+                            <div className="relative group">
+                                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+                                <Input placeholder="Full registered business address" {...field} className="h-12 pl-12 rounded-xl bg-white border-slate-200" />
+                            </div>
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="pan" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel className="text-[10px] font-black uppercase text-slate-500">PAN Registry Number *</FormLabel>
+                        <FormControl><Input placeholder="ABCDE1234F" {...field} className="h-12 rounded-xl uppercase font-black tracking-widest bg-white border-slate-200" /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
             </div>
         </div>
 
