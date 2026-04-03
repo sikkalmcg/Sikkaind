@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
@@ -12,7 +11,7 @@ import {
     MapPin, 
     ShieldCheck, 
     Radar, 
-    Loader2,
+    Loader2, 
     Calendar,
     CheckCircle2,
     AlertCircle,
@@ -183,7 +182,6 @@ function TrackConsignmentContent() {
                     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-10 duration-1000">
                         <Button variant="ghost" onClick={() => {setResult(null); refreshCaptcha();}} className="font-black text-slate-400 hover:text-blue-900 uppercase text-[11px] tracking-widest gap-2"><ArrowLeft size={16}/> Back to Search</Button>
                         
-                        {/* 3D MANIFEST HEADER */}
                         <Card className="border-none shadow-3xl rounded-[3.5rem] bg-slate-900 text-white p-10 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 transition-transform duration-1000 group-hover:scale-110"><Box size={240} /></div>
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-8 relative z-10">
@@ -205,7 +203,6 @@ function TrackConsignmentContent() {
                             </div>
                         </Card>
 
-                        {/* 3D ANIMATION TRACKER */}
                         <div className="relative p-16 bg-white rounded-[4rem] shadow-3xl border-2 border-slate-50 overflow-hidden min-h-[350px]">
                             <div className="absolute top-1/2 left-24 right-24 h-2 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden">
                                 <motion.div 
@@ -242,7 +239,7 @@ function TrackConsignmentContent() {
                                                 <p className={cn("text-[11px] font-black uppercase tracking-tight", active ? "text-slate-900" : "text-slate-300")}>{label}</p>
                                                 {active && (
                                                     <p className="text-[9px] font-bold text-blue-500 font-mono">
-                                                        {format(result.assignDate, 'dd/MM HH:mm')}
+                                                        {format(new Date(result.lastUpdated?.toDate ? result.lastUpdated.toDate() : (result.lastUpdated || Date.now())), 'dd/MM HH:mm')}
                                                     </p>
                                                 )}
                                             </div>
@@ -251,11 +248,10 @@ function TrackConsignmentContent() {
                                 })}
                             </div>
 
-                            {/* REJECTION OVERLAY */}
                             <AnimatePresence>
                                 {result.isRejected && isReversed && (
                                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 px-8 py-3 bg-red-50 border-2 border-red-100 rounded-2xl shadow-xl">
-                                        <AlertTriangle className="text-red-600 h-5 w-5 animate-pulse" />
+                                        <AlertCircle className="text-red-600 h-5 w-5 animate-pulse" />
                                         <span className="text-[10px] font-black uppercase text-red-900 tracking-widest">Mission Rejection: Returning to Origin Node</span>
                                     </motion.div>
                                 )}

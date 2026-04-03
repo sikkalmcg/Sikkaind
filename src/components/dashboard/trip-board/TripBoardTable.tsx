@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -27,7 +26,8 @@ import {
     DropdownMenuItem, 
     DropdownMenuTrigger,
     DropdownMenuSeparator,
-    DropdownMenuLabel
+    DropdownMenuLabel,
+    DropdownMenuPortal
 } from '@/components/ui/dropdown-menu';
 
 interface TripBoardTableProps {
@@ -96,7 +96,7 @@ export default function TripBoardTable({
                 </TableCell>
                 <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs uppercase">{row.tripId}</TableCell>
                 <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{row.vehicleNumber}</TableCell>
-                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs">{row.consignor}</TableCell>
+                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={row.consignor}>{row.consignor}</TableCell>
                 <TableCell className="px-4 truncate font-medium text-slate-500 uppercase text-xs">{row.consignee}</TableCell>
                 <TableCell className="px-4 truncate font-bold text-slate-700 uppercase italic text-[10px]">"{row.itemDescription || '--'}"</TableCell>
                 <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-xs">{row.unloadingPoint}</TableCell>
@@ -131,13 +131,15 @@ export default function TripBoardTable({
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-white text-slate-400 hover:text-blue-900"><MoreHorizontal className="h-4 w-4" /></Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-52 p-2 rounded-xl border-slate-200 shadow-2xl">
-                                <DropdownMenuLabel className="text-[9px] font-black uppercase text-slate-400">Registry Control</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => onAction('view', row)} className="gap-3 font-bold py-2.5 rounded-lg"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onAction('track', row)} className="gap-3 font-bold py-2.5 rounded-lg"><Navigation className="h-4 w-4 text-emerald-600" /> Track GIS</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onAction('edit-vehicle', row)} className="gap-3 font-bold py-2.5 rounded-lg"><Truck className="h-4 w-4 text-slate-600" /> Correct Vehicle</DropdownMenuItem>
-                                {isAdmin && <DropdownMenuItem onClick={() => onAction('cancel', row)} className="gap-3 font-bold py-2.5 text-red-600 rounded-lg"><Trash2 className="h-4 w-4" /> Purge Mission</DropdownMenuItem>}
-                            </DropdownMenuContent>
+                            <DropdownMenuPortal>
+                                <DropdownMenuContent align="end" className="w-52 p-2 rounded-xl border-slate-200 shadow-2xl z-[100] bg-white">
+                                    <DropdownMenuLabel className="text-[9px] font-black uppercase text-slate-400">Registry Control</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => onAction('view', row)} className="gap-3 font-bold py-2.5 rounded-lg cursor-pointer"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onAction('track', row)} className="gap-3 font-bold py-2.5 rounded-lg cursor-pointer"><Navigation className="h-4 w-4 text-emerald-600" /> Track GIS</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onAction('edit-vehicle', row)} className="gap-3 font-bold py-2.5 rounded-lg cursor-pointer"><Truck className="h-4 w-4 text-slate-600" /> Correct Vehicle</DropdownMenuItem>
+                                    {isAdmin && <DropdownMenuItem onClick={() => onAction('cancel', row)} className="gap-3 font-bold py-2.5 text-red-600 rounded-lg cursor-pointer"><Trash2 className="h-4 w-4" /> Purge Mission</DropdownMenuItem>}
+                                </DropdownMenuContent>
+                            </DropdownMenuPortal>
                         </DropdownMenu>
                     </div>
                 </TableCell>

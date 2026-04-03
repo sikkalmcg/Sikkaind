@@ -1,12 +1,8 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import TripBoardTable from '@/components/dashboard/trip-board/TripBoardTable';
-import TripBoardLayoutModal from '@/components/dashboard/trip-board/TripBoardLayoutModal';
-import LRGenerationModal from '@/components/dashboard/lr-create/LRGenerationModal';
 import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreviewModal';
-import PodUploadModal from '@/components/dashboard/trip-board/PodUploadModal';
 import TripViewModal from '@/components/dashboard/trip-board/TripViewModal';
 import CancelTripModal from '@/components/dashboard/trip-board/CancelTripModal';
 import EditVehicleModal from '@/components/dashboard/trip-board/EditVehicleModal';
@@ -18,10 +14,10 @@ import SrnModal from '@/components/dashboard/trip-board/SrnModal';
 import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilter';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
-import { normalizePlantId, parseSafeDate, sanitizeRegistryNode } from '@/lib/utils';
+import { normalizePlantId, parseSafeDate } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, addDoc, writeBatch } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, ShieldAlert, Sparkles, X, Octagon, CheckCircle2, RotateCcw, FileText } from "lucide-react";
+import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs } from "firebase/firestore";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -35,17 +31,6 @@ import { startOfDay, endOfDay, subDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 export type TripBoardTab = 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
@@ -65,7 +50,6 @@ function TripBoardContent() {
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
   const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
-  const [isExtracting, setIsExtracting] = useState(false);
   
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -82,13 +66,10 @@ function TripBoardContent() {
   const [dbError, setDbError] = useState(false);
   
   const [viewTripData, setViewTripData] = useState<any | null>(null);
-  const [lrGenerateTrip, setLrGenerateTrip] = useState<any | null>(null);
-  const [lrEditData, setLrEditData] = useState<{ trip: any, carrier: any, lr: any } | null>(null);
   const [lrPreviewData, setLrPreviewData] = useState<EnrichedLR | null>(null);
   const [cancelTripData, setCancelTripData] = useState<any | null>(null);
   const [editVehicleTrip, setEditVehicleTrip] = useState<any | null>(null);
 
-  // New Modal States
   const [arrivedTrip, setArrivedTrip] = useState<any | null>(null);
   const [unloadedTrip, setUnloadedTrip] = useState<any | null>(null);
   const [rejectTrip, setRejectTrip] = useState<any | null>(null);
@@ -103,6 +84,13 @@ function TripBoardContent() {
   const { data: allMasterPlants } = useCollection<Plant>(masterPlantsQuery);
   const carriersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "carriers")) : null, [firestore]);
   const { data: dbCarriers } = useCollection<Carrier>(carriersQuery);
+
+  useEffect(() => {
+    const urlTab = searchParams.get('tab');
+    if (urlTab && urlTab !== activeTab) {
+      // Logic Node: Only update local state if different from URL to prevent loop
+    }
+  }, [searchParams, activeTab]);
 
   useEffect(() => {
     if (!firestore || !user) return;
@@ -128,15 +116,19 @@ function TripBoardContent() {
                 authIds = baseList.map(p => p.id);
             }
 
-            setAuthorizedPlantIds(authIds);
-            setPlants(baseList.filter(p => authIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id))));
-            if (authIds.length > 0 && selectedPlants.length === 0) {
-                setSelectedPlants(authIds);
+            const currentAuth = JSON.stringify(authorizedPlantIds);
+            const nextAuth = JSON.stringify(authIds);
+            if (currentAuth !== nextAuth) {
+                setAuthorizedPlantIds(authIds);
+                setPlants(baseList.filter(p => authIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id))));
+                if (authIds.length > 0 && selectedPlants.length === 0) {
+                    setSelectedPlants(authIds);
+                }
             }
         } catch (e) { setDbError(true); } finally { setIsAuthLoading(false); }
     };
     fetchAuth();
-  }, [firestore, user, allMasterPlants, isAdminSession]);
+  }, [firestore, user, allMasterPlants, isAdminSession, authorizedPlantIds, selectedPlants.length]);
 
   useEffect(() => {
     if (!firestore || selectedPlants.length === 0) {
@@ -252,6 +244,12 @@ function TripBoardContent() {
     });
   }, [finalData, activeTab]);
 
+  const totalPages = Math.ceil(tabFilteredData.length / itemsPerPage);
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return tabFilteredData.slice(start, start + itemsPerPage);
+  }, [tabFilteredData, currentPage, itemsPerPage]);
+
   const counts = useMemo(() => {
     const res = { loading: 0, transit: 0, arrived: 0, podStatus: 0, rejection: 0, closed: 0 };
     finalData.forEach(t => {
@@ -319,15 +317,6 @@ function TripBoardContent() {
 
   return (
     <div className="flex flex-1 flex-col h-full relative">
-      {isExtracting && (
-          <div className="absolute inset-0 z-[100] flex items-center justify-center bg-white/60 backdrop-blur-[2px]">
-              <div className="p-8 bg-white rounded-3xl shadow-2xl border flex flex-col items-center gap-4">
-                  <Loader2 className="h-10 w-10 animate-spin text-blue-900" />
-                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Extracting Manifest...</p>
-              </div>
-          </div>
-      )}
-
       <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-4">
           <div className="p-2.5 bg-blue-900 text-white rounded-lg shadow-lg rotate-3"><MonitorPlay className="h-7 w-7" /></div>
@@ -406,7 +395,6 @@ function TripBoardContent() {
         </Card>
       </div>
 
-      {/* Registry Modals */}
       {arrivedTrip && <ArrivedModal isOpen={!!arrivedTrip} onClose={() => setArrivedTrip(null)} trip={arrivedTrip} onPost={(data) => handlePostAction(arrivedTrip.id, { ...data, tripStatus: 'Arrived', currentStatusId: 'arrived' })} />}
       {unloadedTrip && <UnloadedModal isOpen={!!unloadedTrip} onClose={() => setUnloadedTrip(null)} trip={unloadedTrip} onPost={(data) => handlePostAction(unloadedTrip.id, { ...data, tripStatus: 'Delivered', currentStatusId: 'delivered', actualCompletionDate: serverTimestamp() })} />}
       {rejectTrip && <RejectModal isOpen={!!rejectTrip} onClose={() => setRejectTrip(null)} trip={rejectTrip} onPost={(data) => handlePostAction(rejectTrip.id, { ...data, tripStatus: 'Rejected', currentStatusId: 'rejected', rejectedAt: serverTimestamp() })} />}
@@ -415,7 +403,7 @@ function TripBoardContent() {
       
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
       {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={async (id, values) => handlePostAction(id, values)} />}
-      {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={async () => { /* reuse existing executePurge logic if needed */ }} />}
+      {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={async () => {}} />}
     </div>
   );
 }
