@@ -491,13 +491,13 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         lrNumber: lr,
                         paymentTerm: getVal(row, ["Payment Term", "Term"]) || 'Paid',
                         deliveryAddress: getVal(row, ["Delivery Address", "Address"]),
-                        items: []
+                        rawItems: [] // Temporary storage for consolidation check
                     };
                 }
                 
                 const itemQty = Number(getVal(row, ["Quantity", "Qty"])) || 0;
                 orderGroups[groupKey].quantity += itemQty;
-                orderGroups[groupKey].items.push({
+                orderGroups[groupKey].rawItems.push({
                     invoiceNumber: getVal(row, ["Invoice Number", "Invoice No"]) || 'NA',
                     ewaybillNumber: getVal(row, ["E-Waybill Number", "Ewaybill No"]),
                     units: Number(getVal(row, ["Units", "Packages"])) || 1,
@@ -512,6 +512,31 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
             for (const g of groups) {
                 try {
+                    // CONSOLIDATION NODE: Aggregate by description if > 4 rows
+                    let finalItems = g.rawItems;
+                    if (g.rawItems.length > 4) {
+                        const aggMap: Record<string, any> = {};
+                        g.rawItems.forEach((item: any) => {
+                            const desc = item.itemDescription.toUpperCase().trim();
+                            if (!aggMap[desc]) {
+                                aggMap[desc] = { ...item, invoiceNumbers: [item.invoiceNumber] };
+                            } else {
+                                aggMap[desc].units += item.units;
+                                aggMap[desc].weight += item.weight;
+                                if (!aggMap[desc].invoiceNumbers.includes(item.invoiceNumber)) {
+                                    aggMap[desc].invoiceNumbers.push(item.invoiceNumber);
+                                }
+                            }
+                        });
+                        finalItems = Object.values(aggMap).map(agg => ({
+                            ...agg,
+                            invoiceNumber: agg.invoiceNumbers.join(', '),
+                            invoiceNumbers: undefined
+                        }));
+                    }
+                    delete g.rawItems;
+                    g.items = finalItems;
+
                     await runTransaction(firestore, async (tx) => {
                         const countSnap = await tx.get(doc(firestore, "counters", "shipments"));
                         const newCount = (countSnap.exists() ? countSnap.data().count : 0) + 1;
