@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { 
     AlertDialog, 
     AlertDialogAction, 
@@ -95,7 +95,7 @@ function PlantManagementContent() {
         <TabsList className="bg-transparent border-b h-12 rounded-none gap-8 p-0 mb-8 overflow-x-auto justify-start">
             <TabsTrigger value="create-plant" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Building2 className="h-4 w-4" /> Plant Configuration</TabsTrigger>
             <TabsTrigger value="vendors" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Truck className="h-4 w-4" /> Vendors</TabsTrigger>
-            <TabsTrigger value="party-creation" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Users className="h-4 w-4" /> Party Registry</TabsTrigger>
+            <TabsTrigger value="party-creation" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Users className="h-4 w-4" /> Party Registry</TabsTrigger>
             <TabsTrigger value="create-status" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Activity className="h-4 w-4" /> Status Master</TabsTrigger>
             <TabsTrigger value="create-qty-type" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2"><Tag className="h-4 w-4" /> Qty Types</TabsTrigger>
         </TabsList>
@@ -112,7 +112,7 @@ function PlantManagementContent() {
   );
 }
 
-// --- Restored Helper Sections ---
+// --- Helper Sections ---
 
 const CreatePlantSection = () => {
     const firestore = useFirestore();
