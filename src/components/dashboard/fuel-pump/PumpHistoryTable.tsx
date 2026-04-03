@@ -1,4 +1,3 @@
-
 'use client';
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -17,7 +16,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import type { FuelPump, WithId } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Search, Edit2, Trash2, User } from 'lucide-react';
+import { Search, Edit2, Trash2, User, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface PumpHistoryTableProps {
   pumps: WithId<FuelPump>[];
@@ -57,7 +57,7 @@ export default function PumpHistoryTable({ pumps, isLoading, onEdit, onDelete }:
         <div className="rounded-[2rem] border border-slate-200 shadow-xl bg-white overflow-hidden">
             <Table>
                 <TableHeader className="bg-slate-50/50">
-                    <TableRow className="h-14 hover:bg-transparent">
+                    <TableRow className="h-14 hover:bg-transparent border-b border-slate-100">
                         <TableHead className="text-[10px] font-black uppercase px-8 text-slate-400">Vendor Name</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Owner Name</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Mobile</TableHead>
@@ -106,7 +106,10 @@ export default function PumpHistoryTable({ pumps, isLoading, onEdit, onDelete }:
                                             </AlertDialogTrigger>
                                             <AlertDialogContent className="border-none shadow-2xl">
                                                 <AlertDialogHeader>
-                                                    <AlertDialogTitle className="font-black uppercase tracking-tight text-red-900 italic">Revoke Vendor Node?</AlertDialogTitle>
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <div className="p-2 bg-red-100 text-red-600 rounded-lg"><Trash2 className="h-5 w-5" /></div>
+                                                        <AlertDialogTitle className="font-black uppercase tracking-tight text-red-900 italic">Revoke Vendor Node?</AlertDialogTitle>
+                                                    </div>
                                                     <AlertDialogDescription className="text-sm font-medium">
                                                         This will permanently erase **{pump.name}** from the mission registry.
                                                     </AlertDialogDescription>
