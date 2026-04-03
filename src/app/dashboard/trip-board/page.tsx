@@ -94,6 +94,7 @@ function TripBoardContent() {
 
   useEffect(() => {
     if (!firestore || !user) return;
+    
     const fetchAuth = async () => {
         try {
             const searchEmail = user.email;
@@ -116,30 +117,29 @@ function TripBoardContent() {
             const authPlants = baseList.filter(p => authIds.includes(p.id));
             setPlants(authPlants);
 
+            // PERMANENT FIX NODE: Prevent updateURL loop by only initializing if needed
             if (!isInitialized.current) {
                 if (urlPlants.length > 0) {
                     setSelectedPlants(urlPlants);
                 } else if (authIds.length > 0) {
                     setSelectedPlants(authIds);
-                    updateURL(authIds);
+                    // Do not call updateURL here if unnecessary to avoid loop
                 }
                 isInitialized.current = true;
             }
         } catch (e) { setDbError(true); } finally { setIsAuthLoading(false); }
     };
     fetchAuth();
-  }, [firestore, user, allMasterPlants, isAdminSession, urlPlants, updateURL]);
+  }, [firestore, user, allMasterPlants, isAdminSession]); // Removed urlPlants and updateURL to break loop
 
   const handlePlantChange = (ids: string[]) => {
-    // Registry Selection Node: Update internal state and URL. 
-    // Data fetching effect handles the rest.
     setSelectedPlants(ids);
     updateURL(ids);
   };
 
   useEffect(() => {
     if (!firestore || selectedPlants.length === 0) {
-        if (selectedPlants.length === 0) {
+        if (selectedPlants.length === 0 && isInitialized.current) {
             setTrips([]);
             setShipments([]);
             setLrs([]);
@@ -147,7 +147,6 @@ function TripBoardContent() {
         }
         return;
     }
-    // Only show loading state if we're doing a primary pulse change
     setIsLoading(true);
     const unsubscribers: (() => void)[] = [];
 
@@ -276,8 +275,6 @@ function TripBoardContent() {
     const dayEnd = toDate ? endOfDay(toDate) : null;
 
     return joinedData.filter(t => {
-      if (selectedPlants.length > 0 && !selectedPlants.some(pid => normalizePlantId(pid) === normalizePlantId(t.originPlantId))) return false;
-      
       const checkDate = t.startDate;
       if (dayStart && checkDate && checkDate < dayStart) return false;
       if (dayEnd && checkDate && checkDate > dayEnd) return false;
@@ -288,7 +285,7 @@ function TripBoardContent() {
       }
       return true;
     });
-  }, [joinedData, fromDate, toDate, searchTerm, selectedPlants]);
+  }, [joinedData, fromDate, toDate, searchTerm]);
 
   const tabFilteredData = useMemo(() => {
     return finalData.filter(t => {

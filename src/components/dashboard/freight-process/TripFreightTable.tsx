@@ -1,4 +1,3 @@
-
 'use client';
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -99,7 +98,8 @@ export default function TripFreightTable({ data, isAdmin, operatorName, onAction
                         </Badge>
                       </TableCell>
                       <TableCell className="sticky right-0 bg-white group-hover:bg-blue-50/30 z-30 border-l shadow-[-2px_0_5px_rgba(0,0,0,0.02)] px-4 text-right">
-                        <DropdownMenu modal={true}>
+                        {/* PERMANENT FIX NODE: Set modal={false} to avoid compose-refs loop in scrolling tables */}
+                        <DropdownMenu modal={false}>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-white text-slate-400 hover:text-blue-900 transition-colors"><MoreHorizontal className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>

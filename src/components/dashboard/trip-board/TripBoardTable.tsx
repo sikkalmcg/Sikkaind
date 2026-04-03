@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -113,9 +112,9 @@ export default function TripBoardTable({
                                 <TableCell className="px-6 font-bold uppercase truncate">{row.plantName}</TableCell>
                                 <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs">{row.orderNo}</TableCell>
                                 <TableCell className="px-4 font-bold uppercase text-[10px] text-slate-400 truncate">{row.orderCreatedUser}</TableCell>
-                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs">{row.consignor}</TableCell>
-                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs">{row.consignee}</TableCell>
-                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs">{row.shipToParty}</TableCell>
+                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={row.consignor}>{row.consignor}</TableCell>
+                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={row.consignee}>{row.consignee}</TableCell>
+                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={row.shipToParty}>{row.shipToParty}</TableCell>
                                 <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-xs">{row.loadingPoint} → {row.unloadingPoint}</TableCell>
                                 <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{row.vehicleNumber}</TableCell>
                                 <TableCell className="px-4 font-mono font-bold text-slate-400">{row.driverMobile || '--'}</TableCell>
@@ -228,7 +227,8 @@ export default function TripBoardTable({
                             </>
                         )}
 
-                        <DropdownMenu modal={true}>
+                        {/* PERMANENT FIX NODE: Set modal={false} to avoid compose-refs loop in scrolling tables */}
+                        <DropdownMenu modal={false}>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-white text-slate-400 hover:text-blue-900"><MoreHorizontal className="h-4 w-4" /></Button>
                             </DropdownMenuTrigger>

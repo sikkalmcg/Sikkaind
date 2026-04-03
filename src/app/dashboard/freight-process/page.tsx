@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
@@ -48,6 +48,8 @@ export default function FreightRequestPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [operatorName, setOperatorName] = useState('');
   
+  const isInitialized = useRef(false);
+
   const [bankingTrip, setBankingTrip] = useState<any | null>(null);
   const [freightRequestTrip, setFreightRequestTrip] = useState<any | null>(null);
   const [otherChargesTrip, setOtherChargesTrip] = useState<any | null>(null);
@@ -99,8 +101,10 @@ export default function FreightRequestPage() {
       const filtered = baseList.filter(p => authIds.includes(p.id));
       setPlants(filtered);
       
-      if (filtered.length > 0 && selectedPlants.length === 0) {
+      // PERMANENT FIX NODE: Loop prevention
+      if (!isInitialized.current && filtered.length > 0 && selectedPlants.length === 0) {
           setSelectedPlants(filtered.map(p => p.id));
+          isInitialized.current = true;
       }
     } catch (e) {
       setDbError(true);
@@ -171,7 +175,6 @@ export default function FreightRequestPage() {
         const plant = plants.find(p => p.id === t.originPlantId);
         const carrierObj = (dbCarriers || []).find(c => c.id === t.carrierId);
 
-        // Registry Logic: Pull calculated total from trip if freight doc hasn't been provisioned yet
         const initialCalculatedTotal = Number(t.freightAmount) || (Number(t.freightRate || 0) * Number(t.assignedQtyInTrip || 0)) || 0;
         const totalFreightAmount = freight?.totalFreightAmount || initialCalculatedTotal;
         
@@ -223,7 +226,6 @@ export default function FreightRequestPage() {
     });
   }, [joinedData, fromDate, toDate, searchTerm]);
 
-  // RULE: Automatic Trip Closure Rule (Balance <= ₹50)
   const tripFreightData = useMemo(() => baseFiltered.filter(t => {
     if (!t.freightData) return true; 
     return t.remainingBalance > 50;
@@ -234,7 +236,12 @@ export default function FreightRequestPage() {
     return t.remainingBalance <= 50;
   }), [baseFiltered]);
 
-  const isReadOnlyScope = !isAdmin && authorizedPlantIds.length === 1;
+  const transporters = useMemo(() => {
+    const names = tripRegistry
+        .map(t => t.transporterName)
+        .filter((name): name is string => !!name && name.trim() !== '');
+    return Array.from(new Set(names)).sort();
+  }, [tripRegistry]);
 
   const handleEditAction = (type: 'banking' | 'freight' | 'charges' | 'debit', trip: any) => {
       setEditSelectionTrip(null);
@@ -262,18 +269,12 @@ export default function FreightRequestPage() {
             <div className="flex flex-wrap items-center gap-4">
               <div className="grid gap-1">
                 <label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1"><Factory className="h-2.5 w-2.5" /> Authorized Scope</label>
-                {isReadOnlyScope ? (
-                    <div className="h-9 px-4 flex items-center bg-blue-50 border border-blue-100 rounded-lg text-blue-900 font-black text-xs shadow-sm uppercase min-w-[180px]">
-                        <ShieldCheck className="h-3.5 w-3.5 mr-2 text-blue-600" /> {plants.find(p => p.id === authorizedPlantIds[0])?.name || authorizedPlantIds[0]}
-                    </div>
-                ) : (
-                    <MultiSelectPlantFilter 
-                        options={plants}
-                        selected={selectedPlants}
-                        onChange={setSelectedPlants}
-                        isLoading={isAuthLoading}
-                    />
-                )}
+                <MultiSelectPlantFilter 
+                    options={plants}
+                    selected={selectedPlants}
+                    onChange={setSelectedPlants}
+                    isLoading={isAuthLoading}
+                />
               </div>
               <div className="grid gap-1">
                 <label className="text-[10px] font-bold uppercase text-muted-foreground">From Date</label>

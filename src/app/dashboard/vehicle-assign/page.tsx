@@ -114,30 +114,28 @@ function OpenOrdersContent() {
             const authorizedPlants = baseList.filter(p => authIds.includes(p.id));
             setPlants(authorizedPlants);
 
-            // MISSION LOGIC: If no plants in URL and not initialized, select all authorized
+            // PERMANENT FIX NODE: Loop prevention logic
             if (!isInitialized.current) {
                 if (urlPlants.length > 0) {
                     setSelectedPlants(urlPlants);
                 } else if (authIds.length > 0) {
                     setSelectedPlants(authIds);
-                    updateURL(authIds);
                 }
                 isInitialized.current = true;
             }
         } catch (e) { setDbError(true); } finally { setIsAuthLoading(false); }
     };
     fetchAuth();
-  }, [firestore, user, allMasterPlants, isAdminSession, urlPlants, updateURL]);
+  }, [firestore, user, allMasterPlants, isAdminSession]); // Pruned deps to stop loop
 
   const handlePlantChange = (ids: string[]) => {
-    // Staged Selection Handshake: Only update state and URL on explicit Apply click
     setSelectedPlants(ids);
     updateURL(ids);
   };
 
   useEffect(() => {
     if (!firestore || !user || selectedPlants.length === 0) {
-      if (selectedPlants.length === 0) {
+      if (selectedPlants.length === 0 && isInitialized.current) {
           setAllData({ shipments: [], trips: [], entries: [], lrs: [] });
           setIsLoading(false);
       }

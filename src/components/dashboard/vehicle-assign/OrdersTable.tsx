@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -158,9 +157,10 @@ export default function OrdersTable({
                         </Badge>
                       </TableCell>
                       <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
-                        <DropdownMenu modal={true}>
+                        {/* PERMANENT FIX NODE: Set modal={false} to avoid compose-refs loop in scrolling tables */}
+                        <DropdownMenu modal={false}>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white text-slate-400 hover:text-blue-900 transition-all"><MoreHorizontal className="h-5 w-5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white text-slate-400 hover:text-blue-900 transition-all"><MoreHorizontal className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuPortal>
                             <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-slate-200 shadow-2xl z-[100] bg-white">
