@@ -29,6 +29,7 @@ interface MultiSelectPlantFilterProps {
  * @fileOverview Multi-Select Plant Filter Node.
  * Hardened for accurate pluralization and staged selection logic.
  * Staged logic prevents page reloads during the selection process.
+ * Row-level click handling prevents double-toggle bubbling errors.
  */
 export default function MultiSelectPlantFilter({
   options,
@@ -89,7 +90,6 @@ export default function MultiSelectPlantFilter({
     
     if (count === 1) {
         const plant = options.find(o => o.id === selected[0]);
-        // Format: "1 Plant Selected (ID)"
         return `1 Plant Selected${plant ? ` (${plant.id})` : ''}`;
     }
     
@@ -136,20 +136,20 @@ export default function MultiSelectPlantFilter({
         <div className="p-2 border-b bg-white sticky top-0 z-10">
           <div 
             className="flex items-center space-x-2 px-2 py-1.5 hover:bg-slate-50 rounded-md transition-colors cursor-pointer group"
-            onClick={() => handleSelectAll(!isAllSelected)}
+            onClick={(e) => {
+                e.preventDefault();
+                handleSelectAll(!isAllSelected);
+            }}
           >
             <Checkbox
-              id="select-all"
               checked={isAllSelected}
-              onCheckedChange={handleSelectAll}
-              className="border-slate-300 data-[state=checked]:bg-blue-900 data-[state=checked]:border-blue-900"
+              className="border-slate-300 data-[state=checked]:bg-blue-900 data-[state=checked]:border-blue-900 pointer-events-none"
             />
-            <label
-              htmlFor="select-all"
+            <span
               className="text-xs font-black uppercase tracking-wider cursor-pointer flex-1 text-slate-600 group-hover:text-blue-900 transition-colors"
             >
               Select All Plants
-            </label>
+            </span>
           </div>
         </div>
 
@@ -164,28 +164,28 @@ export default function MultiSelectPlantFilter({
                 <div
                   key={option.id}
                   className={cn(
-                    "flex items-center space-x-2 px-2 py-2 rounded-md transition-all cursor-pointer",
+                    "flex items-center space-x-2 px-2 py-2 rounded-md transition-all cursor-pointer group",
                     stagedSelected.includes(option.id) 
-                      ? "bg-blue-50/50 font-black" 
+                      ? "bg-blue-50/50" 
                       : "hover:bg-slate-50"
                   )}
-                  onClick={() => handleToggle(option.id)}
+                  onClick={(e) => {
+                      e.preventDefault();
+                      handleToggle(option.id);
+                  }}
                 >
                   <Checkbox
-                    id={`plant-${option.id}`}
                     checked={stagedSelected.includes(option.id)}
-                    onCheckedChange={() => handleToggle(option.id)}
-                    className="border-slate-300 data-[state=checked]:bg-blue-900 data-[state=checked]:border-blue-900"
+                    className="border-slate-300 data-[state=checked]:bg-blue-900 data-[state=checked]:border-blue-900 pointer-events-none"
                   />
-                  <label
-                    htmlFor={`plant-${option.id}`}
+                  <span
                     className={cn(
                       "text-sm font-medium cursor-pointer flex-1 transition-colors uppercase",
-                      stagedSelected.includes(option.id) ? "text-blue-900 font-black" : "text-slate-600"
+                      stagedSelected.includes(option.id) ? "text-blue-900 font-black" : "text-slate-600 group-hover:text-blue-900"
                     )}
                   >
                     {option.name}
-                  </label>
+                  </span>
                 </div>
               ))
             )}
