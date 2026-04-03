@@ -1,4 +1,3 @@
-
 import { Timestamp } from 'firebase/firestore';
 
 export type WithId<T> = T & { id: string };
@@ -283,11 +282,14 @@ export interface VehicleEntryExit {
 export interface FuelPump {
   id: string;
   name: string;
-  ownerName: string;
+  ownerName?: string;
   mobile: string;
+  phone?: string;
   pan?: string;
   gstin?: string;
   address?: string;
+  route?: string;
+  capacities?: string[];
   paymentMethod?: string;
   receiverName?: string;
   bankName?: string;

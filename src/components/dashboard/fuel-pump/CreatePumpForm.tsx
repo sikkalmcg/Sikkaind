@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -11,16 +10,19 @@ import { Loader2 } from 'lucide-react';
 import type { FuelPump } from '@/types';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FuelPumpPaymentMethods } from '@/lib/constants';
+import { FuelPumpPaymentMethods, VendorCapacities } from '@/lib/constants';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 const formSchema = z.object({
   name: z.string().min(1, 'Vendor Name is required'),
-  address: z.string().optional(),
-  ownerName: z.string().min(1, 'Owner Name is required'),
   mobile: z.string().regex(/^\d{10}$/, 'Mobile number must be 10 digits'),
+  phone: z.string().optional().or(z.literal('')),
+  address: z.string().min(1, 'Physical Address is mandatory'),
+  route: z.string().min(1, 'Operational Route is mandatory'),
+  capacities: z.array(z.string()).min(1, 'Select at least one capacity node'),
   gstin: z.string().optional(),
   pan: z.string().optional(),
   paymentMethod: z.enum(FuelPumpPaymentMethods).optional(),
@@ -33,16 +35,7 @@ const formSchema = z.object({
     .refine((files) => !files || files?.length === 0 || files?.[0]?.size <= MAX_FILE_SIZE, `Max image size is 1MB.`)
     .refine((files) => !files || files?.length === 0 || ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type), "Only .jpg, .jpeg, .png and .webp formats are supported."),
 }).superRefine((data, ctx) => {
-    if (!data.name) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Vendor Name is required.", path: ["name"] });
-    if (!data.ownerName) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Owner Name is required.", path: ["ownerName"] });
-    if (!data.mobile) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Mobile Number is required.", path: ["mobile"] });
-
     if (!data.gstin && !data.pan) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Either GSTIN or PAN is required.",
-            path: ["gstin"],
-        });
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: "Either GSTIN or PAN is required.",
@@ -77,16 +70,19 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
-      address: '',
-      ownerName: '',
       mobile: '',
+      phone: '',
+      address: '',
+      route: '',
+      capacities: [],
       gstin: '',
       pan: '',
     },
   });
 
-  const { watch, formState: { isSubmitting } } = form;
+  const { watch, setValue, formState: { isSubmitting } } = form;
   const paymentMethod = watch('paymentMethod');
+  const selectedCapacities = watch('capacities') || [];
 
   const convertFileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -95,6 +91,13 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = (error) => reject(error);
     });
+  };
+
+  const toggleCapacity = (val: string) => {
+    const next = selectedCapacities.includes(val)
+        ? selectedCapacities.filter(c => c !== val)
+        : [...selectedCapacities, val];
+    setValue('capacities', next, { shouldValidate: true });
   };
 
   const onSubmit = async (values: FormValues) => {
@@ -115,39 +118,80 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <FormField control={form.control} name="name" render={({ field }) => (
-            <FormItem><FormLabel>Vendor Name *</FormLabel><FormControl><Input placeholder="e.g. Reliance Fuel Hub" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-          )} />
-          <FormField control={form.control} name="address" render={({ field }) => (
-            <FormItem><FormLabel>Address</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-          )} />
-          <FormField control={form.control} name="ownerName" render={({ field }) => (
-            <FormItem><FormLabel>Owner Name *</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+            <FormItem>
+                <FormLabel className="text-[10px] font-black uppercase text-slate-400">Vendor Name *</FormLabel>
+                <FormControl><Input placeholder="e.g. Sikka Logistics Solutions" {...field} className="h-12 rounded-xl font-bold" /></FormControl>
+                <FormMessage />
+            </FormItem>
           )} />
           <FormField control={form.control} name="mobile" render={({ field }) => (
-            <FormItem><FormLabel>Mobile Number *</FormLabel><FormControl><Input type="tel" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+            <FormItem>
+                <FormLabel className="text-[10px] font-black uppercase text-slate-400">Vendor Mobile *</FormLabel>
+                <FormControl><Input type="tel" maxLength={10} placeholder="10-digit mobile" {...field} className="h-12 rounded-xl font-mono font-bold" /></FormControl>
+                <FormMessage />
+            </FormItem>
           )} />
+          <FormField control={form.control} name="phone" render={({ field }) => (
+            <FormItem>
+                <FormLabel className="text-[10px] font-black uppercase text-slate-400">Vendor Phone</FormLabel>
+                <FormControl><Input type="tel" placeholder="Landline Node" {...field} className="h-12 rounded-xl font-mono" /></FormControl>
+                <FormMessage />
+            </FormItem>
+          )} />
+          
+          <FormField control={form.control} name="address" render={({ field }) => (
+            <FormItem className="md:col-span-2">
+                <FormLabel className="text-[10px] font-black uppercase text-slate-400">Address Node *</FormLabel>
+                <FormControl><Input placeholder="Physical business address" {...field} className="h-12 rounded-xl" /></FormControl>
+                <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="route" render={({ field }) => (
+            <FormItem>
+                <FormLabel className="text-[10px] font-black uppercase text-slate-400">Operational Route *</FormLabel>
+                <FormControl><Input placeholder="e.g. GZB - MUM" {...field} className="h-12 rounded-xl font-black uppercase text-blue-900" /></FormControl>
+                <FormMessage />
+            </FormItem>
+          )} />
+
+          <div className="md:col-span-3 space-y-4 p-6 bg-slate-50 rounded-[2rem] border-2 border-slate-100 shadow-inner">
+            <FormLabel className="text-[10px] font-black uppercase text-slate-500 tracking-widest px-1">Asset Capacity Authorization *</FormLabel>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                {VendorCapacities.map(cap => (
+                    <div key={cap} onClick={() => toggleCapacity(cap)} className={cn(
+                        "flex items-center gap-3 p-3 rounded-2xl border-2 transition-all cursor-pointer group",
+                        selectedCapacities.includes(cap) ? "bg-blue-900 border-blue-900 shadow-lg text-white" : "bg-white border-slate-100 hover:border-slate-300 text-slate-400"
+                    )}>
+                        <Checkbox checked={selectedCapacities.includes(cap)} className="hidden" />
+                        <span className="text-[9px] font-black uppercase leading-tight">{cap}</span>
+                    </div>
+                ))}
+            </div>
+            <FormMessage>{form.formState.errors.capacities?.message}</FormMessage>
+          </div>
+
           <FormField control={form.control} name="gstin" render={({ field }) => (
-            <FormItem><FormLabel>GSTIN</FormLabel><FormControl><Input {...field} value={field.value ?? ''} placeholder="Required if PAN is blank" /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">GSTIN Registry</FormLabel><FormControl><Input {...field} value={field.value ?? ''} placeholder="09AAAAA..." className="h-11 rounded-xl uppercase font-mono" /></FormControl><FormMessage /></FormItem>
           )} />
           <FormField control={form.control} name="pan" render={({ field }) => (
-            <FormItem><FormLabel>PAN Number</FormLabel><FormControl><Input {...field} value={field.value ?? ''} placeholder="Required if GST is blank" /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">PAN Registry</FormLabel><FormControl><Input {...field} value={field.value ?? ''} placeholder="ABCDE1234F" className="h-11 rounded-xl uppercase font-mono" /></FormControl><FormMessage /></FormItem>
           )} />
         </div>
         
         <Separator className="my-6" />
 
-        <div>
-            <h3 className="text-md font-medium mb-4">Payment Registry</h3>
+        <div className="space-y-6">
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Payment Handbook</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField control={form.control} name="paymentMethod" render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Payment Method</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase text-slate-400">Primary Method</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select a method" /></SelectTrigger></FormControl>
-                            <SelectContent>{FuelPumpPaymentMethods.map(pm => <SelectItem key={pm} value={pm}>{pm}</SelectItem>)}</SelectContent>
+                            <FormControl><SelectTrigger className="h-11 rounded-xl font-bold"><SelectValue placeholder="Select method" /></SelectTrigger></FormControl>
+                            <SelectContent className="rounded-xl">{FuelPumpPaymentMethods.map(pm => <SelectItem key={pm} value={pm} className="font-bold py-2">{pm}</SelectItem>)}</SelectContent>
                         </Select>
                         <FormMessage />
                     </FormItem>
@@ -155,33 +199,29 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
             </div>
 
             {paymentMethod && paymentMethod !== 'Cash' && (
-                <div className="mt-6 space-y-6 animate-in fade-in slide-in-from-top-2">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-500">
+                    <FormField control={form.control} name="receiverName" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Receiver Name</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl font-bold" /></FormControl><FormMessage /></FormItem>)} />
                     {(paymentMethod === 'Banking' || paymentMethod === 'Cheque' || paymentMethod === 'Multiple') && (
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                            <FormField control={form.control} name="receiverName" render={({ field }) => (<FormItem><FormLabel>Receiver Name</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="bankName" render={({ field }) => (<FormItem><FormLabel>Bank Name</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="accountNumber" render={({ field }) => (<FormItem><FormLabel>Account Number</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="ifsc" render={({ field }) => (<FormItem><FormLabel>IFSC Code</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                        </div>
+                        <>
+                            <FormField control={form.control} name="bankName" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Bank Node</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl" /></FormControl></FormItem>)} />
+                            <FormField control={form.control} name="accountNumber" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">A/C Number</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl font-mono" /></FormControl></FormItem>)} />
+                            <FormField control={form.control} name="ifsc" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">IFSC Node</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl uppercase font-mono" /></FormControl></FormItem>)} />
+                        </>
                     )}
                      {(paymentMethod === 'UPI Payment' || paymentMethod === 'Multiple') && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                             {paymentMethod === 'UPI Payment' && <FormField control={form.control} name="receiverName" render={({ field }) => (<FormItem><FormLabel>Receiver Name</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />}
-                            <FormField control={form.control} name="upiId" render={({ field }) => (<FormItem><FormLabel>UPI ID</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="qrCode" render={({ field }) => (<FormItem><FormLabel>QR Code</FormLabel><FormControl><Input type="file" accept="image/*" onChange={e => field.onChange(e.target.files)} /></FormControl><FormMessage /></FormItem>)} />
-                        </div>
+                        <>
+                            <FormField control={form.control} name="upiId" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">UPI ID Registry</FormLabel><FormControl><Input {...field} value={field.value ?? ''} className="h-11 rounded-xl" /></FormControl></FormItem>)} />
+                            <FormField control={form.control} name="qrCode" render={({ field }) => (<FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">QR Manifest</FormLabel><FormControl><Input type="file" accept="image/*" onChange={e => field.onChange(e.target.files)} className="h-11 pt-3" /></FormControl></FormItem>)} />
+                        </>
                     )}
                 </div>
             )}
         </div>
 
-
-        <div className="flex gap-4 pt-4">
-          <Button type="submit" disabled={isSubmitting} className="bg-blue-900 hover:bg-slate-900 text-white px-8">
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Vendor
-          </Button>
-          <Button type="button" variant="ghost" onClick={() => form.reset()} className="text-slate-400">
-            Discard
+        <div className="flex gap-4 pt-8 border-t border-slate-100 justify-end">
+          <Button type="button" variant="ghost" onClick={() => form.reset()} className="font-black text-slate-400 uppercase text-[10px] tracking-widest px-8 h-12">Discard</Button>
+          <Button type="submit" disabled={isSubmitting} className="bg-blue-900 hover:bg-black text-white px-16 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl border-none transition-all active:scale-95">
+            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Commit Vendor Node
           </Button>
         </div>
       </form>
