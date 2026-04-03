@@ -273,7 +273,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     const fetchLastLr = async () => {
         try {
             const pId = normalizePlantId(originPlantId);
-            // Search partitioned shipment ledger for the latest entry with an LR
             const q = query(
                 collection(firestore, `plants/${pId}/shipments`),
                 orderBy("creationDate", "desc"),
@@ -342,7 +341,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         if(isSameAsBillTo) {
             setValue('shipToParty', party.name, { shouldValidate: true });
             setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-            const city = party.city && party.city !== 'N/A' ? party.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
+            const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
             if (city) {
                 setValue('unloadingPoint', city, { shouldValidate: true });
                 setValue('deliveryAddress', party.address || '', { shouldValidate: true });
@@ -350,7 +349,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         }
     } else if (type === 'shipToParty') {
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-        const city = party.city && party.city !== 'N/A' ? party.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
+        const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
         if (city) {
             setValue('unloadingPoint', city, { shouldValidate: true });
             setValue('deliveryAddress', party.address || '', { shouldValidate: true });
@@ -370,7 +369,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     try {
         const plantId = normalizePlantId(values.originPlantId);
 
-        // REGISTRY LOCK Node: Prevent Duplicate LR for the selected plant
         if (values.lrNumber && values.lrNumber !== '') {
             const dupQuery = query(
                 collection(firestore, `plants/${plantId}/shipments`),
@@ -491,7 +489,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         lrNumber: lr,
                         paymentTerm: getVal(row, ["Payment Term", "Term"]) || 'Paid',
                         deliveryAddress: getVal(row, ["Delivery Address", "Address"]),
-                        rawItems: [] // Temporary storage for consolidation check
+                        rawItems: []
                     };
                 }
                 
@@ -507,12 +505,15 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 });
             });
 
-            let successCount = 0;
             const groups = Object.values(orderGroups);
+            let successCount = 0;
 
-            for (const g of groups) {
-                try {
-                    // CONSOLIDATION NODE: Aggregate by description if > 4 rows
+            // Unified Transaction Pulse for entire bulk upload
+            await runTransaction(firestore, async (tx) => {
+                const countSnap = await tx.get(doc(firestore, "counters", "shipments"));
+                let currentCount = countSnap.exists() ? countSnap.data().count : 0;
+
+                for (const g of groups) {
                     let finalItems = g.rawItems;
                     if (g.rawItems.length > 4) {
                         const aggMap: Record<string, any> = {};
@@ -528,43 +529,43 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                                 }
                             }
                         });
-                        finalItems = Object.values(aggMap).map(agg => ({
-                            ...agg,
-                            invoiceNumber: agg.invoiceNumbers.join(', '),
-                            invoiceNumbers: undefined
-                        }));
+                        finalItems = Object.values(aggMap).map(agg => {
+                            const { invoiceNumbers, ...rest } = agg;
+                            return {
+                                ...rest,
+                                invoiceNumber: invoiceNumbers.join(', ')
+                            };
+                        });
                     }
                     delete g.rawItems;
                     g.items = finalItems;
 
-                    await runTransaction(firestore, async (tx) => {
-                        const countSnap = await tx.get(doc(firestore, "counters", "shipments"));
-                        const newCount = (countSnap.exists() ? countSnap.data().count : 0) + 1;
-                        const shipmentId = formatSequenceId("S", newCount);
-                        const shipRef = doc(collection(firestore, `plants/${g.originPlantId}/shipments`));
+                    currentCount++;
+                    const shipmentId = formatSequenceId("S", currentCount);
+                    const shipRef = doc(collection(firestore, `plants/${g.originPlantId}/shipments`));
 
-                        const dataToSave = {
-                            ...g,
-                            shipmentId,
-                            assignedQty: 0,
-                            balanceQty: g.quantity,
-                            currentStatusId: 'pending',
-                            creationDate: serverTimestamp(),
-                            lrDate: serverTimestamp(), 
-                            userId: user.uid
-                        };
+                    const dataToSave = {
+                        ...g,
+                        shipmentId,
+                        assignedQty: 0,
+                        balanceQty: g.quantity,
+                        currentStatusId: 'pending',
+                        creationDate: serverTimestamp(),
+                        userId: user.uid
+                    };
 
-                        tx.set(doc(firestore, "counters", "shipments"), { count: newCount }, { merge: true });
-                        tx.set(shipRef, dataToSave);
-                    });
+                    tx.set(shipRef, dataToSave);
                     successCount++;
-                } catch (err) { console.error("Transaction failed for group", err); }
-            }
+                }
+
+                tx.set(doc(firestore, "counters", "shipments"), { count: currentCount }, { merge: true });
+            });
 
             toast({ title: 'Bulk Sync Complete', description: `Established ${successCount} consolidated mission nodes.` });
             onShipmentCreated({ id: 'bulk' } as any);
-        } catch (err) {
-            toast({ variant: 'destructive', title: 'Upload Failed', description: 'Registry file error.' });
+        } catch (err: any) {
+            console.error("Bulk upload error:", err);
+            toast({ variant: 'destructive', title: 'Upload Failed', description: err.message || 'Registry sync error.' });
         } finally {
             setIsBulkUploading(false);
             hideLoader();
