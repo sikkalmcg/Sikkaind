@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -21,7 +22,7 @@ import { DatePicker } from '@/components/date-picker';
 import { Separator } from '@/components/ui/separator';
 import type { Plant, Shipment, WithId, SubUser, Party, MasterQtyType, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save, FileDown, Upload } from 'lucide-react';
+import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save, FileDown, Upload, History } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDoc, getDocs, limit, Timestamp } from "firebase/firestore";
 import { cn, normalizePlantId, formatSequenceId } from '@/lib/utils';
@@ -42,7 +43,7 @@ const formSchema = z.object({
   unloadingPoint: z.string().min(1, 'Destination city is mandatory.'),
   quantity: z.coerce.number(),
   materialTypeId: z.string().min(1, 'UOM is required.'),
-  lrNumber: z.string().optional().or(z.literal('')),
+  lrNumber: z.string().optional().or(z.literal('')).transform(v => v?.toUpperCase().trim()),
   lrDate: z.date().optional().nullable(),
   carrierId: z.string().optional().or(z.literal('')),
   paymentTerm: z.enum(PaymentTerms).optional(),
@@ -204,6 +205,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   const [currentTime, setCurrentTime] = useState(new Date());
   const [helpModal, setHelpModal] = useState<{ type: string; title: string; data: any[] } | null>(null);
   const [isBulkUploading, setIsBulkUploading] = useState(false);
+  const [lastUsedLr, setLastUsedLr] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -262,11 +264,39 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     return type.includes('consignee') || type.includes('buyer') || type.includes('ship to');
   }), [activeParties]);
 
+  // Registry Pulse Node: Fetch Last Used LR for Selected Plant
+  useEffect(() => {
+    if (!firestore || !originPlantId) {
+        setLastUsedLr(null);
+        return;
+    }
+    const fetchLastLr = async () => {
+        try {
+            const pId = normalizePlantId(originPlantId);
+            // Search partitioned shipment ledger for the latest entry with an LR
+            const q = query(
+                collection(firestore, `plants/${pId}/shipments`),
+                orderBy("creationDate", "desc"),
+                limit(10) 
+            );
+            const snap = await getDocs(q);
+            const lastShipmentWithLr = snap.docs.find(d => d.data().lrNumber && d.data().lrNumber !== '');
+            if (lastShipmentWithLr) {
+                setLastUsedLr(lastShipmentWithLr.data().lrNumber);
+            } else {
+                setLastUsedLr(null);
+            }
+        } catch (e) {
+            console.error("LR Registry Fetch Failure:", e);
+        }
+    };
+    fetchLastLr();
+  }, [originPlantId, firestore]);
+
   useEffect(() => {
     if (originPlantId && authorizedPlants.length > 0) {
         const plant = authorizedPlants.find(p => p.id === originPlantId);
         if (plant) {
-            // Registry Logic: Skip plot numbers (like C-17) to find actual City Node
             const addrParts = (plant.address || '').split(',').map(p => p.trim()).filter(Boolean);
             let resolvedCity = plant.city && plant.city !== 'N/A' ? plant.city : '';
             
@@ -306,14 +336,13 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     if (type === 'consignor') {
         setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
         if(party.address) setValue('consignorAddress', party.address, { shouldValidate: true });
-        // MISSION CRITICAL: Lifting Point MUST follow Consignor's City Registry (Parties Tab)
         if(party.city) setValue('loadingPoint', party.city.toUpperCase(), { shouldValidate: true });
     } else if (type === 'billToParty') {
         setValue('billToGtin', party.gstin || '', { shouldValidate: true });
         if(isSameAsBillTo) {
             setValue('shipToParty', party.name, { shouldValidate: true });
             setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-            const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
+            const city = party.city && party.city !== 'N/A' ? party.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
             if (city) {
                 setValue('unloadingPoint', city, { shouldValidate: true });
                 setValue('deliveryAddress', party.address || '', { shouldValidate: true });
@@ -321,7 +350,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         }
     } else if (type === 'shipToParty') {
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-        const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
+        const city = party.city && party.city !== 'N/A' ? party.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
         if (city) {
             setValue('unloadingPoint', city, { shouldValidate: true });
             setValue('deliveryAddress', party.address || '', { shouldValidate: true });
@@ -339,11 +368,31 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     if (!firestore || !user) return;
     showLoader();
     try {
+        const plantId = normalizePlantId(values.originPlantId);
+
+        // REGISTRY LOCK Node: Prevent Duplicate LR for the selected plant
+        if (values.lrNumber && values.lrNumber !== '') {
+            const dupQuery = query(
+                collection(firestore, `plants/${plantId}/shipments`),
+                where("lrNumber", "==", values.lrNumber.trim().toUpperCase()),
+                limit(1)
+            );
+            const dupSnap = await getDocs(dupQuery);
+            if (!dupSnap.empty) {
+                toast({ 
+                    variant: 'destructive', 
+                    title: "Registry Conflict", 
+                    description: `LR Number ${values.lrNumber} already exists in plant ${plantId} registry.` 
+                });
+                hideLoader();
+                return;
+            }
+        }
+
         await runTransaction(firestore, async (tx) => {
             const countSnap = await tx.get(doc(firestore, "counters", "shipments"));
             const newCount = (countSnap.exists() ? countSnap.data().count : 0) + 1;
             const shipmentId = formatSequenceId("S", newCount);
-            const plantId = normalizePlantId(values.originPlantId);
             const shipRef = doc(collection(firestore, `plants/${plantId}/shipments`));
 
             let manifestItems = values.items || [];
@@ -600,10 +649,28 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                </div>
 
                <div className="p-10 rounded-[2.5rem] border-2 border-dashed border-blue-100 bg-blue-50/10 space-y-8">
-                  <div className="flex items-center gap-3 text-blue-900 font-black text-sm uppercase tracking-tighter border-b border-blue-100 pb-4"><Truck size={20}/> 2. Optional LR Registry Section</div>
+                  <div className="flex items-center justify-between border-b border-blue-100 pb-4">
+                    <div className="flex items-center gap-3 text-blue-900 font-black text-sm uppercase tracking-tighter"><Truck size={20}/> 2. Optional LR Registry Section</div>
+                    {lastUsedLr && (
+                        <div className="flex items-center gap-2 px-4 py-1.5 bg-white border border-blue-200 rounded-full shadow-sm animate-in fade-in slide-in-from-right-4 duration-500">
+                            <History size={12} className="text-blue-600" />
+                            <span className="text-[9px] font-black uppercase text-slate-400">Previous LR Node:</span>
+                            <span className="text-[10px] font-black text-blue-900 font-mono">{lastUsedLr}</span>
+                        </div>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                       <FormField control={control} name="lrNumber" render={({ field }) => (
-                        <FormItem><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">LR Number</FormLabel><FormControl><Input {...field} placeholder="Enter LR" className="h-14 bg-white rounded-xl font-black uppercase tracking-widest border-slate-200" /></FormControl></FormItem>
+                        <FormItem>
+                            <FormLabel className="text-[10px] font-bold text-slate-400 uppercase">LR Number</FormLabel>
+                            <FormControl>
+                                <Input 
+                                    {...field} 
+                                    placeholder="ENTER LR" 
+                                    className="h-14 bg-white rounded-xl font-black uppercase tracking-widest border-slate-200 shadow-inner focus-visible:ring-blue-900" 
+                                />
+                            </FormControl>
+                        </FormItem>
                       )} />
 
                       <FormField control={control} name="lrDate" render={({ field }) => (
