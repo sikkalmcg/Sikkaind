@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -9,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/date-picker';
-import { Loader2, WifiOff, History, AlertCircle } from 'lucide-react';
+import { Loader2, WifiOff, History, AlertCircle, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { WithId, SubUser, Activity } from '@/types';
 import { mockSubUsers } from '@/lib/mock-data';
