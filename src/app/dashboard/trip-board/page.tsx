@@ -309,11 +309,12 @@ function TripBoardContent() {
         if (pIdStr === '1426') {
             finalCarrier = {
                 id: 'ID20',
-                name: 'SIKKA INDUSTRIES AND LOGISTICS',
-                address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, GHAZIABAD, UTTAR PRADESH, 201009',
-                mobile: '8860091900',
-                gstin: '09AYQPS6936B1ZV',
+                name: 'SIKKA LMC',
+                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
+                mobile: '9136688004',
+                gstin: '07AYQPS6936B1ZZ',
                 stateCode: '09',
+                stateName: 'UTTAR PRADESH',
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com'
             };
@@ -325,6 +326,7 @@ function TripBoardContent() {
                 mobile: '9136688004',
                 gstin: '09AYQPS6936B1ZV',
                 stateCode: '09',
+                stateName: 'UTTAR PRADESH',
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com'
             };
@@ -336,11 +338,12 @@ function TripBoardContent() {
 
         if (!finalCarrier) {
             finalCarrier = { 
-                name: 'SIKKA INDUSTRIES AND LOGISTICS',
-                address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, GHAZIABAD, UTTAR PRADESH, 201009',
-                mobile: '8860091900',
-                gstin: '09AYQPS6936B1ZV',
+                name: 'SIKKA LMC',
+                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
+                mobile: '9136688004',
+                gstin: '07AYQPS6936B1ZZ',
                 stateCode: '09',
+                stateName: 'UTTAR PRADESH',
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com'
             };
@@ -699,7 +702,7 @@ function TripBoardContent() {
               <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Search Registry</Label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                <Input placeholder="Search trips..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 h-9 w-[200px] border-slate-200 font-bold" />
+                <Input placeholder="Search trips..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 h-9 w-[240px] border-slate-200 font-bold" />
               </div>
             </div>
             <div className="flex items-end gap-2 pt-4">
