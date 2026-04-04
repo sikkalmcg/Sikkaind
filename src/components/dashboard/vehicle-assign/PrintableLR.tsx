@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -96,13 +97,15 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             />
           </div>
           <div className="space-y-0.5">
-            <h1 className="text-[16pt] font-black uppercase tracking-tighter leading-none">SIKKA LMC</h1>
+            <h1 className="text-[16pt] font-black uppercase tracking-tighter leading-none">{lr.carrier?.name || 'SIKKA LMC'}</h1>
             <p className="text-[7.5pt] font-black text-slate-600 uppercase max-w-[400px] leading-tight">
-                20KM. STONE, NEAR TIVOLI GRAND RESORT, KHASRA NO. -3, G.T. KARNAL ROAD, JINDPUR, DELHI - 110036
+                {lr.carrier?.address || '20KM. STONE, NEAR TIVOLI GRAND RESORT, KHASRA NO. -3, G.T. KARNAL ROAD, JINDPUR, DELHI - 110036'}
             </p>
-            <div className="text-[7.5pt] font-black text-slate-500 flex flex-wrap gap-x-4 pt-0.5">
-              <p>PHONE: 9136688004, 9136688006, 9136688009</p>
-              <p>GSTIN: <span className="font-mono text-slate-900">09AYQPS6936B1ZV</span></p>
+            <div className="text-[7.5pt] font-black text-slate-500 flex flex-wrap gap-x-4 pt-0.5 uppercase">
+              <p>PHONE: {lr.carrier?.mobile || '9136688004, 9136688006, 9136688009'}</p>
+              <p>GSTIN: <span className="font-mono text-slate-900">{lr.carrier?.gstin || '09AYQPS6936B1ZV'}</span></p>
+              <p>STATE CODE: <span className="font-mono text-slate-900">{lr.carrier?.stateCode || '09'}</span></p>
+              <p>PAN NO: <span className="font-mono text-slate-900">{lr.carrier?.pan || 'AYQPS6936B'}</span></p>
             </div>
           </div>
         </div>
