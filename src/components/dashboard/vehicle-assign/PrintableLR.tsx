@@ -32,9 +32,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
   const itemsWithInvoiceSet = allItems.map((item, index) => {
     const invoiceStr = (item as any).invoiceNumber || (item as any).invoiceNo || 'NA';
-    const invoiceSet = new Set(invoiceStr.split(',').map((s: string) => s.trim()).filter(Boolean));
+    const invoiceSet = new Set(invoiceStr.split(',').map((s: string) => s.trim()).filter(Boolean).filter(v => v !== '--'));
     const ewaybillStr = (item as any).ewaybillNumber || (item as any).ewaybillNo || '';
-    const ewaybillSet = new Set(ewaybillStr.split(',').map((s: string) => s.trim()).filter(Boolean));
+    const ewaybillSet = new Set(ewaybillStr.split(',').map((s: string) => s.trim()).filter(Boolean).filter(v => v !== '--'));
     return { ...item, uid: `item-${index}`, invoiceSet, ewaybillSet };
   });
 
@@ -147,8 +147,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const dispatchTime = dispatchDateRaw ? format(parseSafeDate(dispatchDateRaw)!, 'HH:mm') : 'N/A';
 
   const renderDocumentRef = (invoice: string, ewaybill?: string) => {
-    const invoices = invoice.split(',').map(p => p.trim()).filter(Boolean);
-    const ewaybills = (ewaybill || '').split(',').map(p => p.trim()).filter(Boolean);
+    const invoices = (invoice || '').split(',').map(p => p.trim()).filter(Boolean).filter(v => v !== '--');
+    const ewaybills = (ewaybill || '').split(',').map(p => p.trim()).filter(Boolean).filter(v => v !== '--');
     
     const pairs = [];
     const maxLen = Math.max(invoices.length, ewaybills.length);
