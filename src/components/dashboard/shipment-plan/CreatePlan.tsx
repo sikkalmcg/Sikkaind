@@ -431,10 +431,10 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   const handleExportTemplate = () => {
     const headers = [
         "Plant ID", "Consignor Name", "Consignor GSTIN", "From (City)", "Consignee Name", "Consignee GSTIN", "Ship To Name", "Ship To GSTIN", 
-        "Destination Point", "UOM", "Quantity", "Invoice Number", "LR Number", "LR Date", "Payment Term", "Delivery Address", "Item Description", "Units"
+        "Destination Point", "UOM", "Quantity", "Invoice Number", "E-Waybill Number", "LR Number", "LR Date", "Payment Term", "Delivery Address", "Item Description", "Units"
     ];
     const sample = [
-        ["1426", "TATA CHEMICALS", "27AABCU9567L1Z5", "MUMBAI", "BIGMART RETAIL", "07AABCD1234E1Z3", "BIGMART WH", "07AABCD1234E1Z3", "GHAZIABAD", "MT", "25.000", "INV-9988", "LR123", "01-04-2026", "Paid", "C-17 UPSIDC GZB", "TATA SALT 50KG BAGS", "500"]
+        ["1426", "TATA CHEMICALS", "27AABCU9567L1Z5", "MUMBAI", "BIGMART RETAIL", "07AABCD1234E1Z3", "BIGMART WH", "07AABCD1234E1Z3", "GHAZIABAD", "MT", "25.000", "INV-9988", "EWB-123456", "LR123", "01-04-2026", "Paid", "C-17 UPSIDC GZB", "TATA SALT 50KG BAGS", "500"]
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers, ...sample]);
     const wb = XLSX.utils.book_new();
@@ -515,7 +515,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 orderGroups[groupKey].quantity += itemQty;
                 orderGroups[groupKey].rawItems.push({
                     invoiceNumber: getVal(row, ["Invoice Number", "Invoice No"]) || 'NA',
-                    ewaybillNumber: getVal(row, ["E-Waybill Number", "Ewaybill No"]),
+                    ewaybillNumber: getVal(row, ["E-Waybill Number", "Ewaybill No", "EWB No"]),
                     units: Number(getVal(row, ["Units", "Packages"])) || 1,
                     unitType: 'Package',
                     itemDescription: getVal(row, ["Item Description", "Description"]) || 'BULK UPLOAD MISSION',
@@ -549,19 +549,22 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                                 aggMap[descKey] = { 
                                     ...item, 
                                     itemDescription: descKey,
-                                    invoiceNumbers: new Set([item.invoiceNumber]) 
+                                    invoiceNumbers: new Set([item.invoiceNumber]),
+                                    ewaybillNumbers: new Set([item.ewaybillNumber].filter(Boolean))
                                 };
                             } else {
                                 aggMap[descKey].units += item.units;
                                 aggMap[descKey].weight += item.weight;
                                 aggMap[descKey].invoiceNumbers.add(item.invoiceNumber);
+                                if (item.ewaybillNumber) aggMap[descKey].ewaybillNumbers.add(item.ewaybillNumber);
                             }
                         });
                         finalItems = Object.values(aggMap).map(agg => {
-                            const { invoiceNumbers, ...rest } = agg;
+                            const { invoiceNumbers, ewaybillNumbers, ...rest } = agg;
                             return {
                                 ...rest,
-                                invoiceNumber: Array.from(invoiceNumbers).join(', ')
+                                invoiceNumber: Array.from(invoiceNumbers).join(', '),
+                                ewaybillNumber: Array.from(ewaybillNumbers).join(', ')
                             };
                         });
                     }

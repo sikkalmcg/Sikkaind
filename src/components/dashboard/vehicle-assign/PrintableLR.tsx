@@ -28,16 +28,16 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
   const allItems = lr.items || [];
 
-  // --- NEW LOGIC: Group items by connected invoices ---
+  // --- NEW LOGIC: Group items by connected invoices and track E-Waybills ---
 
-  // 1. Pre-process items to have a unique ID and a Set of invoices
   const itemsWithInvoiceSet = allItems.map((item, index) => {
     const invoiceStr = (item as any).invoiceNumber || (item as any).invoiceNo || 'NA';
     const invoiceSet = new Set(invoiceStr.split(',').map((s: string) => s.trim()).filter(Boolean));
-    return { ...item, uid: `item-${index}`, invoiceSet };
+    const ewaybillStr = (item as any).ewaybillNumber || (item as any).ewaybillNo || '';
+    const ewaybillSet = new Set(ewaybillStr.split(',').map((s: string) => s.trim()).filter(Boolean));
+    return { ...item, uid: `item-${index}`, invoiceSet, ewaybillSet };
   });
 
-  // 2. Build adjacency list for item graph based on shared invoices
   const adj = new Map<string, string[]>();
   itemsWithInvoiceSet.forEach(item => adj.set(item.uid, []));
 
@@ -60,7 +60,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     }
   });
 
-  // 3. Find connected components (groups of items) using DFS
   const visited = new Set<string>();
   const components: (typeof itemsWithInvoiceSet)[][] = [];
   const itemMap = new Map(itemsWithInvoiceSet.map(i => [i.uid, i]));
@@ -85,37 +84,36 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     }
   }
 
-  // 4. Create summarized rows from components
   const summarizedRows = components.map(component => {
     const allInvoicesInComponent = new Set<string>();
+    const allEwaybillsInComponent = new Set<string>();
     let totalUnitsInComponent = 0;
     let totalWeightInComponent = 0;
 
     component.forEach(item => {
       item.invoiceSet.forEach(inv => allInvoicesInComponent.add(inv));
+      item.ewaybillSet.forEach(ewb => allEwaybillsInComponent.add(ewb));
       totalUnitsInComponent += Number(item.units) || 0;
       totalWeightInComponent += Number(item.weight) || 0;
     });
     
     const invoiceNumber = [...allInvoicesInComponent].sort().join(', ');
+    const ewaybillNumber = [...allEwaybillsInComponent].sort().join(', ');
     
-    // If the component has multiple items, it's various. If it's one item, use its description.
     const itemDescription = component.length > 1 ? 'Various Items as per Invoice' : component[0].itemDescription;
 
     return {
       invoiceNumber,
+      ewaybillNumber,
       itemDescription,
       units: totalUnitsInComponent,
       weight: totalWeightInComponent,
-    } as LRProduct;
+    } as any;
   });
-
-  // --- END OF NEW LOGIC ---
 
   const totalUnits = allItems.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
   const totalWeight = Number(lr.assignedTripWeight) || allItems.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
 
-  // Apply the "MIX" logic if there are too many summarized rows
   let displayItems = summarizedRows;
   if (summarizedRows.length > 6) {
     const topItems = summarizedRows.slice(0, 4);
@@ -125,80 +123,67 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
     const allRemainingInvoices = remainingItems.flatMap(item => (item.invoiceNumber || '').split(',')).map(inv => inv.trim()).filter(Boolean);
     const uniqueInvoices = [...new Set(allRemainingInvoices)].join(', ');
+    
+    const allRemainingEwaybills = remainingItems.flatMap(item => (item.ewaybillNumber || '').split(',')).map(ewb => ewb.trim()).filter(Boolean);
+    const uniqueEwaybills = [...new Set(allRemainingEwaybills)].join(', ');
 
     displayItems = [
       ...topItems,
       {
         invoiceNumber: uniqueInvoices,
+        ewaybillNumber: uniqueEwaybills,
         itemDescription: 'MIX',
         units: remainingUnits,
         weight: remainingWeight,
-      } as LRProduct,
+      } as any,
     ];
   }
 
-  // REGISTRY HANDSHAKE: Resilient property mapping from Trip or LR document
-  const vehicleNumber = lr.vehicleNumber || lr.trip?.vehicleNumber || (lr.trip as any)?.vehicleNo || '--';
-  const driverName = lr.driverName || lr.trip?.driverName || (lr.trip as any)?.pilotName || 'N/A';
-  const driverMobile = lr.driverMobile || lr.trip?.driverMobile || (lr.trip as any)?.pilotMobile || '--';
-  const vehicleType = lr.trip?.vehicleType || (lr.trip as any)?.fleetType || 'OWN VEHICLE';
-  const paymentTerm = lr.paymentTerm || lr.trip?.paymentTerm || (lr.trip as any)?.term || 'PAID';
-  const dispatchDateRaw = lr.trip?.startDate || (lr.trip as any)?.assignedDateTime || (lr.trip as any)?.creationDate;
+  const vehicleNumber = lr.vehicleNumber || lr.trip?.vehicleNumber || '--';
+  const driverMobile = lr.driverMobile || lr.trip?.driverMobile || '--';
+  const vehicleType = lr.trip?.vehicleType || 'OWN VEHICLE';
+  const paymentTerm = lr.paymentTerm || lr.trip?.paymentTerm || 'PAID';
+  const dispatchDateRaw = lr.trip?.startDate || lr.date;
   const dispatchTime = dispatchDateRaw ? format(parseSafeDate(dispatchDateRaw)!, 'HH:mm') : 'N/A';
 
-  const terms = [
-    "1. Agency is not responsible for rain or any natural calamity.",
-    "2. Any discrepancy regarding material has to be intimated within 24 Hours of the receipt material with remark in POD section.",
-    "3. Owner of the vehicle (truck) is responsible for the goods after lifting the goods.",
-    "4. Agency has the right to hold the material upon shortage of vehicle.",
-    "5. Traders is responsible for contraband goods or goods which are not authorized.",
-    "6. Agency holds no responsibility after goods have been delivered.",
-    "7. All disputes subject to Ghaziabad Jurisdiction."
-  ];
-
-  const renderInvoices = (val: string) => {
-    if (!val || val === 'NA' || val === '--') return '--';
-    const parts = val.split(',').map(p => p.trim()).filter(Boolean);
-    const uniqueParts = [...new Set(parts)];
-    if (uniqueParts.length <= 2) return uniqueParts.join(', ');
-
+  const renderDocumentRef = (invoice: string, ewaybill?: string) => {
+    const invoices = invoice.split(',').map(p => p.trim()).filter(Boolean);
+    const ewaybills = (ewaybill || '').split(',').map(p => p.trim()).filter(Boolean);
+    
     const pairs = [];
-    for (let i = 0; i < uniqueParts.length; i += 2) {
-      pairs.push(uniqueParts.slice(i, i + 2).join(', '));
+    const maxLen = Math.max(invoices.length, ewaybills.length);
+    
+    for (let i = 0; i < maxLen; i += 2) {
+        const invPair = invoices.slice(i, i + 2).join(', ');
+        const ewbPair = ewaybills.slice(i, i + 2).join(', ');
+        
+        pairs.push(
+            <div key={i} className="mb-2 last:mb-0 border-b border-slate-100 pb-1 last:border-0">
+                <div className="flex flex-col gap-0.5">
+                    <span className="text-[7pt] font-black text-blue-900">INV: {invPair || '--'}</span>
+                    {ewbPair && <span className="text-[7pt] font-bold text-slate-500 italic">E-WB: {ewbPair}</span>}
+                </div>
+            </div>
+        );
     }
 
-    return (
-      <div className="flex flex-col gap-0.5 py-1.5">
-        {pairs.map((pair, idx) => (
-          <div key={idx} className="whitespace-nowrap">{pair}</div>
-        ))}
-      </div>
-    );
+    return <div className="flex flex-col py-1.5">{pairs}</div>;
   };
 
   return (
     <div className="A4-page p-[8mm] bg-white text-black font-sans text-[9pt] leading-tight flex flex-col relative select-text box-border h-[297mm] overflow-hidden">
-
-      {/* 1. TOP COPY INDICATOR */}
       <div className="text-center mb-2 border-b-2 border-black pb-1">
         <span className="text-[10pt] font-black uppercase tracking-[0.6em] text-slate-900">{copyType}</span>
       </div>
 
-      {/* 2. HEADER NODE: COMPANY | CN BOX */}
       <div className="flex justify-between items-start mb-6 pt-2">
         <div className="flex gap-4 flex-1 pr-6">
           <div className="h-16 w-16 bg-white border-2 border-black rounded-lg flex items-center justify-center p-1 shrink-0 overflow-hidden">
-            <img
-              src={lr.carrier?.logoUrl || "https://image2url.com/r2/default/images/1774853131451-83a2a90c-6707-43fc-9b92-c364ad369d96.jpeg"}
-              alt="SIL Logo"
-              className="max-h-full max-w-full object-contain"
-            />
+            <img src={lr.carrier?.logoUrl || "https://image2url.com/r2/default/images/1774853131451-83a2a90c-6707-43fc-9b92-c364ad369d96.jpeg"} alt="Logo" className="max-h-full max-w-full object-contain" />
           </div>
           <div className="space-y-0.5">
             <h1 className="text-[16pt] font-black uppercase tracking-tighter leading-none">{lr.carrier?.name}</h1>
-            <p className="text-[7.5pt] font-black text-slate-600 uppercase max-w-[400px] leading-tight">
-              {lr.carrier?.address}
-            </p>
+            <p className="text-[7.5pt] font-black text-slate-600 uppercase max-w-[400px] leading-tight">{lr.carrier?.address}</p>
             <div className="text-[7.5pt] font-black text-slate-500 flex flex-wrap gap-x-4 pt-0.5 uppercase">
               <p>PHONE: <span className="text-slate-900">{lr.carrier?.mobile}</span></p>
               <p>GSTIN: <span className="font-mono text-slate-900">{lr.carrier?.gstin}</span></p>
@@ -217,20 +202,13 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             </p>
           </div>
           <div className="text-[9pt] font-black uppercase space-y-1 px-1">
-            <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-0.5">
-              <span>DATE:</span> <span>{formatDate(lr.date)}</span>
-            </p>
-            <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-0.5">
-              <span>FROM:</span> <span className="truncate max-w-[120px]">{lr.from?.toUpperCase() || '--'}</span>
-            </p>
-            <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-0.5">
-              <span>TO:</span> <span className="truncate max-w-[120px]">{lr.to?.toUpperCase() || '--'}</span>
-            </p>
+            <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-0.5"><span>DATE:</span> <span>{formatDate(lr.date)}</span></p>
+            <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-0.5"><span>FROM:</span> <span className="truncate max-w-[120px]">{lr.from?.toUpperCase() || '--'}</span></p>
+            <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-0.5"><span>TO:</span> <span className="truncate max-w-[120px]">{lr.to?.toUpperCase() || '--'}</span></p>
           </div>
         </div>
       </div>
 
-      {/* 3. ASSET OPERATIONAL STRIP */}
       <div className="grid grid-cols-5 border-2 border-black rounded-xl overflow-hidden mb-6 bg-slate-50 divide-x-2 divide-black">
         {[
           { label: 'VEHICLE NUMBER', value: vehicleNumber, bold: true },
@@ -246,7 +224,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         ))}
       </div>
 
-      {/* 4. ENTITY HANDBOOK */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="border-2 border-black rounded-[1.5rem] p-5 relative min-h-[120px]">
           <div className="absolute -top-3 left-6 bg-black text-white px-4 py-1 rounded-full text-[7.5pt] font-black uppercase tracking-widest shadow-lg">CONSIGNOR (SENDER)</div>
@@ -267,12 +244,11 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 5. AUDIT MANIFEST TABLE */}
       <div className="border-2 border-black rounded-[1.5rem] overflow-hidden mb-8 flex flex-col shadow-sm shrink-0">
         <table className="w-full border-collapse">
           <thead className="bg-black text-white text-[8pt] font-black uppercase tracking-widest">
             <tr className="h-10">
-              <th className="border-r-2 border-black px-4 text-left w-52">DOCUMENT REF (INVOICE)</th>
+              <th className="border-r-2 border-black px-4 text-left w-56">DOCUMENT REF (INVOICE / E-WB)</th>
               <th className="border-r-2 border-black px-4 text-left">DESCRIPTION OF GOODS</th>
               <th className="border-r-2 border-black px-4 text-center w-32">NO. OF PKGS</th>
               <th className="px-4 text-right w-36">WEIGHT (MT)</th>
@@ -282,7 +258,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             {displayItems.map((item, idx) => (
               <tr key={idx} className="align-middle border-b border-slate-200 last:border-b-0">
                 <td className="border-r-2 border-black px-4 font-black uppercase">
-                  {renderInvoices((item as any).invoiceNumber || 'NA')}
+                  {renderDocumentRef((item as any).invoiceNumber, (item as any).ewaybillNumber)}
                 </td>
                 <td className="border-r-2 border-black px-4 uppercase truncate">{item.itemDescription}</td>
                 <td className="border-r-2 border-black px-4 text-center">{item.units}</td>
@@ -301,33 +277,30 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </table>
       </div>
 
-      {/* 6. T&C and SIGNATORY */}
       <div className="grid grid-cols-2 gap-12 mb-8 mt-auto shrink-0">
         <div className="space-y-3">
           <span className="text-[8.5pt] font-black uppercase text-slate-900 border-b border-black inline-block pb-0.5 tracking-widest">TERMS & CONDITIONS</span>
           <div className="space-y-1 pt-1">
-            {terms.map((term, i) => (
-              <p key={i} className="text-[6.8pt] font-bold text-slate-500 leading-tight">{term}</p>
-            ))}
+            {[
+              "1. Agency is not responsible for rain or any natural calamity.",
+              "2. Any discrepancy regarding material has to be intimated within 24 Hours of receipt.",
+              "3. Owner of the vehicle is responsible for the goods after lifting.",
+              "4. Agency has the right to hold material upon shortage of vehicle.",
+              "5. Traders are responsible for unauthorized goods.",
+              "6. Agency holds no responsibility after delivery.",
+              "7. All disputes subject to Ghaziabad Jurisdiction."
+            ].map((term, i) => <p key={i} className="text-[6.8pt] font-bold text-slate-500 leading-tight">{term}</p>)}
           </div>
         </div>
-
-        <div className="flex flex-col justify-between text-center pt-2">
-          <div className="h-24 flex flex-col justify-end items-center">
-            <div className="w-full border-t-2 border-black border-dashed mb-2" />
-            <span className="text-[9pt] font-black uppercase tracking-[0.3em] text-slate-900 italic">AUTHORIZED SIGNATORY</span>
-          </div>
+        <div className="flex flex-col justify-end text-center pt-2">
+          <div className="w-full border-t-2 border-black border-dashed mb-2" />
+          <span className="text-[9pt] font-black uppercase tracking-[0.3em] text-slate-900 italic">AUTHORIZED SIGNATORY</span>
         </div>
       </div>
 
-      {/* 7. FOOTER REGISTRY */}
       <div className="mt-4 pt-4 border-t border-slate-200 flex flex-col items-center gap-1.5 shrink-0">
-        <p className="text-[7.5pt] font-black uppercase text-slate-400 tracking-[0.3em] text-center">
-          NOTE: THIS LORRY RECEIPT WAS GENERATED DIGITALLY AND IS TO BE CONSIDERED AS ORIGINAL
-        </p>
-        <div className="flex items-center gap-4">
-          <span className="text-[8.5pt] font-black uppercase tracking-[0.5em] text-slate-900"> PAGE {pageNumber} OF {totalInSeries} </span>
-        </div>
+        <p className="text-[7.5pt] font-black uppercase text-slate-400 tracking-[0.3em] text-center">NOTE: THIS LORRY RECEIPT WAS GENERATED DIGITALLY AND IS TO BE CONSIDERED AS ORIGINAL</p>
+        <span className="text-[8.5pt] font-black uppercase tracking-[0.5em] text-slate-900">PAGE {pageNumber} OF {totalInSeries}</span>
       </div>
     </div>
   );
