@@ -421,31 +421,49 @@ function TripBoardContent() {
         const plantNode = row.plant || { id: row.originPlantId, name: row.plantName };
         const shipmentObj = row.shipmentObj || row;
 
-        // MISSION FIX: Strict Carrier Resolution node (No index-based fallback)
-        const normalizedPlantIdStr = normalizePlantId(row.originPlantId);
-        const resolvedCarrier = (dbCarriers || []).find(c => c.id === row.carrierId) || 
-                                (dbCarriers || []).find(c => normalizePlantId(c.plantId) === normalizedPlantIdStr) ||
-                                row.carrierObj;
-        
-        const carrierNode = resolvedCarrier || { name: 'SIKKA INDUSTRIES & LOGISTICS' };
+        // MISSION FIX: Priority Carrier Resolution Handbook
+        let finalCarrier = null;
+        const targetCarrierId = row.carrierId || shipmentObj.carrierId;
+
+        if (targetCarrierId) {
+            finalCarrier = (dbCarriers || []).find(c => c.id === targetCarrierId);
+            if (!finalCarrier) {
+                const cSnap = await getDoc(doc(firestore, "carriers", targetCarrierId));
+                if (cSnap.exists()) finalCarrier = { id: cSnap.id, ...cSnap.data() };
+            }
+        }
+
+        if (!finalCarrier) {
+            finalCarrier = (dbCarriers || []).find(c => normalizePlantId(c.plantId) === normalizePlantId(row.originPlantId));
+        }
+
+        const carrierNode = finalCarrier || { 
+            name: 'SIKKA INDUSTRIES AND LOGISTICS',
+            address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, GHAZIABAD, UTTAR PRADESH, 201009',
+            mobile: '8860091900',
+            gstin: '09AYQPS6936B1ZV',
+            stateCode: '09',
+            pan: 'AYQPS6936B',
+            email: 'sil@sikkaenterprises.com'
+        };
+
+        const manifestItems = row.items && row.items.length > 0 ? row.items : [{
+            invoiceNumber: row.invoiceNumbers || 'NA',
+            ewaybillNumber: row.ewaybillNumber || '',
+            units: parseInt(row.unitUom) || 1,
+            unitType: 'Package',
+            itemDescription: row.itemDescription || 'GENERAL CARGO',
+            weight: parseFloat(row.assignedQtyInTrip) || 0
+        }];
 
         if (snap.empty) {
-            const manifestItems = row.items && row.items.length > 0 ? row.items : [{
-                invoiceNumber: row.invoiceNumbers || 'NA',
-                ewaybillNumber: row.ewaybillNumber || '',
-                units: parseInt(row.unitUom) || 1,
-                unitType: 'Package',
-                itemDescription: row.itemDescription || 'GENERAL CARGO',
-                weight: parseFloat(row.assignedQtyInTrip) || 0
-            }];
-
             setPreviewLrData({
                 lrNumber: row.lrNumber,
                 date: row.lrDate || new Date(),
                 trip: row as any,
-                carrier: carrierNode,
+                carrier: carrierNode as any,
                 shipment: shipmentObj,
-                plant: plantNode,
+                plant: plantNode as any,
                 items: manifestItems,
                 weightSelection: 'Assigned Weight',
                 assignedTripWeight: row.assignedQtyInTrip || shipmentObj.quantity || 0,
@@ -453,6 +471,7 @@ function TripBoardContent() {
                 to: shipmentObj.unloadingPoint || row.unloadingPoint || '',
                 consignorName: shipmentObj.consignor || row.consignor || '',
                 consignorGtin: shipmentObj.consignorGtin || row.consignorGtin || '',
+                consignorAddress: shipmentObj.consignorAddress || '',
                 buyerName: shipmentObj.billToParty || row.billToParty || '',
                 buyerGtin: shipmentObj.billToGtin || row.billToGtin || '',
                 shipToParty: shipmentObj.shipToParty || row.shipToParty || '',
@@ -466,20 +485,17 @@ function TripBoardContent() {
             } as any);
         } else {
             const lrDoc = snap.docs[0].data() as LR;
-            // Respect the LR document's own carrier identity if it was established during generation
-            const lrCarrier = (dbCarriers || []).find(c => c.id === lrDoc.carrierId) || carrierNode;
-
             setPreviewLrData({
                 ...lrDoc,
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
                 trip: row as any,
-                carrier: lrCarrier,
+                carrier: carrierNode as any,
                 shipment: shipmentObj,
-                plant: plantNode,
-                consignorGtin: lrDoc.consignorGtin || (shipmentObj as any)?.consignorGtin || '',
-                buyerGtin: lrDoc.buyerGtin || (shipmentObj as any)?.billToGtin || '',
-                shipToGtin: lrDoc.shipToGtin || (shipmentObj as any)?.shipToGtin || '',
+                plant: plantNode as any,
+                consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
+                buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
+                shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || '',
                 vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
                 driverName: row.driverName || lrDoc.driverName,
                 driverMobile: row.driverMobile || lrDoc.driverMobile,

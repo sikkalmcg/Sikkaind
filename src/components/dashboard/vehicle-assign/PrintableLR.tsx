@@ -26,6 +26,7 @@ interface PrintableLRProps {
  * Precise A4 Boxed Restoration matching high-fidelity rounded table design.
  * Hardened for 100% data accuracy across Vehicle, Pilot, and Carrier nodes.
  * Includes State Code, PAN, and Email ID in company header.
+ * Consignee box now includes SHIP TO PARTY name.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -98,16 +99,16 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             />
           </div>
           <div className="space-y-0.5">
-            <h1 className="text-[16pt] font-black uppercase tracking-tighter leading-none">{lr.carrier?.name || 'SIKKA LMC'}</h1>
+            <h1 className="text-[16pt] font-black uppercase tracking-tighter leading-none">{lr.carrier?.name || 'SIKKA INDUSTRIES AND LOGISTICS'}</h1>
             <p className="text-[7.5pt] font-black text-slate-600 uppercase max-w-[400px] leading-tight">
-                {lr.carrier?.address || '20KM. STONE, NEAR TIVOLI GRAND RESORT, KHASRA NO. -3, G.T. KARNAL ROAD, JINDPUR, DELHI - 110036'}
+                {lr.carrier?.address || 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, GHAZIABAD, UTTAR PRADESH, 201009'}
             </p>
             <div className="text-[7.5pt] font-black text-slate-500 flex flex-wrap gap-x-4 pt-0.5 uppercase">
-              <p>PHONE: <span className="text-slate-900">{lr.carrier?.mobile || '--'}</span></p>
-              <p>GSTIN: <span className="font-mono text-slate-900">{lr.carrier?.gstin || '--'}</span></p>
-              <p>STATE CODE: <span className="font-mono text-slate-900">{lr.carrier?.stateCode || '--'}</span></p>
-              <p>PAN NO: <span className="font-mono text-slate-900">{lr.carrier?.pan || '--'}</span></p>
-              <p>EMAIL: <span className="text-slate-900 lowercase">{lr.carrier?.email || '--'}</span></p>
+              <p>PHONE: <span className="text-slate-900">{lr.carrier?.mobile || '8860091900'}</span></p>
+              <p>GSTIN: <span className="font-mono text-slate-900">{lr.carrier?.gstin || '09AYQPS6936B1ZV'}</span></p>
+              <p>STATE CODE: <span className="font-mono text-slate-900">{lr.carrier?.stateCode || '09'}</span></p>
+              <p>PAN NO: <span className="font-mono text-slate-900">{lr.carrier?.pan || 'AYQPS6936B'}</span></p>
+              <p>EMAIL: <span className="text-slate-900 lowercase">{lr.carrier?.email || 'sil@sikkaenterprises.com'}</span></p>
             </div>
           </div>
         </div>
@@ -164,6 +165,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <div className="mt-2 space-y-1">
                 <p className="text-[10pt] font-black uppercase text-slate-900 leading-tight">{lr.buyerName}</p>
                 <p className="text-[8.5pt] font-bold text-slate-600 leading-snug italic uppercase">{lr.deliveryAddress || lr.to}</p>
+                <p className="text-[8.5pt] font-black text-blue-900 uppercase pt-1">SHIP TO: {lr.shipToParty || lr.buyerName}</p>
                 <p className="font-black text-slate-900 text-[8.5pt] pt-1">GSTIN: <span className="font-mono uppercase">{lr.buyerGtin || '--'}</span></p>
             </div>
         </div>
