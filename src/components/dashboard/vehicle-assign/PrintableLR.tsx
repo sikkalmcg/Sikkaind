@@ -25,6 +25,7 @@ interface PrintableLRProps {
  * @fileOverview SIKKA LMC - Enterprise Lorry Receipt (LR) Manifest.
  * Precise A4 Boxed Restoration matching high-fidelity rounded table design.
  * Hardened for 100% data accuracy across Vehicle, Pilot, and Carrier nodes.
+ * Includes State Code, PAN, and Email ID in company header.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -102,10 +103,11 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 {lr.carrier?.address || '20KM. STONE, NEAR TIVOLI GRAND RESORT, KHASRA NO. -3, G.T. KARNAL ROAD, JINDPUR, DELHI - 110036'}
             </p>
             <div className="text-[7.5pt] font-black text-slate-500 flex flex-wrap gap-x-4 pt-0.5 uppercase">
-              <p>PHONE: {lr.carrier?.mobile || '9136688004, 9136688006, 9136688009'}</p>
-              <p>GSTIN: <span className="font-mono text-slate-900">{lr.carrier?.gstin || '09AYQPS6936B1ZV'}</span></p>
-              <p>STATE CODE: <span className="font-mono text-slate-900">{lr.carrier?.stateCode || '09'}</span></p>
-              <p>PAN NO: <span className="font-mono text-slate-900">{lr.carrier?.pan || 'AYQPS6936B'}</span></p>
+              <p>PHONE: <span className="text-slate-900">{lr.carrier?.mobile || '--'}</span></p>
+              <p>GSTIN: <span className="font-mono text-slate-900">{lr.carrier?.gstin || '--'}</span></p>
+              <p>STATE CODE: <span className="font-mono text-slate-900">{lr.carrier?.stateCode || '--'}</span></p>
+              <p>PAN NO: <span className="font-mono text-slate-900">{lr.carrier?.pan || '--'}</span></p>
+              <p>EMAIL: <span className="text-slate-900 lowercase">{lr.carrier?.email || '--'}</span></p>
             </div>
           </div>
         </div>
