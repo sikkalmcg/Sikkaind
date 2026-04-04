@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
 
 interface LoadingContextType {
   isLoading: boolean;
@@ -13,11 +13,18 @@ const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
 export function LoadingProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
 
-  const showLoader = () => setIsLoading(true);
-  const hideLoader = () => setIsLoading(false);
+  // MISSION CRITICAL: Stabilize loader functions to prevent recursive layout re-renders
+  const showLoader = useCallback(() => setIsLoading(true), []);
+  const hideLoader = useCallback(() => setIsLoading(false), []);
+
+  const value = useMemo(() => ({ 
+    isLoading, 
+    showLoader, 
+    hideLoader 
+  }), [isLoading, showLoader, hideLoader]);
 
   return (
-    <LoadingContext.Provider value={{ isLoading, showLoader, hideLoader }}>
+    <LoadingContext.Provider value={value}>
       {children}
     </LoadingContext.Provider>
   );

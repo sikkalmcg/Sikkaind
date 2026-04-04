@@ -404,15 +404,15 @@ function TripBoardContent() {
   /**
    * Registry Handshake: LR Preview Extraction
    * Resolves finalized LR documents or generates a pseudo-preview manifest.
+   * MISSION CRITICAL: Memoized to prevent recursive layout re-renders.
    */
-  const handleOpenLR = async (row: any) => {
+  const handleOpenLR = useCallback(async (row: any) => {
     if (!row.lrNumber || !firestore) return;
     showLoader();
     try {
         const plantId = normalizePlantId(row.originPlantId);
         if (!plantId) throw new Error("Plant node identification failure.");
         
-        // 1. Search for finalized document node
         const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
         const q = query(lrsRef, where("lrNumber", "==", String(row.lrNumber).trim().toUpperCase()), limit(1));
         const snap = await getDocs(q);
@@ -424,7 +424,6 @@ function TripBoardContent() {
         let finalLrData: any;
 
         if (snap.empty) {
-            // 2. Fallback: Reconstruct manifest from Trip/Order registry
             const manifestItems = row.items && row.items.length > 0 ? row.items : [{
                 invoiceNumber: row.invoiceNumbers || 'NA',
                 ewaybillNumber: row.ewaybillNumber || '',
@@ -456,7 +455,6 @@ function TripBoardContent() {
                 id: `pseudo-${Date.now()}`
             };
         } else {
-            // 3. Finalized Node: Load document from cloud
             const lrDoc = snap.docs[0].data() as LR;
             finalLrData = {
                 ...lrDoc,
@@ -479,16 +477,24 @@ function TripBoardContent() {
     } finally {
         hideLoader();
     }
-  };
+  }, [firestore, showLoader, hideLoader, dbCarriers, toast]);
 
-  const handleEditAction = (type: string, trip: any) => {
-      if (type === 'edit-lr') {
-          setEditLrTrip(trip);
-      }
-  };
+  const handleActionCallback = useCallback((type: string, trip: any) => {
+      if (type === 'arrived') setArrivedTrip(trip);
+      else if (type === 'unloaded') setUnloadedTrip(trip);
+      else if (type === 'reject') setRejectTrip(trip);
+      else if (type === 'pod-status') setPodStatusTrip(trip);
+      else if (type === 'srn') setSrnTrip(trip);
+      else if (type === 'view') setViewTripData(trip);
+      else if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${trip.vehicleNumber}`);
+      else if (type === 'edit-vehicle') setEditVehicleTrip(trip);
+      else if (type === 'cancel') setCancelTripData(trip);
+      else if (type === 'edit-lr') setEditLrTrip(trip);
+      else if (type === 'view-lr') handleOpenLR(trip);
+  }, [router, handleOpenLR]);
 
   return (
-    <div className="flex flex-1 flex-col h-full relative">
+    <main className="flex flex-1 flex-col h-full relative">
       <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-4">
           <div className="p-2.5 bg-blue-900 text-white rounded-lg shadow-lg rotate-3"><MonitorPlay className="h-7 w-7" /></div>
@@ -543,19 +549,7 @@ function TripBoardContent() {
                         data={paginatedData} 
                         activeTab={activeTab} 
                         isAdmin={isAdminSession} 
-                        onAction={(type, trip) => {
-                            if (type === 'arrived') setArrivedTrip(trip);
-                            else if (type === 'unloaded') setUnloadedTrip(trip);
-                            else if (type === 'reject') setRejectTrip(trip);
-                            else if (type === 'pod-status') setPodStatusTrip(trip);
-                            else if (type === 'srn') setSrnTrip(trip);
-                            else if (type === 'view') setViewTripData(trip);
-                            else if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${trip.vehicleNumber}`);
-                            else if (type === 'edit-vehicle') setEditVehicleTrip(trip);
-                            else if (type === 'cancel') setCancelTripData(trip);
-                            else if (type === 'edit-lr') setEditLrTrip(trip);
-                            else if (type === 'view-lr') handleOpenLR(trip);
-                        }} 
+                        onAction={handleActionCallback} 
                     />
                     <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="flex items-center gap-10">
@@ -602,7 +596,7 @@ function TripBoardContent() {
             lr={previewLrData}
           />
       )}
-    </div>
+    </main>
   );
 }
 
