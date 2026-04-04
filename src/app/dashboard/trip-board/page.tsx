@@ -305,7 +305,7 @@ function TripBoardContent() {
         
         let finalCarrier: any = null;
 
-        // MISSION CRITICAL: Hardened Plant Registry Handshake
+        // MISSION CRITICAL: Hardened Plant Registry Handshake (Updated 1214 to Ghaziabad)
         if (pIdStr === '1426') {
             finalCarrier = {
                 id: 'ID20',
@@ -321,10 +321,10 @@ function TripBoardContent() {
             finalCarrier = {
                 id: 'ID21',
                 name: 'SIKKA INDUSTRIES AND LOGISTICS',
-                address: 'PLOT NO. 452, KHASRA NO. 77, VILLAGE BHALASWA, OPP. JAHANGIRPURI, DELHI - 110033',
+                address: 'PLOT NO. 452, KHASRA NO. 77, GHAZIABAD, UTTAR PRADESH - 201009',
                 mobile: '1127205565',
                 gstin: '09AYQPS6936B1ZV',
-                stateCode: '07',
+                stateCode: '09',
                 pan: 'AYQPS6936B',
                 email: 'queries@sikka.com'
             };
@@ -408,5 +408,369 @@ function TripBoardContent() {
     }
   }, [firestore, dbCarriers, toast, hideLoader, showLoader]);
 
-  // ... (rest of the file content remains identical to previous Turn)
-  // [Note: In a full generation, I would provide the entire file. I'm ensuring handleOpenLR is correct here.]
+  const handleAction = async (type: string, trip: any) => {
+    if (type === 'view') setViewTripData(trip);
+    if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${trip.vehicleNumber}`);
+    if (type === 'view-lr') handleOpenLR(trip);
+    if (type === 'edit-vehicle') setEditVehicleTrip(trip);
+    if (type === 'cancel') setCancelTripData(trip);
+    
+    if (type === 'arrived') setArrivedTrip(trip);
+    if (type === 'unloaded') setUnloadedTrip(trip);
+    if (type === 'reject') setRejectTrip(trip);
+    if (type === 'pod-status') setPodStatusTrip(trip);
+    if (type === 'srn') setSrnTrip(trip);
+    
+    if (type === 're-sent') {
+        if (!firestore || !user) return;
+        showLoader();
+        try {
+            const plantId = normalizePlantId(trip.originPlantId);
+            const tripRef = doc(firestore, `plants/${plantId}/trips`, trip.id);
+            const globalTripRef = doc(firestore, 'trips', trip.id);
+            const ts = serverTimestamp();
+            const currentName = user.displayName || user.email?.split('@')[0] || 'System';
+
+            const update = { 
+                tripStatus: 'In Transit', 
+                currentStatusId: 'in-transit', 
+                resentAt: ts, 
+                resentBy: currentName, 
+                lastUpdated: ts 
+            };
+            await updateDoc(tripRef, update);
+            await updateDoc(globalTripRef, update);
+            toast({ title: 'Mission Re-activated', description: 'Vehicle status returned to In-Transit registry.' });
+        } catch (e: any) { toast({ variant: 'destructive', title: 'Registry Error', description: e.message }); }
+        finally { hideLoader(); }
+    }
+  };
+
+  const handleCancelTrip = async () => {
+    if (!firestore || !user || !cancelTripData) return;
+    showLoader();
+    try {
+        await runTransaction(firestore, async (tx) => {
+            const plantId = normalizePlantId(cancelTripData.originPlantId);
+            const tripRef = doc(firestore, `plants/${plantId}/trips`, cancelTripData.id);
+            const globalTripRef = doc(firestore, 'trips', cancelTripData.id);
+            
+            const shipId = cancelTripData.shipmentIds[0];
+            const shipRef = doc(firestore, `plants/${plantId}/shipments`, shipId);
+            const shipSnap = await tx.get(shipRef);
+            
+            if (shipSnap.exists()) {
+                const sData = shipSnap.data() as Shipment;
+                const newAssigned = (sData.assignedQty || 0) - cancelTripData.assignedQtyInTrip;
+                const newBalance = sData.quantity - newAssigned;
+                tx.update(shipRef, {
+                    assignedQty: newAssigned,
+                    balanceQty: newBalance,
+                    currentStatusId: newAssigned > 0 ? 'Partly Vehicle Assigned' : 'pending',
+                    lastUpdateDate: serverTimestamp()
+                });
+            }
+
+            tx.delete(tripRef);
+            tx.delete(globalTripRef);
+        });
+        toast({ title: 'Mission Purged' });
+        setCancelTripData(null);
+    } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
+    finally { hideLoader(); }
+  };
+
+  const handleEditVehicle = async (id: string, values: any) => {
+    if (!firestore) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(editVehicleTrip.originPlantId);
+        const tripRef = doc(firestore, `plants/${plantId}/trips`, id);
+        const globalTripRef = doc(firestore, 'trips', id);
+        const update = { ...values, lastUpdated: serverTimestamp() };
+        await updateDoc(tripRef, update);
+        await updateDoc(globalTripRef, update);
+        toast({ title: 'Registry Updated' });
+        setEditVehicleTrip(null);
+    } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
+    finally { hideLoader(); }
+  };
+
+  const handleArrived = async (values: any) => {
+    if (!firestore || !arrivedTrip) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(arrivedTrip.originPlantId);
+        const tripRef = doc(firestore, `plants/${plantId}/trips`, arrivedTrip.id);
+        const globalTripRef = doc(firestore, 'trips', arrivedTrip.id);
+        const arrivalDate = new Date(`${values.arrivedDate.toISOString().split('T')[0]}T${values.arrivedTime}`);
+        const update = { 
+            arrivalDate, 
+            tripStatus: 'Arrival For Delivery', 
+            currentStatusId: 'arrival-for-delivery', 
+            lastUpdated: serverTimestamp() 
+        };
+        await updateDoc(tripRef, update);
+        await updateDoc(globalTripRef, update);
+        toast({ title: 'Registry Updated' });
+        setArrivedTrip(null);
+    } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
+    finally { hideLoader(); }
+  };
+
+  const handleUnloaded = async (values: any) => {
+    if (!firestore || !unloadedTrip) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(unloadedTrip.originPlantId);
+        const tripRef = doc(firestore, `plants/${plantId}/trips`, unloadedTrip.id);
+        const globalTripRef = doc(firestore, 'trips', unloadedTrip.id);
+        const actualCompletionDate = new Date(`${values.unloadDate.toISOString().split('T')[0]}T${values.unloadTime}`);
+        const update = { 
+            actualCompletionDate, 
+            tripStatus: 'Delivered', 
+            currentStatusId: 'delivered', 
+            lastUpdated: serverTimestamp() 
+        };
+        await updateDoc(tripRef, update);
+        await updateDoc(globalTripRef, update);
+        toast({ title: 'Registry Updated' });
+        setUnloadedTrip(null);
+    } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
+    finally { hideLoader(); }
+  };
+
+  const handleReject = async (values: any) => {
+    if (!firestore || !rejectTrip) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(rejectTrip.originPlantId);
+        const tripRef = doc(firestore, `plants/${plantId}/trips`, rejectTrip.id);
+        const globalTripRef = doc(firestore, 'trips', rejectTrip.id);
+        const rejectedAt = new Date(`${values.rejectDate.toISOString().split('T')[0]}T${values.rejectTime}`);
+        const update = { 
+            rejectedAt, 
+            tripStatus: 'Rejected', 
+            currentStatusId: 'rejected', 
+            rejectReason: values.rejectedBy, 
+            rejectRemark: values.remark, 
+            lastUpdated: serverTimestamp() 
+        };
+        await updateDoc(tripRef, update);
+        await updateDoc(globalTripRef, update);
+        toast({ title: 'Registry Updated' });
+        setRejectTrip(null);
+    } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
+    finally { hideLoader(); }
+  };
+
+  const handlePodStatus = async (values: any) => {
+    if (!firestore || !podStatusTrip) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(podStatusTrip.originPlantId);
+        const tripRef = doc(firestore, `plants/${plantId}/trips`, podStatusTrip.id);
+        const globalTripRef = doc(firestore, 'trips', podStatusTrip.id);
+        const update = { 
+            ...values, 
+            podUploadedBy: user?.displayName || user?.email, 
+            podUploadDate: serverTimestamp(), 
+            lastUpdated: serverTimestamp() 
+        };
+        await updateDoc(tripRef, update);
+        await updateDoc(globalTripRef, update);
+        toast({ title: 'Registry Updated' });
+        setPodStatusTrip(null);
+    } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
+    finally { hideLoader(); }
+  };
+
+  const handleSrn = async (values: any) => {
+    if (!firestore || !srnTrip) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(srnTrip.originPlantId);
+        const tripRef = doc(firestore, `plants/${plantId}/trips`, srnTrip.id);
+        const globalTripRef = doc(firestore, 'trips', srnTrip.id);
+        const update = { 
+            ...values, 
+            tripStatus: 'Closed', 
+            currentStatusId: 'closed', 
+            srnBy: user?.displayName || user?.email, 
+            lastUpdated: serverTimestamp() 
+        };
+        await updateDoc(tripRef, update);
+        await updateDoc(globalTripRef, update);
+        toast({ title: 'Registry Updated' });
+        setSrnTrip(null);
+    } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
+    finally { hideLoader(); }
+  };
+
+  const filteredData = useMemo(() => {
+    const dayStart = fromDate ? startOfDay(fromDate) : null;
+    const dayEnd = toDate ? endOfDay(toDate) : null;
+
+    return joinedData.filter(t => {
+      const start = t.startDate;
+      if (!start) return true;
+      if (dayStart && start < dayStart) return false;
+      if (dayEnd && start > dayEnd) return false;
+      
+      const s = (t.tripStatus || t.currentStatusId || '').toLowerCase().replace(/[\s_-]+/g, '-');
+      switch (activeTab) {
+        case 'active': return !['delivered', 'closed', 'cancelled'].includes(s);
+        case 'loading': return ['assigned', 'vehicle-assigned', 'loaded', 'loading-complete'].includes(s);
+        case 'transit': return s === 'in-transit';
+        case 'arrived': return ['arrived', 'arrival-for-delivery', 'arrive-for-deliver'].includes(s);
+        case 'pod-status': return s === 'delivered';
+        case 'rejection': return s === 'rejected';
+        case 'closed': return s === 'closed';
+        default: return true;
+      }
+    }).filter(t => {
+      if (!searchTerm) return true;
+      const s = searchTerm.toLowerCase();
+      return (
+        t.tripId?.toLowerCase().includes(s) ||
+        t.vehicleNumber?.toLowerCase().includes(s) ||
+        t.lrNumber?.toLowerCase().includes(s) ||
+        t.consignor?.toLowerCase().includes(s) ||
+        t.shipToParty?.toLowerCase().includes(s)
+      );
+    });
+  }, [joinedData, activeTab, fromDate, toDate, searchTerm]);
+
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(start, start + itemsPerPage);
+  }, [filteredData, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+  const handleDownloadExcel = () => {
+    const exportData = filteredData.map(t => ({
+        'Plant': t.plantName,
+        'Trip ID': t.tripId,
+        'Vehicle Number': t.vehicleNumber,
+        'Pilot Mobile': t.driverMobile,
+        'LR Number': t.lrNumber,
+        'Consignor': t.consignor,
+        'Ship To': t.shipToParty,
+        'Destination': t.unloadingPoint,
+        'Weight (MT)': t.dispatchedQty,
+        'Status': t.tripStatus,
+        'Date': t.startDate ? format(t.startDate, 'dd-MM-yy HH:mm') : '--'
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Trip Registry");
+    XLSX.writeFile(wb, `TripBoard_${activeTab}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+  };
+
+  return (
+    <main className="flex flex-1 flex-col h-full overflow-hidden bg-white">
+      <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3">
+              <MonitorPlay className="h-7 w-7" />
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none">Mission Control Board</h1>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Live Operational registry Node</p>
+            </div>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-4 rounded-[2rem] border border-slate-100 shadow-inner">
+            <div className="grid gap-1">
+              <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Lifting Scope</Label>
+              <MultiSelectPlantFilter options={plants} selected={selectedPlants} onChange={handlePlantChange} isLoading={isAuthLoading} />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Period From</Label>
+              <DatePicker date={fromDate} setDate={setFromDate} className="h-9" />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Period To</Label>
+              <DatePicker date={toDate} setDate={setTodayDate} className="h-9" />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Search Registry</Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                <Input placeholder="Search trips..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 h-9 w-[200px] border-slate-200 font-bold" />
+              </div>
+            </div>
+            <div className="flex items-end gap-2 pt-4">
+              <Button variant="outline" size="sm" onClick={handleDownloadExcel} className="h-9 px-4 font-black uppercase text-[10px] tracking-widest border-slate-200"><FileDown className="h-4 w-4 mr-2"/> Export</Button>
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-blue-900" onClick={() => window.location.reload()}><RefreshCcw className="h-4 w-4" /></Button>
+            </div>
+          </div>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); }} className="w-full">
+          <TabsList className="bg-transparent h-10 p-0 border-b-0 gap-8 justify-start overflow-x-auto custom-scrollbar">
+            {[
+                { id: 'active', label: 'All Active' },
+                { id: 'loading', label: 'Yard/Loading' },
+                { id: 'transit', label: 'In Transit' },
+                { id: 'arrived', label: 'Arrived' },
+                { id: 'pod-status', label: 'POD Verification' },
+                { id: 'rejection', label: 'Rejection/SRN' },
+                { id: 'closed', label: 'History Ledger' }
+            ].map(t => (
+                <TabsTrigger key={t.id} value={t.id} className="relative h-10 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[11px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all">
+                    {t.label}
+                </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6">
+        {isLoading ? (
+            <div className="flex h-64 flex-col items-center justify-center gap-4">
+                <Loader2 className="h-10 w-10 animate-spin text-blue-900" />
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 animate-pulse">Syncing Mission Pulse...</p>
+            </div>
+        ) : (
+            <div className="space-y-6">
+                <TripBoardTable 
+                    data={paginatedData} 
+                    activeTab={activeTab} 
+                    isAdmin={isAdminSession}
+                    onAction={handleAction} 
+                />
+                <Pagination 
+                    currentPage={currentPage} 
+                    totalPages={totalPages} 
+                    onPageChange={setCurrentPage} 
+                    itemCount={filteredData.length} 
+                    canPreviousPage={currentPage > 1} 
+                    canNextPage={currentPage < totalPages} 
+                />
+            </div>
+        )}
+      </div>
+
+      {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
+      {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={handleCancelTrip} />}
+      {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={handleEditVehicle} />}
+      {arrivedTrip && <ArrivedModal isOpen={!!arrivedTrip} onClose={() => setArrivedTrip(null)} trip={arrivedTrip} onPost={handleArrived} />}
+      {unloadedTrip && <UnloadedModal isOpen={!!unloadedTrip} onClose={() => setUnloadedTrip(null)} trip={unloadedTrip} onPost={handleUnloaded} />}
+      {rejectTrip && <RejectModal isOpen={!!rejectTrip} onClose={() => setRejectTrip(null)} trip={rejectTrip} onPost={handleReject} />}
+      {podStatusTrip && <PodStatusModal isOpen={!!podStatusTrip} onClose={() => setPodStatusTrip(null)} trip={podStatusTrip} onPost={handlePodStatus} />}
+      {srnTrip && <SrnModal isOpen={!!srnTrip} onClose={() => setSrnTrip(null)} trip={srnTrip} onPost={handleSrn} />}
+      {previewLrData && <LRPrintPreviewModal isOpen={!!previewLrData} onClose={() => setPreviewLrData(null)} lr={previewLrData} />}
+    </main>
+  );
+}
+
+export default function TripBoardPage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>}>
+            <TripBoardContent />
+        </Suspense>
+    );
+}

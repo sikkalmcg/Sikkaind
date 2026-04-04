@@ -262,7 +262,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         
         let finalCarrier: any = null;
 
-        // MISSION CRITICAL: Hardened Plant Registry Handshake
+        // MISSION CRITICAL: Hardened Plant Registry Handshake (Updated 1214 to Ghaziabad)
         if (pIdStr === '1426') {
             finalCarrier = {
                 id: 'ID20',
@@ -278,21 +278,19 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             finalCarrier = {
                 id: 'ID21',
                 name: 'SIKKA INDUSTRIES AND LOGISTICS',
-                address: 'PLOT NO. 452, KHASRA NO. 77, VILLAGE BHALASWA, OPP. JAHANGIRPURI, DELHI - 110033',
+                address: 'PLOT NO. 452, KHASRA NO. 77, GHAZIABAD, UTTAR PRADESH - 201009',
                 mobile: '1127205565',
                 gstin: '09AYQPS6936B1ZV',
-                stateCode: '07',
+                stateCode: '09',
                 pan: 'AYQPS6936B',
                 email: 'queries@sikka.com'
             };
         }
 
-        // If no plant-specific match, look up database object
         if (!finalCarrier) {
             finalCarrier = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId);
         }
 
-        // Ultimate fallback to Ghaziabad if registry is empty
         if (!finalCarrier) {
             finalCarrier = {
                 id: 'ID20',
@@ -305,6 +303,8 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 email: 'sil@sikkaenterprises.com'
             };
         }
+
+        const shipmentObj = row as any;
 
         const manifestItems = row.items && row.items.length > 0 ? row.items : [{
             invoiceNumber: row.summarizedInvoices || 'NA',
@@ -321,7 +321,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 date: row.lrDate || new Date(),
                 trip: row as any,
                 carrier: finalCarrier,
-                shipment: row as any,
+                shipment: shipmentObj,
                 plant: row.plant || { id: row.originPlantId, name: row.plantName },
                 items: manifestItems,
                 weightSelection: 'Assigned Weight',
@@ -349,7 +349,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 date: parseSafeDate(lrDoc.date),
                 trip: row as any,
                 carrier: finalCarrier,
-                shipment: row as any,
+                shipment: shipmentObj,
                 plant: row.plant || { id: row.originPlantId, name: row.plantName },
                 consignorGtin: lrDoc.consignorGtin || row.consignorGtin || '',
                 buyerGtin: lrDoc.buyerGtin || row.billToGtin || '',

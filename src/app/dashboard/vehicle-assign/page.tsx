@@ -327,7 +327,7 @@ function OpenOrdersContent() {
         
         let finalCarrier: any = null;
 
-        // MISSION CRITICAL: Hardened Plant Registry Handshake
+        // MISSION CRITICAL: Hardened Plant Registry Handshake (Updated 1214 to Ghaziabad)
         if (pIdStr === '1426') {
             finalCarrier = {
                 id: 'ID20',
@@ -343,10 +343,10 @@ function OpenOrdersContent() {
             finalCarrier = {
                 id: 'ID21',
                 name: 'SIKKA INDUSTRIES AND LOGISTICS',
-                address: 'PLOT NO. 452, KHASRA NO. 77, VILLAGE BHALASWA, OPP. JAHANGIRPURI, DELHI - 110033',
+                address: 'PLOT NO. 452, KHASRA NO. 77, GHAZIABAD, UTTAR PRADESH - 201009',
                 mobile: '1127205565',
                 gstin: '09AYQPS6936B1ZV',
-                stateCode: '07',
+                stateCode: '09',
                 pan: 'AYQPS6936B',
                 email: 'queries@sikka.com'
             };
@@ -423,5 +423,189 @@ function OpenOrdersContent() {
     }
   };
 
-  // ... (rest of the file content remains identical to previous Turn for brevity but ensures all functions above are updated)
-  // [Note: In a full generation, I would provide the entire file. I'm ensuring handleOpenLR is correct here.]
+  const handleCancelAssignment = async (tripId: string, shipId: string, qty: number) => {
+    if (!firestore || !user) return;
+    showLoader();
+    try {
+        const trip = allData.trips.find(t => t.id === tripId);
+        if(!trip) throw new Error("Trip node not found.");
+        const plantId = normalizePlantId(trip.originPlantId);
+
+        await runTransaction(firestore, async (transaction) => {
+            const shipRef = doc(firestore, `plants/${plantId}/shipments`, shipId);
+            const shipSnap = await transaction.get(shipRef);
+            if (!shipSnap.exists()) throw new Error("Shipment node not found.");
+            
+            const sData = shipSnap.data() as Shipment;
+            const newAssigned = (sData.assignedQty || 0) - qty;
+            const newBalance = sData.quantity - newAssigned;
+
+            transaction.update(shipRef, {
+                assignedQty: newAssigned,
+                balanceQty: newBalance,
+                currentStatusId: newAssigned > 0 ? 'Partly Vehicle Assigned' : 'pending',
+                lastUpdateDate: serverTimestamp()
+            });
+
+            transaction.delete(doc(firestore, `plants/${plantId}/trips`, tripId));
+            transaction.delete(doc(firestore, 'trips', tripId));
+        });
+        toast({ title: 'Assignment Reverted', description: 'Fleet node successfully removed from mission.' });
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Registry Error', description: e.message });
+    } finally { hideLoader(); }
+  };
+
+  const handleShortClose = async (reason: string) => {
+    if (!firestore || !user || !cancelModalData) return;
+    showLoader();
+    try {
+        const { id } = cancelModalData;
+        const shipment = allData.shipments.find(s => s.id === id);
+        if (!shipment) return;
+        const plantId = normalizePlantId(shipment.originPlantId);
+
+        await updateDoc(doc(firestore, `plants/${plantId}/shipments`, id), {
+            currentStatusId: 'Short Closed',
+            shortCloseReason: reason,
+            shortClosedBy: user.displayName || user.email,
+            lastUpdateDate: serverTimestamp()
+        });
+        toast({ title: 'Order Short Closed', description: 'Manifest lifecycle finalized with balance.' });
+        setCancelModalData(null);
+    } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
+    finally { hideLoader(); }
+  };
+
+  const handleCancelOrder = async (reason: string) => {
+    if (!firestore || !user || !cancelModalData) return;
+    showLoader();
+    try {
+        const { id } = cancelModalData;
+        const shipment = allData.shipments.find(s => s.id === id);
+        if (!shipment) return;
+        const plantId = normalizePlantId(shipment.originPlantId);
+
+        await updateDoc(doc(firestore, `plants/${plantId}/shipments`, id), {
+            currentStatusId: 'Cancelled',
+            cancelReason: reason,
+            cancelledBy: user.displayName || user.email,
+            lastUpdateDate: serverTimestamp()
+        });
+        toast({ title: 'Order Revoked', description: 'Mission node removed from active queue.' });
+        setCancelModalData(null);
+    } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
+    finally { hideLoader(); }
+  };
+
+  return (
+    <main className="flex flex-1 flex-col h-full overflow-hidden bg-white">
+      <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3">
+              <ClipboardList className="h-7 w-7" />
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none">Fleet Allocation HUB</h1>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Lifting Node Registry & Assignment</p>
+            </div>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-4 rounded-[2rem] border border-slate-100 shadow-inner">
+            <div className="grid gap-1">
+              <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Lifting Nodes</Label>
+              <MultiSelectPlantFilter options={plants} selected={selectedPlants} onChange={handlePlantChange} isLoading={isAuthLoading} />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Search Registry</Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                <Input placeholder="Search orders..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 h-9 w-[240px] border-slate-200 font-bold" />
+              </div>
+            </div>
+            <div className="flex items-end gap-2 pt-4">
+              <Button variant="outline" size="icon" className="h-9 w-9 text-blue-900" onClick={() => window.location.reload()}><RefreshCcw className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => setIsLayoutModalOpen(true)} className="h-9 w-9 text-slate-400"><Settings2 className="h-4 w-4" /></Button>
+            </div>
+          </div>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); }} className="w-full">
+          <TabsList className="bg-transparent h-10 p-0 border-b-0 gap-10 justify-start">
+            {[
+                { id: 'pending', label: 'Awaiting Fleet', count: counts.pending },
+                { id: 'process', label: 'Allocated Nodes', count: counts.process },
+                { id: 'dispatched', label: 'Outbound Flow', count: counts.dispatched },
+                { id: 'cancelled', label: 'Revoked Archive', count: counts.cancelled }
+            ].map(t => (
+                <TabsTrigger key={t.id} value={t.id} className="relative h-10 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[11px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all">
+                    {t.label} <Badge className="ml-2 bg-slate-100 text-slate-500 border-none font-black text-[9px]">{t.count}</Badge>
+                </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6">
+        {isLoading ? (
+            <div className="flex h-64 flex-col items-center justify-center gap-4">
+                <Loader2 className="h-10 w-10 animate-spin text-blue-900" />
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 animate-pulse">Establishing Registry Link...</p>
+            </div>
+        ) : (
+            <div className="space-y-6">
+                <OrdersTable 
+                    data={tabFilteredData} 
+                    tab={activeTab}
+                    onAssign={handleOpenAssignModal}
+                    onEditAssignment={(order, trip) => { setEditingTrip(trip); setSelectedShipment(order); setAssignModalOpen(true); }}
+                    onViewOrder={setDrawerOrder}
+                    onViewTrip={setDrawerTrip}
+                    onViewLR={handleOpenLR}
+                    onShortClose={(id) => setCancelModalData({ id, type: 'order' })}
+                    onCancelOrder={(id) => setCancelModalData({ id, type: 'order' })}
+                    onRestoreOrder={() => {}}
+                    onCancelAssignment={(tripId, shipId, qty) => handleCancelAssignment(tripId, shipId, qty)}
+                    isAdmin={isAdminSession}
+                />
+                <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemCount={tabFilteredData.length} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPages} />
+            </div>
+        )}
+      </div>
+
+      <LayoutSettingsModal isOpen={isLayoutModalOpen} onClose={() => setIsLayoutModalOpen(true)} activeTab={activeTab} />
+      
+      {isAssignModalOpen && selectedShipment && (
+        <VehicleAssignModal 
+            isOpen={isAssignModalOpen}
+            onClose={() => { setAssignModalOpen(false); setEditingTrip(null); }}
+            shipment={selectedShipment}
+            trip={editingTrip}
+            carriers={plantCarriers}
+            onAssignmentComplete={() => { setAssignModalOpen(false); setEditingTrip(null); }}
+        />
+      )}
+
+      {drawerOrder && <OrderDetailsDrawer isOpen={!!drawerOrder} onClose={() => setDrawerOrder(null)} shipment={drawerOrder} />}
+      {drawerTrip && <TripDetailsDrawer isOpen={!!drawerTrip} onClose={() => setDrawerTrip(null)} trip={drawerTrip} />}
+      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
+      
+      {cancelModalData && (
+        <CancelReasonModal 
+            isOpen={!!cancelModalData} 
+            onClose={() => setCancelModalData(null)} 
+            onConfirm={cancelModalData.type === 'order' ? handleCancelOrder : (r) => {}} 
+        />
+      )}
+    </main>
+  );
+}
+
+export default function VehicleAssignPage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>}>
+            <OpenOrdersContent />
+        </Suspense>
+    );
+}
