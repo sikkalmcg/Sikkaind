@@ -255,21 +255,53 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
-        if (snap.empty) {
-            const manifestItems = row.items && row.items.length > 0 ? row.items : [{
-                invoiceNumber: row.invoiceNumber || 'NA',
-                ewaybillNumber: row.ewaybillNumber || '',
-                units: row.totalUnitsCount || 1,
-                unitType: 'Package',
-                itemDescription: row.summarizedItems || 'GENERAL CARGO',
-                weight: row.quantity
-            }];
+        // MISSION FIX: Priority Plant Handshake Node for Carrier resolution
+        let finalCarrier: any = null;
+        const pIdStr = normalizePlantId(row.originPlantId);
 
+        if (pIdStr === '1426') {
+            finalCarrier = {
+                id: 'ID20',
+                name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, GHAZIABAD, UTTAR PRADESH, 201009',
+                mobile: '8860091900',
+                gstin: '09AYQPS6936B1ZV',
+                stateCode: '09',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com'
+            };
+        } else if (pIdStr === '1214') {
+            finalCarrier = {
+                id: 'ID21',
+                name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                address: 'PLOT NO. 452, KHASRA NO. 77, VILLAGE BHALASWA, OPP. JAHANGIRPURI, DELHI - 110033',
+                mobile: '1127205565',
+                gstin: '09AYQPS6936B1ZV',
+                stateCode: '07',
+                pan: 'AYQPS6936B',
+                email: 'queries@sikka.com'
+            };
+        }
+
+        if (!finalCarrier) {
+            finalCarrier = row.carrierObj || (allCarriers || [])[0];
+        }
+
+        const manifestItems = row.items && row.items.length > 0 ? row.items : [{
+            invoiceNumber: row.summarizedInvoices || 'NA',
+            ewaybillNumber: row.ewaybillNumber || '',
+            units: row.totalUnitsCount || 1,
+            unitType: 'Package',
+            itemDescription: row.summarizedItems || 'GENERAL CARGO',
+            weight: row.quantity
+        }];
+
+        if (snap.empty) {
             setPreviewLr({
                 lrNumber: row.lrNumber,
                 date: row.lrDate || new Date(),
                 trip: row as any,
-                carrier: row.carrierObj || (allCarriers || [])[0],
+                carrier: finalCarrier,
                 shipment: row as any,
                 plant: row.plant || { id: row.originPlantId, name: row.plantName },
                 items: manifestItems,
@@ -293,7 +325,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
                 trip: row as any,
-                carrier: row.carrierObj || (allCarriers || [])[0],
+                carrier: finalCarrier,
                 shipment: row as any,
                 plant: row.plant || { id: row.originPlantId, name: row.plantName },
                 consignorGtin: lrDoc.consignorGtin || row.consignorGtin || '',

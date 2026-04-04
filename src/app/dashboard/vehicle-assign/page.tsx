@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -274,7 +273,7 @@ function OpenOrdersContent() {
       const start = t.creationDate; 
       if (!start) return true; 
 
-      if (dayStart && start < dayStart) return false;
+      if (dayStart && start < start) return false;
       if (dayEnd && start > dayEnd) return false;
       
       if (searchTerm) {
@@ -326,11 +325,39 @@ function OpenOrdersContent() {
         // MISSION FIX: Strict Carrier Resolution Node
         // Rule: Always resolve carrier by the mission's Lifting Node (Plant ID) first.
         const normalizedPlantIdStr = normalizePlantId(row.originPlantId);
-        const carrierNode = (carriers || []).find(c => normalizePlantId(c.plantId) === normalizedPlantIdStr) ||
-                            row.carrierObj || 
-                            (carriers || []).find(c => c.id === row.carrierId);
         
-        const finalCarrier = carrierNode || { name: 'SIKKA INDUSTRIES & LOGISTICS' };
+        let finalCarrier: any = null;
+        if (normalizedPlantIdStr === '1426') {
+            finalCarrier = {
+                id: 'ID20',
+                name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, GHAZIABAD, UTTAR PRADESH, 201009',
+                mobile: '8860091900',
+                gstin: '09AYQPS6936B1ZV',
+                stateCode: '09',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com'
+            };
+        } else if (normalizedPlantIdStr === '1214') {
+            finalCarrier = {
+                id: 'ID21',
+                name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                address: 'PLOT NO. 452, KHASRA NO. 77, VILLAGE BHALASWA, OPP. JAHANGIRPURI, DELHI - 110033',
+                mobile: '1127205565',
+                gstin: '09AYQPS6936B1ZV',
+                stateCode: '07',
+                pan: 'AYQPS6936B',
+                email: 'queries@sikka.com'
+            };
+        }
+
+        if (!finalCarrier) {
+            finalCarrier = (carriers || []).find(c => normalizePlantId(c.plantId) === normalizedPlantIdStr) ||
+                            row.carrierObj || 
+                            (carriers || []).find(c => c.id === row.carrierId) ||
+                            { name: 'SIKKA INDUSTRIES & LOGISTICS' };
+        }
+
         const shipmentObj = row.shipmentObj || row;
 
         if (snap.empty) {
@@ -366,7 +393,7 @@ function OpenOrdersContent() {
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
                 trip: row as any,
-                carrier: carrierNode as any || finalCarrier,
+                carrier: finalCarrier as any,
                 shipment: shipmentObj,
                 plant: row.plant || { id: row.originPlantId, name: row.plantName },
                 consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
