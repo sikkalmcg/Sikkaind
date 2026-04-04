@@ -1,9 +1,8 @@
-
 'use client';
 
 import React from 'react';
 import { format, isValid } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, parseSafeDate } from '@/lib/utils';
 import type { LR, Trip, Shipment, Carrier, Plant } from '@/types';
 import { Timestamp } from 'firebase/firestore';
 import { ShieldCheck } from 'lucide-react';
@@ -24,203 +23,192 @@ interface PrintableLRProps {
 
 /**
  * @fileOverview SIKKA LMC - Enterprise Lorry Receipt (LR) Node.
- * Optimized for A4 printing with Dynamic Carrier Header & Full Entity Addresses.
- * Registry Rule: Consignor/Consignee display full address; FROM/TO show City.
+ * Precise A4 restoration matching the provided Sikka LMC design.
+ * Mission Logic: Generates triple copies (Consignee, Driver, Consignor).
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
-    if (!date) return 'N/A';
-    const d = date instanceof Timestamp ? date.toDate() : new Date(date);
-    return isValid(d) ? format(d, pattern) : 'N/A';
-  };
-
-  /**
-   * Registry Logic: Extract Primary City Node
-   * Skips plot/block numbers (e.g., C-17) to find the actual city segment.
-   */
-  const getCityNode = (val: string) => {
-    if (!val || val === 'N/A' || val === '--') return '--';
-    const parts = val.split(',').map(p => p.trim()).filter(Boolean);
-    if (parts.length > 1 && (/\d/.test(parts[0]) || parts[0].length < 5)) {
-        return parts[1].toUpperCase();
-    }
-    return parts[0].toUpperCase(); 
+    const d = parseSafeDate(date);
+    return d && isValid(d) ? format(d, pattern) : '--';
   };
 
   const items = lr.items || [];
   const totalUnits = items.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
-  
-  const totalWeight = lr.weightSelection === 'Actual Weight' 
-    ? items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0)
-    : (Number(lr.assignedTripWeight) || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0));
+  const totalWeight = Number(lr.assignedTripWeight) || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
 
-  // Registry Scrub Node: Remove "NODE XXXX" from address strings for clean header
-  const cleanRegistryAddress = (addr: string) => {
-    if (!addr) return '';
-    return addr.replace(/NODE\s+\d+/gi, '').replace(/,\s*,/g, ',').replace(/^\s*,\s*/, '').trim();
-  };
-
-  // MISSION IDENTITY NODE: Prioritize assigned carrier manifest
-  const carrierName = lr.carrier?.name || lr.trip?.carrier || 'SIKKA INDUSTRIES & LOGISTICS';
-  const carrierAddress = cleanRegistryAddress(lr.carrier?.address || lr.plant?.address || 'GHAZIABAD, UTTAR PRADESH');
-  const carrierMobile = lr.carrier?.mobile || '9136688004, 9136688006';
-  const carrierGstin = lr.carrier?.gstin || '--';
-  const carrierTerms = lr.carrier?.terms || [];
+  const standardTerms = [
+    "Agency is not responsible for rain or any natural calamity.",
+    "Any discrepancy regarding material has to be intimated within 24 Hours of the receipt material with remark in POD section.",
+    "Owner of the vehicle (truck) is responsible for the goods after lifting the goods.",
+    "Agency has the right to hold the material upon shortage of vehicle.",
+    "Traders is responsible for contraband goods or goods which are not authorized.",
+    "Agency holds no responsibility after goods have been delivered.",
+    "All disputes subject to Ghaziabad Jurisdiction."
+  ];
 
   return (
-    <div className="A4-page p-[8mm] bg-white text-black font-sans text-[9pt] leading-tight border border-slate-100 print:border-none h-[297mm] flex flex-col relative select-text box-border">
+    <div className="A4-page p-[10mm] bg-white text-black font-sans text-[9pt] leading-tight flex flex-col relative select-text box-border h-[297mm]">
       
-      {/* 1. TOP HEADER REGISTRY - CARRIER FOCUSED */}
-      <div className="text-center mb-4 border-b border-black pb-2">
-        <span className="text-[10pt] font-black uppercase tracking-[0.5em] text-slate-900">{copyType}</span>
+      {/* 1. TOP CENTER INDICATOR */}
+      <div className="text-center mb-4 border-b-2 border-slate-900 pb-2">
+        <span className="text-[11pt] font-black uppercase tracking-[0.6em] text-slate-900">{copyType}</span>
       </div>
 
-      <div className="flex justify-between items-start mb-6">
-        <div className="flex gap-4 flex-1">
-          <div className="h-16 w-16 bg-slate-100 rounded-lg flex items-center justify-center border-2 border-black shrink-0">
-            {lr.carrier?.logoUrl ? (
-                <img src={lr.carrier.logoUrl} alt="Logo" className="max-h-full max-w-full object-contain" />
-            ) : (
-                <div className="text-[8px] font-black text-slate-400 uppercase text-center leading-none">SIKKA<br/>LOGISTICS</div>
-            )}
+      {/* 2. HEADER NODE: LOGO & COMPANY | CN BOX */}
+      <div className="flex justify-between items-start mb-8">
+        <div className="flex gap-5 flex-1 pr-10">
+          <div className="h-20 w-20 bg-white border-2 border-black rounded-xl flex items-center justify-center p-1 shrink-0 overflow-hidden shadow-sm">
+            <img 
+                src="https://image2url.com/r2/default/images/1774853131451-83a2a90c-6707-43fc-9b92-c364ad369d96.jpeg" 
+                alt="SIL Logo" 
+                className="max-h-full max-w-full object-contain"
+            />
           </div>
           <div className="space-y-1">
-            <h1 className="text-[14pt] font-black uppercase tracking-tight leading-none text-slate-900">
-              {carrierName}
-            </h1>
-            <p className="text-[9pt] font-bold text-slate-600 uppercase max-w-[400px]">
-              {carrierAddress}
+            <h1 className="text-[18pt] font-black uppercase tracking-tighter leading-none text-slate-900">SIKKA LMC</h1>
+            <p className="text-[8.5pt] font-black text-slate-600 uppercase max-w-[450px] leading-tight">
+                B-11, BULANDSHAHR ROAD INDL AREA, GHAZIABAD, UTTAR PRADESH, 201009
             </p>
-            <div className="text-[8pt] font-black text-slate-600 flex flex-wrap gap-x-4 pt-1">
-              <p>PHONE: {carrierMobile}</p>
-              <p>GSTIN: <span className="font-mono">{carrierGstin}</span></p>
+            <div className="text-[8.5pt] font-black text-slate-500 flex flex-wrap gap-x-6 pt-1">
+              <p>PHONE: 9136688004, 9136688006, 9136688009</p>
+              <p>GSTIN: <span className="font-mono text-blue-900">09AYQPS6936B1ZV</span></p>
             </div>
           </div>
         </div>
 
-        <div className="text-right space-y-3">
-            <div className="border-[3px] border-black px-4 py-2 bg-white min-w-[180px]">
-                <p className="text-[12pt] font-black uppercase text-slate-900 flex justify-between gap-4">
-                    <span>CN NO |</span> <span>{lr.lrNumber}</span>
+        <div className="min-w-[220px] space-y-2">
+            <div className="border-4 border-black p-3 bg-white text-center">
+                <p className="text-[13pt] font-black uppercase text-slate-900 flex justify-between items-center gap-4">
+                    <span>CN NO |</span> 
+                    <span className="font-mono text-blue-900">{lr.trip?.tripId || lr.tripId}</span>
                 </p>
             </div>
-            <div className="text-[8.5pt] font-black text-slate-900 uppercase space-y-1">
-                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>DATE:</span> <span>{formatDate(lr.date)}</span></p>
-                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>FROM:</span> <span>{getCityNode(lr.from)}</span></p>
-                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1"><span>TO:</span> <span>{getCityNode(lr.to)}</span></p>
+            <div className="text-[9.5pt] font-black text-slate-900 uppercase space-y-1.5 px-1">
+                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1">
+                    <span>DATE:</span> <span>{formatDate(lr.date, 'dd MMM yyyy')}</span>
+                </p>
+                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1">
+                    <span>FROM:</span> <span>{lr.from?.toUpperCase() || '--'}</span>
+                </p>
+                <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1">
+                    <span>TO:</span> <span>{lr.to?.toUpperCase() || '--'}</span>
+                </p>
             </div>
         </div>
       </div>
 
-      {/* 2. MISSION PARTICULARS */}
-      <div className="grid grid-cols-5 border-2 border-black rounded-lg overflow-hidden mb-6 bg-white divide-x-2 divide-black">
+      {/* 3. ASSET NODE STRIP */}
+      <div className="grid grid-cols-5 border-2 border-black rounded-2xl overflow-hidden mb-8 bg-slate-50 divide-x-2 divide-black">
         {[
-            { label: 'Vehicle Number', value: lr.vehicleNumber || lr.trip?.vehicleNumber || '--' },
+            { label: 'Vehicle Number', value: lr.vehicleNumber || lr.trip?.vehicleNumber || '--', bold: true },
             { label: 'Pilot Contact', value: lr.driverMobile || lr.trip?.driverMobile || 'N/A' },
-            { label: 'Vehicle Type', value: lr.trip?.vehicleType || 'Truck' },
-            { label: 'Payment Term', value: lr.paymentTerm || 'Paid' },
-            { label: 'Dispatch', value: formatDate(lr.trip?.startDate, 'dd/MM/yy HH:mm') }
+            { label: 'Vehicle Type', value: lr.trip?.vehicleType || 'OWN VEHICLE' },
+            { label: 'Payment Term', value: lr.paymentTerm || 'TO PAY' },
+            { label: 'Dispatch', value: formatDate(lr.trip?.startDate, 'HH:mm') || 'N/A' }
         ].map((node, i) => (
-            <div key={i} className="p-2 text-center flex flex-col justify-center">
-                <span className="text-[6.5pt] font-black uppercase text-slate-400 block mb-1 leading-none">{node.label}</span>
-                <p className="text-[8.5pt] font-black uppercase truncate leading-none">{node.value}</p>
+            <div key={i} className="p-3 text-center flex flex-col justify-center gap-1">
+                <span className="text-[7pt] font-black uppercase text-slate-400 block leading-none tracking-widest">{node.label}</span>
+                <p className={cn("text-[9.5pt] uppercase leading-none truncate", node.bold ? "font-black text-slate-900" : "font-bold text-slate-700")}>{node.value}</p>
             </div>
         ))}
       </div>
 
-      {/* 3. ENTITY REGISTRY - FULL ADDRESS VISIBILITY */}
-      <div className="grid grid-cols-2 border-2 border-black rounded-xl overflow-hidden mb-6 divide-x-2 divide-black min-h-[120px]">
-        <div className="p-4 space-y-2 flex flex-col">
-            <span className="text-[8pt] font-black uppercase text-white bg-black px-2 py-0.5 inline-block rounded mb-1 w-fit">CONSIGNOR (SENDER)</span>
-            <div className="text-[8.5pt] space-y-1 flex-1">
-                <p className="font-black uppercase">{lr.consignorName}</p>
-                <p className="text-slate-700 font-bold leading-tight italic">{lr.consignorAddress}</p>
+      {/* 4. ENTITY HANDBOOK */}
+      <div className="grid grid-cols-2 border-2 border-black rounded-[2.5rem] overflow-hidden mb-8 divide-x-2 divide-black min-h-[140px] shadow-sm">
+        <div className="p-6 space-y-3">
+            <span className="text-[8.5pt] font-black uppercase text-white bg-black px-3 py-1 rounded-full inline-block tracking-widest">CONSIGNOR (SENDER)</span>
+            <div className="space-y-1 flex-1">
+                <p className="text-[10.5pt] font-black uppercase text-slate-900 leading-tight">{lr.consignorName}</p>
+                <p className="text-[9pt] font-bold text-slate-600 leading-snug italic max-w-[350px]">{lr.consignorAddress}</p>
             </div>
-            <p className="font-black text-slate-900 text-[8pt]">GSTIN: <span className="font-mono">{lr.consignorGtin || '--'}</span></p>
+            <p className="font-black text-slate-900 text-[9pt] pt-2">GSTIN: <span className="font-mono">{lr.consignorGtin || '--'}</span></p>
         </div>
-        <div className="p-4 space-y-2 bg-slate-50/30 flex flex-col">
-            <span className="text-[8pt] font-black uppercase text-white bg-black px-2 py-0.5 inline-block rounded mb-1 w-fit">CONSIGNEE (RECEIVER)</span>
-            <div className="text-[8.5pt] space-y-1 flex-1">
-                <p className="font-black uppercase">{lr.buyerName}</p>
-                <p className="text-slate-700 font-bold leading-tight italic">{lr.deliveryAddress}</p>
+        <div className="p-6 space-y-3 bg-slate-50/20">
+            <span className="text-[8.5pt] font-black uppercase text-white bg-black px-3 py-1 rounded-full inline-block tracking-widest">CONSIGNEE (RECEIVER)</span>
+            <div className="space-y-1 flex-1">
+                <p className="text-[10.5pt] font-black uppercase text-slate-900 leading-tight">{lr.buyerName}</p>
+                <p className="text-[9pt] font-bold text-slate-600 leading-snug italic max-w-[350px]">{lr.deliveryAddress}</p>
             </div>
-            <p className="font-black text-slate-900 text-[8pt]">GSTIN: <span className="font-mono">{lr.buyerGtin || '--'}</span></p>
+            <p className="font-black text-slate-900 text-[9pt] pt-2">GSTIN: <span className="font-mono">{lr.buyerGtin || '--'}</span></p>
         </div>
       </div>
 
-      {/* 4. MANIFEST TABLE */}
-      <div className="border-2 border-black rounded-xl overflow-hidden mb-6 flex flex-col min-h-0">
+      {/* 5. MANIFEST AUDIT TABLE */}
+      <div className="border-2 border-black rounded-[2.5rem] overflow-hidden mb-10 flex flex-col min-h-0 shadow-lg">
         <table className="w-full border-collapse">
-          <thead className="bg-black text-white text-[7.5pt] font-black uppercase tracking-wider">
-            <tr className="h-10">
-              <th className="border-r border-white/20 px-4 text-left w-48">DOCUMENT REF (INVOICE)</th>
-              <th className="border-r border-white/20 px-4 text-left">DESCRIPTION OF GOODS</th>
-              <th className="border-r border-white/20 px-4 text-center w-32">NO. OF PKGS</th>
-              <th className="px-4 text-right w-40">WEIGHT (MT)</th>
+          <thead className="bg-black text-white text-[8.5pt] font-black uppercase tracking-[0.1em]">
+            <tr className="h-12">
+              <th className="border-r border-white/20 px-6 text-left w-56">DOCUMENT REF (INVOICE)</th>
+              <th className="border-r border-white/20 px-6 text-left">DESCRIPTION OF GOODS</th>
+              <th className="border-r border-white/20 px-6 text-center w-36">NO. OF PKGS</th>
+              <th className="px-6 text-right w-40">WEIGHT (MT)</th>
             </tr>
           </thead>
-          <tbody className="text-[9pt] font-bold text-slate-900 divide-y">
+          <tbody className="text-[10pt] font-bold text-slate-900 divide-y-2 divide-slate-100">
             {items.map((item, idx) => (
-              <tr key={idx} className="h-10 align-middle hover:bg-slate-50 transition-colors">
-                <td className="border-r border-slate-200 px-4 font-black uppercase">{item.invoiceNumber}</td>
-                <td className="border-r border-slate-200 px-4 uppercase">{item.itemDescription}</td>
-                <td className="border-r border-slate-200 px-4 text-center font-black">{item.units}</td>
-                <td className="px-4 text-right font-black text-blue-900">{Number(item.weight).toFixed(3)}</td>
+              <tr key={idx} className="h-14 align-middle bg-white">
+                <td className="border-r-2 border-slate-100 px-6 font-black uppercase">{item.invoiceNumber || item.deliveryNumber}</td>
+                <td className="border-r-2 border-slate-100 px-6 uppercase tracking-tight">{item.itemDescription}</td>
+                <td className="border-r-2 border-slate-100 px-6 text-center font-black text-blue-900">{item.units}</td>
+                <td className="px-6 text-right font-black text-blue-900">{Number(item.weight).toFixed(3)}</td>
               </tr>
             ))}
-            {Array.from({ length: Math.max(0, 4 - items.length) }).map((_, i) => (
-              <tr key={`empty-${i}`} className="h-10 border-b border-slate-50 opacity-10">
-                <td className="border-r border-slate-200"></td>
-                <td className="border-r border-slate-200"></td>
-                <td className="border-r border-slate-200"></td>
+            {Array.from({ length: Math.max(0, 5 - items.length) }).map((_, i) => (
+              <tr key={`empty-${i}`} className="h-14 border-b border-slate-50 opacity-10">
+                <td className="border-r-2 border-slate-100"></td>
+                <td className="border-r-2 border-slate-100"></td>
+                <td className="border-r-2 border-slate-100"></td>
                 <td></td>
               </tr>
             ))}
           </tbody>
-          <tfoot className="bg-slate-50 font-black h-12 border-t-2 border-black">
-            <tr className="align-middle">
-              <td className="px-4 text-[10pt] font-black uppercase">TOTAL:</td>
-              <td className="border-l-2 border-black px-4"></td>
-              <td className="border-l-2 border-black px-4 text-center text-[10pt] font-black">{totalUnits}</td>
-              <td className="border-l-2 border-black px-4 text-right text-[10pt] font-black text-blue-900">{totalWeight.toFixed(3)}</td>
+          <tfoot className="bg-slate-50 font-black h-14 border-t-4 border-black">
+            <tr className="align-middle text-[11pt]">
+              <td className="px-6 uppercase">TOTAL:</td>
+              <td className="border-l-2 border-black"></td>
+              <td className="border-l-2 border-black text-center font-black">{totalUnits}</td>
+              <td className="border-l-2 border-black text-right px-6 font-black text-blue-900">{totalWeight.toFixed(3)}</td>
             </tr>
           </tfoot>
         </table>
       </div>
 
-      <div className="mt-4 mb-8">
-        <div className="grid grid-cols-2 gap-16">
-            <div className="space-y-3">
-                <span className="text-[8pt] font-black uppercase text-slate-900 border-b border-slate-200 block pb-1">TERMS & CONDITIONS</span>
-                <div className="min-h-[100px] w-full bg-slate-50/30 p-2 rounded-lg border border-slate-100 text-[7pt] text-slate-600 space-y-1">
-                    {carrierTerms.length > 0 ? (
-                        <ul className="list-decimal pl-4 space-y-0.5">
-                            {carrierTerms.map((term, i) => (
-                                <li key={i} className="font-medium">{term}</li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="italic text-slate-400">Standard transport terms apply.</p>
-                    )}
-                </div>
+      {/* 6. COMPLIANCE & SIGNATURE NODES */}
+      <div className="grid grid-cols-2 gap-20 mb-12">
+        <div className="space-y-4">
+            <span className="text-[9pt] font-black uppercase text-slate-900 border-b-2 border-black block pb-1 tracking-widest italic">TERMS & CONDITIONS</span>
+            <div className="bg-slate-50/50 p-4 rounded-3xl border border-slate-100 min-h-[160px]">
+                <ul className="space-y-1.5">
+                    {standardTerms.map((term, i) => (
+                        <li key={i} className="text-[7.5pt] font-bold text-slate-600 flex gap-2">
+                            <span className="shrink-0">{i + 1}.</span>
+                            <span className="leading-tight">{term}</span>
+                        </li>
+                    ))}
+                </ul>
             </div>
+        </div>
 
-            <div className="space-y-3 text-center">
-                <span className="text-[8pt] font-black uppercase text-slate-900 border-b border-slate-200 block pb-1">FOR {carrierName}</span>
-                <div className="h-24 flex flex-col justify-end items-center">
-                    <div className="w-full border-t-2 border-black border-dashed mb-2" />
-                    <span className="text-[8pt] font-black uppercase tracking-widest">AUTHORIZED SIGNATORY</span>
+        <div className="flex flex-col justify-between pt-2">
+            <div className="text-center space-y-4">
+                <span className="text-[9pt] font-black uppercase text-slate-900 border-b-2 border-black block pb-1 tracking-widest">FOR SIKKA LMC</span>
+                <div className="h-32 flex flex-col justify-end items-center">
+                    <div className="w-full border-t-2 border-black border-dashed mb-3" />
+                    <span className="text-[10pt] font-black uppercase tracking-[0.3em] text-slate-900 italic">AUTHORIZED SIGNATORY</span>
                 </div>
             </div>
         </div>
       </div>
 
-      <div className="mt-auto pt-4 border-t border-slate-200 flex flex-col items-center gap-1.5 shrink-0">
-        <p className="text-[7.5pt] font-black uppercase text-blue-400/80 tracking-widest">
-            Note: This Lorry Receipt was generated digitally and is to be considered as original
+      {/* 7. REGISTRY FOOTER */}
+      <div className="mt-auto pt-6 border-t-2 border-slate-900 flex flex-col items-center gap-2 shrink-0">
+        <p className="text-[8pt] font-black uppercase text-blue-600 tracking-[0.3em] italic">
+            NOTE: THIS LORRY RECEIPT WAS GENERATED DIGITALLY AND IS TO BE CONSIDERED AS ORIGINAL
         </p>
-        <div className="flex items-center gap-2">
-            <span className="text-[7.5pt] font-black uppercase tracking-[0.5em] text-slate-500"> PAGE {pageNumber} OF {totalInSeries}</span>
+        <div className="flex items-center gap-4">
+            <div className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+            <span className="text-[9pt] font-black uppercase tracking-[0.5em] text-slate-900"> PAGE {pageNumber} OF {totalInSeries} </span>
+            <div className="h-1.5 w-1.5 rounded-full bg-slate-300" />
         </div>
       </div>
     </div>
