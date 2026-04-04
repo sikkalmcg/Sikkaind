@@ -138,8 +138,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 5. MANIFEST AUDIT TABLE - ROUNDED PILL DESIGN */}
-      <div className="border-2 border-black rounded-[2.5rem] overflow-hidden mb-10 flex flex-col min-h-0 shadow-lg flex-1">
+      {/* 5. MANIFEST AUDIT TABLE - DYNAMIC PILL DESIGN */}
+      <div className="border-2 border-black rounded-[2rem] overflow-hidden mb-10 flex flex-col shadow-lg shrink-0">
         <table className="w-full border-collapse">
           <thead className="bg-black text-white text-[8.5pt] font-black uppercase tracking-[0.1em]">
             <tr className="h-12">
@@ -156,25 +156,17 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                     {(item as any).invoiceNumber || (item as any).invoiceNo || (item as any).deliveryNumber || (item as any).deliveryNo || 'NA'}
                 </td>
                 <td className="border-r-2 border-black px-6 uppercase tracking-tight font-black text-slate-900">{item.itemDescription}</td>
-                <td className="border-r-2 border-black px-6 text-center font-black text-blue-700">{item.units}</td>
-                <td className="px-6 text-right font-black text-blue-700">{Number(item.weight).toFixed(3)}</td>
-              </tr>
-            ))}
-            {Array.from({ length: Math.max(0, 8 - items.length) }).map((_, i) => (
-              <tr key={`empty-${i}`} className="h-14 border-b-2 border-black last:border-b-0 opacity-10">
-                <td className="border-r-2 border-black"></td>
-                <td className="border-r-2 border-black"></td>
-                <td className="border-r-2 border-black"></td>
-                <td></td>
+                <td className="border-r-2 border-black px-6 text-center font-black text-black">{item.units}</td>
+                <td className="px-6 text-right font-black text-black">{Number(item.weight).toFixed(3)}</td>
               </tr>
             ))}
           </tbody>
-          <tfoot className="bg-slate-100 font-black h-14 border-t-4 border-black">
+          <tfoot className="bg-white font-black h-14 border-t-2 border-black">
             <tr className="align-middle text-[11pt]">
-              <td className="px-6 uppercase border-r-2 border-black">TOTAL MANIFEST:</td>
+              <td className="px-6 uppercase border-r-2 border-black">TOTAL:</td>
               <td className="border-r-2 border-black"></td>
-              <td className="border-r-2 border-black text-center font-black text-blue-900">{totalUnits}</td>
-              <td className="text-right px-6 font-black text-blue-900">{totalWeight.toFixed(3)}</td>
+              <td className="border-r-2 border-black text-center font-black text-black">{totalUnits}</td>
+              <td className="text-right px-6 font-black text-black">{totalWeight.toFixed(3)}</td>
             </tr>
           </tfoot>
         </table>
