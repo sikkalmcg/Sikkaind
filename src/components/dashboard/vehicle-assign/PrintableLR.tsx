@@ -155,7 +155,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           <tbody className="text-[10pt] font-bold text-slate-900 divide-y-2 divide-slate-100">
             {items.map((item, idx) => (
               <tr key={idx} className="h-14 align-middle bg-white">
-                <td className="border-r-2 border-slate-100 px-6 font-black uppercase">{item.invoiceNumber || item.deliveryNumber}</td>
+                <td className="border-r-2 border-slate-100 px-6 font-black uppercase">
+                    {(item as any).invoiceNumber || (item as any).invoiceNo || (item as any).deliveryNumber || (item as any).deliveryNo || 'NA'}
+                </td>
                 <td className="border-r-2 border-slate-100 px-6 uppercase tracking-tight">{item.itemDescription}</td>
                 <td className="border-r-2 border-slate-100 px-6 text-center font-black text-blue-900">{item.units}</td>
                 <td className="px-6 text-right font-black text-blue-900">{Number(item.weight).toFixed(3)}</td>

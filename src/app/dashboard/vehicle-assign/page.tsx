@@ -194,7 +194,7 @@ function OpenOrdersContent() {
           originPlantId: plantId,
           ...d.data(),
           date: parseSafeDate(d.data().date)
-        } as WithId<LR>));
+        } as any));
 
         setAllData(prev => ({
           ...prev,
@@ -208,7 +208,6 @@ function OpenOrdersContent() {
 
   const enrichedOrders = useMemo(() => {
     const { shipments, trips, entries, lrs } = allData;
-    // FIX: Normalize and strictly filter shipments by current plant selection
     const normalizedSelected = selectedPlants.map(normalizePlantId);
 
     return (shipments || [])
@@ -235,7 +234,9 @@ function OpenOrdersContent() {
         });
 
         const itemsManifest = s.items || [];
-        const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber).filter(Boolean))).join(', ') || s.invoiceNumber || '--';
+        const getInvoice = (i: any) => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo;
+        const summarizedInvoices = Array.from(new Set(itemsManifest.map(getInvoice).filter(Boolean))).join(', ') || s.invoiceNumber || '--';
+        
         const summarizedItems = Array.from(new Set(itemsManifest.map(i => i.itemDescription || i.description).filter(Boolean))).join(', ') || s.itemDescription || s.material || '--';
         const totalUnitsCount = itemsManifest.reduce((sum, i) => sum + (Number(i.units) || 0), 0) || s.totalUnits || 0;
 
@@ -322,15 +323,17 @@ function OpenOrdersContent() {
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
+        const carrierNode = row.carrierObj || (carriers || [])[0] || { name: 'SIKKA INDUSTRIES & LOGISTICS' };
+        const shipmentObj = row.shipmentObj || row;
+
         if (snap.empty) {
-            const shipmentObj = row.shipmentObj || row;
             setLrPreviewData({
                 lrNumber: row.lrNumber,
                 date: row.lrDate || new Date(),
                 trip: row as any,
-                carrier: row.carrierObj || (carriers || [])[0],
+                carrier: carrierNode,
                 shipment: shipmentObj,
-                plant: row.plant,
+                plant: row.plant || { id: row.originPlantId, name: row.plantName },
                 items: shipmentObj.items || [],
                 weightSelection: 'Assigned Weight',
                 assignedTripWeight: row.assignedQtyInTrip || shipmentObj.quantity,
@@ -347,15 +350,14 @@ function OpenOrdersContent() {
             } as any);
         } else {
             const lrDoc = snap.docs[0].data() as LR;
-            const shipmentObj = row.shipmentObj || row;
             setLrPreviewData({
                 ...lrDoc,
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
                 trip: row as any,
-                carrier: row.carrierObj || (allCarriers || [])[0],
+                carrier: carrierNode,
                 shipment: shipmentObj,
-                plant: row.plant,
+                plant: row.plant || { id: row.originPlantId, name: row.plantName },
                 consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
                 buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
                 shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || '',

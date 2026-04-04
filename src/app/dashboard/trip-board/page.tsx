@@ -225,13 +225,16 @@ function TripBoardContent() {
       .map(t => {
         const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : t.shipmentIds;
         const shipment = shipments.find(s => s.id === shipId || s.shipmentId === shipId);
-        const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId);
+        const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId || (l.lrNumber === t.lrNumber && l.originPlantId === t.originPlantId));
         const entry = entries.find(e => e.tripId === t.id || (e.vehicleNumber === t.vehicleNumber && e.status === 'OUT' && normalizePlantId(e.plantId) === normalizePlantId(t.originPlantId)));
         const carrier = dbCarriers?.find(c => c.id === t.carrierId);
         const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(t.originPlantId));
 
         const items = lr?.items || t.items || shipment?.items || [];
-        const invoiceNumbers = Array.from(new Set(items.map((i: any) => i.invoiceNumber).filter(Boolean))).join(', ');
+        // Robust Invoice Detection: scan for all common key variations
+        const getInvoice = (i: any) => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo;
+        const invoiceNumbers = Array.from(new Set(items.map(getInvoice).filter(Boolean))).join(', ');
+        
         const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
 
         const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
@@ -471,9 +474,9 @@ function TripBoardContent() {
                 carrier: carrierNode,
                 shipment: shipmentObj,
                 plant: plantNode,
-                consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
-                buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
-                shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || '',
+                consignorGtin: lrDoc.consignorGtin || (shipmentObj as any)?.consignorGtin || '',
+                buyerGtin: lrDoc.buyerGtin || (shipmentObj as any)?.billToGtin || '',
+                shipToGtin: lrDoc.shipToGtin || (shipmentObj as any)?.shipToGtin || '',
                 vehicleNumber: lrDoc.vehicleNumber || row.vehicleNumber,
                 driverName: lrDoc.driverName || row.driverName,
                 driverMobile: lrDoc.driverMobile || row.driverMobile,
@@ -612,5 +615,7 @@ function TripBoardContent() {
 }
 
 export default function TripBoardPage() {
-    return <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>}><TripBoardContent /></Suspense>;
+    return <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>}>
+        <TripBoardContent />
+    </Suspense>;
 }

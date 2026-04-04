@@ -36,10 +36,10 @@ const formSchema = z.object({
   weightSelection: z.enum(['Assigned Weight', 'Actual Weight']),
   items: z.array(z.object({
     invoiceNumber: z.string().min(1, "Invoice number required."),
-    units: z.coerce.number().positive("Unit count mandatory."),
+    units: z.coerce.number().min(1, "Unit count mandatory."),
     unitType: z.string().optional(),
     itemDescription: z.string().min(1, "Required"),
-    weight: z.coerce.number().positive("Weight must be positive."),
+    weight: z.coerce.number().min(0.001, "Weight must be positive."),
     hsnSac: z.string().optional(),
   })).min(1, "At least one row is required."),
   deliveryAddress: z.string().min(1, "Delivery Address is mandatory."),
@@ -92,7 +92,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, GSTIN, or City..." 
                             value={search} 
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
@@ -193,7 +193,8 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                 setShipment({ id: shipmentSnap.id, ...sData } as WithId<Shipment>);
 
                 let initialItems = (sData.items || []).map(i => ({
-                    invoiceNumber: i.invoiceNumber || (i as any).deliveryNumber || '',
+                    // Universal Key Map Node
+                    invoiceNumber: (i as any).invoiceNumber || (i as any).invoiceNo || (i as any).deliveryNumber || (i as any).deliveryNo || '',
                     units: i.units || 1,
                     unitType: i.unitType || 'Package',
                     itemDescription: i.itemDescription || i.description || sData.material || '',
