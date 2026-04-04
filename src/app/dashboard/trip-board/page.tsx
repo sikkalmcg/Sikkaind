@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -248,6 +249,7 @@ function TripBoardContent() {
             loadingPoint: t.loadingPoint || shipment?.loadingPoint || '--',
             unloadingPoint: t.unloadingPoint || shipment?.unloadingPoint || t.destination || '--',
             vehicleNumber: t.vehicleNumber,
+            driverName: t.driverName,
             driverMobile: t.driverMobile,
             fleetType: t.vehicleType,
             vendorName: t.transporterName || '--',
@@ -276,7 +278,8 @@ function TripBoardContent() {
             shipmentObj: shipment,
             lrData: lr,
             carrierObj: carrier,
-            entry
+            entry,
+            paymentTerm: t.paymentTerm || shipment?.paymentTerm || 'Paid'
         };
     });
 }, [trips, shipments, lrs, entries, plants, dbCarriers, selectedPlants]);
@@ -452,6 +455,10 @@ function TripBoardContent() {
                 shipToParty: shipmentObj.shipToParty || row.shipToParty || '',
                 shipToGtin: shipmentObj.shipToGtin || row.shipToGtin || '',
                 deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || row.unloadingPoint || '',
+                vehicleNumber: row.vehicleNumber,
+                driverName: row.driverName,
+                driverMobile: row.driverMobile,
+                paymentTerm: row.paymentTerm,
                 id: `pseudo-${Date.now()}`
             };
         } else {
@@ -467,6 +474,10 @@ function TripBoardContent() {
                 consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
                 buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
                 shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || '',
+                vehicleNumber: lrDoc.vehicleNumber || row.vehicleNumber,
+                driverName: lrDoc.driverName || row.driverName,
+                driverMobile: lrDoc.driverMobile || row.driverMobile,
+                paymentTerm: lrDoc.paymentTerm || row.paymentTerm
             };
         }
         

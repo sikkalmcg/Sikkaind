@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -35,6 +36,13 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const items = lr.items || [];
   const totalUnits = items.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
   const totalWeight = Number(lr.assignedTripWeight) || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
+
+  // Fallback Mapping Node
+  const vehicleNumber = lr.vehicleNumber || lr.trip?.vehicleNumber || '--';
+  const driverMobile = lr.driverMobile || lr.trip?.driverMobile || 'N/A';
+  const vehicleType = lr.trip?.vehicleType || 'OWN VEHICLE';
+  const paymentTerm = lr.paymentTerm || lr.trip?.paymentTerm || 'PAID';
+  const dispatchTime = formatDate(lr.trip?.startDate, 'HH:mm') || 'N/A';
 
   const standardTerms = [
     "Agency is not responsible for rain or any natural calamity.",
@@ -100,15 +108,15 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       {/* 3. ASSET NODE STRIP */}
       <div className="grid grid-cols-5 border-2 border-black rounded-2xl overflow-hidden mb-8 bg-slate-50 divide-x-2 divide-black">
         {[
-            { label: 'Vehicle Number', value: lr.vehicleNumber || lr.trip?.vehicleNumber || '--', bold: true },
-            { label: 'Pilot Contact', value: lr.driverMobile || lr.trip?.driverMobile || 'N/A' },
-            { label: 'Vehicle Type', value: lr.trip?.vehicleType || 'OWN VEHICLE' },
-            { label: 'Payment Term', value: lr.paymentTerm || 'TO PAY' },
-            { label: 'Dispatch', value: formatDate(lr.trip?.startDate, 'HH:mm') || 'N/A' }
+            { label: 'Vehicle Number', value: vehicleNumber, bold: true },
+            { label: 'Pilot Contact', value: driverMobile },
+            { label: 'Vehicle Type', value: vehicleType },
+            { label: 'Payment Term', value: paymentTerm },
+            { label: 'Dispatch', value: dispatchTime }
         ].map((node, i) => (
             <div key={i} className="p-3 text-center flex flex-col justify-center gap-1">
                 <span className="text-[7pt] font-black uppercase text-slate-400 block leading-none tracking-widest">{node.label}</span>
-                <p className={cn("text-[9.5pt] uppercase leading-none truncate", node.bold ? "font-black text-slate-900" : "font-bold text-slate-700")}>{node.value}</p>
+                <p className={cn("text-[9.5pt] uppercase leading-none truncate", node.bold ? "font-black text-slate-900" : "font-bold text-slate-700")}>{node.value || '--'}</p>
             </div>
         ))}
       </div>

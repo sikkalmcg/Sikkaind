@@ -75,6 +75,7 @@ interface VehicleAssignModalProps {
 
 const VEHICLE_REGEX = /^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/;
 const MAPS_JS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
+const MAP_LIBRARIES: ("places")[] = ['places'];
 
 const formSchema = z.object({
     isNewVehicle: z.boolean().default(false),
@@ -117,7 +118,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   const userProfileRef = useMemo(() => (firestore && user) ? doc(firestore, "users", user.uid) : null, [firestore, user]);
   const { data: userProfile } = useDoc<SubUser>(userProfileRef);
   
-  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: MAPS_JS_KEY, libraries: ['places'] });
+  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: MAPS_JS_KEY, libraries: MAP_LIBRARIES });
 
   const [vehiclesAtGate, setVehiclesAtGate] = useState<any[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(false);
@@ -150,31 +151,43 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   }, [plants, shipment.originPlantId]);
 
   const plantNameDisplay = selectedPlant?.name || shipment.originPlantId;
-  // REGISTRY LOGIC: Show city for "Lifting Point" context
-  const plantCityDisplay = selectedPlant?.city || shipment.loadingPoint;
+  const plantAddressDisplay = selectedPlant?.address || shipment.loadingPoint;
+
+  const carrierOptions = useMemo(() => {
+    const targetPlantId = normalizePlantId(shipment.originPlantId);
+    return (carriers || [])
+      .filter(c => normalizePlantId(c.plantId) === targetPlantId)
+      .map(c => ({ value: c.id, label: c.name }));
+  }, [carriers, shipment.originPlantId]);
 
   useEffect(() => {
     if (isOpen) {
         const safeBalance = shipment.balanceQty !== undefined ? Number(Number(shipment.balanceQty).toFixed(3)) : 0;
-        const defaultValues = {
+        let initialCarrierId = trip?.carrierId || shipment.carrierId || '';
+        if (initialCarrierId && !carrierOptions.find(o => o.value === initialCarrierId)) {
+            initialCarrierId = carrierOptions.length > 0 ? carrierOptions[0].value : '';
+        } else if (!initialCarrierId && carrierOptions.length > 0) {
+            initialCarrierId = carrierOptions[0].value;
+        }
+
+        reset({
             isNewVehicle: false,
             vehicleId: trip?.vehicleId || '',
             vehicleNumber: trip?.vehicleNumber || '',
             driverName: trip?.driverName || '',
             driverMobile: trip?.driverMobile || '',
-            vehicleType: trip?.vehicleType || 'Own Vehicle',
-            carrierId: trip?.carrierId || shipment.carrierId || (carriers.length > 0 ? carriers[0].id : ''),
+            vehicleType: (trip?.vehicleType as any) || 'Own Vehicle',
+            carrierId: initialCarrierId,
             assignQty: trip?.assignedQtyInTrip ?? safeBalance,
             transporterName: trip?.transporterName || '',
             transporterMobile: (trip as any)?.transporterMobile || '',
             ownerName: trip?.ownerName || '',
-            ownerMobile: trip?.ownerMobile || '',
+            ownerMobile: (trip as any)?.ownerMobile || '',
             distance: trip?.distance || 0,
             freightRate: trip?.freightRate || 0
-        };
-        reset(defaultValues as any);
+        });
     }
-  }, [isOpen, trip, shipment, carriers, reset]);
+  }, [isOpen, trip, shipment, carrierOptions, reset]);
 
   useEffect(() => {
     if (!isOpen || isNewVehicle || !vehicleId) return;
@@ -210,13 +223,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     const calculate = () => {
       setCalculatingDistance(true);
       const service = new google.maps.DirectionsService();
-      const timeout = setTimeout(() => setCalculatingDistance(false), 5000);
       service.route({
           origin: shipment.loadingPoint!,
           destination: shipment.unloadingPoint!,
           travelMode: google.maps.TravelMode.DRIVING,
       }, (response, status) => {
-          clearTimeout(timeout);
           setCalculatingDistance(false);
           if (status === 'OK' && response) {
               const distKm = (response.routes[0].legs[0].distance?.value || 0) / 1000;
@@ -295,14 +306,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     }
   };
 
-  const onInvalid = (errs: any) => {
-      const firstError = Object.values(errs)[0] as any;
-      if (firstError) {
-          toast({ variant: 'destructive', title: "Validation Error", description: firstError.message || "Invalid field detected." });
-      }
-  };
-
-  const carrierOptions = useMemo(() => carriers.map(c => ({ value: c.id, label: c.name })), [carriers]);
   const calculatedFreight = (Number(assignQty) || 0) * (Number(freightRate) || 0);
 
   return (
@@ -335,14 +338,14 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             <div className="grid grid-cols-2 md:grid-cols-6 gap-6 md:gap-10">
                 <ContextNode label="Lifting Node" value={plantNameDisplay} icon={Factory} />
                 <ContextNode label="Consignor" value={shipment.consignor} icon={UserCircle} />
-                <ContextNode label="Site point" value={plantCityDisplay} icon={MapPin} />
+                <ContextNode label="Site point" value={plantAddressDisplay} icon={MapPin} />
                 <ContextNode label="Consignee" value={shipment.billToParty} icon={UserCircle} />
                 <ContextNode label="Drop node" value={shipment.deliveryAddress || shipment.unloadingPoint} icon={MapPin} className="col-span-2 text-blue-900" bold />
             </div>
           </Card>
 
           <Form {...form}>
-            <form className="space-y-10" onSubmit={handleSubmit(onSubmit, onInvalid)}>
+            <form className="space-y-10" onSubmit={handleSubmit(onSubmit)}>
                 <Card className="border-none shadow-2xl rounded-[2rem] md:rounded-[2.5rem] bg-white overflow-hidden">
                     <div className="p-6 md:p-8 bg-slate-50 border-b flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <h3 className="font-black text-xs uppercase tracking-[0.3em] text-slate-500 flex items-center gap-3"><Truck className="h-5 w-5 text-blue-600"/> Fleet Entry Control</h3>
@@ -388,8 +391,9 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                         options={carrierOptions} 
                                         onChange={field.onChange} 
                                         value={field.value} 
-                                        placeholder="Pick Agent"
+                                        placeholder={carrierOptions.length === 0 ? "No carriers for this plant" : "Pick Agent"}
                                         className="h-12"
+                                        disabled={carrierOptions.length === 0}
                                     />
                                     <FormMessage />
                                     </FormItem>
