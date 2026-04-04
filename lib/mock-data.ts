@@ -391,6 +391,20 @@ export let mockCarriers: WithId<Carrier>[] = [
         mobile: '9988776655',
         website: 'https://expressconnect.in',
         terms: ['POD must be provided for payment processing.']
+    },
+    {
+        id: 'ID20',
+        logoUrl: '/placeholder.svg',
+        name: 'SIKKA INDUSTRIES AND LOGISTICS',
+        address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, GHAZIABAD, UTTAR PRADESH, 201009',
+        gstin: '09AYQPS6936B1ZV',
+        pan: 'AYQPS6936B',
+        stateName: 'UTTAR PRADESH',
+        stateCode: '09',
+        email: 'sil@sikkaenterprises.com',
+        mobile: '8860091900',
+        website: 'https://sikkaenterprises.com',
+        terms: ['POD must be provided for payment processing.']
     }
 ];
 
@@ -781,7 +795,7 @@ export function unassignMockTrip(trip: WithId<Trip>) {
 
 
     // Check if the vehicle is still assigned to any other trips
-    const isVehicleStillAssigned = mockTrips.some(t => t.vehicleId === vehicleIdToUpdate);
+    const isVehicleStillAssigned = mockTrips.some(t => t.id !== trip.id && t.vehicleId === vehicleIdToUpdate);
 
     // Only set vehicle status to 'available' if it's not on any other trip
     if (!isVehicleStillAssigned) {
