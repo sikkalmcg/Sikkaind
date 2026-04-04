@@ -177,7 +177,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   };
 
   return (
-    <div className="A4-page p-[8mm] bg-white text-black font-sans text-[9pt] leading-tight flex flex-col relative select-text box-border h-[297mm] overflow-hidden border-[1px] border-slate-200">
+    <div className="A4-page p-[8mm] bg-white text-black font-sans text-[9pt] leading-tight flex flex-col relative select-text box-border h-[297mm] overflow-hidden">
 
       {/* 1. TOP COPY INDICATOR */}
       <div className="text-center mb-2 border-b-2 border-black pb-1">

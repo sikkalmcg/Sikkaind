@@ -421,20 +421,37 @@ function TripBoardContent() {
         const plantNode = row.plant || { id: row.originPlantId, name: row.plantName };
         const shipmentObj = row.shipmentObj || row;
 
-        // MISSION FIX: Priority Carrier Resolution Node
-        // Rule: Always resolve carrier by the mission's Lifting Node (Plant ID) first.
-        const normalizedPlantIdStr = normalizePlantId(row.originPlantId);
-        let finalCarrier = (dbCarriers || []).find(c => normalizePlantId(c.plantId) === normalizedPlantIdStr);
+        // MISSION FIX: Priority Plant Handshake Node for Carrier
+        // Rule: If mission is 1214 or 1426, strictly resolve their respective addresses first.
+        let finalCarrier: any = null;
+        const pIdStr = normalizePlantId(row.originPlantId);
+
+        if (pIdStr === '1426') {
+            finalCarrier = {
+                id: 'ID20',
+                name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, GHAZIABAD, UTTAR PRADESH, 201009',
+                mobile: '8860091900',
+                gstin: '09AYQPS6936B1ZV',
+                stateCode: '09',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com'
+            };
+        } else if (pIdStr === '1214') {
+            finalCarrier = {
+                id: 'ID21',
+                name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                address: 'PLOT NO. 452, KHASRA NO. 77, VILLAGE BHALASWA, OPP. JAHANGIRPURI, DELHI - 110033',
+                mobile: '1127205565',
+                gstin: '09AYQPS6936B1ZV',
+                stateCode: '07',
+                pan: 'AYQPS6936B',
+                email: 'queries@sikka.com'
+            };
+        }
 
         if (!finalCarrier) {
-            const targetCarrierId = row.carrierId || shipmentObj.carrierId;
-            if (targetCarrierId) {
-                finalCarrier = (dbCarriers || []).find(c => c.id === targetCarrierId);
-                if (!finalCarrier) {
-                    const cSnap = await getDoc(doc(firestore, "carriers", targetCarrierId));
-                    if (cSnap.exists()) finalCarrier = { id: cSnap.id, ...cSnap.data() };
-                }
-            }
+            finalCarrier = (dbCarriers || []).find(c => normalizePlantId(c.plantId) === pIdStr) || row.carrierObj;
         }
 
         if (!finalCarrier) {
