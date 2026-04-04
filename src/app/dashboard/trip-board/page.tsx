@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -420,8 +421,13 @@ function TripBoardContent() {
         const plantNode = row.plant || { id: row.originPlantId, name: row.plantName };
         const shipmentObj = row.shipmentObj || row;
 
-        // MISSION FIX: Prioritize Trip-assigned Carrier to avoid multi-plant mismatch
-        const resolvedCarrier = (dbCarriers || []).find(c => c.id === row.carrierId) || row.carrierObj || (dbCarriers || [])[0];
+        // MISSION FIX: Resolve Plant-Specific Carrier registry handshake
+        const normalizedPlantIdStr = normalizePlantId(row.originPlantId);
+        const resolvedCarrier = (dbCarriers || []).find(c => c.id === row.carrierId) || 
+                                (dbCarriers || []).find(c => normalizePlantId(c.plantId) === normalizedPlantIdStr) ||
+                                row.carrierObj || 
+                                (dbCarriers || [])[0];
+        
         const carrierNode = resolvedCarrier || { name: 'SIKKA INDUSTRIES & LOGISTICS' };
 
         if (snap.empty) {

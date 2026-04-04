@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -23,7 +24,7 @@ interface PrintableLRProps {
 /**
  * @fileOverview SIKKA LMC - Enterprise Lorry Receipt (LR) Manifest.
  * Precise A4 Boxed Restoration matching high-fidelity rounded table design.
- * Staged for 100% data accuracy across Vehicle, Pilot, and Carrier nodes.
+ * Hardened for 100% data accuracy across Vehicle, Pilot, and Carrier nodes.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -36,11 +37,12 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const totalWeight = Number(lr.assignedTripWeight) || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
 
   // REGISTRY HANDSHAKE: Resilient property mapping from Trip or LR document
-  const vehicleNumber = lr.vehicleNumber || lr.trip?.vehicleNumber || '--';
-  const driverMobile = lr.driverMobile || (lr.trip as any)?.driverMobile || '--';
+  const vehicleNumber = lr.vehicleNumber || lr.trip?.vehicleNumber || (lr.trip as any)?.vehicleNo || '--';
+  const driverName = lr.driverName || lr.trip?.driverName || (lr.trip as any)?.pilotName || 'N/A';
+  const driverMobile = lr.driverMobile || lr.trip?.driverMobile || (lr.trip as any)?.pilotMobile || '--';
   const vehicleType = lr.trip?.vehicleType || (lr.trip as any)?.fleetType || 'OWN VEHICLE';
-  const paymentTerm = lr.paymentTerm || lr.trip?.paymentTerm || 'PAID';
-  const dispatchDateRaw = lr.trip?.startDate || (lr.trip as any)?.assignedDateTime;
+  const paymentTerm = lr.paymentTerm || lr.trip?.paymentTerm || (lr.trip as any)?.term || 'PAID';
+  const dispatchDateRaw = lr.trip?.startDate || (lr.trip as any)?.assignedDateTime || (lr.trip as any)?.creationDate;
   const dispatchTime = dispatchDateRaw ? format(parseSafeDate(dispatchDateRaw)!, 'HH:mm') : 'N/A';
 
   const terms = [
@@ -58,7 +60,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
    * Stacks them vertically to prevent horizontal overflow in the boxed layout.
    */
   const renderInvoices = (val: string) => {
-    if (!val || val === 'NA') return 'NA';
+    if (!val || val === 'NA' || val === '--') return '--';
     const parts = val.split(',').map(p => p.trim()).filter(Boolean);
     if (parts.length <= 2) return val;
 
@@ -77,10 +79,10 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   };
 
   return (
-    <div className="A4-page p-[8mm] bg-white text-black font-sans text-[9pt] leading-tight flex flex-col relative select-text box-border h-[297mm] overflow-hidden">
+    <div className="A4-page p-[8mm] bg-white text-black font-sans text-[9pt] leading-tight flex flex-col relative select-text box-border h-[297mm] overflow-hidden border-[1px] border-slate-200">
       
       {/* 1. TOP COPY INDICATOR */}
-      <div className="text-center mb-2 border-b border-black pb-1">
+      <div className="text-center mb-2 border-b-2 border-black pb-1">
         <span className="text-[10pt] font-black uppercase tracking-[0.6em] text-slate-900">{copyType}</span>
       </div>
 
@@ -186,7 +188,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
               </tr>
             ))}
           </tbody>
-          <tfoot className="bg-slate-50 font-black h-12 border-t-2 border-black text-[10pt]">
+          <tfoot className="bg-slate-50 font-black h-12 border-t-2 border-black text-[10pt] text-black">
             <tr>
               <td className="px-4 uppercase border-r-2 border-black">TOTAL:</td>
               <td className="border-r-2 border-black"></td>

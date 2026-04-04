@@ -323,7 +323,13 @@ function OpenOrdersContent() {
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
-        const carrierNode = row.carrierObj || (carriers || [])[0] || { name: 'SIKKA INDUSTRIES & LOGISTICS' };
+        // MISSION FIX: Resolve Plant-Specific Carrier from the registry
+        const normalizedPlantIdStr = normalizePlantId(row.originPlantId);
+        const carrierNode = row.carrierObj || 
+                            (carriers || []).find(c => normalizePlantId(c.plantId) === normalizedPlantIdStr) ||
+                            (carriers || [])[0] || 
+                            { name: 'SIKKA INDUSTRIES & LOGISTICS' };
+        
         const shipmentObj = row.shipmentObj || row;
 
         if (snap.empty) {
@@ -336,7 +342,7 @@ function OpenOrdersContent() {
                 plant: row.plant || { id: row.originPlantId, name: row.plantName },
                 items: shipmentObj.items || [],
                 weightSelection: 'Assigned Weight',
-                assignedTripWeight: row.assignedQtyInTrip || shipmentObj.quantity,
+                assignedTripWeight: row.quantity,
                 from: shipmentObj.loadingPoint || '',
                 to: shipmentObj.unloadingPoint || '',
                 consignorName: shipmentObj.consignor || '',
@@ -346,11 +352,15 @@ function OpenOrdersContent() {
                 shipToParty: shipmentObj.shipToParty || '',
                 shipToGtin: shipmentObj.shipToGtin || '',
                 deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
+                vehicleNumber: row.vehicleNumber || '--',
+                driverName: row.driverName || '--',
+                driverMobile: row.driverMobile || '--',
+                paymentTerm: row.paymentTerm || '--',
                 id: row.id
             } as any);
         } else {
             const lrDoc = snap.docs[0].data() as LR;
-            setLrPreviewData({
+            setPreviewLrData({
                 ...lrDoc,
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
@@ -361,6 +371,10 @@ function OpenOrdersContent() {
                 consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
                 buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
                 shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || '',
+                vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
+                driverName: row.driverName || lrDoc.driverName,
+                driverMobile: row.driverMobile || lrDoc.driverMobile,
+                paymentTerm: row.paymentTerm || lrDoc.paymentTerm
             } as EnrichedLR);
         }
     } catch (e) {
