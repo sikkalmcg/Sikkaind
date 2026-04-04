@@ -217,7 +217,7 @@ function TripBoardContent() {
     return () => unsubscribers.forEach(u => u());
   }, [firestore, JSON.stringify(selectedPlants)]);
 
-  const joinedData = useMemo(() => {
+ const joinedData = useMemo(() => {
     const normalizedSelected = selectedPlants.map(normalizePlantId);
     
     return trips
@@ -421,12 +421,11 @@ function TripBoardContent() {
         const plantNode = row.plant || { id: row.originPlantId, name: row.plantName };
         const shipmentObj = row.shipmentObj || row;
 
-        // MISSION FIX: Resolve Plant-Specific Carrier registry handshake
+        // MISSION FIX: Strict Carrier Resolution node (No index-based fallback)
         const normalizedPlantIdStr = normalizePlantId(row.originPlantId);
         const resolvedCarrier = (dbCarriers || []).find(c => c.id === row.carrierId) || 
                                 (dbCarriers || []).find(c => normalizePlantId(c.plantId) === normalizedPlantIdStr) ||
-                                row.carrierObj || 
-                                (dbCarriers || [])[0];
+                                row.carrierObj;
         
         const carrierNode = resolvedCarrier || { name: 'SIKKA INDUSTRIES & LOGISTICS' };
 
@@ -467,12 +466,15 @@ function TripBoardContent() {
             } as any);
         } else {
             const lrDoc = snap.docs[0].data() as LR;
+            // Respect the LR document's own carrier identity if it was established during generation
+            const lrCarrier = (dbCarriers || []).find(c => c.id === lrDoc.carrierId) || carrierNode;
+
             setPreviewLrData({
                 ...lrDoc,
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
                 trip: row as any,
-                carrier: carrierNode,
+                carrier: lrCarrier,
                 shipment: shipmentObj,
                 plant: plantNode,
                 consignorGtin: lrDoc.consignorGtin || (shipmentObj as any)?.consignorGtin || '',

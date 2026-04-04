@@ -323,13 +323,13 @@ function OpenOrdersContent() {
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
-        // MISSION FIX: Resolve Plant-Specific Carrier from the registry
+        // MISSION FIX: Strict Carrier Resolution node (No index-based fallback)
         const normalizedPlantIdStr = normalizePlantId(row.originPlantId);
         const carrierNode = row.carrierObj || 
-                            (carriers || []).find(c => normalizePlantId(c.plantId) === normalizedPlantIdStr) ||
-                            (carriers || [])[0] || 
-                            { name: 'SIKKA INDUSTRIES & LOGISTICS' };
+                            (carriers || []).find(c => c.id === row.carrierId) || 
+                            (carriers || []).find(c => normalizePlantId(c.plantId) === normalizedPlantIdStr);
         
+        const finalCarrier = carrierNode || { name: 'SIKKA INDUSTRIES & LOGISTICS' };
         const shipmentObj = row.shipmentObj || row;
 
         if (snap.empty) {
@@ -337,7 +337,7 @@ function OpenOrdersContent() {
                 lrNumber: row.lrNumber,
                 date: row.lrDate || new Date(),
                 trip: row as any,
-                carrier: carrierNode,
+                carrier: finalCarrier,
                 shipment: shipmentObj,
                 plant: row.plant || { id: row.originPlantId, name: row.plantName },
                 items: shipmentObj.items || [],
@@ -360,12 +360,15 @@ function OpenOrdersContent() {
             } as any);
         } else {
             const lrDoc = snap.docs[0].data() as LR;
+            // Respect the saved carrier ID in the LR if available
+            const lrCarrier = (carriers || []).find(c => c.id === lrDoc.carrierId) || finalCarrier;
+
             setPreviewLrData({
                 ...lrDoc,
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
                 trip: row as any,
-                carrier: carrierNode,
+                carrier: lrCarrier,
                 shipment: shipmentObj,
                 plant: row.plant || { id: row.originPlantId, name: row.plantName },
                 consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
