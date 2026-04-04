@@ -24,7 +24,7 @@ interface PrintableLRProps {
 /**
  * @fileOverview SIKKA LMC - Enterprise Lorry Receipt (LR) Node.
  * Precise A4 restoration matching the provided Sikka LMC design.
- * Mission Logic: Generates triple copies (Consignee, Driver, Consignor).
+ * Mission Logic: Generates triple copies (Consignor, Consignee, and Driver).
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -80,7 +80,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <div className="border-4 border-black p-3 bg-white text-center">
                 <p className="text-[13pt] font-black uppercase text-slate-900 flex justify-between items-center gap-4">
                     <span>CN NO |</span> 
-                    <span className="font-mono text-blue-900">{lr.trip?.tripId || lr.tripId}</span>
+                    <span className="font-mono text-blue-900">{lr.lrNumber}</span>
                 </p>
             </div>
             <div className="text-[9.5pt] font-black text-slate-900 uppercase space-y-1.5 px-1">
