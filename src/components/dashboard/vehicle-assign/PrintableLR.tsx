@@ -53,6 +53,29 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     "7. All disputes subject to Ghaziabad Jurisdiction."
   ];
 
+  /**
+   * MISSION LOGIC: Chunk invoice numbers into pairs of two.
+   * Stacks them vertically to prevent horizontal overflow in the boxed layout.
+   */
+  const renderInvoices = (val: string) => {
+    if (!val || val === 'NA') return 'NA';
+    const parts = val.split(',').map(p => p.trim()).filter(Boolean);
+    if (parts.length <= 2) return val;
+
+    const pairs = [];
+    for (let i = 0; i < parts.length; i += 2) {
+        pairs.push(parts.slice(i, i + 2).join(', '));
+    }
+    
+    return (
+        <div className="flex flex-col gap-0.5 py-1.5">
+            {pairs.map((pair, idx) => (
+                <div key={idx} className="whitespace-nowrap">{pair}</div>
+            ))}
+        </div>
+    );
+  };
+
   return (
     <div className="A4-page p-[8mm] bg-white text-black font-sans text-[9pt] leading-tight flex flex-col relative select-text box-border h-[297mm] overflow-hidden">
       
@@ -153,9 +176,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           </thead>
           <tbody className="text-[9pt] font-black text-slate-900">
             {items.map((item, idx) => (
-              <tr key={idx} className="h-12 align-middle border-b border-slate-200 last:border-b-0">
-                <td className="border-r-2 border-black px-4 font-black uppercase truncate">
-                    {(item as any).invoiceNumber || (item as any).invoiceNo || (item as any).deliveryNo || 'NA'}
+              <tr key={idx} className="align-middle border-b border-slate-200 last:border-b-0">
+                <td className="border-r-2 border-black px-4 font-black uppercase">
+                    {renderInvoices((item as any).invoiceNumber || (item as any).invoiceNo || (item as any).deliveryNo || 'NA')}
                 </td>
                 <td className="border-r-2 border-black px-4 uppercase truncate">{item.itemDescription}</td>
                 <td className="border-r-2 border-black px-4 text-center">{item.units}</td>
