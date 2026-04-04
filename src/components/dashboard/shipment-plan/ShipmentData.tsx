@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -100,7 +101,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
   const [selectedShipment, setSelectedShipment] = useState<WithId<Shipment> | null>(null);
   const [plantCarriers, setPlantCarriers] = useState<WithId<Carrier>[]>([]);
   
-  // Selection Registry State
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   
@@ -148,6 +148,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             plantName: plant?.name || shipment.originPlantId,
             tripId: trip?.tripId,
             vehicleNumber: trip?.vehicleNumber || shipment.vehicleNumber,
+            driverName: trip?.driverName || shipment.driverName,
             driverMobile: trip?.driverMobile || shipment.driverMobile,
             tripStartDate: parseSafeDate(trip?.startDate),
             lrNumber: trip?.lrNumber || shipment.lrNumber,
@@ -155,7 +156,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             carrierObj: carrier,
             summarizedInvoices,
             summarizedItems,
-            totalUnitsCount
+            totalUnitsCount,
+            vehicleType: trip?.vehicleType || shipment.materialTypeId,
+            paymentTerm: trip?.paymentTerm || shipment.paymentTerm
         }
     });
   }, [shipments, plants, trips, allCarriers]);
@@ -177,7 +180,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
 
   const totalPages = Math.ceil(filteredShipments.length / itemsPerPage);
 
-  // Selection Logic Nodes
   const handleSelectRow = (id: string, checked: boolean) => {
     setSelectedIds(prev => 
       checked ? [...prev, id] : prev.filter(i => i !== id)
@@ -255,14 +257,13 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
-        // MISSION FIX: Priority Plant Handshake Node for Carrier resolution
-        let finalCarrier: any = null;
         const pIdStr = normalizePlantId(row.originPlantId);
+        const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
+        
+        let finalCarrier: any = null;
 
-        // SYNC: If Carrier Name is "Sikka LMC", prioritize Delhi Profile
-        const isSikkaLmcShorthand = row.carrierName === 'Sikka LMC';
-
-        if (pIdStr === '1426' && !isSikkaLmcShorthand) {
+        // MISSION CRITICAL: Hardened Plant Registry Handshake
+        if (pIdStr === '1426') {
             finalCarrier = {
                 id: 'ID20',
                 name: 'SIKKA INDUSTRIES AND LOGISTICS',
@@ -286,8 +287,23 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             };
         }
 
+        // If no plant-specific match, look up database object
         if (!finalCarrier) {
-            finalCarrier = row.carrierObj || (allCarriers || [])[0];
+            finalCarrier = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId);
+        }
+
+        // Ultimate fallback to Ghaziabad if registry is empty
+        if (!finalCarrier) {
+            finalCarrier = {
+                id: 'ID20',
+                name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, GHAZIABAD, UTTAR PRADESH, 201009',
+                mobile: '8860091900',
+                gstin: '09AYQPS6936B1ZV',
+                stateCode: '09',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com'
+            };
         }
 
         const manifestItems = row.items && row.items.length > 0 ? row.items : [{
@@ -318,7 +334,11 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 buyerGtin: row.billToGtin || '',
                 shipToParty: row.shipToParty || '',
                 shipToGtin: row.shipToGtin || '',
-                deliveryAddress: row.unloadingPoint || '',
+                deliveryAddress: row.deliveryAddress || row.unloadingPoint || '',
+                vehicleNumber: row.vehicleNumber || '--',
+                driverName: row.driverName || '--',
+                driverMobile: row.driverMobile || '--',
+                paymentTerm: row.paymentTerm || '--',
                 id: row.id
             } as any);
         } else {
@@ -334,6 +354,10 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 consignorGtin: lrDoc.consignorGtin || row.consignorGtin || '',
                 buyerGtin: lrDoc.buyerGtin || row.billToGtin || '',
                 shipToGtin: lrDoc.shipToGtin || row.shipToGtin || '',
+                vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
+                driverName: row.driverName || lrDoc.driverName,
+                driverMobile: row.driverMobile || lrDoc.driverMobile,
+                paymentTerm: row.paymentTerm || lrDoc.paymentTerm
             } as EnrichedLR);
         }
     } catch (e) {
