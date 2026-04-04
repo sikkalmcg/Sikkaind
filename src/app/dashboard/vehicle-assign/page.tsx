@@ -65,7 +65,7 @@ function OpenOrdersContent() {
   const [dbError, setDbError] = useState(false);
   
   const [isLayoutModalOpen, setIsLayoutModalOpen] = useState(false);
-  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [isAssignModalOpen, setAssignModalOpen] = useState(false);
   const [drawerOrder, setDrawerOrder] = useState<any | null>(null);
   const [drawerTrip, setDrawerTrip] = useState<any | null>(null);
   const [lrPreviewData, setLrPreviewData] = useState<EnrichedLR | null>(null);
@@ -287,31 +287,6 @@ function OpenOrdersContent() {
     });
   }, [enrichedOrders, fromDate, toDate, searchTerm]);
 
-  const counts = useMemo(() => {
-    const res = { pending: 0, process: 0, dispatched: 0, cancelled: 0 };
-    finalData.forEach(s => {
-        const status = s.currentStatusId?.toLowerCase() || '';
-        if (status === 'pending' || status === 'partly vehicle assigned') res.pending++;
-        else if (status === 'assigned' || status === 'vehicle assigned') res.process++;
-        else if (status === 'dispatched' || status === 'delivered' || status === 'in-transit') res.dispatched++;
-        else if (status === 'cancelled' || status === 'short closed') res.cancelled++;
-    });
-    return res;
-  }, [finalData]);
-
-  const tabFilteredData = useMemo(() => {
-    return finalData.filter(o => {
-        const status = o.currentStatusId?.toLowerCase() || '';
-        switch (activeTab) {
-            case 'pending': return status === 'pending' || status === 'partly vehicle assigned';
-            case 'process': return status === 'assigned' || status === 'vehicle assigned';
-            case 'dispatched': return status === 'dispatched' || status === 'delivered' || status === 'in-transit'; 
-            case 'cancelled': return status === 'cancelled' || status === 'short closed';
-            default: return true;
-        }
-    });
-  }, [finalData, activeTab]);
-
   const handleOpenLR = async (row: any) => {
     if (!row.lrNumber || !firestore) return;
     showLoader();
@@ -327,7 +302,7 @@ function OpenOrdersContent() {
         
         let finalCarrier: any = null;
 
-        // MISSION CRITICAL: Hardened Plant Registry Handshake (Updated 1214 to Ghaziabad)
+        // MISSION CRITICAL: Hardened Plant Registry Handshake
         if (pIdStr === '1426') {
             finalCarrier = {
                 id: 'ID20',
@@ -342,13 +317,13 @@ function OpenOrdersContent() {
         } else if (pIdStr === '1214' || isSikkaLmcShorthand) {
             finalCarrier = {
                 id: 'ID21',
-                name: 'SIKKA INDUSTRIES AND LOGISTICS',
-                address: 'PLOT NO. 452, KHASRA NO. 77, GHAZIABAD, UTTAR PRADESH - 201009',
-                mobile: '1127205565',
+                name: 'SIKKA LMC',
+                address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
+                mobile: '9136688004',
                 gstin: '09AYQPS6936B1ZV',
                 stateCode: '09',
                 pan: 'AYQPS6936B',
-                email: 'queries@sikka.com'
+                email: 'sil@sikkaenterprises.com'
             };
         }
 
@@ -498,6 +473,33 @@ function OpenOrdersContent() {
     finally { hideLoader(); }
   };
 
+  const counts = useMemo(() => {
+    const res = { pending: 0, process: 0, dispatched: 0, cancelled: 0 };
+    finalData.forEach(s => {
+        const status = s.currentStatusId?.toLowerCase() || '';
+        if (status === 'pending' || status === 'partly vehicle assigned') res.pending++;
+        else if (status === 'assigned' || status === 'vehicle assigned') res.process++;
+        else if (status === 'dispatched' || status === 'delivered' || status === 'in-transit') res.dispatched++;
+        else if (status === 'cancelled' || status === 'short closed') res.cancelled++;
+    });
+    return res;
+  }, [finalData]);
+
+  const tabFilteredData = useMemo(() => {
+    return finalData.filter(o => {
+        const status = o.currentStatusId?.toLowerCase() || '';
+        switch (activeTab) {
+            case 'pending': return status === 'pending' || status === 'partly vehicle assigned';
+            case 'process': return status === 'assigned' || status === 'vehicle assigned';
+            case 'dispatched': return status === 'dispatched' || status === 'delivered' || status === 'in-transit'; 
+            case 'cancelled': return status === 'cancelled' || status === 'short closed';
+            default: return true;
+        }
+    });
+  }, [finalData, activeTab]);
+
+  const totalPages = Math.ceil(tabFilteredData.length / itemsPerPage);
+
   return (
     <main className="flex flex-1 flex-col h-full overflow-hidden bg-white">
       <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4">
@@ -558,7 +560,7 @@ function OpenOrdersContent() {
                 <OrdersTable 
                     data={tabFilteredData} 
                     tab={activeTab}
-                    onAssign={handleOpenAssignModal}
+                    onAssign={setSelectedShipment}
                     onEditAssignment={(order, trip) => { setEditingTrip(trip); setSelectedShipment(order); setAssignModalOpen(true); }}
                     onViewOrder={setDrawerOrder}
                     onViewTrip={setDrawerTrip}
@@ -574,7 +576,7 @@ function OpenOrdersContent() {
         )}
       </div>
 
-      <LayoutSettingsModal isOpen={isLayoutModalOpen} onClose={() => setIsLayoutModalOpen(true)} activeTab={activeTab} />
+      <LayoutSettingsModal isOpen={isLayoutModalOpen} onClose={() => setIsLayoutModalOpen(false)} activeTab={activeTab} />
       
       {isAssignModalOpen && selectedShipment && (
         <VehicleAssignModal 
@@ -589,7 +591,7 @@ function OpenOrdersContent() {
 
       {drawerOrder && <OrderDetailsDrawer isOpen={!!drawerOrder} onClose={() => setDrawerOrder(null)} shipment={drawerOrder} />}
       {drawerTrip && <TripDetailsDrawer isOpen={!!drawerTrip} onClose={() => setDrawerTrip(null)} trip={drawerTrip} />}
-      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
+      {lrPreviewData && <LRPrintPreviewModal isOpen={!!previewLrData} onClose={() => setPreviewLrData(null)} lr={previewLrData} />}
       
       {cancelModalData && (
         <CancelReasonModal 

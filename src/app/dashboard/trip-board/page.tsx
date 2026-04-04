@@ -305,7 +305,7 @@ function TripBoardContent() {
         
         let finalCarrier: any = null;
 
-        // MISSION CRITICAL: Hardened Plant Registry Handshake (Updated 1214 to Ghaziabad)
+        // MISSION CRITICAL: Hardened Plant Registry Handshake
         if (pIdStr === '1426') {
             finalCarrier = {
                 id: 'ID20',
@@ -320,13 +320,13 @@ function TripBoardContent() {
         } else if (pIdStr === '1214' || isSikkaLmcShorthand) {
             finalCarrier = {
                 id: 'ID21',
-                name: 'SIKKA INDUSTRIES AND LOGISTICS',
-                address: 'PLOT NO. 452, KHASRA NO. 77, GHAZIABAD, UTTAR PRADESH - 201009',
-                mobile: '1127205565',
+                name: 'SIKKA LMC',
+                address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
+                mobile: '9136688004',
                 gstin: '09AYQPS6936B1ZV',
                 stateCode: '09',
                 pan: 'AYQPS6936B',
-                email: 'queries@sikka.com'
+                email: 'sil@sikkaenterprises.com'
             };
         }
 

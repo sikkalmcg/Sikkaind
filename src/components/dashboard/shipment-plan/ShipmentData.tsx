@@ -262,7 +262,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         
         let finalCarrier: any = null;
 
-        // MISSION CRITICAL: Hardened Plant Registry Handshake (Updated 1214 to Ghaziabad)
+        // MISSION CRITICAL: Hardened Plant Registry Handshake
         if (pIdStr === '1426') {
             finalCarrier = {
                 id: 'ID20',
@@ -277,13 +277,13 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         } else if (pIdStr === '1214' || isSikkaLmcShorthand) {
             finalCarrier = {
                 id: 'ID21',
-                name: 'SIKKA INDUSTRIES AND LOGISTICS',
-                address: 'PLOT NO. 452, KHASRA NO. 77, GHAZIABAD, UTTAR PRADESH - 201009',
-                mobile: '1127205565',
+                name: 'SIKKA LMC',
+                address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
+                mobile: '9136688004',
                 gstin: '09AYQPS6936B1ZV',
                 stateCode: '09',
                 pan: 'AYQPS6936B',
-                email: 'queries@sikka.com'
+                email: 'sil@sikkaenterprises.com'
             };
         }
 
@@ -503,7 +503,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                       <TableCell className="px-4 text-center whitespace-nowrap text-slate-500">{formatSafeDateString(s.lrDate, 'dd/MM/yy')}</TableCell>
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={s.consignor}>{s.consignor}</TableCell>
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={s.billToParty}>{s.billToParty}</TableCell>
-                      <TableCell className="px-4 truncate font-medium text-slate-500 italic">"{s.summarizedItems}"</TableCell>
+                      <TableCell className="px-4 truncate font-medium text-slate-500 uppercase italic text-[10px]" title={s.summarizedItems}>"{s.summarizedItems}"</TableCell>
                       <TableCell className="px-4 text-center font-black text-slate-900">{s.totalUnitsCount}</TableCell>
                       <TableCell className="px-4 text-right font-black text-blue-900">
                         {s.materialTypeId === 'FTL' ? '1 LOAD' : s.quantity.toFixed(3)}
@@ -605,9 +605,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
       {isAssignModalOpen && selectedShipment && (
         <VehicleAssignModal 
             isOpen={isAssignModalOpen}
-            onClose={() => setAssignModalOpen(false)}
+            onClose={() => { setAssignModalOpen(false); setSelectedShipment(null); }}
             shipment={selectedShipment}
-            onAssignmentComplete={() => setAssignModalOpen(false)}
+            onAssignmentComplete={() => { setAssignModalOpen(false); setSelectedShipment(null); }}
             carriers={plantCarriers}
         />
       )}
