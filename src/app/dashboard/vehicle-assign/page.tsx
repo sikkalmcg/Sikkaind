@@ -126,7 +126,7 @@ function OpenOrdersContent() {
         } catch (e) { setDbError(true); } finally { setIsAuthLoading(false); }
     };
     fetchAuth();
-  }, [firestore, user, allMasterPlants, isAdminSession]);
+  }, [firestore, user, allMasterPlants, isAdminSession, urlPlants]);
 
   const handlePlantChange = (ids: string[]) => {
     setSelectedPlants(ids);
@@ -323,11 +323,12 @@ function OpenOrdersContent() {
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
-        // MISSION FIX: Strict Carrier Resolution node (No index-based fallback)
+        // MISSION FIX: Strict Carrier Resolution Node
+        // Rule: Always resolve carrier by the mission's Lifting Node (Plant ID) first.
         const normalizedPlantIdStr = normalizePlantId(row.originPlantId);
-        const carrierNode = row.carrierObj || 
-                            (carriers || []).find(c => c.id === row.carrierId) || 
-                            (carriers || []).find(c => normalizePlantId(c.plantId) === normalizedPlantIdStr);
+        const carrierNode = (carriers || []).find(c => normalizePlantId(c.plantId) === normalizedPlantIdStr) ||
+                            row.carrierObj || 
+                            (carriers || []).find(c => c.id === row.carrierId);
         
         const finalCarrier = carrierNode || { name: 'SIKKA INDUSTRIES & LOGISTICS' };
         const shipmentObj = row.shipmentObj || row;
@@ -337,7 +338,7 @@ function OpenOrdersContent() {
                 lrNumber: row.lrNumber,
                 date: row.lrDate || new Date(),
                 trip: row as any,
-                carrier: finalCarrier,
+                carrier: finalCarrier as any,
                 shipment: shipmentObj,
                 plant: row.plant || { id: row.originPlantId, name: row.plantName },
                 items: shipmentObj.items || [],
@@ -345,12 +346,12 @@ function OpenOrdersContent() {
                 assignedTripWeight: row.quantity,
                 from: shipmentObj.loadingPoint || '',
                 to: shipmentObj.unloadingPoint || '',
-                consignorName: shipmentObj.consignor || '',
-                consignorGtin: shipmentObj.consignorGtin || '',
-                buyerName: shipmentObj.billToParty || '',
-                buyerGtin: shipmentObj.billToGtin || '',
-                shipToParty: shipmentObj.shipToParty || '',
-                shipToGtin: shipmentObj.shipToGtin || '',
+                consignorName: shipmentObj.consignor || row.consignor || '',
+                consignorGtin: shipmentObj.consignorGtin || row.consignorGtin || '',
+                buyerName: shipmentObj.billToParty || row.billToParty || '',
+                buyerGtin: shipmentObj.billToGtin || row.billToGtin || '',
+                shipToParty: shipmentObj.shipToParty || row.shipToParty || '',
+                shipToGtin: shipmentObj.shipToGtin || row.shipToGtin || '',
                 deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
                 vehicleNumber: row.vehicleNumber || '--',
                 driverName: row.driverName || '--',
@@ -360,15 +361,12 @@ function OpenOrdersContent() {
             } as any);
         } else {
             const lrDoc = snap.docs[0].data() as LR;
-            // Respect the saved carrier ID in the LR if available
-            const lrCarrier = (carriers || []).find(c => c.id === lrDoc.carrierId) || finalCarrier;
-
             setPreviewLrData({
                 ...lrDoc,
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
                 trip: row as any,
-                carrier: lrCarrier,
+                carrier: carrierNode as any || finalCarrier,
                 shipment: shipmentObj,
                 plant: row.plant || { id: row.originPlantId, name: row.plantName },
                 consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',

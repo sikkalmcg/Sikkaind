@@ -421,31 +421,33 @@ function TripBoardContent() {
         const plantNode = row.plant || { id: row.originPlantId, name: row.plantName };
         const shipmentObj = row.shipmentObj || row;
 
-        // MISSION FIX: Priority Carrier Resolution Handbook
-        let finalCarrier = null;
-        const targetCarrierId = row.carrierId || shipmentObj.carrierId;
+        // MISSION FIX: Priority Carrier Resolution Node
+        // Rule: Always resolve carrier by the mission's Lifting Node (Plant ID) first.
+        const normalizedPlantIdStr = normalizePlantId(row.originPlantId);
+        let finalCarrier = (dbCarriers || []).find(c => normalizePlantId(c.plantId) === normalizedPlantIdStr);
 
-        if (targetCarrierId) {
-            finalCarrier = (dbCarriers || []).find(c => c.id === targetCarrierId);
-            if (!finalCarrier) {
-                const cSnap = await getDoc(doc(firestore, "carriers", targetCarrierId));
-                if (cSnap.exists()) finalCarrier = { id: cSnap.id, ...cSnap.data() };
+        if (!finalCarrier) {
+            const targetCarrierId = row.carrierId || shipmentObj.carrierId;
+            if (targetCarrierId) {
+                finalCarrier = (dbCarriers || []).find(c => c.id === targetCarrierId);
+                if (!finalCarrier) {
+                    const cSnap = await getDoc(doc(firestore, "carriers", targetCarrierId));
+                    if (cSnap.exists()) finalCarrier = { id: cSnap.id, ...cSnap.data() };
+                }
             }
         }
 
         if (!finalCarrier) {
-            finalCarrier = (dbCarriers || []).find(c => normalizePlantId(c.plantId) === normalizePlantId(row.originPlantId));
+            finalCarrier = { 
+                name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, GHAZIABAD, UTTAR PRADESH, 201009',
+                mobile: '8860091900',
+                gstin: '09AYQPS6936B1ZV',
+                stateCode: '09',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com'
+            };
         }
-
-        const carrierNode = finalCarrier || { 
-            name: 'SIKKA INDUSTRIES AND LOGISTICS',
-            address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, GHAZIABAD, UTTAR PRADESH, 201009',
-            mobile: '8860091900',
-            gstin: '09AYQPS6936B1ZV',
-            stateCode: '09',
-            pan: 'AYQPS6936B',
-            email: 'sil@sikkaenterprises.com'
-        };
 
         const manifestItems = row.items && row.items.length > 0 ? row.items : [{
             invoiceNumber: row.invoiceNumbers || 'NA',
@@ -461,7 +463,7 @@ function TripBoardContent() {
                 lrNumber: row.lrNumber,
                 date: row.lrDate || new Date(),
                 trip: row as any,
-                carrier: carrierNode as any,
+                carrier: finalCarrier as any,
                 shipment: shipmentObj,
                 plant: plantNode as any,
                 items: manifestItems,
@@ -490,7 +492,7 @@ function TripBoardContent() {
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
                 trip: row as any,
-                carrier: carrierNode as any,
+                carrier: finalCarrier as any,
                 shipment: shipmentObj,
                 plant: plantNode as any,
                 consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
