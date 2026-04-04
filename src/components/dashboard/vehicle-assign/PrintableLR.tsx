@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -211,7 +210,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
 
         <div className="flex flex-col justify-between text-center pt-2">
-            <span className="text-[8.5pt] font-black uppercase text-slate-900 border-b border-black inline-block pb-0.5 tracking-widest w-full">FOR SIKKA LMC</span>
             <div className="h-24 flex flex-col justify-end items-center">
                 <div className="w-full border-t-2 border-black border-dashed mb-2" />
                 <span className="text-[9pt] font-black uppercase tracking-[0.3em] text-slate-900 italic">AUTHORIZED SIGNATORY</span>
