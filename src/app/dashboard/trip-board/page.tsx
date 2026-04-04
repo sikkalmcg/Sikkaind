@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -739,7 +738,9 @@ function TripBoardContent() {
 }
 
 export default function TripBoardPage() {
-    return <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>}>
-        <TripBoardContent />
-    </Suspense>;
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>}>
+            <TripBoardContent />
+        </Suspense>
+    );
 }

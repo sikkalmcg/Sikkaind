@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -153,17 +152,18 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   const plantNameDisplay = selectedPlant?.name || shipment.originPlantId;
   const plantAddressDisplay = selectedPlant?.address || shipment.loadingPoint;
 
+  // MISSION FIX: Strictly use pre-filtered carriers from parent prop
   const carrierOptions = useMemo(() => {
-    const targetPlantId = normalizePlantId(shipment.originPlantId);
     return (carriers || [])
-      .filter(c => normalizePlantId(c.plantId) === targetPlantId)
       .map(c => ({ value: c.id, label: c.name }));
-  }, [carriers, shipment.originPlantId]);
+  }, [carriers]);
 
   useEffect(() => {
     if (isOpen) {
         const safeBalance = shipment.balanceQty !== undefined ? Number(Number(shipment.balanceQty).toFixed(3)) : 0;
         let initialCarrierId = trip?.carrierId || shipment.carrierId || '';
+        
+        // Ensure initial carrier is valid for this plant registry
         if (initialCarrierId && !carrierOptions.find(o => o.value === initialCarrierId)) {
             initialCarrierId = carrierOptions.length > 0 ? carrierOptions[0].value : '';
         } else if (!initialCarrierId && carrierOptions.length > 0) {
