@@ -21,8 +21,8 @@ interface PrintableLRProps {
 
 /**
  * @fileOverview SIKKA LMC - Enterprise Lorry Receipt (LR) Manifest.
- * Precise A4 restoration matching the requested design registry.
- * Establish triple-copy logic: Consignor, Consignee, and Driver.
+ * Precise A4 restoration matching the high-fidelity rounded table design.
+ * Establishes triple-copy logic: Consignor, Consignee, and Driver.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -35,7 +35,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const totalWeight = Number(lr.assignedTripWeight) || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
 
   // MISSION CRITICAL: Hardened Value Lookup Node
-  // Prioritizes Top-Level LR fields with Trip-Registry fallbacks
   const vehicleNumber = lr.vehicleNumber || lr.trip?.vehicleNumber || '--';
   const driverMobile = lr.driverMobile || lr.trip?.driverMobile || 'N/A';
   const vehicleType = lr.trip?.vehicleType || 'OWN VEHICLE';
@@ -103,7 +102,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 3. ASSET NODE STRIP (5 COLUMNS) */}
+      {/* 3. ASSET NODE STRIP */}
       <div className="grid grid-cols-5 border-2 border-black rounded-2xl overflow-hidden mb-8 bg-slate-50 divide-x-2 divide-black">
         {[
             { label: 'VEHICLE NUMBER', value: vehicleNumber, bold: true },
@@ -139,30 +138,30 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 5. MANIFEST AUDIT TABLE */}
+      {/* 5. MANIFEST AUDIT TABLE - ROUNDED PILL DESIGN */}
       <div className="border-2 border-black rounded-[2.5rem] overflow-hidden mb-10 flex flex-col min-h-0 shadow-lg flex-1">
         <table className="w-full border-collapse">
           <thead className="bg-black text-white text-[8.5pt] font-black uppercase tracking-[0.1em]">
             <tr className="h-12">
-              <th className="border-r border-white/20 px-6 text-left w-56">DOCUMENT REF (INVOICE)</th>
-              <th className="border-r border-white/20 px-6 text-left">DESCRIPTION OF GOODS</th>
-              <th className="border-r border-white/20 px-6 text-center w-36">NO. OF PKGS</th>
+              <th className="border-r-2 border-black px-6 text-left w-56">DOCUMENT REF (INVOICE)</th>
+              <th className="border-r-2 border-black px-6 text-left">DESCRIPTION OF GOODS</th>
+              <th className="border-r-2 border-black px-6 text-center w-36">NO. OF PKGS</th>
               <th className="px-6 text-right w-40">WEIGHT (MT)</th>
             </tr>
           </thead>
-          <tbody className="text-[10pt] font-bold text-slate-900 divide-y-2 divide-slate-100">
+          <tbody className="text-[10pt] font-black text-slate-900">
             {items.map((item, idx) => (
-              <tr key={idx} className="h-14 align-middle bg-white">
-                <td className="border-r-2 border-black px-6 font-black uppercase">
+              <tr key={idx} className="h-14 align-middle bg-white border-b-2 border-black last:border-b-0">
+                <td className="border-r-2 border-black px-6 font-black uppercase text-slate-900 leading-tight">
                     {(item as any).invoiceNumber || (item as any).invoiceNo || (item as any).deliveryNumber || (item as any).deliveryNo || 'NA'}
                 </td>
-                <td className="border-r-2 border-black px-6 uppercase tracking-tight">{item.itemDescription}</td>
-                <td className="border-r-2 border-black px-6 text-center font-black text-blue-900">{item.units}</td>
-                <td className="px-6 text-right font-black text-blue-900">{Number(item.weight).toFixed(3)}</td>
+                <td className="border-r-2 border-black px-6 uppercase tracking-tight font-black text-slate-900">{item.itemDescription}</td>
+                <td className="border-r-2 border-black px-6 text-center font-black text-blue-700">{item.units}</td>
+                <td className="px-6 text-right font-black text-blue-700">{Number(item.weight).toFixed(3)}</td>
               </tr>
             ))}
             {Array.from({ length: Math.max(0, 8 - items.length) }).map((_, i) => (
-              <tr key={`empty-${i}`} className="h-14 border-b border-slate-50 opacity-10">
+              <tr key={`empty-${i}`} className="h-14 border-b-2 border-black last:border-b-0 opacity-10">
                 <td className="border-r-2 border-black"></td>
                 <td className="border-r-2 border-black"></td>
                 <td className="border-r-2 border-black"></td>
@@ -170,12 +169,12 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
               </tr>
             ))}
           </tbody>
-          <tfoot className="bg-slate-50 font-black h-14 border-t-4 border-black">
+          <tfoot className="bg-slate-100 font-black h-14 border-t-4 border-black">
             <tr className="align-middle text-[11pt]">
-              <td className="px-6 uppercase">TOTAL:</td>
-              <td className="border-l-2 border-black"></td>
-              <td className="border-l-2 border-black text-center font-black">{totalUnits}</td>
-              <td className="border-l-2 border-black text-right px-6 font-black text-blue-900">{totalWeight.toFixed(3)}</td>
+              <td className="px-6 uppercase border-r-2 border-black">TOTAL MANIFEST:</td>
+              <td className="border-r-2 border-black"></td>
+              <td className="border-r-2 border-black text-center font-black text-blue-900">{totalUnits}</td>
+              <td className="text-right px-6 font-black text-blue-900">{totalWeight.toFixed(3)}</td>
             </tr>
           </tfoot>
         </table>
@@ -210,7 +209,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
       {/* 7. REGISTRY FOOTER */}
       <div className="mt-auto pt-6 border-t-2 border-slate-900 flex flex-col items-center gap-2 shrink-0">
-        <p className="text-[8pt] font-black uppercase text-blue-600 tracking-[0.3em] italic">
+        <p className="text-[8pt] font-black uppercase text-blue-600 tracking-[0.3em] italic text-center">
             NOTE: THIS LORRY RECEIPT WAS GENERATED DIGITALLY AND IS TO BE CONSIDERED AS ORIGINAL
         </p>
         <div className="flex items-center gap-4">
