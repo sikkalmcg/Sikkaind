@@ -273,7 +273,7 @@ function OpenOrdersContent() {
       const start = t.creationDate; 
       if (!start) return true; 
 
-      if (dayStart && start < start) return false;
+      if (dayStart && start < dayStart) return false;
       if (dayEnd && start > dayEnd) return false;
       
       if (searchTerm) {
@@ -322,12 +322,12 @@ function OpenOrdersContent() {
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
-        // MISSION FIX: Strict Carrier Resolution Node
-        // Rule: Always resolve carrier by the mission's Lifting Node (Plant ID) first.
+        // MISSION FIX: Priority Plant Handshake Node for Carrier resolution
         const normalizedPlantIdStr = normalizePlantId(row.originPlantId);
+        const isSikkaLmcShorthand = row.carrierName === 'Sikka LMC';
         
         let finalCarrier: any = null;
-        if (normalizedPlantIdStr === '1426') {
+        if (normalizedPlantIdStr === '1426' && !isSikkaLmcShorthand) {
             finalCarrier = {
                 id: 'ID20',
                 name: 'SIKKA INDUSTRIES AND LOGISTICS',
@@ -338,7 +338,7 @@ function OpenOrdersContent() {
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com'
             };
-        } else if (normalizedPlantIdStr === '1214') {
+        } else if (normalizedPlantIdStr === '1214' || isSikkaLmcShorthand) {
             finalCarrier = {
                 id: 'ID21',
                 name: 'SIKKA INDUSTRIES AND LOGISTICS',
@@ -352,10 +352,7 @@ function OpenOrdersContent() {
         }
 
         if (!finalCarrier) {
-            finalCarrier = (carriers || []).find(c => normalizePlantId(c.plantId) === normalizedPlantIdStr) ||
-                            row.carrierObj || 
-                            (carriers || []).find(c => c.id === row.carrierId) ||
-                            { name: 'SIKKA INDUSTRIES & LOGISTICS' };
+            finalCarrier = row.carrierObj || (carriers || [])[0] || { name: 'SIKKA INDUSTRIES & LOGISTICS' };
         }
 
         const shipmentObj = row.shipmentObj || row;

@@ -99,6 +99,8 @@ export interface Shipment {
   cancelReason?: string;
   shortClosedAt?: any;
   shortClosedBy?: string;
+  carrierName?: string;
+  carrierId?: string;
 }
 
 export interface Trip {

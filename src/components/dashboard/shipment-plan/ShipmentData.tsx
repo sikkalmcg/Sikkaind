@@ -128,7 +128,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
     return () => unsubTrips();
   }, [firestore]);
 
-  const enrichedShipments: EnrichedShipment[] = useMemo(() => {
+  const enrichedShipments: EnrichedShipment[] = useMemo((): any => {
     if (!allCarriers) return [];
     return shipments.map(shipment => {
         const trip = trips.find(t => t.shipmentIds && t.shipmentIds.includes(shipment.id));
@@ -259,7 +259,10 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         let finalCarrier: any = null;
         const pIdStr = normalizePlantId(row.originPlantId);
 
-        if (pIdStr === '1426') {
+        // SYNC: If Carrier Name is "Sikka LMC", prioritize Delhi Profile
+        const isSikkaLmcShorthand = row.carrierName === 'Sikka LMC';
+
+        if (pIdStr === '1426' && !isSikkaLmcShorthand) {
             finalCarrier = {
                 id: 'ID20',
                 name: 'SIKKA INDUSTRIES AND LOGISTICS',
@@ -270,7 +273,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com'
             };
-        } else if (pIdStr === '1214') {
+        } else if (pIdStr === '1214' || isSikkaLmcShorthand) {
             finalCarrier = {
                 id: 'ID21',
                 name: 'SIKKA INDUSTRIES AND LOGISTICS',
@@ -412,7 +415,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 <TableHead className="text-[10px] font-black uppercase px-4 w-36">Order ID</TableHead>
                 <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40">Order Date</TableHead>
                 <TableHead className="text-[10px] font-black uppercase px-4 w-36 text-center">Vehicle No</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 w-36 text-center">Pilot Mobile</TableHead>
+                <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">Pilot Mobile</TableHead>
                 <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">Invoice No</TableHead>
                 <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">E-Waybill No</TableHead>
                 <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">LR No</TableHead>

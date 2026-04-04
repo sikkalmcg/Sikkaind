@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -57,6 +56,7 @@ const formSchema = z.object({
     weight: z.coerce.number().min(0.001, "Weight required"),
     hsnSac: z.string().optional(),
   })).optional().default([]),
+  carrierName: z.string().optional(),
 }).superRefine((data, ctx) => {
     if (data.materialTypeId.toUpperCase() !== 'FTL' && data.quantity <= 0) {
         ctx.addIssue({
@@ -217,7 +217,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     defaultValues: {
         originPlantId: '', consignor: '', consignorAddress: '', billToParty: '', shipToParty: '', loadingPoint: '', unloadingPoint: '',
         materialTypeId: 'METRIC TON', quantity: 0, lrNumber: '', carrierId: '', paymentTerm: 'Paid',
-        isSameAsBillTo: false, lrDate: null, items: []
+        isSameAsBillTo: false, lrDate: null, items: [], carrierName: ''
     },
   });
 
@@ -431,10 +431,10 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   const handleExportTemplate = () => {
     const headers = [
         "Plant ID", "Consignor Name", "Consignor GSTIN", "From (City)", "Consignee Name", "Consignee GSTIN", "Ship To Name", "Ship To GSTIN", 
-        "Destination Point", "UOM", "Quantity", "Invoice Number", "E-Waybill Number", "LR Number", "LR Date", "Payment Term", "Delivery Address", "Item Description", "Units"
+        "Destination Point", "UOM", "Quantity", "Invoice Number", "E-Waybill Number", "LR Number", "LR Date", "Payment Term", "Delivery Address", "Item Description", "Units", "Carrier Name"
     ];
     const sample = [
-        ["1426", "TATA CHEMICALS", "27AABCU9567L1Z5", "MUMBAI", "BIGMART RETAIL", "07AABCD1234E1Z3", "BIGMART WH", "07AABCD1234E1Z3", "GHAZIABAD", "MT", "25.000", "INV-9988", "EWB-123456", "LR123", "01-04-2026", "Paid", "C-17 UPSIDC GZB", "TATA SALT 50KG BAGS", "500"]
+        ["1426", "TATA CHEMICALS", "27AABCU9567L1Z5", "MUMBAI", "BIGMART RETAIL", "07AABCD1234E1Z3", "BIGMART WH", "07AABCD1234E1Z3", "GHAZIABAD", "MT", "25.000", "INV-9988", "EWB-123456", "LR123", "01-04-2026", "Paid", "C-17 UPSIDC GZB", "TATA SALT 50KG BAGS", "500", "Sikka LMC"]
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers, ...sample]);
     const wb = XLSX.utils.book_new();
@@ -507,6 +507,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         lrDate: getDateVal(row, ["LR Date", "LRDate", "Date"]),
                         paymentTerm: term,
                         deliveryAddress: getVal(row, ["Delivery Address", "Address"]),
+                        carrierName: getVal(row, ["Carrier Name", "Carrier"]),
                         rawItems: []
                     };
                 }
@@ -620,7 +621,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 </div>
                 <div className="flex flex-wrap justify-center gap-4">
                     <Button variant="outline" onClick={handleExportTemplate} className="h-14 px-8 rounded-2xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-xs tracking-widest gap-2">
-                        <FileDown size={18} /> Export Excel
+                        <FileDown size={18} /> Export Template
                     </Button>
                     <Button variant="outline" asChild className="h-14 px-8 rounded-2xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-xs tracking-widest gap-2 cursor-pointer">
                         <label>
