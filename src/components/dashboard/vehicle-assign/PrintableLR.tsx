@@ -28,8 +28,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
   const allItems = lr.items || [];
 
-  // --- NEW LOGIC: Group items by connected invoices and track E-Waybills ---
-
+  // Group items by connected invoices and track E-Waybills
   const itemsWithInvoiceSet = allItems.map((item, index) => {
     const invoiceStr = (item as any).invoiceNumber || (item as any).invoiceNo || 'NA';
     const invoiceSet = new Set(invoiceStr.split(',').map((s: string) => s.trim()).filter(Boolean).filter(v => v !== '--'));
@@ -139,6 +138,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     ];
   }
 
+  // MISSION LOGIC: Detect if E-Waybills exist to trigger 5-column layout
+  const hasEwaybills = displayItems.some(i => i.ewaybillNumber && i.ewaybillNumber.length > 0 && i.ewaybillNumber !== '--');
+
   const vehicleNumber = lr.vehicleNumber || lr.trip?.vehicleNumber || '--';
   const driverMobile = lr.driverMobile || lr.trip?.driverMobile || '--';
   const vehicleType = lr.trip?.vehicleType || 'OWN VEHICLE';
@@ -146,28 +148,16 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const dispatchDateRaw = lr.trip?.startDate || lr.date;
   const dispatchTime = dispatchDateRaw ? format(parseSafeDate(dispatchDateRaw)!, 'HH:mm') : 'N/A';
 
-  const renderDocumentRef = (invoice: string, ewaybill?: string) => {
-    const invoices = (invoice || '').split(',').map(p => p.trim()).filter(Boolean).filter(v => v !== '--');
-    const ewaybills = (ewaybill || '').split(',').map(p => p.trim()).filter(Boolean).filter(v => v !== '--');
+  const renderStackedValues = (valueString: string, label: string) => {
+    const items = (valueString || '').split(',').map(p => p.trim()).filter(Boolean).filter(v => v !== '--');
+    if (items.length === 0) return <span className="text-slate-300">--</span>;
     
-    const pairs = [];
-    const maxLen = Math.max(invoices.length, ewaybills.length);
-    
-    for (let i = 0; i < maxLen; i += 2) {
-        const invPair = invoices.slice(i, i + 2).join(', ');
-        const ewbPair = ewaybills.slice(i, i + 2).join(', ');
-        
-        pairs.push(
-            <div key={i} className="mb-2 last:mb-0 border-b border-slate-100 pb-1 last:border-0">
-                <div className="flex flex-col gap-0.5">
-                    <span className="text-[7pt] font-black text-blue-900">INV: {invPair || '--'}</span>
-                    {ewbPair && <span className="text-[7pt] font-bold text-slate-500 italic">E-WB: {ewbPair}</span>}
-                </div>
-            </div>
-        );
+    const rows = [];
+    for (let i = 0; i < items.length; i += 2) {
+        const pair = items.slice(i, i + 2).join(', ');
+        rows.push(<div key={i} className="text-[7.5pt] font-black text-slate-900 leading-tight mb-1 last:mb-0 uppercase">{label}: {pair}</div>);
     }
-
-    return <div className="flex flex-col py-1.5">{pairs}</div>;
+    return <div className="flex flex-col py-2">{rows}</div>;
   };
 
   return (
@@ -248,18 +238,24 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         <table className="w-full border-collapse">
           <thead className="bg-black text-white text-[8pt] font-black uppercase tracking-widest">
             <tr className="h-10">
-              <th className="border-r-2 border-black px-4 text-left w-56">DOCUMENT REF (INVOICE / E-WB)</th>
+              <th className="border-r-2 border-black px-4 text-left w-48">INVOICE NO.</th>
+              {hasEwaybills && <th className="border-r-2 border-black px-4 text-left w-48">E-WAYBILL NO.</th>}
               <th className="border-r-2 border-black px-4 text-left">DESCRIPTION OF GOODS</th>
-              <th className="border-r-2 border-black px-4 text-center w-32">NO. OF PKGS</th>
-              <th className="px-4 text-right w-36">WEIGHT (MT)</th>
+              <th className="border-r-2 border-black px-4 text-center w-24">NO. OF PKGS</th>
+              <th className="px-4 text-right w-32">WEIGHT (MT)</th>
             </tr>
           </thead>
           <tbody className="text-[9pt] font-black text-slate-900">
             {displayItems.map((item, idx) => (
               <tr key={idx} className="align-middle border-b border-slate-200 last:border-b-0">
                 <td className="border-r-2 border-black px-4 font-black uppercase">
-                  {renderDocumentRef((item as any).invoiceNumber, (item as any).ewaybillNumber)}
+                  {renderStackedValues(item.invoiceNumber, "INV")}
                 </td>
+                {hasEwaybills && (
+                    <td className="border-r-2 border-black px-4 font-black uppercase">
+                        {renderStackedValues(item.ewaybillNumber, "EWB")}
+                    </td>
+                )}
                 <td className="border-r-2 border-black px-4 uppercase truncate">{item.itemDescription}</td>
                 <td className="border-r-2 border-black px-4 text-center">{item.units}</td>
                 <td className="px-4 text-right">{Number(item.weight).toFixed(3)}</td>
@@ -268,7 +264,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           </tbody>
           <tfoot className="bg-slate-50 font-black h-12 border-t-2 border-black text-[10pt] text-black">
             <tr>
-              <td className="px-4 uppercase border-r-2 border-black">TOTAL:</td>
+              <td colSpan={hasEwaybills ? 2 : 1} className="px-4 uppercase border-r-2 border-black">TOTAL:</td>
               <td className="border-r-2 border-black"></td>
               <td className="border-r-2 border-black text-center">{totalUnits}</td>
               <td className="text-right px-4">{totalWeight.toFixed(3)}</td>
