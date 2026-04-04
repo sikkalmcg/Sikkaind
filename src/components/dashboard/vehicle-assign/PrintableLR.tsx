@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -148,14 +147,14 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const dispatchDateRaw = lr.trip?.startDate || lr.date;
   const dispatchTime = dispatchDateRaw ? format(parseSafeDate(dispatchDateRaw)!, 'HH:mm') : 'N/A';
 
-  const renderStackedValues = (valueString: string, label: string) => {
+  const renderStackedValues = (valueString: string) => {
     const items = (valueString || '').split(',').map(p => p.trim()).filter(Boolean).filter(v => v !== '--');
     if (items.length === 0) return <span className="text-slate-300">--</span>;
     
     const rows = [];
     for (let i = 0; i < items.length; i += 2) {
         const pair = items.slice(i, i + 2).join(', ');
-        rows.push(<div key={i} className="text-[7.5pt] font-black text-slate-900 leading-tight mb-1 last:mb-0 uppercase">{label}: {pair}</div>);
+        rows.push(<div key={i} className="text-[7.5pt] font-black text-slate-900 leading-tight mb-1 last:mb-0 uppercase">{pair}</div>);
     }
     return <div className="flex flex-col py-2">{rows}</div>;
   };
@@ -249,11 +248,11 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             {displayItems.map((item, idx) => (
               <tr key={idx} className="align-middle border-b border-slate-200 last:border-b-0">
                 <td className="border-r-2 border-black px-4 font-black uppercase">
-                  {renderStackedValues(item.invoiceNumber, "INV")}
+                  {renderStackedValues(item.invoiceNumber)}
                 </td>
                 {hasEwaybills && (
                     <td className="border-r-2 border-black px-4 font-black uppercase">
-                        {renderStackedValues(item.ewaybillNumber, "EWB")}
+                        {renderStackedValues(item.ewaybillNumber)}
                     </td>
                 )}
                 <td className="border-r-2 border-black px-4 uppercase truncate">{item.itemDescription}</td>
