@@ -1,12 +1,9 @@
-
 'use client';
 
 import React from 'react';
 import { format, isValid } from 'date-fns';
 import { cn, parseSafeDate } from '@/lib/utils';
 import type { LR, Trip, Shipment, Carrier, Plant } from '@/types';
-import { Timestamp } from 'firebase/firestore';
-import { ShieldCheck } from 'lucide-react';
 
 export type EnrichedLR = LR & {
   trip: Trip;
@@ -23,10 +20,9 @@ interface PrintableLRProps {
 }
 
 /**
- * @fileOverview SIKKA LMC - Enterprise Lorry Receipt (LR) Node.
- * Precise A4 restoration matching the provided Sikka LMC design.
- * Mission Logic: Generates triple copies (Consignor, Consignee, and Driver).
- * Optimized Value Resolution Node: Ensures no fields in asset strip appear empty.
+ * @fileOverview SIKKA LMC - Enterprise Lorry Receipt (LR) Manifest.
+ * Precise A4 restoration matching the requested design registry.
+ * Establish triple-copy logic: Consignor, Consignee, and Driver.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -41,12 +37,12 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   // MISSION CRITICAL: Hardened Value Lookup Node
   // Prioritizes Top-Level LR fields with Trip-Registry fallbacks
   const vehicleNumber = lr.vehicleNumber || lr.trip?.vehicleNumber || '--';
-  const driverMobile = lr.driverMobile || lr.trip?.driverMobile || '--';
+  const driverMobile = lr.driverMobile || lr.trip?.driverMobile || 'N/A';
   const vehicleType = lr.trip?.vehicleType || 'OWN VEHICLE';
   const paymentTerm = lr.paymentTerm || lr.trip?.paymentTerm || 'PAID';
-  const dispatchTime = formatDate(lr.trip?.startDate || lr.date, 'HH:mm') || '--:--';
+  const dispatchTime = lr.trip?.startDate ? format(parseSafeDate(lr.trip.startDate)!, 'HH:mm') : 'N/A';
 
-  const standardTerms = [
+  const terms = [
     "Agency is not responsible for rain or any natural calamity.",
     "Any discrepancy regarding material has to be intimated within 24 Hours of the receipt material with remark in POD section.",
     "Owner of the vehicle (truck) is responsible for the goods after lifting the goods.",
@@ -59,9 +55,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   return (
     <div className="A4-page p-[10mm] bg-white text-black font-sans text-[9pt] leading-tight flex flex-col relative select-text box-border h-[297mm]">
       
-      {/* 1. TOP CENTER INDICATOR */}
-      <div className="text-center mb-4 border-b-2 border-slate-900 pb-2">
-        <span className="text-[11pt] font-black uppercase tracking-[0.6em] text-slate-900">{copyType}</span>
+      {/* 1. TOP CENTER COPY INDICATOR */}
+      <div className="text-center mb-4">
+        <span className="text-[11pt] font-black uppercase tracking-[0.6em] text-slate-900 border-b-2 border-black pb-1">{copyType}</span>
       </div>
 
       {/* 2. HEADER NODE: LOGO & COMPANY | CN BOX */}
@@ -76,10 +72,10 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           </div>
           <div className="space-y-1">
             <h1 className="text-[18pt] font-black uppercase tracking-tighter leading-none text-slate-900">SIKKA LMC</h1>
-            <p className="text-[8.5pt] font-black text-slate-600 uppercase max-w-[450px] leading-tight">
-                B-11, BULANDSHAHR ROAD INDL AREA, GHAZIABAD, UTTAR PRADESH, 201009
+            <p className="text-[8pt] font-black text-slate-600 uppercase max-w-[450px] leading-tight">
+                20KM. STONE, NEAR TIVOLI GRAND RESORT, KHASRA NO. -3,G.T.KARNAL ROAD, JINDPUR, DELHI - 110036
             </p>
-            <div className="text-[8.5pt] font-black text-slate-500 flex flex-wrap gap-x-6 pt-1">
+            <div className="text-[8pt] font-black text-slate-500 flex flex-wrap gap-x-6 pt-1">
               <p>PHONE: 9136688004, 9136688006, 9136688009</p>
               <p>GSTIN: <span className="font-mono text-blue-900">09AYQPS6936B1ZV</span></p>
             </div>
@@ -95,7 +91,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             </div>
             <div className="text-[9.5pt] font-black text-slate-900 uppercase space-y-1.5 px-1">
                 <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1">
-                    <span>DATE:</span> <span>{formatDate(lr.date, 'dd MMM yyyy')}</span>
+                    <span>DATE:</span> <span>{formatDate(lr.date)}</span>
                 </p>
                 <p className="flex justify-between gap-4 border-b border-dotted border-slate-300 pb-1">
                     <span>FROM:</span> <span>{lr.from?.toUpperCase() || '--'}</span>
@@ -107,14 +103,14 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 3. ASSET NODE STRIP */}
+      {/* 3. ASSET NODE STRIP (5 COLUMNS) */}
       <div className="grid grid-cols-5 border-2 border-black rounded-2xl overflow-hidden mb-8 bg-slate-50 divide-x-2 divide-black">
         {[
-            { label: 'Vehicle Number', value: vehicleNumber, bold: true },
-            { label: 'Pilot Contact', value: driverMobile },
-            { label: 'Vehicle Type', value: vehicleType },
-            { label: 'Payment Term', value: paymentTerm },
-            { label: 'Dispatch', value: dispatchTime }
+            { label: 'VEHICLE NUMBER', value: vehicleNumber, bold: true },
+            { label: 'PILOT CONTACT', value: driverMobile },
+            { label: 'VEHICLE TYPE', value: vehicleType },
+            { label: 'PAYMENT TERM', value: paymentTerm },
+            { label: 'DISPATCH', value: dispatchTime }
         ].map((node, i) => (
             <div key={i} className="p-3 text-center flex flex-col justify-center gap-1">
                 <span className="text-[7pt] font-black uppercase text-slate-400 block leading-none tracking-widest">{node.label}</span>
@@ -123,28 +119,28 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         ))}
       </div>
 
-      {/* 4. ENTITY HANDBOOK */}
+      {/* 4. ENTITY HANDBOOK BOXES */}
       <div className="grid grid-cols-2 border-2 border-black rounded-[2.5rem] overflow-hidden mb-8 divide-x-2 divide-black min-h-[140px] shadow-sm">
         <div className="p-6 space-y-3">
             <span className="text-[8.5pt] font-black uppercase text-white bg-black px-3 py-1 rounded-full inline-block tracking-widest">CONSIGNOR (SENDER)</span>
             <div className="space-y-1 flex-1">
                 <p className="text-[10.5pt] font-black uppercase text-slate-900 leading-tight">{lr.consignorName}</p>
-                <p className="text-[9pt] font-bold text-slate-600 leading-snug italic max-w-[350px]">{lr.consignorAddress}</p>
+                <p className="text-[9pt] font-bold text-slate-600 leading-snug italic max-w-[350px] uppercase">{lr.consignorAddress || lr.from}</p>
             </div>
-            <p className="font-black text-slate-900 text-[9pt] pt-2">GSTIN: <span className="font-mono">{lr.consignorGtin || '--'}</span></p>
+            <p className="font-black text-slate-900 text-[9pt] pt-2">GSTIN: <span className="font-mono uppercase">{lr.consignorGtin || '--'}</span></p>
         </div>
         <div className="p-6 space-y-3 bg-slate-50/20">
             <span className="text-[8.5pt] font-black uppercase text-white bg-black px-3 py-1 rounded-full inline-block tracking-widest">CONSIGNEE (RECEIVER)</span>
             <div className="space-y-1 flex-1">
                 <p className="text-[10.5pt] font-black uppercase text-slate-900 leading-tight">{lr.buyerName}</p>
-                <p className="text-[9pt] font-bold text-slate-600 leading-snug italic max-w-[350px]">{lr.deliveryAddress}</p>
+                <p className="text-[9pt] font-bold text-slate-600 leading-snug italic max-w-[350px] uppercase">{lr.deliveryAddress || lr.to}</p>
             </div>
-            <p className="font-black text-slate-900 text-[9pt] pt-2">GSTIN: <span className="font-mono">{lr.buyerGtin || '--'}</span></p>
+            <p className="font-black text-slate-900 text-[9pt] pt-2">GSTIN: <span className="font-mono uppercase">{lr.buyerGtin || '--'}</span></p>
         </div>
       </div>
 
       {/* 5. MANIFEST AUDIT TABLE */}
-      <div className="border-2 border-black rounded-[2.5rem] overflow-hidden mb-10 flex flex-col min-h-0 shadow-lg">
+      <div className="border-2 border-black rounded-[2.5rem] overflow-hidden mb-10 flex flex-col min-h-0 shadow-lg flex-1">
         <table className="w-full border-collapse">
           <thead className="bg-black text-white text-[8.5pt] font-black uppercase tracking-[0.1em]">
             <tr className="h-12">
@@ -157,19 +153,19 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           <tbody className="text-[10pt] font-bold text-slate-900 divide-y-2 divide-slate-100">
             {items.map((item, idx) => (
               <tr key={idx} className="h-14 align-middle bg-white">
-                <td className="border-r-2 border-slate-100 px-6 font-black uppercase">
+                <td className="border-r-2 border-black px-6 font-black uppercase">
                     {(item as any).invoiceNumber || (item as any).invoiceNo || (item as any).deliveryNumber || (item as any).deliveryNo || 'NA'}
                 </td>
-                <td className="border-r-2 border-slate-100 px-6 uppercase tracking-tight">{item.itemDescription}</td>
-                <td className="border-r-2 border-slate-100 px-6 text-center font-black text-blue-900">{item.units}</td>
+                <td className="border-r-2 border-black px-6 uppercase tracking-tight">{item.itemDescription}</td>
+                <td className="border-r-2 border-black px-6 text-center font-black text-blue-900">{item.units}</td>
                 <td className="px-6 text-right font-black text-blue-900">{Number(item.weight).toFixed(3)}</td>
               </tr>
             ))}
-            {Array.from({ length: Math.max(0, 5 - items.length) }).map((_, i) => (
+            {Array.from({ length: Math.max(0, 8 - items.length) }).map((_, i) => (
               <tr key={`empty-${i}`} className="h-14 border-b border-slate-50 opacity-10">
-                <td className="border-r-2 border-slate-100"></td>
-                <td className="border-r-2 border-slate-100"></td>
-                <td className="border-r-2 border-slate-100"></td>
+                <td className="border-r-2 border-black"></td>
+                <td className="border-r-2 border-black"></td>
+                <td className="border-r-2 border-black"></td>
                 <td></td>
               </tr>
             ))}
@@ -186,13 +182,13 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       </div>
 
       {/* 6. COMPLIANCE & SIGNATURE NODES */}
-      <div className="grid grid-cols-2 gap-20 mb-12">
+      <div className="grid grid-cols-2 gap-20 mb-12 shrink-0">
         <div className="space-y-4">
             <span className="text-[9pt] font-black uppercase text-slate-900 border-b-2 border-black block pb-1 tracking-widest italic">TERMS & CONDITIONS</span>
-            <div className="bg-slate-50/50 p-4 rounded-3xl border border-slate-100 min-h-[160px]">
+            <div className="bg-slate-50/50 p-4 rounded-3xl border border-slate-100">
                 <ul className="space-y-1.5">
-                    {standardTerms.map((term, i) => (
-                        <li key={i} className="text-[7.5pt] font-bold text-slate-600 flex gap-2">
+                    {terms.map((term, i) => (
+                        <li key={i} className="text-[7.2pt] font-bold text-slate-600 flex gap-2">
                             <span className="shrink-0">{i + 1}.</span>
                             <span className="leading-tight">{term}</span>
                         </li>
@@ -203,7 +199,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
         <div className="flex flex-col justify-between pt-2">
             <div className="text-center space-y-4">
-                <span className="text-[9pt] font-black uppercase text-slate-900 border-b-2 border-black block pb-1 tracking-widest">FOR SIKKA LMC</span>
+                <span className="text-[9pt] font-black uppercase text-slate-900 border-b-2 border-black block pb-1 tracking-widest uppercase">FOR SIKKA LMC</span>
                 <div className="h-32 flex flex-col justify-end items-center">
                     <div className="w-full border-t-2 border-black border-dashed mb-3" />
                     <span className="text-[10pt] font-black uppercase tracking-[0.3em] text-slate-900 italic">AUTHORIZED SIGNATORY</span>
@@ -218,9 +214,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             NOTE: THIS LORRY RECEIPT WAS GENERATED DIGITALLY AND IS TO BE CONSIDERED AS ORIGINAL
         </p>
         <div className="flex items-center gap-4">
-            <div className="h-1.5 w-1.5 rounded-full bg-slate-300" />
             <span className="text-[9pt] font-black uppercase tracking-[0.5em] text-slate-900"> PAGE {pageNumber} OF {totalInSeries} </span>
-            <div className="h-1.5 w-1.5 rounded-full bg-slate-300" />
         </div>
       </div>
     </div>

@@ -412,17 +412,14 @@ function TripBoardContent() {
     showLoader();
     try {
         const plantId = normalizePlantId(row.originPlantId);
-        if (!plantId) throw new Error("Plant node identification failure.");
-        
         const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
-        const q = query(lrsRef, where("lrNumber", "==", String(row.lrNumber).trim().toUpperCase()), limit(1));
-        const snap = await getDocs(q);
+        
+        let q = query(lrsRef, where("lrNumber", "==", String(row.lrNumber).trim().toUpperCase()), limit(1));
+        let snap = await getDocs(q);
         
         const plantNode = row.plant || { id: row.originPlantId, name: row.plantName };
         const carrierNode = row.carrierObj || (dbCarriers || [])[0] || { name: 'SIKKA INDUSTRIES & LOGISTICS' };
         const shipmentObj = row.shipmentObj || row;
-
-        let finalLrData: any;
 
         if (snap.empty) {
             const manifestItems = row.items && row.items.length > 0 ? row.items : [{
@@ -434,10 +431,10 @@ function TripBoardContent() {
                 weight: parseFloat(row.assignedQtyInTrip) || 0
             }];
 
-            finalLrData = {
+            setPreviewLrData({
                 lrNumber: row.lrNumber,
                 date: row.lrDate || new Date(),
-                trip: row,
+                trip: row as any,
                 carrier: carrierNode,
                 shipment: shipmentObj,
                 plant: plantNode,
@@ -453,16 +450,15 @@ function TripBoardContent() {
                 shipToParty: shipmentObj.shipToParty || row.shipToParty || '',
                 shipToGtin: shipmentObj.shipToGtin || row.shipToGtin || '',
                 deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || row.unloadingPoint || '',
-                // Mission Critical: Explicit Asset Mapping
                 vehicleNumber: row.vehicleNumber || '--',
                 driverName: row.driverName || '--',
                 driverMobile: row.driverMobile || '--',
                 paymentTerm: row.paymentTerm || '--',
                 id: `pseudo-${Date.now()}`
-            };
+            } as any);
         } else {
             const lrDoc = snap.docs[0].data() as LR;
-            finalLrData = {
+            setPreviewLrData({
                 ...lrDoc,
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
@@ -473,22 +469,18 @@ function TripBoardContent() {
                 consignorGtin: lrDoc.consignorGtin || (shipmentObj as any)?.consignorGtin || '',
                 buyerGtin: lrDoc.buyerGtin || (shipmentObj as any)?.billToGtin || '',
                 shipToGtin: lrDoc.shipToGtin || (shipmentObj as any)?.shipToGtin || '',
-                // Forced Sync from active Trip Registry
                 vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
                 driverName: row.driverName || lrDoc.driverName,
                 driverMobile: row.driverMobile || lrDoc.driverMobile,
                 paymentTerm: row.paymentTerm || lrDoc.paymentTerm
-            };
+            } as EnrichedLR);
         }
-        
-        setPreviewLrData(finalLrData);
     } catch (e: any) {
-        console.error("LR Manifest Resolution Failure:", e);
-        toast({ variant: 'destructive', title: "Registry Handshake Error", description: e.message || "Could not resolve document node." });
+        toast({ variant: 'destructive', title: "Registry Error", description: e.message });
     } finally {
         hideLoader();
     }
-  }, [firestore, showLoader, hideLoader, dbCarriers, toast]);
+  }, [firestore, dbCarriers, toast, hideLoader]);
 
   const handleActionCallback = useCallback((type: string, trip: any) => {
       if (type === 'arrived') setArrivedTrip(trip);
@@ -555,152 +547,28 @@ function TripBoardContent() {
                     <TabsTrigger value="closed" className="relative h-14 rounded-none border-b-2 border-b-transparent bg-transparent px-0 pb-3 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:border-b-blue-900 data-[state=active]:text-blue-900 flex items-center gap-2 whitespace-nowrap">Closed ({counts.closed})</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="active" className="mt-0 focus-visible:ring-0">
-                    <TripBoardTable 
-                        data={paginatedData} 
-                        activeTab={activeTab} 
-                        isAdmin={isAdminSession} 
-                        onAction={handleActionCallback} 
-                    />
-                    <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-10">
-                            <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows per page:</span>
-                                <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
-                                    <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm"><SelectValue /></SelectTrigger>
-                                    <SelectContent className="rounded-xl"><SelectItem value="10" className="font-bold py-2">10</SelectItem><SelectItem value="25" className="font-bold py-2">25</SelectItem><SelectItem value="50" className="font-bold py-2">50</SelectItem><SelectItem value="100" className="font-bold py-2">100</SelectItem></SelectContent>
-                                </Select>
+                {['active', 'loading', 'transit', 'arrived', 'pod-status', 'rejection', 'closed'].map(tab => (
+                    <TabsContent key={tab} value={tab} className="mt-0 focus-visible:ring-0">
+                        <TripBoardTable 
+                            data={paginatedData} 
+                            activeTab={activeTab} 
+                            isAdmin={isAdminSession} 
+                            onAction={handleActionCallback} 
+                        />
+                        <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="flex items-center gap-10">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows per page:</span>
+                                    <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
+                                        <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm"><SelectValue /></SelectTrigger>
+                                        <SelectContent className="rounded-xl"><SelectItem value="10" className="font-bold py-2">10</SelectItem><SelectItem value="25" className="font-bold py-2">25</SelectItem><SelectItem value="50" className="font-bold py-2">50</SelectItem><SelectItem value="100" className="font-bold py-2">100</SelectItem></SelectContent>
+                                    </Select>
+                                </div>
+                                <Pagination currentPage={currentPage} totalPages={totalPagesCount} onPageChange={setCurrentPage} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPagesCount} itemCount={tabFilteredData.length} />
                             </div>
-                            <Pagination currentPage={currentPage} totalPages={totalPagesCount} onPageChange={setCurrentPage} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPagesCount} itemCount={tabFilteredData.length} />
                         </div>
-                    </div>
-                </TabsContent>
-                <TabsContent value="loading" className="mt-0 focus-visible:ring-0">
-                    <TripBoardTable 
-                        data={paginatedData} 
-                        activeTab={activeTab} 
-                        isAdmin={isAdminSession} 
-                        onAction={handleActionCallback} 
-                    />
-                    <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-10">
-                            <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows per page:</span>
-                                <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
-                                    <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm"><SelectValue /></SelectTrigger>
-                                    <SelectContent className="rounded-xl"><SelectItem value="10" className="font-bold py-2">10</SelectItem><SelectItem value="25" className="font-bold py-2">25</SelectItem><SelectItem value="50" className="font-bold py-2">50</SelectItem><SelectItem value="100" className="font-bold py-2">100</SelectItem></SelectContent>
-                                </Select>
-                            </div>
-                            <Pagination currentPage={currentPage} totalPages={totalPagesCount} onPageChange={setCurrentPage} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPagesCount} itemCount={tabFilteredData.length} />
-                        </div>
-                    </div>
-                </TabsContent>
-                <TabsContent value="transit" className="mt-0 focus-visible:ring-0">
-                    <TripBoardTable 
-                        data={paginatedData} 
-                        activeTab={activeTab} 
-                        isAdmin={isAdminSession} 
-                        onAction={handleActionCallback} 
-                    />
-                    <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-10">
-                            <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows per page:</span>
-                                <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
-                                    <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm"><SelectValue /></SelectTrigger>
-                                    <SelectContent className="rounded-xl"><SelectItem value="10" className="font-bold py-2">10</SelectItem><SelectItem value="25" className="font-bold py-2">25</SelectItem><SelectItem value="50" className="font-bold py-2">50</SelectItem><SelectItem value="100" className="font-bold py-2">100</SelectItem></SelectContent>
-                                </Select>
-                            </div>
-                            <Pagination currentPage={currentPage} totalPages={totalPagesCount} onPageChange={setCurrentPage} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPagesCount} itemCount={tabFilteredData.length} />
-                        </div>
-                    </div>
-                </TabsContent>
-                <TabsContent value="arrived" className="mt-0 focus-visible:ring-0">
-                    <TripBoardTable 
-                        data={paginatedData} 
-                        activeTab={activeTab} 
-                        isAdmin={isAdminSession} 
-                        onAction={handleActionCallback} 
-                    />
-                    <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-10">
-                            <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows per page:</span>
-                                <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
-                                    <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm"><SelectValue /></SelectTrigger>
-                                    <SelectContent className="rounded-xl"><SelectItem value="10" className="font-bold py-2">10</SelectItem><SelectItem value="25" className="font-bold py-2">25</SelectItem><SelectItem value="50" className="font-bold py-2">50</SelectItem><SelectItem value="100" className="font-bold py-2">100</SelectItem></SelectContent>
-                                </Select>
-                            </div>
-                            <Pagination currentPage={currentPage} totalPages={totalPagesCount} onPageChange={setCurrentPage} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPagesCount} itemCount={tabFilteredData.length} />
-                        </div>
-                    </div>
-                </TabsContent>
-                <TabsContent value="pod-status" className="mt-0 focus-visible:ring-0">
-                    <TripBoardTable 
-                        data={paginatedData} 
-                        activeTab={activeTab} 
-                        isAdmin={isAdminSession} 
-                        onAction={handleActionCallback} 
-                    />
-                    <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-10">
-                            <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows per page:</span>
-                                <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
-                                    <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm"><SelectValue /></SelectTrigger>
-                                    <SelectContent className="rounded-xl"><SelectItem value="10" className="font-bold py-2">10</SelectItem><SelectItem value="25" className="font-bold py-2">25</SelectItem><SelectItem value="50" className="font-bold py-2">50</SelectItem><SelectItem value="100" className="font-bold py-2">100</SelectItem></SelectContent>
-                                </Select>
-                            </div>
-                            <Pagination currentPage={currentPage} totalPages={totalPagesCount} onPageChange={setCurrentPage} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPagesCount} itemCount={tabFilteredData.length} />
-                        </div>
-                    </div>
-                </TabsContent>
-                <TabsContent value="rejection" className="mt-0 focus-visible:ring-0">
-                    <TripBoardTable 
-                        data={paginatedData} 
-                        activeTab={activeTab} 
-                        isAdmin={isAdminSession} 
-                        onAction={handleActionCallback} 
-                    />
-                    <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-10">
-                            <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows per page:</span>
-                                <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
-                                    <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm"><SelectValue /></SelectTrigger>
-                                    <SelectContent className="rounded-xl"><SelectItem value="10" className="font-bold py-2">10</SelectItem><SelectItem value="25" className="font-bold py-2">25</SelectItem><SelectItem value="50" className="font-bold py-2">50</SelectItem><SelectItem value="100" className="font-bold py-2">100</SelectItem></SelectContent>
-                                </Select>
-                            </div>
-                            <Pagination currentPage={currentPage} totalPages={totalPagesCount} onPageChange={setCurrentPage} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPagesCount} itemCount={tabFilteredData.length} />
-                        </div>
-                    </div>
-                </TabsContent>
-                <TabsContent value="closed" className="mt-0 focus-visible:ring-0">
-                    <TripBoardTable 
-                        data={paginatedData} 
-                        activeTab={activeTab} 
-                        isAdmin={isAdminSession} 
-                        onAction={handleActionCallback} 
-                    />
-                    <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-10">
-                            <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows per page:</span>
-                                <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
-                                    <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm"><SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl">
-                                        <SelectItem value="10" className="font-bold py-2">10</SelectItem>
-                                        <SelectItem value="25" className="font-bold py-2">25</SelectItem>
-                                        <SelectItem value="50" className="font-bold py-2">50</SelectItem>
-                                        <SelectItem value="100" className="font-bold py-2">100</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <Pagination currentPage={currentPage} totalPages={totalPagesCount} onPageChange={setCurrentPage} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPagesCount} itemCount={tabFilteredData.length} />
-                        </div>
-                    </div>
-                </TabsContent>
+                    </TabsContent>
+                ))}
             </Tabs>
         </Card>
       </div>
