@@ -26,6 +26,7 @@ interface PrintableLRProps {
  * @fileOverview SIKKA LMC - Enterprise Lorry Receipt (LR) Node.
  * Precise A4 restoration matching the provided Sikka LMC design.
  * Mission Logic: Generates triple copies (Consignor, Consignee, and Driver).
+ * Optimized Value Resolution Node: Ensures no fields in asset strip appear empty.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -37,12 +38,13 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const totalUnits = items.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
   const totalWeight = Number(lr.assignedTripWeight) || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
 
-  // Fallback Mapping Node
+  // MISSION CRITICAL: Hardened Value Lookup Node
+  // Prioritizes Top-Level LR fields with Trip-Registry fallbacks
   const vehicleNumber = lr.vehicleNumber || lr.trip?.vehicleNumber || '--';
-  const driverMobile = lr.driverMobile || lr.trip?.driverMobile || 'N/A';
+  const driverMobile = lr.driverMobile || lr.trip?.driverMobile || '--';
   const vehicleType = lr.trip?.vehicleType || 'OWN VEHICLE';
   const paymentTerm = lr.paymentTerm || lr.trip?.paymentTerm || 'PAID';
-  const dispatchTime = formatDate(lr.trip?.startDate, 'HH:mm') || 'N/A';
+  const dispatchTime = formatDate(lr.trip?.startDate || lr.date, 'HH:mm') || '--:--';
 
   const standardTerms = [
     "Agency is not responsible for rain or any natural calamity.",

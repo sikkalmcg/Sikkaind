@@ -231,14 +231,12 @@ function TripBoardContent() {
         const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(t.originPlantId));
 
         const items = lr?.items || t.items || shipment?.items || [];
-        // Robust Invoice Detection: scan for all common key variations
         const getInvoice = (i: any) => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo;
         const invoiceNumbers = Array.from(new Set(items.map(getInvoice).filter(Boolean))).join(', ');
         
-        const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
-        
         const summarizedItems = Array.from(new Set(items.map((i: any) => i.itemDescription || i.description).filter(Boolean))).join(', ') || shipment?.itemDescription || shipment?.material || '--';
 
+        const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
         const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
 
         return {
@@ -410,11 +408,6 @@ function TripBoardContent() {
     }
   };
 
-  /**
-   * Registry Handshake: LR Preview Extraction
-   * Resolves finalized LR documents or generates a pseudo-preview manifest.
-   * MISSION CRITICAL: Memoized to prevent recursive layout re-renders.
-   */
   const handleOpenLR = useCallback(async (row: any) => {
     if (!row.lrNumber || !firestore) return;
     showLoader();
@@ -461,10 +454,11 @@ function TripBoardContent() {
                 shipToParty: shipmentObj.shipToParty || row.shipToParty || '',
                 shipToGtin: shipmentObj.shipToGtin || row.shipToGtin || '',
                 deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || row.unloadingPoint || '',
-                vehicleNumber: row.vehicleNumber,
-                driverName: row.driverName,
-                driverMobile: row.driverMobile,
-                paymentTerm: row.paymentTerm,
+                // Mission Critical: Explicit Asset Mapping
+                vehicleNumber: row.vehicleNumber || '--',
+                driverName: row.driverName || '--',
+                driverMobile: row.driverMobile || '--',
+                paymentTerm: row.paymentTerm || '--',
                 id: `pseudo-${Date.now()}`
             };
         } else {
@@ -473,17 +467,18 @@ function TripBoardContent() {
                 ...lrDoc,
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
-                trip: row,
+                trip: row as any,
                 carrier: carrierNode,
                 shipment: shipmentObj,
                 plant: plantNode,
                 consignorGtin: lrDoc.consignorGtin || (shipmentObj as any)?.consignorGtin || '',
                 buyerGtin: lrDoc.buyerGtin || (shipmentObj as any)?.billToGtin || '',
                 shipToGtin: lrDoc.shipToGtin || (shipmentObj as any)?.shipToGtin || '',
-                vehicleNumber: lrDoc.vehicleNumber || row.vehicleNumber,
-                driverName: lrDoc.driverName || row.driverName,
-                driverMobile: lrDoc.driverMobile || row.driverMobile,
-                paymentTerm: lrDoc.paymentTerm || row.paymentTerm
+                // Forced Sync from active Trip Registry
+                vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
+                driverName: row.driverName || lrDoc.driverName,
+                driverMobile: row.driverMobile || lrDoc.driverMobile,
+                paymentTerm: row.paymentTerm || lrDoc.paymentTerm
             };
         }
         
