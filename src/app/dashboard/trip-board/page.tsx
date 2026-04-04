@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -418,8 +419,11 @@ function TripBoardContent() {
         let snap = await getDocs(q);
         
         const plantNode = row.plant || { id: row.originPlantId, name: row.plantName };
-        const carrierNode = row.carrierObj || (dbCarriers || [])[0] || { name: 'SIKKA INDUSTRIES & LOGISTICS' };
         const shipmentObj = row.shipmentObj || row;
+
+        // MISSION FIX: Prioritize Trip-assigned Carrier to avoid multi-plant mismatch
+        const resolvedCarrier = (dbCarriers || []).find(c => c.id === row.carrierId) || row.carrierObj || (dbCarriers || [])[0];
+        const carrierNode = resolvedCarrier || { name: 'SIKKA INDUSTRIES & LOGISTICS' };
 
         if (snap.empty) {
             const manifestItems = row.items && row.items.length > 0 ? row.items : [{
@@ -480,7 +484,7 @@ function TripBoardContent() {
     } finally {
         hideLoader();
     }
-  }, [firestore, dbCarriers, toast, hideLoader]);
+  }, [firestore, dbCarriers, toast, hideLoader, showLoader]);
 
   const handleActionCallback = useCallback((type: string, trip: any) => {
       if (type === 'arrived') setArrivedTrip(trip);

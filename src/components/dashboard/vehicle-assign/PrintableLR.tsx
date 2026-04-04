@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -34,12 +35,13 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const totalUnits = items.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
   const totalWeight = Number(lr.assignedTripWeight) || items.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
 
-  // MISSION CRITICAL: Hardened Value Lookup Node
+  // MISSION CRITICAL: Hardened Value Lookup Node supporting multiple key variations
   const vehicleNumber = lr.vehicleNumber || lr.trip?.vehicleNumber || '--';
-  const driverMobile = lr.driverMobile || lr.trip?.driverMobile || 'N/A';
-  const vehicleType = lr.trip?.vehicleType || 'OWN VEHICLE';
-  const paymentTerm = lr.paymentTerm || lr.trip?.paymentTerm || 'PAID';
-  const dispatchTime = lr.trip?.startDate ? format(parseSafeDate(lr.trip.startDate)!, 'HH:mm') : 'N/A';
+  const driverMobile = lr.driverMobile || (lr.trip as any)?.driverMobile || '--';
+  const vehicleType = (lr.trip as any)?.vehicleType || (lr.trip as any)?.fleetType || 'OWN VEHICLE';
+  const paymentTerm = lr.paymentTerm || (lr.trip as any)?.paymentTerm || 'PAID';
+  const dispatchDateRaw = lr.trip?.startDate || (lr.trip as any)?.assignedDateTime;
+  const dispatchTime = dispatchDateRaw ? format(parseSafeDate(dispatchDateRaw)!, 'HH:mm') : 'N/A';
 
   const terms = [
     "Agency is not responsible for rain or any natural calamity.",
