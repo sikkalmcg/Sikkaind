@@ -38,19 +38,15 @@ export function incrementSerial(lastSerial: string): string {
 export function parseSafeDate(date: any): Date | null {
     if (!date) return null;
     try {
-        // Case 1: Standard Date object
         if (date instanceof Date) {
             return isNaN(date.getTime()) ? null : date;
         }
-        // Case 2: Firestore Timestamp instance
         if (typeof date.toDate === 'function') {
             return date.toDate();
         }
-        // Case 3: Serialized Firestore Timestamp (object with seconds/nanoseconds)
         if (typeof date === 'object' && 'seconds' in date) {
             return new Date(date.seconds * 1000);
         }
-        // Case 4: String or other format
         const d = new Date(date);
         return isNaN(d.getTime()) ? null : d;
     } catch (e) {
@@ -75,14 +71,11 @@ export function calculateDuration(start: any, end: any): string {
 
 /**
  * Sanitizes a registry node for archive storage.
- * Removes heavy binary data or non-essential recursive links.
- * PURGES undefined fields to prevent Firestore Transaction errors.
  */
 export function sanitizeRegistryNode(data: any): any {
     if (!data) return data;
     const sanitized = { ...data };
     
-    // Remove heavy binary fields if they exist in the snapshot
     const heavyFields = ['fuelSlipImageUrl', 'podUrl', 'logoUrl', 'signatureImageUri'];
     heavyFields.forEach(f => {
         if (sanitized[f] && typeof sanitized[f] === 'string' && sanitized[f].length > 1000) {
@@ -90,7 +83,6 @@ export function sanitizeRegistryNode(data: any): any {
         }
     });
 
-    // MISSION CRITICAL: Purge undefined fields to prevent Firestore Transaction errors
     Object.keys(sanitized).forEach(key => {
         if (sanitized[key] === undefined) {
             delete sanitized[key];
@@ -111,10 +103,8 @@ export enum OperationType {
 
 /**
  * Global Error Handler Node for Firestore
- * Standardizes the surfacing of permission errors to the agentic loop.
  */
 export async function handleFirestoreError(error: any, operation: OperationType, path: string, data?: any) {
-    // Only process standard Firebase permission errors
     if (error.code === 'permission-denied' || error.message?.includes('permissions')) {
         const { errorEmitter } = await import('@/firebase/error-emitter');
         const { FirestorePermissionError } = await import('@/firebase/errors');

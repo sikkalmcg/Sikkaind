@@ -16,9 +16,9 @@ import LRGenerationModal from '@/components/dashboard/lr-create/LRGenerationModa
 import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreviewModal';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
-import { normalizePlantId, parseSafeDate, calculateDuration } from '@/lib/utils';
+import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
-import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy } from "firebase/firestore";
+import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -79,7 +79,6 @@ function TripBoardContent() {
   const [podStatusTrip, setPodStatusTrip] = useState<any | null>(null);
   const [srnTrip, setSrnTrip] = useState<any | null>(null);
 
-  const [editLrTrip, setEditLrTrip] = useState<any | null>(null);
   const [previewLrData, setPreviewLrData] = useState<EnrichedLR | null>(null);
 
   const isAdminSession = useMemo(() => {
@@ -229,13 +228,13 @@ function TripBoardContent() {
         const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(t.originPlantId));
 
         const items = lr?.items || t.items || shipment?.items || [];
-        const getInvoice = (i: any) => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo;
-        const invoiceNumbers = Array.from(new Set(items.map(getInvoice).filter(Boolean))).join(', ');
-        
+        const invoiceNumbers = Array.from(new Set(items.map((i: any) => i.invoiceNumber || i.invoiceNo || i.deliveryNumber).filter(Boolean))).join(', ');
         const summarizedItems = Array.from(new Set(items.map((i: any) => i.itemDescription || i.description).filter(Boolean))).join(', ') || shipment?.itemDescription || shipment?.material || '--';
 
         const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
         const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
+
+        const s = (t.tripStatus || t.currentStatusId || 'assigned').toLowerCase().trim().replace(/[\s_-]+/g, '-');
 
         return {
             ...t,
@@ -283,148 +282,23 @@ function TripBoardContent() {
             lrData: lr,
             carrierObj: carrier,
             entry,
-            paymentTerm: t.paymentTerm || shipment?.paymentTerm || 'Paid'
+            paymentTerm: t.paymentTerm || shipment?.paymentTerm || 'Paid',
+            normalizedStatus: s
         };
     });
 }, [trips, shipments, lrs, entries, plants, dbCarriers, selectedPlants]);
 
-  const handleOpenLR = useCallback(async (row: any) => {
-    if (!row.lrNumber || !firestore) return;
-    showLoader();
-    try {
-        const plantId = normalizePlantId(row.originPlantId);
-        const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
-        
-        let q = query(lrsRef, where("lrNumber", "==", String(row.lrNumber).trim().toUpperCase()), limit(1));
-        let snap = await getDocs(q);
-        
-        const plantNode = row.plant || { id: row.originPlantId, name: row.plantName };
-        const shipmentObj = row.shipmentObj || row;
-
-        const pIdStr = normalizePlantId(row.originPlantId);
-        const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
-        
-        let finalCarrier: any = null;
-
-        // MISSION CRITICAL: Hardened Plant Registry Handshake
-        if (pIdStr === '1426') {
-            finalCarrier = {
-                id: 'ID20',
-                name: 'SIKKA LMC',
-                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
-                mobile: '9136688004',
-                gstin: '07AYQPS6936B1ZZ',
-                stateCode: '07',
-                stateName: 'DELHI',
-                pan: 'AYQPS6936B',
-                email: 'sil@sikkaenterprises.com'
-            };
-        } else if (pIdStr === '1214' || isSikkaLmcShorthand) {
-            finalCarrier = {
-                id: 'ID21',
-                name: 'SIKKA LMC',
-                address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
-                mobile: '9136688004',
-                gstin: '09AYQPS6936B1ZV',
-                stateCode: '09',
-                stateName: 'UTTAR PRADESH',
-                pan: 'AYQPS6936B',
-                email: 'sil@sikkaenterprises.com'
-            };
-        }
-
-        if (!finalCarrier) {
-            finalCarrier = (dbCarriers || []).find(c => c.id === row.carrierId) || row.carrierObj;
-        }
-
-        if (!finalCarrier) {
-            finalCarrier = { 
-                name: 'SIKKA LMC',
-                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
-                mobile: '9136688004',
-                gstin: '07AYQPS6936B1ZZ',
-                stateCode: '07',
-                stateName: 'DELHI',
-                pan: 'AYQPS6936B',
-                email: 'sil@sikkaenterprises.com'
-            };
-        }
-
-        const manifestItems = row.items && row.items.length > 0 ? row.items : [{
-            invoiceNumber: row.invoiceNumbers || 'NA',
-            ewaybillNumber: row.ewaybillNumber || '',
-            units: parseInt(row.unitUom) || 1,
-            unitType: 'Package',
-            itemDescription: row.itemDescription || 'GENERAL CARGO',
-            weight: parseFloat(row.assignedQtyInTrip) || 0
-        }];
-
-        if (snap.empty) {
-            setPreviewLrData({
-                lrNumber: row.lrNumber,
-                date: row.lrDate || new Date(),
-                trip: row as any,
-                carrier: finalCarrier as any,
-                shipment: shipmentObj,
-                plant: plantNode as any,
-                items: manifestItems,
-                weightSelection: 'Assigned Weight',
-                assignedTripWeight: row.assignedQtyInTrip || shipmentObj.quantity || 0,
-                from: shipmentObj.loadingPoint || row.loadingPoint || '',
-                to: shipmentObj.unloadingPoint || row.unloadingPoint || '',
-                consignorName: shipmentObj.consignor || row.consignor || '',
-                consignorGtin: shipmentObj.consignorGtin || row.consignorGtin || '',
-                consignorAddress: shipmentObj.consignorAddress || '',
-                buyerName: shipmentObj.billToParty || row.billToParty || '',
-                buyerGtin: shipmentObj.billToGtin || row.billToGtin || '',
-                shipToParty: shipmentObj.shipToParty || row.shipToParty || '',
-                shipToGtin: shipmentObj.shipToGtin || row.shipToGtin || '',
-                deliveryAddress: shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || row.unloadingPoint || '',
-                vehicleNumber: row.vehicleNumber || '--',
-                driverName: row.driverName || '--',
-                driverMobile: row.driverMobile || '--',
-                paymentTerm: row.paymentTerm || '--',
-                id: `pseudo-${Date.now()}`
-            } as any);
-        } else {
-            const lrDoc = snap.docs[0].data() as LR;
-            setPreviewLrData({
-                ...lrDoc,
-                id: snap.docs[0].id,
-                date: parseSafeDate(lrDoc.date),
-                trip: row as any,
-                carrier: finalCarrier as any,
-                shipment: shipmentObj,
-                plant: plantNode as any,
-                consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
-                buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
-                shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || '',
-                vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
-                driverName: row.driverName || lrDoc.driverName,
-                driverMobile: row.driverMobile || lrDoc.driverMobile,
-                paymentTerm: row.paymentTerm || lrDoc.paymentTerm
-            } as EnrichedLR);
-        }
-    } catch (e: any) {
-        toast({ variant: 'destructive', title: "Registry Error", description: e.message });
-    } finally {
-        hideLoader();
-    }
-  }, [firestore, dbCarriers, toast, hideLoader, showLoader]);
-
   const handleAction = async (type: string, trip: any) => {
     if (type === 'view') setViewTripData(trip);
     if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${trip.vehicleNumber}`);
-    if (type === 'view-lr') handleOpenLR(trip);
+    if (type === 'view-lr') onAction('view-lr', trip);
     if (type === 'edit-vehicle') setEditVehicleTrip(trip);
     if (type === 'cancel') setCancelTripData(trip);
-    
     if (type === 'arrived') setArrivedTrip(trip);
     if (type === 'unloaded') setUnloadedTrip(trip);
     if (type === 'reject') setRejectTrip(trip);
     if (type === 'pod-status') setPodStatusTrip(trip);
     if (type === 'srn') setSrnTrip(trip);
-    
     if (type === 're-sent') {
         if (!firestore || !user) return;
         showLoader();
@@ -434,18 +308,11 @@ function TripBoardContent() {
             const globalTripRef = doc(firestore, 'trips', trip.id);
             const ts = serverTimestamp();
             const currentName = user.displayName || user.email?.split('@')[0] || 'System';
-
-            const update = { 
-                tripStatus: 'In Transit', 
-                currentStatusId: 'in-transit', 
-                resentAt: ts, 
-                resentBy: currentName, 
-                lastUpdated: ts 
-            };
+            const update = { tripStatus: 'In Transit', currentStatusId: 'in-transit', resentAt: ts, resentBy: currentName, lastUpdated: ts };
             await updateDoc(tripRef, update);
             await updateDoc(globalTripRef, update);
-            toast({ title: 'Mission Re-activated', description: 'Vehicle status returned to In-Transit registry.' });
-        } catch (e: any) { toast({ variant: 'destructive', title: 'Registry Error', description: e.message }); }
+            toast({ title: 'Mission Re-activated' });
+        } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
         finally { hideLoader(); }
     }
   };
@@ -458,23 +325,14 @@ function TripBoardContent() {
             const plantId = normalizePlantId(cancelTripData.originPlantId);
             const tripRef = doc(firestore, `plants/${plantId}/trips`, cancelTripData.id);
             const globalTripRef = doc(firestore, 'trips', cancelTripData.id);
-            
             const shipId = cancelTripData.shipmentIds[0];
             const shipRef = doc(firestore, `plants/${plantId}/shipments`, shipId);
             const shipSnap = await tx.get(shipRef);
-            
             if (shipSnap.exists()) {
                 const sData = shipSnap.data() as Shipment;
                 const newAssigned = (sData.assignedQty || 0) - cancelTripData.assignedQtyInTrip;
-                const newBalance = sData.quantity - newAssigned;
-                tx.update(shipRef, {
-                    assignedQty: newAssigned,
-                    balanceQty: newBalance,
-                    currentStatusId: newAssigned > 0 ? 'Partly Vehicle Assigned' : 'pending',
-                    lastUpdateDate: serverTimestamp()
-                });
+                tx.update(shipRef, { assignedQty: newAssigned, balanceQty: sData.quantity - newAssigned, currentStatusId: newAssigned > 0 ? 'Partly Vehicle Assigned' : 'pending', lastUpdateDate: serverTimestamp() });
             }
-
             tx.delete(tripRef);
             tx.delete(globalTripRef);
         });
@@ -508,12 +366,7 @@ function TripBoardContent() {
         const tripRef = doc(firestore, `plants/${plantId}/trips`, arrivedTrip.id);
         const globalTripRef = doc(firestore, 'trips', arrivedTrip.id);
         const arrivalDate = new Date(`${values.arrivedDate.toISOString().split('T')[0]}T${values.arrivedTime}`);
-        const update = { 
-            arrivalDate, 
-            tripStatus: 'Arrival For Delivery', 
-            currentStatusId: 'arrival-for-delivery', 
-            lastUpdated: serverTimestamp() 
-        };
+        const update = { arrivalDate, tripStatus: 'Arrival For Delivery', currentStatusId: 'arrival-for-delivery', lastUpdated: serverTimestamp() };
         await updateDoc(tripRef, update);
         await updateDoc(globalTripRef, update);
         toast({ title: 'Registry Updated' });
@@ -530,12 +383,7 @@ function TripBoardContent() {
         const tripRef = doc(firestore, `plants/${plantId}/trips`, unloadedTrip.id);
         const globalTripRef = doc(firestore, 'trips', unloadedTrip.id);
         const actualCompletionDate = new Date(`${values.unloadDate.toISOString().split('T')[0]}T${values.unloadTime}`);
-        const update = { 
-            actualCompletionDate, 
-            tripStatus: 'Delivered', 
-            currentStatusId: 'delivered', 
-            lastUpdated: serverTimestamp() 
-        };
+        const update = { actualCompletionDate, tripStatus: 'Delivered', currentStatusId: 'delivered', lastUpdated: serverTimestamp() };
         await updateDoc(tripRef, update);
         await updateDoc(globalTripRef, update);
         toast({ title: 'Registry Updated' });
@@ -552,14 +400,7 @@ function TripBoardContent() {
         const tripRef = doc(firestore, `plants/${plantId}/trips`, rejectTrip.id);
         const globalTripRef = doc(firestore, 'trips', rejectTrip.id);
         const rejectedAt = new Date(`${values.rejectDate.toISOString().split('T')[0]}T${values.rejectTime}`);
-        const update = { 
-            rejectedAt, 
-            tripStatus: 'Rejected', 
-            currentStatusId: 'rejected', 
-            rejectReason: values.rejectedBy, 
-            rejectRemark: values.remark, 
-            lastUpdated: serverTimestamp() 
-        };
+        const update = { rejectedAt, tripStatus: 'Rejected', currentStatusId: 'rejected', rejectReason: values.rejectedBy, rejectRemark: values.remark, lastUpdated: serverTimestamp() };
         await updateDoc(tripRef, update);
         await updateDoc(globalTripRef, update);
         toast({ title: 'Registry Updated' });
@@ -575,12 +416,7 @@ function TripBoardContent() {
         const plantId = normalizePlantId(podStatusTrip.originPlantId);
         const tripRef = doc(firestore, `plants/${plantId}/trips`, podStatusTrip.id);
         const globalTripRef = doc(firestore, 'trips', podStatusTrip.id);
-        const update = { 
-            ...values, 
-            podUploadedBy: user?.displayName || user?.email, 
-            podUploadDate: serverTimestamp(), 
-            lastUpdated: serverTimestamp() 
-        };
+        const update = { ...values, podUploadedBy: user?.displayName || user?.email, podUploadDate: serverTimestamp(), lastUpdated: serverTimestamp() };
         await updateDoc(tripRef, update);
         await updateDoc(globalTripRef, update);
         toast({ title: 'Registry Updated' });
@@ -596,13 +432,7 @@ function TripBoardContent() {
         const plantId = normalizePlantId(srnTrip.originPlantId);
         const tripRef = doc(firestore, `plants/${plantId}/trips`, srnTrip.id);
         const globalTripRef = doc(firestore, 'trips', srnTrip.id);
-        const update = { 
-            ...values, 
-            tripStatus: 'Closed', 
-            currentStatusId: 'closed', 
-            srnBy: user?.displayName || user?.email, 
-            lastUpdated: serverTimestamp() 
-        };
+        const update = { ...values, tripStatus: 'Closed', currentStatusId: 'closed', srnBy: user?.displayName || user?.email, lastUpdated: serverTimestamp() };
         await updateDoc(tripRef, update);
         await updateDoc(globalTripRef, update);
         toast({ title: 'Registry Updated' });
@@ -617,11 +447,10 @@ function TripBoardContent() {
 
     return joinedData.filter(t => {
       const start = t.startDate;
-      if (!start) return true;
-      if (dayStart && start < dayStart) return false;
-      if (dayEnd && start > dayEnd) return false;
+      if (dayStart && start && start < dayStart) return false;
+      if (dayEnd && start && start > dayEnd) return false;
       
-      const s = (t.tripStatus || t.currentStatusId || '').toLowerCase().replace(/[\s_-]+/g, '-');
+      const s = t.normalizedStatus;
       switch (activeTab) {
         case 'active': return s !== 'closed' && s !== 'cancelled';
         case 'loading': return s === 'assigned' || s === 'vehicle-assigned' || s === 'loaded' || s === 'loading-complete';
@@ -646,18 +475,18 @@ function TripBoardContent() {
   }, [joinedData, activeTab, fromDate, toDate, searchTerm]);
 
   const counts = useMemo(() => {
-    const counts = { active: 0, loading: 0, transit: 0, arrived: 0, pod: 0, rejection: 0, closed: 0 };
+    const res = { active: 0, loading: 0, transit: 0, arrived: 0, pod: 0, rejection: 0, closed: 0 };
     joinedData.forEach(t => {
-        const s = (t.tripStatus || t.currentStatusId || '').toLowerCase().replace(/[\s_-]+/g, '-');
-        if (s !== 'closed' && s !== 'cancelled') counts.active++;
-        if (s === 'assigned' || s === 'vehicle-assigned' || s === 'loaded' || s === 'loading-complete') counts.loading++;
-        else if (s === 'in-transit') counts.transit++;
-        else if (s === 'arrived' || s === 'arrival-for-delivery' || s === 'arrive-for-deliver') counts.arrived++;
-        else if (s === 'delivered') counts.pod++;
-        else if (s === 'rejected') counts.rejection++;
-        else if (s === 'closed') counts.closed++;
+        const s = t.normalizedStatus;
+        if (s !== 'closed' && s !== 'cancelled') res.active++;
+        if (s === 'assigned' || s === 'vehicle-assigned' || s === 'loaded' || s === 'loading-complete') res.loading++;
+        else if (s === 'in-transit') res.transit++;
+        else if (s === 'arrived' || s === 'arrival-for-delivery' || s === 'arrive-for-deliver') res.arrived++;
+        else if (s === 'delivered') res.pod++;
+        else if (s === 'rejected') res.rejection++;
+        else if (s === 'closed') res.closed++;
     });
-    return counts;
+    return res;
   }, [joinedData]);
 
   const paginatedData = useMemo(() => {
@@ -672,7 +501,6 @@ function TripBoardContent() {
         'Plant': t.plantName,
         'Trip ID': t.tripId,
         'Vehicle Number': t.vehicleNumber,
-        'Pilot Mobile': t.driverMobile,
         'LR Number': t.lrNumber,
         'Consignor': t.consignor,
         'Consignee': t.consignee,
@@ -761,14 +589,7 @@ function TripBoardContent() {
                     isAdmin={isAdminSession}
                     onAction={handleAction} 
                 />
-                <Pagination 
-                    currentPage={currentPage} 
-                    totalPages={totalPages} 
-                    onPageChange={setCurrentPage} 
-                    itemCount={processedData.length} 
-                    canPreviousPage={currentPage > 1} 
-                    canNextPage={currentPage < totalPages} 
-                />
+                <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemCount={processedData.length} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPages} />
             </div>
         )}
       </div>
@@ -781,7 +602,7 @@ function TripBoardContent() {
       {rejectTrip && <RejectModal isOpen={!!rejectTrip} onClose={() => setRejectTrip(null)} trip={rejectTrip} onPost={handleReject} />}
       {podStatusTrip && <PodStatusModal isOpen={!!podStatusTrip} onClose={() => setPodStatusTrip(null)} trip={podStatusTrip} onPost={handlePodStatus} />}
       {srnTrip && <SrnModal isOpen={!!srnTrip} onClose={() => setSrnTrip(null)} trip={srnTrip} onPost={handleSrn} />}
-      {previewLrData && <LRPrintPreviewModal isOpen={!!previewLrData} onClose={() => setPreviewLrData(null)} lr={previewLrData} />}
+      {previewLrData && <LRPrintPreviewModal isOpen={!!previewLrData} onClose={() => setLrPreviewData(null)} lr={previewLrData} />}
     </main>
   );
 }
