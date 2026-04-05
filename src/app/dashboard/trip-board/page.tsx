@@ -261,6 +261,7 @@ function TripBoardContent() {
             ewaybillNumber: shipment?.ewaybillNumber || '--',
             unitUom: `${units || shipment?.totalUnits || '--'} PKG`,
             qtyUom: `${dispatchedQty.toFixed(3)} ${shipment?.materialTypeId || 'MT'}`,
+            dispatchedQty,
             lrNumber: lr?.lrNumber || t.lrNumber || shipment?.lrNumber || '',
             lrDate: parseSafeDate(lr?.date || t.lrDate || shipment?.lrDate),
             assignedDateTime: t.startDate,
@@ -610,7 +611,7 @@ function TripBoardContent() {
     finally { hideLoader(); }
   };
 
-  const filteredData = useMemo(() => {
+  const processedData = useMemo(() => {
     const dayStart = fromDate ? startOfDay(fromDate) : null;
     const dayEnd = toDate ? endOfDay(toDate) : null;
 
@@ -622,10 +623,10 @@ function TripBoardContent() {
       
       const s = (t.tripStatus || t.currentStatusId || '').toLowerCase().replace(/[\s_-]+/g, '-');
       switch (activeTab) {
-        case 'active': return !['delivered', 'closed', 'cancelled'].includes(s);
-        case 'loading': return ['assigned', 'vehicle-assigned', 'loaded', 'loading-complete'].includes(s);
+        case 'active': return s !== 'closed' && s !== 'cancelled';
+        case 'loading': return s === 'assigned' || s === 'vehicle-assigned' || s === 'loaded' || s === 'loading-complete';
         case 'transit': return s === 'in-transit';
-        case 'arrived': return ['arrived', 'arrival-for-delivery', 'arrive-for-deliver'].includes(s);
+        case 'arrived': return s === 'arrived' || s === 'arrival-for-delivery' || s === 'arrive-for-deliver';
         case 'pod-status': return s === 'delivered';
         case 'rejection': return s === 'rejected';
         case 'closed': return s === 'closed';
@@ -639,27 +640,42 @@ function TripBoardContent() {
         t.vehicleNumber?.toLowerCase().includes(s) ||
         t.lrNumber?.toLowerCase().includes(s) ||
         t.consignor?.toLowerCase().includes(s) ||
-        t.shipToParty?.toLowerCase().includes(s)
+        t.consignee?.toLowerCase().includes(s)
       );
     });
   }, [joinedData, activeTab, fromDate, toDate, searchTerm]);
 
+  const counts = useMemo(() => {
+    const counts = { active: 0, loading: 0, transit: 0, arrived: 0, pod: 0, rejection: 0, closed: 0 };
+    joinedData.forEach(t => {
+        const s = (t.tripStatus || t.currentStatusId || '').toLowerCase().replace(/[\s_-]+/g, '-');
+        if (s !== 'closed' && s !== 'cancelled') counts.active++;
+        if (s === 'assigned' || s === 'vehicle-assigned' || s === 'loaded' || s === 'loading-complete') counts.loading++;
+        else if (s === 'in-transit') counts.transit++;
+        else if (s === 'arrived' || s === 'arrival-for-delivery' || s === 'arrive-for-deliver') counts.arrived++;
+        else if (s === 'delivered') counts.pod++;
+        else if (s === 'rejected') counts.rejection++;
+        else if (s === 'closed') counts.closed++;
+    });
+    return counts;
+  }, [joinedData]);
+
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return filteredData.slice(start, start + itemsPerPage);
-  }, [filteredData, currentPage, itemsPerPage]);
+    return processedData.slice(start, start + itemsPerPage);
+  }, [processedData, currentPage, itemsPerPage]);
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const totalPages = Math.ceil(processedData.length / itemsPerPage);
 
   const handleDownloadExcel = () => {
-    const exportData = filteredData.map(t => ({
+    const exportData = processedData.map(t => ({
         'Plant': t.plantName,
         'Trip ID': t.tripId,
         'Vehicle Number': t.vehicleNumber,
         'Pilot Mobile': t.driverMobile,
         'LR Number': t.lrNumber,
         'Consignor': t.consignor,
-        'Ship To': t.shipToParty,
+        'Consignee': t.consignee,
         'Destination': t.unloadingPoint,
         'Weight (MT)': t.dispatchedQty,
         'Status': t.tripStatus,
@@ -715,16 +731,16 @@ function TripBoardContent() {
         <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); }} className="w-full">
           <TabsList className="bg-transparent h-10 p-0 border-b-0 gap-8 justify-start overflow-x-auto custom-scrollbar">
             {[
-                { id: 'active', label: 'All Active' },
-                { id: 'loading', label: 'Yard/Loading' },
-                { id: 'transit', label: 'In Transit' },
-                { id: 'arrived', label: 'Arrived' },
-                { id: 'pod-status', label: 'POD Verification' },
-                { id: 'rejection', label: 'Rejection/SRN' },
-                { id: 'closed', label: 'History Ledger' }
+                { id: 'active', label: 'All Active', count: counts.active },
+                { id: 'loading', label: 'Yard/Loading', count: counts.loading },
+                { id: 'transit', label: 'In Transit', count: counts.transit },
+                { id: 'arrived', label: 'Arrived', count: counts.arrived },
+                { id: 'pod-status', label: 'POD Verification', count: counts.pod },
+                { id: 'rejection', label: 'Rejection/SRN', count: counts.rejection },
+                { id: 'closed', label: 'History Ledger', count: counts.closed }
             ].map(t => (
-                <TabsTrigger key={t.id} value={t.id} className="relative h-10 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[11px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all">
-                    {t.label}
+                <TabsTrigger key={t.id} value={t.id} className="relative h-10 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[11px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2">
+                    {t.label} <Badge className="ml-2 bg-slate-100 text-slate-500 border-none font-black text-[9px]">{t.count}</Badge>
                 </TabsTrigger>
             ))}
           </TabsList>
@@ -749,7 +765,7 @@ function TripBoardContent() {
                     currentPage={currentPage} 
                     totalPages={totalPages} 
                     onPageChange={setCurrentPage} 
-                    itemCount={filteredData.length} 
+                    itemCount={processedData.length} 
                     canPreviousPage={currentPage > 1} 
                     canNextPage={currentPage < totalPages} 
                 />

@@ -15,8 +15,13 @@ export function formatSequenceId(prefix: string, sequence: number, length: numbe
   return `${prefix}${String(sequence).padStart(length, '0')}`;
 }
 
+/**
+ * Generates a unique Trip ID node.
+ * Standard: 'T' + 9 Unique Digits.
+ */
 export function generateRandomTripId(): string {
-  return 'T' + Math.random().toString(36).substring(2, 11).toUpperCase();
+  const digits = Math.floor(100000000 + Math.random() * 900000000);
+  return 'T' + digits;
 }
 
 export function incrementSerial(lastSerial: string): string {

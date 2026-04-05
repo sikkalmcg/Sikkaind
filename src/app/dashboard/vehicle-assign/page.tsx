@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -334,7 +333,7 @@ function OpenOrdersContent() {
         }
 
         if (!finalCarrier) {
-            finalCarrier = row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId);
+            finalCarrier = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId);
         }
 
         if (!finalCarrier) {
@@ -380,7 +379,7 @@ function OpenOrdersContent() {
             } as any);
         } else {
             const lrDoc = snap.docs[0].data() as LR;
-            setPreviewLrData({
+            setLrPreviewData({
                 ...lrDoc,
                 id: snap.docs[0].id,
                 date: parseSafeDate(lrDoc.date),
@@ -597,7 +596,7 @@ function OpenOrdersContent() {
 
       {drawerOrder && <OrderDetailsDrawer isOpen={!!drawerOrder} onClose={() => setDrawerOrder(null)} shipment={drawerOrder} />}
       {drawerTrip && <TripDetailsDrawer isOpen={!!drawerTrip} onClose={() => setDrawerTrip(null)} trip={drawerTrip} />}
-      {lrPreviewData && <LRPrintPreviewModal isOpen={!!previewLrData} onClose={() => setPreviewLrData(null)} lr={previewLrData} />}
+      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
       
       {cancelModalData && (
         <CancelReasonModal 
