@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -12,6 +13,7 @@ import { DatePicker } from '@/components/date-picker';
 import { Loader2, WifiOff, Settings2, Search, RefreshCcw, Factory, ShieldCheck, ArrowRightLeft, ClipboardList } from "lucide-react";
 import { subDays, startOfDay, endOfDay } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 import type { WithId, Shipment, Trip, Plant, SubUser, VehicleEntryExit, LR, Carrier } from '@/types';
 import OrdersTable from '@/components/dashboard/vehicle-assign/OrdersTable';
@@ -296,6 +298,9 @@ function OpenOrdersContent() {
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
+        const plantNode = row.plant || { id: row.originPlantId, name: row.plantName };
+        const shipmentObj = row.shipmentObj || row;
+
         const pIdStr = normalizePlantId(row.originPlantId);
         const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
         
@@ -346,8 +351,6 @@ function OpenOrdersContent() {
             };
         }
 
-        const shipmentObj = row.shipmentObj || row;
-
         if (snap.empty) {
             setLrPreviewData({
                 lrNumber: row.lrNumber,
@@ -355,7 +358,7 @@ function OpenOrdersContent() {
                 trip: row as any,
                 carrier: finalCarrier,
                 shipment: shipmentObj,
-                plant: row.plant || { id: row.originPlantId, name: row.plantName },
+                plant: plantNode as any,
                 items: shipmentObj.items || [],
                 weightSelection: 'Assigned Weight',
                 assignedTripWeight: row.quantity,
@@ -363,6 +366,7 @@ function OpenOrdersContent() {
                 to: shipmentObj.unloadingPoint || '',
                 consignorName: shipmentObj.consignor || row.consignor || '',
                 consignorGtin: shipmentObj.consignorGtin || row.consignorGtin || '',
+                consignorAddress: shipmentObj.consignorAddress || '',
                 buyerName: shipmentObj.billToParty || row.billToParty || '',
                 buyerGtin: shipmentObj.billToGtin || row.billToGtin || '',
                 shipToParty: shipmentObj.shipToParty || row.shipToParty || '',
@@ -383,7 +387,7 @@ function OpenOrdersContent() {
                 trip: row as any,
                 carrier: finalCarrier,
                 shipment: shipmentObj,
-                plant: row.plant || { id: row.originPlantId, name: row.plantName },
+                plant: plantNode as any,
                 consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
                 buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
                 shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || '',
