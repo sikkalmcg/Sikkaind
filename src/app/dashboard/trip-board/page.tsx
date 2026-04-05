@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -14,6 +15,7 @@ import PodUploadModal from '@/components/dashboard/trip-board/PodUploadModal';
 import SrnModal from '@/components/dashboard/trip-board/SrnModal';
 import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilter';
 import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreviewModal';
+import LRGenerationModal from '@/components/dashboard/lr-create/LRGenerationModal';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId } from '@/lib/utils';
@@ -81,6 +83,8 @@ function TripBoardContent() {
   const [srnTrip, setSrnTrip] = useState<any | null>(null);
 
   const [previewLrData, setPreviewLrData] = useState<EnrichedLR | null>(null);
+  const [editLrTrip, setEditLrTrip] = useState<any | null>(null);
+  const [editLrCarrier, setEditLrCarrier] = useState<any | null>(null);
 
   const isAdminSession = useMemo(() => {
     return user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
@@ -141,7 +145,7 @@ function TripBoardContent() {
   };
 
   useEffect(() => {
-    if (!firestore || selectedPlants.length === 0) {
+    if (!firestore || !user || selectedPlants.length === 0) {
         if (selectedPlants.length === 0 && isInitialized.current) {
             setTrips([]);
             setShipments([]);
@@ -235,7 +239,6 @@ function TripBoardContent() {
         const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
         const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
 
-        // Registry Fix: Prioritize currentStatusId for machine-state synchronization
         const s = (t.currentStatusId || t.tripStatus || 'assigned').toLowerCase().trim().replace(/[\s_-]+/g, '-');
 
         return {
@@ -294,6 +297,10 @@ function TripBoardContent() {
     if (type === 'view') setViewTripData(trip);
     if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${trip.vehicleNumber}`);
     if (type === 'view-lr') setPreviewLrData(trip);
+    if (type === 'edit-lr') {
+        setEditLrTrip(trip);
+        setEditLrCarrier(trip.carrierObj);
+    }
     if (type === 'edit-vehicle') setEditVehicleTrip(trip);
     if (type === 'cancel') setCancelTripData(trip);
     if (type === 'arrived') setArrivedTrip(trip);
@@ -420,7 +427,6 @@ function TripBoardContent() {
         const tripRef = doc(firestore, `plants/${plantId}/trips`, podStatusTrip.id);
         const globalTripRef = doc(firestore, 'trips', podStatusTrip.id);
         
-        // Mission Handshake: If Received, the mission node transitions to CLOSED state
         const isReceived = values.podReceived === true;
         const update: any = { 
             ...values, 
@@ -622,6 +628,16 @@ function TripBoardContent() {
       {podUploadTrip && <PodUploadModal isOpen={!!podUploadTrip} onClose={() => setPodUploadTrip(null)} trip={podUploadTrip} onSuccess={() => setPodUploadTrip(null)} />}
       {srnTrip && <SrnModal isOpen={!!srnTrip} onClose={() => setSrnTrip(null)} trip={srnTrip} onPost={handleSrn} />}
       {previewLrData && <LRPrintPreviewModal isOpen={!!previewLrData} onClose={() => setPreviewLrData(null)} lr={previewLrData} />}
+      {editLrTrip && editLrCarrier && (
+        <LRGenerationModal 
+            isOpen={!!editLrTrip}
+            onClose={() => { setEditLrTrip(null); setEditLrCarrier(null); }}
+            trip={editLrTrip}
+            carrier={editLrCarrier}
+            lrToEdit={editLrTrip.lrData}
+            onGenerate={() => { setEditLrTrip(null); setEditLrCarrier(null); }}
+        />
+      )}
     </main>
   );
 }
