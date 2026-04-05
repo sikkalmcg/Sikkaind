@@ -244,6 +244,7 @@ function TripBoardContent() {
             orderNo: shipment?.shipmentId || '--',
             orderCreatedUser: shipment?.userName || '--',
             consignor: t.consignor || shipment?.consignor || '--',
+            consignee: t.shipToParty || shipment?.shipToParty || shipment?.billToParty || '--',
             billToParty: t.billToParty || shipment?.billToParty || '--',
             shipToParty: t.shipToParty || shipment?.shipToParty || '--',
             from: t.loadingPoint || shipment?.loadingPoint || '--',
