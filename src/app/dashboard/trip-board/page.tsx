@@ -10,9 +10,9 @@ import ArrivedModal from '@/components/dashboard/trip-board/ArrivedModal';
 import UnloadedModal from '@/components/dashboard/trip-board/UnloadedModal';
 import RejectModal from '@/components/dashboard/trip-board/RejectModal';
 import PodStatusModal from '@/components/dashboard/trip-board/PodStatusModal';
+import PodUploadModal from '@/components/dashboard/trip-board/PodUploadModal';
 import SrnModal from '@/components/dashboard/trip-board/SrnModal';
 import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilter';
-import LRGenerationModal from '@/components/dashboard/lr-create/LRGenerationModal';
 import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreviewModal';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
@@ -77,6 +77,7 @@ function TripBoardContent() {
   const [unloadedTrip, setUnloadedTrip] = useState<any | null>(null);
   const [rejectTrip, setRejectTrip] = useState<any | null>(null);
   const [podStatusTrip, setPodStatusTrip] = useState<any | null>(null);
+  const [podUploadTrip, setPodUploadTrip] = useState<any | null>(null);
   const [srnTrip, setSrnTrip] = useState<any | null>(null);
 
   const [previewLrData, setPreviewLrData] = useState<EnrichedLR | null>(null);
@@ -234,7 +235,8 @@ function TripBoardContent() {
         const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
         const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
 
-        const s = (t.tripStatus || t.currentStatusId || 'assigned').toLowerCase().trim().replace(/[\s_-]+/g, '-');
+        // Registry Fix: Prioritize currentStatusId for machine-state synchronization
+        const s = (t.currentStatusId || t.tripStatus || 'assigned').toLowerCase().trim().replace(/[\s_-]+/g, '-');
 
         return {
             ...t,
@@ -291,13 +293,14 @@ function TripBoardContent() {
   const handleAction = async (type: string, trip: any) => {
     if (type === 'view') setViewTripData(trip);
     if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${trip.vehicleNumber}`);
-    if (type === 'view-lr') onAction('view-lr', trip);
+    if (type === 'view-lr') setPreviewLrData(trip);
     if (type === 'edit-vehicle') setEditVehicleTrip(trip);
     if (type === 'cancel') setCancelTripData(trip);
     if (type === 'arrived') setArrivedTrip(trip);
     if (type === 'unloaded') setUnloadedTrip(trip);
     if (type === 'reject') setRejectTrip(trip);
     if (type === 'pod-status') setPodStatusTrip(trip);
+    if (type === 'pod-upload') setPodUploadTrip(trip);
     if (type === 'srn') setSrnTrip(trip);
     if (type === 're-sent') {
         if (!firestore || !user) return;
@@ -416,10 +419,25 @@ function TripBoardContent() {
         const plantId = normalizePlantId(podStatusTrip.originPlantId);
         const tripRef = doc(firestore, `plants/${plantId}/trips`, podStatusTrip.id);
         const globalTripRef = doc(firestore, 'trips', podStatusTrip.id);
-        const update = { ...values, podUploadedBy: user?.displayName || user?.email, podUploadDate: serverTimestamp(), lastUpdated: serverTimestamp() };
+        
+        // Mission Handshake: If Received, the mission node transitions to CLOSED state
+        const isReceived = values.podReceived === true;
+        const update: any = { 
+            ...values, 
+            podUploadedBy: user?.displayName || user?.email, 
+            podUploadDate: serverTimestamp(), 
+            lastUpdated: serverTimestamp() 
+        };
+
+        if (isReceived) {
+            update.tripStatus = 'Closed';
+            update.currentStatusId = 'closed';
+        }
+
         await updateDoc(tripRef, update);
         await updateDoc(globalTripRef, update);
-        toast({ title: 'Registry Updated' });
+        
+        toast({ title: isReceived ? 'Mission Closed' : 'Registry Updated' });
         setPodStatusTrip(null);
     } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
     finally { hideLoader(); }
@@ -510,9 +528,9 @@ function TripBoardContent() {
         'Date': t.startDate ? format(t.startDate, 'dd-MM-yy HH:mm') : '--'
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Trip Registry");
-    XLSX.writeFile(wb, `TripBoard_${activeTab}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, ws, "Trip Registry");
+    XLSX.writeFile(workbook, `TripBoard_${activeTab}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
   return (
@@ -601,8 +619,9 @@ function TripBoardContent() {
       {unloadedTrip && <UnloadedModal isOpen={!!unloadedTrip} onClose={() => setUnloadedTrip(null)} trip={unloadedTrip} onPost={handleUnloaded} />}
       {rejectTrip && <RejectModal isOpen={!!rejectTrip} onClose={() => setRejectTrip(null)} trip={rejectTrip} onPost={handleReject} />}
       {podStatusTrip && <PodStatusModal isOpen={!!podStatusTrip} onClose={() => setPodStatusTrip(null)} trip={podStatusTrip} onPost={handlePodStatus} />}
+      {podUploadTrip && <PodUploadModal isOpen={!!podUploadTrip} onClose={() => setPodUploadTrip(null)} trip={podUploadTrip} onSuccess={() => setPodUploadTrip(null)} />}
       {srnTrip && <SrnModal isOpen={!!srnTrip} onClose={() => setSrnTrip(null)} trip={srnTrip} onPost={handleSrn} />}
-      {previewLrData && <LRPrintPreviewModal isOpen={!!previewLrData} onClose={() => setLrPreviewData(null)} lr={previewLrData} />}
+      {previewLrData && <LRPrintPreviewModal isOpen={!!previewLrData} onClose={() => setPreviewLrData(null)} lr={previewLrData} />}
     </main>
   );
 }
