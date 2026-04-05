@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -313,8 +312,8 @@ function TripBoardContent() {
                 address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
                 mobile: '9136688004',
                 gstin: '07AYQPS6936B1ZZ',
-                stateCode: '09',
-                stateName: 'UTTAR PRADESH',
+                stateCode: '07',
+                stateName: 'DELHI',
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com'
             };
@@ -342,8 +341,8 @@ function TripBoardContent() {
                 address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
                 mobile: '9136688004',
                 gstin: '07AYQPS6936B1ZZ',
-                stateCode: '09',
-                stateName: 'UTTAR PRADESH',
+                stateCode: '07',
+                stateName: 'DELHI',
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com'
             };

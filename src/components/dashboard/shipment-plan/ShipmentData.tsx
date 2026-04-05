@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -71,16 +70,16 @@ type EnrichedShipment = WithId<Shipment> & {
 const getStatusColor = (status: string) => {
     const s = status?.toLowerCase() || '';
     switch(s) {
-        case 'pending': return 'bg-yellow-500/10 text-yellow-700 border-yellow-200';
-        case 'partly vehicle assigned': return 'bg-orange-500/10 text-orange-700 border-orange-200';
+        case 'pending': return 'bg-yellow-50/10 text-yellow-700 border-yellow-200';
+        case 'partly vehicle assigned': return 'bg-orange-50/10 text-orange-700 border-orange-200';
         case 'assigned': 
-        case 'vehicle assigned': return 'bg-blue-500/10 text-blue-700 border-blue-200';
-        case 'in-transit': return 'bg-indigo-500/10 text-indigo-700 border-indigo-200';
-        case 'arrival-for-delivery': return 'bg-purple-500/10 text-purple-700 border-purple-200';
-        case 'delivered': return 'bg-green-500/10 text-green-700 border-green-200';
-        case 'cancelled': return 'bg-red-500/10 text-red-700 border-red-200';
-        case 'short closed': return 'bg-slate-500/10 text-slate-700 border-slate-200';
-        default: return 'bg-gray-500/10 text-gray-700 border-gray-200';
+        case 'vehicle assigned': return 'bg-blue-50/10 text-blue-700 border-blue-200';
+        case 'in-transit': return 'bg-indigo-50/10 text-indigo-700 border-indigo-200';
+        case 'arrival-for-delivery': return 'bg-purple-50/10 text-purple-700 border-purple-200';
+        case 'delivered': return 'bg-green-50/10 text-green-700 border-green-200';
+        case 'cancelled': return 'bg-red-50/10 text-red-700 border-red-200';
+        case 'short closed': return 'bg-slate-50/10 text-slate-700 border-slate-200';
+        default: return 'bg-gray-50/10 text-gray-700 border-gray-200';
     }
 }
 
@@ -266,11 +265,12 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         if (pIdStr === '1426') {
             finalCarrier = {
                 id: 'ID20',
-                name: 'SIKKA INDUSTRIES AND LOGISTICS',
-                address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, GHAZIABAD, UTTAR PRADESH, 201009',
-                mobile: '8860091900',
-                gstin: '09AYQPS6936B1ZV',
-                stateCode: '09',
+                name: 'SIKKA LMC',
+                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
+                mobile: '9136688004',
+                gstin: '07AYQPS6936B1ZZ',
+                stateCode: '07',
+                stateName: 'DELHI',
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com'
             };
@@ -282,6 +282,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 mobile: '9136688004',
                 gstin: '09AYQPS6936B1ZV',
                 stateCode: '09',
+                stateName: 'UTTAR PRADESH',
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com'
             };
@@ -294,11 +295,12 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         if (!finalCarrier) {
             finalCarrier = {
                 id: 'ID20',
-                name: 'SIKKA INDUSTRIES AND LOGISTICS',
-                address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, GHAZIABAD, UTTAR PRADESH, 201009',
-                mobile: '8860091900',
-                gstin: '09AYQPS6936B1ZV',
-                stateCode: '09',
+                name: 'SIKKA LMC',
+                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
+                mobile: '9136688004',
+                gstin: '07AYQPS6936B1ZZ',
+                stateCode: '07',
+                stateName: 'DELHI',
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com'
             };

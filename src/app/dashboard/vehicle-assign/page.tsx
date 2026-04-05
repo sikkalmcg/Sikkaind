@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -10,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/date-picker';
-import { Loader2, WifiOff, Settings2, Search, RefreshCcw, Factory, ShieldCheck, ArrowRightLeft } from "lucide-react";
+import { Loader2, WifiOff, Settings2, Search, RefreshCcw, Factory, ShieldCheck, ArrowRightLeft, ClipboardList } from "lucide-react";
 import { subDays, startOfDay, endOfDay } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
@@ -310,8 +309,8 @@ function OpenOrdersContent() {
                 address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
                 mobile: '9136688004',
                 gstin: '07AYQPS6936B1ZZ',
-                stateCode: '09',
-                stateName: 'UTTAR PRADESH',
+                stateCode: '07',
+                stateName: 'DELHI',
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com'
             };
@@ -340,8 +339,8 @@ function OpenOrdersContent() {
                 address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
                 mobile: '9136688004',
                 gstin: '07AYQPS6936B1ZZ',
-                stateCode: '09',
-                stateName: 'UTTAR PRADESH',
+                stateCode: '07',
+                stateName: 'DELHI',
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com'
             };
@@ -587,7 +586,7 @@ function OpenOrdersContent() {
             onClose={() => { setAssignModalOpen(false); setEditingTrip(null); }}
             shipment={selectedShipment}
             trip={editingTrip}
-            carriers={plantCarriers}
+            carriers={carriers}
             onAssignmentComplete={() => { setAssignModalOpen(false); setEditingTrip(null); }}
         />
       )}
