@@ -55,6 +55,11 @@ const formatDate = (date: any) => {
     return d ? format(d, 'dd/MM/yy HH:mm') : '--';
 };
 
+const cleanName = (name?: string) => {
+    if (!name) return '--';
+    return name.split('@')[0].toUpperCase();
+};
+
 export default function TripBoardTable({ 
     data, 
     activeTab, 
@@ -129,7 +134,7 @@ export default function TripBoardTable({
                             <TableRow key={row.id} className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 transition-all group text-[11px] font-medium text-slate-600">
                                 <TableCell className="px-6 font-bold uppercase truncate">{row.plantName}</TableCell>
                                 <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs">{row.orderNo}</TableCell>
-                                <TableCell className="px-4 font-bold uppercase text-[10px] text-slate-400 truncate">{row.orderCreatedUser}</TableCell>
+                                <TableCell className="px-4 font-bold uppercase text-[10px] text-slate-400 truncate">{cleanName(row.orderCreatedUser)}</TableCell>
                                 <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={row.consignor}>{row.consignor}</TableCell>
                                 <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={row.consignee}>{row.consignee}</TableCell>
                                 <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={row.shipToParty}>{row.shipToParty}</TableCell>
@@ -138,7 +143,7 @@ export default function TripBoardTable({
                                 <TableCell className="px-4 font-mono font-bold text-slate-400">{row.driverMobile || '--'}</TableCell>
                                 <TableCell className="px-4 text-center"><Badge variant="outline" className="text-[9px] font-black uppercase bg-slate-50">{row.fleetType}</Badge></TableCell>
                                 <TableCell className="px-4 font-bold text-slate-700 uppercase truncate">{row.vendorName}</TableCell>
-                                <TableCell className="px-4 font-black text-blue-900 uppercase text-[10px]">{row.assignedUsername}</TableCell>
+                                <TableCell className="px-4 font-black text-blue-900 uppercase text-[10px]">{cleanName(row.assignedUsername)}</TableCell>
                                 <TableCell className="px-4 truncate font-bold text-slate-800">{row.invoiceNumbers}</TableCell>
                                 <TableCell className="px-4 truncate font-bold text-slate-800 uppercase">{row.ewaybillNumber}</TableCell>
                                 <TableCell className="px-4 text-center font-black text-slate-900">{row.unitUom}</TableCell>
@@ -146,23 +151,23 @@ export default function TripBoardTable({
                                 <TableCell className="px-4 text-center">
                                     <LRButton row={row} />
                                 </TableCell>
-                                <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.lrDate)}</TableCell>
+                                <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap text-[11px]">{formatDate(row.lrDate)}</TableCell>
                                 <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.assignedDateTime)}</TableCell>
                                 <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.gateOutDateTime)}</TableCell>
                                 <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.arrivedDateTime)}</TableCell>
                                 <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.unloadDateTime)}</TableCell>
                                 <TableCell className="px-4 text-center text-red-600 font-bold whitespace-nowrap">{formatDate(row.rejectDateTime)}</TableCell>
                                 <TableCell className="px-4 text-center text-blue-600 font-bold whitespace-nowrap">{formatDate(row.resentDateTime)}</TableCell>
-                                <TableCell className="px-4 font-black text-slate-400 uppercase text-[10px]">{row.resentUsername || '--'}</TableCell>
+                                <TableCell className="px-4 font-black text-slate-400 uppercase text-[10px]">{cleanName(row.resentUsername)}</TableCell>
                                 <TableCell className="px-4 font-black text-blue-900 uppercase font-mono">{row.srnNumber}</TableCell>
                                 <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap">{formatDate(row.srnDate)}</TableCell>
-                                <TableCell className="px-4 font-black text-slate-400 uppercase text-[10px]">{row.srnUsername || '--'}</TableCell>
+                                <TableCell className="px-4 font-black text-slate-400 uppercase text-[10px]">{cleanName(row.srnUsername)}</TableCell>
                                 <TableCell className="px-4 text-center">
                                     <Badge className={cn("text-[9px] font-black uppercase h-6 px-3 border-none", row.podStatus === 'Received' ? "bg-emerald-600 text-white" : "bg-red-600 text-white")}>
                                         {row.podStatus}
                                     </Badge>
                                 </TableCell>
-                                <TableCell className="px-4 font-black text-slate-400 uppercase text-[10px]">{row.podUpdateUsername}</TableCell>
+                                <TableCell className="px-4 font-black text-slate-400 uppercase text-[10px]">{cleanName(row.podUpdateUsername)}</TableCell>
                                 <TableCell className="px-4 text-center font-black text-blue-900 bg-blue-50/20">{row.dispatchHour}</TableCell>
                                 <TableCell className="px-4 text-center font-black text-blue-900 bg-blue-50/20">{row.transitHour}</TableCell>
                                 <TableCell className="px-4 text-center font-black text-blue-900 bg-blue-50/20">{row.unloadHour}</TableCell>

@@ -29,6 +29,12 @@ function NotificationItem({ notification, onRead }: { notification: WithId<Notif
     return isValid(d) ? d : null;
   }, [notification.timestamp]);
 
+  // Identity Node: Strip email domain for clean display
+  const displayOperator = useMemo(() => {
+    if (!notification.userName) return 'System';
+    return notification.userName.split('@')[0];
+  }, [notification.userName]);
+
   const displayDate = dateValue ? format(dateValue, 'dd MMM yyyy p') : '--';
 
   return (
@@ -44,7 +50,7 @@ function NotificationItem({ notification, onRead }: { notification: WithId<Notif
             <div className={cn("h-6 w-6 rounded-full flex items-center justify-center", notification.isRead ? "bg-slate-100" : "bg-blue-100")}>
                 <User className={cn("h-3 w-3", notification.isRead ? "text-slate-400" : "text-blue-600")} />
             </div>
-            <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{notification.userName}</p>
+            <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{displayOperator}</p>
         </div>
         {!notification.isRead && (
           <div className="h-2 w-2 rounded-full bg-blue-600 animate-pulse mt-1" />

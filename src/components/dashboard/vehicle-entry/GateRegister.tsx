@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -19,6 +18,11 @@ interface GateRegisterProps {
     authPlantIds?: string[];
     isAdmin?: boolean;
 }
+
+const cleanName = (name?: string) => {
+    if (!name) return '--';
+    return name.split('@')[0].toUpperCase();
+};
 
 export default function GateRegister({ authPlantIds = [], isAdmin = false }: GateRegisterProps) {
   const firestore = useFirestore();
@@ -81,7 +85,7 @@ export default function GateRegister({ authPlantIds = [], isAdmin = false }: Gat
         'Status': e.status,
         'In Date/Time': e.entryTimestamp ? format(e.entryTimestamp.toDate ? e.entryTimestamp.toDate() : new Date(e.entryTimestamp), 'dd-MM-yy HH:mm') : '--',
         'Out Date/Time': e.exitTimestamp ? format(e.exitTimestamp.toDate ? e.exitTimestamp.toDate() : new Date(e.exitTimestamp), 'dd-MM-yy HH:mm') : '--',
-        'Operator': e.userName || 'System'
+        'Operator': cleanName(e.userName)
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();

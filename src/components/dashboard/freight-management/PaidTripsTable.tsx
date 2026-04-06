@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -21,6 +20,11 @@ interface PaidTripsTableProps {
   isLoading: boolean;
 }
 
+const cleanName = (name?: string) => {
+    if (!name) return '--';
+    return name.split('@')[0].toUpperCase();
+};
+
 export default function PaidTripsTable({ data, isLoading }: PaidTripsTableProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [printData, setPrintData] = useState<{ freight: EnrichedFreight, payment: any } | null>(null);
@@ -32,7 +36,7 @@ export default function PaidTripsTable({ data, isLoading }: PaidTripsTableProps)
                 'Slip No': lastPayment?.slipNumber || '--',
                 'Slip Date': lastPayment?.paymentDate ? format(new Date(lastPayment.paymentDate), 'dd-MM-yyyy') : '--',
                 'Trip ID': item.trip.tripId,
-                'Username': item.trip.userName || 'System',
+                'Username': cleanName(item.trip.userName),
                 'Vehicle No.': item.trip.vehicleNumber,
                 'Transporter': item.trip.transporterName || 'N/A',
                 'Destination': item.trip.unloadingPoint ?? 'N/A',
@@ -127,7 +131,7 @@ export default function PaidTripsTable({ data, isLoading }: PaidTripsTableProps)
                                                         <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center">
                                                             <User className="h-3 w-3 text-slate-400" />
                                                         </div>
-                                                        <span className="font-black text-slate-900 uppercase text-[10px] tracking-tight">{item.trip.userName || 'System'}</span>
+                                                        <span className="font-black text-slate-900 uppercase text-[10px] tracking-tight">{cleanName(item.trip.userName)}</span>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{item.trip.vehicleNumber}</TableCell>

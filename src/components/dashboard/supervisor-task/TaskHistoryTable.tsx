@@ -16,6 +16,11 @@ interface TaskHistoryTableProps {
     onEdit: (task: any) => void;
 }
 
+const cleanName = (name?: string) => {
+    if (!name) return '--';
+    return name.split('@')[0].toUpperCase();
+};
+
 export default function TaskHistoryTable({ data, isAdmin, onRemove, onEdit }: TaskHistoryTableProps) {
   
   const formatSafeDate = (date: any) => {
@@ -101,7 +106,7 @@ export default function TaskHistoryTable({ data, isAdmin, onRemove, onEdit }: Ta
                                         <div className="h-6 w-6 rounded-full bg-slate-50 border flex items-center justify-center">
                                             <User className="h-3 w-3 text-slate-400" />
                                         </div>
-                                        <span className="text-[10px] font-black uppercase text-slate-700 truncate max-w-[100px]">{row.supervisor}</span>
+                                        <span className="text-[10px] font-black uppercase text-slate-700 truncate max-w-[100px]">{cleanName(row.supervisor)}</span>
                                     </div>
                                 </TableCell>
                                 <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/30 transition-colors shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
