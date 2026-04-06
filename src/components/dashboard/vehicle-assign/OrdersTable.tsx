@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -30,6 +29,7 @@ import {
     DropdownMenuPortal
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface OrdersTableProps {
   data: any[];
@@ -113,7 +113,7 @@ export default function OrdersTable({
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-24 text-center bg-slate-100">Unit</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right bg-slate-100">Order Qty</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right bg-slate-100">Balance Qty</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 text-center bg-slate-100">Status</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-center bg-slate-100">Status</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-8 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-32">Action</TableHead>
             </TableRow>
           </TableHeader>

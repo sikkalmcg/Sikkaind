@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -136,7 +135,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         const carrier = allCarriers.find(c => c.id === trip?.carrierId || c.id === shipment.carrierId);
 
         const itemsManifest = shipment.items || [];
-        const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber || i.invoiceNo || i.deliveryNumber).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
+        const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
         const summarizedItems = Array.from(new Set(itemsManifest.map(i => i.itemDescription || i.description).filter(Boolean))).join(', ') || shipment.itemDescription || shipment.material || '--';
         const totalUnitsCount = itemsManifest.reduce((sum, i) => sum + (Number(i.units) || 0), 0) || shipment.totalUnits || 0;
 

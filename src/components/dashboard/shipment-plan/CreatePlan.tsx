@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -20,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/date-picker';
 import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
 import type { Plant, Shipment, WithId, SubUser, Party, MasterQtyType, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save, FileDown, Upload, History, AlertCircle } from 'lucide-react';
@@ -264,6 +264,10 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     const type = p.type?.toLowerCase() || '';
     return type.includes('consignee') || type.includes('buyer') || type.includes('ship to');
   }), [activeParties]);
+
+  const selectedPlantName = useMemo(() => {
+    return authorizedPlants.find(p => p.id === originPlantId)?.name || '';
+  }, [originPlantId, authorizedPlants]);
 
   useEffect(() => {
     if (!firestore || !originPlantId) {
@@ -816,7 +820,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         onSearchClick={() => setHelpModal({type: 'consignor', title: 'Consignor Handbook', data: consignorRegistry})} 
                         onSelect={(party) => selectPartyNode(party, 'consignor')}
                       />
-                      <FormField control={control} name="loadingPoint" render={({ field }) => (
+                      <FormField control={control} name="consignorAddress" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase text-slate-400 px-1">From *</FormLabel>
                             <FormControl>
