@@ -20,7 +20,7 @@ import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryE
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
-import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy, Timestamp } from "firebase/firestore";
+import { collection, query, doc, getDoc, updateDoc, setDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -320,7 +320,7 @@ function TripBoardContent() {
             const currentName = user.displayName || user.email?.split('@')[0] || 'System';
             const update = { tripStatus: 'In Transit', currentStatusId: 'in-transit', resentAt: ts, resentBy: currentName, lastUpdated: ts };
             await updateDoc(tripRef, update);
-            await updateDoc(globalTripRef, update);
+            await setDoc(globalTripRef, update, { merge: true });
             toast({ title: 'Mission Re-activated' });
         } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
         finally { hideLoader(); }
@@ -361,7 +361,7 @@ function TripBoardContent() {
         const globalTripRef = doc(firestore, 'trips', id);
         const update = { ...values, lastUpdated: serverTimestamp() };
         await updateDoc(tripRef, update);
-        await updateDoc(globalTripRef, update);
+        await setDoc(globalTripRef, update, { merge: true });
         toast({ title: 'Registry Updated' });
         setEditVehicleTrip(null);
     } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
@@ -378,7 +378,7 @@ function TripBoardContent() {
         const arrivalDate = new Date(`${values.arrivedDate.toISOString().split('T')[0]}T${values.arrivedTime}`);
         const update = { arrivalDate, tripStatus: 'Arrival For Delivery', currentStatusId: 'arrival-for-delivery', lastUpdated: serverTimestamp() };
         await updateDoc(tripRef, update);
-        await updateDoc(globalTripRef, update);
+        await setDoc(globalTripRef, update, { merge: true });
         toast({ title: 'Registry Updated' });
         setArrivedTrip(null);
     } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
@@ -395,7 +395,7 @@ function TripBoardContent() {
         const actualCompletionDate = new Date(`${values.unloadDate.toISOString().split('T')[0]}T${values.unloadTime}`);
         const update = { actualCompletionDate, tripStatus: 'Delivered', currentStatusId: 'delivered', lastUpdated: serverTimestamp() };
         await updateDoc(tripRef, update);
-        await updateDoc(globalTripRef, update);
+        await setDoc(globalTripRef, update, { merge: true });
         toast({ title: 'Registry Updated' });
         setUnloadedTrip(null);
     } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
@@ -412,7 +412,7 @@ function TripBoardContent() {
         const rejectedAt = new Date(`${values.rejectDate.toISOString().split('T')[0]}T${values.rejectTime}`);
         const update = { rejectedAt, tripStatus: 'Rejected', currentStatusId: 'rejected', rejectReason: values.rejectedBy, rejectRemark: values.remark, lastUpdated: serverTimestamp() };
         await updateDoc(tripRef, update);
-        await updateDoc(globalTripRef, update);
+        await setDoc(globalTripRef, update, { merge: true });
         toast({ title: 'Registry Updated' });
         setRejectTrip(null);
     } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
@@ -441,7 +441,7 @@ function TripBoardContent() {
         }
 
         await updateDoc(tripRef, update);
-        await updateDoc(globalTripRef, update);
+        await setDoc(globalTripRef, update, { merge: true });
         
         toast({ title: isReceived ? 'Mission Closed' : 'Registry Updated' });
         setPodStatusTrip(null);
@@ -458,7 +458,7 @@ function TripBoardContent() {
         const globalTripRef = doc(firestore, 'trips', srnTrip.id);
         const update = { ...values, tripStatus: 'Closed', currentStatusId: 'closed', srnBy: user?.displayName || user?.email, lastUpdated: serverTimestamp() };
         await updateDoc(tripRef, update);
-        await updateDoc(globalTripRef, update);
+        await setDoc(globalTripRef, update, { merge: true });
         toast({ title: 'Registry Updated' });
         setSrnTrip(null);
     } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
