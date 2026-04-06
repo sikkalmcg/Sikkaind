@@ -8,8 +8,8 @@ import EditShipmentModal from '@/components/dashboard/shipment-plan/EditShipment
 import type { WithId, Shipment, Plant, SubUser } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, getDocs, where, limit, onSnapshot, writeBatch } from "firebase/firestore";
-import { Loader2, WifiOff, Package, ListTree } from "lucide-react";
+import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, getDocs, where, limit, onSnapshot, writeBatch, orderBy } from "firebase/firestore";
+import { Loader2, WifiOff, Package, ListTree, Factory, ShieldCheck, Filter } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -18,6 +18,8 @@ import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/e
 import { normalizePlantId, sanitizeRegistryNode } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Card } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 function ShipmentPlanContent() {
   const { toast } = useToast();
@@ -29,6 +31,7 @@ function ShipmentPlanContent() {
   const searchParams = useSearchParams();
   
   const [activeTab, setActiveTab] = useState<string>(searchParams.get('tab') || 'create');
+  const [selectedPlant, setSelectedPlant] = useState<string>('all-plants');
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
   const [authorizedPlantIds, setAuthorizedPlantIds] = useState<string[]>([]);
@@ -55,7 +58,7 @@ function ShipmentPlanContent() {
   }, [user]);
 
   const plantsQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, "logistics_plants")) : null, 
+    firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
     [firestore]
   );
   const { data: allMasterPlants } = useCollection<Plant>(plantsQuery);
@@ -139,6 +142,12 @@ function ShipmentPlanContent() {
     return () => unsubscribers.forEach(unsub => unsub());
   }, [firestore, authorizedPlantIds]);
 
+  const filteredShipments = useMemo(() => {
+    if (selectedPlant === 'all-plants') return allShipments;
+    const normId = normalizePlantId(selectedPlant);
+    return allShipments.filter(s => normalizePlantId(s.originPlantId) === normId);
+  }, [allShipments, selectedPlant]);
+
   const handleShipmentUpdated = async (id: string, data: Partial<Omit<Shipment, 'id'>>) => {
     if (!firestore || !editingShipment) return;
     const docRef = doc(firestore, `plants/${editingShipment.originPlantId}/shipments`, id);
@@ -178,7 +187,7 @@ function ShipmentPlanContent() {
             const shipRef = doc(firestore, `plants/${shipment.originPlantId}/shipments`, id);
             const ts = serverTimestamp();
             
-            const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email || 'System Operator');
+            const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || 'System');
 
             transaction.update(shipRef, {
                 currentStatusId: 'Cancelled',
@@ -267,9 +276,11 @@ function ShipmentPlanContent() {
     );
   }
 
+  const isReadOnlyPlant = !isAdminSession && plants.length === 1;
+
   return (
     <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8 bg-slate-50/50 min-h-screen animate-in fade-in duration-500">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 -m-4 md:-m-8 mb-4 md:mb-0 shadow-sm">
             <div className="flex items-center gap-4">
                 <div className="p-2 bg-blue-900 text-white rounded-lg shadow-lg rotate-3">
                     <Package className="h-6 w-6" />
@@ -280,10 +291,32 @@ function ShipmentPlanContent() {
                 </div>
             </div>
             <div className="flex items-center gap-4">
+                <div className="flex flex-col gap-1">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
+                        <Factory className="h-3 w-3" /> Plant Node registry
+                    </Label>
+                    {isReadOnlyPlant ? (
+                        <div className="h-10 px-4 flex items-center bg-blue-50 border border-blue-100 rounded-xl text-blue-900 font-black text-xs shadow-sm uppercase min-w-[220px]">
+                            <ShieldCheck className="h-3.5 w-3.5 mr-2 text-blue-600" /> {plants[0]?.name}
+                        </div>
+                    ) : (
+                        <Select value={selectedPlant} onValueChange={setSelectedPlant}>
+                            <SelectTrigger className="w-[220px] h-10 rounded-xl bg-white border-slate-200 font-bold shadow-sm">
+                                <SelectValue placeholder="Pick node" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                                <SelectItem value="all-plants" className="font-black uppercase text-[10px] tracking-widest text-blue-600">All Authorized Nodes</SelectItem>
+                                {plants.map(p => (
+                                    <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                </div>
                 {dbError && (
                     <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full text-[10px] font-bold uppercase border border-orange-200">
                         <WifiOff className="h-3 w-3" />
-                        <span>Registry Link Interrupted</span>
+                        <span>Sync Issue</span>
                     </div>
                 )}
             </div>
@@ -295,7 +328,7 @@ function ShipmentPlanContent() {
                     <Package className="h-4 w-4" /> Create Order
                 </TabsTrigger>
                 <TabsTrigger value="history" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2">
-                    <ListTree className="h-4 w-4" /> Order Ledger ({allShipments.length})
+                    <ListTree className="h-4 w-4" /> Order Ledger ({filteredShipments.length})
                 </TabsTrigger>
             </TabsList>
 
@@ -305,7 +338,7 @@ function ShipmentPlanContent() {
 
             <TabsContent value="history" className="focus-visible:ring-0">
                 <ShipmentData 
-                    shipments={allShipments} 
+                    shipments={filteredShipments} 
                     plants={plants} 
                     onEdit={setEditingShipment} 
                     onDelete={handleCancelOrder} 
