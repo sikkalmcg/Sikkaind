@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -21,7 +22,7 @@ import { DatePicker } from '@/components/date-picker';
 import { Separator } from '@/components/ui/separator';
 import type { Plant, Shipment, WithId, SubUser, Party, MasterQtyType, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save, FileDown, Upload, History } from 'lucide-react';
+import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save, FileDown, Upload, History, AlertCircle } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDoc, getDocs, limit, Timestamp } from "firebase/firestore";
 import { cn, normalizePlantId, formatSequenceId } from '@/lib/utils';
@@ -635,18 +636,54 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">Secure Mission Asset Deployment Terminal</CardDescription>
                     </div>
                 </div>
-                <div className="flex flex-wrap justify-center gap-4">
-                    <Button variant="outline" onClick={handleExportTemplate} className="h-14 px-8 rounded-2xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-xs tracking-widest gap-2">
-                        <FileDown size={18} /> Export Template
-                    </Button>
-                    <Button variant="outline" asChild className="h-14 px-8 rounded-2xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-xs tracking-widest gap-2 cursor-pointer">
-                        <label>
-                            {isBulkUploading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-                            Bulk Upload
-                            <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleBulkUpload} disabled={isBulkUploading} />
-                        </label>
-                    </Button>
-                    <Button onClick={handleSubmit(handlePost)} className="h-14 px-12 bg-blue-900 hover:bg-slate-900 rounded-2xl font-black shadow-xl transition-all active:scale-95 text-white border-none uppercase text-xs tracking-widest">
+                
+                <div className="flex flex-col items-center gap-6">
+                    {/* MISSION RULE: Plant Node Select for Bulk Sync */}
+                    <div className="flex items-center gap-4 bg-white p-3 rounded-2xl border-2 border-slate-200 shadow-inner">
+                        <div className="flex flex-col gap-1">
+                            <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1 flex items-center gap-2">
+                                <Factory className="h-3 w-3" /> Select Bulk Node Node *
+                            </Label>
+                            <FormField control={control} name="originPlantId" render={({ field }) => (
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <SelectTrigger className="h-11 w-[220px] bg-slate-50 rounded-xl font-black text-blue-900 border-none shadow-sm focus:ring-blue-900">
+                                        <SelectValue placeholder="Pick node" />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        {authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            )} />
+                        </div>
+                        <div className="h-10 w-px bg-slate-100" />
+                        <div className="flex gap-2">
+                            <Button 
+                                variant="outline" 
+                                onClick={handleExportTemplate} 
+                                disabled={!originPlantId}
+                                className="h-11 px-6 rounded-xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[10px] tracking-widest gap-2 disabled:opacity-30"
+                            >
+                                <FileDown size={16} /> Template
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                asChild 
+                                disabled={!originPlantId || isBulkUploading}
+                                className={cn(
+                                    "h-11 px-6 rounded-xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[10px] tracking-widest gap-2 cursor-pointer transition-all",
+                                    !originPlantId && "opacity-30 cursor-not-allowed pointer-events-none"
+                                )}
+                            >
+                                <label>
+                                    {isBulkUploading ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
+                                    Bulk Upload
+                                    <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleBulkUpload} disabled={isBulkUploading || !originPlantId} />
+                                </label>
+                            </Button>
+                        </div>
+                    </div>
+
+                    <Button onClick={handleSubmit(handlePost)} className="h-14 px-20 bg-blue-900 hover:bg-slate-900 rounded-2xl font-black shadow-xl transition-all active:scale-95 text-white border-none uppercase text-xs tracking-widest">
                         Commit Plan (F8)
                     </Button>
                 </div>
@@ -662,19 +699,12 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     <div className="h-14 bg-white border rounded-xl flex items-center px-5 font-mono text-blue-900 font-bold shadow-sm">{format(currentTime, 'dd-MM-yyyy HH:mm:ss')}</div>
                   </div>
                   
-                  <FormField control={control} name="originPlantId" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Plant Node Registry *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                                <SelectTrigger className="h-14 bg-white rounded-xl font-black text-slate-700 shadow-sm border-slate-200">
-                                    <SelectValue placeholder="Pick node" />
-                                </SelectTrigger>
-                            </FormControl>
-                            <SelectContent className="rounded-xl">{authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>)}</SelectContent>
-                        </Select>
-                    </FormItem>
-                  )} />
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Active Plant Context</label>
+                    <div className="h-14 bg-blue-50 border-2 border-blue-100 text-blue-900 rounded-xl flex items-center px-5 font-black uppercase tracking-tighter shadow-sm">
+                        {selectedPlantName || '-- NOT SELECTED --'}
+                    </div>
+                  </div>
 
                   <FormField control={control} name="materialTypeId" render={({ field }) => (
                     <FormItem>

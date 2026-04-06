@@ -99,7 +99,7 @@ export default function OrdersTable({
     <div className="rounded-[2rem] border border-slate-200 shadow-xl bg-white overflow-hidden">
       <div className="overflow-auto max-h-[600px] custom-scrollbar">
         <Table className="border-collapse w-full min-w-[2200px] table-fixed border-separate border-spacing-0">
-          <TableHeader className="sticky top-0 z-40">
+          <TableHeader className="sticky top-0 z-50">
             <TableRow className="h-14 hover:bg-transparent border-b-2 border-slate-200 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
               <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500 w-32 bg-slate-100">Plant</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36 bg-slate-100">Order ID</TableHead>
@@ -108,7 +108,7 @@ export default function OrdersTable({
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48 bg-slate-100">Consignor</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48 bg-slate-100">Consignee</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-64 bg-slate-100">Item description</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-500 w-24 bg-slate-100">Units</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-center w-24 bg-slate-100">Units</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 bg-slate-100">Destination</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-24 text-center bg-slate-100">Unit</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right bg-slate-100">Order Qty</TableHead>

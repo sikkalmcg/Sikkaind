@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -261,7 +262,8 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         
         let finalCarrier: any = null;
 
-        if (pIdStr === '1426') {
+        // MISSION CRITICAL: Hardened Plant Registry Handshake
+        if (pIdStr === '1426' || pIdStr === 'ID20') {
             finalCarrier = {
                 id: 'ID20',
                 name: 'SIKKA LMC',
@@ -273,7 +275,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com'
             };
-        } else if (pIdStr === '1214' || isSikkaLmcShorthand) {
+        } else if (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmcShorthand) {
             finalCarrier = {
                 id: 'ID21',
                 name: 'SIKKA LMC',
@@ -426,7 +428,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         <div className="relative overflow-hidden">
             <div className="overflow-auto max-h-[600px] custom-scrollbar border-t">
                 <Table className="border-collapse w-full min-w-[2800px] table-fixed border-separate border-spacing-0">
-                    <TableHeader className="bg-slate-100 sticky top-0 z-40 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
+                    <TableHeader className="bg-slate-100 sticky top-0 z-50 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
                     <TableRow className="h-14 hover:bg-transparent border-b-2 border-slate-200">
                         {isAdmin && (
                             <TableHead className="w-16 px-6 bg-slate-100">
@@ -449,7 +451,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                         <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100">Consignor</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100">Consignee</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100">Item Description</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-24 bg-slate-100">Unit</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-24 bg-slate-100">Units</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-right w-32 bg-slate-100">Order Qty</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40 bg-slate-100">Status</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-8 text-right w-32 sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">Action</TableHead>
