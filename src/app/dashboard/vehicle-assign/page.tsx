@@ -306,7 +306,6 @@ function OpenOrdersContent() {
         
         let finalCarrier: any = null;
 
-        // MISSION CRITICAL: Hardened Plant Registry Handshake
         if (pIdStr === '1426') {
             finalCarrier = {
                 id: 'ID20',
@@ -334,7 +333,7 @@ function OpenOrdersContent() {
         }
 
         if (!finalCarrier) {
-            finalCarrier = row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId);
+            finalCarrier = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId);
         }
 
         if (!finalCarrier) {
@@ -485,7 +484,7 @@ function OpenOrdersContent() {
         const status = s.currentStatusId?.toLowerCase() || '';
         if (status === 'pending' || status === 'partly vehicle assigned') res.pending++;
         else if (status === 'assigned' || status === 'vehicle assigned') res.process++;
-        else if (status === 'dispatched' || status === 'delivered' || status === 'in-transit') res.dispatched++;
+        else if (['dispatched', 'delivered', 'in-transit', 'arrived', 'arrival-for-delivery'].includes(status)) res.dispatched++;
         else if (status === 'cancelled' || status === 'short closed') res.cancelled++;
     });
     return res;
@@ -497,7 +496,7 @@ function OpenOrdersContent() {
         switch (activeTab) {
             case 'pending': return status === 'pending' || status === 'partly vehicle assigned';
             case 'process': return status === 'assigned' || status === 'vehicle assigned';
-            case 'dispatched': return status === 'dispatched' || status === 'delivered' || status === 'in-transit'; 
+            case 'dispatched': return ['dispatched', 'delivered', 'in-transit', 'arrived', 'arrival-for-delivery'].includes(status); 
             case 'cancelled': return status === 'cancelled' || status === 'short closed';
             default: return true;
         }
@@ -590,7 +589,7 @@ function OpenOrdersContent() {
             onClose={() => { setAssignModalOpen(false); setEditingTrip(null); }}
             shipment={selectedShipment}
             trip={editingTrip}
-            carriers={dbCarriers || []}
+            carriers={carriers || []}
             onAssignmentComplete={() => { setAssignModalOpen(false); setEditingTrip(null); }}
         />
       )}

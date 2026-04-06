@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -54,7 +55,9 @@ const getStatusColor = (status: string) => {
         case 'vehicle assigned': return 'bg-blue-500/10 text-blue-700 border-blue-200';
         case 'dispatched':
         case 'in-transit': return 'bg-indigo-500/10 text-indigo-700 border-indigo-200';
-        case 'delivered': return 'bg-emerald-500/10 text-emerald-700 border-emerald-200';
+        case 'delivered':
+        case 'arrived':
+        case 'arrival-for-delivery': return 'bg-emerald-500/10 text-emerald-700 border-emerald-200';
         case 'cancelled': return 'bg-red-500/10 text-red-700 border-red-200';
         case 'short closed': return 'bg-slate-500/10 text-slate-700 border-slate-200';
         default: return 'bg-gray-500/10 text-gray-700 border-gray-200';
@@ -95,9 +98,9 @@ export default function OrdersTable({
   return (
     <div className="rounded-[2rem] border border-slate-200 shadow-xl bg-white overflow-hidden">
       <div className="overflow-auto max-h-[600px] custom-scrollbar">
-        <Table className="border-collapse w-full min-w-[2200px] table-fixed">
-          <TableHeader className="bg-slate-100 sticky top-0 z-30 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
-            <TableRow className="h-14 hover:bg-transparent border-b-2 border-slate-200">
+        <Table className="border-collapse w-full min-w-[2200px] table-fixed border-separate border-spacing-0">
+          <TableHeader className="sticky top-0 z-40">
+            <TableRow className="h-14 hover:bg-transparent border-b-2 border-slate-200 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
               <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500 w-32 bg-slate-100">Plant</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36 bg-slate-100">Order ID</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36 bg-slate-100">LR Number</TableHead>
