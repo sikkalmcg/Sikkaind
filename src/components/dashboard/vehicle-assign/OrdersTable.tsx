@@ -94,24 +94,24 @@ export default function OrdersTable({
 
   return (
     <div className="rounded-[2rem] border border-slate-200 shadow-xl bg-white overflow-hidden">
-      <div className="overflow-x-auto">
+      <div className="overflow-auto max-h-[600px] custom-scrollbar">
         <Table className="border-collapse w-full min-w-[2200px] table-fixed">
-          <TableHeader className="bg-slate-50/80 sticky top-0 z-10 border-b">
-            <TableRow className="h-14 hover:bg-transparent">
-              <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500 w-32">Plant</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36">Order ID</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36">LR Number</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-500 w-32">LR Date</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48">Consignor</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48">Consignee</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-64">Item description</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-500 w-24">Units</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40">Destination</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-24 text-center">Unit</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right">Order Qty</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right">Balance Qty</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 text-center">Status</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-8 text-right sticky right-0 bg-slate-50 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-32">Action</TableHead>
+          <TableHeader className="bg-slate-100 sticky top-0 z-30 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
+            <TableRow className="h-14 hover:bg-transparent border-b-2 border-slate-200">
+              <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500 w-32 bg-slate-100">Plant</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36 bg-slate-100">Order ID</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36 bg-slate-100">LR Number</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-500 w-32 bg-slate-100">LR Date</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48 bg-slate-100">Consignor</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48 bg-slate-100">Consignee</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-64 bg-slate-100">Item description</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-500 w-24 bg-slate-100">Units</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 bg-slate-100">Destination</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-24 text-center bg-slate-100">Unit</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right bg-slate-100">Order Qty</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right bg-slate-100">Balance Qty</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 text-center bg-slate-100">Status</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-8 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-32">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -128,7 +128,7 @@ export default function OrdersTable({
 
                 return (
                   <React.Fragment key={order.id}>
-                    <TableRow className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 transition-all group text-[11px] font-medium text-slate-600">
+                    <TableRow className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 even:bg-slate-50/30 transition-all group text-[11px] font-medium text-slate-600">
                       <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{order.plantName}</TableCell>
                       <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs">{order.shipmentId}</TableCell>
                       <TableCell className="px-4 text-center">
@@ -152,12 +152,11 @@ export default function OrdersTable({
                       <TableCell className="px-4 text-right font-black text-slate-900 text-xs">{(order.quantity || 0).toFixed(3)}</TableCell>
                       <TableCell className="px-4 text-right font-black text-orange-600 text-xs bg-orange-50/10">{(order.balanceQty || 0).toFixed(3)}</TableCell>
                       <TableCell className="px-4 text-center">
-                        <Badge variant="outline" className={cn("text-[9px] font-black uppercase px-2 h-6 border shadow-sm", getStatusColor(order.currentStatusId))}>
+                        <Badge variant="outline" className={cn("text-[9px] font-black uppercase px-2.5 h-6 border shadow-sm", getStatusColor(order.currentStatusId))}>
                             {order.currentStatusId}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
-                        {/* PERMANENT FIX NODE: Set modal={false} to avoid compose-refs loop in scrolling tables */}
                         <DropdownMenu modal={false}>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-white text-slate-400 hover:text-blue-900 transition-all"><MoreHorizontal className="h-4 w-4" /></Button>
@@ -195,7 +194,7 @@ export default function OrdersTable({
                       </TableCell>
                     </TableRow>
                     {assignedTrips.map((trip: any, tIdx: number) => (
-                        <TableRow key={trip.id} className="h-14 bg-slate-50/50 hover:bg-blue-50/10 border-b border-slate-100 last:border-slate-200 transition-colors group/trip">
+                        <TableRow key={trip.id} className="h-14 bg-slate-50 hover:bg-blue-50/10 border-b border-slate-100 last:border-slate-200 transition-colors group/trip">
                             <TableCell colSpan={2} className="px-6">
                                 <div className="flex items-center gap-3 pl-4">
                                     <div className="h-6 w-px bg-slate-200" />
@@ -227,7 +226,7 @@ export default function OrdersTable({
                             <TableCell colSpan={2} className="px-4 text-center">
                                 <Badge variant="outline" className="text-[9px] font-black bg-white border-slate-200 text-slate-500 uppercase h-5">{trip.tripStatus || 'Awaiting Node'}</Badge>
                             </TableCell>
-                            <TableCell className="px-8 text-right sticky right-0 bg-slate-50 group-hover/trip:bg-blue-50/20 transition-all border-l border-slate-100">
+                            <TableCell className="px-8 text-right sticky right-0 bg-slate-50 group-hover/trip:bg-blue-50/20 transition-all border-l border-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">
                                 <div className="flex justify-end gap-1 opacity-0 group-hover/trip:opacity-100 transition-opacity">
                                     <TooltipProvider>
                                         <Tooltip>

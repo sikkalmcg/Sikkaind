@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -136,7 +135,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         const carrier = allCarriers.find(c => c.id === trip?.carrierId || c.id === shipment.carrierId);
 
         const itemsManifest = shipment.items || [];
-        const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
+        const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber || i.invoiceNo || i.deliveryNumber).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
         const summarizedItems = Array.from(new Set(itemsManifest.map(i => i.itemDescription || i.description).filter(Boolean))).join(', ') || shipment.itemDescription || shipment.material || '--';
         const totalUnitsCount = itemsManifest.reduce((sum, i) => sum + (Number(i.units) || 0), 0) || shipment.totalUnits || 0;
 
@@ -424,13 +423,13 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="relative border-t">
-            <div className="overflow-auto max-h-[550px] custom-scrollbar">
+        <div className="relative overflow-hidden">
+            <div className="overflow-auto max-h-[600px] custom-scrollbar border-t">
                 <Table className="border-collapse w-full min-w-[2800px] table-fixed">
-                    <TableHeader className="bg-slate-100 sticky top-0 z-30 shadow-sm">
+                    <TableHeader className="bg-slate-100 sticky top-0 z-30 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
                     <TableRow className="hover:bg-transparent border-b-2 border-slate-200 h-14">
                         {isAdmin && (
-                            <TableHead className="w-16 px-6">
+                            <TableHead className="w-16 px-6 bg-slate-100">
                                 <Checkbox 
                                     checked={isAllOnPageSelected}
                                     onCheckedChange={(checked) => handleSelectAllOnPage(!!checked)}
@@ -438,22 +437,22 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                                 />
                             </TableHead>
                         )}
-                        <TableHead className="text-[10px] font-black uppercase px-6 w-32">Plant</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 w-36">Order ID</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40">Order Date</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 w-36 text-center">Vehicle No</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">Pilot Mobile</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">Invoice No</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">E-Waybill No</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">LR No</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">LR Date</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 w-48">Consignor</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 w-48">Consignee</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 w-48">Item Description</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-24">Unit</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-right w-32">Order Qty</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40">Status</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-8 text-right w-32 sticky right-0 bg-slate-100">Action</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-6 w-32 bg-slate-100">Plant</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-36 bg-slate-100">Order ID</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40 bg-slate-100">Order Date</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-36 text-center bg-slate-100">Vehicle No</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100">Pilot Mobile</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100">Invoice No</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100">E-Waybill No</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100">LR No</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100">LR Date</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100">Consignor</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100">Consignee</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100">Item Description</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-24 bg-slate-100">Unit</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-right w-32 bg-slate-100">Order Qty</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40 bg-slate-100">Status</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-8 text-right w-32 sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">Action</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -473,7 +472,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                         
                         return (
                             <TableRow key={s.id} className={cn(
-                                "hover:bg-blue-50/20 transition-all h-16 border-b border-slate-100 last:border-0 group text-[11px] font-medium text-slate-600",
+                                "hover:bg-blue-50/20 even:bg-slate-50/50 transition-all h-16 border-b border-slate-100 last:border-0 group text-[11px] font-medium text-slate-600",
                                 isChecked && "bg-blue-50/40"
                             )}>
                             {isAdmin && (
@@ -512,7 +511,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                                 {s.materialTypeId === 'FTL' ? '1 LOAD' : s.quantity.toFixed(3)}
                             </TableCell>
                             <TableCell className="px-4 text-center">
-                                <Badge variant="outline" className={cn("text-[9px] font-black uppercase px-2 h-6 border shadow-sm", getStatusColor(s.currentStatusId))}>
+                                <Badge variant="outline" className={cn("text-[9px] font-black uppercase px-2.5 h-6 border shadow-sm", getStatusColor(s.currentStatusId))}>
                                     {s.currentStatusId}
                                 </Badge>
                             </TableCell>
