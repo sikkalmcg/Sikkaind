@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -333,7 +334,7 @@ function OpenOrdersContent() {
         }
 
         if (!finalCarrier) {
-            finalCarrier = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId);
+            finalCarrier = row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId);
         }
 
         if (!finalCarrier) {
@@ -565,7 +566,7 @@ function OpenOrdersContent() {
                 <OrdersTable 
                     data={tabFilteredData} 
                     tab={activeTab}
-                    onAssign={setSelectedShipment}
+                    onAssign={(order) => { setSelectedShipment(order); setAssignModalOpen(true); }}
                     onEditAssignment={(order, trip) => { setEditingTrip(trip); setSelectedShipment(order); setAssignModalOpen(true); }}
                     onViewOrder={setDrawerOrder}
                     onViewTrip={setDrawerTrip}
@@ -589,7 +590,7 @@ function OpenOrdersContent() {
             onClose={() => { setAssignModalOpen(false); setEditingTrip(null); }}
             shipment={selectedShipment}
             trip={editingTrip}
-            carriers={carriers}
+            carriers={dbCarriers || []}
             onAssignmentComplete={() => { setAssignModalOpen(false); setEditingTrip(null); }}
         />
       )}
