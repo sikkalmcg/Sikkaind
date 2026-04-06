@@ -425,9 +425,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
       <CardContent className="p-0">
         <div className="relative overflow-hidden">
             <div className="overflow-auto max-h-[600px] custom-scrollbar border-t">
-                <Table className="border-collapse w-full min-w-[2800px] table-fixed">
-                    <TableHeader className="bg-slate-100 sticky top-0 z-30 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
-                    <TableRow className="hover:bg-transparent border-b-2 border-slate-200 h-14">
+                <Table className="border-collapse w-full min-w-[2800px] table-fixed border-separate border-spacing-0">
+                    <TableHeader className="bg-slate-100 sticky top-0 z-40 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
+                    <TableRow className="h-14 hover:bg-transparent border-b-2 border-slate-200">
                         {isAdmin && (
                             <TableHead className="w-16 px-6 bg-slate-100">
                                 <Checkbox 

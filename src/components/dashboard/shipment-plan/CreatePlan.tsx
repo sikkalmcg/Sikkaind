@@ -264,7 +264,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     return type.includes('consignee') || type.includes('buyer') || type.includes('ship to');
   }), [activeParties]);
 
-  // Registry Pulse Node: Fetch Last Used LR for Selected Plant
   useEffect(() => {
     if (!firestore || !originPlantId) {
         setLastUsedLr(null);
@@ -341,7 +340,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         if(isSameAsBillTo) {
             setValue('shipToParty', party.name, { shouldValidate: true });
             setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-            const city = party.city && party.city !== 'N/A' ? party.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
+            const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
             if (city) {
                 setValue('unloadingPoint', city, { shouldValidate: true });
                 setValue('deliveryAddress', party.address || '', { shouldValidate: true });
@@ -349,7 +348,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         }
     } else if (type === 'shipToParty') {
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-        const city = party.city && party.city !== 'N/A' ? party.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
+        const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
         if (city) {
             setValue('unloadingPoint', city, { shouldValidate: true });
             setValue('deliveryAddress', party.address || '', { shouldValidate: true });
@@ -444,7 +443,15 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
   const handleBulkUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    const uiPlantId = form.getValues('originPlantId');
+
     if (!file || !firestore || !user) return;
+
+    if (!uiPlantId) {
+        toast({ variant: 'destructive', title: "Lifting Node Required", description: "Please select a Plant Node in the UI before performing bulk upload. This determines the carrier registry handshake." });
+        event.target.value = '';
+        return;
+    }
 
     setIsBulkUploading(true);
     showLoader();
@@ -468,7 +475,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 if (!raw) return null;
                 if (raw instanceof Date) return raw;
                 if (typeof raw === 'number') {
-                    // Excel serial date to JS Date
                     return new Date(Math.round((raw - 25569) * 86400 * 1000));
                 }
                 const d = new Date(raw);
@@ -477,21 +483,33 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
             const orderGroups: Record<string, any> = {};
 
+            // CARRIER HANDSHAKE LOGIC Node
+            let autoCarrierId = '';
+            let autoCarrierName = '';
+            const normUiPlantId = normalizePlantId(uiPlantId);
+
+            if (normUiPlantId === '1426' || normUiPlantId === 'ID20') {
+                autoCarrierId = 'ID20';
+                autoCarrierName = 'SIKKA LMC (DELHI)';
+            } else if (normUiPlantId === '1214' || normUiPlantId === 'ID23') {
+                autoCarrierId = 'ID21';
+                autoCarrierName = 'SIKKA LMC (GHAZIABAD)';
+            }
+
             jsonData.forEach(row => {
-                const pId = normalizePlantId(getVal(row, ["Plant ID", "Plant"]));
                 const consignee = getVal(row, ["Consignee Name", "Consignee"]);
                 const lr = getVal(row, ["LR Number", "LR No"]);
                 
-                if (!pId || !consignee) return;
+                if (!consignee) return;
 
-                const groupKey = `${pId}_${consignee}_${lr}`;
+                const groupKey = `${uiPlantId}_${consignee}_${lr}`;
                 
                 if (!orderGroups[groupKey]) {
                     const termRaw = getVal(row, ["Payment Term", "Term"]) || 'Paid';
                     const term = termRaw.toLowerCase().includes('to pay') ? 'To Pay' : 'Paid';
 
                     orderGroups[groupKey] = {
-                        originPlantId: pId,
+                        originPlantId: uiPlantId,
                         consignor: getVal(row, ["Consignor Name", "Consignor"]),
                         consignorGtin: getVal(row, ["Consignor GSTIN", "Consignor Gst"]),
                         consignorAddress: getVal(row, ["Consignor Address", "Consignor Site"]),
@@ -507,7 +525,8 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         lrDate: getDateVal(row, ["LR Date", "LRDate", "Date"]),
                         paymentTerm: term,
                         deliveryAddress: getVal(row, ["Delivery Address", "Address"]),
-                        carrierName: getVal(row, ["Carrier Name", "Carrier"]),
+                        carrierId: autoCarrierId,
+                        carrierName: autoCarrierName || getVal(row, ["Carrier Name", "Carrier"]),
                         rawItems: []
                     };
                 }
@@ -527,14 +546,12 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
             const groups = Object.values(orderGroups);
             let successCount = 0;
 
-            // Unified Transaction Pulse for entire bulk upload
             await runTransaction(firestore, async (tx) => {
                 const countSnap = await tx.get(doc(firestore, "counters", "shipments"));
                 let currentCount = countSnap.exists() ? countSnap.data().count : 0;
 
                 for (const g of groups) {
                     let finalItems = g.rawItems;
-                    // MISSION LOGIC: If items > 4, aggregate by "Unique Same Name" (First word + Category)
                     if (g.rawItems.length > 4) {
                         const aggMap: Record<string, any> = {};
                         g.rawItems.forEach((item: any) => {
@@ -542,7 +559,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                             const words = descRaw.split(/\s+/);
                             const firstWord = words[0] || '';
                             const categories = ['SALT', 'TEA', 'RICE', 'SUGAR', 'DAL', 'OIL', 'FLOUR', 'ATTA', 'MAIDA', 'BESAN', 'MASALA', 'SPICE', 'CEMENT', 'CHEMICAL', 'FERTILIZER', 'IRON', 'STEEL', 'METAL'];
-                            // Find product category keyword anywhere in description
                             const category = words.find(w => categories.includes(w)) || words[1] || '';
                             const descKey = `${firstWord} ${category}`.trim();
 
@@ -593,7 +609,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 tx.set(doc(firestore, "counters", "shipments"), { count: currentCount }, { merge: true });
             });
 
-            toast({ title: 'Bulk Sync Complete', description: `Established ${successCount} consolidated mission nodes.` });
+            toast({ title: 'Bulk Sync Complete', description: `Established ${successCount} mission nodes for Plant ${uiPlantId}.` });
             onShipmentCreated({ id: 'bulk' } as any);
         } catch (err: any) {
             console.error("Bulk upload error:", err);
@@ -652,7 +668,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                                 <SelectTrigger className="h-14 bg-white rounded-xl font-black text-slate-700 shadow-sm border-slate-200">
-                                    <SelectValue placeholder="Select Node" />
+                                    <SelectValue placeholder="Pick node" />
                                 </SelectTrigger>
                             </FormControl>
                             <SelectContent className="rounded-xl">{authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>)}</SelectContent>
