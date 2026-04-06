@@ -20,7 +20,13 @@ import { format } from 'date-fns';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 
+/**
+ * @fileOverview Order Plan Control (Master Hub).
+ * Orchestrates mission node creation and ledger auditing.
+ * Hardened for multi-node plant authorization and strict state transitions.
+ */
 function ShipmentPlanContent() {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -63,6 +69,7 @@ function ShipmentPlanContent() {
   );
   const { data: allMasterPlants } = useCollection<Plant>(plantsQuery);
 
+  // 1. Authorization Node: Resolve Lifting Node Scope
   useEffect(() => {
     if (!firestore || !user) return;
     
@@ -107,6 +114,7 @@ function ShipmentPlanContent() {
   const [allShipments, setAllShipments] = useState<WithId<Shipment>[]>([]);
   const [isLoadingShipments, setIsLoadingShipments] = useState(false);
 
+  // 2. Real-time Registry Sync Node
   useEffect(() => {
     if (!firestore || authorizedPlantIds.length === 0) return;
 
@@ -242,7 +250,7 @@ function ShipmentPlanContent() {
             const shipment = allShipments.find(s => s.id === id);
             if (!shipment) continue;
 
-            // Mission Node Archival Node: Move to recycle bin
+            // Archival Node: Move to recycle bin
             const recycleRef = doc(collection(firestore, "recycle_bin"));
             const sanitizedData = sanitizeRegistryNode({ ...shipment, id: shipment.id, type: 'Shipment' });
             batch.set(recycleRef, {
@@ -280,6 +288,7 @@ function ShipmentPlanContent() {
 
   return (
     <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8 bg-slate-50/50 min-h-screen animate-in fade-in duration-500">
+        {/* HEADER TERMINAL */}
         <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 -m-4 md:-m-8 mb-4 md:mb-0 shadow-sm">
             <div className="flex items-center gap-4">
                 <div className="p-2 bg-blue-900 text-white rounded-lg shadow-lg rotate-3">
@@ -322,13 +331,15 @@ function ShipmentPlanContent() {
             </div>
         </div>
 
+        {/* TABS TERMINAL */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-8">
-            <TabsList className="bg-transparent border-b h-12 rounded-none gap-10 p-0 mb-8">
+            <TabsList className="bg-transparent border-b h-12 rounded-none gap-10 p-0 mb-8 justify-start">
                 <TabsTrigger value="create" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2">
                     <Package className="h-4 w-4" /> Create Order
                 </TabsTrigger>
                 <TabsTrigger value="history" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2">
-                    <ListTree className="h-4 w-4" /> Order Ledger ({filteredShipments.length})
+                    <ListTree className="h-4 w-4" /> Order Ledger 
+                    <Badge className="ml-2 bg-slate-100 text-slate-500 border-none font-black text-[9px]">{filteredShipments.length}</Badge>
                 </TabsTrigger>
             </TabsList>
 

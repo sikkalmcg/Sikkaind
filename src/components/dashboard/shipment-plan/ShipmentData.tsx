@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -70,16 +71,16 @@ type EnrichedShipment = WithId<Shipment> & {
 const getStatusColor = (status: string) => {
     const s = status?.toLowerCase() || '';
     switch(s) {
-        case 'pending': return 'bg-yellow-50/10 text-yellow-700 border-yellow-200';
-        case 'partly vehicle assigned': return 'bg-orange-50/10 text-orange-700 border-orange-200';
+        case 'pending': return 'bg-yellow-500/10 text-yellow-700 border-yellow-200';
+        case 'partly vehicle assigned': return 'bg-orange-500/10 text-orange-700 border-orange-200';
         case 'assigned': 
-        case 'vehicle assigned': return 'bg-blue-50/10 text-blue-700 border-blue-200';
-        case 'in-transit': return 'bg-indigo-50/10 text-indigo-700 border-indigo-200';
-        case 'arrival-for-delivery': return 'bg-purple-50/10 text-purple-700 border-purple-200';
-        case 'delivered': return 'bg-green-50/10 text-green-700 border-green-200';
-        case 'cancelled': return 'bg-red-50/10 text-red-700 border-red-200';
-        case 'short closed': return 'bg-slate-50/10 text-slate-700 border-slate-200';
-        default: return 'bg-gray-50/10 text-gray-700 border-gray-200';
+        case 'vehicle assigned': return 'bg-blue-500/10 text-blue-700 border-blue-200';
+        case 'in-transit': return 'bg-indigo-500/10 text-indigo-700 border-indigo-200';
+        case 'arrival-for-delivery': return 'bg-purple-500/10 text-purple-700 border-purple-200';
+        case 'delivered': return 'bg-green-500/10 text-green-700 border-green-200';
+        case 'cancelled': return 'bg-red-500/10 text-red-700 border-red-200';
+        case 'short closed': return 'bg-slate-500/10 text-slate-700 border-slate-200';
+        default: return 'bg-gray-500/10 text-gray-700 border-gray-200';
     }
 }
 
@@ -90,6 +91,11 @@ const formatSafeDateString = (date: any, formatStr: string = 'dd/MM/yy') => {
 }
 
 export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBulkDelete }: ShipmentDataProps) {
+  const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const { showLoader, hideLoader } = useLoading();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState<WithId<Trip>[]>([]);
@@ -102,11 +108,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
-  
-  const { user } = useUser();
-  const firestore = useFirestore();
-  const { showLoader, hideLoader } = useLoading();
-  const { toast } = useToast();
   
   const isAdmin = user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
 
@@ -261,7 +262,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         
         let finalCarrier: any = null;
 
-        // MISSION CRITICAL: Hardened Plant Registry Handshake
         if (pIdStr === '1426') {
             finalCarrier = {
                 id: 'ID20',
@@ -424,148 +424,143 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="overflow-x-auto max-h-[600px] custom-scrollbar">
-          <Table className="border-collapse w-full min-w-[2800px] table-fixed">
-            <TableHeader className="bg-slate-100/90 backdrop-blur sticky top-0 z-20">
-              <TableRow className="hover:bg-transparent border-b-2 border-slate-200 h-14">
-                {isAdmin && (
-                    <TableHead className="w-16 px-6">
-                        <Checkbox 
-                            checked={isAllOnPageSelected}
-                            onCheckedChange={(checked) => handleSelectAllOnPage(!!checked)}
-                            className="h-5 w-5 data-[state=checked]:bg-blue-900 shadow-md border-slate-300"
-                        />
-                    </TableHead>
-                )}
-                <TableHead className="text-[10px] font-black uppercase px-6 w-32">Plant</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 w-36">Order ID</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40">Order Date</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 w-36 text-center">Vehicle No</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">Pilot Mobile</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">Invoice No</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">E-Waybill No</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">LR No</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">LR Date</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 w-48">Consignor</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 w-48">Consignee</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 w-48">Item Description</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 text-center w-24">Unit</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 text-right w-32">Order Qty</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40">Status</TableHead>
-                <TableHead className="text-[10px] font-black uppercase px-8 text-right w-32">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}><TableCell colSpan={isAdmin ? 17 : 16} className="p-6"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                ))
-              ) : paginatedShipments.length === 0 ? (
-                <TableRow><TableCell colSpan={isAdmin ? 17 : 16} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
-              ) : (
-                paginatedShipments.map(s => {
-                  const isChecked = selectedIds.includes(s.id);
-                  const isCancelled = s.currentStatusId?.toLowerCase() === 'cancelled';
-                  const isShortClosed = s.currentStatusId?.toLowerCase() === 'short closed';
-                  const canAssign = !isCancelled && !isShortClosed && (s.materialTypeId === 'FTL' ? s.assignedQty < 1 : s.balanceQty > 0);
-                  const canEdit = isAdmin || (!isCancelled && !isShortClosed && (s.currentStatusId === 'pending' || s.currentStatusId === 'partly vehicle assigned'));
-                  
-                  return (
-                    <TableRow key={s.id} className={cn(
-                        "hover:bg-blue-50/20 transition-all h-16 border-b border-slate-100 last:border-0 group text-[11px] font-medium text-slate-600",
-                        isChecked && "bg-blue-50/40"
-                    )}>
-                      {isAdmin && (
-                        <TableCell className="px-6">
-                            <Checkbox 
-                                checked={isChecked}
-                                onCheckedChange={(checked) => handleSelectRow(s.id, !!checked)}
-                                className="h-5 w-5 data-[state=checked]:bg-blue-900 shadow-sm border-slate-300"
-                            />
-                        </TableCell>
-                      )}
-                      <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{s.plantName}</TableCell>
-                      <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs">{s.shipmentId}</TableCell>
-                      <TableCell className="px-4 text-center whitespace-nowrap text-slate-500 font-bold">{formatSafeDateString(s.creationDate, 'dd/MM/yy HH:mm')}</TableCell>
-                      <TableCell className="px-4 text-center font-black text-slate-900 uppercase tracking-tighter">{s.vehicleNumber || '--'}</TableCell>
-                      <TableCell className="px-4 text-center font-mono font-bold text-slate-400">{s.driverMobile || '--'}</TableCell>
-                      <TableCell className="px-4 text-center font-bold text-slate-800">{s.summarizedInvoices}</TableCell>
-                      <TableCell className="px-4 text-center font-bold text-slate-800">{s.ewaybillNumber || '--'}</TableCell>
-                      <TableCell className="px-4 text-center">
-                        {s.lrNumber ? (
-                            <button 
-                                type="button" 
-                                onClick={(e) => openLRPrint(e, s)} 
-                                className="font-black text-blue-700 hover:underline underline-offset-4 decoration-blue-200 uppercase text-[11px]"
-                            >
-                                {s.lrNumber}
-                            </button>
-                        ) : '--'}
-                      </TableCell>
-                      <TableCell className="px-4 text-center whitespace-nowrap text-slate-500">{formatSafeDateString(s.lrDate, 'dd/MM/yy')}</TableCell>
-                      <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={s.consignor}>{s.consignor}</TableCell>
-                      <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={s.billToParty}>{s.billToParty}</TableCell>
-                      <TableCell className="px-4 truncate font-medium text-slate-500 uppercase italic text-[10px]" title={s.summarizedItems}>"{s.summarizedItems}"</TableCell>
-                      <TableCell className="px-4 text-center font-black text-slate-900">{s.totalUnitsCount}</TableCell>
-                      <TableCell className="px-4 text-right font-black text-blue-900">
-                        {s.materialTypeId === 'FTL' ? '1 LOAD' : s.quantity.toFixed(3)}
-                      </TableCell>
-                      <TableCell className="px-4 text-center">
-                        <Badge variant="outline" className={cn("text-[9px] font-black uppercase px-2 h-6 border shadow-sm", getStatusColor(s.currentStatusId))}>
-                            {s.currentStatusId}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-8 text-right">
-                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:bg-green-50" disabled={!canAssign} onClick={() => handleOpenAssignModal(s)}>
-                                            <PlusCircle className="h-4 w-4" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    {!canAssign ? (
-                                        <TooltipContent className="bg-slate-900 text-white font-black uppercase text-[10px]">Vehicle Allocation Blocked</TooltipContent>
-                                    ) : <TooltipContent className="bg-slate-900 text-white font-black uppercase text-[10px]">Assign Vehicle</TooltipContent>}
-                                </Tooltip>
-                            </TooltipProvider>
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:bg-blue-50" disabled={!canEdit} onClick={() => onEdit(s)}>
-                                            <Edit2 className="h-4 w-4" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    {!canEdit && (
-                                        <TooltipContent className="bg-slate-900 text-white font-black uppercase text-[10px]">Registry Locked</TooltipContent>
-                                    )}
-                                </Tooltip>
-                            </TooltipProvider>
-
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <div className="inline-block">
-                                            <DeleteShipmentConfirmationDialog onConfirm={() => onDelete(s.id)} shipment={s} disabled={!isAdmin}>
-                                                <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50" disabled={!isAdmin}>
-                                                    <Ban className="h-4 w-4" />
-                                                </Button>
-                                            </DeleteShipmentConfirmationDialog>
-                                        </div>
-                                    </TooltipTrigger>
-                                    {!isAdmin && (
-                                        <TooltipContent className="bg-slate-900 text-white font-black uppercase text-[10px]">Revocation Restricted</TooltipContent>
-                                    )}
-                                </Tooltip>
-                            </TooltipProvider>
-                        </div>
-                      </TableCell>
+        <div className="relative border-t">
+            <div className="overflow-auto max-h-[550px] custom-scrollbar">
+                <Table className="border-collapse w-full min-w-[2800px] table-fixed">
+                    <TableHeader className="bg-slate-100 sticky top-0 z-30 shadow-sm">
+                    <TableRow className="hover:bg-transparent border-b-2 border-slate-200 h-14">
+                        {isAdmin && (
+                            <TableHead className="w-16 px-6">
+                                <Checkbox 
+                                    checked={isAllOnPageSelected}
+                                    onCheckedChange={(checked) => handleSelectAllOnPage(!!checked)}
+                                    className="h-5 w-5 data-[state=checked]:bg-blue-900 shadow-md border-slate-300"
+                                />
+                            </TableHead>
+                        )}
+                        <TableHead className="text-[10px] font-black uppercase px-6 w-32">Plant</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-36">Order ID</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40">Order Date</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-36 text-center">Vehicle No</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">Pilot Mobile</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">Invoice No</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">E-Waybill No</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">LR No</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36">LR Date</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-48">Consignor</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-48">Consignee</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-48">Item Description</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-24">Unit</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-right w-32">Order Qty</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40">Status</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-8 text-right w-32 sticky right-0 bg-slate-100">Action</TableHead>
                     </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
+                    </TableHeader>
+                    <TableBody>
+                    {loading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={i} className="h-16"><TableCell colSpan={isAdmin ? 17 : 16} className="px-6 py-2"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                        ))
+                    ) : paginatedShipments.length === 0 ? (
+                        <TableRow><TableCell colSpan={isAdmin ? 17 : 16} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
+                    ) : (
+                        paginatedShipments.map(s => {
+                        const isChecked = selectedIds.includes(s.id);
+                        const isCancelled = s.currentStatusId?.toLowerCase() === 'cancelled';
+                        const isShortClosed = s.currentStatusId?.toLowerCase() === 'short closed';
+                        const canAssign = !isCancelled && !isShortClosed && (s.materialTypeId === 'FTL' ? s.assignedQty < 1 : s.balanceQty > 0);
+                        const canEdit = isAdmin || (!isCancelled && !isShortClosed && (s.currentStatusId === 'pending' || s.currentStatusId === 'partly vehicle assigned'));
+                        
+                        return (
+                            <TableRow key={s.id} className={cn(
+                                "hover:bg-blue-50/20 transition-all h-16 border-b border-slate-100 last:border-0 group text-[11px] font-medium text-slate-600",
+                                isChecked && "bg-blue-50/40"
+                            )}>
+                            {isAdmin && (
+                                <TableCell className="px-6">
+                                    <Checkbox 
+                                        checked={isChecked}
+                                        onCheckedChange={(checked) => handleSelectRow(s.id, !!checked)}
+                                        className="h-5 w-5 data-[state=checked]:bg-blue-900 shadow-sm border-slate-300"
+                                    />
+                                </TableCell>
+                            )}
+                            <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{s.plantName}</TableCell>
+                            <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs">{s.shipmentId}</TableCell>
+                            <TableCell className="px-4 text-center whitespace-nowrap text-slate-500 font-bold">{formatSafeDateString(s.creationDate, 'dd/MM/yy HH:mm')}</TableCell>
+                            <TableCell className="px-4 text-center font-black text-slate-900 uppercase tracking-tighter">{s.vehicleNumber || '--'}</TableCell>
+                            <TableCell className="px-4 text-center font-mono font-bold text-slate-400">{s.driverMobile || '--'}</TableCell>
+                            <TableCell className="px-4 text-center font-bold text-slate-800">{s.summarizedInvoices}</TableCell>
+                            <TableCell className="px-4 text-center font-bold text-slate-800">{s.ewaybillNumber || '--'}</TableCell>
+                            <TableCell className="px-4 text-center">
+                                {s.lrNumber ? (
+                                    <button 
+                                        type="button" 
+                                        onClick={(e) => openLRPrint(e, s)} 
+                                        className="font-black text-blue-700 hover:underline underline-offset-4 decoration-blue-200 uppercase text-[11px]"
+                                    >
+                                        {s.lrNumber}
+                                    </button>
+                                ) : '--'}
+                            </TableCell>
+                            <TableCell className="px-4 text-center whitespace-nowrap text-slate-500">{formatSafeDateString(s.lrDate, 'dd/MM/yy')}</TableCell>
+                            <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={s.consignor}>{s.consignor}</TableCell>
+                            <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={s.billToParty}>{s.billToParty}</TableCell>
+                            <TableCell className="px-4 truncate font-medium text-slate-500 uppercase italic text-[10px]" title={s.summarizedItems}>"{s.summarizedItems}"</TableCell>
+                            <TableCell className="px-4 text-center font-black text-slate-900">{s.totalUnitsCount}</TableCell>
+                            <TableCell className="px-4 text-right font-black text-blue-900">
+                                {s.materialTypeId === 'FTL' ? '1 LOAD' : s.quantity.toFixed(3)}
+                            </TableCell>
+                            <TableCell className="px-4 text-center">
+                                <Badge variant="outline" className={cn("text-[9px] font-black uppercase px-2 h-6 border shadow-sm", getStatusColor(s.currentStatusId))}>
+                                    {s.currentStatusId}
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
+                                <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:bg-green-50" disabled={!canAssign} onClick={() => handleOpenAssignModal(s)}>
+                                                    <PlusCircle className="h-4 w-4" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-slate-900 text-white font-black uppercase text-[10px]">{!canAssign ? 'Blocked' : 'Assign Fleet'}</TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:bg-blue-50" disabled={!canEdit} onClick={() => onEdit(s)}>
+                                                    <Edit2 className="h-4 w-4" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-slate-900 text-white font-black uppercase text-[10px]">Registry Lock</TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <div className="inline-block">
+                                                    <DeleteShipmentConfirmationDialog onConfirm={() => onDelete(s.id)} shipment={s} disabled={!isAdmin}>
+                                                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50" disabled={!isAdmin}>
+                                                            <Ban className="h-4 w-4" />
+                                                        </Button>
+                                                    </DeleteShipmentConfirmationDialog>
+                                                </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-slate-900 text-white font-black uppercase text-[10px]">Revocation</TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </div>
+                            </TableCell>
+                            </TableRow>
+                        )
+                        })
+                    )}
+                    </TableBody>
+                </Table>
+            </div>
         </div>
         
         <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
