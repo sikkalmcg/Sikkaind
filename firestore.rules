@@ -1,0 +1,168 @@
+/**
+ * PagePilot Security Rules
+ * 
+ * Core Philosophy:
+ * This ruleset implements a robust, role-based access control (RBAC) and ownership model for a 
+ * content management system. It prioritizes Authorization Independence and Structural Segregation 
+ * to ensure that security logic is performant and non-leaky.
+ * 
+ * Data Structure:
+ * - /users/{userId}: Private user profiles.
+ * - /roles_admin, /roles_editor: Atomic role collections used for O(1) existence checks.
+ * - /page_templates, /navigation_menus: Global configurations with public/authenticated read.
+ * - /users/{userId}/draft_pages: Private author workspace.
+ * - /published_pages: Publicly accessible content.
+ * - /users/{userId}/ai_brainstorms: Private AI session logs.
+ * 
+ * Key Security Decisions:
+ * 1. Role verification is decoupled from the User document using dedicated role collections, 
+ *    preventing costly get() calls.
+ * 2. Content is segregated into 'draft' (private) and 'published' (public) collections 
+ *    to simplify list operation security.
+ * 3. Relational integrity is enforced by matching the 'userId' or 'authorId' in document 
+ *    data to the authenticated UID and the document path.
+ * 4. Denormalization for Authorization: Essential ownership IDs (authorId, userId) are 
+ *    strictly required in document bodies to facilitate atomic ownership checks.
+ */
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- GLOBAL HELPER FUNCTIONS ---
+
+    /** Checks if the request is from an authenticated user. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** Checks if the authenticated user's UID matches the provided userId. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** Checks if the authenticated user is an Admin via atomic exists check. */
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    /** Checks if the authenticated user is an Editor via atomic exists check. */
+    function isEditor() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_editor/$(request.auth.uid));
+    }
+
+    /** Checks if the user is the owner of an existing resource based on an internal field. */
+    function isExistingOwner(field) {
+      return isSignedIn() && resource != null && resource.data[field] == request.auth.uid;
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Rules for user profiles. Users manage their own profile; Admins can view all.
+     * @path /users/{userId}
+     * @allow (get, update) if UID matches userId. (create) if UID matches userId and data matches path.
+     * @deny (list) for non-admins to prevent user enumeration.
+     * @principle Ownership and Path-to-Data consistency.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isOwner(userId) && resource != null && request.resource.data.id == userId;
+      allow delete: if isAdmin() && resource != null;
+    }
+
+    /**
+     * @description Internal role management for Admin privileges.
+     * @path /roles_admin/{adminId}
+     * @allow (get, list, write) only for existing Admins or system setup.
+     */
+    match /roles_admin/{adminId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Internal role management for Editor privileges.
+     * @path /roles_editor/{editorId}
+     * @allow (get, list) for authenticated users. (write) for Admins.
+     */
+    match /roles_editor/{editorId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Global page templates for layout definitions.
+     * @path /page_templates/{templateId}
+     * @allow (get, list) for all authenticated users.
+     * @deny (write) for non-privileged users.
+     * @principle Role-based write access for shared configurations.
+     */
+    match /page_templates/{templateId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if (isAdmin() || isEditor()) && (request.method != 'create' || request.resource.data.id == templateId);
+    }
+
+    /**
+     * @description Navigation menus used for site structure.
+     * @path /navigation_menus/{menuId}
+     * @allow (get, list) public access. (write) for Admins and Editors.
+     */
+    match /navigation_menus/{menuId} {
+      allow get, list: if true;
+      allow create, update, delete: if (isAdmin() || isEditor()) && (request.method != 'create' || request.resource.data.id == menuId);
+
+      /**
+       * @description Individual items within a navigation menu.
+       * @path /navigation_menus/{menuId}/items/{itemId}
+       */
+      match /items/{itemId} {
+        allow get, list: if true;
+        allow create, update, delete: if (isAdmin() || isEditor()) && (request.method != 'create' || request.resource.data.id == itemId);
+      }
+    }
+
+    /**
+     * @description Draft pages private to the author or editorial staff.
+     * @path /users/{authorId}/draft_pages/{pageId}
+     * @allow (get, list, write) if user is the path author, an Admin, or an Editor.
+     * @principle Structural segregation of private drafts.
+     */
+    match /users/{authorId}/draft_pages/{pageId} {
+      allow get, list: if isOwner(authorId) || isAdmin() || isEditor();
+      allow create: if isOwner(authorId) && request.resource.data.authorId == authorId;
+      allow update: if (isOwner(authorId) || isAdmin() || isEditor()) && resource != null && request.resource.data.authorId == resource.data.authorId;
+      allow delete: if (isOwner(authorId) || isAdmin()) && resource != null;
+    }
+
+    /**
+     * @description Published pages available for public consumption.
+     * @path /published_pages/{pageId}
+     * @allow (get, list) for everyone. (write) for author, Admin, or Editor.
+     * @principle Public read with Owner-Only/Role-based writes.
+     */
+    match /published_pages/{pageId} {
+      allow get, list: if true;
+      allow create: if (isAdmin() || isEditor() || request.resource.data.authorId == request.auth.uid);
+      allow update: if (isAdmin() || isEditor() || isExistingOwner('authorId')) && resource != null && request.resource.data.authorId == resource.data.authorId;
+      allow delete: if (isAdmin() || isExistingOwner('authorId')) && resource != null;
+    }
+
+    /**
+     * @description Private logs for AI brainstorming sessions.
+     * @path /users/{userId}/ai_brainstorms/{brainstormId}
+     * @allow (all) restricted strictly to the owning userId.
+     * @deny (all) for anyone else, including other authenticated users.
+     */
+    match /users/{userId}/ai_brainstorms/{brainstormId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isOwner(userId) && resource != null && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(userId) && resource != null;
+    }
+  }
+}
