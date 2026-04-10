@@ -1,0 +1,402 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "onMatchHeaders": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/api/track/[vehicle]",
+      "regex": "^/api/track/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPvehicle": "nxtPvehicle"
+      },
+      "namedRegex": "^/api/track/(?<nxtPvehicle>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/dashboard/lr-create/print/[lrId]",
+      "regex": "^/dashboard/lr\\-create/print/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPlrId": "nxtPlrId"
+      },
+      "namedRegex": "^/dashboard/lr\\-create/print/(?<nxtPlrId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/dashboard/shipment-tracking/print/[tripId]",
+      "regex": "^/dashboard/shipment\\-tracking/print/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtripId": "nxtPtripId"
+      },
+      "namedRegex": "^/dashboard/shipment\\-tracking/print/(?<nxtPtripId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/dashboard/tracking/[tripId]",
+      "regex": "^/dashboard/tracking/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtripId": "nxtPtripId"
+      },
+      "namedRegex": "^/dashboard/tracking/(?<nxtPtripId>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/about",
+      "regex": "^/about(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/about(?:/)?$"
+    },
+    {
+      "page": "/api/auth/manage-user",
+      "regex": "^/api/auth/manage\\-user(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/manage\\-user(?:/)?$"
+    },
+    {
+      "page": "/api/login",
+      "regex": "^/api/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/login(?:/)?$"
+    },
+    {
+      "page": "/api/track",
+      "regex": "^/api/track(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/track(?:/)?$"
+    },
+    {
+      "page": "/api/track/all",
+      "regex": "^/api/track/all(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/track/all(?:/)?$"
+    },
+    {
+      "page": "/api/vehicle-location",
+      "regex": "^/api/vehicle\\-location(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/vehicle\\-location(?:/)?$"
+    },
+    {
+      "page": "/contact",
+      "regex": "^/contact(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/contact(?:/)?$"
+    },
+    {
+      "page": "/dashboard",
+      "regex": "^/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard(?:/)?$"
+    },
+    {
+      "page": "/dashboard/attendance-register",
+      "regex": "^/dashboard/attendance\\-register(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/attendance\\-register(?:/)?$"
+    },
+    {
+      "page": "/dashboard/carrier-management",
+      "regex": "^/dashboard/carrier\\-management(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/carrier\\-management(?:/)?$"
+    },
+    {
+      "page": "/dashboard/employee-management",
+      "regex": "^/dashboard/employee\\-management(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/employee\\-management(?:/)?$"
+    },
+    {
+      "page": "/dashboard/freight-management",
+      "regex": "^/dashboard/freight\\-management(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/freight\\-management(?:/)?$"
+    },
+    {
+      "page": "/dashboard/freight-process",
+      "regex": "^/dashboard/freight\\-process(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/freight\\-process(?:/)?$"
+    },
+    {
+      "page": "/dashboard/fuel-management",
+      "regex": "^/dashboard/fuel\\-management(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/fuel\\-management(?:/)?$"
+    },
+    {
+      "page": "/dashboard/fuel-payment",
+      "regex": "^/dashboard/fuel\\-payment(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/fuel\\-payment(?:/)?$"
+    },
+    {
+      "page": "/dashboard/fuel-pump",
+      "regex": "^/dashboard/fuel\\-pump(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/fuel\\-pump(?:/)?$"
+    },
+    {
+      "page": "/dashboard/plant-management",
+      "regex": "^/dashboard/plant\\-management(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/plant\\-management(?:/)?$"
+    },
+    {
+      "page": "/dashboard/recycle-bin",
+      "regex": "^/dashboard/recycle\\-bin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/recycle\\-bin(?:/)?$"
+    },
+    {
+      "page": "/dashboard/rejection-shortage",
+      "regex": "^/dashboard/rejection\\-shortage(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/rejection\\-shortage(?:/)?$"
+    },
+    {
+      "page": "/dashboard/report-analysis",
+      "regex": "^/dashboard/report\\-analysis(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/report\\-analysis(?:/)?$"
+    },
+    {
+      "page": "/dashboard/shipment-plan",
+      "regex": "^/dashboard/shipment\\-plan(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/shipment\\-plan(?:/)?$"
+    },
+    {
+      "page": "/dashboard/shipment-summary",
+      "regex": "^/dashboard/shipment\\-summary(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/shipment\\-summary(?:/)?$"
+    },
+    {
+      "page": "/dashboard/shipment-tracking",
+      "regex": "^/dashboard/shipment\\-tracking(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/shipment\\-tracking(?:/)?$"
+    },
+    {
+      "page": "/dashboard/status-control",
+      "regex": "^/dashboard/status\\-control(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/status\\-control(?:/)?$"
+    },
+    {
+      "page": "/dashboard/status-management",
+      "regex": "^/dashboard/status\\-management(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/status\\-management(?:/)?$"
+    },
+    {
+      "page": "/dashboard/sub-user-management",
+      "regex": "^/dashboard/sub\\-user\\-management(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/sub\\-user\\-management(?:/)?$"
+    },
+    {
+      "page": "/dashboard/supervisor-task",
+      "regex": "^/dashboard/supervisor\\-task(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/supervisor\\-task(?:/)?$"
+    },
+    {
+      "page": "/dashboard/tracking",
+      "regex": "^/dashboard/tracking(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/tracking(?:/)?$"
+    },
+    {
+      "page": "/dashboard/tracking/consignment",
+      "regex": "^/dashboard/tracking/consignment(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/tracking/consignment(?:/)?$"
+    },
+    {
+      "page": "/dashboard/tracking/fleet-map",
+      "regex": "^/dashboard/tracking/fleet\\-map(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/tracking/fleet\\-map(?:/)?$"
+    },
+    {
+      "page": "/dashboard/tracking/registry",
+      "regex": "^/dashboard/tracking/registry(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/tracking/registry(?:/)?$"
+    },
+    {
+      "page": "/dashboard/tracking/settings",
+      "regex": "^/dashboard/tracking/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/tracking/settings(?:/)?$"
+    },
+    {
+      "page": "/dashboard/trip-board",
+      "regex": "^/dashboard/trip\\-board(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/trip\\-board(?:/)?$"
+    },
+    {
+      "page": "/dashboard/trip-summary",
+      "regex": "^/dashboard/trip\\-summary(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/trip\\-summary(?:/)?$"
+    },
+    {
+      "page": "/dashboard/user-activity-log",
+      "regex": "^/dashboard/user\\-activity\\-log(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/user\\-activity\\-log(?:/)?$"
+    },
+    {
+      "page": "/dashboard/user-management",
+      "regex": "^/dashboard/user\\-management(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/user\\-management(?:/)?$"
+    },
+    {
+      "page": "/dashboard/vehicle-assign",
+      "regex": "^/dashboard/vehicle\\-assign(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/vehicle\\-assign(?:/)?$"
+    },
+    {
+      "page": "/dashboard/vehicle-entry",
+      "regex": "^/dashboard/vehicle\\-entry(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/vehicle\\-entry(?:/)?$"
+    },
+    {
+      "page": "/dashboard/vehicle-management",
+      "regex": "^/dashboard/vehicle\\-management(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/vehicle\\-management(?:/)?$"
+    },
+    {
+      "page": "/dashboard/vendor-management",
+      "regex": "^/dashboard/vendor\\-management(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/vendor\\-management(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/modules",
+      "regex": "^/modules(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/modules(?:/)?$"
+    },
+    {
+      "page": "/privacy",
+      "regex": "^/privacy(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/privacy(?:/)?$"
+    },
+    {
+      "page": "/services",
+      "regex": "^/services(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/services(?:/)?$"
+    },
+    {
+      "page": "/sikka-accounts/dashboard",
+      "regex": "^/sikka\\-accounts/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/sikka\\-accounts/dashboard(?:/)?$"
+    },
+    {
+      "page": "/terms",
+      "regex": "^/terms(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/terms(?:/)?$"
+    },
+    {
+      "page": "/track",
+      "regex": "^/track(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/track(?:/)?$"
+    },
+    {
+      "page": "/track-consignment",
+      "regex": "^/track\\-consignment(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/track\\-consignment(?:/)?$"
+    },
+    {
+      "page": "/track-shipment",
+      "regex": "^/track\\-shipment(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/track\\-shipment(?:/)?$"
+    },
+    {
+      "page": "/user-management",
+      "regex": "^/user\\-management(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/user\\-management(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

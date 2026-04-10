@@ -1,0 +1,3 @@
+module.exports=[94986,a=>{"use strict";var b=a.i(53407),c=a.i(82187),d=a.i(41667),e=a.i(58411);a.s(["default",0,function(){let a=(0,d.useRouter)();return(0,c.useEffect)(()=>{a.replace("/dashboard/trip-board")},[a]),(0,b.jsx)("div",{className:"flex h-screen w-full items-center justify-center bg-slate-50",children:(0,b.jsxs)("div",{className:"flex flex-col items-center gap-4",children:[(0,b.jsx)(e.Loader2,{className:"h-10 w-10 animate-spin text-blue-900"}),(0,b.jsx)("p",{className:"text-[10px] font-black uppercase tracking-[0.4em] text-slate-400",children:"Migrating Status Registry..."})]})})}])}];
+
+//# sourceMappingURL=src_app_dashboard_status-control_page_tsx_0ed5-wu._.js.map

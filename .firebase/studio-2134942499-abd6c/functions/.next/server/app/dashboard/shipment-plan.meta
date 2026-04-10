@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/dashboard/layout,_N_T_/dashboard/shipment-plan/layout,_N_T_/dashboard/shipment-plan/page,_N_T_/dashboard/shipment-plan"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/dashboard/shipment-plan/__PAGE__",
+    "/dashboard/shipment-plan",
+    "/dashboard",
+    "/_index",
+    "/_head"
+  ]
+}

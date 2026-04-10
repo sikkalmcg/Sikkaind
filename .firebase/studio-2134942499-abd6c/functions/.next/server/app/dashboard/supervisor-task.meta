@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/dashboard/layout,_N_T_/dashboard/supervisor-task/layout,_N_T_/dashboard/supervisor-task/page,_N_T_/dashboard/supervisor-task"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/dashboard/supervisor-task/__PAGE__",
+    "/dashboard/supervisor-task",
+    "/dashboard",
+    "/_index",
+    "/_head"
+  ]
+}

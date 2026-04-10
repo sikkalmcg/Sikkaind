@@ -1,0 +1,17 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/dashboard/layout,_N_T_/dashboard/tracking/layout,_N_T_/dashboard/tracking/registry/layout,_N_T_/dashboard/tracking/registry/page,_N_T_/dashboard/tracking/registry"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/dashboard/tracking/registry/__PAGE__",
+    "/dashboard/tracking/registry",
+    "/dashboard/tracking",
+    "/dashboard",
+    "/_index",
+    "/_head"
+  ]
+}

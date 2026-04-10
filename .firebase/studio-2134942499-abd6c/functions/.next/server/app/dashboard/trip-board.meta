@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/dashboard/layout,_N_T_/dashboard/trip-board/layout,_N_T_/dashboard/trip-board/page,_N_T_/dashboard/trip-board"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/dashboard/trip-board/__PAGE__",
+    "/dashboard/trip-board",
+    "/dashboard",
+    "/_index",
+    "/_head"
+  ]
+}

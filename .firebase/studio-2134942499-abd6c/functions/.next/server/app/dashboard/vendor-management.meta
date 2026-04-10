@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/dashboard/layout,_N_T_/dashboard/vendor-management/layout,_N_T_/dashboard/vendor-management/page,_N_T_/dashboard/vendor-management"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/dashboard/vendor-management/__PAGE__",
+    "/dashboard/vendor-management",
+    "/dashboard",
+    "/_index",
+    "/_head"
+  ]
+}

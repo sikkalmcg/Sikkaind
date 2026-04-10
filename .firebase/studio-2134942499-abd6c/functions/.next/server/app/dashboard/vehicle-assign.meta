@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/dashboard/layout,_N_T_/dashboard/vehicle-assign/layout,_N_T_/dashboard/vehicle-assign/page,_N_T_/dashboard/vehicle-assign"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/dashboard/vehicle-assign/__PAGE__",
+    "/dashboard/vehicle-assign",
+    "/dashboard",
+    "/_index",
+    "/_head"
+  ]
+}

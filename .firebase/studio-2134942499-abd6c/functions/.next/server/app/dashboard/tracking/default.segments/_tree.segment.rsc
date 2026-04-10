@@ -1,0 +1,3 @@
+:HL["/_next/static/chunks/0kht-42s_6.yk.css","style"]
+:HL["https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"dashboard","param":null,"prefetchHints":0,"slots":{"children":{"name":"tracking","param":null,"prefetchHints":0,"slots":{"children":{"name":"tripId","param":{"type":"d","key":"default","siblings":null},"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}}}}}},"staleTime":300,"buildId":"-XCzs_KP-So26QBYARBDo"}

@@ -1,0 +1,3 @@
+{
+  "/dashboard/shipment-tracking/print/[tripId]/page": "app/dashboard/shipment-tracking/print/[tripId]/page.js"
+}
