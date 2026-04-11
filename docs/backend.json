@@ -1,0 +1,452 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the PagePilot application, primarily for managing content creation and editing roles. Assumes an external authentication system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The display name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address, used for contact or display purposes. Not used for authentication.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user within the application (e.g., 'Admin', 'Editor', 'Contributor')."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the user account was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of the last update to the user's information.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "role",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PageTemplate": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PageTemplate",
+      "type": "object",
+      "description": "Defines various responsive layouts and styles that can be applied to web pages for consistent presentation across devices.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the PageTemplate entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "A user-friendly name for the template (e.g., 'Blog Post Layout', 'Landing Page Template')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the template's purpose and layout characteristics."
+        },
+        "layoutDefinition": {
+          "type": "string",
+          "description": "A string or JSON representation defining the structural layout and styling rules (e.g., CSS class name, HTML structure snippet, or JSON configuration for a component-based editor)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the page template was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of the last update to the page template.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "layoutDefinition",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Page": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Page",
+      "type": "object",
+      "description": "Represents a single web page or article, containing content created by users, ready for public display.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Page entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the web page or article."
+        },
+        "slug": {
+          "type": "string",
+          "description": "A URL-friendly identifier for the page, used in its public URL."
+        },
+        "content": {
+          "type": "string",
+          "description": "The main body content of the page, potentially in HTML or Markdown format."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current publication status of the page (e.g., 'Draft', 'Published', 'Archived')."
+        },
+        "authorId": {
+          "type": "string",
+          "description": "Reference to the User who is the primary author of this page. (Relationship: User 1:N Page)"
+        },
+        "templateId": {
+          "type": "string",
+          "description": "Reference to the PageTemplate used to render this page's layout. (Relationship: PageTemplate 1:N Page)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the page was initially created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of the last update to the page's content or metadata.",
+          "format": "date-time"
+        },
+        "publishedAt": {
+          "type": "string",
+          "description": "Timestamp when the page was last published, if applicable.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "slug",
+        "content",
+        "status",
+        "authorId",
+        "templateId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "NavigationMenu": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "NavigationMenu",
+      "type": "object",
+      "description": "Represents a configurable navigation menu for a website, which can contain multiple menu items.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the NavigationMenu entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "A descriptive name for the navigation menu (e.g., 'Primary Menu', 'Footer Menu')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of where or how this menu is used on the site."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the navigation menu was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of the last update to the navigation menu.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "NavigationMenuItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "NavigationMenuItem",
+      "type": "object",
+      "description": "Represents an individual item within a NavigationMenu, linking to a page or external URL.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the NavigationMenuItem entity."
+        },
+        "menuId": {
+          "type": "string",
+          "description": "Reference to the NavigationMenu this item belongs to. (Relationship: NavigationMenu 1:N NavigationMenuItem)"
+        },
+        "label": {
+          "type": "string",
+          "description": "The display text for the menu item that users will see."
+        },
+        "url": {
+          "type": "string",
+          "description": "The target URL for the menu item, can be an internal path or an external link.",
+          "format": "uri"
+        },
+        "pageId": {
+          "type": "string",
+          "description": "Optional reference to a Page if this menu item links to an internal page. (Relationship: Page 1:N NavigationMenuItem)"
+        },
+        "order": {
+          "type": "number",
+          "description": "The display order of this item within its parent menu or submenu."
+        },
+        "parentId": {
+          "type": "string",
+          "description": "Optional self-referencing ID for a parent menu item, enabling nested navigation. (Relationship: NavigationMenuItem 1:N NavigationMenuItem)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the navigation menu item was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of the last update to the navigation menu item.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "menuId",
+        "label",
+        "url",
+        "order",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AIContentBrainstorm": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AIContentBrainstorm",
+      "type": "object",
+      "description": "Logs requests and responses from the AI content brainstorming tool, aiding in tracking usage and improving AI suggestions.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AIContentBrainstorm entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who initiated the AI brainstorming request. (Relationship: User 1:N AIContentBrainstorm)"
+        },
+        "prompt": {
+          "type": "string",
+          "description": "The input or query provided by the user to the AI tool."
+        },
+        "response": {
+          "type": "string",
+          "description": "The content generated or suggested by the AI based on the prompt."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of AI request made (e.g., 'Headline Generation', 'Paragraph Draft', 'Idea Generation')."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp when the AI request was made and processed.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "prompt",
+        "response",
+        "type",
+        "timestamp"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile information. Authorization for individual document access is based on matching 'userId' to 'request.auth.uid'. The 'role' field is primarily for client-side display, with authorization handled by dedicated role collections.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user, matching 'request.auth.uid'."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{adminId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Dedicated collection to grant administrator privileges. The existence of a document for a 'userId' in this collection makes that user an admin. This is used for atomic role checks in security rules via 'exists()' without requiring 'get()' calls to user profiles. Documents typically contain only an ID and perhaps a timestamp.",
+          "params": [
+            {
+              "name": "adminId",
+              "description": "The unique identifier of the user who is an administrator, matching 'request.auth.uid'."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_editor/{editorId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Dedicated collection to grant editor privileges. The existence of a document for a 'userId' in this collection makes that user an editor. Used for atomic role checks in security rules via 'exists()' to avoid 'get()' calls. Documents typically contain only an ID and perhaps a timestamp.",
+          "params": [
+            {
+              "name": "editorId",
+              "description": "The unique identifier of the user who is an editor, matching 'request.auth.uid'."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/page_templates/{templateId}",
+        "definition": {
+          "entityName": "PageTemplate",
+          "schema": {
+            "$ref": "#/backend/entities/PageTemplate"
+          },
+          "description": "Stores global responsive page layout definitions. Accessible by authenticated users for reading, and modifiable by users with 'Admin' or 'Editor' roles.",
+          "params": [
+            {
+              "name": "templateId",
+              "description": "The unique identifier for a specific page template."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/navigation_menus/{menuId}",
+        "definition": {
+          "entityName": "NavigationMenu",
+          "schema": {
+            "$ref": "#/backend/entities/NavigationMenu"
+          },
+          "description": "Stores global navigation menus. Publicly readable for website display, and modifiable by users with 'Admin' or 'Editor' roles.",
+          "params": [
+            {
+              "name": "menuId",
+              "description": "The unique identifier for a specific navigation menu."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/navigation_menus/{menuId}/items/{itemId}",
+        "definition": {
+          "entityName": "NavigationMenuItem",
+          "schema": {
+            "$ref": "#/backend/entities/NavigationMenuItem"
+          },
+          "description": "Stores individual items within a specific navigation menu. Publicly readable, and modifiable by users with 'Admin' or 'Editor' roles. 'menuId' is implicitly denormalized in the path.",
+          "params": [
+            {
+              "name": "menuId",
+              "description": "The unique identifier of the parent navigation menu."
+            },
+            {
+              "name": "itemId",
+              "description": "The unique identifier for a specific navigation menu item."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{authorId}/draft_pages/{pageId}",
+        "definition": {
+          "entityName": "Page",
+          "schema": {
+            "$ref": "#/backend/entities/Page"
+          },
+          "description": "Stores private, draft versions of pages, accessible only by the 'authorId' or users with 'Admin'/'Editor' roles. The 'authorId' is denormalized both in the path and within the document for explicit ownership. The 'status' field will always be 'Draft'.",
+          "params": [
+            {
+              "name": "authorId",
+              "description": "The unique identifier of the user who authored this draft page, matching 'request.auth.uid'."
+            },
+            {
+              "name": "pageId",
+              "description": "The unique identifier for the draft page."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/published_pages/{pageId}",
+        "definition": {
+          "entityName": "Page",
+          "schema": {
+            "$ref": "#/backend/entities/Page"
+          },
+          "description": "Stores publicly viewable, published web pages. These documents are publicly readable. Write access is restricted to the 'authorId' (denormalized in the document) or users with 'Admin'/'Editor' roles. The 'status' field will always be 'Published'.",
+          "params": [
+            {
+              "name": "pageId",
+              "description": "The unique identifier for the published page."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/ai_brainstorms/{brainstormId}",
+        "definition": {
+          "entityName": "AIContentBrainstorm",
+          "schema": {
+            "$ref": "#/backend/entities/AIContentBrainstorm"
+          },
+          "description": "Logs AI content brainstorming requests and responses, strictly private to the 'userId' who initiated them. The 'userId' is denormalized both in the path and within the document for explicit ownership and simplified authorization.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who initiated the AI brainstorm, matching 'request.auth.uid'."
+            },
+            {
+              "name": "brainstormId",
+              "description": "The unique identifier for the AI brainstorming session log."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure for PagePilot is designed around strict adherence to Authorization Independence, Structural Segregation, and the DBAC principle to ensure robust security and simplified rules. \n\n**Authorization Independence via Denormalization:**\n*   **User Roles:** Instead of relying on a `role` field within the user's document which would necessitate a `get()` call in security rules (a hierarchical dependency), we introduce dedicated role collections: `/roles_admin/{adminId}` and `/roles_editor/{editorId}`. The mere existence of a document in these collections grants the respective role. Security rules can then use `exists(/roles_admin/$(request.auth.uid))` or `exists(/roles_editor/$(request.auth.uid))` for atomic authorization checks, completely eliminating `get()` calls for role verification. The `role` field in the `/users/{userId}` document will primarily serve for UI display or client-side logic.\n*   **Page Ownership:** For `/published_pages/{pageId}`, the `authorId` is denormalized directly into the `Page` document. This allows ownership checks for write operations (`request.auth.uid == resource.data.authorId`) to be atomic and independent of any parent document's attributes. For `/users/{authorId}/draft_pages/{pageId}`, the `authorId` is implicitly part of the path, making ownership checks straightforward (`request.auth.uid == authorId`).\n\n**Structural Segregation (Homogeneous Security Posture):**\n*   **Page Content:** Pages are segregated based on their `status`. Draft pages, which are private to the author and editors/admins, reside in `/users/{authorId}/draft_pages/{pageId}`. This path-based ownership makes authorization highly granular and efficient. Published pages, which are publicly viewable, reside in `/published_pages/{pageId}`. This separation ensures that all documents within a given collection share the same primary security posture (e.g., all documents in `/published_pages` are public-readable). This significantly simplifies security rules by preventing mixed access requirements within a single collection.\n*   **AI Content Brainstorm:** Each user's AI brainstorm logs are kept private within `/users/{userId}/ai_brainstorms/{brainstormId}`, ensuring data privacy and clear ownership.\n\n**QAPs (Rules are not Filters):**\n*   **Public Data:** Collections like `/published_pages`, `/page_templates`, `/navigation_menus`, and `/navigation_menus/{menuId}/items` are designed with public read access (or authenticated read for templates/menus) for their core purpose. Queries on these collections do not need server-side filtering by security rules because their public/broad accessibility is the intended design. Rules ensure *who* can write or modify, not *what* data can be read.\n*   **Private User Data:** For `/users/{userId}/draft_pages` and `/users/{userId}/ai_brainstorms`, the `userId` in the path ensures that a user can only query their own data, effectively making the list operation inherently filtered by the user's UID. Admin/Editor roles can be granted collection group access if needed, with rules allowing them to list across all users' drafts/brainstorms, while maintaining the `authorId`/`userId` denormalization for individual document access and write permissions."
+  }
+}

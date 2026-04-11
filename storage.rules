@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow public read and write access to system icons for configuration.
+    // This allows the settings page to upload and display the vehicle icons.
+    match /system_icons/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    // All other files in storage require user authentication.
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

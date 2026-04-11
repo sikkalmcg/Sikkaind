@@ -1,4 +1,1 @@
-import { config } from 'dotenv';
-config();
-
-import '@/ai/flows/generate-landing-page-headlines.ts';
+// Flows will be imported for their side effects in this file.

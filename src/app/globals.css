@@ -1,57 +1,92 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 206 32% 96%; /* #F2F6F9 */
-    --foreground: 210 40% 10%;
+  :root,
+  [data-theme="signature"] {
+    --background: 220 13% 97%;
+    --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 210 40% 10%;
+    --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 210 40% 10%;
-    --primary: 202 78% 45%; /* #1988CC */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 206 20% 90%;
-    --secondary-foreground: 210 40% 20%;
-    --muted: 206 20% 92%;
-    --muted-foreground: 210 20% 45%;
-    --accent: 180 73% 43%; /* #1EBDBD */
-    --accent-foreground: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 84% 4.9%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 210 20% 88%;
-    --input: 210 20% 88%;
-    --ring: 202 78% 45%;
-    --radius: 0.75rem;
-    --chart-1: 202 78% 45%;
-    --chart-2: 180 73% 43%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 217 91% 60%;
+    --chart-1: 224 100% 58%;
+    --chart-2: 160.1 50% 45.1%;
+    --chart-3: 30.1 80% 55.1%;
+    --chart-4: 280.1 65% 60.1%;
+    --chart-5: 340.1 75% 55.1%;
+    --radius: 0.5rem;
+
+    /* Sikka Logistics Sidebar Theme - Deep Blue */
+    --sidebar-background: 222.2 47% 11%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 91% 60%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 91% 20%;
+    --sidebar-ring: 217 91% 60%;
+
+    /* Font Variables */
+    --font-family: "Inter", sans-serif;
+    --font-weight: 400;
+    --font-style: normal;
+    --font-size-base: 14px;
   }
 
   .dark {
-    --background: 210 40% 5%;
-    --foreground: 210 20% 98%;
-    --card: 210 40% 8%;
-    --card-foreground: 210 20% 98%;
-    --popover: 210 40% 8%;
-    --popover-foreground: 210 20% 98%;
-    --primary: 202 78% 55%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 15%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 210 40% 15%;
-    --muted-foreground: 210 20% 65%;
-    --accent: 180 73% 50%;
-    --accent-foreground: 210 20% 98%;
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 20% 98%;
-    --border: 210 40% 15%;
-    --input: 210 40% 15%;
-    --ring: 202 78% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --chart-1: 221.2 83.2% 53.3%;
+    --chart-2: 160.1 50% 45.1%;
+    --chart-3: 30.1 80% 55.1%;
+    --chart-4: 280.1 65% 60.1%;
+    --chart-5: 340.1 75% 55.1%;
+
+    --sidebar-background: 222.2 84% 4.9%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 210 40% 98%;
+    --sidebar-primary-foreground: 222.2 84% 4.9%;
+    --sidebar-accent: 217.2 91.2% 59.8%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --font-family: "Inter", sans-serif;
+    --font-weight: 400;
+    --font-style: normal;
+    --font-size-base: 14px;
   }
 }
 
@@ -61,15 +96,114 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: var(--font-family);
+    font-weight: var(--font-weight);
+    font-style: var(--font-style);
+    font-size: var(--font-size-base);
   }
 }
 
-.glass-card {
-  @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
+@layer utilities {
+  .text-shadow {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  }
+  .animation-delay-300 {
+    animation-delay: 300ms;
+  }
+  .animation-delay-500 {
+    animation-delay: 500ms;
+  }
+
+  @keyframes slide-down {
+    from {
+      transform: translateY(-20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  .animate-slide-down {
+    animation: slide-down 0.5s ease-out forwards;
+  }
+
+  @keyframes slide-up {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  .animate-slide-up {
+    animation: slide-up 0.5s ease-out forwards 0.2s;
+    opacity: 0;
+  }
+  
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-out forwards;
+  }
+  
+  @keyframes slide-in-right {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  .animate-slide-in-right {
+    animation: slide-in-right 0.3s ease-out forwards;
+  }
 }
 
-.hero-gradient {
-  background: radial-gradient(circle at top right, hsla(180, 73%, 43%, 0.1), transparent 40%),
-              radial-gradient(circle at bottom left, hsla(202, 78%, 45%, 0.15), transparent 40%);
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  
+  /* Reset and Hide Everything */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Isolate the Target Print Area */
+  #printable-area, #printable-area * {
+    visibility: visible;
+  }
+  
+  #printable-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    display: block !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .page-break-after-always {
+    page-break-after: always;
+    display: block;
+    clear: both;
+  }
+
+  /* Force background colors and images */
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    background-color: white !important;
+  }
+  
+  table, tr, td, th {
+    border-color: black !important;
+  }
 }

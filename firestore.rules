@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- GLOBAL HELPER FUNCTIONS ---
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    // --- COLLECTION RULES ---
+
+    match /users/{userId} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Rules for public contact enquiries.
+     * Allow anyone to send a message, but only admins to read them.
+     */
+    match /contact_enquiries/{enquiryId} {
+      allow create: if true;
+      allow read, list, update, delete: if isAdmin();
+    }
+
+    // Fallback for other mission-critical collections
+    match /{allPaths=**} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}

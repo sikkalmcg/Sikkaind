@@ -1,45 +1,27 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Next.js Build Artifacts
+.next/
+out/
+build/
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+# Firebase Studio & Hosting
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
 
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
+# Node Modules
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
 
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-.genkit/*
+# Environment & OS
 .env*
+.DS_Store
+Thumbs.db
 
-# firebase
-firebase-debug.log
-firestore-debug.log
+# Large Binary Artifacts (Git LFS recommended for these if needed)
+*.zip
+*.tar.gz
+*.mp4
+*.pdf
