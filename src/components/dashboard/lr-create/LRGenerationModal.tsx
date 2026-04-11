@@ -1,7 +1,6 @@
-
 'use client';
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format, isValid } from 'date-fns';
@@ -46,12 +45,15 @@ const formSchema = z.object({
   consignorName: z.string().min(1, "Consignor node required."),
   consignorAddress: z.string().optional().default(''),
   consignorGtin: z.string().optional(),
+  consignorCode: z.string().optional(),
   consignorMobile: z.string().optional(),
   buyerName: z.string().min(1, "Consignee node required."),
   buyerGtin: z.string().optional(),
+  buyerCode: z.string().optional(),
   buyerMobile: z.string().optional(),
   shipToParty: z.string().min(1, "Drop node required."),
   shipToGtin: z.string().optional(),
+  shipToCode: z.string().optional(),
   shipToMobile: z.string().optional(),
 });
 
@@ -75,6 +77,7 @@ function SearchRegistryModal({
         const s = search.toLowerCase();
         return item.name?.toLowerCase().includes(s) ||
             item.gstin?.toLowerCase().includes(s) ||
+            item.customerCode?.toLowerCase().includes(s) ||
             item.city?.toLowerCase().includes(s)
     });
 
@@ -90,9 +93,9 @@ function SearchRegistryModal({
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input 
-                            placeholder="Search by Name, GSTIN, or City..." 
+                            placeholder="Search by Name, Code, or City..." 
                             value={search} 
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => setSearch(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
@@ -107,7 +110,7 @@ function SearchRegistryModal({
                                         filtered.map(item => (
                                             <TableRow key={item.id} className="cursor-pointer h-12 hover:bg-blue-50" onClick={() => onSelect(item)}>
                                                 <TableCell className="px-4 font-black text-slate-800 uppercase text-xs">{item.name}</TableCell>
-                                                <TableCell className="px-4 text-center font-mono text-[10px] text-slate-500">{item.gstin || '--'}</TableCell>
+                                                <TableCell className="px-4 text-center font-mono text-[10px] text-blue-700 font-black">{item.customerCode || '--'}</TableCell>
                                                 <TableCell className="px-4 text-right">
                                                     <Button variant="ghost" size="sm" className="h-7 text-blue-600 font-black text-[10px] uppercase">Select</Button>
                                                 </TableCell>
@@ -193,7 +196,6 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                 setShipment({ id: shipmentSnap.id, ...sData } as WithId<Shipment>);
 
                 let initialItems = (sData.items || []).map(i => ({
-                    // Universal Key Map Node
                     invoiceNumber: (i as any).invoiceNumber || (i as any).invoiceNo || (i as any).deliveryNumber || (i as any).deliveryNo || '',
                     units: i.units || 1,
                     unitType: i.unitType || 'Package',
@@ -228,10 +230,13 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                     consignorName: sData.consignor || '',
                     consignorAddress: sData.consignorAddress || sData.loadingPoint || '', 
                     consignorGtin: sData.consignorGtin || '',
+                    consignorCode: sData.consignorCode || '',
                     buyerName: sData.billToParty || '',
                     buyerGtin: sData.billToGtin || '',
+                    buyerCode: sData.billToCode || '',
                     shipToParty: sData.shipToParty || '',
                     shipToGtin: sData.shipToGtin || '',
+                    shipToCode: sData.shipToCode || '',
                     deliveryAddress: sData.deliveryAddress || sData.unloadingPoint || '',
                     items: initialItems
                 });
@@ -246,16 +251,20 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
 
     if (type === 'consignorName') {
         setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
+        setValue('consignorCode', party.customerCode || '', { shouldValidate: true });
         setValue('consignorAddress', party.address || party.city || '', { shouldValidate: true });
         setValue('from', party.city || '', { shouldValidate: true });
     } else if (type === 'buyerName') {
         setValue('buyerGtin', party.gstin || '', { shouldValidate: true });
+        setValue('buyerCode', party.customerCode || '', { shouldValidate: true });
         setValue('shipToParty', party.name, { shouldValidate: true });
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
+        setValue('shipToCode', party.customerCode || '', { shouldValidate: true });
         setValue('deliveryAddress', party.address || party.city || '', { shouldValidate: true });
         setValue('to', party.city || '', { shouldValidate: true });
     } else if (type === 'shipToParty') {
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
+        setValue('shipToCode', party.customerCode || '', { shouldValidate: true });
         setValue('deliveryAddress', party.address || party.city || '', { shouldValidate: true });
         setValue('to', party.city || '', { shouldValidate: true });
     }
@@ -391,7 +400,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                         <section className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 bg-white rounded-3xl border border-slate-200 shadow-sm">
                             <div className="space-y-4">
                                 <FormField name="consignorName" control={control} render={({ field }) => (
-                                    <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR NODE (F4 HELP)</FormLabel><div className="flex gap-2"><FormControl><Input className="h-11 font-bold uppercase" {...field} onKeyDown={(e) => e.key === 'F4' && setHelpModal({ type: 'consignor', title: 'Search Consignors', data: consignorRegistry })} /></FormControl><Button type="button" variant="outline" onClick={() => setHelpModal({ type: 'consignorName', title: 'Search Consignors', data: consignorRegistry })}><Search size={16}/></Button></div></FormItem>
+                                    <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR NODE (F4 HELP)</FormLabel><div className="flex gap-2"><FormControl><Input className="h-11 font-bold uppercase" {...field} onKeyDown={(e) => e.key === 'F4' && setHelpModal({ type: 'consignorName', title: 'Search Consignors', data: consignorRegistry })} /></FormControl><Button type="button" variant="outline" onClick={() => setHelpModal({ type: 'consignorName', title: 'Search Consignors', data: consignorRegistry })}><Search size={16}/></Button></div></FormItem>
                                 )} />
                                 <FormField name="consignorAddress" control={control} render={({ field }) => (
                                     <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">CONSIGNOR ADDRESS (FULL)</FormLabel><FormControl><Input className="h-11" {...field} /></FormControl></FormItem>
@@ -410,11 +419,11 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                         <section className="rounded-3xl border-2 border-slate-200 bg-white shadow-xl overflow-hidden">
                             <Table>
                                 <TableHeader className="bg-slate-900">
-                                    <TableRow className="hover:bg-transparent border-none h-14">
-                                        <TableHead className="text-white px-6">INVOICE NO *</TableHead>
-                                        <TableHead className="text-white px-4">ITEM DESCRIPTION *</TableHead>
-                                        <TableHead className="text-white px-4 text-center">PKGS</TableHead>
-                                        <TableHead className="text-white px-8 text-right">WEIGHT (MT)</TableHead>
+                                    <TableRow className="hover:bg-transparent border-none h-12">
+                                        <TableHead className="text-white px-6 text-[9px] font-black uppercase">INVOICE NO *</TableHead>
+                                        <TableHead className="text-white px-4 text-[9px] font-black uppercase">ITEM DESCRIPTION *</TableHead>
+                                        <TableHead className="text-white px-4 text-center text-[9px] font-black uppercase">PKGS</TableHead>
+                                        <TableHead className="text-white px-8 text-right text-[9px] font-black uppercase">WEIGHT (MT)</TableHead>
                                         <TableHead className="w-16"></TableHead>
                                     </TableRow>
                                 </TableHeader>

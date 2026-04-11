@@ -70,12 +70,15 @@ export interface Shipment {
   originPlantId: string;
   consignor: string;
   consignorGtin?: string;
+  consignorCode?: string;
   customerCode?: string;
   loadingPoint: string;
   billToParty: string;
   billToGtin?: string;
+  billToCode?: string;
   shipToParty?: string;
   shipToGtin?: string;
+  shipToCode?: string;
   unloadingPoint: string;
   destination: string;
   quantity: number;
@@ -165,14 +168,17 @@ export interface LR {
   driverMobile?: string;
   consignorName: string;
   consignorGtin?: string;
+  consignorCode?: string;
   consignorMobile?: string;
   consignorAddress?: string;
   buyerName: string;
   buyerAddress?: string;
   buyerGtin?: string;
+  buyerCode?: string;
   buyerMobile?: string;
   shipToParty: string;
   shipToGtin?: string;
+  shipToCode?: string;
   shipToMobile?: string;
   from: string;
   to: string;
@@ -182,6 +188,7 @@ export interface LR {
   paymentTerm: string;
   deliveryAddress: string;
   transportMode: string;
+  tripStatus?: string;
 }
 
 export interface Freight {
