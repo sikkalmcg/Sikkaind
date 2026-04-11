@@ -17,7 +17,7 @@ interface LRPrintPreviewModalProps {
 /**
  * @fileOverview LR Print Preview Terminal.
  * Synchronized with react-to-print v2.15.1 standards.
- * Manages triple-copy manifest extraction.
+ * Manages triple-copy manifest extraction with strict paging.
  */
 export default function LRPrintPreviewModal({ isOpen, onClose, lr }: LRPrintPreviewModalProps) {
     const { toast } = useToast();
@@ -25,7 +25,6 @@ export default function LRPrintPreviewModal({ isOpen, onClose, lr }: LRPrintPrev
     const [isPreparing, setIsPreparing] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
 
-    // Registry Print Handshake Node (v2.x Compatible Syntax)
     const handlePrint = useReactToPrint({
         content: () => contentRef.current,
         documentTitle: `LR_${lr.lrNumber || lr.id}`,
@@ -47,9 +46,9 @@ export default function LRPrintPreviewModal({ isOpen, onClose, lr }: LRPrintPrev
     const handleZoomOut = () => setZoom(prev => Math.max(prev - 10, 50));
 
     const copies = [
-        { type: 'CONSIGNOR COPY' },
         { type: 'CONSIGNEE COPY' },
-        { type: 'DRIVER COPY' }
+        { type: 'DRIVER COPY' },
+        { type: 'CONSIGNOR COPY' }
     ];
 
     return (
@@ -90,7 +89,7 @@ export default function LRPrintPreviewModal({ isOpen, onClose, lr }: LRPrintPrev
                         <div 
                             ref={contentRef}
                             id="printable-area"
-                            className="block print:block flex flex-col gap-12 transition-transform duration-200 ease-out print:!transform-none print:!gap-0 print:!p-0 print:w-full"
+                            className="block print:block flex flex-col transition-transform duration-200 ease-out print:!transform-none print:!p-0 print:w-full"
                             style={{ 
                                 transform: `scale(${zoom / 100})`, 
                                 transformOrigin: 'top center',
@@ -100,7 +99,7 @@ export default function LRPrintPreviewModal({ isOpen, onClose, lr }: LRPrintPrev
                             {copies.map((copy, index) => (
                                 <div 
                                     key={copy.type} 
-                                    className="bg-white shadow-2xl print:shadow-none w-full max-w-[210mm] page-break-after-always last:page-break-after-auto print:m-0 border border-slate-200 print:border-none"
+                                    className="bg-white shadow-2xl print:shadow-none w-fit page-break-after-always last:page-break-after-auto print:m-0 border border-slate-200 print:border-none"
                                 >
                                     <PrintableLR 
                                         lr={lr} 

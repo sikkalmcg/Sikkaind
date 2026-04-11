@@ -115,73 +115,63 @@
   }
 
   @keyframes slide-down {
-    from {
-      transform: translateY(-20px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
   }
-  .animate-slide-down {
-    animation: slide-down 0.5s ease-out forwards;
-  }
+  .animate-slide-down { animation: slide-down 0.5s ease-out forwards; }
 
   @keyframes slide-up {
-    from {
-      transform: translateY(20px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
   }
-  .animate-slide-up {
-    animation: slide-up 0.5s ease-out forwards 0.2s;
-    opacity: 0;
-  }
+  .animate-slide-up { animation: slide-up 0.5s ease-out forwards 0.2s; opacity: 0; }
   
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  .animate-fade-in {
-    animation: fade-in 0.5s ease-out forwards;
-  }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
   
   @keyframes slide-in-right {
     from { transform: translateX(100%); }
     to { transform: translateX(0); }
   }
-  .animate-slide-in-right {
-    animation: slide-in-right 0.3s ease-out forwards;
-  }
+  .animate-slide-in-right { animation: slide-in-right 0.3s ease-out forwards; }
 }
 
 @media print {
   @page {
     size: A4 portrait;
-    margin: 5mm; /* Safe print margin */
+    margin: 0mm;
   }
   
-  /* Reset and Hide Everything */
+  html, body {
+    width: 210mm;
+    height: 297mm;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+    background-color: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Reset and Hide Everything except printable area */
   body * {
     visibility: hidden;
   }
   
-  /* Isolate the Target Print Area */
   #printable-area, #printable-area * {
     visibility: visible;
   }
   
   #printable-area {
-    position: relative;
-    width: 100%;
-    margin: 0;
-    padding: 0;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 210mm !important;
+    height: 297mm !important;
     display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .print\:hidden {
@@ -189,16 +179,10 @@
   }
 
   .page-break-after-always {
-    page-break-after: always;
-    display: block;
-    clear: both;
-  }
-
-  /* Force background colors and images */
-  body {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-    background-color: white !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    display: block !important;
+    clear: both !important;
   }
   
   table, tr, td, th {
