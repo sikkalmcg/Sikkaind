@@ -22,12 +22,16 @@ service cloud.firestore {
       );
     }
 
+    /**
+     * Checks if the user is the owner of the document based on the path ID.
+     * Supports both UID and Email based identifiers.
+     */
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && (request.auth.uid == userId || request.auth.token.email == userId);
     }
 
     function isRecordOwner(recordOwnerId) {
-      return request.auth.uid == recordOwnerId;
+      return isSignedIn() && request.auth.uid == recordOwnerId;
     }
 
     function isExistingDoc() {
@@ -65,12 +69,15 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create, update: if isAdmin() || isOwner(userId) || (isSignedIn() && request.auth.token.email == userId);
+      allow create, update: if isAdmin() || isOwner(userId);
       allow delete: if isAdmin();
 
-      // Authorized Notification Node access
+      // Authorized Notification Registry Access
+      // MISSION FIX: Explicitly allow listing for the Notification Bell
       match /notifications/{notifId} {
-        allow read, write: if isOwner(userId) || (isSignedIn() && request.auth.token.email == userId) || isAdmin();
+        allow read, list: if isOwner(userId) || isAdmin();
+        allow create, update: if isSignedIn(); // System can generate alerts
+        allow delete: if isOwner(userId) || isAdmin();
       }
     }
 
@@ -106,7 +113,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // --- MISSION PARTITIONED DATA ---
+    // --- MISSION PARTITIONED DATA (Plants) ---
 
     match /plants/{plantId}/{anyCollection}/{docId} {
       allow read, write: if isSignedIn();
