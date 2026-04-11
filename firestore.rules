@@ -63,10 +63,15 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    match /users/{userEmail} {
+    match /users/{userId} {
       allow read: if isSignedIn();
-      allow create, update: if isAdmin() || (isSignedIn() && request.auth.token.email == userEmail);
+      allow create, update: if isAdmin() || isOwner(userId) || (isSignedIn() && request.auth.token.email == userId);
       allow delete: if isAdmin();
+
+      // Authorized Notification Node access
+      match /notifications/{notifId} {
+        allow read, write: if isOwner(userId) || (isSignedIn() && request.auth.token.email == userId) || isAdmin();
+      }
     }
 
     // --- LOGISTICS MASTER DATA ---
