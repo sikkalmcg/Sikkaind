@@ -57,7 +57,9 @@ function TripBoardContent() {
   const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   
+  // Independent Pagination States
   const [currentPage, setCurrentPage] = useState(1);
+  const [unassignedPage, setUnassignedPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
@@ -84,7 +86,7 @@ function TripBoardContent() {
   const [podUploadTrip, setPodUploadTrip] = useState<any | null>(null);
   const [srnTrip, setSrnTrip] = useState<any | null>(null);
 
-  const [previewLrData, setPreviewLrData] = useState<EnrichedLR | null>(null);
+  const [previewLrData, setLrPreviewData] = useState<EnrichedLR | null>(null);
   const [editLrTrip, setEditLrTrip] = useState<any | null>(null);
   const [editLrCarrier, setEditLrCarrier] = useState<any | null>(null);
 
@@ -245,7 +247,6 @@ function TripBoardContent() {
         const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
         const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
 
-        // REGISTRY FIX Node: Prioritize tripStatus for accurate tab navigation
         const s = (t.tripStatus || t.currentStatusId || 'assigned').toLowerCase().trim().replace(/[\s_-]+/g, '-');
 
         return {
@@ -304,21 +305,12 @@ function TripBoardContent() {
     const normalizedSelected = selectedPlants.map(normalizePlantId);
     return shipments.filter(s => {
         if (!normalizedSelected.includes(normalizePlantId(s.originPlantId))) return false;
-        
         if (fromDate && s.creationDate && s.creationDate < startOfDay(fromDate)) return false;
         if (toDate && s.creationDate && s.creationDate > endOfDay(toDate)) return false;
-
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
-            if (!(
-                s.shipmentId?.toLowerCase().includes(term) ||
-                s.consignor?.toLowerCase().includes(term) ||
-                s.billToParty?.toLowerCase().includes(term)
-            )) {
-                return false;
-            }
+            if (!(s.shipmentId?.toLowerCase().includes(term) || s.consignor?.toLowerCase().includes(term) || s.billToParty?.toLowerCase().includes(term))) return false;
         }
-
         const status = s.currentStatusId?.toLowerCase() || '';
         return status === 'pending' || status === 'partly vehicle assigned';
     }).map(s => {
@@ -330,6 +322,13 @@ function TripBoardContent() {
         };
     });
   }, [shipments, selectedPlants, plants, fromDate, toDate, searchTerm]);
+
+  // UNASSIGNED PAGINATION Node
+  const totalUnassignedPages = Math.ceil(unassignedShipments.length / itemsPerPage);
+  const paginatedUnassigned = useMemo(() => {
+    const start = (unassignedPage - 1) * itemsPerPage;
+    return unassignedShipments.slice(start, start + itemsPerPage);
+  }, [unassignedShipments, unassignedPage, itemsPerPage]);
 
   const handleAction = async (type: string, trip: any) => {
     if (type === 'view') setViewTripData(trip);
@@ -553,33 +552,19 @@ function TripBoardContent() {
       
       const s = t.normalizedStatus;
       switch (activeTab) {
-        case 'open-order': 
-            return s === 'assigned' || s === 'vehicle-assigned';
-        case 'loading': 
-            return s === 'yard' || s === 'yard/loading' || s === 'loading' || s === 'loaded' || s === 'loading-complete';
-        case 'transit': 
-            return s === 'in-transit';
-        case 'arrived': 
-            return s === 'arrived' || s === 'arrival-for-delivery' || s === 'arrive-for-deliver';
-        case 'pod-status': 
-            return s === 'delivered';
-        case 'rejection': 
-            return s === 'rejected';
-        case 'closed': 
-            return s === 'closed';
-        default: 
-            return true;
+        case 'open-order': return s === 'assigned' || s === 'vehicle-assigned';
+        case 'loading': return s === 'yard' || s === 'yard/loading' || s === 'loading' || s === 'loaded' || s === 'loading-complete';
+        case 'transit': return s === 'in-transit';
+        case 'arrived': return s === 'arrived' || s === 'arrival-for-delivery' || s === 'arrive-for-deliver';
+        case 'pod-status': return s === 'delivered';
+        case 'rejection': return s === 'rejected';
+        case 'closed': return s === 'closed';
+        default: return true;
       }
     }).filter(t => {
       if (!searchTerm) return true;
       const s = searchTerm.toLowerCase();
-      return (
-        t.tripId?.toLowerCase().includes(s) ||
-        t.vehicleNumber?.toLowerCase().includes(s) ||
-        t.lrNumber?.toLowerCase().includes(s) ||
-        t.consignor?.toLowerCase().includes(s) ||
-        t.consignee?.toLowerCase().includes(s)
-      );
+      return (t.tripId?.toLowerCase().includes(s) || t.vehicleNumber?.toLowerCase().includes(s) || t.lrNumber?.toLowerCase().includes(s) || t.consignor?.toLowerCase().includes(s) || t.consignee?.toLowerCase().includes(s));
     });
   }, [joinedData, activeTab, fromDate, toDate, searchTerm]);
 
@@ -598,25 +583,16 @@ function TripBoardContent() {
     return res;
   }, [joinedData]);
 
+  // ASSIGNED TRIPS PAGINATION Node
+  const totalPages = Math.ceil(processedData.length / itemsPerPage);
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return processedData.slice(start, start + itemsPerPage);
   }, [processedData, currentPage, itemsPerPage]);
 
-  const totalPages = Math.ceil(processedData.length / itemsPerPage);
-
   const handleDownloadExcel = () => {
     const exportData = processedData.map(t => ({
-        'Plant': t.plantName,
-        'Trip ID': t.tripId,
-        'Vehicle Number': t.vehicleNumber,
-        'LR Number': t.lrNumber,
-        'Consignor': t.consignor,
-        'Consignee': t.consignee,
-        'Destination': t.unloadingPoint,
-        'Weight (MT)': t.dispatchedQty,
-        'Status': t.tripStatus,
-        'Date': t.startDate ? format(t.startDate, 'dd-MM-yy HH:mm') : '--'
+        'Plant': t.plantName, 'Trip ID': t.tripId, 'Vehicle Number': t.vehicleNumber, 'LR Number': t.lrNumber, 'Consignor': t.consignor, 'Consignee': t.consignee, 'Destination': t.unloadingPoint, 'Weight (MT)': t.dispatchedQty, 'Status': t.tripStatus, 'Date': t.startDate ? format(t.startDate, 'dd-MM-yy HH:mm') : '--'
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
@@ -665,7 +641,7 @@ function TripBoardContent() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); }} className="w-full">
+        <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); setUnassignedPage(1); }} className="w-full">
           <TabsList className="bg-transparent h-10 p-0 border-b-0 gap-8 justify-start overflow-x-auto custom-scrollbar">
             {[
                 { id: 'open-order', label: 'Open Order', count: counts.openOrder },
@@ -699,15 +675,25 @@ function TripBoardContent() {
                         {unassignedShipments.length === 0 ? (
                             <div className="text-center py-6 text-slate-400 text-xs font-bold bg-slate-50 rounded-xl border border-dashed">No open orders pending allocation.</div>
                         ) : (
-                            <OrdersTable 
-                                data={unassignedShipments} 
-                                tab="pending" 
-                                onAssign={(order) => { setSelectedShipment(order); setAssignModalOpen(true); }}
-                                onEditAssignment={() => {}}
-                                onViewOrder={() => {}} onViewTrip={() => {}} onViewLR={() => {}}
-                                onShortClose={() => {}} onCancelOrder={() => {}} onRestoreOrder={() => {}} onCancelAssignment={() => {}}
-                                isAdmin={isAdminSession}
-                            />
+                            <>
+                                <OrdersTable 
+                                    data={paginatedUnassigned} 
+                                    tab="pending" 
+                                    onAssign={(order) => { setSelectedShipment(order); setAssignModalOpen(true); }}
+                                    onEditAssignment={() => {}}
+                                    onViewOrder={() => {}} onViewTrip={() => {}} onViewLR={() => {}}
+                                    onShortClose={() => {}} onCancelOrder={() => {}} onRestoreOrder={() => {}} onCancelAssignment={() => {}}
+                                    isAdmin={isAdminSession}
+                                />
+                                <Pagination 
+                                    currentPage={unassignedPage} 
+                                    totalPages={totalUnassignedPages} 
+                                    onPageChange={setUnassignedPage} 
+                                    itemCount={unassignedShipments.length} 
+                                    canPreviousPage={unassignedPage > 1} 
+                                    canNextPage={unassignedPage < totalUnassignedPages} 
+                                />
+                            </>
                         )}
                     </div>
                 )}
@@ -722,7 +708,7 @@ function TripBoardContent() {
                     />
                     <Pagination 
                         currentPage={currentPage} totalPages={totalPages} 
-                        onPageChange={setCurrentPage} itemCount={paginatedData.length} 
+                        onPageChange={setCurrentPage} itemCount={processedData.length} 
                         canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPages} 
                     />
                 </div>
