@@ -4,34 +4,99 @@ service cloud.firestore {
 
     // --- GLOBAL HELPER FUNCTIONS ---
 
+    // Check if the request is from an authenticated operator
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    // Check if the operator has root administrative privileges
+    // Logic: Matches hardcoded system admin emails or admin role
+    function isRootAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'sikkaind.admin@sikka.com' || 
+        request.auth.token.email == 'sikkalmcg@gmail.com' ||
+        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
+      );
     }
 
-    // --- COLLECTION RULES ---
+    // --- COLLECTION SPECIFIC RULES ---
 
-    match /users/{userId} {
-      allow get, list: if isSignedIn();
-      allow create, update: if isSignedIn() && request.auth.uid == userId;
-      allow delete: if isAdmin();
+    // User Identities: Operators can read the registry, but only update their own profile
+    match /users/{userEmail} {
+      allow read: if isSignedIn();
+      allow create, update: if isRootAdmin() || (isSignedIn() && request.auth.token.email == userEmail);
+      allow delete: if isRootAdmin();
     }
 
-    /**
-     * @description Rules for public contact enquiries.
-     * Allow anyone to send a message, but only admins to read them.
-     */
-    match /contact_enquiries/{enquiryId} {
-      allow create: if true;
-      allow read, list, update, delete: if isAdmin();
+    // Master Registry: Plants, Carriers, Vehicles, and Pumps
+    match /logistics_plants/{plantId} {
+      allow read: if isSignedIn();
+      allow write: if isRootAdmin();
+    }
+    
+    match /carriers/{carrierId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // Allow operators to add/edit carriers
     }
 
-    // Fallback for other mission-critical collections
-    match /{allPaths=**} {
+    match /vehicles/{vehicleId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    match /fuel_pumps/{pumpId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    match /logistics_parties/{partyId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Partitioned Data: Shipments, Trips, LRs, and Fuel Entries per Plant
+    match /plants/{plantId}/{anyCollection}/{docId} {
       allow read, write: if isSignedIn();
+      // Note: For enterprise scaling, add: && (isRootAdmin() || plantId in get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.plantIds)
+    }
+
+    // Global Trips Registry (Duplicate node for cross-plant tracking)
+    match /trips/{tripId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Gate Presence Monitoring
+    match /vehicleEntries/{entryId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Audit and Archive Nodes
+    match /activity_logs/{logId} {
+      allow create: if isSignedIn();
+      allow read: if isRootAdmin();
+      allow update, delete: if false; // Audit logs are immutable
+    }
+
+    match /recycle_bin/{itemId} {
+      allow create: if isSignedIn();
+      allow read: if isRootAdmin();
+      allow delete: if isRootAdmin();
+    }
+
+    // Sequence Counters for ID Generation
+    match /counters/{counterId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // GPS and System Settings
+    match /gps_settings/{settingId} {
+      allow read: if isSignedIn();
+      allow write: if isRootAdmin();
+    }
+
+    // Fallback for any other nodes
+    match /{allPaths=**} {
+      allow read, write: if isRootAdmin();
     }
   }
 }
