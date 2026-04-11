@@ -23,7 +23,7 @@ interface PrintableLRProps {
  * @fileOverview SIKKA LMC - Precision LR Manifest Registry.
  * Engineered to match office standard reference image with strict A4 paging.
  * Ensures 1 page per copy, exact visual alignment, and mission logic.
- * Updated: 4-Column Grid (Removed Fleet Category, Added Trip ID Node).
+ * Updated: 4-Column Grid, Right-aligned Copy Indicator.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -126,10 +126,11 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   return (
     <div className="A4-page p-[12mm] bg-white text-black font-sans text-[8.5pt] leading-tight flex flex-col relative box-border h-[297mm] w-[210mm] overflow-hidden select-text border-none mx-auto">
       
-      {/* 1. TOP INDICATOR NODE */}
-      <div className="text-center mb-4 shrink-0">
-        <span className="text-[10pt] font-black uppercase tracking-[0.8em] text-slate-900">{copyType}</span>
-        <div className="h-[1.5pt] bg-slate-900 w-full mt-1.5" />
+      {/* 1. TOP INDICATOR NODE (RIGHT ALIGNED) */}
+      <div className="flex justify-end mb-4 shrink-0">
+        <div className="border-2 border-black px-4 py-1 bg-slate-50 shadow-sm">
+            <span className="text-[9pt] font-black uppercase tracking-widest text-slate-900 leading-none">{copyType}</span>
+        </div>
       </div>
 
       {/* 2. HEADER REGISTRY */}
