@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -244,7 +245,8 @@ function TripBoardContent() {
         const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
         const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
 
-        const s = (t.currentStatusId || t.tripStatus || 'assigned').toLowerCase().trim().replace(/[\s_-]+/g, '-');
+        // REGISTRY FIX Node: Prioritize tripStatus for accurate tab navigation
+        const s = (t.tripStatus || t.currentStatusId || 'assigned').toLowerCase().trim().replace(/[\s_-]+/g, '-');
 
         return {
             ...t,
@@ -733,7 +735,7 @@ function TripBoardContent() {
             isOpen={isAssignModalOpen}
             onClose={() => { setAssignModalOpen(false); setEditingTrip(null); }}
             shipment={selectedShipment}
-            trip={editingTrip as any}
+            trip={editingTrip}
             carriers={dbCarriers || []}
             onAssignmentComplete={() => { setAssignModalOpen(false); setEditingTrip(null); }}
         />

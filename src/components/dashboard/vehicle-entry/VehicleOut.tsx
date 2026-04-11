@@ -22,7 +22,7 @@ import {
     Sparkles
 } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, query, where, doc, updateDoc, serverTimestamp, onSnapshot, getDoc, orderBy } from "firebase/firestore";
+import { collection, query, where, doc, updateDoc, serverTimestamp, onSnapshot, getDoc, orderBy, setDoc } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { useLoading } from '@/context/LoadingContext';
@@ -175,7 +175,13 @@ export default function VehicleOut() {
             try {
                 const globalTripRef = doc(firestore, 'trips', entry.tripId);
                 const plantTripRef = doc(firestore, `plants/${entry.plantId}/trips`, entry.tripId);
-                const tripUpdate = { tripStatus: 'In Transit', outDate: ts, lastUpdated: ts };
+                // MISSION FIX: Update both status fields to ensure correctly tabbed navigation
+                const tripUpdate = { 
+                    tripStatus: 'In Transit', 
+                    currentStatusId: 'in-transit',
+                    outDate: ts, 
+                    lastUpdated: ts 
+                };
                 
                 const [gSnap, pSnap] = await Promise.all([
                     getDoc(globalTripRef),

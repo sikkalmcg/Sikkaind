@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -11,7 +12,7 @@ import { mockTrips, mockPlants } from '@/lib/mock-data';
 import type { WithId, Trip, StatusUpdate, SubUser, Plant } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser } from "@/firebase";
-import { collection, getDocs, query, where, doc, getDoc, updateDoc, serverTimestamp, Timestamp, addDoc, orderBy, limit } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, getDoc, updateDoc, serverTimestamp, Timestamp, addDoc, orderBy, limit, setDoc } from "firebase/firestore";
 import { Loader2, WifiOff, Filter } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -92,7 +93,7 @@ function StatusManagementContent() {
                     tripSnap.forEach(doc => {
                         const data = doc.data();
                         const status = data.currentStatusId?.toLowerCase();
-                        if (status !== 'delivered' && status !== 'cancelled') {
+                        if (status !== 'delivered' && status !== 'cancelled' && status !== 'closed') {
                             allActive.push({ 
                                 id: doc.id, 
                                 ...data,
@@ -123,7 +124,7 @@ function StatusManagementContent() {
                 // Fallback to filtered mock trips if cloud results are empty
                 const filteredMock = mockTrips.filter(t => 
                     authorizedPlantIds.includes(t.originPlantId) && 
-                    !['delivered', 'cancelled'].includes(t.currentStatusId.toLowerCase())
+                    !['delivered', 'cancelled', 'closed'].includes(t.currentStatusId.toLowerCase())
                 );
                 setActiveTrips(filteredMock);
             } else {
@@ -164,25 +165,30 @@ function StatusManagementContent() {
     } else {
       try {
           const tripRef = doc(firestore, `plants/${trip.originPlantId}/trips`, trip.id);
+          const globalTripRef = doc(firestore, 'trips', trip.id);
           const historyRef = collection(firestore, `plants/${trip.originPlantId}/status_updates`);
           
+          // MISSION FIX: Keep tripStatus and currentStatusId in sync for registry accuracy
           const updateData: any = {
-              currentStatusId: newStatus,
+              tripStatus: newStatus,
+              currentStatusId: newStatus.toLowerCase().trim().replace(/[\s_-]+/g, '-'),
               lastUpdated: serverTimestamp(),
           };
           if (newStatus.toLowerCase() === 'arrival for delivery' || newStatus.toLowerCase() === 'arrival-for-delivery') {
               updateData.arrivalDate = serverTimestamp();
           }
+          
           await updateDoc(tripRef, updateData);
+          await setDoc(globalTripRef, updateData, { merge: true });
 
           // Log to Status History
-          const displayName = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com' ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0]);
+          const displayName = (user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com') ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0]);
           await addDoc(historyRef, {
               tripId: trip.tripId,
               vehicleNumber: trip.vehicleNumber || 'N/A',
               shipToParty: trip.shipToParty || 'N/A',
               unloadingPoint: trip.unloadingPoint || 'N/A',
-              previousStatus: trip.currentStatusId,
+              previousStatus: trip.tripStatus || trip.currentStatusId,
               previousStatusTimestamp: trip.lastUpdated || trip.startDate,
               newStatus: newStatus,
               timestamp: serverTimestamp(),
@@ -206,33 +212,38 @@ function StatusManagementContent() {
 
     try {
         const tripRef = doc(firestore, `plants/${trip.originPlantId}/trips`, trip.id);
+        const globalTripRef = doc(firestore, 'trips', trip.id);
         const shipmentRef = doc(firestore, `plants/${trip.originPlantId}/shipments`, trip.shipmentIds[0]);
         const historyRef = collection(firestore, `plants/${trip.originPlantId}/status_updates`);
 
         const updateTimestamp = serverTimestamp();
 
-        await updateDoc(tripRef, {
+        const updateData = {
+            tripStatus: 'Delivered',
             currentStatusId: 'delivered',
             actualCompletionDate: updateTimestamp,
             lastUpdated: updateTimestamp,
             unloadQty: unloadQty,
             podReceived: true,
             podUrl: podBase64,
-        });
+        };
+
+        await updateDoc(tripRef, updateData);
+        await setDoc(globalTripRef, updateData, { merge: true });
 
         await updateDoc(shipmentRef, {
-            currentStatusId: 'delivered',
+            currentStatusId: 'Delivered',
             lastUpdateDate: updateTimestamp,
         });
 
         // Log to Status History
-        const displayName = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com' ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0]);
+        const displayName = (user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com') ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0]);
         await addDoc(historyRef, {
             tripId: trip.tripId,
             vehicleNumber: trip.vehicleNumber || 'N/A',
             shipToParty: trip.shipToParty || 'N/A',
             unloadingPoint: trip.unloadingPoint || 'N/A',
-            previousStatus: trip.currentStatusId,
+            previousStatus: trip.tripStatus || trip.currentStatusId,
             previousStatusTimestamp: trip.lastUpdated || trip.startDate,
             newStatus: 'delivered',
             timestamp: updateTimestamp,
