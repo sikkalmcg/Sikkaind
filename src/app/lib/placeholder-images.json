@@ -1,0 +1,53 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "hero-cloud",
+      "description": "Abstract enterprise cloud network visualization",
+      "imageUrl": "https://picsum.photos/seed/cloud-hero/1200/800",
+      "imageHint": "enterprise cloud"
+    },
+    {
+      "id": "logo-1",
+      "description": "Enterprise customer logo 1",
+      "imageUrl": "https://picsum.photos/seed/corp1/200/100",
+      "imageHint": "corporate logo"
+    },
+    {
+      "id": "logo-2",
+      "description": "Enterprise customer logo 2",
+      "imageUrl": "https://picsum.photos/seed/corp2/200/100",
+      "imageHint": "tech company logo"
+    },
+    {
+      "id": "logo-3",
+      "description": "Enterprise customer logo 3",
+      "imageUrl": "https://picsum.photos/seed/corp3/200/100",
+      "imageHint": "industrial logo"
+    },
+    {
+      "id": "logo-4",
+      "description": "Enterprise customer logo 4",
+      "imageUrl": "https://picsum.photos/seed/corp4/200/100",
+      "imageHint": "financial logo"
+    },
+    {
+      "id": "product-compute",
+      "description": "Cloud compute visualization",
+      "imageUrl": "https://picsum.photos/seed/compute/400/300",
+      "imageHint": "server architecture"
+    },
+    {
+      "id": "product-storage",
+      "description": "Cloud storage visualization",
+      "imageUrl": "https://picsum.photos/seed/storage/400/300",
+      "imageHint": "data center"
+    },
+    {
+      "id": "product-ai",
+      "description": "AI and Machine Learning visualization",
+      "imageUrl": "https://picsum.photos/seed/ai/400/300",
+      "imageHint": "neural network"
+    }
+  ]
+}
