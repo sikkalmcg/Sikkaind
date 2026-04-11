@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -28,7 +29,6 @@ import { useLoading } from '@/context/LoadingContext';
 
 const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-const ITEMS_PER_PAGE = 10;
 
 const formSchema = z.object({
   name: z.string().min(1, 'Party Name is required.'),
@@ -55,6 +55,7 @@ export default function PartyCreationTab() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isUploading, setIsUploading] = useState(false);
   const [editingParty, setEditingParty] = useState<WithId<Party> | null>(null);
   const [isPanAutoFilled, setIsPanAutoFilled] = useState(false);
@@ -97,7 +98,6 @@ export default function PartyCreationTab() {
     const newName = values.name.trim().toUpperCase();
     const newCode = values.customerCode.trim().toUpperCase();
     const newCity = values.city.trim().toUpperCase();
-    const newState = values.state?.trim().toUpperCase() || '';
     const newAddress = values.address.trim().toUpperCase();
 
     const isDuplicate = (parties || []).some(p => 
@@ -188,7 +188,7 @@ export default function PartyCreationTab() {
             
             let matchedType = PartyTypes.find(t => t.toLowerCase() === type.toLowerCase());
             if (!matchedType && (type.toLowerCase() === 'consignee' || type.toLowerCase() === 'consignee & ship to')) {
-                matchedType = 'Consignee & Ship to';
+                matchedType = 'Consignee & Ship to party';
             }
 
             if (!matchedType) throw new Error(`Invalid Type: ${type}`);
@@ -255,7 +255,7 @@ export default function PartyCreationTab() {
       'City': p.city || 'N/A',
       'State': p.state || 'N/A'
     }));
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, ws, "LogisticsParties");
     XLSX.writeFile(workbook, "Logistics_Party_Registry.xlsx");
@@ -342,8 +342,8 @@ export default function PartyCreationTab() {
     return sortableItems;
   }, [filteredParties, sortConfig]);
 
-  const totalPages = Math.ceil(sortedParties.length / ITEMS_PER_PAGE);
-  const paginatedParties = sortedParties.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(sortedParties.length / itemsPerPage);
+  const paginatedParties = sortedParties.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500">
@@ -601,6 +601,15 @@ export default function PartyCreationTab() {
             </Table>
           </div>
           <div className="p-6 bg-slate-50 border-t flex items-center justify-between">
+            <div className="flex items-center gap-3">
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Rows:</span>
+                <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
+                    <SelectTrigger className="h-8 w-20 bg-white border-slate-200 rounded-lg font-bold text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                        {[10, 25, 50, 100, 200].map(v => <SelectItem key={v} value={v.toString()} className="font-bold">{v}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemCount={filteredParties.length} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPages} />
           </div>
         </CardContent>
