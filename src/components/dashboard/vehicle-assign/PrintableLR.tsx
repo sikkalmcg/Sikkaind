@@ -23,7 +23,7 @@ interface PrintableLRProps {
  * @fileOverview SIKKA LMC - Precision LR Manifest Registry.
  * Engineered to match office standard reference image with strict A4 paging.
  * Ensures 1 page per copy, exact visual alignment, and mission logic.
- * Updated: Enhanced header with State, Code, Email, Website and Multi-Phone.
+ * Updated: Included GSTIN and CODE nodes in party identification blocks.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -151,10 +151,10 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             </p>
             <div className="text-[7pt] font-black text-slate-400 flex flex-wrap gap-x-4 pt-1 uppercase leading-snug">
               <p>PHONE: <span className="text-slate-900 font-mono">{lr.carrier?.mobile || '9136688004'}</span></p>
-              <p>GSTIN: <span className="font-mono text-slate-900">{lr.carrier?.gstin || '09AYQPS6936B1ZV'}</span></p>
-              <p>PAN: <span className="font-mono text-slate-900">{lr.carrier?.pan || 'AYQPS6936B'}</span></p>
-              <p>STATE: <span className="text-slate-900">{lr.carrier?.stateName || 'UTTAR PRADESH'}</span></p>
-              <p>CODE: <span className="text-slate-900">{lr.carrier?.stateCode || '09'}</span></p>
+              <p>GSTIN: <span className="font-mono text-slate-900">{lr.carrier?.gstin || '--'}</span></p>
+              <p>PAN: <span className="font-mono text-slate-900">{lr.carrier?.pan || '--'}</span></p>
+              <p>STATE: <span className="text-slate-900">{lr.carrier?.stateName || '--'}</span></p>
+              <p>CODE: <span className="text-slate-900">{lr.carrier?.stateCode || '--'}</span></p>
               {lr.carrier?.email && <p>E-MAIL: <span className="text-slate-900 lowercase font-bold">{lr.carrier.email}</span></p>}
               {lr.carrier?.website && <p>WEB: <span className="text-slate-900 lowercase font-bold">{lr.carrier.website}</span></p>}
             </div>
@@ -199,18 +199,21 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       {/* 4. PARTY REGISTRY PILLS */}
       <div className="grid grid-cols-3 gap-6 mb-8 shrink-0">
         {[
-            { title: 'CONSIGNOR (SENDER)', name: lr.consignorName, addr: lr.consignorAddress || lr.from, code: lr.consignorCode },
-            { title: 'CONSIGNEE (RECEIVER)', name: lr.buyerName || lr.shipToParty, addr: buyerAddress, code: lr.buyerCode },
-            { title: 'SHIP TO PARTY', name: lr.shipToParty || lr.buyerName, addr: shipToAddress, code: lr.shipToCode }
+            { title: 'CONSIGNOR (SENDER)', name: lr.consignorName, addr: lr.consignorAddress || lr.from, code: lr.consignorCode, gstin: lr.consignorGtin },
+            { title: 'CONSIGNEE (RECEIVER)', name: lr.buyerName || lr.shipToParty, addr: buyerAddress, code: lr.buyerCode, gstin: lr.buyerGtin },
+            { title: 'SHIP TO PARTY', name: lr.shipToParty || lr.buyerName, addr: shipToAddress, code: lr.shipToCode, gstin: lr.shipToGtin }
         ].map((node, idx) => (
-            <div key={idx} className="border-2 border-black rounded-[1.5rem] p-4 pt-6 relative min-h-[110px] flex flex-col justify-center bg-white shadow-md text-center">
+            <div key={idx} className="border-2 border-black rounded-[1.5rem] p-4 pt-6 relative min-h-[120px] flex flex-col justify-center bg-white shadow-md text-center">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-1 rounded-full text-[6.5pt] font-black uppercase tracking-widest shadow-xl whitespace-nowrap">
                     {node.title}
                 </div>
                 <div className="space-y-1 mt-1">
                     <p className="text-[9pt] font-black uppercase text-slate-900 leading-tight line-clamp-2">{node.name}</p>
                     <p className="text-[7.5pt] font-bold text-slate-500 leading-snug italic uppercase line-clamp-2">{node.addr}</p>
-                    <p className="font-black text-slate-900 text-[8pt] pt-1">CODE: <span className="font-mono uppercase">{node.code || '--'}</span></p>
+                    <div className="flex flex-col gap-0.5 pt-1.5 border-t border-slate-100 mt-1.5">
+                        <p className="font-black text-slate-900 text-[7.5pt]">GSTIN: <span className="font-mono uppercase">{node.gstin || '--'}</span></p>
+                        <p className="font-black text-slate-900 text-[7.5pt]">CODE: <span className="font-mono uppercase">{node.code || '--'}</span></p>
+                    </div>
                 </div>
             </div>
         ))}
@@ -232,13 +235,13 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <tbody className="text-[9pt]">
                 {displayItems.map((item, idx) => (
                 <tr key={idx} className="align-middle border-b-2 border-slate-100 last:border-b-0">
-                    <td className="border-r-2 border-slate-100 px-1 py-1.5 font-black uppercase align-middle">
+                    <td className="border-r-2 border-slate-100 px-1 py-1 font-black uppercase align-middle">
                         {renderPairedValues(item.invoiceNumber)}
                     </td>
-                    <td className="border-r-2 border-slate-100 px-1 py-1.5 font-black uppercase align-middle">
+                    <td className="border-r-2 border-slate-100 px-1 py-1 font-black uppercase align-middle">
                         {renderPairedValues(item.ewaybillNumber)}
                     </td>
-                    <td className="border-r-2 border-slate-100 px-4 py-2 uppercase italic font-black text-slate-700 leading-tight tracking-tighter text-center">
+                    <td className="border-r-2 border-slate-100 px-4 py-1 uppercase italic font-black text-slate-700 leading-tight tracking-tighter text-center">
                         {item.itemDescription}
                     </td>
                     <td className="border-r-2 border-slate-100 px-1 text-center font-black text-[12pt] text-slate-900">{item.units}</td>
