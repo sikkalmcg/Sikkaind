@@ -568,7 +568,7 @@ export default function PartyCreationTab() {
                             </div>
                             <div className="p-10"><p className="text-sm font-medium text-slate-600 leading-relaxed italic">"Proceeding will permanently remove <span className="font-black text-slate-900">{selectedIds.length} party nodes</span> from the active registry. Records will be archived in the system recycle node."</p></div>
                             <AlertDialogFooter className="bg-slate-50 p-6 flex-row justify-end gap-3 border-t">
-                                <AlertDialogCancel className="font-bold border-slate-200 px-8 rounded-xl m-0 h-11">Abort</AlertDialogCancel>
+                                <AlertDialogCancel className="font-bold border-slate-200 px-8 h-10 rounded-xl m-0 h-11">Abort</AlertDialogCancel>
                                 <AlertDialogAction onClick={handleBulkDelete} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest px-10 h-11 rounded-xl shadow-lg border-none">Confirm Purge</AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>

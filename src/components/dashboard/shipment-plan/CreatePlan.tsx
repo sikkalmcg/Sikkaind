@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -250,7 +251,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   }, [isFtl, setValue]);
 
   const { data: qtyTypes } = useCollection<MasterQtyType>(useMemoFirebase(() => firestore ? query(collection(firestore, "material_types")) : null, [firestore]));
-  const { data: parties } = useCollection<Party>(useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_parties")) : null, [firestore]));
+  const { data: parties } = useCollection<Party>(useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_parties"), where("isDeleted", "==", false)) : null, [firestore]));
   
   const { data: carriers } = useCollection<Carrier>(useMemoFirebase(() => {
     if (!firestore || !originPlantId) return null;
@@ -435,11 +436,11 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
   const handleExportTemplate = () => {
     const headers = [
-        "Plant ID", "Consignor Name", "Consignor GSTIN", "From (City)", "Consignee Name", "Consignee GSTIN", "Ship To Name", "Ship To GSTIN", 
+        "Plant ID", "Consignor Name", "Consignor GSTIN", "From (City)", "Consignee Name", "Consignee GSTIN", "Ship To Name", "Ship To Party Code", "Ship To GSTIN", 
         "Destination Point", "UOM", "Quantity", "Invoice Number", "E-Waybill Number", "LR Number", "LR Date", "Payment Term", "Delivery Address", "Item Description", "Units", "Carrier Name"
     ];
     const sample = [
-        ["1426", "TATA CHEMICALS", "27AABCU9567L1Z5", "MUMBAI", "BIGMART RETAIL", "07AABCD1234E1Z3", "BIGMART WH", "07AABCD1234E1Z3", "GHAZIABAD", "MT", "25.000", "INV-9988", "EWB-123456", "LR123", "01-04-2026", "Paid", "C-17 UPSIDC GZB", "TATA SALT 50KG BAGS", "500", "Sikka LMC"]
+        ["1426", "TATA CHEMICALS", "27AABCU9567L1Z5", "MUMBAI", "BIGMART RETAIL", "07AABCD1234E1Z3", "BIGMART WH", "CUST001", "07AABCD1234E1Z3", "GHAZIABAD", "MT", "25.000", "INV-9988", "EWB-123456", "LR123", "01-04-2026", "Paid", "C-17 UPSIDC GZB", "TATA SALT 50KG BAGS", "500", "Sikka LMC"]
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers, ...sample]);
     const wb = XLSX.utils.book_new();
@@ -470,12 +471,12 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
             const jsonData = XLSX.utils.sheet_to_json(sheet) as any[];
 
             const getVal = (row: any, keys: string[]) => {
-                const foundKey = Object.keys(row).find(k => keys.some(search => k.toLowerCase().replace(/\s/g, '') === search.toLowerCase().replace(/\s/g, '')));
+                const foundKey = Object.keys(row).find(k => keys.some(search => k.toLowerCase().replace(/\s+/g, '') === search.toLowerCase().replace(/\s+/g, '')));
                 return foundKey ? row[foundKey]?.toString().trim() : '';
             };
 
             const getDateVal = (row: any, keys: string[]) => {
-                const foundKey = Object.keys(row).find(k => keys.some(search => k.toLowerCase().replace(/\s/g, '') === search.toLowerCase().replace(/\s/g, '')));
+                const foundKey = Object.keys(row).find(k => keys.some(search => k.toLowerCase().replace(/\s+/g, '') === search.toLowerCase().replace(/\s+/g, '')));
                 if (!foundKey) return null;
                 const raw = row[foundKey];
                 if (!raw) return null;
@@ -514,6 +515,23 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     const termRaw = getVal(row, ["Payment Term", "Term"]) || 'Paid';
                     const term = termRaw.toLowerCase().includes('to pay') ? 'To Pay' : 'Paid';
 
+                    // REGISTRY HANDSHAKE: Resolve Ship To Details from Code
+                    const shipToCode = getVal(row, ["Ship To Party Code", "Ship To Code", "Code"])?.toUpperCase();
+                    let resolvedShipToName = getVal(row, ["Ship To Name", "Ship To"]);
+                    let resolvedShipToGtin = getVal(row, ["Ship To GSTIN", "Ship To Gst"]);
+                    let resolvedDeliveryAddress = getVal(row, ["Delivery Address", "Address"]);
+                    let resolvedDestination = getVal(row, ["Destination Point", "To"]);
+
+                    if (shipToCode) {
+                        const partyMatch = activeParties.find(p => p.customerCode?.toUpperCase() === shipToCode);
+                        if (partyMatch) {
+                            resolvedShipToName = partyMatch.name;
+                            resolvedShipToGtin = partyMatch.gstin || '';
+                            resolvedDeliveryAddress = partyMatch.address || partyMatch.city || '';
+                            resolvedDestination = partyMatch.city || '';
+                        }
+                    }
+
                     orderGroups[groupKey] = {
                         originPlantId: uiPlantId,
                         consignor: getVal(row, ["Consignor Name", "Consignor"]),
@@ -522,15 +540,15 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         loadingPoint: getVal(row, ["From", "From (City)", "Lifting Point"]),
                         billToParty: consignee,
                         billToGtin: getVal(row, ["Consignee GSTIN", "Consignee Gst"]),
-                        shipToParty: getVal(row, ["Ship To Name", "Ship To"]),
-                        shipToGtin: getVal(row, ["Ship To GSTIN", "Ship To Gst"]),
-                        unloadingPoint: getVal(row, ["Destination Point", "To"]),
+                        shipToParty: resolvedShipToName,
+                        shipToGtin: resolvedShipToGtin,
+                        unloadingPoint: resolvedDestination,
                         materialTypeId: (getVal(row, ["UOM", "Unit"]) || 'METRIC TON').toUpperCase(),
                         quantity: 0,
                         lrNumber: lr,
                         lrDate: getDateVal(row, ["LR Date", "LRDate", "Date"]),
                         paymentTerm: term,
-                        deliveryAddress: getVal(row, ["Delivery Address", "Address"]),
+                        deliveryAddress: resolvedDeliveryAddress,
                         carrierId: autoCarrierId,
                         carrierName: autoCarrierName || getVal(row, ["Carrier Name", "Carrier"]),
                         rawItems: []
@@ -643,7 +661,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 </div>
                 
                 <div className="flex flex-col items-center gap-6">
-                    {/* MISSION RULE: Plant Node Select for Bulk Sync */}
                     <div className="flex items-center gap-4 bg-white p-3 rounded-2xl border-2 border-slate-200 shadow-inner">
                         <div className="flex flex-col gap-1">
                             <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1 flex items-center gap-2">
