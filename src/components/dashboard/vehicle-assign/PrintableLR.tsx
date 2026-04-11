@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -155,7 +154,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* TRIP METRICS NODE */}
+      {/* TRIP METRICS NODE - Refined padding and height to prevent clipping */}
       <div className="grid grid-cols-5 border-2 border-black rounded-2xl overflow-hidden mb-8 bg-slate-50 divide-x-2 divide-black shadow-inner">
         {[
           { label: 'VEHICLE REGISTRY', value: vehicleNumber, bold: true },
@@ -164,9 +163,15 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           { label: 'PAYMENT TERM', value: paymentTerm },
           { label: 'DISPATCH NODE', value: dispatchTime, mono: true }
         ].map((node, i) => (
-          <div key={i} className="p-3 text-center flex flex-col justify-center gap-1">
-            <span className="text-[7pt] font-black uppercase text-slate-400 block leading-none tracking-widest">{node.label}</span>
-            <p className={cn("text-[10pt] uppercase leading-none truncate", node.bold ? "font-black text-slate-900" : "font-bold text-slate-700", node.mono && "font-mono tracking-tighter")}>{node.value || 'N/A'}</p>
+          <div key={i} className="py-4 px-2 text-center flex flex-col justify-center gap-1.5">
+            <span className="text-[7pt] font-black uppercase text-slate-400 block leading-tight tracking-widest">{node.label}</span>
+            <p className={cn(
+                "text-[10pt] uppercase leading-tight", 
+                node.bold ? "font-black text-slate-900" : "font-bold text-slate-700", 
+                node.mono && "font-mono tracking-tighter"
+            )}>
+                {node.value || 'N/A'}
+            </p>
           </div>
         ))}
       </div>
@@ -220,7 +225,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 <td className="border-r-2 border-slate-200 px-6 font-black uppercase leading-tight">
                   {renderPairedValues(item.ewaybillNumber)}
                 </td>
-                <td className="border-r-2 border-slate-200 px-6 uppercase truncate py-4 italic text-slate-600">
+                <td className="border-r-2 border-slate-200 px-6 uppercase py-4 italic text-slate-600 leading-snug">
                     {item.itemDescription}
                 </td>
                 <td className="border-r-2 border-slate-200 px-4 text-center font-mono">{item.units}</td>
@@ -267,7 +272,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
       {/* PERMANENT FOOTER STRIP */}
       <div className="mt-4 pt-4 border-t-2 border-black flex flex-col items-center gap-2 shrink-0">
-        <p className="text-[8pt] font-black uppercase text-slate-400 tracking-[0.3em] text-center">NOTE: THIS LORRY RECEIPT WAS GENERATED DIGITALLY AND IS VALID WITHOUT PHYSICAL SEAL</p>
+        <p className="text-[8pt] font-black uppercase text-slate-400 tracking-0.3em text-center">NOTE: THIS LORRY RECEIPT WAS GENERATED DIGITALLY AND IS VALID WITHOUT PHYSICAL SEAL</p>
         <div className="flex items-center gap-10">
             <span className="text-[9pt] font-black uppercase tracking-[0.5em] text-slate-900">PAGE {pageNumber} OF {totalInSeries}</span>
             <div className="h-4 w-px bg-slate-200" />
