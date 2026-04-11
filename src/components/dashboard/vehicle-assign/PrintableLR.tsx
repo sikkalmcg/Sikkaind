@@ -130,7 +130,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const dispatchTime = dispatchDateRaw ? format(parseSafeDate(dispatchDateRaw)!, 'HH:mm') : '11:35';
 
   return (
-    <div className="A4-page p-[8mm] bg-white text-black font-sans text-[8.5pt] leading-tight flex flex-col relative box-border h-[297mm] overflow-hidden select-text print:m-0 print:p-0">
+    <div id="printable-area" className="A4-page p-[12mm] bg-white text-black font-sans text-[8.5pt] leading-tight flex flex-col relative box-border h-[297mm] overflow-hidden select-text print:m-0">
       
       {/* COPY INDICATOR */}
       <div className="text-center mb-3 border-b border-black pb-1 shrink-0">
@@ -230,13 +230,13 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           <tbody className="text-[9pt]">
             {displayItems.map((item, idx) => (
               <tr key={idx} className="align-middle border-b border-slate-200 last:border-b-0 hover:bg-slate-50/50 transition-colors">
-                <td className="border-r border-slate-200 px-2 py-2 font-black uppercase align-middle">
+                <td className="border-r border-slate-200 px-2 py-1 font-black uppercase align-middle">
                   {renderPairedValues(item.invoiceNumber)}
                 </td>
-                <td className="border-r border-slate-200 px-2 py-2 font-black uppercase align-middle">
+                <td className="border-r border-slate-200 px-2 py-1 font-black uppercase align-middle">
                   {renderPairedValues(item.ewaybillNumber)}
                 </td>
-                <td className="border-r border-slate-200 px-5 py-3 uppercase italic font-black text-slate-700 leading-snug tracking-tighter text-center">
+                <td className="border-r border-slate-200 px-5 py-2 uppercase italic font-black text-slate-700 leading-snug tracking-tighter text-center">
                     {item.itemDescription}
                 </td>
                 <td className="border-r border-slate-200 px-2 text-center font-black text-[12pt] text-slate-900">{item.units}</td>
@@ -247,7 +247,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             ))}
             {/* Minimal height stabilization */}
             {displayItems.length === 1 && (
-                <tr className="h-12 border-b border-slate-100 last:border-0"><td colSpan={5}></td></tr>
+                <tr className="h-10 border-b border-slate-100 last:border-0"><td colSpan={5}></td></tr>
             )}
           </tbody>
           <tfoot className="bg-[#1a1d24] font-black h-12 border-t-2 border-black text-[10pt] text-white">

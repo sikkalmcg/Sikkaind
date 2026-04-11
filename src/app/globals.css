@@ -163,7 +163,7 @@
 @media print {
   @page {
     size: A4 portrait;
-    margin: 0;
+    margin: 5mm; /* Safe print margin */
   }
   
   /* Reset and Hide Everything */
@@ -177,9 +177,7 @@
   }
   
   #printable-area {
-    position: absolute;
-    left: 0;
-    top: 0;
+    position: relative;
     width: 100%;
     margin: 0;
     padding: 0;
