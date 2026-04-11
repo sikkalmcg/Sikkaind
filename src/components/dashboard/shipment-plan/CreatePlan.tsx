@@ -34,6 +34,7 @@ const formSchema = z.object({
   consignor: z.string().min(1, 'Consignor is mandatory.'),
   consignorGtin: z.string().optional(),
   consignorAddress: z.string().optional().default(''),
+  customerCode: z.string().optional(),
   loadingPoint: z.string().min(1, 'Lifting city is required.'),
   billToParty: z.string().min(1, 'Consignee is mandatory.'),
   billToGtin: z.string().optional(),
@@ -106,7 +107,7 @@ function AutocompleteInput({ value, onChange, onSearchClick, suggestions, placeh
                                 <div key={suggestion.id} onMouseDown={() => { if(onSelect) onSelect(suggestion); else onChange(suggestion.name); setIsOpen(false); }} className="px-5 py-3 cursor-pointer hover:bg-blue-50 border-b last:border-0 group">
                                     <div className="flex flex-col">
                                         <span className="text-xs font-black uppercase tracking-tight text-slate-700 group-hover:text-blue-900">{suggestion.name}</span>
-                                        <span className="text-[9px] font-bold uppercase text-slate-400">{suggestion.city} | {suggestion.gstin || 'No GSTIN'}</span>
+                                        <span className="text-[9px] font-bold uppercase text-slate-400">{suggestion.city} | {suggestion.customerCode || 'NO CODE'}</span>
                                     </div>
                                 </div>
                             ))}
@@ -140,7 +141,7 @@ function SearchRegistryModal({
         const s = search.toLowerCase();
         return data.filter(item => 
             item.name?.toLowerCase().includes(s) || 
-            item.gstin?.toLowerCase().includes(s) || 
+            item.customerCode?.toLowerCase().includes(s) || 
             item.city?.toLowerCase().includes(s)
         );
     }, [data, search]);
@@ -160,7 +161,7 @@ function SearchRegistryModal({
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input 
-                            placeholder="Search by Name, GSTIN, or City..." 
+                            placeholder="Search by Name, Code, or City..." 
                             value={search} 
                             onChange={(e) => setSearch(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
@@ -177,7 +178,7 @@ function SearchRegistryModal({
                                         filtered.map(item => (
                                             <TableRow key={item.id} className="cursor-pointer h-12 transition-all group hover:bg-blue-50" onClick={() => onSelect(item)}>
                                                 <TableCell className="px-4 font-black text-slate-800 uppercase text-xs">{item.name}</TableCell>
-                                                <TableCell className="px-4 text-center font-mono text-[10px] text-slate-500">{item.gstin || '--'}</TableCell>
+                                                <TableCell className="px-4 text-center font-mono text-[10px] text-blue-700 font-black">{item.customerCode || '--'}</TableCell>
                                                 <TableCell className="px-4 text-right">
                                                     <Button variant="ghost" size="sm" className="h-7 text-blue-600 font-black text-[10px] uppercase">Select</Button>
                                                 </TableCell>
@@ -646,7 +647,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     <div className="flex items-center gap-4 bg-white p-3 rounded-2xl border-2 border-slate-200 shadow-inner">
                         <div className="flex flex-col gap-1">
                             <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1 flex items-center gap-2">
-                                <Factory className="h-3 w-3" /> Select Bulk Node Node *
+                                <Factory className="h-3 w-3" /> Select Bulk Node *
                             </Label>
                             <FormField control={control} name="originPlantId" render={({ field }) => (
                                 <Select onValueChange={field.onChange} value={field.value}>
@@ -894,7 +895,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">Units</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-8 text-right w-40">Weight (MT)</TableHead>
-                                    <TableHead className="w-16"></TableHead>
+                                    <TableHead className="w-12"></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>

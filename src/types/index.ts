@@ -70,6 +70,7 @@ export interface Shipment {
   originPlantId: string;
   consignor: string;
   consignorGtin?: string;
+  customerCode?: string;
   loadingPoint: string;
   billToParty: string;
   billToGtin?: string;
@@ -254,6 +255,7 @@ export interface Party {
   stateCode: string;
   isDeleted?: boolean;
   plantId: string;
+  customerCode?: string;
 }
 
 export interface VehicleEntryExit {

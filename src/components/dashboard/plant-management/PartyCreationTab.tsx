@@ -14,7 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, FileDown, Upload, Search, Edit2, Trash2, UserPlus, History, ShieldCheck, Save, Sparkles, Factory, ArrowUpDown, AlertCircle } from 'lucide-react';
+import { Loader2, FileDown, Upload, Search, Edit2, Trash2, UserPlus, History, ShieldCheck, Save, Sparkles, Factory, ArrowUpDown, AlertCircle, Fingerprint } from 'lucide-react';
 import { PartyTypes } from '@/lib/constants';
 import type { Party, WithId, PartyType, Plant, SubUser } from '@/types';
 import { statesAndUTs } from '@/lib/states';
@@ -32,6 +32,7 @@ const ITEMS_PER_PAGE = 10;
 
 const formSchema = z.object({
   name: z.string().min(1, 'Party Name is required.'),
+  customerCode: z.string().min(1, 'Customer Code is mandatory.').toUpperCase().transform(v => v.replace(/\s+/g, '')),
   type: z.enum(PartyTypes, { required_error: 'Type is required.' }),
   gstin: z.string().optional().or(z.literal('')).refine(val => !val || val.length === 15, "GSTIN must be 15 characters.").refine(val => !val || gstinRegex.test(val.toUpperCase()), {
     message: 'Invalid GSTIN Format (e.g. 09AAAAA0000A1Z0)'
@@ -67,7 +68,7 @@ export default function PartyCreationTab() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: '', type: undefined, gstin: '', pan: '', mobile: '', address: '', city: '', state: '', stateCode: '' },
+    defaultValues: { name: '', customerCode: '', type: undefined, gstin: '', pan: '', mobile: '', address: '', city: '', state: '', stateCode: '' },
   });
 
   const { handleSubmit, watch, reset, setValue, formState: { isSubmitting } } = form;
@@ -94,23 +95,23 @@ export default function PartyCreationTab() {
     if (!firestore) return;
     
     const newName = values.name.trim().toUpperCase();
+    const newCode = values.customerCode.trim().toUpperCase();
     const newCity = values.city.trim().toUpperCase();
     const newState = values.state?.trim().toUpperCase() || '';
     const newAddress = values.address.trim().toUpperCase();
 
     const isDuplicate = (parties || []).some(p => 
-        !p.isDeleted && 
-        p.name.trim().toUpperCase() === newName &&
-        (p.city || '').trim().toUpperCase() === newCity &&
-        (p.state || '').trim().toUpperCase() === newState &&
-        (p.address || '').trim().toUpperCase() === newAddress
+        !p.isDeleted && (
+            (p.name.trim().toUpperCase() === newName && (p.city || '').trim().toUpperCase() === newCity && (p.address || '').trim().toUpperCase() === newAddress) ||
+            (p.customerCode?.trim().toUpperCase() === newCode)
+        )
     );
 
     if (isDuplicate) {
         toast({ 
             variant: 'destructive', 
             title: 'Duplicate Entry Blocked', 
-            description: 'Duplicate Party Entry Not Allowed. Party Name, City, State and Physical Address already exist in the system.' 
+            description: 'Duplicate Party Name or Customer Code detected in the system.' 
         });
         return;
     }
@@ -120,6 +121,7 @@ export default function PartyCreationTab() {
       await addDoc(collection(firestore, "logistics_parties"), {
         ...values,
         name: values.name.trim(),
+        customerCode: values.customerCode.trim().toUpperCase(),
         gstin: values.gstin?.toUpperCase() || '',
         pan: values.pan?.toUpperCase() || '',
         createdAt: serverTimestamp(),
@@ -127,7 +129,7 @@ export default function PartyCreationTab() {
         isDeleted: false,
       });
       toast({ title: 'Success', description: 'Logistics party created successfully.' });
-      form.reset({ name: '', type: undefined, gstin: '', pan: '', mobile: '', address: '', city: '', state: '', stateCode: '' });
+      form.reset({ name: '', customerCode: '', type: undefined, gstin: '', pan: '', mobile: '', address: '', city: '', state: '', stateCode: '' });
       setIsPanAutoFilled(false);
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -137,10 +139,10 @@ export default function PartyCreationTab() {
   };
 
   const handleTemplateDownload = () => {
-    const headers = ["Party Name", "Type", "GSTIN", "PAN Number", "Contact Number", "Address", "City", "State"];
+    const headers = ["Party Name", "Customer Code", "Type", "GSTIN", "PAN Number", "Contact Number", "Address", "City", "State"];
     const sampleData = [
-        ["BigMart Retail", "Consignee & ship to", "07AABCD1234E1Z3", "AABCD1234E", "9876543210", "123 Industrial Hub", "New Delhi", "Delhi"],
-        ["Tata Chemicals", "Consignor", "27AABCU9567L1Z5", "AABCU9567L", "9988776655", "Plot 42, Port Area", "Mumbai", "Maharashtra"]
+        ["BigMart Retail", "CUST001", "Consignee & ship to", "07AABCD1234E1Z3", "AABCD1234E", "9876543210", "123 Industrial Hub", "New Delhi", "Delhi"],
+        ["Tata Chemicals", "CUST002", "Consignor", "27AABCU9567L1Z5", "AABCU9567L", "9988776655", "Plot 42, Port Area", "Mumbai", "Maharashtra"]
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleData]);
     const wb = XLSX.utils.book_new();
@@ -165,7 +167,6 @@ export default function PartyCreationTab() {
         let successCount = 0;
         let failedRecords: { row: number; error: string }[] = [];
 
-        // Mapping Logic: Case-insensitive header handshake
         const getVal = (row: any, keys: string[]) => {
             const foundKey = Object.keys(row).find(k => keys.some(search => k.toLowerCase().replace(/\s/g, '') === search.toLowerCase().replace(/\s/g, '')));
             return foundKey ? row[foundKey]?.toString().trim() : '';
@@ -176,33 +177,30 @@ export default function PartyCreationTab() {
           const rowNum = i + 2; 
           try {
             const name = getVal(row, ["Party Name", "Name", "Client Name"]);
+            const customerCode = getVal(row, ["Customer Code", "Code", "Party Code"])?.toUpperCase() || '';
             const type = getVal(row, ["Type", "Party Type", "Client Type"]);
             const gstin = getVal(row, ["GSTIN", "Gst No", "Gst", "GST Number"])?.toUpperCase() || '';
             const address = getVal(row, ["Address", "Location", "Full Address"]);
             const city = getVal(row, ["City", "Place"]);
             const state = getVal(row, ["State", "Province"]) || '';
 
-            if (!name || !type || !address || !city) throw new Error("Missing Mandatory Field (Name, Type, Address, or City)");
+            if (!name || !type || !address || !city || !customerCode) throw new Error("Missing Mandatory Field (Name, Code, Type, Address, or City)");
             
-            // Validate Type node with flexible mapping
             let matchedType = PartyTypes.find(t => t.toLowerCase() === type.toLowerCase());
-            
-            // Fallback for legacy "Consignee" label
             if (!matchedType && (type.toLowerCase() === 'consignee' || type.toLowerCase() === 'consignee & ship to')) {
                 matchedType = 'Consignee & Ship to';
             }
 
-            if (!matchedType) throw new Error(`Invalid Type: ${type}. Expected: Consignor or Consignee & Ship to`);
+            if (!matchedType) throw new Error(`Invalid Type: ${type}`);
             
             const isDup = (parties || []).some(p => 
-                !p.isDeleted && 
-                p.name.trim().toUpperCase() === name.toUpperCase() &&
-                (p.city || '').trim().toUpperCase() === city.toUpperCase() &&
-                (p.address || '').trim().toUpperCase() === address.toUpperCase()
+                !p.isDeleted && (
+                    (p.name.trim().toUpperCase() === name.toUpperCase() && (p.city || '').trim().toUpperCase() === city.toUpperCase() && (p.address || '').trim().toUpperCase() === address.toUpperCase()) ||
+                    (p.customerCode?.trim().toUpperCase() === customerCode.toUpperCase())
+                )
             );
-            if (isDup) throw new Error("Duplicate Name, City, and Address combination detected.");
+            if (isDup) throw new Error("Duplicate Identity node detected.");
 
-            // Extract State Code node from GSTIN
             let finalStateCode = getVal(row, ["State Code", "Code"]) || '';
             if (!finalStateCode && gstin.length === 15) {
                 finalStateCode = gstin.substring(0, 2);
@@ -210,6 +208,7 @@ export default function PartyCreationTab() {
 
             await addDoc(collection(firestore, "logistics_parties"), {
                 name, 
+                customerCode,
                 type: matchedType as PartyType, 
                 gstin: gstin || '', 
                 pan: getVal(row, ["PAN Number", "Pan No", "PAN"])?.toUpperCase() || (gstin?.length === 15 ? gstin.substring(2, 12) : ''),
@@ -230,8 +229,8 @@ export default function PartyCreationTab() {
 
         toast({
             variant: failedRecords.length > 0 ? 'destructive' : 'success',
-            title: 'Bulk Upload Summary',
-            description: `Established: ${successCount} | Errors: ${failedRecords.length}.`,
+            title: 'Bulk Sync Report',
+            description: `Established: ${successCount} | Failures: ${failedRecords.length}.`,
         });
       } catch (err) {
         toast({ variant: 'destructive', title: 'Upload Failed', description: 'Registry file read error.' });
@@ -247,6 +246,7 @@ export default function PartyCreationTab() {
   const handleExport = () => {
     const dataToExport = sortedParties.map(p => ({
       'Party Name': p.name,
+      'Customer Code': p.customerCode || '--',
       'Type': p.type,
       'GSTIN': p.gstin || 'N/A',
       'PAN Number': p.pan || 'N/A',
@@ -295,6 +295,7 @@ export default function PartyCreationTab() {
             ...data,
             pan: data.pan?.toUpperCase(),
             gstin: data.gstin?.toUpperCase(),
+            customerCode: data.customerCode?.toUpperCase(),
             updatedAt: serverTimestamp()
         });
         toast({ title: 'Success', description: 'Logistics party updated.' });
@@ -312,9 +313,9 @@ export default function PartyCreationTab() {
         !p.isDeleted && (
             p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             p.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (p.customerCode && p.customerCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (p.gstin && p.gstin.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (p.city && p.city.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (p.state && p.state.toLowerCase().includes(searchTerm.toLowerCase()))
+            (p.city && p.city.toLowerCase().includes(searchTerm.toLowerCase()))
         )
     );
   }, [parties, searchTerm]);
@@ -383,6 +384,13 @@ export default function PartyCreationTab() {
                     <FormMessage />
                   </FormItem>
                 )} />
+                <FormField control={form.control} name="customerCode" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest flex items-center gap-2">Customer Code * <Fingerprint className="h-3 w-3 opacity-40"/></FormLabel>
+                    <FormControl><Input placeholder="Unique Code" {...field} className="h-11 font-black text-blue-900 uppercase shadow-inner border-blue-200" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
                 <FormField control={form.control} name="type" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Type *</FormLabel>
@@ -395,13 +403,13 @@ export default function PartyCreationTab() {
                 )} />
                 <FormField control={form.control} name="gstin" render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">GSTIN Number</FormLabel>
+                    <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest">GSTIN Number</FormLabel>
                     <FormControl>
                         <Input 
                             placeholder="09AAAAA0000A1Z0" 
                             {...field} 
                             value={field.value ?? ''} 
-                            className="bg-white uppercase font-black tracking-widest focus-visible:ring-blue-900 border-blue-200 h-11" 
+                            className="bg-white uppercase font-bold tracking-widest border-slate-200 h-11" 
                         />
                     </FormControl>
                     <FormMessage />
@@ -490,7 +498,7 @@ export default function PartyCreationTab() {
                 <div className="relative group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
                     <Input 
-                        placeholder="Search Name, City, State..." 
+                        placeholder="Search Name, Code, City..." 
                         value={searchTerm} 
                         onChange={(e) => {setSearchTerm(e.target.value); setCurrentPage(1);}} 
                         className="pl-10 w-[320px] h-11 rounded-2xl bg-white border-slate-200 shadow-sm focus-visible:ring-blue-900 font-bold" 
@@ -513,6 +521,11 @@ export default function PartyCreationTab() {
                     </Button>
                   </TableHead>
                   <TableHead className="px-4 h-14">
+                    <Button variant="ghost" onClick={() => handleSort('customerCode')} className="h-auto p-0 font-black uppercase text-[10px] tracking-widest text-blue-600 hover:text-blue-900">
+                        Customer Code <ArrowUpDown className="ml-2 h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="px-4 h-14">
                     <Button variant="ghost" onClick={() => handleSort('type')} className="h-auto p-0 font-black uppercase text-[10px] tracking-widest text-slate-400 hover:text-blue-900">
                         Type <ArrowUpDown className="ml-2 h-3 w-3" />
                     </Button>
@@ -527,14 +540,9 @@ export default function PartyCreationTab() {
                         State <ArrowUpDown className="ml-2 h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead className="px-4 h-14">
-                    <Button variant="ghost" onClick={() => handleSort('gstin')} className="h-auto p-0 font-black uppercase text-[10px] tracking-widest text-slate-400 hover:text-blue-900">
-                        GSTIN Registry <ArrowUpDown className="ml-2 h-3 w-3" />
-                    </Button>
-                  </TableHead>
                   <TableHead className="px-4 h-14 text-center">
-                    <Button variant="ghost" onClick={() => handleSort('pan')} className="h-auto p-0 font-black uppercase text-[10px] tracking-widest text-slate-400 hover:text-blue-900">
-                        PAN Registry <ArrowUpDown className="ml-2 h-3 w-3" />
+                    <Button variant="ghost" onClick={() => handleSort('gstin')} className="h-auto p-0 font-black uppercase text-[10px] tracking-widest text-slate-400 hover:text-blue-900">
+                        GSTIN Node <ArrowUpDown className="ml-2 h-3 w-3" />
                     </Button>
                   </TableHead>
                   <TableHead className="px-8 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">Action</TableHead>
@@ -549,13 +557,15 @@ export default function PartyCreationTab() {
                   paginatedParties.map((party) => (
                     <TableRow key={party.id} className="h-16 hover:bg-blue-50/20 transition-all border-b border-slate-50 last:border-0 group">
                       <TableCell className="px-8 font-black text-slate-900 uppercase text-xs tracking-tight">{party.name}</TableCell>
+                      <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-sm uppercase">
+                        {party.customerCode || '--'}
+                      </TableCell>
                       <TableCell className="px-4">
                         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-black uppercase text-[9px] px-2.5 h-6 whitespace-nowrap">{party.type}</Badge>
                       </TableCell>
                       <TableCell className="px-4 font-bold text-slate-600 uppercase text-xs">{party.city || '--'}</TableCell>
                       <TableCell className="px-4 font-bold text-slate-600 uppercase text-xs">{party.state || '--'}</TableCell>
-                      <TableCell className="px-4 font-mono text-[11px] font-black text-blue-900 tracking-widest">{party.gstin || '-'}</TableCell>
-                      <TableCell className="px-4 text-center font-mono text-[11px] font-bold text-slate-500 uppercase">{party.pan || '-'}</TableCell>
+                      <TableCell className="px-4 font-mono text-[11px] font-bold text-slate-400 tracking-widest">{party.gstin || '-'}</TableCell>
                       <TableCell className="px-8 text-right">
                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-blue-600 hover:bg-blue-50" onClick={() => setEditingParty(party)}>

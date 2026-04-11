@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Save, Sparkles, ShieldCheck } from 'lucide-react';
+import { Loader2, Save, Sparkles, ShieldCheck, Fingerprint } from 'lucide-react';
 import { PartyTypes } from '@/lib/constants';
 import type { Party, WithId } from '@/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -21,6 +21,7 @@ const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 
 const formSchema = z.object({
   name: z.string().min(1, 'Party Name is required.'),
+  customerCode: z.string().min(1, 'Customer Code is mandatory.').toUpperCase().transform(v => v.replace(/\s+/g, '')),
   type: z.enum(PartyTypes, { required_error: 'Type is required.' }),
   gstin: z.string().optional().refine(val => !val || val.length === 15, "GSTIN must be 15 characters.").refine(val => !val || gstinRegex.test(val.toUpperCase()), {
     message: 'Invalid GSTIN format.'
@@ -49,7 +50,8 @@ export default function EditPartyModal({ isOpen, onClose, party, onSave }: EditP
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: party.name,
-      type: party.type,
+      customerCode: party.customerCode || '',
+      type: party.type as any,
       gstin: party.gstin || '',
       pan: party.pan || '',
       mobile: party.mobile || '',
@@ -67,7 +69,8 @@ export default function EditPartyModal({ isOpen, onClose, party, onSave }: EditP
     if (party) {
       form.reset({
         name: party.name,
-        type: party.type,
+        customerCode: party.customerCode || '',
+        type: party.type as any,
         gstin: party.gstin || '',
         pan: party.pan || '',
         mobile: party.mobile || '',
@@ -79,7 +82,6 @@ export default function EditPartyModal({ isOpen, onClose, party, onSave }: EditP
     }
   }, [party, form]);
 
-  // GSTIN to PAN Auto-Extraction Logic
   useEffect(() => {
     if (gstinValue && gstinValue.length === 15) {
         const extractedPan = gstinValue.substring(2, 12).toUpperCase();
@@ -102,6 +104,7 @@ export default function EditPartyModal({ isOpen, onClose, party, onSave }: EditP
         ...values,
         pan: values.pan?.toUpperCase(),
         gstin: values.gstin?.toUpperCase(),
+        customerCode: values.customerCode?.toUpperCase()
     });
   };
 
@@ -129,6 +132,13 @@ export default function EditPartyModal({ isOpen, onClose, party, onSave }: EditP
                                 <FormMessage />
                             </FormItem>
                         )} />
+                        <FormField control={form.control} name="customerCode" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest flex items-center gap-2">Customer Code * <Fingerprint className="h-3 w-3 opacity-40"/></FormLabel>
+                                <FormControl><Input placeholder="Unique Code" {...field} className="h-11 font-black text-blue-900 uppercase shadow-inner border-blue-200" /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
                         <FormField control={form.control} name="type" render={({ field }) => (
                             <FormItem>
                                 <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Type *</FormLabel>
@@ -149,13 +159,13 @@ export default function EditPartyModal({ isOpen, onClose, party, onSave }: EditP
                         
                         <FormField control={form.control} name="gstin" render={({ field }) => (
                             <FormItem>
-                                <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">GSTIN Number *</FormLabel>
+                                <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest">GSTIN Number</FormLabel>
                                 <FormControl>
                                     <Input 
                                         placeholder="09AYQPS6936B1ZV" 
                                         {...field} 
                                         value={field.value ?? ''} 
-                                        className="uppercase font-black border-blue-200 focus-visible:ring-blue-900 h-11" 
+                                        className="uppercase font-bold border-slate-200 h-11" 
                                     />
                                 </FormControl>
                                 <FormMessage />

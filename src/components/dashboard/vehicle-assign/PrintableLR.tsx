@@ -242,10 +242,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                     </td>
                 </tr>
                 ))}
-                {/* Visual padding rows */}
-                {Array.from({ length: Math.max(0, 12 - displayItems.length) }).map((_, i) => (
-                    <tr key={`spacer-${i}`} className="h-8 border-b border-slate-50 last:border-none opacity-0"><td colSpan={5}>&nbsp;</td></tr>
-                ))}
             </tbody>
             <tfoot className="bg-[#1a1d24] font-black h-12 border-t-2 border-black text-[10pt] text-white">
                 <tr>
