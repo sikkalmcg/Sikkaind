@@ -24,6 +24,7 @@ interface PrintableLRProps {
  * Engineered to match office standard reference image with strict A4 paging.
  * Ensures 1 page per copy, exact visual alignment, and mission logic.
  * Updated: Table headers replaced with "Invoice No." and "E-Waybill No."
+ * Updated: Footer signature label changed to AUTHORIZED SIGNATURE.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -262,7 +263,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 6. TERMS & SIGNATORY NODES */}
+      {/* 6. TERMS & SIGNATURE NODES */}
       <div className="grid grid-cols-2 gap-12 mb-8 shrink-0 px-4 mt-auto border-t-2 border-slate-100 pt-8">
         <div className="space-y-3">
           <span className="text-[9pt] font-black uppercase text-slate-900 border-b-2 border-black inline-block pb-1 tracking-widest italic">TERMS & CONDITIONS</span>
@@ -281,7 +282,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
         <div className="flex flex-col justify-end text-center">
           <div className="w-full border-t-2 border-black border-dashed mb-3 opacity-40" />
-          <span className="text-[12pt] font-black uppercase tracking-[0.4em] text-slate-900 italic leading-none">AUTHORIZED SIGNATORY</span>
+          <span className="text-[12pt] font-black uppercase tracking-[0.4em] text-slate-900 italic leading-none">AUTHORIZED SIGNATURE</span>
           <span className="text-[8pt] font-black text-slate-400 uppercase mt-2 tracking-[0.2em]">LMC REGISTRY VERIFIED IDENTITY NODE</span>
         </div>
       </div>
