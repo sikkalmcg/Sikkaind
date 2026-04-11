@@ -25,7 +25,7 @@ interface PrintableLRProps {
  * - Precision-aligned header registry
  * - Pill-style party node headers
  * - Rounded-header high-contrast items table (Narrow Rows)
- * - Paired document reference logic
+ * - Terms & Signatory pushed to footer area
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -215,55 +215,53 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         ))}
       </div>
 
-      {/* ITEMS TABLE - NARROW ROWS Node */}
-      <div className="border-[2px] border-black rounded-[1.5rem] overflow-hidden mb-6 flex flex-col shadow-md shrink-0 bg-white">
-        <table className="w-full border-collapse">
-          <thead className="bg-[#0a0c10] text-white text-[8pt] font-black uppercase tracking-[0.1em]">
-            <tr className="h-12">
-              <th className="border-r border-white/10 px-3 text-center w-40 leading-tight">INVOICE<br/>REGISTRY</th>
-              <th className="border-r border-white/10 px-3 text-center w-40 leading-tight">E-WAYBILL<br/>NODE</th>
-              <th className="border-r border-white/10 px-5 text-center leading-tight">DESCRIPTION<br/>OF GOODS</th>
-              <th className="border-r border-white/10 px-2 text-center w-20 leading-tight">NO.<br/>OF PKGS</th>
-              <th className="px-5 text-center w-32 leading-tight">WEIGHT<br/>(MT)</th>
-            </tr>
-          </thead>
-          <tbody className="text-[9pt]">
-            {displayItems.map((item, idx) => (
-              <tr key={idx} className="align-middle border-b border-slate-200 last:border-b-0 hover:bg-slate-50/50 transition-colors">
-                <td className="border-r border-slate-200 px-2 py-1 font-black uppercase align-middle">
-                  {renderPairedValues(item.invoiceNumber)}
+      {/* ITEMS TABLE - grow to fill space */}
+      <div className="flex-1 flex flex-col mb-6">
+        <div className="border-[2px] border-black rounded-[1.5rem] overflow-hidden flex flex-col shadow-md bg-white">
+            <table className="w-full border-collapse">
+            <thead className="bg-[#0a0c10] text-white text-[8pt] font-black uppercase tracking-[0.1em]">
+                <tr className="h-12">
+                <th className="border-r border-white/10 px-3 text-center w-40 leading-tight">INVOICE<br/>REGISTRY</th>
+                <th className="border-r border-white/10 px-3 text-center w-40 leading-tight">E-WAYBILL<br/>NODE</th>
+                <th className="border-r border-white/10 px-5 text-center leading-tight">DESCRIPTION<br/>OF GOODS</th>
+                <th className="border-r border-white/10 px-2 text-center w-20 leading-tight">NO.<br/>OF PKGS</th>
+                <th className="px-5 text-center w-32 leading-tight">WEIGHT<br/>(MT)</th>
+                </tr>
+            </thead>
+            <tbody className="text-[9pt]">
+                {displayItems.map((item, idx) => (
+                <tr key={idx} className="align-middle border-b border-slate-200 last:border-b-0 hover:bg-slate-50/50 transition-colors">
+                    <td className="border-r border-slate-200 px-2 py-1 font-black uppercase align-middle">
+                    {renderPairedValues(item.invoiceNumber)}
+                    </td>
+                    <td className="border-r border-slate-200 px-2 py-1 font-black uppercase align-middle">
+                    {renderPairedValues(item.ewaybillNumber)}
+                    </td>
+                    <td className="border-r border-slate-200 px-5 py-2 uppercase italic font-black text-slate-700 leading-snug tracking-tighter text-center">
+                        {item.itemDescription}
+                    </td>
+                    <td className="border-r border-slate-200 px-2 text-center font-black text-[12pt] text-slate-900">{item.units}</td>
+                    <td className="px-5 text-center font-black text-[12pt] text-slate-900 tracking-tighter">
+                        {Number(item.weight).toFixed(3)}
+                    </td>
+                </tr>
+                ))}
+            </tbody>
+            <tfoot className="bg-[#1a1d24] font-black h-12 border-t-2 border-black text-[10pt] text-white">
+                <tr>
+                <td colSpan={3} className="px-6 uppercase border-r border-white/10 tracking-[0.8em]">MANIFEST TOTALS:</td>
+                <td className="border-r border-white/10 text-center font-black">{totalUnitsFinal}</td>
+                <td className="text-center px-5 font-black text-slate-400 tracking-tighter text-[12pt]">
+                    {totalWeightFinal.toFixed(3)}
                 </td>
-                <td className="border-r border-slate-200 px-2 py-1 font-black uppercase align-middle">
-                  {renderPairedValues(item.ewaybillNumber)}
-                </td>
-                <td className="border-r border-slate-200 px-5 py-2 uppercase italic font-black text-slate-700 leading-snug tracking-tighter text-center">
-                    {item.itemDescription}
-                </td>
-                <td className="border-r border-slate-200 px-2 text-center font-black text-[12pt] text-slate-900">{item.units}</td>
-                <td className="px-5 text-center font-black text-[12pt] text-slate-900 tracking-tighter">
-                    {Number(item.weight).toFixed(3)}
-                </td>
-              </tr>
-            ))}
-            {/* Minimal height stabilization */}
-            {displayItems.length === 1 && (
-                <tr className="h-10 border-b border-slate-100 last:border-0"><td colSpan={5}></td></tr>
-            )}
-          </tbody>
-          <tfoot className="bg-[#1a1d24] font-black h-12 border-t-2 border-black text-[10pt] text-white">
-            <tr>
-              <td colSpan={3} className="px-6 uppercase border-r border-white/10 tracking-[0.8em]">MANIFEST TOTALS:</td>
-              <td className="border-r border-white/10 text-center font-black">{totalUnitsFinal}</td>
-              <td className="text-center px-5 font-black text-slate-400 tracking-tighter text-[12pt]">
-                {totalWeightFinal.toFixed(3)}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+                </tr>
+            </tfoot>
+            </table>
+        </div>
       </div>
 
-      {/* TERMS & SIGNATURE */}
-      <div className="grid grid-cols-2 gap-12 mb-6 mt-auto shrink-0 px-4">
+      {/* TERMS & SIGNATURE - Pushed to bottom */}
+      <div className="grid grid-cols-2 gap-12 mb-6 shrink-0 px-4">
         <div className="space-y-3">
           <span className="text-[8.5pt] font-black uppercase text-slate-900 border-b border-black inline-block pb-0.5 tracking-[0.1em]">TERMS & CONDITIONS</span>
           <div className="space-y-1 pt-0.5">
