@@ -248,7 +248,7 @@ export default function UserManagementPage() {
                         {isLoadingData ? (
                             <div className="flex h-64 flex-col items-center justify-center gap-4">
                                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse">Syncing Cloud Security Node...</p>
+                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse">Syncing Cloud Security Plant...</p>
                             </div>
                         ) : (
                             <>

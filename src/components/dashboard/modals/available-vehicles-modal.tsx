@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
@@ -136,7 +137,7 @@ export default function AvailableVehiclesModal({ isOpen, onClose, plantId, plant
                     <Table className="border-collapse w-full min-w-[1200px]">
                     <TableHeader className="sticky top-0 bg-slate-100 z-10 border-b-2">
                         <TableRow className="h-14 hover:bg-transparent">
-                        <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500">Plant Node</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500">Lifting Plant</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Vehicle Registry</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Pilot Name</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-center text-slate-500">Gate IN Timestamp</TableHead>

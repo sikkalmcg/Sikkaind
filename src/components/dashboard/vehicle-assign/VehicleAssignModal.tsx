@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -254,7 +255,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             const currentName = userProfile?.fullName || user.displayName || user.email?.split('@')[0] || 'System Operator';
             const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipment.id);
             const shipmentSnap = await transaction.get(shipmentRef);
-            if (!shipmentSnap.exists()) throw new Error("Order registry node error.");
+            if (!shipmentSnap.exists()) throw new Error("Order registry plant error.");
             const sData = shipmentSnap.data() as Shipment;
             const docId = trip?.id || doc(collection(firestore, 'trips')).id;
             const tripId = trip?.tripId || generateRandomTripId();
@@ -297,7 +298,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             transaction.set(doc(firestore, `plants/${plantId}/trips`, docId), tripData);
             transaction.set(doc(firestore, 'trips', docId), tripData);
         });
-        toast({ title: 'Mission Established', description: 'Registry node synchronized successfully.' });
+        toast({ title: 'Mission Established', description: 'Registry plant synchronized successfully.' });
         onAssignmentComplete();
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Registry Error', description: e.message });
@@ -316,7 +317,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             <div className="p-3 bg-blue-600 rounded-2xl shadow-xl rotate-3"><Truck className="h-7 w-7" /></div>
             <div>
                 <DialogTitle className="text-2xl font-black uppercase tracking-tight italic leading-none">SIKKA LMC | ALLOCATION BOARD</DialogTitle>
-                <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-2">Registry Terminal Node</DialogDescription>
+                <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-2">Registry Terminal Plant</DialogDescription>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -336,11 +337,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-6 gap-6 md:gap-10">
-                <ContextNode label="Lifting Node" value={plantNameDisplay} icon={Factory} />
+                <ContextNode label="Lifting Plant" value={plantNameDisplay} icon={Factory} />
                 <ContextNode label="Consignor" value={shipment.consignor} icon={UserCircle} />
-                <ContextNode label="Site point" value={plantAddressDisplay} icon={MapPin} />
+                <ContextNode label="Site plant" value={plantAddressDisplay} icon={MapPin} />
                 <ContextNode label="Consignee" value={shipment.billToParty} icon={UserCircle} />
-                <ContextNode label="Drop node" value={shipment.deliveryAddress || shipment.unloadingPoint} icon={MapPin} className="col-span-2 text-blue-900" bold />
+                <ContextNode label="Drop plant" value={shipment.deliveryAddress || shipment.unloadingPoint} icon={MapPin} className="col-span-2 text-blue-900" bold />
             </div>
           </Card>
 
@@ -430,7 +431,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                     <Card className={cn("p-10 transition-all duration-500 rounded-[2.5rem] shadow-xl", vehicleType === 'Market Vehicle' ? "bg-blue-50/30 border-2 border-blue-100 opacity-100" : "opacity-40 grayscale pointer-events-none border-slate-100")}>
                         <div className="flex items-center gap-3 mb-8 px-2">
                             <IndianRupee className="h-5 w-5 text-blue-600" />
-                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Financial Particulars (Market Node)</h3>
+                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Financial Particulars (Market Plant)</h3>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
                             <FormField name="transporterName" control={control} render={({field}) => <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Transporter Name *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-white border-slate-200 font-bold" /></FormControl><FormMessage /></FormItem>} />
@@ -485,7 +486,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
                     <Card className="p-8 rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-xl flex items-center gap-8 relative overflow-hidden group">
                         <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Routing Distance Node</span>
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Routing Distance Plant</span>
                             <div className="flex items-center gap-3">
                                 <h4 className="text-4xl md:text-5xl font-black text-blue-900 tracking-tighter">
                                     {calculatingDistance ? <Loader2 className="h-10 w-10 animate-spin" /> : (currentDistance || '--')}
@@ -508,7 +509,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                         disabled={isSubmitting || calculatingDistance} 
                         className="h-16 px-16 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
                     >
-                        {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} {isEditing ? 'Update Node' : 'Establish Mission Node'}
+                        {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} {isEditing ? 'Update Plant' : 'Establish Mission Plant'}
                     </Button>
                 </div>
             </form>
@@ -526,7 +527,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             </div>
             <div className="flex items-center gap-4">
                 <ShieldCheck className="h-5 w-5 text-emerald-600" />
-                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest italic">Authorized Registry Handshake Node</span>
+                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest italic">Authorized Registry Handshake Plant</span>
             </div>
         </DialogFooter>
       </DialogContent>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useLoading } from '@/context/LoadingContext';
@@ -13,7 +14,7 @@ export default function GlobalLoader() {
       <div className="flex flex-col items-center gap-4 p-8 rounded-3xl bg-card shadow-2xl border border-border/50">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground animate-pulse">
-          Processing Node...
+          Processing Plant...
         </p>
       </div>
     </div>

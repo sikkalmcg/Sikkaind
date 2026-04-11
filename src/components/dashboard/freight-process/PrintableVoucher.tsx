@@ -1,3 +1,4 @@
+
 'use client';
 
 import { format, isValid } from 'date-fns';
@@ -24,7 +25,7 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
         return isValid(d) ? format(d, pattern) : '--';
     };
 
-    // Financial Calculation Registry Nodes
+    // Financial Calculation Registry Plants
     const totalFreight = Number(freight.totalFreightAmount || 0);
     const advanceAmt = Number(freight.advanceAmount || 0);
     
@@ -71,8 +72,8 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
             tds: 0,
             ded: 0,
             date: trip.freightPostedAt || trip.startDate,
-            ref: 'ADVANCE_NODE',
-            details: trip.bankName ? `${trip.bankName} | A/C: ${trip.accountNumber}` : 'Lifting Node Registry'
+            ref: 'ADVANCE_PLANT',
+            details: trip.bankName ? `${trip.bankName} | A/C: ${trip.accountNumber}` : 'Lifting Plant Registry'
         });
     }
     
@@ -171,7 +172,7 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
                     <h3 className="text-[9pt] font-black uppercase tracking-widest">DETAILED LIQUIDATION LEDGER</h3>
                 </div>
                 <div className="border-2 border-black rounded-xl overflow-hidden shadow-sm">
-                    <table className="w-full border-collapse">
+                    <table className="w-full border-collapse table-fixed">
                         <thead className="bg-slate-900 text-white text-[7.5pt] font-black uppercase tracking-widest border-b border-black">
                             <tr className="h-10">
                                 <th className="px-3 text-left border-r border-white/10">Beneficiary Name</th>
@@ -187,7 +188,7 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
                         <tbody className="text-[8pt] font-medium text-slate-700">
                             {ledgerItems.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="h-20 text-center text-slate-400 italic uppercase tracking-widest">No liquidation nodes detected in registry.</td>
+                                    <td colSpan={8} className="h-20 text-center text-slate-400 italic uppercase tracking-widest">No liquidation plants detected in registry.</td>
                                 </tr>
                             ) : (
                                 ledgerItems.map((p: any, i: number) => (
@@ -219,14 +220,14 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
                     </div>
                     <div className="text-center border-t-2 border-black border-dashed pt-2">
                         <p className="font-black uppercase tracking-widest text-[9.5pt] text-slate-900">Accountant Signature</p>
-                        <span className="text-[7pt] text-slate-400 font-bold uppercase">(Authorized Liquidation Node)</span>
+                        <span className="text-[7pt] text-slate-400 font-bold uppercase">(Authorized Liquidation Plant)</span>
                     </div>
                 </div>
 
                 {/* Standardized Registry Footer */}
                 <div className="mt-8 pt-4 border-t border-slate-200 flex flex-col items-center gap-1.5 shrink-0">
                     <p className="text-[7.5pt] font-black uppercase text-blue-400/80 tracking-widest">
-                        REGISTRY HANDSHAKE | CERTIFIED NODE SYNC
+                        REGISTRY HANDSHAKE | CERTIFIED Plant SYNC
                     </p>
                     <div className="flex items-center gap-2">
                         <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />

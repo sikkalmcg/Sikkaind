@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -56,7 +57,7 @@ export type ModalId =
 
 /**
  * @fileOverview Logistics Dashboard (Monitoring Hub).
- * Independent monitoring node providing real-time aggregates and analytics.
+ * Independent monitoring plant providing real-time aggregates and analytics.
  * Rule: Clicking cards opens detailed modals without navigation.
  * Default Period: 7 Days.
  */
@@ -176,7 +177,7 @@ export default function DashboardPage() {
     setSelectedModal(id);
   };
 
-  const activePlantName = selectedPlant === 'all-plants' ? 'All Authorized Nodes' : plantsList.find(p => p.id === selectedPlant)?.name || selectedPlant;
+  const activePlantName = selectedPlant === 'all-plants' ? 'All Authorized Plants' : plantsList.find(p => p.id === selectedPlant)?.name || selectedPlant;
 
   return (
     <main className="flex flex-col h-full bg-slate-50/50">
@@ -202,7 +203,7 @@ export default function DashboardPage() {
                     <SelectValue placeholder="Select a plant" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
-                    {isAdmin && <SelectItem value="all-plants">All Authorized Nodes</SelectItem>}
+                    {isAdmin && <SelectItem value="all-plants">All Authorized Plants</SelectItem>}
                     {plantsList.map(plant => (
                         <SelectItem key={plant.id} value={plant.id}>{plant.name}</SelectItem>
                     ))}

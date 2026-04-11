@@ -23,8 +23,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 /**
  * @fileOverview Order Plan Control (Master Hub).
- * Orchestrates mission node creation and ledger auditing.
- * Hardened for multi-node plant authorization and strict state transitions.
+ * Orchestrates mission plant creation and ledger auditing.
+ * Hardened for multi-plant plant authorization and strict state transitions.
  */
 function ShipmentPlanContent() {
   const { toast } = useToast();
@@ -68,7 +68,7 @@ function ShipmentPlanContent() {
   );
   const { data: allMasterPlants } = useCollection<Plant>(plantsQuery);
 
-  // 1. Authorization Node: Resolve Lifting Node Scope
+  // 1. Authorization Plant: Resolve Lifting Plant Scope
   useEffect(() => {
     if (!firestore || !user) return;
     
@@ -113,7 +113,7 @@ function ShipmentPlanContent() {
   const [allShipments, setAllShipments] = useState<WithId<Shipment>[]>([]);
   const [isLoadingShipments, setIsLoadingShipments] = useState(false);
 
-  // 2. Real-time Registry Sync Node
+  // 2. Real-time Registry Sync Plant
   useEffect(() => {
     if (!firestore || authorizedPlantIds.length === 0) return;
 
@@ -249,7 +249,7 @@ function ShipmentPlanContent() {
             const shipment = allShipments.find(s => s.id === id);
             if (!shipment) continue;
 
-            // Archival Node: Move to recycle bin
+            // Archival Plant: Move to recycle bin
             const recycleRef = doc(collection(firestore, "recycle_bin"));
             const sanitizedData = sanitizeRegistryNode({ ...shipment, id: shipment.id, type: 'Shipment' });
             batch.set(recycleRef, {
@@ -259,13 +259,13 @@ function ShipmentPlanContent() {
                 data: sanitizedData
             });
 
-            // Purge Node from primary registry
+            // Purge Plant from primary registry
             const shipRef = doc(firestore, `plants/${shipment.originPlantId}/shipments`, id);
             batch.delete(shipRef);
         }
 
         await batch.commit();
-        toast({ title: 'Bulk Purge Complete', description: `Successfully removed ${ids.length} mission nodes from registry.` });
+        toast({ title: 'Bulk Purge Complete', description: `Successfully removed ${ids.length} mission plants from registry.` });
     } catch (e: any) {
         console.error("Bulk Delete Error:", e);
         toast({ variant: 'destructive', title: 'Purge Failed', description: 'Registry synchronization error.' });
@@ -278,7 +278,7 @@ function ShipmentPlanContent() {
     return (
         <div className="flex h-screen flex-col items-center justify-center bg-[#f8fafc]">
             <Loader2 className="h-12 w-12 animate-spin text-blue-900 mb-4" />
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 animate-pulse">Syncing Lifting Node Registry...</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 animate-pulse">Syncing Lifting Plant Registry...</p>
         </div>
     );
   }
@@ -313,7 +313,7 @@ function ShipmentPlanContent() {
                                 <SelectValue placeholder="Pick node" />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl">
-                                <SelectItem value="all-plants" className="font-black uppercase text-[10px] tracking-widest text-blue-600">All Authorized Nodes</SelectItem>
+                                <SelectItem value="all-plants" className="font-black uppercase text-[10px] tracking-widest text-blue-600">All Authorized Plants</SelectItem>
                                 {plants.map(p => (
                                     <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>
                                 ))}

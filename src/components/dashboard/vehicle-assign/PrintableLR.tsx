@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -22,9 +23,7 @@ interface PrintableLRProps {
 /**
  * @fileOverview SIKKA LMC - Precision LR Manifest Registry.
  * Engineered to match office standard reference image with strict A4 paging.
- * Ensures 1 page per copy, exact visual alignment, and mission logic.
- * Updated: Table headers replaced with "Invoice No." and "E-Waybill No."
- * Updated: Footer signature label changed to AUTHORIZED SIGNATURE.
+ * Ensures 1 page per copy, exact visual alignment, and mission plant logic.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -122,12 +121,12 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const vehicleNumber = lr.vehicleNumber || lr.trip?.vehicleNumber || '--';
   const driverMobile = lr.driverMobile || lr.trip?.driverMobile || '--';
   const paymentTerm = lr.paymentTerm || lr.trip?.paymentTerm || 'PAID';
-  const tripIdNode = lr.tripId || lr.trip?.tripId || '--';
+  const tripIdPlant = lr.tripId || lr.trip?.tripId || '--';
 
   return (
     <div className="A4-page p-[12mm] bg-white text-black font-sans text-[8.5pt] leading-tight flex flex-col relative box-border h-[297mm] w-[210mm] overflow-hidden select-text border-none mx-auto">
       
-      {/* 1. TOP INDICATOR NODE (RIGHT ALIGNED) */}
+      {/* 1. TOP INDICATOR PLANT (RIGHT ALIGNED) */}
       <div className="flex justify-end mb-4 shrink-0">
         <div className="border-2 border-black px-4 py-1 bg-slate-50 shadow-sm">
             <span className="text-[9pt] font-black uppercase tracking-widest text-slate-900 leading-none">{copyType}</span>
@@ -180,7 +179,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           { label: 'VEHICLE REGISTRY', value: vehicleNumber, bold: true },
           { label: 'PILOT CONTACT', value: driverMobile, mono: true },
           { label: 'PAYMENT TERM', value: paymentTerm },
-          { label: 'TRIP ID NODE', value: tripIdNode, bold: true, color: 'text-blue-700' }
+          { label: 'TRIP ID Plant', value: tripIdPlant, bold: true, color: 'text-blue-700' }
         ].map((node, i) => (
           <div key={i} className="py-2.5 px-1 text-center flex flex-col justify-center gap-1">
             <span className="text-[6.5pt] font-black uppercase text-slate-400 block leading-tight tracking-[0.1em]">{node.label}</span>
@@ -263,17 +262,17 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 6. TERMS & SIGNATURE NODES */}
+      {/* 6. TERMS & SIGNATURE Plants */}
       <div className="grid grid-cols-2 gap-12 mb-8 shrink-0 px-4 mt-auto border-t-2 border-slate-100 pt-8">
         <div className="space-y-3">
           <span className="text-[9pt] font-black uppercase text-slate-900 border-b-2 border-black inline-block pb-1 tracking-widest italic">TERMS & CONDITIONS</span>
           <div className="space-y-1 pt-1">
             {[
                 "Agency is not responsible for rain or any natural calamity.",
-                "Discrepancies must be intimated within 24 Hours of receipt node.",
+                "Discrepancies must be intimated within 24 Hours of receipt plant.",
                 "Vehicle owner is responsible for goods after yard departure.",
                 "Agency has the right to hold material upon mission shortage.",
-                "Sikka Logistics holds no responsibility after final drop node.",
+                "Sikka Logistics holds no responsibility after final drop plant.",
                 "All disputes subject to Ghaziabad Jurisdiction."
             ].map((term, i) => (
                 <p key={i} className="text-[7pt] font-bold text-slate-500 leading-tight uppercase tracking-tight">{i + 1}. {term}</p>
