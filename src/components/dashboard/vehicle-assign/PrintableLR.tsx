@@ -23,7 +23,7 @@ interface PrintableLRProps {
  * @fileOverview SIKKA LMC - Precision LR Manifest Registry.
  * Engineered to match office standard reference image with strict A4 paging.
  * Ensures 1 page per copy, exact visual alignment, and mission logic.
- * Updated: 4-Column Grid, Right-aligned Copy Indicator.
+ * Updated: Table headers replaced with "Invoice No." and "E-Waybill No."
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -223,8 +223,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <table className="w-full border-collapse table-fixed">
             <thead className="bg-[#0a0c10] text-white text-[8pt] font-black uppercase tracking-[0.1em]">
                 <tr className="h-12">
-                <th className="border-r border-white/10 px-2 text-center w-36 leading-tight">INVOICE<br/>REGISTRY</th>
-                <th className="border-r border-white/10 px-2 text-center w-36 leading-tight">E-WAYBILL<br/>NODE</th>
+                <th className="border-r border-white/10 px-2 text-center w-36 leading-tight">Invoice No.</th>
+                <th className="border-r border-white/10 px-2 text-center w-36 leading-tight">E-Waybill No.</th>
                 <th className="border-r border-white/10 px-4 text-center leading-tight">DESCRIPTION<br/>OF GOODS</th>
                 <th className="border-r border-white/10 px-1 text-center w-20 leading-tight">NO.<br/>OF PKGS</th>
                 <th className="px-4 text-center w-32 leading-tight">WEIGHT<br/>(MT)</th>
