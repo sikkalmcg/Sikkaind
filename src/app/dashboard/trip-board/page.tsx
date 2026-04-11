@@ -86,7 +86,7 @@ function TripBoardContent() {
   const [podUploadTrip, setPodUploadTrip] = useState<any | null>(null);
   const [srnTrip, setSrnTrip] = useState<any | null>(null);
 
-  const [previewLrData, setLrPreviewData] = useState<EnrichedLR | null>(null);
+  const [previewLrData, setPreviewLrData] = useState<EnrichedLR | null>(null);
   const [editLrTrip, setEditLrTrip] = useState<any | null>(null);
   const [editLrCarrier, setEditLrCarrier] = useState<any | null>(null);
 
