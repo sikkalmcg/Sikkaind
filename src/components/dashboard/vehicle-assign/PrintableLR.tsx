@@ -283,20 +283,16 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         <div className="flex flex-col justify-end text-center">
           <div className="w-full border-t-2 border-black border-dashed mb-3 opacity-40" />
           <span className="text-[12pt] font-black uppercase tracking-[0.4em] text-slate-900 italic leading-none">AUTHORIZED SIGNATURE</span>
-          <span className="text-[8pt] font-black text-slate-400 uppercase mt-2 tracking-[0.2em]">LMC REGISTRY VERIFIED IDENTITY NODE</span>
         </div>
       </div>
 
       {/* 7. PERMANENT FOOTER STRIP */}
       <div className="pt-4 border-t-2 border-black flex flex-col items-center gap-2 shrink-0">
         <p className="text-[7pt] font-black uppercase text-slate-400 tracking-[0.1em] text-center max-w-[95%] leading-relaxed">
-            NOTICE: THIS IS A COMPUTER GENERATED MANIFEST AUTHORIZED BY SIKKA INDUSTRIES. <br/>
-            AUTHENTICITY CAN BE VERIFIED VIA MISSION REGISTRY HUB USING UNIQUE CN NO.
+        NOTE: THIS LORRY RECEIPT WAS GENERATED DIGITALLY AND IS TO BE CONSIDERED AS ORIGINAL.
         </p>
         <div className="flex items-center gap-10">
             <span className="text-[9pt] font-black uppercase tracking-[0.5em] text-slate-900">PAGE {pageNumber} OF {totalInSeries}</span>
-            <div className="h-4 w-px bg-slate-300" />
-            <span className="text-[8pt] font-black text-blue-900/40 tracking-widest uppercase italic">SIKKA LMC ENTERPRISE v2.5.0</span>
         </div>
       </div>
     </div>
