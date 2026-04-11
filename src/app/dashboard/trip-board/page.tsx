@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -23,7 +22,7 @@ import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy, Timestamp } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown } from "lucide-react";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -38,7 +37,7 @@ import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
 
-export type TripBoardTab = 'open-order' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
+export type TripBoardTab = 'open-order' | 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
 function TripBoardContent() {
   const { toast } = useToast();
@@ -357,7 +356,8 @@ function TripBoardContent() {
                 plantId: plantId,
                 vehicleNumber: trip.vehicleNumber,
                 status: "IN",
-                entryTimestamp: ts
+                entryTimestamp: ts,
+                purpose: "Loading"
             });
             const update = { tripStatus: 'Yard/Loading', currentStatusId: 'yard/loading', entryTime: ts, lastUpdated: ts };
             await updateDoc(doc(firestore, `plants/${plantId}/trips`, trip.id), update);
@@ -375,7 +375,7 @@ function TripBoardContent() {
             if (trip.entry?.id) {
                 await updateDoc(doc(firestore, "vehicleEntries", trip.entry.id), { status: "OUT", exitTimestamp: ts });
             } else {
-                await addDoc(collection(firestore, "vehicleEntries"), { tripId: trip.id, plantId, vehicleNumber: trip.vehicleNumber, status: "OUT", exitTimestamp: ts });
+                await addDoc(collection(firestore, "vehicleEntries"), { tripId: trip.id, plantId, vehicleNumber: trip.vehicleNumber, status: "OUT", exitTimestamp: ts, outType: "Loaded" });
             }
             const update = { tripStatus: 'In Transit', currentStatusId: 'in-transit', outDate: ts, lastUpdated: ts };
             await updateDoc(doc(firestore, `plants/${plantId}/trips`, trip.id), update);
@@ -551,14 +551,22 @@ function TripBoardContent() {
       
       const s = t.normalizedStatus;
       switch (activeTab) {
-        case 'open-order': return s === 'assigned' || s === 'vehicle-assigned' || s === 'yard' || s === 'yard/loading' || s === 'loading' || s === 'loaded' || s === 'loading-complete';
-
-        case 'transit': return s === 'in-transit';
-        case 'arrived': return s === 'arrived' || s === 'arrival-for-delivery' || s === 'arrive-for-deliver';
-        case 'pod-status': return s === 'delivered';
-        case 'rejection': return s === 'rejected';
-        case 'closed': return s === 'closed';
-        default: return true;
+        case 'open-order': 
+            return s === 'assigned' || s === 'vehicle-assigned';
+        case 'loading': 
+            return s === 'yard' || s === 'yard/loading' || s === 'loading' || s === 'loaded' || s === 'loading-complete';
+        case 'transit': 
+            return s === 'in-transit';
+        case 'arrived': 
+            return s === 'arrived' || s === 'arrival-for-delivery' || s === 'arrive-for-deliver';
+        case 'pod-status': 
+            return s === 'delivered';
+        case 'rejection': 
+            return s === 'rejected';
+        case 'closed': 
+            return s === 'closed';
+        default: 
+            return true;
       }
     }).filter(t => {
       if (!searchTerm) return true;
@@ -574,11 +582,11 @@ function TripBoardContent() {
   }, [joinedData, activeTab, fromDate, toDate, searchTerm]);
 
   const counts = useMemo(() => {
-    const res = { openOrder: 0, transit: 0, arrived: 0, pod: 0, rejection: 0, closed: 0 };
+    const res = { openOrder: 0, loading: 0, transit: 0, arrived: 0, pod: 0, rejection: 0, closed: 0 };
     joinedData.forEach(t => {
         const s = t.normalizedStatus;
-        if (s === 'assigned' || s === 'vehicle-assigned' || s === 'yard' || s === 'yard/loading' || s === 'loading' || s === 'loaded' || s === 'loading-complete') res.openOrder++;
-
+        if (s === 'assigned' || s === 'vehicle-assigned') res.openOrder++;
+        else if (s === 'yard' || s === 'yard/loading' || s === 'loading' || s === 'loaded' || s === 'loading-complete') res.loading++;
         else if (s === 'in-transit') res.transit++;
         else if (s === 'arrived' || s === 'arrival-for-delivery' || s === 'arrive-for-deliver') res.arrived++;
         else if (s === 'delivered') res.pod++;
@@ -659,7 +667,7 @@ function TripBoardContent() {
           <TabsList className="bg-transparent h-10 p-0 border-b-0 gap-8 justify-start overflow-x-auto custom-scrollbar">
             {[
                 { id: 'open-order', label: 'Open Order', count: counts.openOrder },
-
+                { id: 'loading', label: 'Loading', count: counts.loading, icon: Container },
                 { id: 'transit', label: 'In Transit', count: counts.transit },
                 { id: 'arrived', label: 'Arrived', count: counts.arrived },
                 { id: 'pod-status', label: 'POD Verification', count: counts.pod },
@@ -667,6 +675,7 @@ function TripBoardContent() {
                 { id: 'closed', label: 'History Ledger', count: counts.closed }
             ].map(t => (
                 <TabsTrigger key={t.id} value={t.id} className="relative h-10 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[11px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2">
+                    {t.id === 'loading' && <t.icon className="h-3.5 w-3.5" />}
                     {t.label} <Badge className="ml-2 bg-slate-100 text-slate-500 border-none font-black text-[9px]">{t.count}</Badge>
                 </TabsTrigger>
             ))}
