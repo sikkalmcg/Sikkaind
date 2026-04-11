@@ -15,17 +15,18 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, FileDown, Upload, Search, Edit2, Trash2, UserPlus, History, ShieldCheck, Save, Sparkles, Factory, ArrowUpDown, AlertCircle, Fingerprint } from 'lucide-react';
+import { Loader2, FileDown, Upload, Search, Edit2, Trash2, UserPlus, History, ShieldCheck, Save, Sparkles, Factory, ArrowUpDown, AlertCircle, Fingerprint, CheckCircle2, Ban } from 'lucide-react';
 import { PartyTypes } from '@/lib/constants';
 import type { Party, WithId, PartyType, Plant, SubUser } from '@/types';
 import { statesAndUTs } from '@/lib/states';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 import EditPartyModal from './EditPartyModal';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, getDoc, where, onSnapshot, orderBy } from "firebase/firestore";
+import { collection, query, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, getDoc, where, onSnapshot, orderBy, writeBatch } from "firebase/firestore";
 import { Badge } from '@/components/ui/badge';
-import { cn, normalizePlantId } from '@/lib/utils';
+import { cn, normalizePlantId, sanitizeRegistryNode } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
@@ -60,6 +61,9 @@ export default function PartyCreationTab() {
   const [editingParty, setEditingParty] = useState<WithId<Party> | null>(null);
   const [isPanAutoFilled, setIsPanAutoFilled] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const isAdmin = user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
 
   const partiesQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, "logistics_parties"), where("isDeleted", "==", false)) : null, 
@@ -275,13 +279,46 @@ export default function PartyCreationTab() {
                 pageName: "Party Management (Logistics)",
                 userName: currentOperator,
                 deletedAt: serverTimestamp(),
-                data: { ...partyData, id: id, type: 'Party' }
+                data: sanitizeRegistryNode({ ...partyData, id: id, type: 'Party' })
             });
             await deleteDoc(partyRef);
             toast({ title: 'Moved to Bin', description: 'Party removed from Logistics Registry.' });
         }
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Error', description: error.message });
+    } finally {
+        hideLoader();
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!firestore || !user || selectedIds.length === 0) return;
+    showLoader();
+    try {
+        const batch = writeBatch(firestore);
+        const ts = serverTimestamp();
+        const currentOperator = isAdmin ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || "Admin");
+
+        for (const id of selectedIds) {
+            const partyRef = doc(firestore, "logistics_parties", id);
+            const partySnap = await getDoc(partyRef);
+            if (partySnap.exists()) {
+                const partyData = partySnap.data();
+                const recycleRef = doc(collection(firestore, "recycle_bin"));
+                batch.set(recycleRef, {
+                    pageName: "Party Management (Bulk)",
+                    userName: currentOperator,
+                    deletedAt: ts,
+                    data: sanitizeRegistryNode({ ...partyData, id: id, type: 'Party' })
+                });
+                batch.delete(partyRef);
+            }
+        }
+        await batch.commit();
+        toast({ title: 'Bulk Purge Complete', description: `${selectedIds.length} party nodes removed.` });
+        setSelectedIds([]);
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: "Purge Failed", description: e.message });
     } finally {
         hideLoader();
     }
@@ -342,8 +379,27 @@ export default function PartyCreationTab() {
     return sortableItems;
   }, [filteredParties, sortConfig]);
 
+  const paginatedParties = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return sortedParties.slice(start, start + itemsPerPage);
+  }, [sortedParties, currentPage, itemsPerPage]);
+
   const totalPages = Math.ceil(sortedParties.length / itemsPerPage);
-  const paginatedParties = sortedParties.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handleSelectRow = (id: string, checked: boolean) => {
+    setSelectedIds(prev => checked ? [...prev, id] : prev.filter(i => i !== id));
+  };
+
+  const handleSelectAllOnPage = (checked: boolean) => {
+    const pageIds = paginatedParties.map(p => p.id);
+    if (checked) {
+        setSelectedIds(prev => Array.from(new Set([...prev, ...pageIds])));
+    } else {
+        setSelectedIds(prev => prev.filter(id => !pageIds.includes(id)));
+    }
+  };
+
+  const isAllOnPageSelected = paginatedParties.length > 0 && paginatedParties.every(p => selectedIds.includes(p.id));
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500">
@@ -495,6 +551,29 @@ export default function PartyCreationTab() {
                 </div>
             </div>
             <div className="flex items-center gap-4">
+                {selectedIds.length > 0 && isAdmin && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" className="h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest gap-2 shadow-lg animate-in zoom-in border-none active:scale-95">
+                                <Trash2 className="h-4 w-4" /> Purge Selected ({selectedIds.length})
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="rounded-3xl border-none p-0 overflow-hidden">
+                            <div className="p-8 bg-red-50 border-b border-red-100 flex items-center gap-5">
+                                <div className="p-3 bg-red-600 text-white rounded-2xl shadow-xl"><Ban className="h-6 w-6" /></div>
+                                <div>
+                                    <AlertDialogTitle className="text-xl font-black uppercase text-red-900">Execute Bulk Purge?</AlertDialogTitle>
+                                    <p className="text-red-700 font-bold uppercase text-[9px] tracking-widest">Authorized Registry Disposal</p>
+                                </div>
+                            </div>
+                            <div className="p-10"><p className="text-sm font-medium text-slate-600 leading-relaxed italic">"Proceeding will permanently remove <span className="font-black text-slate-900">{selectedIds.length} party nodes</span> from the active registry. Records will be archived in the system recycle node."</p></div>
+                            <AlertDialogFooter className="bg-slate-50 p-6 flex-row justify-end gap-3 border-t">
+                                <AlertDialogCancel className="font-bold border-slate-200 px-8 rounded-xl m-0 h-11">Abort</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleBulkDelete} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest px-10 h-11 rounded-xl shadow-lg border-none">Confirm Purge</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
                 <div className="relative group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
                     <Input 
@@ -514,7 +593,12 @@ export default function PartyCreationTab() {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-slate-50/50">
-                <TableRow className="hover:bg-transparent border-b border-slate-100">
+                <TableRow className="h-14 hover:bg-transparent border-b border-slate-100">
+                  {isAdmin && (
+                    <TableHead className="w-16 px-6">
+                        <Checkbox checked={isAllOnPageSelected} onCheckedChange={(checked) => handleSelectAllOnPage(!!checked)} className="h-5 w-5 data-[state=checked]:bg-blue-900 shadow-md border-slate-300" />
+                    </TableHead>
+                  )}
                   <TableHead className="px-8 h-14">
                     <Button variant="ghost" onClick={() => handleSort('name')} className="h-auto p-0 font-black uppercase text-[10px] tracking-widest text-slate-400 hover:text-blue-900">
                         Party Name <ArrowUpDown className="ml-2 h-3 w-3" />
@@ -550,67 +634,82 @@ export default function PartyCreationTab() {
               </TableHeader>
               <TableBody>
                 {isLoadingParties ? (
-                  <TableRow><TableCell colSpan={7} className="h-48 text-center"><Loader2 className="h-10 w-10 animate-spin mx-auto text-blue-900 opacity-40" /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={isAdmin ? 8 : 7} className="h-48 text-center"><Loader2 className="h-10 w-10 animate-spin mx-auto text-blue-900 opacity-40" /></TableCell></TableRow>
                 ) : paginatedParties.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No records detected in logistics registry.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={isAdmin ? 8 : 7} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No records detected in logistics registry.</TableCell></TableRow>
                 ) : (
-                  paginatedParties.map((party) => (
-                    <TableRow key={party.id} className="h-16 hover:bg-blue-50/20 transition-all border-b border-slate-50 last:border-0 group">
-                      <TableCell className="px-8 font-black text-slate-900 uppercase text-xs tracking-tight">{party.name}</TableCell>
-                      <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-sm uppercase">
-                        {party.customerCode || '--'}
-                      </TableCell>
-                      <TableCell className="px-4">
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-black uppercase text-[9px] px-2.5 h-6 whitespace-nowrap">{party.type}</Badge>
-                      </TableCell>
-                      <TableCell className="px-4 font-bold text-slate-600 uppercase text-xs">{party.city || '--'}</TableCell>
-                      <TableCell className="px-4 font-bold text-slate-600 uppercase text-xs">{party.state || '--'}</TableCell>
-                      <TableCell className="px-4 font-mono text-[11px] font-bold text-slate-400 tracking-widest">{party.gstin || '-'}</TableCell>
-                      <TableCell className="px-8 text-right">
-                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-blue-600 hover:bg-blue-50" onClick={() => setEditingParty(party)}>
-                                <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-red-600 hover:bg-red-50">
-                                    <Trash2 className="h-4 w-4" />
+                  paginatedParties.map((party) => {
+                    const isChecked = selectedIds.includes(party.id);
+                    return (
+                        <TableRow key={party.id} className={cn("h-16 hover:bg-blue-50/20 transition-all border-b border-slate-50 last:border-0 group", isChecked && "bg-blue-50/40")}>
+                        {isAdmin && (
+                            <TableCell className="px-6">
+                                <Checkbox checked={isChecked} onCheckedChange={(checked) => handleSelectRow(party.id, !!checked)} className="h-5 w-5 data-[state=checked]:bg-blue-900 shadow-sm border-slate-300" />
+                            </TableCell>
+                        )}
+                        <TableCell className="px-8 font-black text-slate-900 uppercase text-xs tracking-tight">{party.name}</TableCell>
+                        <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-sm uppercase">
+                            {party.customerCode || '--'}
+                        </TableCell>
+                        <TableCell className="px-4">
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-black uppercase text-[9px] px-2.5 h-6 whitespace-nowrap">{party.type}</Badge>
+                        </TableCell>
+                        <TableCell className="px-4 font-bold text-slate-600 uppercase text-xs">{party.city || '--'}</TableCell>
+                        <TableCell className="px-4 font-bold text-slate-600 uppercase text-xs">{party.state || '--'}</TableCell>
+                        <TableCell className="px-4 font-mono text-[11px] font-bold text-slate-400 tracking-widest">{party.gstin || '-'}</TableCell>
+                        <TableCell className="px-8 text-right">
+                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-blue-600 hover:bg-blue-50" onClick={() => setEditingParty(party)}>
+                                    <Edit2 className="h-4 w-4" />
                                 </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent className="border-none shadow-2xl p-0 overflow-hidden bg-white rounded-3xl">
-                                <div className="p-8 bg-red-50 border-b border-red-100 flex items-center gap-5">
-                                    <div className="p-3 bg-red-600 text-white rounded-2xl shadow-xl"><AlertCircle className="h-6 w-6" /></div>
-                                    <div>
-                                        <AlertDialogTitle className="text-xl font-black uppercase text-red-900 tracking-tight">Revoke Party Identity?</AlertDialogTitle>
-                                        <AlertDialogDescription className="text-red-700 font-bold text-[9px] uppercase tracking-widest mt-1">Authorized Registry Disposal</AlertDialogDescription>
+                                <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-red-600 hover:bg-red-50">
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="border-none shadow-2xl p-0 overflow-hidden bg-white rounded-3xl">
+                                    <div className="p-8 bg-red-50 border-b border-red-100 flex items-center gap-5">
+                                        <div className="p-3 bg-red-600 text-white rounded-2xl shadow-xl"><AlertCircle className="h-6 w-6" /></div>
+                                        <div>
+                                            <AlertDialogTitle className="text-xl font-black uppercase text-red-900 tracking-tight">Revoke Party Identity?</AlertDialogTitle>
+                                            <AlertDialogDescription className="text-red-700 font-bold text-[9px] uppercase tracking-widest mt-1">Authorized Registry Disposal</AlertDialogDescription>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="p-8"><p className="text-sm font-medium text-slate-600 leading-relaxed italic">"You are about to move **{party.name}** to the System Archive node. This will restrict its selection in new mission orders."</p></div>
-                                <AlertDialogFooter className="bg-slate-50 p-6 flex-row justify-end gap-3 border-t">
-                                    <AlertDialogCancel className="font-bold border-slate-200 px-8 h-10 rounded-xl m-0">Abort</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleRemove(party.id)} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest px-10 h-10 rounded-xl shadow-lg border-none">Confirm Purge</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                            </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                                    <div className="p-8"><p className="text-sm font-medium text-slate-600 leading-relaxed italic">"You are about to move **{party.name}** to the System Archive node. This will restrict its selection in new mission orders."</p></div>
+                                    <AlertDialogFooter className="bg-slate-50 p-6 flex-row justify-end gap-3 border-t">
+                                        <AlertDialogCancel className="font-bold border-slate-200 px-8 h-10 rounded-xl m-0">Abort</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleRemove(party.id)} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest px-10 h-10 rounded-xl shadow-lg border-none">Confirm Purge</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+                        </TableCell>
+                        </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
           </div>
           <div className="p-6 bg-slate-50 border-t flex items-center justify-between">
             <div className="flex items-center gap-3">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Rows:</span>
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows:</span>
                 <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
                     <SelectTrigger className="h-8 w-20 bg-white border-slate-200 rounded-lg font-bold text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent className="rounded-xl">
                         {[10, 25, 50, 100, 200].map(v => <SelectItem key={v} value={v.toString()} className="font-bold">{v}</SelectItem>)}
                     </SelectContent>
                 </Select>
+                {selectedIds.length > 0 && (
+                    <div className="flex items-center gap-2 animate-in slide-in-from-left-2 ml-4">
+                        <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                        <span className="text-[10px] font-black uppercase text-blue-900">{selectedIds.length} Nodes Selected</span>
+                        <button onClick={() => setSelectedIds([])} className="text-[10px] font-bold text-slate-400 hover:text-red-600 underline ml-2">Clear</button>
+                    </div>
+                )}
             </div>
-            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemCount={filteredParties.length} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPages} />
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemCount={sortedParties.length} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPages} />
           </div>
         </CardContent>
       </Card>
