@@ -30,7 +30,7 @@ interface PrintableLRProps {
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
     const d = parseSafeDate(date);
-    return d && isValid(d) ? format(d, pattern) : '--';
+    return d && isValid(d) ? format(d, pattern).toUpperCase() : '--';
   };
 
   const buyerAddress = lr.buyerAddress || lr.deliveryAddress || lr.to;
@@ -39,7 +39,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   // 1. MANIFEST REGISTRY SUMMARIZATION Node
   const allItems = lr.items || [];
   
-  // Group by Description to handle item uniqueness and prevent list overflow
+  // Group by Description to handle item uniqueness
   const groupedByDesc = allItems.reduce((acc, item) => {
     const desc = (item.itemDescription || item.description || 'GENERAL CARGO').toUpperCase().trim();
     if (!acc[desc]) {
@@ -54,8 +54,18 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     acc[desc].units += Number(item.units) || 0;
     acc[desc].weight += Number(item.weight) || 0;
     
-    if (item.invoiceNumber) item.invoiceNumber.split(',').forEach((inv: string) => acc[desc].invoices.add(inv.trim()));
-    if (item.ewaybillNumber) item.ewaybillNumber.split(',').forEach((ewb: string) => acc[desc].ewaybills.add(ewb.trim()));
+    if (item.invoiceNumber) {
+        item.invoiceNumber.split(',').forEach((inv: string) => {
+            const trimmed = inv.trim();
+            if (trimmed && trimmed !== '--') acc[desc].invoices.add(trimmed);
+        });
+    }
+    if (item.ewaybillNumber) {
+        item.ewaybillNumber.split(',').forEach((ewb: string) => {
+            const trimmed = ewb.trim();
+            if (trimmed && trimmed !== '--') acc[desc].ewaybills.add(trimmed);
+        });
+    }
     
     return acc;
   }, {} as Record<string, any>);
@@ -63,16 +73,22 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const uniqueDescArray = Object.values(groupedByDesc);
   let displayItems: any[] = [];
 
-  if (uniqueDescArray.length > 4) {
-    // MISSION RULE: Collapse to consolidated node if too many unique items detected for single page
+  // MISSION RULE: If more than 3 distinct descriptions -> Consolidate
+  if (uniqueDescArray.length > 3) {
     const totalUnits = allItems.reduce((sum, i) => sum + (Number(i.units) || 0), 0);
     const totalWeight = Number(lr.assignedTripWeight) || allItems.reduce((sum, i) => sum + (Number(i.weight) || 0), 0);
     
     const allInvoices = new Set<string>();
     const allEwaybills = new Set<string>();
     allItems.forEach(i => {
-        if (i.invoiceNumber) i.invoiceNumber.split(',').forEach((inv: string) => allInvoices.add(inv.trim()));
-        if (i.ewaybillNumber) i.ewaybillNumber.split(',').forEach((ewb: string) => allEwaybills.add(ewb.trim()));
+        if (i.invoiceNumber) i.invoiceNumber.split(',').forEach((inv: string) => {
+            const t = inv.trim();
+            if(t && t !== '--') allInvoices.add(t);
+        });
+        if (i.ewaybillNumber) i.ewaybillNumber.split(',').forEach((ewb: string) => {
+            const t = ewb.trim();
+            if(t && t !== '--') allEwaybills.add(t);
+        });
     });
 
     displayItems = [{
@@ -101,9 +117,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     const rows = [];
     for (let i = 0; i < items.length; i += 2) {
         const pair = items.slice(i, i + 2).join(', ');
-        rows.push(<div key={i} className="text-[8.5pt] font-black text-slate-900 leading-tight mb-1 last:mb-0 uppercase text-center">{pair}</div>);
+        rows.push(<div key={i} className="text-[8pt] font-black text-slate-900 leading-tight mb-0.5 last:mb-0 uppercase text-center">{pair}</div>);
     }
-    return <div className="flex flex-col py-2 items-center justify-center h-full">{rows}</div>;
+    return <div className="flex flex-col py-1 items-center justify-center h-full">{rows}</div>;
   };
 
   const vehicleNumber = lr.vehicleNumber || lr.trip?.vehicleNumber || '--';
@@ -114,29 +130,29 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const dispatchTime = dispatchDateRaw ? format(parseSafeDate(dispatchDateRaw)!, 'HH:mm') : '11:35';
 
   return (
-    <div className="A4-page p-[10mm] bg-white text-black font-sans text-[9.5pt] leading-tight flex flex-col relative box-border h-[297mm] overflow-hidden select-text print:m-0 print:p-0">
+    <div className="A4-page p-[10mm] bg-white text-black font-sans text-[9pt] leading-tight flex flex-col relative box-border h-[297mm] overflow-hidden select-text print:m-0 print:p-0">
       
       {/* COPY INDICATOR */}
-      <div className="text-center mb-6 border-b-2 border-black pb-1">
-        <span className="text-[12pt] font-black uppercase tracking-[0.6em] text-slate-900">{copyType}</span>
+      <div className="text-center mb-4 border-b-2 border-black pb-1 shrink-0">
+        <span className="text-[11pt] font-black uppercase tracking-[0.6em] text-slate-900">{copyType}</span>
       </div>
 
       {/* HEADER: CARRIER & CN INFO */}
-      <div className="flex justify-between items-start mb-8 pt-2 shrink-0">
-        <div className="flex gap-6 flex-1 pr-6">
-          <div className="h-24 w-24 bg-white border-2 border-black rounded-2xl flex items-center justify-center p-2 shrink-0 overflow-hidden shadow-sm">
+      <div className="flex justify-between items-start mb-6 pt-2 shrink-0">
+        <div className="flex gap-5 flex-1 pr-6">
+          <div className="h-20 w-24 bg-white border-2 border-black rounded-2xl flex items-center justify-center p-2 shrink-0 overflow-hidden shadow-sm">
             <img 
-                src={lr.carrier?.logoUrl || "https://image2url.com/r2/default/images/1774853131451-83a2a90c-6707-43fc-9b92-c364ad369d96.jpeg"} 
+                src="https://image2url.com/r2/default/images/1774853131451-83a2a90c-6707-43fc-9b92-c364ad369d96.jpeg" 
                 alt="Logo" 
                 className="max-h-full max-w-full object-contain" 
             />
           </div>
-          <div className="space-y-1">
-            <h1 className="text-[24pt] font-black uppercase tracking-tighter leading-none">{lr.carrier?.name || 'SIKKA LMC'}</h1>
-            <p className="text-[8.5pt] font-bold text-slate-600 uppercase max-w-[450px] leading-snug">
+          <div className="space-y-0.5">
+            <h1 className="text-[20pt] font-black uppercase tracking-tighter leading-none">{lr.carrier?.name || 'SIKKA LMC'}</h1>
+            <p className="text-[8pt] font-bold text-slate-600 uppercase max-w-[400px] leading-tight">
                 {lr.carrier?.address || 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009'}
             </p>
-            <div className="text-[8.5pt] font-black text-slate-500 flex flex-wrap gap-x-8 pt-2 uppercase">
+            <div className="text-[8pt] font-black text-slate-500 flex flex-wrap gap-x-6 pt-1.5 uppercase">
               <p>PHONE: <span className="text-slate-900 font-mono">9136688004</span></p>
               <p>GSTIN: <span className="font-mono text-slate-900">09AYQPS6936B1ZV</span></p>
               <p>PAN: <span className="font-mono text-slate-900">AYQPS6936B</span></p>
@@ -144,21 +160,21 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           </div>
         </div>
 
-        <div className="min-w-[280px] space-y-4">
-          <div className="border-[3px] border-black p-4 bg-white text-center rounded-[1.2rem] shadow-md flex items-center justify-between gap-4">
-            <span className="text-[10pt] font-black text-slate-400 uppercase">CN NO |</span>
-            <span className="text-[18pt] font-black font-mono text-blue-900 tracking-tight">{lr.lrNumber}</span>
+        <div className="min-w-[260px] space-y-3">
+          <div className="border-[2.5px] border-black p-3 bg-white text-center rounded-[1rem] shadow-md flex items-center justify-between gap-3">
+            <span className="text-[9pt] font-black text-slate-400 uppercase">CN NO |</span>
+            <span className="text-[16pt] font-black font-mono text-slate-900 tracking-tight">{lr.lrNumber}</span>
           </div>
-          <div className="text-[10.5pt] font-black uppercase space-y-2 px-2">
+          <div className="text-[9.5pt] font-black uppercase space-y-1.5 px-2">
             <p className="flex justify-between gap-4"><span>DATE:</span> <span className="text-slate-900">{formatDate(lr.date)}</span></p>
-            <p className="flex justify-between gap-4"><span>FROM:</span> <span className="text-blue-900">{lr.from?.split(',')[0].toUpperCase() || 'GHAZIABAD'}</span></p>
-            <p className="flex justify-between gap-4"><span>TO:</span> <span className="text-emerald-700">{lr.to?.split(',')[0].toUpperCase() || 'HAPUR'}</span></p>
+            <p className="flex justify-between gap-4"><span>FROM:</span> <span className="text-slate-900">{lr.from?.split(',')[0].toUpperCase() || 'GHAZIABAD'}</span></p>
+            <p className="flex justify-between gap-4"><span>TO:</span> <span className="text-slate-900">{lr.to?.split(',')[0].toUpperCase() || 'HAPUR'}</span></p>
           </div>
         </div>
       </div>
 
       {/* TRIP METRICS GRID */}
-      <div className="grid grid-cols-5 border-2 border-black rounded-[1.5rem] overflow-hidden mb-8 bg-white divide-x-2 divide-black shadow-sm shrink-0">
+      <div className="grid grid-cols-5 border-2 border-black rounded-[1.2rem] overflow-hidden mb-6 bg-white divide-x-2 divide-black shadow-sm shrink-0">
         {[
           { label: 'VEHICLE REGISTRY', value: vehicleNumber, bold: true },
           { label: 'PILOT CONTACT', value: driverMobile, mono: true },
@@ -166,11 +182,11 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           { label: 'PAYMENT TERM', value: paymentTerm },
           { label: 'DISPATCH NODE', value: dispatchTime, mono: true }
         ].map((node, i) => (
-          <div key={i} className="py-4 px-2 text-center flex flex-col justify-center gap-1.5 border-none">
-            <span className="text-[7.5pt] font-black uppercase text-slate-400 block leading-tight tracking-[0.1em]">{node.label}</span>
+          <div key={i} className="py-3 px-1 text-center flex flex-col justify-center gap-1 border-none">
+            <span className="text-[7pt] font-black uppercase text-slate-400 block leading-tight tracking-[0.1em]">{node.label}</span>
             <p className={cn(
-                "text-[10pt] uppercase leading-none", 
-                node.bold ? "font-black text-slate-900" : "font-black text-slate-600", 
+                "text-[9pt] uppercase leading-none", 
+                node.bold ? "font-black text-slate-900" : "font-bold text-slate-600", 
                 node.mono && "font-mono tracking-tighter"
             )}>
                 {node.value || '--'}
@@ -180,76 +196,77 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       </div>
 
       {/* PARTY REGISTRY NODES */}
-      <div className="grid grid-cols-3 gap-6 mb-10 shrink-0">
+      <div className="grid grid-cols-3 gap-5 mb-8 shrink-0">
         {[
-            { title: 'CONSIGNOR (SENDER)', name: lr.consignorName, addr: lr.consignorAddress || lr.from, gstin: lr.consignorGtin, theme: 'black' },
-            { title: 'CONSIGNEE (RECEIVER)', name: lr.buyerName || lr.shipToParty, addr: buyerAddress, gstin: lr.buyerGtin, theme: 'black' },
-            { title: 'SHIP TO PARTY', name: lr.shipToParty || lr.buyerName, addr: shipToAddress, gstin: lr.shipToGtin, theme: 'blue' }
+            { title: 'CONSIGNOR (SENDER)', name: lr.consignorName, addr: lr.consignorAddress || lr.from, gstin: lr.consignorGtin },
+            { title: 'CONSIGNEE (RECEIVER)', name: lr.buyerName || lr.shipToParty, addr: buyerAddress, gstin: lr.buyerGtin },
+            { title: 'SHIP TO PARTY', name: lr.shipToParty || lr.buyerName, addr: shipToAddress, gstin: lr.shipToGtin }
         ].map((node, idx) => (
-            <div key={idx} className="border-2 border-black rounded-[2rem] p-6 pt-8 relative min-h-[160px] flex flex-col justify-center bg-white shadow-sm text-center">
-                <div className={cn(
-                    "absolute -top-4 left-1/2 -translate-x-1/2 text-white px-8 py-2 rounded-full text-[8.5pt] font-black uppercase tracking-widest shadow-xl whitespace-nowrap",
-                    node.theme === 'blue' ? 'bg-blue-900' : 'bg-black'
-                )}>{node.title}</div>
-                <div className="space-y-2 mt-2">
-                    <p className="text-[11pt] font-black uppercase text-slate-900 leading-tight">{node.name}</p>
-                    <p className="text-[8.5pt] font-bold text-slate-500 leading-snug italic uppercase line-clamp-2">{node.addr}</p>
-                    <p className="font-black text-slate-900 text-[9pt] pt-2">GSTIN: <span className="font-mono uppercase">{node.gstin || '--'}</span></p>
+            <div key={idx} className="border-2 border-black rounded-[1.8rem] p-5 pt-7 relative min-h-[140px] flex flex-col justify-center bg-white shadow-sm text-center">
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-black text-white px-6 py-1.5 rounded-full text-[8pt] font-black uppercase tracking-widest shadow-lg whitespace-nowrap">
+                    {node.title}
+                </div>
+                <div className="space-y-1.5 mt-1">
+                    <p className="text-[10pt] font-black uppercase text-slate-900 leading-tight line-clamp-2">{node.name}</p>
+                    <p className="text-[8pt] font-bold text-slate-500 leading-snug italic uppercase line-clamp-2">{node.addr}</p>
+                    <p className="font-black text-slate-900 text-[8.5pt] pt-1">GSTIN: <span className="font-mono uppercase">{node.gstin || '--'}</span></p>
                 </div>
             </div>
         ))}
       </div>
 
       {/* ITEMS TABLE */}
-      <div className="border-[3px] border-black rounded-[2.5rem] overflow-hidden mb-10 flex flex-col shadow-xl shrink-0 bg-white">
+      <div className="border-[2.5px] border-black rounded-[2rem] overflow-hidden mb-8 flex flex-col shadow-lg shrink-0 bg-white">
         <table className="w-full border-collapse">
-          <thead className="bg-[#0a0c10] text-white text-[9.5pt] font-black uppercase tracking-[0.1em]">
-            <tr className="h-16">
-              <th className="border-r border-white/10 px-6 text-center w-56 leading-tight">INVOICE<br/>REGISTRY</th>
-              <th className="border-r border-white/10 px-6 text-center w-56 leading-tight">E-WAYBILL<br/>NODE</th>
-              <th className="border-r border-white/10 px-8 text-center leading-tight">DESCRIPTION<br/>OF GOODS</th>
-              <th className="border-r border-white/10 px-4 text-center w-28 leading-tight">NO.<br/>OF PKGS</th>
-              <th className="px-8 text-center w-40 leading-tight">WEIGHT<br/>(MT)</th>
+          <thead className="bg-[#0a0c10] text-white text-[9pt] font-black uppercase tracking-[0.1em]">
+            <tr className="h-14">
+              <th className="border-r border-white/10 px-4 text-center w-48 leading-tight">INVOICE<br/>REGISTRY</th>
+              <th className="border-r border-white/10 px-4 text-center w-48 leading-tight">E-WAYBILL<br/>NODE</th>
+              <th className="border-r border-white/10 px-6 text-center leading-tight">DESCRIPTION<br/>OF GOODS</th>
+              <th className="border-r border-white/10 px-3 text-center w-24 leading-tight">NO.<br/>OF PKGS</th>
+              <th className="px-6 text-center w-36 leading-tight">WEIGHT<br/>(MT)</th>
             </tr>
           </thead>
-          <tbody className="text-[11pt]">
+          <tbody className="text-[10pt]">
             {displayItems.map((item, idx) => (
               <tr key={idx} className="align-middle border-b border-slate-200 last:border-b-0 hover:bg-slate-50/50 transition-colors">
-                <td className="border-r border-slate-200 px-4 font-black uppercase align-middle">
+                <td className="border-r border-slate-200 px-3 font-black uppercase align-middle">
                   {renderPairedValues(item.invoiceNumber)}
                 </td>
-                <td className="border-r border-slate-200 px-4 font-black uppercase align-middle">
+                <td className="border-r border-slate-200 px-3 font-black uppercase align-middle">
                   {renderPairedValues(item.ewaybillNumber)}
                 </td>
-                <td className="border-r border-slate-200 px-8 py-8 uppercase italic font-black text-slate-700 leading-snug tracking-tighter text-center">
+                <td className="border-r border-slate-200 px-6 py-6 uppercase italic font-black text-slate-700 leading-snug tracking-tighter text-center">
                     {item.itemDescription}
                 </td>
-                <td className="border-r border-slate-200 px-4 text-center font-black text-[14pt] text-slate-900">{item.units}</td>
-                <td className="px-8 text-center font-black text-[14pt] text-blue-900 tracking-tighter">
+                <td className="border-r border-slate-200 px-3 text-center font-black text-[13pt] text-slate-900">{item.units}</td>
+                <td className="px-6 text-center font-black text-[13pt] text-slate-900 tracking-tighter">
                     {Number(item.weight).toFixed(3)}
                 </td>
               </tr>
             ))}
-            {/* Pad table rows to maintain height consistency */}
-            {displayItems.length < 2 && Array.from({length: 2 - displayItems.length}).map((_, i) => (
-                <tr key={`pad-${i}`} className="h-24 border-b border-slate-100 last:border-0"><td colSpan={5}></td></tr>
-            ))}
+            {/* Minimal padding if only one item */}
+            {displayItems.length === 1 && (
+                <tr className="h-20 border-b border-slate-100 last:border-0"><td colSpan={5}></td></tr>
+            )}
           </tbody>
-          <tfoot className="bg-[#1a1d24] font-black h-20 border-t-2 border-black text-[13pt] text-white">
+          <tfoot className="bg-[#1a1d24] font-black h-16 border-t-2 border-black text-[12pt] text-white">
             <tr>
-              <td colSpan={3} className="px-10 uppercase border-r border-white/10 tracking-[0.4em]">MANIFEST TOTALS:</td>
+              <td colSpan={3} className="px-8 uppercase border-r border-white/10 tracking-[0.3em]">MANIFEST TOTALS:</td>
               <td className="border-r border-white/10 text-center font-black">{totalUnitsFinal}</td>
-              <td className="text-center px-8 font-black text-[#10b981] tracking-tighter text-[15pt]">{totalWeightFinal.toFixed(3)}</td>
+              <td className="text-center px-6 font-black text-slate-400 tracking-tighter text-[14pt]">
+                {totalWeightFinal.toFixed(3)}
+              </td>
             </tr>
           </tfoot>
         </table>
       </div>
 
       {/* TERMS & SIGNATURE */}
-      <div className="grid grid-cols-2 gap-24 mb-12 mt-auto shrink-0 px-8">
-        <div className="space-y-6">
-          <span className="text-[10pt] font-black uppercase text-slate-900 border-b-2 border-black inline-block pb-1 tracking-[0.2em]">TERMS & CONDITIONS</span>
-          <div className="space-y-2.5 pt-1">
+      <div className="grid grid-cols-2 gap-16 mb-8 mt-auto shrink-0 px-6">
+        <div className="space-y-4">
+          <span className="text-[9.5pt] font-black uppercase text-slate-900 border-b-2 border-black inline-block pb-0.5 tracking-[0.1em]">TERMS & CONDITIONS</span>
+          <div className="space-y-1.5 pt-1">
             {(lr.carrier?.terms?.length > 0 ? lr.carrier.terms : [
                 "Agency is not responsible for rain or any natural calamity.",
                 "Discrepancies must be intimated within 24 Hours of receipt node.",
@@ -258,27 +275,27 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 "Sikka Logistics holds no responsibility after final drop node.",
                 "All disputes subject to Ghaziabad Jurisdiction."
             ]).slice(0, 6).map((term, i) => (
-                <p key={i} className="text-[8.5pt] font-bold text-slate-500 leading-snug uppercase">{i + 1}. {term}</p>
+                <p key={i} className="text-[8pt] font-bold text-slate-500 leading-snug uppercase">{i + 1}. {term}</p>
             ))}
           </div>
         </div>
-        <div className="flex flex-col justify-end text-center pt-10">
-          <div className="w-full border-t-2 border-black border-dashed mb-6 opacity-30" />
-          <span className="text-[13pt] font-black uppercase tracking-[0.5em] text-slate-900 italic">AUTHORIZED SIGNATORY</span>
-          <span className="text-[9pt] font-bold text-slate-400 uppercase mt-2 tracking-widest">LMC REGISTRY VERIFIED IDENTITY NODE</span>
+        <div className="flex flex-col justify-end text-center pt-8">
+          <div className="w-full border-t-2 border-black border-dashed mb-4 opacity-20" />
+          <span className="text-[12pt] font-black uppercase tracking-[0.4em] text-slate-900 italic">AUTHORIZED SIGNATORY</span>
+          <span className="text-[8.5pt] font-bold text-slate-400 uppercase mt-1.5 tracking-widest">LMC REGISTRY VERIFIED IDENTITY NODE</span>
         </div>
       </div>
 
       {/* PERMANENT FOOTER STRIP */}
-      <div className="mt-6 pt-6 border-t-2 border-black flex flex-col items-center gap-4 shrink-0">
-        <p className="text-[8.5pt] font-black uppercase text-slate-400 tracking-[0.2em] text-center max-w-[85%] leading-relaxed">
+      <div className="pt-4 border-t-2 border-black flex flex-col items-center gap-3 shrink-0">
+        <p className="text-[8pt] font-black uppercase text-slate-400 tracking-[0.1em] text-center max-w-[90%] leading-relaxed">
             NOTICE: THIS IS A COMPUTER GENERATED MANIFEST AUTHORIZED BY SIKKA INDUSTRIES. <br/>
             AUTHENTICITY CAN BE VERIFIED VIA MISSION REGISTRY HUB USING CN NO.
         </p>
-        <div className="flex items-center gap-16">
-            <span className="text-[11pt] font-black uppercase tracking-[0.6em] text-slate-900">PAGE {pageNumber} OF {totalInSeries}</span>
-            <div className="h-6 w-px bg-slate-300" />
-            <span className="text-[10pt] font-black text-blue-900/40 tracking-widest uppercase italic">SIKKA LMC ENTERPRISE v2.5</span>
+        <div className="flex items-center gap-12">
+            <span className="text-[10pt] font-black uppercase tracking-[0.5em] text-slate-900">PAGE {pageNumber} OF {totalInSeries}</span>
+            <div className="h-5 w-px bg-slate-200" />
+            <span className="text-[9pt] font-black text-blue-900/30 tracking-widest uppercase italic">SIKKA LMC ENTERPRISE v2.5</span>
         </div>
       </div>
     </div>
