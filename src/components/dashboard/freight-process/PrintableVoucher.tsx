@@ -10,6 +10,7 @@ import { Timestamp } from 'firebase/firestore';
  * @fileOverview SIKKA LMC - Printable Transporter Payment Voucher.
  * Synchronized with Detailed Liquidation Ledger.
  * Handshakes with Trip, Freight, and Banking registries.
+ * Updated: Enhanced header with State, Code, Email, Website and Multi-Phone.
  */
 
 export default function PrintableVoucher({ trip }: { trip: any }) {
@@ -91,7 +92,7 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
     });
 
     return (
-        <div id="printable-area" className="A4-page flex flex-col h-full bg-white text-black font-sans text-[9.5pt] leading-tight select-text print:m-0 print:p-0">
+        <div id="printable-area" className="A4-page flex flex-col h-full bg-white text-black font-sans text-[9.5pt] leading-tight flex flex-col relative box-border h-[297mm] w-[210mm] overflow-hidden select-text border-none mx-auto">
             
             {/* 1. TOP CENTER TITLE */}
             <div className="flex justify-center mb-8 shrink-0">
@@ -104,8 +105,16 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
             <div className="flex justify-between items-start border-b-4 border-black pb-6 mb-8 shrink-0">
                 <div className="space-y-1.5 flex-1 pr-10">
                     <h1 className="text-[16pt] font-black uppercase leading-none tracking-tight">{carrier.name || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
-                    <p className="text-[8.5pt] font-bold text-slate-600 italic max-w-[400px]">{carrier.address || 'GHAZIABAD, UTTAR PRADESH'}</p>
-                    <p className="text-[9pt] font-black mt-2">GSTIN: <span className="font-mono">{carrier.gstin || '09AABCU9567L1Z5'}</span></p>
+                    <p className="text-[8.5pt] font-bold text-slate-600 uppercase max-w-[450px] leading-tight">{carrier.address || 'GHAZIABAD, UTTAR PRADESH'}</p>
+                    <div className="text-[8pt] font-black mt-2 flex flex-wrap gap-x-4 gap-y-1 uppercase leading-snug">
+                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">PHONE:</span> <span className="text-slate-900 font-mono">{carrier.mobile || '9136688004'}</span></p>
+                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">GSTIN:</span> <span className="font-mono text-slate-900">{carrier.gstin || '--'}</span></p>
+                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">PAN:</span> <span className="font-mono text-slate-900">{carrier.pan || '--'}</span></p>
+                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">STATE:</span> <span className="text-slate-900">{carrier.stateName || '--'}</span></p>
+                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">CODE:</span> <span className="text-slate-900">{carrier.stateCode || '--'}</span></p>
+                        {carrier.email && <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">E-MAIL:</span> <span className="text-slate-900 lowercase font-bold">{carrier.email}</span></p>}
+                        {carrier.website && <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">WEB:</span> <span className="text-slate-900 lowercase font-bold">{carrier.website}</span></p>}
+                    </div>
                 </div>
                 
                 <div className="text-right flex flex-col items-end gap-1.5 min-w-[260px]">

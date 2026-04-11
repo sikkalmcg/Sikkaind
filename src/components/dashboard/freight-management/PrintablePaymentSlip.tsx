@@ -11,6 +11,7 @@ import { Timestamp } from 'firebase/firestore';
  * @fileOverview SIKKA LMC - Printable Payment Slip Node.
  * Professional A4 Layout with Top-Center Title architecture.
  * Synchronized with Detailed Liquidation Ledger.
+ * Updated: Enhanced header with State, Code, Email, Website and Multi-Phone.
  */
 
 export default function PrintablePaymentSlip({ freight, payment }: { freight: EnrichedFreight, payment: any }) {
@@ -55,7 +56,7 @@ export default function PrintablePaymentSlip({ freight, payment }: { freight: En
         { label: 'Pilot Contact', value: trip.driverMobile, mono: true },
         { label: 'Transporter', value: trip.transporterName || 'Self' },
         { label: 'Lifting Node', value: plant.name },
-        { label: 'Drop Node', value: trip.unloadingPoint },
+        { label: 'Drop Point (TO)', value: trip.unloadingPoint },
         { label: 'Quantity (MT)', value: trip.assignedQtyInTrip, bold: true },
         { label: 'Freight Rate', value: trip.freightRate ? `₹ ${trip.freightRate}` : '--' },
         { label: 'Total Mission Freight', value: `₹ ${Number(freight.totalFreightAmount).toLocaleString('en-IN')}`, bold: true, color: 'text-blue-900' },
@@ -105,11 +106,16 @@ export default function PrintablePaymentSlip({ freight, payment }: { freight: En
             {/* 2. HEADER: CARRIER & META */}
             <div className="flex justify-between items-start border-b-4 border-black pb-6 mb-8 shrink-0">
                 <div className="space-y-1.5 flex-1 pr-10">
-                    <h1 className="text-[16pt] font-black uppercase leading-none tracking-tight text-slate-900">{carrier.name || 'Sikka Logistics'}</h1>
-                    <p className="text-[9pt] font-bold text-slate-600 italic max-w-[350px]">{carrier.address || 'N/A'}</p>
-                    <div className="text-[9pt] font-black pt-2 flex flex-col gap-0.5">
-                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">GSTIN:</span> <span className="font-mono">{carrier.gstin || '--'}</span></p>
-                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">STATE:</span> <span className="uppercase">{carrier.stateName || '--'}</span></p>
+                    <h1 className="text-[16pt] font-black uppercase leading-none tracking-tight text-slate-900">{carrier.name || 'SIKKA LMC'}</h1>
+                    <p className="text-[8pt] font-bold text-slate-600 uppercase max-w-[450px] leading-tight">{carrier.address || 'GHAZIABAD, UTTAR PRADESH'}</p>
+                    <div className="text-[8pt] font-black pt-2 flex flex-wrap gap-x-4 gap-y-1 uppercase leading-snug">
+                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">PHONE:</span> <span className="text-slate-900 font-mono">{carrier.mobile || '9136688004'}</span></p>
+                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">GSTIN:</span> <span className="font-mono text-slate-900">{carrier.gstin || '--'}</span></p>
+                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">PAN:</span> <span className="font-mono text-slate-900">{carrier.pan || '--'}</span></p>
+                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">STATE:</span> <span className="text-slate-900">{carrier.stateName || '--'}</span></p>
+                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">CODE:</span> <span className="text-slate-900">{carrier.stateCode || '--'}</span></p>
+                        {carrier.email && <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">E-MAIL:</span> <span className="text-slate-900 lowercase font-bold">{carrier.email}</span></p>}
+                        {carrier.website && <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">WEB:</span> <span className="text-slate-900 lowercase font-bold">{carrier.website}</span></p>}
                     </div>
                 </div>
                 
@@ -222,7 +228,7 @@ export default function PrintablePaymentSlip({ freight, payment }: { freight: En
                     REGISTRY HANDSHAKE | CERTIFIED NODE SYNC
                 </p>
                 <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
+                    < ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
                     <span className="text-[7.5pt] font-black uppercase tracking-[0.5em] text-slate-500">VERIFIED SIKKA LMC REGISTRY DOCUMENT</span>
                 </div>
             </div>

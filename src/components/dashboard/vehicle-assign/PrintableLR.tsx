@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -24,7 +23,7 @@ interface PrintableLRProps {
  * @fileOverview SIKKA LMC - Precision LR Manifest Registry.
  * Engineered to match office standard reference image with strict A4 paging.
  * Ensures 1 page per copy, exact visual alignment, and mission logic.
- * Updated: Removed extra rows, added total row, replaced GSTIN with CODE.
+ * Updated: Enhanced header with State, Code, Email, Website and Multi-Phone.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -137,7 +136,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
       {/* 2. HEADER REGISTRY */}
       <div className="flex justify-between items-start mb-6 shrink-0">
-        <div className="flex gap-5 flex-1">
+        <div className="flex gap-5 flex-1 pr-4">
           <div className="h-16 w-18 bg-white border border-black rounded-lg flex items-center justify-center p-1 shrink-0 overflow-hidden shadow-sm">
             <img 
                 src="https://image2url.com/r2/default/images/1774853131451-83a2a90c-6707-43fc-9b92-c364ad369d96.jpeg" 
@@ -147,13 +146,17 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           </div>
           <div className="space-y-1">
             <h1 className="text-[18pt] font-black uppercase tracking-tight leading-none text-slate-900">{lr.carrier?.name || 'SIKKA LMC'}</h1>
-            <p className="text-[7.5pt] font-bold text-slate-600 uppercase max-w-[400px] leading-tight">
+            <p className="text-[7pt] font-bold text-slate-600 uppercase max-w-[450px] leading-tight">
                 {lr.carrier?.address || 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009'}
             </p>
-            <div className="text-[7.5pt] font-black text-slate-400 flex flex-wrap gap-x-5 pt-1 uppercase">
-              <p>PHONE: <span className="text-slate-900 font-mono">9136688004</span></p>
-              <p>GSTIN: <span className="font-mono text-slate-900">09AYQPS6936B1ZV</span></p>
-              <p>PAN: <span className="font-mono text-slate-900">AYQPS6936B</span></p>
+            <div className="text-[7pt] font-black text-slate-400 flex flex-wrap gap-x-4 pt-1 uppercase leading-snug">
+              <p>PHONE: <span className="text-slate-900 font-mono">{lr.carrier?.mobile || '9136688004'}</span></p>
+              <p>GSTIN: <span className="font-mono text-slate-900">{lr.carrier?.gstin || '09AYQPS6936B1ZV'}</span></p>
+              <p>PAN: <span className="font-mono text-slate-900">{lr.carrier?.pan || 'AYQPS6936B'}</span></p>
+              <p>STATE: <span className="text-slate-900">{lr.carrier?.stateName || 'UTTAR PRADESH'}</span></p>
+              <p>CODE: <span className="text-slate-900">{lr.carrier?.stateCode || '09'}</span></p>
+              {lr.carrier?.email && <p>E-MAIL: <span className="text-slate-900 lowercase font-bold">{lr.carrier.email}</span></p>}
+              {lr.carrier?.website && <p>WEB: <span className="text-slate-900 lowercase font-bold">{lr.carrier.website}</span></p>}
             </div>
           </div>
         </div>
