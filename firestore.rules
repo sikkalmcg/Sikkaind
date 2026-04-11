@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ------------------------------------------------------------------------
-    // HELPER FUNCTIONS (Consolidated Registry)
+    // HELPER FUNCTIONS (Registry Core)
     // ------------------------------------------------------------------------
 
     function isSignedIn() {
@@ -12,7 +12,7 @@ service cloud.firestore {
 
     /**
      * Checks if the currently authenticated user is an administrator.
-     * Includes hardcoded system admin emails and role-based registry check.
+     * Includes system admin emails and role-based registry check.
      */
     function isAdmin() {
       return isSignedIn() && (
@@ -24,7 +24,6 @@ service cloud.firestore {
 
     /**
      * Checks if the user is the owner of the document based on the path ID.
-     * Supports both UID and Email based identifiers.
      */
     function isOwner(userId) {
       return isSignedIn() && (request.auth.uid == userId || request.auth.token.email == userId);
@@ -60,7 +59,7 @@ service cloud.firestore {
     // CORE REGISTRY RULES
     // ------------------------------------------------------------------------
 
-    // --- SECURITY & ADMIN NODES ---
+    // --- SECURITY & ADMIN PLANTS ---
 
     match /roles_admin/{authUserId} {
       allow get, list: if isAdmin();
@@ -73,10 +72,9 @@ service cloud.firestore {
       allow delete: if isAdmin();
 
       // Authorized Notification Registry Access
-      // MISSION FIX: Explicitly allow listing for the Notification Bell
       match /notifications/{notifId} {
         allow read, list: if isOwner(userId) || isAdmin();
-        allow create, update: if isSignedIn(); // System can generate alerts
+        allow create, update: if isSignedIn(); 
         allow delete: if isOwner(userId) || isAdmin();
       }
     }
@@ -113,12 +111,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // --- MISSION PARTITIONED DATA (Plants) ---
-
-    match /plants/{plantId}/{anyCollection}/{docId} {
+    // --- MISSION PARTITIONED DATA (Plants Hierarchy) ---
+    // Standardizing to recursive wildcard to allow collection listing (trips, shipments, etc.)
+    match /plants/{plantId}/{allSubPaths=**} {
       allow read, write: if isSignedIn();
     }
 
+    // Global flat collections (for legacy sync or cross-plant views)
     match /trips/{tripId} {
       allow read, write: if isSignedIn();
     }
@@ -183,7 +182,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // --- FALLBACK ---
+    // --- GLOBAL OVERRIDE ---
     match /{allPaths=**} {
       allow read, write: if isAdmin();
     }
