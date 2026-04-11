@@ -2,16 +2,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- GLOBAL HELPER FUNCTIONS ---
+    // ------------------------------------------------------------------------
+    // HELPER FUNCTIONS (Consolidated Registry)
+    // ------------------------------------------------------------------------
 
-    // Check if the request is from an authenticated operator
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Check if the operator has root administrative privileges
-    // Logic: Matches hardcoded system admin emails or admin role
-    function isRootAdmin() {
+    /**
+     * Checks if the currently authenticated user is an administrator.
+     * Includes hardcoded system admin emails and role-based registry check.
+     */
+    function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'sikkaind.admin@sikka.com' || 
         request.auth.token.email == 'sikkalmcg@gmail.com' ||
@@ -19,24 +22,63 @@ service cloud.firestore {
       );
     }
 
-    // --- COLLECTION SPECIFIC RULES ---
-
-    // User Identities: Operators can read the registry, but only update their own profile
-    match /users/{userEmail} {
-      allow read: if isSignedIn();
-      allow create, update: if isRootAdmin() || (isSignedIn() && request.auth.token.email == userEmail);
-      allow delete: if isRootAdmin();
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
-    // Master Registry: Plants, Carriers, Vehicles, and Pumps
+    function isRecordOwner(recordOwnerId) {
+      return request.auth.uid == recordOwnerId;
+    }
+
+    function isExistingDoc() {
+      return resource != null;
+    }
+
+    // --- Data Integrity Helpers ---
+    
+    function isCreatingOwnProfile(authUserId) {
+      return request.resource.data.authUserId == authUserId;
+    }
+
+    function isMaintainingProfileId() {
+      return request.resource.data.authUserId == resource.data.authUserId;
+    }
+    
+    function isCreatingOwnRecord(authUserId) {
+      return request.resource.data.employeeId == authUserId;
+    }
+
+    function isMaintainingRecordId() {
+      return request.resource.data.employeeId == resource.data.employeeId;
+    }
+
+    // ------------------------------------------------------------------------
+    // CORE REGISTRY RULES
+    // ------------------------------------------------------------------------
+
+    // --- SECURITY & ADMIN NODES ---
+
+    match /roles_admin/{authUserId} {
+      allow get, list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /users/{userEmail} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin() || (isSignedIn() && request.auth.token.email == userEmail);
+      allow delete: if isAdmin();
+    }
+
+    // --- LOGISTICS MASTER DATA ---
+
     match /logistics_plants/{plantId} {
       allow read: if isSignedIn();
-      allow write: if isRootAdmin();
+      allow write: if isAdmin();
     }
     
     match /carriers/{carrierId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn(); // Allow operators to add/edit carriers
+      allow write: if isSignedIn();
     }
 
     match /vehicles/{vehicleId} {
@@ -54,49 +96,84 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
-    // Partitioned Data: Shipments, Trips, LRs, and Fuel Entries per Plant
-    match /plants/{plantId}/{anyCollection}/{docId} {
-      allow read, write: if isSignedIn();
-      // Note: For enterprise scaling, add: && (isRootAdmin() || plantId in get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.plantIds)
+    match /material_types/{typeId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
-    // Global Trips Registry (Duplicate node for cross-plant tracking)
+    // --- MISSION PARTITIONED DATA ---
+
+    match /plants/{plantId}/{anyCollection}/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
     match /trips/{tripId} {
       allow read, write: if isSignedIn();
     }
 
-    // Gate Presence Monitoring
     match /vehicleEntries/{entryId} {
       allow read, write: if isSignedIn();
     }
 
-    // Audit and Archive Nodes
+    // --- HR & ATTENDANCE NODES ---
+
+    match /departments/{departmentId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /holidays/{holidayId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /employees/{authUserId} {
+      allow get: if isOwner(authUserId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(authUserId) && isCreatingOwnProfile(authUserId);
+      allow update: if (isOwner(authUserId) || isAdmin()) && isExistingDoc() && isMaintainingProfileId();
+      allow delete: if isAdmin() && isExistingDoc();
+
+      match /attendanceRecords/{recordId} {
+        allow get, list: if isOwner(authUserId) || isAdmin();
+        allow create: if isOwner(authUserId) && isCreatingOwnRecord(authUserId);
+        allow update: if (isOwner(authUserId) || isAdmin()) && isExistingDoc() && isMaintainingRecordId();
+        allow delete: if (isOwner(authUserId) || isAdmin()) && isExistingDoc();
+      }
+    }
+
+    match /anomalyFlags/{flagId} {
+      allow get: if isAdmin() || (isExistingDoc() && isRecordOwner(resource.data.employeeId));
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- SYSTEM AUDIT & ARCHIVE ---
+
     match /activity_logs/{logId} {
       allow create: if isSignedIn();
-      allow read: if isRootAdmin();
-      allow update, delete: if false; // Audit logs are immutable
+      allow read: if isAdmin();
+      allow update, delete: if false;
     }
 
     match /recycle_bin/{itemId} {
       allow create: if isSignedIn();
-      allow read: if isRootAdmin();
-      allow delete: if isRootAdmin();
+      allow read: if isAdmin();
+      allow delete: if isAdmin();
     }
 
-    // Sequence Counters for ID Generation
     match /counters/{counterId} {
       allow read, write: if isSignedIn();
     }
 
-    // GPS and System Settings
     match /gps_settings/{settingId} {
       allow read: if isSignedIn();
-      allow write: if isRootAdmin();
+      allow write: if isAdmin();
     }
 
-    // Fallback for any other nodes
+    // --- FALLBACK ---
     match /{allPaths=**} {
-      allow read, write: if isRootAdmin();
+      allow read, write: if isAdmin();
     }
   }
 }
