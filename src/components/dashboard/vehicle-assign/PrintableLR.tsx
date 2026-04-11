@@ -23,7 +23,7 @@ interface PrintableLRProps {
  * @fileOverview SIKKA LMC - Precision LR Manifest Registry.
  * Engineered to match office standard reference image with strict A4 paging.
  * Ensures 1 page per copy, exact visual alignment, and mission logic.
- * Updated: Only GSTIN is displayed in party blocks (N/A fallback). Code node removed.
+ * Updated: 4-Column Grid (Removed Fleet Category, Added Trip ID Node).
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -120,10 +120,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
   const vehicleNumber = lr.vehicleNumber || lr.trip?.vehicleNumber || '--';
   const driverMobile = lr.driverMobile || lr.trip?.driverMobile || '--';
-  const vehicleType = lr.trip?.vehicleType || 'MT';
   const paymentTerm = lr.paymentTerm || lr.trip?.paymentTerm || 'PAID';
-  const dispatchDateRaw = lr.trip?.startDate || lr.date;
-  const dispatchTime = dispatchDateRaw ? format(parseSafeDate(dispatchDateRaw)!, 'HH:mm') : '--:--';
+  const tripIdNode = lr.tripId || lr.trip?.tripId || '--';
 
   return (
     <div className="A4-page p-[12mm] bg-white text-black font-sans text-[8.5pt] leading-tight flex flex-col relative box-border h-[297mm] w-[210mm] overflow-hidden select-text border-none mx-auto">
@@ -145,7 +143,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             />
           </div>
           <div className="space-y-1">
-            <h1 className="text-[18pt] font-black uppercase tracking-tight leading-none text-slate-900">{lr.carrier?.name || 'SIKKA LMC'}</h1>
+            <h1 className="text-[16pt] font-black uppercase tracking-tight leading-none text-slate-900">{lr.carrier?.name || 'SIKKA LMC'}</h1>
             <p className="text-[7pt] font-bold text-slate-600 uppercase max-w-[450px] leading-tight">
                 {lr.carrier?.address || 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009'}
             </p>
@@ -174,21 +172,21 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 3. TRIP METRICS GRID */}
-      <div className="grid grid-cols-5 border-2 border-black rounded-xl overflow-hidden mb-6 bg-white divide-x-2 divide-black shadow-sm shrink-0">
+      {/* 3. TRIP METRICS GRID (4-COLUMN MANIFEST) */}
+      <div className="grid grid-cols-4 border-2 border-black rounded-xl overflow-hidden mb-6 bg-white divide-x-2 divide-black shadow-sm shrink-0">
         {[
           { label: 'VEHICLE REGISTRY', value: vehicleNumber, bold: true },
           { label: 'PILOT CONTACT', value: driverMobile, mono: true },
-          { label: 'FLEET CATEGORY', value: vehicleType },
           { label: 'PAYMENT TERM', value: paymentTerm },
-          { label: 'DISPATCH NODE', value: dispatchTime, mono: true }
+          { label: 'TRIP ID NODE', value: tripIdNode, bold: true, color: 'text-blue-700' }
         ].map((node, i) => (
           <div key={i} className="py-2.5 px-1 text-center flex flex-col justify-center gap-1">
             <span className="text-[6.5pt] font-black uppercase text-slate-400 block leading-tight tracking-[0.1em]">{node.label}</span>
             <p className={cn(
                 "text-[9pt] uppercase leading-none", 
                 node.bold ? "font-black text-slate-900" : "font-black text-slate-700", 
-                node.mono && "font-mono tracking-tighter text-blue-700"
+                node.mono && "font-mono tracking-tighter text-blue-700",
+                node.color
             )}>
                 {node.value || '--'}
             </p>
