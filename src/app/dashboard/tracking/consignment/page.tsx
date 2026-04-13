@@ -137,7 +137,7 @@ function TrackConsignmentContent() {
             const plantSnap = await getDoc(doc(firestore, "logistics_plants", trip.originPlantId));
             trip.plantName = plantSnap.exists() ? plantSnap.data().name : trip.originPlantId;
             
-            // CONCISE CITY LOGIC NODE
+            // CONCISE CITY LOGIC Node
             trip.toCity = trip.unloadingPoint?.split(',')[0].trim() || 'N/A';
             trip.fromCity = (trip.loadingPoint || trip.plantName).split(',')[0].trim();
 
@@ -242,7 +242,7 @@ function TrackConsignmentContent() {
                                             <div className="flex gap-6 items-start">
                                                 <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100 shadow-sm"><MapPin className="h-6 w-6 text-blue-600" /></div>
                                                 <div>
-                                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">From Location Node</p>
+                                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">From Location Plant</p>
                                                     <p className="text-sm font-black text-slate-900 uppercase leading-tight">{consignment.fromCity}</p>
                                                     <p className="text-[10px] font-bold text-slate-400 mt-2 flex items-center gap-2">
                                                         <Clock className="h-3 w-3" /> Assigned: {isValid(consignment.assignedAt) ? format(consignment.assignedAt, 'dd MMM yyyy p') : '--'}
@@ -252,7 +252,7 @@ function TrackConsignmentContent() {
                                             <div className="flex gap-6 items-start">
                                                 <div className="p-3 bg-red-50 rounded-2xl border border-red-100 shadow-sm"><CircleDot className="h-6 w-6 text-red-600" /></div>
                                                 <div>
-                                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">To Destination Node</p>
+                                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">To Destination Plant</p>
                                                     <p className="text-sm font-black text-slate-900 uppercase leading-tight">{consignment.toCity}</p>
                                                 </div>
                                             </div>
@@ -260,7 +260,7 @@ function TrackConsignmentContent() {
                                         <div className="space-y-10">
                                             <div className="p-8 bg-blue-50 rounded-[2rem] border-2 border-blue-100 flex flex-col justify-center items-center text-center shadow-inner">
                                                 <Calendar className="h-10 w-10 text-blue-600 mb-4" />
-                                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Expected Delivery Node</p>
+                                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Expected Delivery Plant</p>
                                                 <p className="text-2xl font-black text-blue-900 tracking-tighter">
                                                     {eta && isValid(eta) ? format(eta, 'dd MMM yyyy') : '--'}
                                                 </p>
@@ -320,7 +320,7 @@ const InfoRow = ({ icon: Icon, label, value, isLocation = false }: { icon: any, 
         <Icon className="h-4 w-4 text-slate-400 mt-1" />
         <div className="flex-1">
             <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">{label}</p>
-            <p className={cn("text-sm font-bold uppercase", isLocation ? "text-blue-600 animate-pulse" : "text-slate-800")}>{value}</p>
+            <p className={cn("text-sm font-bold uppercase", isLocation ? "text-blue-600 animate-pulse" : "text-slate-800")}>{value || '--'}</p>
         </div>
     </div>
 );
@@ -378,5 +378,5 @@ function TrackingPopup({ isOpen, onClose, consignment, livePos, onEtaResolved }:
 }
 
 export default function TrackConsignmentPage() {
-    return <Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>}><TrackConsignmentContent /></Suspense>;
+    return <Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-900" /></div>}><TrackConsignmentContent /></Suspense>;
 }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -29,7 +30,6 @@ interface MultiSelectPlantFilterProps {
  * @fileOverview Multi-Select Plant Filter Node.
  * Hardened for accurate pluralization and staged selection logic.
  * Staged logic prevents page reloads during the selection process.
- * Row-level click handling prevents double-toggle bubbling errors.
  */
 export default function MultiSelectPlantFilter({
   options,
@@ -79,10 +79,10 @@ export default function MultiSelectPlantFilter({
   };
 
   const getButtonLabel = () => {
-    if (isLoading) return 'Syncing Nodes...';
-    if (selected.length === 0) return 'Select Node';
+    if (isLoading) return 'Syncing Plants...';
+    if (selected.length === 0) return 'Select Plant';
     const isAll = options.length > 0 && selected.length === options.length;
-    if (isAll && options.length > 1) return 'All Authorized Nodes';
+    if (isAll && options.length > 1) return 'All Authorized Plants';
     
     // Mission Logic: Explicit count-based labeling with pluralization support
     const count = selected.length;
