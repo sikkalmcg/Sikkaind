@@ -40,7 +40,7 @@ const formSchema = z.object({
   billToParty: z.string().min(1, 'Consignee is mandatory.'),
   billToGtin: z.string().optional(),
   isSameAsBillTo: z.boolean().default(false),
-  shipToParty: z.string().min(1, 'Ship To Node is mandatory.'),
+  shipToParty: z.string().min(1, 'Ship To Plant is mandatory.'),
   shipToGtin: z.string().optional(),
   unloadingPoint: z.string().min(1, 'Destination city is mandatory.'),
   quantity: z.coerce.number(),
@@ -56,7 +56,7 @@ const formSchema = z.object({
     units: z.coerce.number().min(1, "Units required"),
     unitType: z.string().default('Package'),
     itemDescription: z.string().min(1, "Item desc required"),
-    weight: z.coerce.number().min(0.001, "Weight required"),
+    weight: z.coerce.number().optional().default(0),
     hsnSac: z.string().optional(),
   })).optional().default([]),
   carrierName: z.string().optional(),
@@ -155,7 +155,7 @@ function SearchRegistryModal({
                         <Search className="h-5 w-5 text-blue-400" /> {title}
                     </DialogTitle>
                     <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-1">
-                        Select a verified node from the mission registry
+                        Select a verified Plant from the mission registry
                     </DialogDescription>
                 </DialogHeader>
                 <div className="p-6 space-y-4">
@@ -174,7 +174,7 @@ function SearchRegistryModal({
                             <Table>
                                 <TableBody>
                                     {filtered.length === 0 ? (
-                                        <TableRow><TableCell colSpan={3} className="h-32 text-center text-slate-400 italic">No nodes matching search.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={3} className="h-32 text-center text-slate-400 italic">No Plants matching search.</TableCell></TableRow>
                                     ) : (
                                         filtered.map(item => (
                                             <TableRow key={item.id} className="cursor-pointer h-12 transition-all group hover:bg-blue-50" onClick={() => onSelect(item)}>
@@ -238,8 +238,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   const totals = useMemo(() => {
     return (watchedItems || []).reduce((acc, item) => ({
         units: acc.units + (Number(item?.units) || 0),
-        weight: acc.weight + (Number(item?.weight) || 0)
-    }), { units: 0, weight: 0 });
+    }), { units: 0 });
   }, [watchedItems]);
 
   const isFtl = useMemo(() => watchedUom?.toUpperCase() === 'FTL', [watchedUom]);
@@ -445,7 +444,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     const ws = XLSX.utils.aoa_to_sheet([headers, ...sample]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Order Plan Template");
-    XLSX.writeFile(wb, "Order_Plan_Bulk_Template.xlsx");
+    XLSX.writeFile(workbook, "Order_Plan_Bulk_Template.xlsx");
   };
 
   const handleBulkUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -455,7 +454,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     if (!file || !firestore || !user) return;
 
     if (!uiPlantId) {
-        toast({ variant: 'destructive', title: "Lifting Node Required", description: "Please select a Plant Node in the UI before performing bulk upload. This determines the carrier registry handshake." });
+        toast({ variant: 'destructive', title: "Lifting Plant Required", description: "Please select a Plant Node in the UI before performing bulk upload. This determines the carrier registry handshake." });
         event.target.value = '';
         return;
     }
@@ -490,7 +489,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
             const orderGroups: Record<string, any> = {};
 
-            // CARRIER HANDSHAKE LOGIC Node
+            // CARRIER HANDSHAKE LOGIC Plant
             let autoCarrierId = '';
             let autoCarrierName = '';
             const normUiPlantId = normalizePlantId(uiPlantId);
@@ -537,7 +536,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         consignor: getVal(row, ["Consignor Name", "Consignor"]),
                         consignorGtin: getVal(row, ["Consignor GSTIN", "Consignor Gst"]),
                         consignorAddress: getVal(row, ["Consignor Address", "Consignor Site"]),
-                        loadingPoint: getVal(row, ["From", "From (City)", "Lifting Point"]),
+                        loadingPoint: getVal(row, ["From", "From (City)", "Lifting Plant"]),
                         billToParty: consignee,
                         billToGtin: getVal(row, ["Consignee GSTIN", "Consignee Gst"]),
                         shipToParty: resolvedShipToName,
@@ -633,7 +632,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 tx.set(doc(firestore, "counters", "shipments"), { count: currentCount }, { merge: true });
             });
 
-            toast({ title: 'Bulk Sync Complete', description: `Established ${successCount} mission nodes for Plant ${uiPlantId}.` });
+            toast({ title: 'Bulk Sync Complete', description: `Established ${successCount} mission plants for Plant ${uiPlantId}.` });
             onShipmentCreated({ id: 'bulk' } as any);
         } catch (err: any) {
             console.error("Bulk upload error:", err);
@@ -664,12 +663,12 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     <div className="flex items-center gap-4 bg-white p-3 rounded-2xl border-2 border-slate-200 shadow-inner">
                         <div className="flex flex-col gap-1">
                             <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1 flex items-center gap-2">
-                                <Factory className="h-3 w-3" /> Select Bulk Node *
+                                <Factory className="h-3 w-3" /> Select Bulk Plant *
                             </Label>
                             <FormField control={control} name="originPlantId" render={({ field }) => (
                                 <Select onValueChange={field.onChange} value={field.value}>
                                     <SelectTrigger className="h-11 w-[220px] bg-slate-50 rounded-xl font-black text-blue-900 border-none shadow-sm focus:ring-blue-900">
-                                        <SelectValue placeholder="Pick node" />
+                                        <SelectValue placeholder="Pick plant" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl">
                                         {authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>)}
@@ -780,7 +779,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     {lastUsedLr && (
                         <div className="flex items-center gap-2 px-4 py-1.5 bg-white border border-blue-200 rounded-full shadow-sm animate-in fade-in slide-in-from-right-4 duration-500">
                             <History size={12} className="text-blue-600" />
-                            <span className="text-[9px] font-black uppercase text-slate-400">Previous LR Node:</span>
+                            <span className="text-[9px] font-black uppercase text-slate-400">Previous LR Plant:</span>
                             <span className="text-[10px] font-black text-blue-900 font-mono">{lastUsedLr}</span>
                         </div>
                     )}
@@ -876,11 +875,11 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                       <div className={cn("space-y-8 transition-all duration-500", isSameAsBillTo && "opacity-40 grayscale pointer-events-none")}>
                         <AutocompleteInput 
                             label="Ship To Party *" 
-                            placeholder="Search drop node..." 
+                            placeholder="Search drop plant..." 
                             value={watchedShipTo} 
                             onChange={v => setValue('shipToParty', v)} 
                             suggestions={consigneeRegistry} 
-                            onSearchClick={() => setHelpModal({type: 'shipToParty', title: 'Ship To Node Registry', data: consigneeRegistry})} 
+                            onSearchClick={() => setHelpModal({type: 'shipToParty', title: 'Ship To Plant Registry', data: consigneeRegistry})} 
                             onSelect={(party) => selectPartyNode(party, 'shipToParty')}
                         />
                       </div>
@@ -900,7 +899,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                             <Calculator className="h-5 w-5 text-blue-600" /> 3. Manifest Items Registry
                         </h3>
                         <Button type="button" variant="outline" size="sm" onClick={() => append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '', weight: 0.001 })} className="h-10 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all rounded-xl">
-                            <PlusCircle size={16} /> Add Document row
+                            <Plus size={16} /> Add Document row
                         </Button>
                     </div>
                     <div className="rounded-[2.5rem] border-2 border-slate-200 bg-white shadow-2xl overflow-hidden">
@@ -911,13 +910,12 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">E-Waybill No.</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead>
                                     <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">Units</TableHead>
-                                    <TableHead className="text-white text-[10px] font-black uppercase px-8 text-right w-40">Weight (MT)</TableHead>
                                     <TableHead className="w-12"></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {fields.length === 0 ? (
-                                    <TableRow><TableCell colSpan={6} className="h-32 text-center text-slate-400 italic border-none uppercase tracking-widest opacity-40">No detailed items added. Registry will auto-generate from header.</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={5} className="h-32 text-center text-slate-400 italic border-none uppercase tracking-widest opacity-40">No detailed items added. Registry will auto-generate from header.</TableCell></TableRow>
                                 ) : (
                                     fields.map((field, index) => (
                                         <TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-none hover:bg-blue-50/10 transition-colors group">
@@ -925,7 +923,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                                             <TableCell className="px-4"><Input {...form.register(`items.${index}.ewaybillNumber`)} className="h-10 rounded-xl font-mono text-blue-600 bg-slate-50 border-slate-200 uppercase" /></TableCell>
                                             <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-10 rounded-xl font-bold bg-slate-50 border-slate-200 uppercase" /></TableCell>
                                             <TableCell className="px-4"><Input type="number" {...form.register(`items.${index}.units`)} className="h-10 text-center font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" /></TableCell>
-                                            <TableCell className="px-8 text-right"><Input type="number" step="0.001" {...form.register(`items.${index}.weight`)} className="h-10 text-right font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" /></TableCell>
                                             <TableCell className="pr-6 text-right"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-400 hover:text-red-600 rounded-lg"><Trash2 size={18}/></Button></TableCell>
                                         </TableRow>
                                     ))
@@ -935,10 +932,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                                 <TableRow className="hover:bg-transparent border-none">
                                     <TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL MANIFEST REGISTRY</TableCell>
                                     <TableCell className="text-center font-black text-lg text-blue-900">{totals.units.toFixed(0)}</TableCell>
-                                    <TableCell colSpan={1}></TableCell>
-                                    <TableCell className="text-right px-8 font-black text-xl text-blue-900 tracking-tighter">
-                                        {Number(totals.weight).toFixed(3)} MT
-                                    </TableCell>
                                     <TableCell></TableCell>
                                 </TableRow>
                             </TableFooter>
