@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { ShieldCheck, Plus, Factory, FileText, Loader2, Weight, MapPin } from 'lucide-react';
+import { ShieldCheck, Plus, Factory, FileText, Loader2, Weight, MapPin, User } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, query, addDoc, serverTimestamp, orderBy, doc, where, getDocs, limit } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +32,8 @@ const formSchema = z.object({
   items: z.string().optional(),
   billedQty: z.coerce.number().optional(),
   qtyType: z.string().optional().default('MT'),
+  consignorName: z.string().optional().or(z.literal('')),
+  from: z.string().optional().or(z.literal('')),
 }).superRefine((data, ctx) => {
     if (data.purpose === 'Unloading') {
         if (!data.lrNumber) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "LR Number is mandatory for unloading.", path: ["lrNumber"] });
@@ -86,7 +88,9 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
       documentNo: '',
       items: '',
       billedQty: 0,
-      qtyType: 'MT'
+      qtyType: 'MT',
+      consignorName: '',
+      from: ''
     },
   });
 
@@ -249,14 +253,38 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                         <FormField name="lrNumber" control={form.control} render={({ field }) => (
                             <FormItem>
                                 <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">LR Number *</FormLabel>
-                                <FormControl><Input placeholder="Registry LR #" {...field} className="h-11 bg-white rounded-xl font-bold uppercase border-blue-200" /></FormControl>
+                                <FormControl><Input placeholder="REGISTRY LR #" {...field} className="h-11 bg-white rounded-xl font-bold uppercase border-blue-200" /></FormControl>
                                 <FormMessage />
                             </FormItem>
                         )} />
                         <FormField name="documentNo" control={form.control} render={({ field }) => (
                             <FormItem>
                                 <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Invoice Number *</FormLabel>
-                                <FormControl><Input placeholder="Doc Ref #" {...field} className="h-11 bg-white rounded-xl font-bold uppercase border-blue-200" /></FormControl>
+                                <FormControl><Input placeholder="DOC REF #" {...field} className="h-11 bg-white rounded-xl font-bold uppercase border-blue-200" /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField name="consignorName" control={form.control} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Consignor Name</FormLabel>
+                                <FormControl>
+                                    <div className="relative">
+                                        <Input placeholder="Enter Consignor Name" {...field} className="h-11 bg-white rounded-xl font-bold uppercase border-blue-200 pl-9" />
+                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    </div>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField name="from" control={form.control} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">FROM</FormLabel>
+                                <FormControl>
+                                    <div className="relative">
+                                        <Input placeholder="Lifting City" {...field} className="h-11 bg-white rounded-xl font-bold uppercase border-blue-200 pl-9" />
+                                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                    </div>
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                         )} />

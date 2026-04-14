@@ -289,6 +289,8 @@ export interface VehicleEntryExit {
   items?: string;
   statusUpdatedAt?: any;
   statusUpdatedBy?: string;
+  consignorName?: string;
+  from?: string;
 }
 
 export interface FuelPump {
