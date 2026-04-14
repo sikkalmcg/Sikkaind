@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -21,7 +22,7 @@ import type { Plant, SubUser } from '@/types';
 import { normalizePlantId } from '@/lib/utils';
 
 const formSchema = z.object({
-  plantId: z.string().min(1, "Plant node is required."),
+  plantId: z.string().min(1, "Plant required."),
   vehicleNumber: z.string().min(6, "Valid vehicle number required.").transform(v => v.toUpperCase().replace(/\s/g, '')),
   purpose: z.enum(['Loading', 'Unloading'], { required_error: "Purpose is mandatory." }),
   driverName: z.string().min(3, "Pilot name required (min 3 chars)."),
@@ -99,7 +100,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
   const watchedPlantId = watch('plantId');
 
   const selectedPlantName = useMemo(() => {
-    return authorizedPlants.find(p => p.id === watchedPlantId)?.name || watchedPlantId || 'NODE NOT SELECTED';
+    return authorizedPlants.find(p => p.id === watchedPlantId)?.name || watchedPlantId || 'PLANT NOT SELECTED';
   }, [authorizedPlants, watchedPlantId]);
 
   useEffect(() => {
@@ -150,11 +151,11 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                 </div>
                 <div>
                     <CardTitle className="text-xl font-black uppercase italic leading-none">INITIALIZE GATE ENTRY (IN)</CardTitle>
-                    <CardDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-2">Plant Node Registry: {selectedPlantName}</CardDescription>
+                    <CardDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-2">Plant Registry: {selectedPlantName}</CardDescription>
                 </div>
             </div>
             <div className="text-right flex flex-col items-end">
-                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Registry Sync Node</span>
+                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Registry Sync</span>
                 <Badge variant="outline" className="bg-white/5 border-white/10 text-emerald-400 font-mono text-[10px] mt-1 h-7">{format(currentTime, 'HH:mm:ss')}</Badge>
             </div>
         </div>
@@ -172,11 +173,11 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
 
                 <FormField name="plantId" control={form.control} render={({ field }) => (
                     <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">PLANT NODE *</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">PLANT *</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                                 <SelectTrigger className="h-12 bg-white rounded-xl font-black text-slate-700 shadow-sm border-slate-200">
-                                    <SelectValue placeholder="Pick node" />
+                                    <SelectValue placeholder="Pick Plant" />
                                 </SelectTrigger>
                             </FormControl>
                             <SelectContent className="rounded-xl">
@@ -228,7 +229,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                 <FormField name="driverMobile" control={form.control} render={({ field }) => (
                     <FormItem>
                         <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">CONTACT NUMBER</FormLabel>
-                        <FormControl><Input placeholder="10 Digit Node" {...field} maxLength={10} className="h-12 rounded-xl font-mono font-bold bg-white border-slate-200" /></FormControl>
+                        <FormControl><Input placeholder="10 Digit Number" {...field} maxLength={10} className="h-12 rounded-xl font-mono font-bold bg-white border-slate-200" /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
@@ -236,7 +237,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                 <FormField name="licenseNumber" control={form.control} render={({ field }) => (
                     <FormItem>
                         <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">PILOT DL NUMBER</FormLabel>
-                        <FormControl><Input placeholder="Registry ID" {...field} className="h-12 rounded-xl font-mono font-bold uppercase bg-white border-slate-200" /></FormControl>
+                        <FormControl><Input placeholder="Registry DL #" {...field} className="h-12 rounded-xl font-mono font-bold uppercase bg-white border-slate-200" /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
@@ -334,7 +335,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                     className="bg-blue-900 hover:bg-black text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none"
                 >
                     {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <ShieldCheck className="h-5 w-5 mr-3" />}
-                    FINALIZE IN-GATE NODE
+                    FINALIZE IN-GATE ENTRY
                 </Button>
             </div>
           </form>

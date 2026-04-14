@@ -23,7 +23,7 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import type { Plant, Shipment, WithId, SubUser, Party, MasterQtyType, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Search, Truck, Calculator, Trash2, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save, FileDown, Upload, History, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Search, Truck, Calculator, Trash2, Plus, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save, FileDown, Upload, History, AlertCircle } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDoc, getDocs, limit, Timestamp } from "firebase/firestore";
 import { cn, normalizePlantId, formatSequenceId } from '@/lib/utils';
@@ -31,7 +31,7 @@ import { useLoading } from '@/context/LoadingContext';
 import { PaymentTerms } from '@/lib/constants';
 
 const formSchema = z.object({
-  originPlantId: z.string().min(1, 'Plant node selection is required.'),
+  originPlantId: z.string().min(1, 'Plant selection is required.'),
   consignor: z.string().min(1, 'Consignor is mandatory.'),
   consignorGtin: z.string().optional(),
   consignorAddress: z.string().optional().default(''),
@@ -56,7 +56,6 @@ const formSchema = z.object({
     units: z.coerce.number().min(1, "Units required"),
     unitType: z.string().default('Package'),
     itemDescription: z.string().min(1, "Item desc required"),
-    weight: z.coerce.number().optional().default(0),
     hsnSac: z.string().optional(),
   })).optional().default([]),
   carrierName: z.string().optional(),
@@ -103,7 +102,7 @@ function AutocompleteInput({ value, onChange, onSearchClick, suggestions, placeh
                         disabled={disabled} 
                     />
                     {isOpen && filteredSuggestions.length > 0 && (
-                        <div className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
+                        <div className="absolute z-50 w-full mt-2 bg-white border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
                             {filteredSuggestions.map((suggestion) => (
                                 <div key={suggestion.id} onMouseDown={() => { if(onSelect) onSelect(suggestion); else onChange(suggestion.name); setIsOpen(false); }} className="px-5 py-3 cursor-pointer hover:bg-blue-50 border-b last:border-0 group">
                                     <div className="flex flex-col">
@@ -406,7 +405,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     units: isFtl ? 1 : 0,
                     unitType: 'Package',
                     itemDescription: 'AUTO-GEN MISSION PAYLOAD',
-                    weight: values.quantity,
                     hsnSac: ''
                 }];
             }
@@ -444,7 +442,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     const ws = XLSX.utils.aoa_to_sheet([headers, ...sample]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Order Plan Template");
-    XLSX.writeFile(workbook, "Order_Plan_Bulk_Template.xlsx");
+    XLSX.writeFile(wb, "Order_Plan_Bulk_Template.xlsx");
   };
 
   const handleBulkUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -562,7 +560,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     units: Number(getVal(row, ["Units", "Packages"])) || 1,
                     unitType: 'Package',
                     itemDescription: getVal(row, ["Item Description", "Description"]) || 'BULK UPLOAD MISSION',
-                    weight: itemQty
                 });
             });
 
@@ -594,7 +591,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                                 };
                             } else {
                                 aggMap[descKey].units += item.units;
-                                aggMap[descKey].weight += item.weight;
                                 aggMap[descKey].invoiceNumbers.add(item.invoiceNumber);
                                 if (item.ewaybillNumber) aggMap[descKey].ewaybillNumbers.add(item.ewaybillNumber);
                             }
@@ -898,7 +894,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3">
                             <Calculator className="h-5 w-5 text-blue-600" /> 3. Manifest Items Registry
                         </h3>
-                        <Button type="button" variant="outline" size="sm" onClick={() => append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '', weight: 0.001 })} className="h-10 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all rounded-xl">
+                        <Button type="button" variant="outline" size="sm" onClick={() => append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '' })} className="h-10 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all rounded-xl">
                             <Plus size={16} /> Add Document row
                         </Button>
                     </div>

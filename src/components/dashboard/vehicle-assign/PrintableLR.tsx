@@ -181,7 +181,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           { label: 'PAYMENT TERM', value: paymentTerm },
           { label: 'TRIP ID Plant', value: tripIdPlant, bold: true, color: 'text-blue-700' }
         ].map((node, i) => (
-          <div key={i} className="py-2.5 px-1 text-center flex flex-col justify-center gap-1">
+          <div className="py-2.5 px-1 text-center flex flex-col justify-center gap-1" key={i}>
             <span className="text-[6.5pt] font-black uppercase text-slate-400 block leading-tight tracking-[0.1em]">{node.label}</span>
             <p className={cn(
                 "text-[9pt] uppercase leading-none", 

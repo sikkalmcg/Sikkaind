@@ -1,3 +1,4 @@
+
 'use client';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useForm, useFieldArray, useWatch, Controller } from 'react-hook-form';
@@ -10,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, ShieldCheck, FileText, Search, X } from 'lucide-react';
+import { Loader2, Plus, PlusCircle, Trash2, ShieldCheck, FileText, Search, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
@@ -95,7 +96,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, Code, or City..." 
                             value={search} 
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
@@ -424,7 +425,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                                         <TableHead className="text-white px-4 text-[9px] font-black uppercase">ITEM DESCRIPTION *</TableHead>
                                         <TableHead className="text-white px-4 text-center text-[9px] font-black uppercase">PKGS</TableHead>
                                         <TableHead className="text-white px-8 text-right text-[9px] font-black uppercase">WEIGHT (MT)</TableHead>
-                                        <TableHead className="w-16"></TableHead>
+                                        <TableHead className="w-12"></TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
