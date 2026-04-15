@@ -77,7 +77,6 @@ function SearchRegistryModal({
     const filtered = data.filter(item => {
         const s = search.toLowerCase();
         return item.name?.toLowerCase().includes(s) ||
-            item.gstin?.toLowerCase().includes(s) ||
             item.customerCode?.toLowerCase().includes(s) ||
             item.city?.toLowerCase().includes(s)
     });
@@ -96,7 +95,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, Code, or City..." 
                             value={search} 
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => setSearch(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
@@ -422,9 +421,9 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                                 <TableHeader className="bg-slate-900">
                                     <TableRow className="hover:bg-transparent border-none h-12">
                                         <TableHead className="text-white px-6 text-[9px] font-black uppercase">INVOICE NO *</TableHead>
-                                        <TableHead className="text-white px-4 text-[9px] font-black uppercase">ITEM DESCRIPTION *</TableHead>
-                                        <TableHead className="text-white px-4 text-center text-[9px] font-black uppercase">PKGS</TableHead>
-                                        <TableHead className="text-white px-8 text-right text-[9px] font-black uppercase">WEIGHT (MT)</TableHead>
+                                        <TableHead className="text-white text-[9px] font-black uppercase px-4">ITEM DESCRIPTION *</TableHead>
+                                        <TableHead className="text-white text-[9px] font-black uppercase px-4 text-center">PKGS</TableHead>
+                                        <TableHead className="text-white text-[9px] font-black uppercase px-8 text-right">WEIGHT (MT)</TableHead>
                                         <TableHead className="w-12"></TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -456,7 +455,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
             <DialogFooter className="p-8 bg-slate-50 border-t flex-row justify-end gap-4">
                 <Button variant="ghost" onClick={onClose} className="font-black uppercase text-[10px] px-8">Discard</Button>
                 <Button onClick={handleSubmit(handlePost)} className="bg-blue-900 hover:bg-black text-white px-12 h-12 rounded-xl font-black uppercase text-[10px] shadow-xl">
-                    COMMIT MISSION RECEIPT
+                    <Plus size={16} className="mr-2" /> COMMIT MISSION RECEIPT
                 </Button>
             </DialogFooter>
           </DialogContent>

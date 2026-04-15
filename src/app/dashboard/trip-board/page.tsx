@@ -240,7 +240,7 @@ function TripBoardContent() {
         const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(t.originPlantId));
 
         const items = lr?.items || t.items || shipment?.items || [];
-        const invoiceNumbers = Array.from(new Set(items.map((i: any) => i.invoiceNumber || i.invoiceNo || i.deliveryNumber).filter(Boolean))).join(', ');
+        const invoiceNumbers = Array.from(new Set(items.map((i: any) => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo).filter(Boolean))).join(', ');
         const summarizedItems = Array.from(new Set(items.map((i: any) => i.itemDescription || i.description).filter(Boolean))).join(', ') || shipment?.itemDescription || shipment?.material || '--';
 
         const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
@@ -572,7 +572,7 @@ function TripBoardContent() {
   }, [joinedData]);
 
   const totalPages = Math.ceil(processedData.length / itemsPerPage);
-  const paginatedData = sortedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handleDownloadExcel = () => {
     const exportData = processedData.map(t => ({

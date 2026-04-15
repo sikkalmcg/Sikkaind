@@ -270,7 +270,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                                 <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Consignor Name</FormLabel>
                                 <FormControl>
                                     <div className="relative">
-                                        <Input placeholder="Enter Consignor Name" {...field} className="h-11 bg-white rounded-xl font-bold uppercase border-blue-200 pl-9" />
+                                        <Input placeholder="Enter Consignor Name" {...field} value={field.value ?? ''} className="h-11 bg-white rounded-xl font-bold uppercase border-blue-200 pl-9" />
                                         <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                     </div>
                                 </FormControl>
@@ -282,7 +282,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                                 <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">FROM</FormLabel>
                                 <FormControl>
                                     <div className="relative">
-                                        <Input placeholder="Lifting City" {...field} className="h-11 bg-white rounded-xl font-bold uppercase border-blue-200 pl-9" />
+                                        <Input placeholder="Lifting City" {...field} value={field.value ?? ''} className="h-11 bg-white rounded-xl font-bold uppercase border-blue-200 pl-9" />
                                         <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                     </div>
                                 </FormControl>
