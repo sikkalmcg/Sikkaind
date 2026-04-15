@@ -57,7 +57,6 @@ function TripBoardContent() {
   const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   
-  // Independent Pagination States
   const [currentPage, setCurrentPage] = useState(1);
   const [unassignedPage, setUnassignedPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -323,7 +322,6 @@ function TripBoardContent() {
     });
   }, [shipments, selectedPlants, plants, fromDate, toDate, searchTerm]);
 
-  // UNASSIGNED PAGINATION Node
   const totalUnassignedPages = Math.ceil(unassignedShipments.length / itemsPerPage);
   const paginatedUnassigned = useMemo(() => {
     const start = (unassignedPage - 1) * itemsPerPage;
@@ -446,7 +444,6 @@ function TripBoardContent() {
 
   const handleArrived = async (values: any) => {
     if (!firestore || !arrivedTrip) return;
-    showLoader();
     try {
         const plantId = normalizePlantId(arrivedTrip.originPlantId);
         const tripRef = doc(firestore, `plants/${plantId}/trips`, arrivedTrip.id);
@@ -458,12 +455,10 @@ function TripBoardContent() {
         toast({ title: 'Registry Updated' });
         setArrivedTrip(null);
     } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
-    finally { hideLoader(); }
   };
 
   const handleUnloaded = async (values: any) => {
     if (!firestore || !unloadedTrip) return;
-    showLoader();
     try {
         const plantId = normalizePlantId(unloadedTrip.originPlantId);
         const tripRef = doc(firestore, `plants/${plantId}/trips`, unloadedTrip.id);
@@ -475,12 +470,10 @@ function TripBoardContent() {
         toast({ title: 'Registry Updated' });
         setUnloadedTrip(null);
     } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
-    finally { hideLoader(); }
   };
 
   const handleReject = async (values: any) => {
     if (!firestore || !rejectTrip) return;
-    showLoader();
     try {
         const plantId = normalizePlantId(rejectTrip.originPlantId);
         const tripRef = doc(firestore, `plants/${plantId}/trips`, rejectTrip.id);
@@ -492,12 +485,10 @@ function TripBoardContent() {
         toast({ title: 'Registry Updated' });
         setRejectTrip(null);
     } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
-    finally { hideLoader(); }
   };
 
   const handlePodStatus = async (values: any) => {
     if (!firestore || !podStatusTrip) return;
-    showLoader();
     try {
         const plantId = normalizePlantId(podStatusTrip.originPlantId);
         const tripRef = doc(firestore, `plants/${plantId}/trips`, podStatusTrip.id);
@@ -522,12 +513,10 @@ function TripBoardContent() {
         toast({ title: isReceived ? 'Mission Closed' : 'Registry Updated' });
         setPodStatusTrip(null);
     } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
-    finally { hideLoader(); }
   };
 
   const handleSrn = async (values: any) => {
     if (!firestore || !srnTrip) return;
-    showLoader();
     try {
         const plantId = normalizePlantId(srnTrip.originPlantId);
         const tripRef = doc(firestore, `plants/${plantId}/trips`, srnTrip.id);
@@ -538,7 +527,6 @@ function TripBoardContent() {
         toast({ title: 'Registry Updated' });
         setSrnTrip(null);
     } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
-    finally { hideLoader(); }
   };
 
   const processedData = useMemo(() => {
@@ -583,12 +571,8 @@ function TripBoardContent() {
     return res;
   }, [joinedData]);
 
-  // ASSIGNED TRIPS PAGINATION Node
   const totalPages = Math.ceil(processedData.length / itemsPerPage);
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return processedData.slice(start, start + itemsPerPage);
-  }, [processedData, currentPage, itemsPerPage]);
+  const paginatedData = sortedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handleDownloadExcel = () => {
     const exportData = processedData.map(t => ({
@@ -603,39 +587,39 @@ function TripBoardContent() {
   return (
     <main className="flex flex-1 flex-col h-full overflow-hidden bg-white">
       <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-4">
             <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3">
               <MonitorPlay className="h-7 w-7" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none">Mission Control Board</h1>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Live Operational registry Node</p>
+              <h1 className="text-xl md:text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none">Mission Control Board</h1>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Live Operational registry Plant</p>
             </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-4 rounded-[2rem] border border-slate-100 shadow-inner">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:flex xl:items-end gap-3 bg-slate-50 p-4 rounded-3xl border border-slate-100 shadow-inner w-full lg:w-auto">
             <div className="grid gap-1">
               <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Lifting Scope</Label>
               <MultiSelectPlantFilter options={plants} selected={selectedPlants} onChange={handlePlantChange} isLoading={isAuthLoading} />
             </div>
             <div className="grid gap-1">
               <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Period From</Label>
-              <DatePicker date={fromDate} setDate={setFromDate} className="h-9" />
+              <DatePicker date={fromDate} setDate={setFromDate} className="h-9 rounded-xl bg-white border-none shadow-sm" />
             </div>
             <div className="grid gap-1">
               <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Period To</Label>
-              <DatePicker date={toDate} setDate={setTodayDate} className="h-9" />
+              <DatePicker date={toDate} setDate={setTodayDate} className="h-9 rounded-xl bg-white border-none shadow-sm" />
             </div>
             <div className="grid gap-1">
               <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Search Registry</Label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                <Input placeholder="Search trips..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 h-9 w-[240px] border-slate-200 font-bold" />
+                <Input placeholder="Search trips..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 h-9 w-full xl:w-[240px] rounded-xl border-slate-200 font-bold bg-white" />
               </div>
             </div>
-            <div className="flex items-end gap-2 pt-4">
-              <Button variant="outline" size="sm" onClick={handleDownloadExcel} className="h-9 px-4 font-black uppercase text-[10px] tracking-widest border-slate-200"><FileDown className="h-4 w-4 mr-2"/> Export</Button>
+            <div className="flex items-center gap-2 sm:col-span-2 xl:col-span-1 justify-end">
+              <Button variant="outline" size="sm" onClick={handleDownloadExcel} className="h-9 px-4 font-black uppercase text-[10px] tracking-widest border-slate-200 rounded-xl bg-white"><FileDown className="h-4 w-4 mr-2"/> Export</Button>
               <Button variant="ghost" size="icon" className="h-9 w-9 text-blue-900" onClick={() => window.location.reload()}><RefreshCcw className="h-4 w-4" /></Button>
             </div>
           </div>

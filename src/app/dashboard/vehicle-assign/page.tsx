@@ -432,7 +432,7 @@ function OpenOrdersContent() {
             transaction.delete(doc(firestore, `plants/${plantId}/trips`, tripId));
             transaction.delete(doc(firestore, 'trips', tripId));
         });
-        toast({ title: 'Assignment Reverted', description: 'Fleet node successfully removed from mission.' });
+        toast({ title: 'Assignment Reverted', description: 'Fleet plant successfully removed from mission.' });
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Registry Error', description: e.message });
     } finally { hideLoader(); }
@@ -474,7 +474,7 @@ function OpenOrdersContent() {
             cancelledBy: user.displayName || user.email,
             lastUpdateDate: serverTimestamp()
         });
-        toast({ title: 'Order Revoked', description: 'Mission node removed from active queue.' });
+        toast({ title: 'Order Revoked', description: 'Mission plant removed from active queue.' });
         setCancelModalData(null);
     } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
     finally { hideLoader(); }
@@ -510,32 +510,32 @@ function OpenOrdersContent() {
   return (
     <main className="flex flex-1 flex-col h-full overflow-hidden bg-white">
       <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-4">
             <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3">
               <ClipboardList className="h-7 w-7" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none">Fleet Allocation HUB</h1>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Lifting Node Registry & Assignment</p>
+              <h1 className="text-xl md:text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none">Fleet Allocation HUB</h1>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Lifting Plant Registry & Assignment</p>
             </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-4 rounded-[2rem] border border-slate-100 shadow-inner">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end gap-3 bg-slate-50 p-4 rounded-3xl border border-slate-100 shadow-inner w-full lg:w-auto">
             <div className="grid gap-1">
-              <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Lifting Nodes</Label>
+              <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Lifting Plants</Label>
               <MultiSelectPlantFilter options={plants} selected={selectedPlants} onChange={handlePlantChange} isLoading={isAuthLoading} />
             </div>
             <div className="grid gap-1">
               <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Search Registry</Label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                <Input placeholder="Search orders..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 h-9 w-[240px] border-slate-200 font-bold" />
+                <Input placeholder="Search orders..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 h-9 w-full lg:w-[240px] border-slate-200 font-bold bg-white" />
               </div>
             </div>
-            <div className="flex items-end gap-2 pt-4">
-              <Button variant="outline" size="icon" className="h-9 w-9 text-blue-900" onClick={() => window.location.reload()}><RefreshCcw className="h-4 w-4" /></Button>
-              <Button variant="ghost" size="icon" onClick={() => setIsLayoutModalOpen(true)} className="h-9 w-9 text-slate-400"><Settings2 className="h-4 w-4" /></Button>
+            <div className="flex items-center gap-2 justify-end pt-2">
+              <Button variant="outline" size="icon" className="h-9 w-9 text-blue-900 rounded-xl" onClick={() => window.location.reload()}><RefreshCcw className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => setIsLayoutModalOpen(true)} className="h-9 w-9 text-slate-400 rounded-xl"><Settings2 className="h-4 w-4" /></Button>
             </div>
           </div>
         </div>
@@ -544,7 +544,7 @@ function OpenOrdersContent() {
           <TabsList className="bg-transparent h-10 p-0 border-b-0 gap-10 justify-start">
             {[
                 { id: 'pending', label: 'Awaiting Fleet', count: counts.pending },
-                { id: 'process', label: 'Allocated Nodes', count: counts.process },
+                { id: 'process', label: 'Allocated Plants', count: counts.process },
                 { id: 'dispatched', label: 'Outbound Flow', count: counts.dispatched },
                 { id: 'cancelled', label: 'Revoked Archive', count: counts.cancelled }
             ].map(t => (

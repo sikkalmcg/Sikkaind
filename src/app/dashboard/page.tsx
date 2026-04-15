@@ -180,26 +180,26 @@ export default function DashboardPage() {
   const activePlantName = selectedPlant === 'all-plants' ? 'All Authorized Plants' : plantsList.find(p => p.id === selectedPlant)?.name || selectedPlant;
 
   return (
-    <main className="flex flex-col h-full bg-slate-50/50">
-      <div className="sticky top-0 z-30 bg-white border-b px-8 py-4 flex flex-col md:flex-row md:items-end justify-between gap-4 shadow-sm">
+    <main className="flex flex-col h-full bg-slate-50/50 overflow-hidden">
+      <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-end justify-between gap-4 shadow-sm">
         <div>
           <div className="flex items-center gap-3">
             <LayoutDashboard className="h-6 w-6 text-blue-900" />
-            <h1 className="text-2xl md:text-3xl font-black text-blue-900 tracking-tight uppercase italic">Logistics Dashboard</h1>
+            <h1 className="text-xl md:text-3xl font-black text-blue-900 tracking-tight uppercase italic">Logistics Dashboard</h1>
           </div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 ml-9">Monitoring Hub & Registry Analytics</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 md:ml-9">Monitoring Hub & Registry Analytics</p>
         </div>
         
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="grid gap-1.5">
-            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Authorized Scope</label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end gap-3 bg-slate-50 p-4 rounded-3xl border border-slate-100 shadow-inner w-full lg:w-auto">
+          <div className="grid gap-1">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Authorized Scope</label>
             {isReadOnlyPlant ? (
-                <div className="h-10 px-4 flex items-center bg-blue-50/50 rounded-xl border border-blue-100 text-blue-900 font-black text-xs shadow-sm uppercase tracking-tighter min-w-[200px]">
+                <div className="h-10 px-4 flex items-center bg-white rounded-xl border border-slate-200 text-blue-900 font-black text-xs shadow-sm uppercase tracking-tighter min-w-[200px]">
                     <ShieldCheck className="h-3.5 w-3.5 mr-2 text-blue-600" /> {plantsList[0]?.name}
                 </div>
             ) : (
                 <Select value={selectedPlant} onValueChange={setSelectedPlant} disabled={isAuthLoading}>
-                    <SelectTrigger className="w-[200px] h-10 rounded-xl bg-slate-100 border-none font-bold text-blue-900 shadow-sm focus:ring-blue-900">
+                    <SelectTrigger className="w-full lg:w-[200px] h-10 rounded-xl bg-white border-slate-200 font-bold text-blue-900 shadow-sm focus:ring-blue-900">
                     <SelectValue placeholder="Select a plant" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -212,23 +212,25 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="grid gap-1.5">
-            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Period From</label>
-            <DatePicker date={fromDate} setDate={setFromDate} className="h-10 rounded-xl bg-slate-100 border-none" />
+          <div className="grid gap-1">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Period From</label>
+            <DatePicker date={fromDate} setDate={setFromDate} className="h-10 rounded-xl bg-white border-none shadow-sm" />
           </div>
 
-          <div className="grid gap-1.5">
-            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Period To</label>
-            <DatePicker date={toDate} setDate={setTodayDate} className="h-10 rounded-xl bg-slate-100 border-none" />
+          <div className="grid gap-1">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Period To</label>
+            <DatePicker date={toDate} setDate={setTodayDate} className="h-10 rounded-xl bg-white border-none shadow-sm" />
           </div>
 
-          <Button onClick={() => setRefreshKey(k => k + 1)} variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-blue-900 hover:bg-blue-50">
-            <RefreshCcw className="h-5 w-5" />
-          </Button>
+          <div className="flex items-end justify-end sm:col-span-2 lg:col-span-1">
+            <Button onClick={() => setRefreshKey(k => k + 1)} variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-blue-900 hover:bg-blue-50">
+                <RefreshCcw className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="p-8">
+      <div className="p-4 md:p-8 flex-1 overflow-y-auto">
         <DashboardCards 
           selectedPlant={selectedPlant} 
           authorizedPlantIds={authorizedPlantIds}
