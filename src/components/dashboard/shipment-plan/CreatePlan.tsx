@@ -674,22 +674,25 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                                 variant="outline" 
                                 onClick={handleExportTemplate} 
                                 disabled={!originPlantId}
-                                className="flex-1 md:flex-none h-11 px-4 md:px-6 rounded-xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[10px] tracking-widest gap-2 disabled:opacity-30"
+                                className="flex-1 md:flex-none h-11 px-3 md:px-6 rounded-xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[10px] tracking-widest gap-2 disabled:opacity-30"
                             >
-                                <FileDown size={16} /> Template
+                                <FileDown size={16} />
+                                <span className="md:hidden">Excel</span>
+                                <span className="hidden md:inline">Template</span>
                             </Button>
                             <Button 
                                 variant="outline" 
                                 asChild 
                                 disabled={!originPlantId || isBulkUploading}
                                 className={cn(
-                                    "flex-1 md:flex-none h-11 px-4 md:px-6 rounded-xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[10px] tracking-widest gap-2 cursor-pointer transition-all",
+                                    "flex-1 md:flex-none h-11 px-3 md:px-6 rounded-xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[10px] tracking-widest gap-2 cursor-pointer transition-all",
                                     !originPlantId && "opacity-30 cursor-not-allowed pointer-events-none"
                                 )}
                             >
-                                <label>
+                                <label className="flex items-center justify-center gap-2">
                                     {isBulkUploading ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
-                                    Bulk Upload
+                                    <span className="md:hidden">Bulk</span>
+                                    <span className="hidden md:inline">Bulk Upload</span>
                                     <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleBulkUpload} disabled={isBulkUploading || !originPlantId} />
                                 </label>
                             </Button>
