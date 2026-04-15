@@ -203,7 +203,7 @@ export default function VehicleOut() {
                 }
                 if (pSnap.exists()) await updateDoc(plantTripRef, tripUpdate);
             } catch (syncError) {
-                console.warn("Trip node synchronization skipped: Document may have been purged.");
+                console.warn("Trip plant synchronization skipped: Document may have been purged.");
             }
         }
 
@@ -223,7 +223,7 @@ export default function VehicleOut() {
                 <div className="p-3 bg-blue-900 text-white rounded-xl shadow-lg rotate-3"><ArrowRightLeft className="h-6 w-6" /></div>
                 <div>
                     <CardTitle className="text-xl font-black uppercase text-blue-900 italic">GATE EXIT REGISTRY (OUT)</CardTitle>
-                    <CardDescription className="text-[10px] font-bold text-slate-400 tracking-widest">Finalize mission node and yard departure</CardDescription>
+                    <CardDescription className="text-[10px] font-bold text-slate-400 tracking-widest">Finalize mission plant and yard departure</CardDescription>
                 </div>
             </div>
         </CardHeader>
@@ -300,7 +300,7 @@ export default function VehicleOut() {
                                 <>
                                     <ShieldCheck className="h-5 w-5 mr-3" />
                                     <span className="hidden md:inline">FINALIZE SYSTEM OUT</span>
-                                    <span className="md:hidden">OUT</span>
+                                    <span className="md:hidden text-lg">OUT</span>
                                 </>
                             )}
                         </Button>

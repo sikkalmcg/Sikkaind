@@ -335,7 +335,7 @@ export default function VehicleIn({ upcomingVehicleData, onFinished }: { upcomin
                 >
                     {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <ShieldCheck className="h-5 w-5 mr-3" />}
                     <span className="hidden md:inline">FINALIZE IN-GATE ENTRY</span>
-                    <span className="md:hidden">IN</span>
+                    <span className="md:hidden text-lg">IN</span>
                 </Button>
             </div>
           </form>

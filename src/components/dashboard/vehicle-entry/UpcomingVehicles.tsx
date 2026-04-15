@@ -125,18 +125,16 @@ export default function UpcomingVehicles({
             </Table>
         </div>
         
-        {data.length > ITEMS_PER_PAGE && (
-            <div className="p-6 bg-slate-50 border-t">
-                <Pagination 
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={setCurrentPage}
-                    canPreviousPage={currentPage > 1}
-                    canNextPage={currentPage < totalPages}
-                    itemCount={data.length}
-                />
-            </div>
-        )}
+        <div className="p-6 bg-slate-50 border-t">
+            <Pagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                canPreviousPage={currentPage > 1}
+                canNextPage={currentPage < totalPages}
+                itemCount={data.length}
+            />
+        </div>
       </CardContent>
     </Card>
   );

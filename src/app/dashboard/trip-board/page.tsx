@@ -15,13 +15,12 @@ import SrnModal from '@/components/dashboard/trip-board/SrnModal';
 import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilter';
 import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreviewModal';
 import LRGenerationModal from '@/components/dashboard/lr-create/LRGenerationModal';
-import OrdersTable from '@/components/dashboard/vehicle-assign/OrdersTable';
 import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAssignModal';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId } from '@/lib/utils';
-import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
-import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy, Timestamp } from "firebase/firestore";
+import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
+import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -61,7 +60,6 @@ function TripBoardContent() {
   const [searchTerm, setSearchTerm] = useState("");
   
   const [currentPage, setCurrentPage] = useState(1);
-  const [unassignedPage, setUnassignedPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   
   const [plants, setPlants] = useState<WithId<Plant>[]>([]);
@@ -496,7 +494,7 @@ function TripBoardContent() {
         </Tabs>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6">
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6 bg-slate-50">
         {isLoading ? (
             <div className="flex h-64 flex-col items-center justify-center gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-blue-900" />

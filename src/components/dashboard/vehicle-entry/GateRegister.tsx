@@ -162,7 +162,7 @@ export default function GateRegister({ authPlantIds = [], isAdmin = false }: Gat
                             const stay = outTime ? differenceInHours(outTime, inTime) : differenceInHours(new Date(), inTime);
 
                             return (
-                                <TableRow key={e.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
+                                <TableRow key={e.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-100 last:border-0 group">
                                     <TableCell className="px-8 font-black text-slate-600 uppercase text-xs">
                                         {(plants || []).find(p => p.id === e.plantId)?.name || e.plantId}
                                     </TableCell>

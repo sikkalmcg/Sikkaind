@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -645,25 +644,25 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   return (
     <div className="w-full space-y-10">
       <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white">
-        <CardHeader className="bg-slate-50/80 p-10 border-b">
+        <CardHeader className="bg-slate-50/80 p-6 md:p-10 border-b">
             <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                 <div className="flex items-center gap-5">
-                    <div className="p-4 bg-blue-900 rounded-2xl text-white shadow-xl rotate-3"><ShieldCheck size={32} /></div>
+                    <div className="p-3 md:p-4 bg-blue-900 rounded-2xl text-white shadow-xl rotate-3"><ShieldCheck className="h-6 w-6 md:h-8 md:w-8" /></div>
                     <div>
-                        <CardTitle className="text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none">Order Plan Registry</CardTitle>
-                        <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">Secure Mission Asset Deployment Terminal</CardDescription>
+                        <CardTitle className="text-xl md:text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none text-wrap">Order Plan Registry</CardTitle>
+                        <CardDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Secure Mission Asset Deployment Terminal</CardDescription>
                     </div>
                 </div>
                 
-                <div className="flex flex-col items-center gap-6">
-                    <div className="flex items-center gap-4 bg-white p-3 rounded-2xl border-2 border-slate-200 shadow-inner">
-                        <div className="flex flex-col gap-1">
+                <div className="flex flex-col items-center gap-4 md:gap-6 w-full md:w-auto">
+                    <div className="flex flex-col md:flex-row items-center gap-4 bg-white p-3 rounded-2xl border-2 border-slate-200 shadow-inner w-full md:w-auto">
+                        <div className="flex flex-col gap-1 w-full md:w-auto">
                             <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1 flex items-center gap-2">
                                 <Factory className="h-3 w-3" /> Select Bulk Plant *
                             </Label>
                             <FormField control={control} name="originPlantId" render={({ field }) => (
                                 <Select onValueChange={field.onChange} value={field.value}>
-                                    <SelectTrigger className="h-11 w-[220px] bg-slate-50 rounded-xl font-black text-blue-900 border-none shadow-sm focus:ring-blue-900">
+                                    <SelectTrigger className="h-11 w-full md:w-[220px] bg-slate-50 rounded-xl font-black text-blue-900 border-none shadow-sm focus:ring-blue-900">
                                         <SelectValue placeholder="Pick plant" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl">
@@ -672,13 +671,13 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                                 </Select>
                             )} />
                         </div>
-                        <div className="h-10 w-px bg-slate-100" />
-                        <div className="flex gap-2">
+                        <div className="hidden md:block h-10 w-px bg-slate-100" />
+                        <div className="flex gap-2 w-full md:w-auto">
                             <Button 
                                 variant="outline" 
                                 onClick={handleExportTemplate} 
                                 disabled={!originPlantId}
-                                className="h-11 px-6 rounded-xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[10px] tracking-widest gap-2 disabled:opacity-30"
+                                className="flex-1 md:flex-none h-11 px-4 md:px-6 rounded-xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[10px] tracking-widest gap-2 disabled:opacity-30"
                             >
                                 <FileDown size={16} /> Template
                             </Button>
@@ -687,7 +686,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                                 asChild 
                                 disabled={!originPlantId || isBulkUploading}
                                 className={cn(
-                                    "h-11 px-6 rounded-xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[10px] tracking-widest gap-2 cursor-pointer transition-all",
+                                    "flex-1 md:flex-none h-11 px-4 md:px-6 rounded-xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[10px] tracking-widest gap-2 cursor-pointer transition-all",
                                     !originPlantId && "opacity-30 cursor-not-allowed pointer-events-none"
                                 )}
                             >
@@ -700,17 +699,17 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         </div>
                     </div>
 
-                    <Button onClick={handleSubmit(handlePost)} className="h-14 px-20 bg-blue-900 hover:bg-slate-900 rounded-2xl font-black shadow-xl transition-all active:scale-95 text-white border-none uppercase text-xs tracking-widest">
+                    <Button onClick={handleSubmit(handlePost)} className="w-full md:w-auto h-14 px-12 md:px-20 bg-blue-900 hover:bg-slate-900 rounded-2xl font-black shadow-xl transition-all active:scale-95 text-white border-none uppercase text-xs tracking-widest">
                         Commit Plan (F8)
                     </Button>
                 </div>
             </div>
         </CardHeader>
 
-        <CardContent className="p-12">
+        <CardContent className="p-6 md:p-12">
           <Form {...form}>
-            <form className="space-y-16">
-               <div className="grid grid-cols-1 md:grid-cols-4 gap-8 bg-slate-50 p-8 rounded-[2rem] border border-slate-100 shadow-inner">
+            <form className="space-y-12 md:space-y-16">
+               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-8 bg-slate-50 p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-inner">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Registry Timestamp</label>
                     <div className="h-14 bg-white border rounded-xl flex items-center px-5 font-mono text-blue-900 font-bold shadow-sm">{format(currentTime, 'dd-MM-yyyy HH:mm:ss')}</div>
@@ -718,7 +717,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                   
                   <div className="space-y-3">
                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Active Plant Context</label>
-                    <div className="h-14 bg-blue-50 border-2 border-blue-100 text-blue-900 rounded-xl flex items-center px-5 font-black uppercase tracking-tighter shadow-sm">
+                    <div className="h-14 bg-blue-50 border-2 border-blue-100 text-blue-900 rounded-xl flex items-center px-5 font-black uppercase tracking-tighter shadow-sm overflow-hidden truncate">
                         {selectedPlantName || '-- NOT SELECTED --'}
                     </div>
                   </div>
@@ -769,8 +768,8 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                   )} />
                </div>
 
-               <div className="p-10 rounded-[2.5rem] border-2 border-dashed border-blue-100 bg-blue-50/10 space-y-8">
-                  <div className="flex items-center justify-between border-b border-blue-100 pb-4">
+               <div className="p-6 md:p-10 rounded-[2.5rem] border-2 border-dashed border-blue-100 bg-blue-50/10 space-y-8">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-blue-100 pb-4 gap-4">
                     <div className="flex items-center gap-3 text-blue-900 font-black text-sm uppercase tracking-tighter"><Truck size={20}/> 2. Optional LR Registry Section</div>
                     {lastUsedLr && (
                         <div className="flex items-center gap-2 px-4 py-1.5 bg-white border border-blue-200 rounded-full shadow-sm animate-in fade-in slide-in-from-right-4 duration-500">
@@ -780,7 +779,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         </div>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-8">
                       <FormField control={control} name="lrNumber" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-[10px] font-bold text-slate-400 uppercase">LR Number</FormLabel>
@@ -821,8 +820,8 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                   </div>
                </div>
 
-               <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                  <div className="space-y-8 p-10 rounded-[3rem] border-2 border-slate-100 bg-white shadow-xl relative overflow-hidden">
+               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-12">
+                  <div className="space-y-8 p-6 md:p-10 rounded-[3rem] border-2 border-slate-100 bg-white shadow-xl relative overflow-hidden">
                       <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-600" />
                       <AutocompleteInput 
                         label="Consignor Entity *" 
@@ -850,7 +849,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                       )} />
                   </div>
 
-                  <div className="space-y-8 p-10 rounded-[3rem] border-2 border-slate-100 bg-white shadow-xl relative overflow-hidden">
+                  <div className="space-y-8 p-6 md:p-10 rounded-[3rem] border-2 border-slate-100 bg-white shadow-xl relative overflow-hidden">
                       <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-600" />
                       <AutocompleteInput 
                         label="Consignee / Bill To *" 
@@ -899,39 +898,41 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         </Button>
                     </div>
                     <div className="rounded-[2.5rem] border-2 border-slate-200 bg-white shadow-2xl overflow-hidden">
-                        <Table>
-                            <TableHeader className="bg-slate-900">
-                                <TableRow className="hover:bg-transparent border-none h-14">
-                                    <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">INVOICE #</TableHead>
-                                    <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">E-Waybill No.</TableHead>
-                                    <TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead>
-                                    <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">Units</TableHead>
-                                    <TableHead className="w-12"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {fields.length === 0 ? (
-                                    <TableRow><TableCell colSpan={5} className="h-32 text-center text-slate-400 italic border-none uppercase tracking-widest opacity-40">No detailed items added. Registry will auto-generate from header.</TableCell></TableRow>
-                                ) : (
-                                    fields.map((field, index) => (
-                                        <TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-none hover:bg-blue-50/10 transition-colors group">
-                                            <TableCell className="px-8"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-10 rounded-xl font-black uppercase bg-slate-50 border-slate-200" /></TableCell>
-                                            <TableCell className="px-4"><Input {...form.register(`items.${index}.ewaybillNumber`)} className="h-10 rounded-xl font-mono text-blue-600 bg-slate-50 border-slate-200 uppercase" /></TableCell>
-                                            <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-10 rounded-xl font-bold bg-slate-50 border-slate-200 uppercase" /></TableCell>
-                                            <TableCell className="px-4"><Input type="number" {...form.register(`items.${index}.units`)} className="h-10 text-center font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" /></TableCell>
-                                            <TableCell className="pr-6 text-right"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-400 hover:text-red-600 rounded-lg"><Trash2 size={18}/></Button></TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                            <TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16">
-                                <TableRow className="hover:bg-transparent border-none">
-                                    <TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL MANIFEST REGISTRY</TableCell>
-                                    <TableCell className="text-center font-black text-lg text-blue-900">{totals.units.toFixed(0)}</TableCell>
-                                    <TableCell></TableCell>
-                                </TableRow>
-                            </TableFooter>
-                        </Table>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader className="bg-slate-900">
+                                    <TableRow className="hover:bg-transparent border-none h-14">
+                                        <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">INVOICE #</TableHead>
+                                        <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">E-Waybill No.</TableHead>
+                                        <TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead>
+                                        <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">Units</TableHead>
+                                        <TableHead className="w-12"></TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {fields.length === 0 ? (
+                                        <TableRow><TableCell colSpan={5} className="h-32 text-center text-slate-400 italic border-none uppercase tracking-widest opacity-40">No detailed items added. Registry will auto-generate from header.</TableCell></TableRow>
+                                    ) : (
+                                        fields.map((field, index) => (
+                                            <TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-none hover:bg-blue-50/10 transition-colors group">
+                                                <TableCell className="px-8"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-10 rounded-xl font-black uppercase bg-slate-50 border-slate-200" /></TableCell>
+                                                <TableCell className="px-4"><Input {...form.register(`items.${index}.ewaybillNumber`)} className="h-10 rounded-xl font-mono text-blue-600 bg-slate-50 border-slate-200 uppercase" /></TableCell>
+                                                <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-10 rounded-xl font-bold bg-slate-50 border-slate-200 uppercase" /></TableCell>
+                                                <TableCell className="px-4"><Input type="number" {...form.register(`items.${index}.units`)} className="h-10 text-center font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" /></TableCell>
+                                                <TableCell className="pr-6 text-right"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-400 hover:text-red-600 rounded-lg"><Trash2 size={18}/></Button></TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                                <TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16">
+                                    <TableRow className="hover:bg-transparent border-none">
+                                        <TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL MANIFEST REGISTRY</TableCell>
+                                        <TableCell className="text-center font-black text-lg text-blue-900">{totals.units.toFixed(0)}</TableCell>
+                                        <TableCell></TableCell>
+                                    </TableRow>
+                                </TableFooter>
+                            </Table>
+                        </div>
                     </div>
                </section>
 

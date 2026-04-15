@@ -13,9 +13,9 @@ import { Loader2 } from "lucide-react";
 import { handleFirestoreError, OperationType } from "@/lib/utils";
 
 /**
- * @fileOverview Dashboard Layout Node.
+ * @fileOverview Dashboard Layout Plant.
  * Manages core authorization pulse and sidebar/header integration.
- * Hardened for mobile responsiveness with auto-close logic and backdrop node.
+ * Hardened for mobile responsiveness with auto-close logic and backdrop plant.
  * Fixed: Consolidated scroll nodes to prevent double scrollbars.
  */
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -120,7 +120,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <LogisticsHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
         </Suspense>
 
-        <main className="flex-1 relative overflow-hidden">
+        <main className="flex-1 relative overflow-y-auto custom-scrollbar bg-slate-50">
           {children}
         </main>
       </div>
