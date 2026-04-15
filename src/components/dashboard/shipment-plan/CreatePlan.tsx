@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -257,9 +256,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   }, [firestore, originPlantId]));
 
   const activeParties = useMemo(() => (parties || []).filter(p => p.isDeleted === false || p.isDeleted === undefined), [parties]);
-  
   const consignorRegistry = useMemo(() => activeParties.filter(p => p.type?.toLowerCase() === 'consignor'), [activeParties]);
-  
   const consigneeRegistry = useMemo(() => activeParties.filter(p => {
     const type = p.type?.toLowerCase() || '';
     return type.includes('consignee') || type.includes('buyer') || type.includes('ship to');
@@ -512,7 +509,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     const termRaw = getVal(row, ["Payment Term", "Term"]) || 'Paid';
                     const term = termRaw.toLowerCase().includes('to pay') ? 'To Pay' : 'Paid';
 
-                    // REGISTRY HANDSHAKE: Resolve Ship To Details from Code
                     const shipToCode = getVal(row, ["Ship To Party Code", "Ship To Code", "Code"])?.toUpperCase();
                     let resolvedShipToName = getVal(row, ["Ship To Name", "Ship To"]);
                     let resolvedShipToGtin = getVal(row, ["Ship To GSTIN", "Ship To Gst"]);
@@ -710,7 +706,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         <CardContent className="p-6 md:p-12">
           <Form {...form}>
             <form className="space-y-10 md:space-y-16">
-               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 bg-slate-50 p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-inner">
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 bg-slate-50 p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-inner">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Registry Timestamp</label>
                     <div className="h-14 bg-white border rounded-xl flex items-center px-5 font-mono text-blue-900 font-bold shadow-sm">{format(currentTime, 'dd-MM-yyyy HH:mm:ss')}</div>

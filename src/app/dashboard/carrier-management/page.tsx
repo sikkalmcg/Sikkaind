@@ -13,7 +13,7 @@ import { Loader2, WifiOff } from 'lucide-react';
 
 /**
  * @fileOverview Carrier Management Terminal.
- * Wrapped in Suspense to safely handshake with useSearchParams registry.
+ * Registry scroll fix: Internal scroll node enabled for isolated navigation.
  */
 function CarrierManagementContent() {
   const { toast } = useToast();
@@ -98,13 +98,6 @@ function CarrierManagementContent() {
   const handleCarrierUpdated = async (carrierId: string, data: Partial<Omit<Carrier, 'id'>>) => {
     try {
       if (!firestore) throw new Error("Firestore is not initialized.");
-
-      if (!carrierId) {
-        const errorMsg = "Cannot update: Critical information missing (carrier ID).";
-        toast({ variant: 'destructive', title: 'Update Failed', description: errorMsg });
-        throw new Error(errorMsg);
-      }
-
       const cleanedData = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== null && v !== undefined));
       await updateDoc(doc(firestore, "carriers", carrierId), { ...cleanedData, lastUpdated: serverTimestamp() });
       toast({ title: 'Success', description: 'Carrier details updated successfully.' });
@@ -118,10 +111,10 @@ function CarrierManagementContent() {
   const isDataLoading = isLoadingCarriers || isLoadingPlants;
 
   return (
-    <>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+    <div className="flex h-full flex-col overflow-hidden">
+      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8 overflow-y-auto custom-scrollbar">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold font-headline">Carrier Management</h1>
+          <h1 className="text-2xl font-semibold font-headline text-blue-900 uppercase">Carrier Management</h1>
           {carriersError && (
             <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full text-xs font-medium">
               <WifiOff className="h-3 w-3" />
@@ -164,7 +157,7 @@ function CarrierManagementContent() {
           onCarrierUpdated={handleCarrierUpdated}
         />
       )}
-    </>
+    </div>
   );
 }
 

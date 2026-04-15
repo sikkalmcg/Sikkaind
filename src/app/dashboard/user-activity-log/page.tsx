@@ -81,9 +81,7 @@ export default function UserActivityLogPage() {
             return;
         }
 
-        // IDENTITY HANDSHAKE: Use the internal UID node if available, otherwise fallback to document ID
         const targetUserId = (selectedUser as any).uid || selectedUser.id;
-
         const logsRef = collection(firestore, "activity_logs");
         const q = query(logsRef, where("userId", "==", targetUserId));
         const snapshot = await getDocs(q);
@@ -110,21 +108,20 @@ export default function UserActivityLogPage() {
         setIsModalOpen(true);
     } catch (error: any) {
         setDbError(true);
-        setErrorDetails('Cloud Query Failed: A connection issue occurred.');
+        setErrorDetails('Cloud Query Failed.');
         toast({ variant: 'destructive', title: 'Investigation Failed', description: 'Database Error' });
     } finally {
-        setInvestigationData(prev => prev); // maintain state
         setIsSubmitting(false);
     }
   };
 
-  if (!mounted) return <main className="p-8"><Loader2 className="animate-spin mx-auto mt-20" /></main>;
+  if (!mounted) return <div className="flex h-screen items-center justify-center bg-slate-50"><Loader2 className="animate-spin" /></div>;
 
   return (
-    <>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+    <div className="flex h-full flex-col overflow-hidden">
+      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8 overflow-y-auto custom-scrollbar">
         <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold font-headline text-blue-900 uppercase">User Activity Investigation</h1>
+            <h1 className="text-2xl font-semibold font-headline text-blue-900 uppercase italic tracking-tight">User Activity Investigation</h1>
             {(dbError || usersError) && (
                 <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full text-xs font-medium border border-orange-200">
                     <WifiOff className="h-3 w-3" />
@@ -183,7 +180,7 @@ export default function UserActivityLogPage() {
                     {isSubmitting ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Search className="mr-3 h-5 w-5" />} 
                     EXECUTE INVESTIGATION
                   </Button>
-                  <Button type="button" variant="ghost" onClick={() => form.reset({ userId: '', date: new Date() })} className="h-14 px-8 font-black uppercase text-[10px] tracking-widest text-slate-400">Clear Terminal</Button>
+                  <Button type="button" variant="ghost" onClick={() => form.reset({ userId: '', date: new Date() })} className="h-14 px-8 font-black uppercase text-[11px] tracking-widest text-slate-400">Clear Terminal</Button>
                 </div>
               </form>
             </Form>
@@ -191,6 +188,6 @@ export default function UserActivityLogPage() {
         </Card>
       </main>
       {investigationData && <ActivityLogModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} data={investigationData} />}
-    </>
+    </div>
   );
 }
