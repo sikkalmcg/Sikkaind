@@ -286,43 +286,44 @@ function ShipmentPlanContent() {
   const isReadOnlyPlant = !isAdminSession && plants.length === 1;
 
   return (
-    <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8 bg-slate-50/50 min-h-screen animate-in fade-in duration-500">
-        {/* HEADER TERMINAL */}
-        <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 -m-4 md:-m-8 mb-4 md:mb-0 shadow-sm">
-            <div className="flex items-center gap-4">
-                <div className="p-2 bg-blue-900 text-white rounded-lg shadow-lg rotate-3">
-                    <Package className="h-6 w-6" />
+    <div className="flex flex-1 flex-col h-full bg-[#f8fafc] overflow-hidden animate-in fade-in duration-500">
+        {/* HEADER TERMINAL - Optimized for Mobile */}
+        <div className="bg-white border-b px-4 md:px-8 py-3 md:py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 shadow-sm relative z-30">
+            <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-900 text-white rounded-xl shadow-lg rotate-3 shrink-0">
+                    <Package className="h-5 w-5 md:h-6 md:w-6" />
                 </div>
                 <div>
-                    <h1 className="text-3xl font-black text-blue-900 uppercase tracking-tight">Order Plan Control</h1>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">Operational Lifecycle Management</p>
+                    <h1 className="text-lg md:text-3xl font-black text-blue-900 uppercase tracking-tight italic leading-none">Order Plan Control</h1>
+                    <p className="hidden sm:block text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">Operational Lifecycle Management</p>
                 </div>
             </div>
-            <div className="flex items-center gap-4">
-                <div className="flex flex-col gap-1">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
-                        <Factory className="h-3 w-3" /> Plant Node registry
+            
+            <div className="flex flex-wrap items-center gap-3 bg-slate-50 p-2 md:p-3 rounded-2xl border border-slate-100 shadow-inner w-full md:w-auto">
+                <div className="flex flex-col gap-1 flex-1 md:flex-none">
+                    <Label className="text-[8px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1.5 px-1">
+                        <Factory className="h-2.5 w-2.5" /> Registry Scope
                     </Label>
                     {isReadOnlyPlant ? (
-                        <div className="h-10 px-4 flex items-center bg-blue-50 border border-blue-100 rounded-xl text-blue-900 font-black text-xs shadow-sm uppercase min-w-[220px]">
-                            <ShieldCheck className="h-3.5 w-3.5 mr-2 text-blue-600" /> {plants[0]?.name}
+                        <div className="h-9 px-3 flex items-center bg-white border border-slate-200 rounded-xl text-blue-900 font-black text-[10px] shadow-sm uppercase min-w-[180px]">
+                            <ShieldCheck className="h-3 w-3 mr-2 text-blue-600" /> {plants[0]?.name}
                         </div>
                     ) : (
                         <Select value={selectedPlant} onValueChange={setSelectedPlant}>
-                            <SelectTrigger className="w-[220px] h-10 rounded-xl bg-white border-slate-200 font-bold shadow-sm">
+                            <SelectTrigger className="w-full md:w-[200px] h-9 rounded-xl bg-white border-slate-200 font-bold shadow-sm text-[10px]">
                                 <SelectValue placeholder="Pick node" />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl">
-                                <SelectItem value="all-plants" className="font-black uppercase text-[10px] tracking-widest text-blue-600">All Authorized Plants</SelectItem>
+                                <SelectItem value="all-plants" className="font-black uppercase text-[9px] tracking-widest text-blue-600">All Authorized Plants</SelectItem>
                                 {plants.map(p => (
-                                    <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>
+                                    <SelectItem key={p.id} value={p.id} className="font-bold py-2 uppercase italic text-black">{p.name}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     )}
                 </div>
                 {dbError && (
-                    <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full text-[10px] font-bold uppercase border border-orange-200">
+                    <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-2 py-1 rounded-full text-[8px] font-black uppercase border border-orange-200">
                         <WifiOff className="h-3 w-3" />
                         <span>Sync Issue</span>
                     </div>
@@ -330,32 +331,36 @@ function ShipmentPlanContent() {
             </div>
         </div>
 
-        {/* TABS TERMINAL */}
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-8">
-            <TabsList className="bg-transparent border-b h-12 rounded-none gap-10 p-0 mb-8 justify-start">
-                <TabsTrigger value="create" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2">
-                    <Package className="h-4 w-4" /> Create Order
-                </TabsTrigger>
-                <TabsTrigger value="history" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2">
-                    <ListTree className="h-4 w-4" /> Order Ledger 
-                    <Badge className="ml-2 bg-slate-100 text-slate-500 border-none font-black text-[9px]">{filteredShipments.length}</Badge>
-                </TabsTrigger>
-            </TabsList>
+        {/* CONTENT NODE */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-6">
+                <TabsList className="bg-transparent border-b h-10 rounded-none gap-6 md:gap-10 p-0 mb-6 justify-start overflow-x-auto no-scrollbar shrink-0">
+                    <TabsTrigger value="create" className="data-[state=active]:border-b-4 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-[11px] md:text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2 whitespace-nowrap">
+                        <Package className="h-4 w-4" /> Create Order
+                    </TabsTrigger>
+                    <TabsTrigger value="history" className="data-[state=active]:border-b-4 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-[11px] md:text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2 whitespace-nowrap">
+                        <ListTree className="h-4 w-4" /> Order Ledger 
+                        <Badge className="ml-2 bg-slate-100 text-slate-500 border-none font-black text-[9px] px-1.5 h-5">{filteredShipments.length}</Badge>
+                    </TabsTrigger>
+                </TabsList>
 
-            <TabsContent value="create" className="focus-visible:ring-0">
-                <CreatePlan onShipmentCreated={() => handleTabChange('history')} authorizedPlants={plants} />
-            </TabsContent>
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <TabsContent value="create" className="focus-visible:ring-0 m-0">
+                        <CreatePlan onShipmentCreated={() => handleTabChange('history')} authorizedPlants={plants} />
+                    </TabsContent>
 
-            <TabsContent value="history" className="focus-visible:ring-0">
-                <ShipmentData 
-                    shipments={filteredShipments} 
-                    plants={plants} 
-                    onEdit={setEditingShipment} 
-                    onDelete={handleCancelOrder} 
-                    onBulkDelete={handleBulkDelete}
-                />
-            </TabsContent>
-        </Tabs>
+                    <TabsContent value="history" className="focus-visible:ring-0 m-0">
+                        <ShipmentData 
+                            shipments={filteredShipments} 
+                            plants={plants} 
+                            onEdit={setEditingShipment} 
+                            onDelete={handleCancelOrder} 
+                            onBulkDelete={handleBulkDelete}
+                        />
+                    </TabsContent>
+                </div>
+            </Tabs>
+        </div>
 
         {editingShipment && (
             <EditShipmentModal 
@@ -365,13 +370,13 @@ function ShipmentPlanContent() {
                 onShipmentUpdated={handleShipmentUpdated} 
             />
         )}
-    </main>
+    </div>
   );
 }
 
 export default function ShipmentPlanPage() {
     return (
-        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>}>
+        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-900" /></div>}>
             <ShipmentPlanContent />
         </Suspense>
     );

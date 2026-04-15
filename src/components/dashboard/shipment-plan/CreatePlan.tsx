@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -642,12 +643,12 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   };
 
   return (
-    <div className="w-full space-y-10">
+    <div className="w-full space-y-6 md:space-y-10">
       <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white">
         <CardHeader className="bg-slate-50/80 p-6 md:p-10 border-b">
             <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-                <div className="flex items-center gap-5">
-                    <div className="p-3 md:p-4 bg-blue-900 rounded-2xl text-white shadow-xl rotate-3"><ShieldCheck className="h-6 w-6 md:h-8 md:w-8" /></div>
+                <div className="flex items-center gap-5 w-full md:w-auto">
+                    <div className="p-3 md:p-4 bg-blue-900 rounded-2xl text-white shadow-xl rotate-3 shrink-0"><ShieldCheck className="h-6 w-6 md:h-8 md:w-8" /></div>
                     <div>
                         <CardTitle className="text-xl md:text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none text-wrap">Order Plan Registry</CardTitle>
                         <CardDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Secure Mission Asset Deployment Terminal</CardDescription>
@@ -708,8 +709,8 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
         <CardContent className="p-6 md:p-12">
           <Form {...form}>
-            <form className="space-y-12 md:space-y-16">
-               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-8 bg-slate-50 p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-inner">
+            <form className="space-y-10 md:space-y-16">
+               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 bg-slate-50 p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-inner">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Registry Timestamp</label>
                     <div className="h-14 bg-white border rounded-xl flex items-center px-5 font-mono text-blue-900 font-bold shadow-sm">{format(currentTime, 'dd-MM-yyyy HH:mm:ss')}</div>
@@ -779,7 +780,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         </div>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
                       <FormField control={control} name="lrNumber" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-[10px] font-bold text-slate-400 uppercase">LR Number</FormLabel>
@@ -889,17 +890,17 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                </div>
 
                <section className="space-y-6">
-                    <div className="flex items-center justify-between px-2">
-                        <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between px-2 gap-4">
+                        <h3 className="text-[11px] md:text-sm font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3">
                             <Calculator className="h-5 w-5 text-blue-600" /> 3. Manifest Items Registry
                         </h3>
-                        <Button type="button" variant="outline" size="sm" onClick={() => append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '' })} className="h-10 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all rounded-xl">
+                        <Button type="button" variant="outline" size="sm" onClick={() => append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '' })} className="h-10 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all rounded-xl w-full sm:w-auto">
                             <Plus size={16} /> Add Document row
                         </Button>
                     </div>
-                    <div className="rounded-[2.5rem] border-2 border-slate-200 bg-white shadow-2xl overflow-hidden">
+                    <div className="rounded-[2rem] md:rounded-[2.5rem] border-2 border-slate-200 bg-white shadow-2xl overflow-hidden">
                         <div className="overflow-x-auto">
-                            <Table>
+                            <Table className="min-w-[1000px]">
                                 <TableHeader className="bg-slate-900">
                                     <TableRow className="hover:bg-transparent border-none h-14">
                                         <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">INVOICE #</TableHead>
@@ -940,8 +941,8 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2 px-1">
                         <MapPin className="h-4 w-4 text-blue-600"/> 4. Delivery Address Registry
                     </h3>
-                    <FormField control={form.control} name="deliveryAddress" render={({ field }) => (
-                        <FormItem><FormControl><Textarea rows={3} placeholder="Provide verified delivery address particulars..." className="resize-none bg-white border-slate-200 rounded-3xl p-8 font-bold shadow-sm focus-visible:ring-blue-900 transition-all" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormField control={control} name="deliveryAddress" render={({ field }) => (
+                        <FormItem><FormControl><Textarea rows={3} placeholder="Provide verified delivery address particulars..." className="resize-none bg-white border-slate-200 rounded-[2rem] md:rounded-3xl p-6 md:p-8 font-bold shadow-sm focus-visible:ring-blue-900 transition-all text-sm" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                </section>
             </form>
