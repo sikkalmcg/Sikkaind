@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -10,11 +10,15 @@ import { useCollection, useMemoFirebase, useFirestore } from "@/firebase";
 import { collection, query } from "firebase/firestore";
 import type { Plant } from '@/types';
 import { normalizePlantId } from '@/lib/utils';
+import Pagination from '@/components/dashboard/vehicle-management/Pagination';
+
+const ITEMS_PER_PAGE = 10;
 
 /**
  * @fileOverview Upcoming Missions Component.
  * Optimized UI node for visualizing fleet assets awaiting yard arrival.
  * Receives synchronized data from parent registry.
+ * Added: Registry Pagination for optimized data handling.
  */
 export default function UpcomingVehicles({ 
     data, 
@@ -26,11 +30,19 @@ export default function UpcomingVehicles({
     onVehicleInClick: (trip: any) => void 
 }) {
   const firestore = useFirestore();
+  const [currentPage, setCurrentPage] = useState(1);
+
   const plantsQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, "logistics_plants")) : null, 
     [firestore]
   );
   const { data: plants } = useCollection<Plant>(plantsQuery);
+
+  const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE);
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return data.slice(start, start + ITEMS_PER_PAGE);
+  }, [data, currentPage]);
 
   return (
     <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden animate-in fade-in duration-500">
@@ -53,7 +65,7 @@ export default function UpcomingVehicles({
             <Table>
                 <TableHeader className="bg-slate-50/50">
                     <TableRow className="h-14 hover:bg-transparent border-b">
-                        <TableHead className="text-[10px] font-black uppercase px-8 text-slate-400">Lifting Node</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-8 text-slate-400">Lifting Plant</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Trip ID</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Vehicle registry</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Pilot detail</TableHead>
@@ -65,14 +77,14 @@ export default function UpcomingVehicles({
                 <TableBody>
                     {isLoading ? (
                         <TableRow><TableCell colSpan={7} className="h-64 text-center"><Loader2 className="h-10 w-10 animate-spin inline-block text-blue-900 opacity-20" /></TableCell></TableRow>
-                    ) : data.length === 0 ? (
+                    ) : paginatedData.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={7} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
                                 No upcoming missions detected in registry scope.
                             </TableCell>
                         </TableRow>
                     ) : (
-                        data.map((trip) => {
+                        paginatedData.map((trip) => {
                             const plantMatch = plants?.find(p => normalizePlantId(p.id) === normalizePlantId(trip.originPlantId));
                             return (
                                 <TableRow key={trip.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
@@ -112,6 +124,19 @@ export default function UpcomingVehicles({
                 </TableBody>
             </Table>
         </div>
+        
+        {data.length > ITEMS_PER_PAGE && (
+            <div className="p-6 bg-slate-50 border-t">
+                <Pagination 
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    canPreviousPage={currentPage > 1}
+                    canNextPage={currentPage < totalPages}
+                    itemCount={data.length}
+                />
+            </div>
+        )}
       </CardContent>
     </Card>
   );

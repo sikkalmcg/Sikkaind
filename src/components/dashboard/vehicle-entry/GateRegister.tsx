@@ -13,6 +13,8 @@ import { format, differenceInHours } from 'date-fns';
 import { cn, normalizePlantId } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import type { VehicleEntryExit, Plant } from '@/types';
+import Pagination from '@/components/dashboard/vehicle-management/Pagination';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface GateRegisterProps {
     authPlantIds?: string[];
@@ -30,6 +32,9 @@ export default function GateRegister({ authPlantIds = [], isAdmin = false }: Gat
   const [searchTerm, setSearchTerm] = useState('');
   const [entries, setEntries] = useState<VehicleEntryExit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const plantsQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, "logistics_plants")) : null, 
@@ -41,7 +46,7 @@ export default function GateRegister({ authPlantIds = [], isAdmin = false }: Gat
     if (!firestore || !user) return;
 
     // Registry Listener: Real-time pulse from global collection
-    const q = query(collection(firestore, "vehicleEntries"), orderBy("entryTimestamp", "desc"), limit(100));
+    const q = query(collection(firestore, "vehicleEntries"), orderBy("entryTimestamp", "desc"), limit(200));
     const unsubscribe = onSnapshot(q, (snap) => {
         const allEntries = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
         setEntries(allEntries);
@@ -75,6 +80,12 @@ export default function GateRegister({ authPlantIds = [], isAdmin = false }: Gat
 
     return result;
   }, [entries, searchTerm, authPlantIds, isAdmin]);
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(start, start + itemsPerPage);
+  }, [filteredData, currentPage, itemsPerPage]);
 
   const handleExport = () => {
     const exportData = filteredData.map(e => ({
@@ -110,7 +121,7 @@ export default function GateRegister({ authPlantIds = [], isAdmin = false }: Gat
                     <Input 
                         placeholder="Quick search registry..." 
                         value={searchTerm} 
-                        onChange={e => setSearchTerm(e.target.value)}
+                        onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                         className="pl-10 w-[300px] h-11 rounded-2xl bg-white border-slate-200 shadow-sm focus-visible:ring-blue-900 font-bold shadow-inner"
                     />
                 </div>
@@ -125,7 +136,7 @@ export default function GateRegister({ authPlantIds = [], isAdmin = false }: Gat
             <Table>
                 <TableHeader className="bg-slate-50/50">
                     <TableRow className="h-14 hover:bg-transparent border-b">
-                        <TableHead className="text-[10px] font-black uppercase px-8 text-slate-400">Lifting Node</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-8 text-slate-400">Lifting Plant</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Vehicle Number</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-400">Pilot</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-center">Purpose</TableHead>
@@ -138,14 +149,14 @@ export default function GateRegister({ authPlantIds = [], isAdmin = false }: Gat
                 <TableBody>
                     {isLoading ? (
                         <TableRow><TableCell colSpan={8} className="h-64 text-center"><Loader2 className="h-10 w-10 animate-spin inline-block text-blue-900 opacity-20" /></TableCell></TableRow>
-                    ) : filteredData.length === 0 ? (
+                    ) : paginatedData.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={8} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
                                 No movement records detected in history.
                             </TableCell>
                         </TableRow>
                     ) : (
-                        filteredData.map((e) => {
+                        paginatedData.map((e) => {
                             const inTime = e.entryTimestamp?.toDate ? e.entryTimestamp.toDate() : new Date(e.entryTimestamp);
                             const outTime = e.exitTimestamp ? (e.exitTimestamp.toDate ? e.exitTimestamp.toDate() : new Date(e.exitTimestamp)) : null;
                             const stay = outTime ? differenceInHours(outTime, inTime) : differenceInHours(new Date(), inTime);
@@ -186,6 +197,32 @@ export default function GateRegister({ authPlantIds = [], isAdmin = false }: Gat
                     )}
                 </TableBody>
             </Table>
+        </div>
+        
+        <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-3">
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows:</span>
+                <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
+                    <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                        <SelectItem value="10" className="font-bold py-2">10</SelectItem>
+                        <SelectItem value="25" className="font-bold py-2">25</SelectItem>
+                        <SelectItem value="50" className="font-bold py-2">50</SelectItem>
+                        <SelectItem value="100" className="font-bold py-2">100</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+
+            <Pagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                canPreviousPage={currentPage > 1}
+                canNextPage={currentPage < totalPages}
+                itemCount={filteredData.length}
+            />
         </div>
       </CardContent>
     </Card>
