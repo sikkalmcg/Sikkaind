@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import {
@@ -67,46 +68,46 @@ function DashboardCard({
     if (isError) {
       return <div className="text-2xl font-bold text-destructive">Error</div>;
     }
-    return <div className="text-2xl font-bold">{value || "0"}</div>;
+    return <div className="text-lg md:text-2xl font-black md:font-bold">{value || "0"}</div>;
   }, [isLoading, isError, value]);
 
   const cardClass = isError ? "border-destructive/50" : "cursor-pointer hover:bg-muted/50 transition-colors";
 
   return (
-    <Card onClick={isError ? undefined : onClick} className={cn("relative overflow-hidden group min-h-[160px]", cardClass)}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 text-wrap">
-        <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-500 leading-tight">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+    <Card onClick={isError ? undefined : onClick} className={cn("relative overflow-hidden group min-h-[120px] md:min-h-[160px] rounded-2xl md:rounded-[2rem] border-2 border-slate-100/50 shadow-sm md:shadow-md", cardClass)}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2 text-wrap px-4 md:px-6 pt-4 md:pt-6">
+        <CardTitle className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 leading-tight">{title}</CardTitle>
+        <Icon className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-4 md:px-6 pb-4 md:pb-6">
         {cardContent}
         
         {showGpsStats && !isLoading && !isError && (
-            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 mb-1">
-                <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-emerald-600">
-                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="flex flex-wrap gap-x-2 md:gap-x-3 gap-y-1 mt-1 md:mt-2 mb-1">
+                <div className="flex items-center gap-1 text-[8px] md:text-[9px] font-black uppercase text-emerald-600">
+                    <div className="h-1 w-1 md:h-1.5 md:w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     {gpsMoving} Moving
                 </div>
-                <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-red-600">
-                    <div className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                <div className="flex items-center gap-1 text-[8px] md:text-[9px] font-black uppercase text-red-600">
+                    <div className="h-1 w-1 md:h-1.5 md:w-1.5 rounded-full bg-red-500" />
                     {gpsStop} Stop
                 </div>
             </div>
         )}
 
         {locationRegistry && !isLoading && !isError && (
-            <div className="mt-3 space-y-1 group/loc">
+            <div className="mt-2 md:mt-3 space-y-0.5 md:space-y-1 group/loc">
                 <div className="flex justify-between items-center pr-1">
-                    <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1.5">
-                        <MapPin className="h-2.5 w-2.5 text-blue-600" />
+                    <p className="text-[7px] md:text-[8px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1 md:gap-1.5">
+                        <MapPin className="h-2 w-2 md:h-2.5 md:w-2.5 text-blue-600" />
                         Location Registry
                     </p>
                     {lastUpdateTime && (
-                        <span className="text-[8px] font-mono text-slate-400 font-bold">{lastUpdateTime}</span>
+                        <span className="text-[7px] md:text-[8px] font-mono text-slate-400 font-bold">{lastUpdateTime}</span>
                     )}
                 </div>
                 <p className={cn(
-                    "text-[10px] font-bold leading-tight uppercase line-clamp-1",
+                    "text-[9px] md:text-[10px] font-bold leading-tight uppercase line-clamp-1",
                     locationRegistry === "GPS Offline" ? "text-slate-300" : "text-slate-700"
                 )}>
                     {locationRegistry}
@@ -114,7 +115,7 @@ function DashboardCard({
             </div>
         )}
 
-        <p className="text-[10px] font-medium text-slate-400 mt-2">{description}</p>
+        <p className="text-[8px] md:text-[10px] font-bold md:font-medium text-slate-400 mt-1 md:mt-2 leading-tight uppercase opacity-60">{description}</p>
       </CardContent>
     </Card>
   );
@@ -136,18 +137,6 @@ export function DashboardCards({
   refreshKey: number;
 }) {
   const firestore = useFirestore();
-  const [counts, setCounts] = useState<Record<string, number>>({});
-  const [gpsStats, setGpsStats] = useState({ moving: 0, stopped: 0, total: 0 });
-  const [tripsByType, setTripsByType] = useState({ own: 0, contract: 0, market: 0 });
-  const [categoryGps, setCategoryGps] = useState<Record<string, { moving: number, stopped: number }>>({
-    assigned: { moving: 0, stopped: 0 },
-    active: { moving: 0, stopped: 0 },
-    transit: { moving: 0, stopped: 0 },
-    arrived: { moving: 0, stopped: 0 }
-  });
-  const [categoryLocations, setCategoryLocations] = useState<Record<string, { location: string, ts: number }>>({});
-  
-  // Real-time State Node
   const [rawShipments, setRawShipments] = useState<Record<string, any[]>>({});
   const [rawTrips, setRawTrips] = useState<Record<string, any[]>>({});
   const [rawEntries, setRawEntries] = useState<any[]>([]);
@@ -155,14 +144,12 @@ export function DashboardCards({
   const [isRegistryLoading, setIsRegistryLoading] = useState(true);
   const [isError, setIsError] = useState(false);
 
-  // 1. Real-time Registry Synchronizer (Multi-Node)
   useEffect(() => {
     if (!firestore || authorizedPlantIds.length === 0) return;
 
     const unsubscribers: (() => void)[] = [];
     const scopePlantIds = selectedPlant === 'all-plants' ? authorizedPlantIds : [selectedPlant];
 
-    // Listen to Gate Presence (Global Registry)
     const entryQ = query(collection(firestore, "vehicleEntries"), where("status", "==", "IN"));
     unsubscribers.push(onSnapshot(entryQ, (snap) => {
         setRawEntries(snap.docs.map(d => d.data()));
@@ -170,7 +157,6 @@ export function DashboardCards({
         await handleFirestoreError(e, OperationType.LIST, 'vehicleEntries');
     }));
 
-    // Listen to partitioned plant data
     scopePlantIds.forEach(pId => {
         const shipmentCol = collection(firestore, `plants/${pId}/shipments`);
         unsubscribers.push(onSnapshot(shipmentCol, (snap) => {
@@ -191,20 +177,6 @@ export function DashboardCards({
     return () => unsubscribers.forEach(unsub => unsub());
   }, [firestore, selectedPlant, authorizedPlantIds, refreshKey]);
 
-  // 2. GIS Telemetry Poller (External Handshake)
-  useEffect(() => {
-    const fetchGps = async () => {
-        setIsFleetLoading(true);
-        const res = await fetchFleetLocation();
-        if (res.data) setGpsStats({ moving: res.data.filter(v => v.speed > 5).length, stopped: res.data.filter(v => v.speed <= 5).length, total: res.data.length });
-        setIsFleetLoading(false);
-    };
-    fetchGps();
-    const interval = setInterval(fetchGps, 60000);
-    return () => clearInterval(interval);
-  }, [refreshKey]);
-
-  // 3. Logic Node: Real-time Aggregate Computation
   const calculatedStats = useMemo(() => {
     const dayStart = fromDate ? startOfDay(fromDate) : startOfDay(subDays(new Date(), 7));
     const dayEnd = toDate ? endOfDay(toDate) : endOfDay(new Date());
@@ -255,33 +227,33 @@ export function DashboardCards({
   }, [rawShipments, rawTrips, rawEntries, fromDate, toDate]);
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-      <Card className="relative overflow-hidden group min-h-[160px] cursor-default">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-500 leading-tight">Trips by Vehicle Type</CardTitle>
-          <BarChart3 className="h-4 w-4 text-muted-foreground shrink-0" />
+    <div className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <Card className="relative overflow-hidden group min-h-[120px] md:min-h-[160px] cursor-default rounded-2xl md:rounded-[2rem] border-2 border-slate-100/50 shadow-sm md:shadow-md">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2 px-4 md:px-6 pt-4 md:pt-6">
+          <CardTitle className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-500 leading-tight">Missions by type</CardTitle>
+          <BarChart3 className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground shrink-0" />
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 md:px-6 pb-4 md:pb-6">
           {isRegistryLoading ? (
-            <div className="flex flex-col gap-2 mt-4"><Skeleton className="h-4 w-full"/><Skeleton className="h-4 w-2/3"/></div>
+            <div className="flex flex-col gap-2 mt-2 md:mt-4"><Skeleton className="h-3 md:h-4 w-full"/><Skeleton className="h-3 md:h-4 w-2/3"/></div>
           ) : (
-            <div className="space-y-2 mt-1">
-              <div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase text-blue-700">Own</span><span className="text-sm font-black text-blue-700">{calculatedStats.own}</span></div>
-              <div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase text-violet-700">Contract</span><span className="text-sm font-black text-violet-700">{calculatedStats.contract}</span></div>
-              <div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase text-amber-600">Market</span><span className="text-sm font-black text-amber-600">{calculatedStats.market}</span></div>
+            <div className="space-y-1 md:space-y-2 mt-1">
+              <div className="flex items-center justify-between"><span className="text-[8px] md:text-[10px] font-black uppercase text-blue-700 tracking-tight">Own</span><span className="text-xs md:text-sm font-black text-blue-700">{calculatedStats.own}</span></div>
+              <div className="flex items-center justify-between"><span className="text-[8px] md:text-[10px] font-black uppercase text-violet-700 tracking-tight">Contract</span><span className="text-xs md:text-sm font-black text-violet-700">{calculatedStats.contract}</span></div>
+              <div className="flex items-center justify-between"><span className="text-[8px] md:text-[10px] font-black uppercase text-amber-600 tracking-tight">Market</span><span className="text-xs md:text-sm font-black text-amber-600">{calculatedStats.market}</span></div>
             </div>
           )}
         </CardContent>
       </Card>
       
-      <DashboardCard title="Pending Orders" icon={Package} value={`${calculatedStats['pending-shipments']}`} description="Shipments awaiting allocation" onClick={() => onCardClick('pending-shipments')} isLoading={isRegistryLoading} isError={isError} />
-      <DashboardCard title="Assigned Vehicles" icon={Clock} value={`${calculatedStats['assigned-vehicles']}`} description="Assigned, awaiting gate-out" onClick={() => onCardClick('assigned-vehicles')} isLoading={isRegistryLoading} isError={isError} />
-      <DashboardCard title="Loaded Trips" icon={LoadedIcon} value={`${calculatedStats['loaded-trips']}`} description="Ready, awaiting gate departure" onClick={() => onCardClick('loaded-trips')} isLoading={isRegistryLoading} isError={isError} />
-      <DashboardCard title="Active Trips" icon={PlayCircle} value={`${calculatedStats['active-trips']}`} description="Total non-closed missions" onClick={() => onCardClick('active-trips')} isLoading={isRegistryLoading} isError={isError} />
-      <DashboardCard title="In-Transit" icon={Navigation} value={`${calculatedStats['in-transit']}`} description="Missions moving to destination" onClick={() => onCardClick('in-transit')} isLoading={isRegistryLoading} isError={isError} />
-      <DashboardCard title="Arrival Vehicles" icon={ClipboardCheck} value={`${calculatedStats['arrival-for-delivery']}`} description="Reported at destination" onClick={() => onCardClick('arrival-for-delivery')} isLoading={isRegistryLoading} isError={isError} />
-      <DashboardCard title="Under Maintenance" icon={Wrench} value={`${calculatedStats['breakdown-maintenance']}`} description="Fleet nodes in registry" onClick={() => onCardClick('breakdown-maintenance')} isLoading={isRegistryLoading} isError={isError} />
-      <DashboardCard title="Completed" icon={CheckCircle} value={`${calculatedStats['completed-shipments']}`} description="Verified mission completions" onClick={() => onCardClick('completed-shipments')} isLoading={isRegistryLoading} isError={isError} />
+      <DashboardCard title="Pending Orders" icon={Package} value={`${calculatedStats['pending-shipments']}`} description="Awaiting allocation" onClick={() => onCardClick('pending-shipments')} isLoading={isRegistryLoading} isError={isError} />
+      <DashboardCard title="Assigned Vehicles" icon={Clock} value={`${calculatedStats['assigned-vehicles']}`} description="Awaiting gate-out" onClick={() => onCardClick('assigned-vehicles')} isLoading={isRegistryLoading} isError={isError} />
+      <DashboardCard title="Loaded Trips" icon={LoadedIcon} value={`${calculatedStats['loaded-trips']}`} description="Awaiting departure" onClick={() => onCardClick('loaded-trips')} isLoading={isRegistryLoading} isError={isError} />
+      <DashboardCard title="Active Trips" icon={PlayCircle} value={`${calculatedStats['active-trips']}`} description="Live missions" onClick={() => onCardClick('active-trips')} isLoading={isRegistryLoading} isError={isError} />
+      <DashboardCard title="In-Transit" icon={Navigation} value={`${calculatedStats['in-transit']}`} description="Moving to drop" onClick={() => onCardClick('in-transit')} isLoading={isRegistryLoading} isError={isError} />
+      <DashboardCard title="Arrival Vehicles" icon={ClipboardCheck} value={`${calculatedStats['arrival-for-delivery']}`} description="Reported at drop" onClick={() => onCardClick('arrival-for-delivery')} isLoading={isRegistryLoading} isError={isError} />
+      <DashboardCard title="Under Maintenance" icon={Wrench} value={`${calculatedStats['breakdown-maintenance']}`} description="Fleet status node" onClick={() => onCardClick('breakdown-maintenance')} isLoading={isRegistryLoading} isError={isError} />
+      <DashboardCard title="Completed" icon={CheckCircle} value={`${calculatedStats['completed-shipments']}`} description="Verified missions" onClick={() => onCardClick('completed-shipments')} isLoading={isRegistryLoading} isError={isError} />
     </div>
   );
 }

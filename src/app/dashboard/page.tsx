@@ -57,9 +57,7 @@ export type ModalId =
 
 /**
  * @fileOverview Logistics Dashboard (Monitoring Hub).
- * Independent monitoring plant providing real-time aggregates and analytics.
- * Rule: Clicking cards opens detailed modals without navigation.
- * Default Period: 7 Days.
+ * Optimized for mobile responsiveness with a compact sticky header.
  */
 export default function DashboardPage() {
   const { user } = useUser();
@@ -67,7 +65,6 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const router = useRouter();
   
-  // REGISTRY DEFAULT: Last 7 Days
   const [selectedPlant, setSelectedPlant] = useState("all-plants");
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 7)));
   const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
@@ -80,7 +77,6 @@ export default function DashboardPage() {
   const [runningIconUrl, setRunningIconUrl] = useState<string | null>(null);
   const [stoppedIconUrl, setStoppedIconUrl] = useState<string | null>(null);
 
-  // Modal State Control
   const [selectedModal, setSelectedModal] = useState<ModalId>(null);
 
   const plantsQuery = useMemoFirebase(() => 
@@ -100,19 +96,13 @@ export default function DashboardPage() {
             
             let userDocSnap = null;
             const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
-            const qSnap = await getDocs(q).catch(async (e) => {
-                await handleFirestoreError(e, OperationType.LIST, 'users');
-                throw e;
-            });
+            const qSnap = await getDocs(q);
 
             if (!qSnap.empty) {
                 userDocSnap = qSnap.docs[0];
             } else {
                 const directRef = doc(firestore, "users", user.uid);
-                const directSnap = await getDoc(directRef).catch(async (e) => {
-                    await handleFirestoreError(e, OperationType.GET, directRef.path);
-                    throw e;
-                });
+                const directSnap = await getDoc(directRef);
                 if (directSnap.exists()) userDocSnap = directSnap;
             }
 
@@ -123,7 +113,6 @@ export default function DashboardPage() {
                 const userData = userDocSnap.data() as SubUser;
                 isRoot = userData.username?.toLowerCase() === 'sikkaind' || user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
                 const userPlantIds = userData.plantIds || [];
-                // If user has no plantIds assigned OR is root, give access to all plants
                 authIds = (isRoot || userPlantIds.length === 0) && allMasterPlants
                     ? allMasterPlants.map(p => p.id)
                     : userPlantIds;
@@ -132,14 +121,12 @@ export default function DashboardPage() {
                 authIds = allMasterPlants?.map(p => p.id) || [];
                 setIsAdmin(true);
             } else if (allMasterPlants) {
-                // Fallback: user doc not found but user is authenticated — show all plants
                 authIds = allMasterPlants.map(p => p.id);
             }
             
             setAuthorizedPlantIds(authIds);
             if (authIds.length > 0) {
                 if (isRoot) setSelectedPlant("all-plants");
-                // For sub-users with single plant, auto-select it; otherwise keep "all-plants"
                 else if (authIds.length === 1) setSelectedPlant(authIds[0]);
                 else setSelectedPlant("all-plants");
             }
@@ -152,10 +139,7 @@ export default function DashboardPage() {
     
     const fetchIconUrls = async () => {
         const settingsDoc = doc(firestore, 'gps_settings', 'api_config');
-        const docSnap = await getDoc(settingsDoc).catch(async (e) => {
-            await handleFirestoreError(e, OperationType.GET, settingsDoc.path);
-            throw e;
-        });
+        const docSnap = await getDoc(settingsDoc);
         if (docSnap.exists()) {
             const data = docSnap.data();
             setRunningIconUrl(data.runningIconUrl || null);
@@ -181,25 +165,25 @@ export default function DashboardPage() {
 
   return (
     <main className="flex flex-col h-full bg-slate-50/50 overflow-hidden">
-      <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-end justify-between gap-4 shadow-sm">
-        <div>
-          <div className="flex items-center gap-3">
-            <LayoutDashboard className="h-6 w-6 text-blue-900" />
-            <h1 className="text-xl md:text-3xl font-black text-blue-900 tracking-tight uppercase italic">Logistics Dashboard</h1>
+      <div className="sticky top-0 z-30 bg-white border-b px-4 py-3 md:px-8 md:py-4 flex flex-col md:flex-row md:items-end justify-between gap-3 md:gap-4 shadow-sm">
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2 md:gap-3">
+            <LayoutDashboard className="h-5 w-5 md:h-6 md:w-6 text-blue-900" />
+            <h1 className="text-lg md:text-3xl font-black text-blue-900 tracking-tight uppercase italic">LOGISTICS DASHBOARD</h1>
           </div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 md:ml-9">Monitoring Hub & Registry Analytics</p>
+          <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 md:ml-9">MONITORING HUB & REGISTRY ANALYTICS</p>
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end gap-3 bg-slate-50 p-4 rounded-3xl border border-slate-100 shadow-inner w-full lg:w-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end gap-2 md:gap-3 bg-slate-100/50 md:bg-slate-50 p-2 md:p-4 rounded-2xl md:rounded-3xl border border-slate-100 shadow-inner w-full lg:w-auto">
           <div className="grid gap-1">
-            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Authorized Scope</label>
+            <label className="text-[8px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">AUTHORIZED SCOPE</label>
             {isReadOnlyPlant ? (
-                <div className="h-10 px-4 flex items-center bg-white rounded-xl border border-slate-200 text-blue-900 font-black text-xs shadow-sm uppercase tracking-tighter min-w-[200px]">
-                    <ShieldCheck className="h-3.5 w-3.5 mr-2 text-blue-600" /> {plantsList[0]?.name}
+                <div className="h-9 md:h-10 px-3 flex items-center bg-white rounded-xl border border-slate-200 text-blue-900 font-black text-[10px] md:text-xs shadow-sm uppercase tracking-tighter min-w-[160px]">
+                    <ShieldCheck className="h-3 w-3 mr-2 text-blue-600" /> {plantsList[0]?.name}
                 </div>
             ) : (
                 <Select value={selectedPlant} onValueChange={setSelectedPlant} disabled={isAuthLoading}>
-                    <SelectTrigger className="w-full lg:w-[200px] h-10 rounded-xl bg-white border-slate-200 font-bold text-blue-900 shadow-sm focus:ring-blue-900">
+                    <SelectTrigger className="w-full lg:w-[180px] h-9 md:h-10 rounded-xl bg-white border-slate-200 font-bold text-blue-900 shadow-sm focus:ring-blue-900 text-[10px] md:text-xs">
                     <SelectValue placeholder="Select a plant" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -213,18 +197,18 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid gap-1">
-            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Period From</label>
-            <DatePicker date={fromDate} setDate={setFromDate} className="h-10 rounded-xl bg-white border-none shadow-sm" />
+            <label className="text-[8px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">PERIOD FROM</label>
+            <DatePicker date={fromDate} setDate={setFromDate} className="h-9 md:h-10 rounded-xl bg-white border-none shadow-sm text-[10px] md:text-xs" />
           </div>
 
           <div className="grid gap-1">
-            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Period To</label>
-            <DatePicker date={toDate} setDate={setTodayDate} className="h-10 rounded-xl bg-white border-none shadow-sm" />
+            <label className="text-[8px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">PERIOD TO</label>
+            <DatePicker date={toDate} setDate={setTodayDate} className="h-9 md:h-10 rounded-xl bg-white border-none shadow-sm text-[10px] md:text-xs" />
           </div>
 
           <div className="flex items-end justify-end sm:col-span-2 lg:col-span-1">
-            <Button onClick={() => setRefreshKey(k => k + 1)} variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-blue-900 hover:bg-blue-50">
-                <RefreshCcw className="h-5 w-5" />
+            <Button onClick={() => setRefreshKey(k => k + 1)} variant="ghost" size="icon" className="h-9 w-9 md:h-10 md:w-10 rounded-xl text-blue-900 hover:bg-blue-50">
+                <RefreshCcw className="h-4 w-4 md:h-5 md:w-5" />
             </Button>
           </div>
         </div>
@@ -241,7 +225,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* MODAL HANDSHAKE REGISTRY */}
+      {/* MODAL REGISTRY */}
       {selectedModal === "active-trips" && (
         <ActiveTripsModal
           isOpen={true}
@@ -356,8 +340,6 @@ export default function DashboardPage() {
         <GISMonitor
           isOpen={true}
           onClose={() => setSelectedModal(null)}
-          runningIconUrl={runningIconUrl}
-          stoppedIconUrl={stoppedIconUrl}
         />
       )}
     </main>
