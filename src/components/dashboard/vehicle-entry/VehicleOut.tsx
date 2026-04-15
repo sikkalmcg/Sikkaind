@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -290,8 +289,20 @@ export default function VehicleOut() {
                     )}
                     <div className="flex items-center justify-end gap-8 pt-4">
                         <button type="button" onClick={() => reset()} className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-900 transition-all">DISCARD ENTRY</button>
-                        <Button type="submit" disabled={isSubmitting} className="bg-blue-900 hover:bg-black text-white px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none p-0 flex items-center justify-center">
-                            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <><ShieldCheck className="h-5 w-5 mr-3" />FINALIZE SYSTEM OUT</>}
+                        <Button 
+                            type="submit" 
+                            disabled={isSubmitting} 
+                            className="bg-blue-900 hover:bg-black text-white px-8 md:px-16 h-14 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none p-0 flex items-center justify-center"
+                        >
+                            {isSubmitting ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : (
+                                <>
+                                    <ShieldCheck className="h-5 w-5 mr-3" />
+                                    <span className="hidden md:inline">FINALIZE SYSTEM OUT</span>
+                                    <span className="md:hidden">OUT</span>
+                                </>
+                            )}
                         </Button>
                     </div>
                 </form>
