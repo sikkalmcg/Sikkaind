@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -478,7 +477,7 @@ function TripBoardContent() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); }} className="w-full">
-          <TabsList className="bg-transparent h-9 md:h-10 p-0 border-b-0 gap-4 md:gap-8 justify-start overflow-x-auto custom-scrollbar">
+          <TabsList className="bg-transparent h-9 md:h-10 p-0 border-b-0 gap-4 md:gap-8 justify-start overflow-x-auto no-scrollbar shrink-0">
             {[
                 { id: 'open-order', label: 'Open Order', count: counts.openOrder },
                 { id: 'loading', label: 'Loading', count: counts.loading, icon: Container },

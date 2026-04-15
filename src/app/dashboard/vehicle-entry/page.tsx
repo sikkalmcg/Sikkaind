@@ -40,7 +40,7 @@ function VehicleEntryContent() {
     firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
     [firestore]
   );
-  const { data: allMasterPlants } = useCollection<Plant>(plantsQuery);
+  const { data: allPlants } = useCollection<Plant>(plantsQuery);
 
   useEffect(() => {
     if (!firestore || !user) return;
@@ -69,11 +69,11 @@ function VehicleEntryContent() {
                 const userData = userDocSnap.data() as SubUser;
                 const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isSystemAdmin;
                 
-                const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
+                const baseList = allPlants && allPlants.length > 0 ? allPlants : mockPlants;
                 ids = isRoot ? baseList.map(p => p.id) : (userData.plantIds || []);
                 setIsAdmin(isRoot);
             } else if (isSystemAdmin) {
-                const baseList = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : mockPlants;
+                const baseList = allPlants && allPlants.length > 0 ? allPlants : mockPlants;
                 ids = baseList.map(p => p.id);
                 setIsAdmin(true);
             }
@@ -83,7 +83,7 @@ function VehicleEntryContent() {
         }
     };
     fetchAuth();
-  }, [firestore, user, allMasterPlants]);
+  }, [firestore, user, allPlants]);
 
   useEffect(() => {
     if (!firestore || authPlantIds.length === 0) return;
@@ -176,7 +176,7 @@ function VehicleEntryContent() {
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         <div className="p-4 md:p-8 space-y-10">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="bg-transparent border-b h-12 rounded-none gap-6 md:gap-12 p-0 mb-8 w-full justify-start overflow-x-auto custom-scrollbar shrink-0">
+            <TabsList className="bg-transparent border-b h-12 rounded-none gap-6 md:gap-12 p-0 mb-8 w-full justify-start overflow-x-auto no-scrollbar shrink-0">
                 <TabsTrigger value="vehicle-in" className="data-[state=active]:border-b-4 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 pb-3 text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-2">
                 Vehicle IN <Badge className="bg-blue-100 text-blue-900 border-none font-black text-[8px] md:text-[10px] px-1.5 h-4 md:h-5">{counts.in}</Badge>
                 </TabsTrigger>

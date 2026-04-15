@@ -107,11 +107,29 @@
   .text-shadow {
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
   }
-  .animation-delay-300 {
-    animation-delay: 300ms;
+  
+  /* Hide scrollbar utility */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
-  .animation-delay-500 {
-    animation-delay: 500ms;
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Subtle professional scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400;
   }
 
   @keyframes slide-down {
