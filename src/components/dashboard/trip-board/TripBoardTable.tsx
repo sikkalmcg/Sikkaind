@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -13,7 +12,8 @@ import {
     Truck,
     RotateCcw,
     Trash2,
-    FileText
+    FileText,
+    PlusCircle
 } from 'lucide-react';
 import { cn, parseSafeDate } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -37,8 +37,10 @@ interface TripBoardTableProps {
 const getStatusColor = (status: string) => {
     const s = status?.toLowerCase().replace(/[\s_-]+/g, '-') || '';
     switch(s) {
-        case 'assigned':
-        case 'vehicle-assigned': return 'bg-blue-500/10 text-blue-700 border-blue-200';
+        case 'pending': return 'bg-yellow-500/10 text-yellow-700 border-yellow-200';
+        case 'partly vehicle assigned': return 'bg-orange-500/10 text-orange-700 border-orange-200';
+        case 'assigned': 
+        case 'vehicle assigned': return 'bg-blue-500/10 text-blue-700 border-blue-200';
         case 'loaded':
         case 'loading-complete': return 'bg-orange-500/10 text-orange-700 border-orange-200';
         case 'in-transit': return 'bg-purple-500/10 text-purple-700 border-indigo-200';
@@ -84,6 +86,53 @@ export default function TripBoardTable({
         </button>
     );
   };
+
+  if (activeTab === 'pending-assignment') {
+      return (
+        <div className="overflow-x-auto">
+            <Table className="border-collapse w-full min-w-[1200px]">
+                <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b">
+                    <TableRow className="h-14 hover:bg-transparent text-[10px] font-black uppercase text-slate-500">
+                        <TableHead className="px-6 w-32 bg-slate-100">Plant</TableHead>
+                        <TableHead className="px-4 w-36 bg-slate-100">Order ID</TableHead>
+                        <TableHead className="px-4 w-48 bg-slate-100">Consignor</TableHead>
+                        <TableHead className="px-4 w-48 bg-slate-100">Consignee</TableHead>
+                        <TableHead className="px-4 w-48 bg-slate-100">Destination</TableHead>
+                        <TableHead className="px-4 w-32 text-right bg-slate-100">Total Qty</TableHead>
+                        <TableHead className="px-4 w-32 text-right bg-slate-100">Balance Qty</TableHead>
+                        <TableHead className="px-4 text-center bg-slate-100">Status</TableHead>
+                        <TableHead className="px-8 w-24 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">Action</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {data.length === 0 ? (
+                        <TableRow><TableCell colSpan={9} className="h-64 text-center text-slate-400 italic font-black uppercase tracking-widest opacity-20">No pending assignments.</TableCell></TableRow>
+                    ) : (
+                        data.map((row) => (
+                            <TableRow key={row.id} className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 even:bg-slate-50/30 transition-all group text-[11px] font-medium text-slate-600">
+                                <TableCell className="px-6 font-bold uppercase truncate">{row.plantName}</TableCell>
+                                <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs">{row.orderNo}</TableCell>
+                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs">{row.consignor}</TableCell>
+                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs">{row.billToParty}</TableCell>
+                                <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-xs">{row.unloadingPoint}</TableCell>
+                                <TableCell className="px-4 text-right font-black text-slate-900">{row.qtyUom}</TableCell>
+                                <TableCell className="px-4 text-right font-black text-orange-600 bg-orange-50/10">{row.balanceUom}</TableCell>
+                                <TableCell className="px-4 text-center">
+                                    <Badge variant="outline" className={cn("text-[9px] font-black uppercase px-2.5 h-6", getStatusColor(row.currentStatusId))}>{row.currentStatusId}</Badge>
+                                </TableCell>
+                                <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
+                                    <Button size="sm" onClick={() => onAction('assign', row)} className="h-8 bg-blue-900 hover:bg-black text-white font-black text-[9px] uppercase px-4 rounded-lg gap-2">
+                                        <PlusCircle size={12}/> Assign
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    )}
+                </TableBody>
+            </Table>
+        </div>
+      );
+  }
 
   if (activeTab === 'closed') {
     return (

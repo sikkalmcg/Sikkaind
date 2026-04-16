@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -20,9 +19,9 @@ import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAss
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId } from '@/lib/utils';
-import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
+import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X } from "lucide-react";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -35,7 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
 
-export type TripBoardTab = 'open-order' | 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
+export type TripBoardTab = 'pending-assignment' | 'open-order' | 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
 function TripBoardContent() {
   const { toast } = useToast();
@@ -46,7 +45,7 @@ function TripBoardContent() {
   const searchParams = useSearchParams();
   const { showLoader, hideLoader } = useLoading();
   
-  const activeTab = (searchParams.get('tab') as TripBoardTab) || 'open-order';
+  const activeTab = (searchParams.get('tab') as TripBoardTab) || 'pending-assignment';
   const urlPlants = useMemo(() => searchParams.get('plants')?.split(',').filter(Boolean) || [], [searchParams]);
 
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
@@ -83,7 +82,7 @@ function TripBoardContent() {
   const [editLrTrip, setEditLrTrip] = useState<any | null>(null);
   const [editLrCarrier, setEditLrCarrier] = useState<any | null>(null);
   const [isAssignModalOpen, setAssignModalOpen] = useState(false);
-  const [selectedShipment, setSelectedShipment] = useState<any | null>(null);
+  const [selectedShipmentForAssign, setSelectedShipmentForAssign] = useState<any | null>(null);
   const [editingTrip, setEditingTrip] = useState<WithId<Trip> | null>(null);
 
   const isAdminSession = useMemo(() => {
@@ -292,39 +291,43 @@ function TripBoardContent() {
     });
 }, [trips, shipments, lrs, entries, plants, dbCarriers, selectedPlants]);
 
-  const handleAction = async (type: string, trip: any) => {
-    if (type === 'view') setViewTripData(trip);
-    if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${trip.vehicleNumber}`);
-    if (type === 'view-lr') setPreviewLrData(trip);
-    if (type === 'edit-lr') {
-        setEditLrTrip(trip);
-        setEditLrCarrier(trip.carrierObj);
+  const handleAction = async (type: string, row: any) => {
+    if (type === 'assign') {
+        setSelectedShipmentForAssign(row);
+        setAssignModalOpen(true);
     }
-    if (type === 'edit-vehicle') setEditVehicleTrip(trip);
-    if (type === 'cancel') setCancelTripData(trip);
-    if (type === 'arrived') setArrivedTrip(trip);
-    if (type === 'unloaded') setUnloadedTrip(trip);
-    if (type === 'reject') setRejectTrip(trip);
-    if (type === 'pod-status') setPodStatusTrip(trip);
-    if (type === 'pod-upload') setPodUploadTrip(trip);
-    if (type === 'srn') setSrnTrip(trip);
+    if (type === 'view') setViewTripData(row);
+    if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${row.vehicleNumber}`);
+    if (type === 'view-lr') setPreviewLrData(row);
+    if (type === 'edit-lr') {
+        setEditLrTrip(row);
+        setEditLrCarrier(row.carrierObj);
+    }
+    if (type === 'edit-vehicle') setEditVehicleTrip(row);
+    if (type === 'cancel') setCancelTripData(row);
+    if (type === 'arrived') setArrivedTrip(row);
+    if (type === 'unloaded') setUnloadedTrip(row);
+    if (type === 'reject') setRejectTrip(row);
+    if (type === 'pod-status') setPodStatusTrip(row);
+    if (type === 'pod-upload') setPodUploadTrip(row);
+    if (type === 'srn') setSrnTrip(row);
     if (type === 'vehicle-in') {
         if (!firestore || !user) return;
         showLoader();
         try {
-            const plantId = normalizePlantId(trip.originPlantId);
+            const plantId = normalizePlantId(row.originPlantId);
             const ts = serverTimestamp();
             await addDoc(collection(firestore, "vehicleEntries"), {
-                tripId: trip.id,
+                tripId: row.id,
                 plantId: plantId,
-                vehicleNumber: trip.vehicleNumber,
+                vehicleNumber: row.vehicleNumber,
                 status: "IN",
                 entryTimestamp: ts,
                 purpose: "Loading"
             });
             const update = { tripStatus: 'Yard/Loading', currentStatusId: 'yard/loading', entryTime: ts, lastUpdated: ts };
-            await updateDoc(doc(firestore, `plants/${plantId}/trips`, trip.id), update);
-            await setDoc(doc(firestore, 'trips', trip.id), update, { merge: true });
+            await updateDoc(doc(firestore, `plants/${plantId}/trips`, row.id), update);
+            await setDoc(doc(firestore, 'trips', row.id), update, { merge: true });
             toast({ title: 'Vehicle In Logged' });
         } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
         finally { hideLoader(); }
@@ -333,16 +336,16 @@ function TripBoardContent() {
         if (!firestore || !user) return;
         showLoader();
         try {
-            const plantId = normalizePlantId(trip.originPlantId);
+            const plantId = normalizePlantId(row.originPlantId);
             const ts = serverTimestamp();
-            if (trip.entry?.id) {
-                await updateDoc(doc(firestore, "vehicleEntries", trip.entry.id), { status: "OUT", exitTimestamp: ts });
+            if (row.entry?.id) {
+                await updateDoc(doc(firestore, "vehicleEntries", row.entry.id), { status: "OUT", exitTimestamp: ts });
             } else {
-                await addDoc(collection(firestore, "vehicleEntries"), { tripId: trip.id, plantId, vehicleNumber: trip.vehicleNumber, status: "OUT", exitTimestamp: ts, outType: "Loaded" });
+                await addDoc(collection(firestore, "vehicleEntries"), { tripId: row.id, plantId, vehicleNumber: row.vehicleNumber, status: "OUT", exitTimestamp: ts, outType: "Loaded" });
             }
             const update = { tripStatus: 'In Transit', currentStatusId: 'in-transit', outDate: ts, lastUpdated: ts };
-            await updateDoc(doc(firestore, `plants/${plantId}/trips`, trip.id), update);
-            await setDoc(doc(firestore, 'trips', trip.id), update, { merge: true });
+            await updateDoc(doc(firestore, `plants/${plantId}/trips`, row.id), update);
+            await setDoc(doc(firestore, 'trips', row.id), update, { merge: true });
             toast({ title: 'Vehicle Out & Dispatched' });
         } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
         finally { hideLoader(); }
@@ -351,9 +354,9 @@ function TripBoardContent() {
         if (!firestore || !user) return;
         showLoader();
         try {
-            const plantId = normalizePlantId(trip.originPlantId);
-            const tripRef = doc(firestore, `plants/${plantId}/trips`, trip.id);
-            const globalTripRef = doc(firestore, 'trips', trip.id);
+            const plantId = normalizePlantId(row.originPlantId);
+            const tripRef = doc(firestore, `plants/${plantId}/trips`, row.id);
+            const globalTripRef = doc(firestore, 'trips', row.id);
             const ts = serverTimestamp();
             const currentName = user.displayName || user.email?.split('@')[0] || 'System';
             const update = { tripStatus: 'In Transit', currentStatusId: 'in-transit', resentAt: ts, resentBy: currentName, lastUpdated: ts };
@@ -368,6 +371,36 @@ function TripBoardContent() {
   const processedData = useMemo(() => {
     const dayStart = fromDate ? startOfDay(fromDate) : null;
     const dayEnd = toDate ? endOfDay(toDate) : null;
+
+    if (activeTab === 'pending-assignment') {
+        const normalizedSelected = selectedPlants.map(normalizePlantId);
+        return shipments
+            .filter(s => normalizedSelected.includes(normalizePlantId(s.originPlantId)))
+            .filter(s => {
+                if (['cancelled', 'short closed'].includes(s.currentStatusId?.toLowerCase())) return false;
+                if (s.balanceQty <= 0) return false;
+                const cDate = parseSafeDate(s.creationDate);
+                if (dayStart && cDate && cDate < dayStart) return false;
+                if (dayEnd && cDate && cDate > dayEnd) return false;
+                return true;
+            })
+            .map(s => {
+                const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(s.originPlantId));
+                return {
+                    ...s,
+                    plantName: plant?.name || s.originPlantId,
+                    type: 'shipment',
+                    orderNo: s.shipmentId,
+                    qtyUom: `${s.quantity} ${s.materialTypeId}`,
+                    balanceUom: `${s.balanceQty} ${s.materialTypeId}`
+                };
+            })
+            .filter(s => {
+                if (!searchTerm) return true;
+                const searchLower = searchTerm.toLowerCase();
+                return (s.shipmentId?.toLowerCase().includes(searchLower) || s.consignor?.toLowerCase().includes(searchLower) || s.billToParty?.toLowerCase().includes(searchLower));
+            });
+    }
 
     return joinedData.filter(t => {
       const start = t.startDate;
@@ -390,10 +423,20 @@ function TripBoardContent() {
       const s = searchTerm.toLowerCase();
       return (t.tripId?.toLowerCase().includes(s) || t.vehicleNumber?.toLowerCase().includes(s) || t.lrNumber?.toLowerCase().includes(s) || t.consignor?.toLowerCase().includes(s) || t.consignee?.toLowerCase().includes(s));
     });
-  }, [joinedData, activeTab, fromDate, toDate, searchTerm]);
+  }, [joinedData, shipments, activeTab, fromDate, toDate, searchTerm, selectedPlants, plants]);
 
   const counts = useMemo(() => {
-    const res = { openOrder: 0, loading: 0, transit: 0, arrived: 0, pod: 0, rejection: 0, closed: 0 };
+    const res = { pendingAssignment: 0, openOrder: 0, loading: 0, transit: 0, arrived: 0, pod: 0, rejection: 0, closed: 0 };
+    
+    const normalizedSelected = selectedPlants.map(normalizePlantId);
+    shipments.forEach(s => {
+        if (normalizedSelected.includes(normalizePlantId(s.originPlantId))) {
+            if (!['cancelled', 'short closed'].includes(s.currentStatusId?.toLowerCase()) && s.balanceQty > 0) {
+                res.pendingAssignment++;
+            }
+        }
+    });
+
     joinedData.forEach(t => {
         const s = t.normalizedStatus;
         if (s === 'assigned' || s === 'vehicle-assigned') res.openOrder++;
@@ -405,18 +448,18 @@ function TripBoardContent() {
         else if (s === 'closed') res.closed++;
     });
     return res;
-  }, [joinedData]);
+  }, [joinedData, shipments, selectedPlants]);
 
   const totalPages = Math.ceil(processedData.length / itemsPerPage);
   const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handleDownloadExcel = () => {
     const exportData = processedData.map(t => ({
-        'Plant': t.plantName, 'Trip ID': t.tripId, 'Vehicle Number': t.vehicleNumber, 'LR Number': t.lrNumber, 'Consignor': t.consignor, 'Consignee': t.consignee, 'Destination': t.unloadingPoint, 'Weight (MT)': t.dispatchedQty, 'Status': t.tripStatus, 'Date': t.startDate ? format(t.startDate, 'dd-MM-yy HH:mm') : '--'
+        'Plant': t.plantName, 'ID': t.tripId || t.shipmentId, 'Vehicle Number': t.vehicleNumber || '--', 'LR Number': t.lrNumber || '--', 'Consignor': t.consignor, 'Consignee': t.consignee || t.billToParty, 'Destination': t.unloadingPoint, 'Weight (MT)': t.dispatchedQty || t.quantity, 'Status': t.tripStatus || t.currentStatusId, 'Date': t.startDate ? format(t.startDate, 'dd-MM-yy HH:mm') : (t.creationDate ? format(t.creationDate, 'dd-MM-yy HH:mm') : '--')
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, ws, "Trip Registry");
+    XLSX.utils.book_append_sheet(workbook, ws, "Mission Registry");
     XLSX.writeFile(workbook, `TripBoard_${activeTab}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
@@ -424,22 +467,20 @@ function TripBoardContent() {
     <div className="flex flex-1 flex-col h-full overflow-hidden bg-white">
       <div className="sticky top-0 z-30 bg-white border-b px-4 py-2 md:px-8 md:py-4 shadow-sm shrink-0">
         <div className="flex flex-col gap-3 md:gap-6">
-          {/* Row 1: Title and Search */}
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 md:gap-3">
-              <div className="p-1 md:p-2 bg-blue-900 text-white rounded-lg md:rounded-xl shadow-lg rotate-3 shrink-0">
-                <MonitorPlay className="h-4 w-4 md:h-6 md:w-6" />
+              <div className="p-1 md:p-1.5 bg-blue-900 text-white rounded-lg md:rounded-xl shadow-lg rotate-3 shrink-0">
+                <MonitorPlay className="h-4 w-4 md:h-5 md:w-5" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-sm md:text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none truncate">
+                <h1 className="text-sm md:text-2xl font-black text-blue-900 tracking-tight uppercase italic leading-none truncate">
                   <span className="md:hidden">TRIP BOARD</span>
                   <span className="hidden md:inline">MISSION CONTROL BOARD</span>
                 </h1>
-                <p className="hidden md:block text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 md:mt-1">LIVE OPERATIONAL REGISTRY PLANT</p>
+                <p className="hidden md:block text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 md:mt-1">LIVE OPERATIONAL REGISTRY PLANT</p>
               </div>
             </div>
 
-            {/* Search Bar - Right Top for Mobile/Desktop */}
             <div className="relative flex-1 max-w-[140px] md:max-w-[240px]">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 md:h-4 md:w-4 text-slate-400" />
               <Input 
@@ -451,7 +492,6 @@ function TripBoardContent() {
             </div>
           </div>
           
-          {/* Row 2: Filters */}
           <div className="grid grid-cols-2 md:flex md:items-end gap-2 bg-slate-50/50 p-2 rounded-xl md:rounded-2xl border border-slate-100 shadow-inner">
             <div className="flex flex-col gap-0.5">
               <Label className="text-[7px] md:text-[9px] font-black uppercase text-slate-400 px-1">PLANT SCOPE</Label>
@@ -479,6 +519,7 @@ function TripBoardContent() {
         <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); }} className="w-full mt-4">
           <TabsList className="bg-transparent h-9 md:h-10 p-0 border-b-0 gap-4 md:gap-8 justify-start overflow-x-auto no-scrollbar shrink-0">
             {[
+                { id: 'pending-assignment', label: 'Assign fleet Pending', count: counts.pendingAssignment, icon: ClipboardList },
                 { id: 'open-order', label: 'Open Order', count: counts.openOrder },
                 { id: 'loading', label: 'Loading', count: counts.loading, icon: Container },
                 { id: 'transit', label: 'In Transit', count: counts.transit },
@@ -488,7 +529,7 @@ function TripBoardContent() {
                 { id: 'closed', label: 'History Ledger', count: counts.closed }
             ].map(t => (
                 <TabsTrigger key={t.id} value={t.id} className="relative h-9 md:h-10 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[9px] md:text-[11px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-1.5 md:gap-2 whitespace-nowrap">
-                    {t.id === 'loading' && <t.icon className="h-3 md:h-3.5 w-3 md:w-3.5" />}
+                    {t.icon && <t.icon className="h-3 md:h-3.5 w-3 md:w-3.5" />}
                     {t.label} <Badge className="ml-1 md:ml-2 bg-slate-100 text-slate-500 border-none font-black text-[8px] md:text-[9px] px-1.5">{t.count}</Badge>
                 </TabsTrigger>
             ))}
@@ -519,11 +560,11 @@ function TripBoardContent() {
         )}
       </div>
 
-      {isAssignModalOpen && selectedShipment && (
+      {isAssignModalOpen && selectedShipmentForAssign && (
         <VehicleAssignModal 
             isOpen={isAssignModalOpen}
             onClose={() => { setAssignModalOpen(false); setEditingTrip(null); }}
-            shipment={selectedShipment}
+            shipment={selectedShipmentForAssign}
             trip={editingTrip}
             carriers={dbCarriers || []}
             onAssignmentComplete={() => { setAssignModalOpen(false); setEditingTrip(null); }}
