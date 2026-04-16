@@ -49,6 +49,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser, FuelPump } from '@/types';
 import { VehicleTypes } from '@/lib/constants';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
@@ -673,3 +674,4 @@ function ContextNode({ label, value, icon: Icon, className, bold }: any) {
         </div>
     );
 }
+
