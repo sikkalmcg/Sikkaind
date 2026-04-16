@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -28,7 +29,6 @@ import { useLoading } from '@/context/LoadingContext';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { DatePicker } from '@/components/date-picker';
 import { startOfDay, endOfDay, subDays, format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -40,7 +40,7 @@ export type TripBoardTab = 'open-order' | 'loading' | 'transit' | 'arrived' | 'p
 
 /**
  * @fileOverview Trip Board Terminal.
- * Optimized for mobile with a compact filter terminal.
+ * Fixed: Nested scrollbars and compact mobile filters.
  */
 function TripBoardContent() {
   const { toast } = useToast();
@@ -430,7 +430,7 @@ function TripBoardContent() {
   };
 
   return (
-    <main className="flex flex-1 flex-col h-full overflow-hidden bg-white">
+    <div className="flex flex-1 flex-col h-full overflow-hidden bg-white">
       <div className="sticky top-0 z-30 bg-white border-b px-4 py-3 md:px-8 md:py-4 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 mb-4 md:mb-6">
           <div className="flex items-center gap-3">
@@ -494,7 +494,7 @@ function TripBoardContent() {
         </Tabs>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6 bg-slate-50">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-8 py-4 md:py-6 bg-slate-50">
         {isLoading ? (
             <div className="flex h-64 flex-col items-center justify-center gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-blue-900" />
@@ -550,7 +550,7 @@ function TripBoardContent() {
             onGenerate={() => { setEditLrTrip(null); setEditLrCarrier(null); }}
         />
       )}
-    </main>
+    </div>
   );
 }
 

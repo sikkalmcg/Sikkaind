@@ -29,7 +29,7 @@ interface MultiSelectPlantFilterProps {
 /**
  * @fileOverview Multi-Select Plant Filter Node.
  * Hardened for accurate pluralization and staged selection logic.
- * Staged logic prevents page reloads during the selection process.
+ * Fixed: Popover height management for mobile to ensure Apply button visibility.
  */
 export default function MultiSelectPlantFilter({
   options,
@@ -39,10 +39,8 @@ export default function MultiSelectPlantFilter({
 }: MultiSelectPlantFilterProps) {
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState('');
-  // Registry Staging Node: Buffer selections internally to prevent repeated page reloads
   const [stagedSelected, setStagedSelected] = React.useState<string[]>(selected);
 
-  // Synchronize staging buffer when the popover opens
   React.useEffect(() => {
     if (open) {
       setStagedSelected(selected);
@@ -84,7 +82,6 @@ export default function MultiSelectPlantFilter({
     const isAll = options.length > 0 && selected.length === options.length;
     if (isAll && options.length > 1) return 'All Authorized Plants';
     
-    // Mission Logic: Explicit count-based labeling with pluralization support
     const count = selected.length;
     const unit = count === 1 ? 'Plant' : 'Plants';
     
@@ -112,8 +109,8 @@ export default function MultiSelectPlantFilter({
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0 border-slate-200 shadow-2xl rounded-2xl overflow-hidden" align="start">
-        <div className="flex items-center border-b p-2 bg-slate-50/50">
+      <PopoverContent className="w-[300px] p-0 border-slate-200 shadow-2xl rounded-2xl overflow-hidden flex flex-col max-h-[80vh]" align="start">
+        <div className="flex items-center border-b p-2 bg-slate-50/50 shrink-0">
           <Search className="mr-2 h-4 w-4 shrink-0 text-slate-400" />
           <Input
             placeholder="Search plant name..."
@@ -133,7 +130,7 @@ export default function MultiSelectPlantFilter({
           )}
         </div>
         
-        <div className="p-2 border-b bg-white sticky top-0 z-10">
+        <div className="p-2 border-b bg-white sticky top-0 z-10 shrink-0">
           <div 
             className="flex items-center space-x-2 px-2 py-1.5 hover:bg-slate-50 rounded-md transition-colors cursor-pointer group"
             onClick={(e) => {
@@ -153,7 +150,7 @@ export default function MultiSelectPlantFilter({
           </div>
         </div>
 
-        <ScrollArea className="h-64 p-2 bg-white">
+        <ScrollArea className="flex-1 min-h-[150px] p-2 bg-white">
           <div className="space-y-1">
             {filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-xs text-muted-foreground italic">
@@ -192,18 +189,18 @@ export default function MultiSelectPlantFilter({
           </div>
         </ScrollArea>
         
-        <div className="p-2 border-t bg-slate-50 flex justify-between gap-2">
+        <div className="p-3 border-t bg-slate-50 flex justify-between gap-3 shrink-0">
           <Button
             variant="ghost"
             size="sm"
-            className="text-[10px] uppercase font-bold text-slate-500 hover:text-red-600"
+            className="text-[10px] uppercase font-bold text-slate-500 hover:text-red-600 flex-1"
             onClick={handleClear}
           >
             Clear All
           </Button>
           <Button
             size="sm"
-            className="text-[10px] uppercase font-black bg-blue-900 hover:bg-slate-900 px-4 h-7"
+            className="text-[10px] uppercase font-black bg-blue-900 hover:bg-slate-900 px-6 h-8 flex-1 shadow-lg"
             onClick={handleApply}
           >
             Apply Filters
