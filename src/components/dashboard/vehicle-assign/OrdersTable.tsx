@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -98,7 +99,7 @@ export default function OrdersTable({
   return (
     <div className="rounded-[2rem] border border-slate-200 shadow-xl bg-white overflow-hidden">
       <div className="overflow-auto max-h-[600px] custom-scrollbar">
-        <Table className="border-collapse w-full min-w-[2200px] table-fixed border-separate border-spacing-0">
+        <Table className="border-collapse w-full min-w-[1400px]">
           <TableHeader className="sticky top-0 z-50">
             <TableRow className="h-14 hover:bg-transparent border-b-2 border-slate-200 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
               <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500 w-32 bg-slate-100">Plant</TableHead>
@@ -114,14 +115,14 @@ export default function OrdersTable({
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right bg-slate-100">Order Qty</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right bg-slate-100">Balance Qty</TableHead>
               <TableHead className="text-[10px] font-black uppercase px-4 text-center bg-slate-100">Status</TableHead>
-              <TableHead className="text-[10px] font-black uppercase px-8 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-32">Action</TableHead>
+              <TableHead className="text-[10px] font-black uppercase px-8 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-24">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {data.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={14} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
-                  No mission nodes detected in current registry view.
+                  No mission nodes detected.
                 </TableCell>
               </TableRow>
             ) : (
@@ -179,7 +180,7 @@ export default function OrdersTable({
                                     <>
                                         <DropdownMenuSeparator className="bg-slate-100" />
                                         <DropdownMenuItem onClick={() => onShortClose(order.id)} className="gap-3 font-bold py-2.5 text-orange-600 cursor-pointer rounded-xl hover:bg-orange-50">
-                                            <ArrowRightLeft className="h-4 w-4" /> Short Close Node
+                                            <ArrowRightLeft className="h-4 w-4" /> Short Close node
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => onCancelOrder(order.id)} className="gap-3 font-bold py-2.5 text-red-600 cursor-pointer rounded-xl hover:bg-red-50">
                                             <Ban className="h-4 w-4" /> Cancel Registry

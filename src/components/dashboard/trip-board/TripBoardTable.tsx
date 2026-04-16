@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -87,48 +88,48 @@ export default function TripBoardTable({
   if (activeTab === 'closed') {
     return (
         <div className="overflow-x-auto">
-            <Table className="border-collapse w-full min-w-[4500px] table-fixed">
+            <Table className="border-collapse w-full min-w-[2800px]">
                 <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b">
                     <TableRow className="h-14 hover:bg-transparent text-[10px] font-black uppercase text-slate-500">
-                        <TableHead className="px-6 w-32">Plant</TableHead>
-                        <TableHead className="px-4 w-36">Order No.</TableHead>
-                        <TableHead className="px-4 w-40">Order Creator</TableHead>
-                        <TableHead className="px-4 w-48">Consignor</TableHead>
-                        <TableHead className="px-4 w-48">Consignee</TableHead>
-                        <TableHead className="px-4 w-48">Ship To Party</TableHead>
-                        <TableHead className="px-4 w-64">Route Registry</TableHead>
-                        <TableHead className="px-4 w-36">Vehicle No</TableHead>
-                        <TableHead className="px-4 w-36">Pilot Mobile</TableHead>
-                        <TableHead className="px-4 w-36 text-center">Fleet Type</TableHead>
-                        <TableHead className="px-4 w-48">Vendor Name</TableHead>
-                        <TableHead className="px-4 w-40">Assigned User</TableHead>
-                        <TableHead className="px-4 w-48">Invoice No</TableHead>
-                        <TableHead className="px-4 w-40">Ewaybill No</TableHead>
-                        <TableHead className="px-4 w-32 text-center">Unit-UOM</TableHead>
-                        <TableHead className="px-4 w-32 text-right">Qty-UOM</TableHead>
-                        <TableHead className="px-4 w-36 text-center">LR Number</TableHead>
-                        <TableHead className="px-4 w-32 text-center">LR Date</TableHead>
-                        <TableHead className="px-4 w-40 text-center">Assigned At</TableHead>
-                        <TableHead className="px-4 w-40 text-center">Gate Out At</TableHead>
-                        <TableHead className="px-4 w-40 text-center">Arrived At</TableHead>
-                        <TableHead className="px-4 w-40 text-center">Unloaded At</TableHead>
-                        <TableHead className="px-4 w-40 text-center text-red-600">Reject At</TableHead>
-                        <TableHead className="px-4 w-40 text-center text-blue-600">Re-sent At</TableHead>
-                        <TableHead className="px-4 w-40">Resent User</TableHead>
-                        <TableHead className="px-4 w-36">SRN Number</TableHead>
-                        <TableHead className="px-4 w-32 text-center">SRN Date</TableHead>
-                        <TableHead className="px-4 w-40">SRN User</TableHead>
-                        <TableHead className="px-4 w-32 text-center">POD Status</TableHead>
-                        <TableHead className="px-4 w-40">POD Operator</TableHead>
+                        <TableHead className="px-6 w-32 bg-slate-100">Plant</TableHead>
+                        <TableHead className="px-4 w-36 bg-slate-100">Order No.</TableHead>
+                        <TableHead className="px-4 w-40 bg-slate-100">Order Creator</TableHead>
+                        <TableHead className="px-4 w-48 bg-slate-100">Consignor</TableHead>
+                        <TableHead className="px-4 w-48 bg-slate-100">Consignee</TableHead>
+                        <TableHead className="px-4 w-48 bg-slate-100">Ship To Party</TableHead>
+                        <TableHead className="px-4 w-64 bg-slate-100">Route Registry</TableHead>
+                        <TableHead className="px-4 w-36 bg-slate-100">Vehicle No</TableHead>
+                        <TableHead className="px-4 w-36 bg-slate-100">Pilot Mobile</TableHead>
+                        <TableHead className="px-4 w-36 text-center bg-slate-100">Fleet Type</TableHead>
+                        <TableHead className="px-4 w-48 bg-slate-100">Vendor Name</TableHead>
+                        <TableHead className="px-4 w-40 bg-slate-100">Assigned User</TableHead>
+                        <TableHead className="px-4 w-48 bg-slate-100">Invoice No</TableHead>
+                        <TableHead className="px-4 w-40 bg-slate-100">Ewaybill No</TableHead>
+                        <TableHead className="px-4 w-32 text-center bg-slate-100">Unit-UOM</TableHead>
+                        <TableHead className="px-4 w-32 text-right bg-slate-100">Qty-UOM</TableHead>
+                        <TableHead className="px-4 w-36 text-center bg-slate-100">LR Number</TableHead>
+                        <TableHead className="px-4 w-32 text-center bg-slate-100">LR Date</TableHead>
+                        <TableHead className="px-4 w-40 text-center bg-slate-100">Assigned At</TableHead>
+                        <TableHead className="px-4 w-40 text-center bg-slate-100">Gate Out At</TableHead>
+                        <TableHead className="px-4 w-40 text-center bg-slate-100">Arrived At</TableHead>
+                        <TableHead className="px-4 w-40 text-center bg-slate-100">Unloaded At</TableHead>
+                        <TableHead className="px-4 w-40 text-center text-red-600 bg-slate-100">Reject At</TableHead>
+                        <TableHead className="px-4 w-40 text-center text-blue-600 bg-slate-100">Re-sent At</TableHead>
+                        <TableHead className="px-4 w-40 bg-slate-100">Resent User</TableHead>
+                        <TableHead className="px-4 w-36 bg-slate-100">SRN Number</TableHead>
+                        <TableHead className="px-4 w-32 text-center bg-slate-100">SRN Date</TableHead>
+                        <TableHead className="px-4 w-40 bg-slate-100">SRN User</TableHead>
+                        <TableHead className="px-4 w-32 text-center bg-slate-100">POD Status</TableHead>
+                        <TableHead className="px-4 w-40 bg-slate-100">POD Operator</TableHead>
                         <TableHead className="px-4 w-32 text-center bg-blue-50/50">Dispatch (Hr)</TableHead>
                         <TableHead className="px-4 w-32 text-center bg-blue-50/50">Transit (Hr)</TableHead>
                         <TableHead className="px-4 w-32 text-center bg-blue-50/50">Unload (Hr)</TableHead>
-                        <TableHead className="px-8 w-32 text-right sticky right-0 bg-slate-50 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">Action</TableHead>
+                        <TableHead className="px-8 w-24 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">Action</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {data.length === 0 ? (
-                        <TableRow><TableCell colSpan={34} className="h-64 text-center text-slate-400 italic">No historical records matching registry scope.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={34} className="h-64 text-center text-slate-400 italic font-black uppercase tracking-widest opacity-20">No archived nodes.</TableCell></TableRow>
                     ) : (
                         data.map((row) => (
                             <TableRow key={row.id} className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 transition-all group text-[11px] font-medium text-slate-600">
@@ -196,21 +197,21 @@ export default function TripBoardTable({
 
   return (
     <div className="overflow-x-auto">
-      <Table className="border-collapse w-full min-w-[2500px] table-fixed">
+      <Table className="border-collapse w-full min-w-[1400px]">
         <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b">
           <TableRow className="h-14 hover:bg-transparent">
-            <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500 w-32">Plant</TableHead>
-            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36 text-center">LR No</TableHead>
-            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36 text-center">LR Date</TableHead>
-            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36">Trip ID</TableHead>
-            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36">Vehicle No</TableHead>
-            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48">Consignor</TableHead>
-            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48">Consignee</TableHead>
-            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-64">Item Description</TableHead>
-            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40">Destination</TableHead>
-            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right font-black">Weight (MT)</TableHead>
-            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 text-center">Trip Status</TableHead>
-            <TableHead className="text-[10px] font-black uppercase px-8 text-right sticky right-0 bg-slate-50 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-48">Action</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500 w-32 bg-slate-100">Plant</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36 text-center bg-slate-100">LR No</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-center bg-slate-100">LR Date</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 bg-slate-100">Trip ID</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-36 bg-slate-100">Vehicle No</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48 bg-slate-100">Consignor</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-48 bg-slate-100">Consignee</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 bg-slate-100">Item Description</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 bg-slate-100">Destination</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-32 text-right font-black bg-slate-100">Weight (MT)</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40 text-center bg-slate-100">Trip Status</TableHead>
+            <TableHead className="text-[10px] font-black uppercase px-8 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-24">Action</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -8,13 +9,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { FileDown, Search, Ban, Edit2, FileText, Printer, PlusCircle, WifiOff, Trash2, CheckCircle2, X } from 'lucide-react';
-import { format, isValid } from 'date-fns';
+import { FileDown, Search, Ban, Edit2, FileText, PlusCircle, Trash2, CheckCircle2, X } from 'lucide-react';
+import { format } from 'date-fns';
 import type { Shipment, Plant, Trip, WithId, Carrier, LR } from '@/types';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, onSnapshot, doc, getDoc, limit, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot, doc, getDoc, limit } from 'firebase/firestore';
 import DeleteShipmentConfirmationDialog from './DeleteShipmentConfirmationDialog';
-import { Timestamp } from "firebase/firestore";
 import { cn, normalizePlantId, parseSafeDate } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
@@ -327,6 +327,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 consignorName: row.consignor || '',
                 consignorGtin: row.consignorGtin || '',
                 consignorAddress: row.consignorAddress || '',
+                consignorCode: row.customerCode || '',
                 buyerName: row.billToParty || '',
                 buyerAddress: row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
                 buyerGtin: row.billToGtin || '',
@@ -379,7 +380,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3"><FileText className="h-6 w-6" /></div>
                 <div>
                     <CardTitle className="text-xl font-black uppercase text-blue-900 italic leading-none">Order Ledger Registry</CardTitle>
-                    <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-2">Consolidated mission plans across authorized nodes</CardDescription>
+                    <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-2">Consolidated mission plans across authorized plants</CardDescription>
                 </div>
             </div>
             <div className="flex items-center gap-3">
@@ -395,7 +396,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                                 <div className="p-3 bg-red-600 text-white rounded-2xl shadow-xl"><Ban className="h-8 w-8" /></div>
                                 <div>
                                     <AlertDialogTitle className="text-xl font-black uppercase tracking-tight italic text-red-900 leading-none">Bulk Mission Revocation?</AlertDialogTitle>
-                                    <p className="text-red-700 font-bold uppercase text-[9px] tracking-widest mt-2">Authorized Admin Override Node</p>
+                                    <p className="text-red-700 font-bold uppercase text-[9px] tracking-widest mt-2">Authorized Admin Override node</p>
                                 </div>
                             </div>
                             <div className="p-10">
@@ -428,7 +429,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
       <CardContent className="p-0">
         <div className="relative overflow-hidden">
             <div className="overflow-auto max-h-[600px] custom-scrollbar border-t">
-                <Table className="border-collapse w-full min-w-[2800px] table-fixed border-separate border-spacing-0">
+                <Table className="border-collapse w-full min-w-[1400px]">
                     <TableHeader className="bg-slate-100 sticky top-0 z-50 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
                     <TableRow className="h-14 hover:bg-transparent border-b-2 border-slate-200">
                         {isAdmin && (
@@ -455,7 +456,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                         <TableHead className="text-[10px] font-black uppercase px-4 text-center w-24 bg-slate-100">Units</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-right w-32 bg-slate-100">Order Qty</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40 bg-slate-100">Status</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-8 text-right w-32 sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">Action</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-8 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-24">Action</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -568,7 +569,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-10">
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows per page:</span>
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows:</span>
                     <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
                         <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm">
                             <SelectValue />
@@ -584,7 +585,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 {selectedIds.length > 0 && (
                     <div className="flex items-center gap-2 animate-in slide-in-from-left-2">
                         <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                        <span className="text-[10px] font-black uppercase text-blue-900">{selectedIds.length} Mission Nodes Selected</span>
+                        <span className="text-[10px] font-black uppercase text-blue-900">{selectedIds.length} Nodes Selected</span>
                         <button onClick={() => setSelectedIds([])} className="text-[10px] font-bold text-slate-400 hover:text-red-600 underline ml-2">Clear</button>
                     </div>
                 )}
