@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -44,14 +45,14 @@ import {
     User,
     CheckCircle2,
     Package,
-    ClipboardList,
-    Separator
+    ClipboardList
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser, FuelPump } from '@/types';
 import { VehicleTypes } from '@/lib/constants';
-import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
+import { useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { 
   collection, 
   doc, 
@@ -355,7 +356,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[98vw] w-[1500px] h-[98vh] md:h-[95vh] flex flex-col p-0 border-none shadow-3xl bg-slate-50 rounded-[2rem] md:rounded-[3rem]">
+      <DialogContent className="max-w-[98vw] w-[1500px] h-[98vh] md:h-[95vh] flex flex-col p-0 border-none shadow-2xl bg-slate-50 rounded-[2rem] md:rounded-[3rem]">
         <DialogHeader className="bg-slate-900 text-white p-4 md:p-6 shrink-0 flex flex-row items-center justify-between pr-10 md:pr-12">
           <div className="flex items-center gap-3 md:gap-4">
             <div className="p-2 md:p-3 bg-blue-600 rounded-xl shadow-lg rotate-3"><Truck className="h-5 w-5 md:h-7 md:w-7 text-white" /></div>
@@ -394,7 +395,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
             <Separator className="my-8 opacity-50" />
 
-            {/* DYNAMIC SHIPMENT CONTAINERS Node */}
             <div className="space-y-8">
                 <h3 className="text-[11px] font-black uppercase text-blue-900 tracking-[0.3em] flex items-center gap-3">
                     <Package className="h-4 w-4" /> Order Registry Details
@@ -673,3 +673,4 @@ function ContextNode({ label, value, icon: Icon, className, bold }: any) {
         </div>
     );
 }
+
