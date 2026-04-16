@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -42,7 +43,8 @@ import {
     Weight,
     Smartphone,
     User,
-    CheckCircle2
+    CheckCircle2,
+    Package
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -68,7 +70,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 interface VehicleAssignModalProps {
   isOpen: boolean;
   onClose: () => void;
-  shipment: WithId<Shipment>;
+  shipments: WithId<Shipment>[];
   trip?: WithId<Trip> | null;
   onAssignmentComplete: () => void;
   carriers: WithId<Carrier>[];
@@ -113,7 +115,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, onAssignmentComplete, carriers }: VehicleAssignModalProps) {
+export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, onAssignmentComplete, carriers }: VehicleAssignModalProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -129,10 +131,15 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   const [calculatingDistance, setCalculatingDistance] = useState(false);
   const isEditing = !!trip;
 
+  // Registry Node: Aggregate Balance
+  const totalBalanceQty = useMemo(() => {
+    return shipments.reduce((sum, s) => sum + (Number(s.balanceQty) || 0), 0);
+  }, [shipments]);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { 
-        assignQty: shipment.balanceQty !== undefined ? Number(Number(shipment.balanceQty).toFixed(3)) : 0,
+        assignQty: Number(totalBalanceQty.toFixed(3)),
         vehicleType: 'Own Vehicle',
         isFixRate: false,
         fixedAmount: 0
@@ -153,13 +160,15 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   const vendorQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "fuel_pumps")) : null, [firestore]);
   const { data: vendors } = useCollection<FuelPump>(vendorQuery);
 
-  const selectedPlant = useMemo(() => {
-    if (!plants) return null;
-    return plants.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(shipment.originPlantId).toLowerCase());
-  }, [plants, shipment.originPlantId]);
+  const primaryShipment = shipments[0];
 
-  const plantNameDisplay = selectedPlant?.name || shipment.originPlantId;
-  const plantAddressDisplay = selectedPlant?.address || shipment.loadingPoint;
+  const selectedPlant = useMemo(() => {
+    if (!plants || !primaryShipment) return null;
+    return plants.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(primaryShipment.originPlantId).toLowerCase());
+  }, [plants, primaryShipment]);
+
+  const plantNameDisplay = selectedPlant?.name || primaryShipment?.originPlantId;
+  const plantAddressDisplay = selectedPlant?.address || primaryShipment?.loadingPoint;
 
   const carrierOptions = useMemo(() => {
     return (carriers || [])
@@ -172,9 +181,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   }, [vendors]);
 
   useEffect(() => {
-    if (isOpen) {
-        const safeBalance = shipment.balanceQty !== undefined ? Number(Number(shipment.balanceQty).toFixed(3)) : 0;
-        let initialCarrierId = trip?.carrierId || shipment.carrierId || '';
+    if (isOpen && primaryShipment) {
+        let initialCarrierId = trip?.carrierId || primaryShipment.carrierId || '';
         
         if (initialCarrierId && !carrierOptions.find(o => o.value === initialCarrierId)) {
             initialCarrierId = carrierOptions.length > 0 ? carrierOptions[0].value : '';
@@ -190,7 +198,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             driverMobile: trip?.driverMobile || '',
             vehicleType: (trip?.vehicleType as any) || 'Own Vehicle',
             carrierId: initialCarrierId,
-            assignQty: trip?.assignedQtyInTrip ?? safeBalance,
+            assignQty: trip?.assignedQtyInTrip ?? Number(totalBalanceQty.toFixed(3)),
             transporterName: trip?.transporterName || '',
             transporterMobile: (trip as any)?.transporterMobile || '',
             ownerName: trip?.ownerName || '',
@@ -201,7 +209,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             fixedAmount: trip?.fixedAmount || 0
         });
     }
-  }, [isOpen, trip, shipment, carrierOptions, reset]);
+  }, [isOpen, trip, primaryShipment, carrierOptions, reset, totalBalanceQty]);
 
   useEffect(() => {
     if (!isOpen || isNewVehicle || !vehicleId) return;
@@ -214,11 +222,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   }, [isOpen, isNewVehicle, vehicleId, vehiclesAtGate, setValue]);
 
   useEffect(() => {
-    if (!isOpen || !firestore || !shipment.originPlantId) return;
+    if (!isOpen || !firestore || !primaryShipment?.originPlantId) return;
     const fetchRegistryData = async () => {
         setIsDataLoading(true);
         try {
-            const targetPlantId = normalizePlantId(shipment.originPlantId);
+            const targetPlantId = normalizePlantId(primaryShipment.originPlantId);
             const qVeh = query(collection(firestore, 'vehicleEntries'), where('plantId', '==', targetPlantId), where('status', '==', 'IN'));
             const vehSnap = await getDocs(qVeh);
             const entries = vehSnap.docs.map(d => ({ id: d.id, ...d.data() } as WithId<VehicleEntryExit>));
@@ -230,16 +238,16 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
         }
     };
     fetchRegistryData();
-  }, [isOpen, firestore, shipment.originPlantId]);
+  }, [isOpen, firestore, primaryShipment?.originPlantId]);
 
   useEffect(() => {
-    if (!isLoaded || !isOpen || !shipment.loadingPoint || !shipment.unloadingPoint || isEditing) return;
+    if (!isLoaded || !isOpen || !primaryShipment?.loadingPoint || !primaryShipment?.unloadingPoint || isEditing) return;
     const calculate = () => {
       setCalculatingDistance(true);
       const service = new google.maps.DirectionsService();
       service.route({
-          origin: shipment.loadingPoint!,
-          destination: shipment.unloadingPoint!,
+          origin: primaryShipment.loadingPoint!,
+          destination: primaryShipment.unloadingPoint!,
           travelMode: google.maps.TravelMode.DRIVING,
       }, (response, status) => {
           setCalculatingDistance(false);
@@ -250,13 +258,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
       });
     };
     calculate();
-  }, [isLoaded, isOpen, shipment.loadingPoint, shipment.unloadingPoint, setValue, isEditing]);
-
-  const balanceQty = useMemo(() => {
-    const currentPool = isEditing ? (shipment.balanceQty + (trip?.assignedQtyInTrip || 0)) : shipment.balanceQty;
-    const remaining = currentPool - (Number(assignQty) || 0);
-    return Number(Math.max(0, remaining).toFixed(3));
-  }, [shipment.balanceQty, assignQty, isEditing, trip]);
+  }, [isLoaded, isOpen, primaryShipment?.loadingPoint, primaryShipment?.unloadingPoint, setValue, isEditing]);
 
   const handleTransporterSelect = (vendorId: string) => {
     const vendor = vendors?.find(v => v.id === vendorId);
@@ -281,36 +283,55 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   };
 
   const onSubmit = async (values: FormValues) => {
-    if (!firestore || !user) return;
+    if (!firestore || !user || shipments.length === 0) return;
     showLoader();
     try {
         await runTransaction(firestore, async (transaction) => {
-            const plantId = normalizePlantId(shipment.originPlantId);
+            const plantId = normalizePlantId(primaryShipment.originPlantId);
             const timestamp = serverTimestamp();
             const currentName = userProfile?.fullName || user.displayName || user.email?.split('@')[0] || 'System Operator';
-            const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipment.id);
-            const shipmentSnap = await transaction.get(shipmentRef);
-            if (!shipmentSnap.exists()) throw new Error("Order registry node error.");
-            const sData = shipmentSnap.data() as Shipment;
             const docId = trip?.id || doc(collection(firestore, 'trips')).id;
             const tripId = trip?.tripId || generateRandomTripId();
             
+            // MISSION LOGIC: Aggregate items and update all shipments
+            let aggregateItems: any[] = [];
+            const shipmentIds: string[] = [];
+
+            for (const s of shipments) {
+                const sRef = doc(firestore, `plants/${plantId}/shipments`, s.id);
+                const sSnap = await transaction.get(sRef);
+                if (!sSnap.exists()) continue;
+                
+                const sData = sSnap.data() as Shipment;
+                shipmentIds.push(s.id);
+                aggregateItems = [...aggregateItems, ...(sData.items || [])];
+
+                // Update individual shipment balances (assumes full balance assign for bulk)
+                const sAssigned = sData.assignedQty + sData.balanceQty;
+                transaction.update(sRef, {
+                    assignedQty: sAssigned,
+                    balanceQty: 0,
+                    currentStatusId: 'Assigned',
+                    lastUpdateDate: timestamp
+                });
+            }
+
             const tripData: any = {
                 ...values,
                 tripId,
                 originPlantId: plantId,
-                shipmentIds: [shipment.id],
+                shipmentIds,
                 assignedQtyInTrip: values.assignQty, 
-                consignor: shipment.consignor, 
-                billToParty: shipment.billToParty,
-                shipToParty: shipment.shipToParty || shipment.billToParty, 
-                loadingPoint: shipment.loadingPoint,
-                unloadingPoint: shipment.unloadingPoint, 
-                deliveryAddress: shipment.deliveryAddress || shipment.unloadingPoint,
-                materialTypeId: shipment.materialTypeId,
-                items: shipment.items || [],
-                lrNumber: shipment.lrNumber || '', 
-                lrDate: shipment.lrDate || null,   
+                consignor: primaryShipment.consignor, 
+                billToParty: primaryShipment.billToParty,
+                shipToParty: primaryShipment.shipToParty || primaryShipment.billToParty, 
+                loadingPoint: primaryShipment.loadingPoint,
+                unloadingPoint: primaryShipment.unloadingPoint, 
+                deliveryAddress: primaryShipment.deliveryAddress || primaryShipment.unloadingPoint,
+                materialTypeId: primaryShipment.materialTypeId,
+                items: aggregateItems,
+                lrNumber: primaryShipment.lrNumber || '', 
+                lrDate: primaryShipment.lrDate || null,   
                 lastUpdated: timestamp,
                 userName: currentName,
                 userId: user.uid,
@@ -320,20 +341,10 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 freightStatus: 'Unpaid'
             };
 
-            const diff = isEditing ? values.assignQty - trip!.assignedQtyInTrip : values.assignQty;
-            const newAssignedTotal = (sData.assignedQty || 0) + diff;
-            
-            transaction.update(shipmentRef, { 
-                assignedQty: newAssignedTotal, 
-                balanceQty: sData.quantity - newAssignedTotal, 
-                currentStatusId: (sData.quantity - newAssignedTotal) > 0 ? 'Partly Vehicle Assigned' : 'Assigned',
-                lastUpdateDate: timestamp
-            });
-            
             transaction.set(doc(firestore, `plants/${plantId}/trips`, docId), tripData);
             transaction.set(doc(firestore, 'trips', docId), tripData);
         });
-        toast({ title: 'Mission Established', description: 'Registry node synchronized successfully.' });
+        toast({ title: 'Consolidated Mission Established', description: `Registry synced for ${shipments.length} orders.` });
         onAssignmentComplete();
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Registry Error', description: e.message });
@@ -344,6 +355,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
 
   const calculatedFreight = isFixRate ? (Number(fixedAmount) || 0) : ((Number(assignQty) || 0) * (Number(freightRate) || 0));
 
+  if (!primaryShipment) return null;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[95vw] w-[1400px] h-[95vh] md:h-[90vh] flex flex-col p-0 border-none shadow-2xl bg-slate-50 rounded-[2rem] md:rounded-[3rem]">
@@ -352,7 +365,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             <div className="p-2 md:p-3 bg-blue-600 rounded-xl shadow-lg rotate-3"><Truck className="h-5 w-5 md:h-7 md:w-7 text-white" /></div>
             <div>
                 <DialogTitle className="text-lg md:text-2xl font-black uppercase tracking-tight italic leading-none">SIKKA LMC | ALLOCATION BOARD</DialogTitle>
-                <DialogDescription className="text-blue-300 font-bold uppercase text-[8px] md:text-[9px] tracking-widest mt-1 md:mt-2">Registry Terminal Node</DialogDescription>
+                <DialogDescription className="text-blue-300 font-bold uppercase text-[8px] md:text-[9px] tracking-widest mt-1 md:mt-2">Registry Terminal Node | {shipments.length > 1 ? 'BULK MODE' : 'SINGLE MODE'}</DialogDescription>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -364,19 +377,43 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
         <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-6 md:space-y-10">
           <Card className="p-5 md:p-10 border-2 border-slate-100 shadow-xl rounded-[1.5rem] md:rounded-[2.5rem] bg-white relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1.5 md:w-2 h-full bg-blue-900" />
-            <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
-                <div className="p-2 md:p-3 bg-blue-50 rounded-xl border border-blue-100 shadow-sm"><ShieldCheck className="h-5 w-5 md:h-6 md:w-6 text-blue-600" /></div>
-                <div>
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Order Manifest</h3>
-                    <p className="text-lg md:text-2xl font-black text-slate-900 tracking-tighter uppercase">{shipment.shipmentId}</p>
+            <div className="flex items-center justify-between mb-6 md:mb-8">
+                <div className="flex items-center gap-3 md:gap-4">
+                    <div className="p-2 md:p-3 bg-blue-50 rounded-xl border border-blue-100 shadow-sm"><ShieldCheck className="h-5 w-5 md:h-6 md:w-6 text-blue-600" /></div>
+                    <div>
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mission Order Manifest</h3>
+                        <div className="flex items-center gap-3">
+                            <p className="text-lg md:text-2xl font-black text-slate-900 tracking-tighter uppercase">{primaryShipment.shipmentId}</p>
+                            {shipments.length > 1 && <Badge className="bg-blue-900 text-white font-black text-[9px] uppercase px-3 h-6">+{shipments.length - 1} MORE NODES</Badge>}
+                        </div>
+                    </div>
+                </div>
+                <div className="text-right flex flex-col items-end">
+                    <span className="text-[9px] font-black uppercase text-slate-400">Aggregate Registry Total</span>
+                    <p className="text-xl md:text-2xl font-black text-blue-900 tracking-tighter">{totalBalanceQty.toFixed(3)} MT</p>
                 </div>
             </div>
+            
+            {shipments.length > 1 && (
+                <div className="mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {shipments.map(s => (
+                        <div key={s.id} className="bg-white p-3 rounded-xl border shadow-sm flex items-center gap-3">
+                            <Package className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-slate-900">{s.shipmentId}</span>
+                                <span className="text-[8px] font-bold text-slate-400">{s.balanceQty.toFixed(3)} MT</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4 md:gap-10">
                 <ContextNode label="Lifting Plant" value={plantNameDisplay} icon={Factory} />
-                <ContextNode label="Consignor" value={shipment.consignor} icon={UserCircle} />
+                <ContextNode label="Consignor" value={primaryShipment.consignor} icon={UserCircle} />
                 <ContextNode label="Site point" value={plantAddressDisplay} icon={MapPin} />
-                <ContextNode label="Consignee" value={shipment.billToParty} icon={UserCircle} />
-                <ContextNode label="Drop plant" value={shipment.deliveryAddress || shipment.unloadingPoint} icon={MapPin} className="col-span-2 text-blue-900" bold />
+                <ContextNode label="Consignee" value={primaryShipment.billToParty} icon={UserCircle} />
+                <ContextNode label="Drop plant" value={primaryShipment.deliveryAddress || primaryShipment.unloadingPoint} icon={MapPin} className="col-span-2 text-blue-900" bold />
             </div>
           </Card>
 
@@ -463,7 +500,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                 </Card>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10">
-                    <Card className={cn("p-6 md:p-10 transition-all duration-500 rounded-[1.5rem] md:rounded-[2.5rem] shadow-xl", vehicleType === 'Market Vehicle' ? "bg-blue-50/30 border-2 border-blue-100 opacity-100" : "opacity-40 grayscale pointer-events-none border-slate-100")}>
+                    <Card className={cn("p-6 md:p-10 transition-all duration-500 rounded-[2.5rem] md:rounded-[2.5rem] shadow-xl", vehicleType === 'Market Vehicle' ? "bg-blue-50/30 border-2 border-blue-100 opacity-100" : "opacity-40 grayscale pointer-events-none border-slate-100")}>
                         <div className="flex items-center gap-3 mb-6 md:mb-8 px-2">
                             <IndianRupee className="h-5 w-5 text-blue-600" />
                             <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-slate-700">Financial Particulars (Market node)</h3>
@@ -555,7 +592,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                 </span>
                                 <div className="h-11 md:h-12 px-4 md:px-5 flex items-center bg-blue-900 rounded-xl text-white font-black text-lg md:text-xl shadow-lg">
                                     {isFixRate ? 'FIX RATE: ' : ''}₹ {calculatedFreight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                0</div>
+                                </div>
                             </div>
                         </div>
                     </Card>
@@ -585,7 +622,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                         disabled={isSubmitting || calculatingDistance} 
                         className="h-14 md:h-16 px-12 md:px-20 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl md:rounded-3xl font-black uppercase text-[11px] md:text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
                     >
-                        {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} {isEditing ? 'Update plant' : 'Establish Mission plant'}
+                        {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} {isEditing ? 'Update Registry' : 'Establish Mission Node'}
                     </Button>
                 </div>
             </form>
@@ -621,4 +658,3 @@ function ContextNode({ label, value, icon: Icon, className, bold }: any) {
         </div>
     );
 }
-

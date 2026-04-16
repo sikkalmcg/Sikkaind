@@ -27,12 +27,16 @@ import {
     DropdownMenuLabel,
     DropdownMenuPortal
 } from '@/components/ui/dropdown-menu';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface TripBoardTableProps {
   data: any[];
   activeTab: string;
   isAdmin: boolean;
   onAction: (type: string, trip: any) => void;
+  selectedIds?: string[];
+  onSelectRow?: (id: string, checked: boolean) => void;
+  onSelectAll?: (checked: boolean) => void;
 }
 
 const getStatusColor = (status: string) => {
@@ -68,7 +72,10 @@ export default function TripBoardTable({
     data, 
     activeTab, 
     isAdmin,
-    onAction 
+    onAction,
+    selectedIds = [],
+    onSelectRow,
+    onSelectAll
 }: TripBoardTableProps) {
   
   const LRButton = ({ row }: { row: any }) => {
@@ -88,12 +95,21 @@ export default function TripBoardTable({
     );
   };
 
+  const isAllOnPageSelected = data.length > 0 && data.every(row => selectedIds.includes(row.id));
+
   if (activeTab === 'pending-assignment') {
       return (
         <div className="overflow-x-auto">
             <Table className="border-collapse w-full min-w-[1200px]">
                 <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b">
                     <TableRow className="h-10 md:h-12 hover:bg-transparent text-[9px] md:text-[10px] font-black uppercase text-slate-500">
+                        <TableHead className="w-12 px-4 bg-slate-100">
+                            <Checkbox 
+                                checked={isAllOnPageSelected} 
+                                onCheckedChange={(v) => onSelectAll?.(!!v)}
+                                className="h-4 w-4 data-[state=checked]:bg-blue-900"
+                            />
+                        </TableHead>
                         <TableHead className="px-6 w-32 bg-slate-100">Plant</TableHead>
                         <TableHead className="px-4 w-36 bg-slate-100">Order ID</TableHead>
                         <TableHead className="px-4 w-48 bg-slate-100">Consignor</TableHead>
@@ -107,10 +123,17 @@ export default function TripBoardTable({
                 </TableHeader>
                 <TableBody>
                     {data.length === 0 ? (
-                        <TableRow><TableCell colSpan={9} className="h-48 text-center text-slate-400 italic font-black uppercase tracking-widest opacity-20">No pending assignments.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={10} className="h-48 text-center text-slate-400 italic font-black uppercase tracking-widest opacity-20">No pending assignments.</TableCell></TableRow>
                     ) : (
                         data.map((row) => (
                             <TableRow key={row.id} className="h-12 md:h-14 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 even:bg-slate-50/30 transition-all group text-[10px] md:text-[11px] font-medium text-slate-600">
+                                <TableCell className="px-4">
+                                    <Checkbox 
+                                        checked={selectedIds.includes(row.id)} 
+                                        onCheckedChange={(v) => onSelectRow?.(row.id, !!v)}
+                                        className="h-4 w-4 data-[state=checked]:bg-blue-900"
+                                    />
+                                </TableCell>
                                 <TableCell className="px-6 font-bold uppercase truncate">{row.plantName}</TableCell>
                                 <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-[10px] md:text-xs">{row.orderNo}</TableCell>
                                 <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px] md:text-xs">{row.consignor}</TableCell>

@@ -22,7 +22,7 @@ import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList } from "lucide-react";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList, CheckCircle2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -70,6 +70,9 @@ function TripBoardContent() {
   
   const isInitialized = useRef(false);
 
+  // Bulk State
+  const [selectedPendingIds, setSelectedPendingIds] = useState<string[]>([]);
+
   const [viewTripData, setViewTripData] = useState<any | null>(null);
   const [cancelTripData, setCancelTripData] = useState<any | null>(null);
   const [editVehicleTrip, setEditVehicleTrip] = useState<any | null>(null);
@@ -83,7 +86,7 @@ function TripBoardContent() {
   const [editLrTrip, setEditLrTrip] = useState<any | null>(null);
   const [editLrCarrier, setEditLrCarrier] = useState<any | null>(null);
   const [isAssignModalOpen, setAssignModalOpen] = useState(false);
-  const [selectedShipmentForAssign, setSelectedShipmentForAssign] = useState<any | null>(null);
+  const [selectedShipmentsForAssign, setSelectedShipmentsForAssign] = useState<WithId<Shipment>[]>([]);
   const [editingTrip, setEditingTrip] = useState<WithId<Trip> | null>(null);
 
   const isAdminSession = useMemo(() => {
@@ -294,7 +297,7 @@ function TripBoardContent() {
 
   const handleAction = async (type: string, row: any) => {
     if (type === 'assign') {
-        setSelectedShipmentForAssign(row);
+        setSelectedShipmentsForAssign([row]);
         setAssignModalOpen(true);
     }
     if (type === 'view') setViewTripData(row);
@@ -454,6 +457,32 @@ function TripBoardContent() {
   const totalPages = Math.ceil(processedData.length / itemsPerPage);
   const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
+  const handleSelectPendingRow = (id: string, checked: boolean) => {
+    setSelectedPendingIds(prev => checked ? [...prev, id] : prev.filter(i => i !== id));
+  };
+
+  const handleSelectAllPending = (checked: boolean) => {
+    if (checked) {
+        setSelectedPendingIds(paginatedData.map(d => d.id));
+    } else {
+        setSelectedPendingIds([]);
+    }
+  };
+
+  const selectedPendingShipments = useMemo(() => {
+    return shipments.filter(s => selectedPendingIds.includes(s.id));
+  }, [selectedPendingIds, shipments]);
+
+  const bulkTotalQty = useMemo(() => {
+    return selectedPendingShipments.reduce((sum, s) => sum + (Number(s.balanceQty) || 0), 0);
+  }, [selectedPendingShipments]);
+
+  const handleBulkAssign = () => {
+    if (selectedPendingShipments.length === 0) return;
+    setSelectedShipmentsForAssign(selectedPendingShipments);
+    setAssignModalOpen(true);
+  };
+
   const handleDownloadExcel = () => {
     const exportData = processedData.map(t => ({
         'Plant': t.plantName, 'ID': t.tripId || t.shipmentId, 'Vehicle Number': t.vehicleNumber || '--', 'LR Number': t.lrNumber || '--', 'Consignor': t.consignor, 'Consignee': t.consignee || t.billToParty, 'Destination': t.unloadingPoint, 'Weight (MT)': t.dispatchedQty || t.quantity, 'Status': t.tripStatus || t.currentStatusId, 'Date': t.startDate ? format(t.startDate, 'dd-MM-yy HH:mm') : (t.creationDate ? format(t.creationDate, 'dd-MM-yy HH:mm') : '--')
@@ -517,7 +546,7 @@ function TripBoardContent() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); }} className="w-full mt-2 md:mt-3">
+        <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); setSelectedPendingIds([]); }} className="w-full mt-2 md:mt-3">
           <TabsList className="bg-transparent h-8 md:h-9 p-0 border-b-0 gap-3 md:gap-6 justify-start overflow-x-auto no-scrollbar shrink-0">
             {[
                 { id: 'pending-assignment', label: 'Assign fleet Pending', count: counts.pendingAssignment, icon: ClipboardList },
@@ -538,7 +567,7 @@ function TripBoardContent() {
         </Tabs>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-2 md:py-4 bg-slate-50 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-2 md:py-4 bg-slate-50 custom-scrollbar relative">
         {isLoading ? (
             <div className="flex h-64 flex-col items-center justify-center gap-4">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-900" />
@@ -551,6 +580,9 @@ function TripBoardContent() {
                     activeTab={activeTab} 
                     isAdmin={isAdminSession} 
                     onAction={handleAction} 
+                    selectedIds={selectedPendingIds}
+                    onSelectRow={handleSelectPendingRow}
+                    onSelectAll={handleSelectAllPending}
                 />
                 <div className="py-2 px-2 bg-white rounded-xl border border-slate-100">
                     <Pagination 
@@ -561,16 +593,55 @@ function TripBoardContent() {
                 </div>
             </div>
         )}
+
+        {/* Floating Bulk Action Bar */}
+        {activeTab === 'pending-assignment' && selectedPendingIds.length > 0 && (
+            <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 duration-500">
+                <div className="bg-slate-900 text-white rounded-[2rem] shadow-3xl p-4 md:p-6 flex items-center gap-6 md:gap-10 border border-white/10 backdrop-blur-xl">
+                    <div className="flex items-center gap-4 border-r border-white/10 pr-6 md:pr-10">
+                        <div className="p-2.5 bg-blue-600 rounded-xl shadow-lg"><Truck className="h-5 w-5" /></div>
+                        <div>
+                            <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest">BULK ALLOCATION NODES</p>
+                            <p className="text-sm font-black text-white uppercase">{selectedPendingIds.length} ORDERS SELECTED</p>
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Aggregate Registry Qty</span>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-xl md:text-2xl font-black text-blue-400 tracking-tighter">{bulkTotalQty.toFixed(3)}</span>
+                            <span className="text-[10px] font-black text-slate-500">MT</span>
+                        </div>
+                    </div>
+                    <Button 
+                        onClick={handleBulkAssign}
+                        className="bg-white hover:bg-blue-50 text-blue-900 h-12 md:h-14 px-8 md:px-12 rounded-2xl font-black uppercase text-[10px] md:text-xs tracking-widest shadow-xl transition-all active:scale-95 border-none"
+                    >
+                        INITIALIZE BULK ASSIGN
+                    </Button>
+                    <button 
+                        onClick={() => setSelectedPendingIds([])}
+                        className="p-2 hover:bg-white/10 rounded-full text-slate-400 transition-colors"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+            </div>
+        )}
       </div>
 
-      {isAssignModalOpen && selectedShipmentForAssign && (
+      {isAssignModalOpen && selectedShipmentsForAssign.length > 0 && (
         <VehicleAssignModal 
             isOpen={isAssignModalOpen}
-            onClose={() => { setAssignModalOpen(false); setEditingTrip(null); }}
-            shipment={selectedShipmentForAssign}
+            onClose={() => { setAssignModalOpen(false); setEditingTrip(null); setSelectedShipmentsForAssign([]); }}
+            shipments={selectedShipmentsForAssign}
             trip={editingTrip}
             carriers={dbCarriers || []}
-            onAssignmentComplete={() => { setAssignModalOpen(false); setEditingTrip(null); }}
+            onAssignmentComplete={() => { 
+                setAssignModalOpen(false); 
+                setEditingTrip(null); 
+                setSelectedShipmentsForAssign([]);
+                setSelectedPendingIds([]);
+            }}
         />
       )}
 
