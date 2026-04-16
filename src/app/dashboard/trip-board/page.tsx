@@ -19,9 +19,9 @@ import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAss
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId } from '@/lib/utils';
-import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
+import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList, CheckCircle2 } from "lucide-react";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList, CheckCircle2, Truck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -40,6 +40,7 @@ export type TripBoardTab = 'pending-assignment' | 'open-order' | 'loading' | 'tr
  * @fileOverview Mission Control Board.
  * Re-engineered header for optimized mobile visibility.
  * Flexible grid eliminates filter overlap and layout breakage.
+ * Fixed: Missing icon imports causing ReferenceError.
  */
 function TripBoardContent() {
   const { toast } = useToast();
@@ -511,7 +512,7 @@ function TripBoardContent() {
                   <span className="md:hidden">TRIP BOARD</span>
                   <span className="hidden md:inline">MISSION CONTROL BOARD</span>
                 </h1>
-                <p className="hidden md:block text-[7px] md:text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">LIVE OPERATIONAL REGISTRY PLANT</p>
+                <p className="hidden md:block text-[7px] md:text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">LIVE OPERATIONAL REGISTRY Plant</p>
               </div>
             </div>
 
