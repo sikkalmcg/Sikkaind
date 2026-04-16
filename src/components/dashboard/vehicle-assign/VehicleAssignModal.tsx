@@ -122,7 +122,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
   const isEditing = !!trip;
 
   const totalBalanceQty = useMemo(() => {
-    return shipments.reduce((sum, s) => sum + (Number(s.balanceQty) || 0), 0);
+    return (shipments || []).reduce((sum, s) => sum + (Number(s.balanceQty) || 0), 0);
   }, [shipments]);
 
   const form = useForm<FormValues>({
@@ -144,7 +144,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
   const vendorQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "fuel_pumps")) : null, [firestore]);
   const { data: vendors } = useCollection<FuelPump>(vendorQuery);
 
-  const primaryShipment = shipments[0];
+  const primaryShipment = shipments?.[0];
 
   const carrierOptions = useMemo(() => {
     return (carriers || [])
@@ -306,16 +306,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                 freightStatus: 'Unpaid'
             };
 
-            const diff = isEditing ? values.assignQty - trip!.assignedQtyInTrip : values.assignQty;
-            const newAssignedTotal = (sData.assignedQty || 0) + diff;
-            
-            transaction.update(shipmentRef, { 
-                assignedQty: newAssignedTotal, 
-                balanceQty: sData.quantity - newAssignedTotal, 
-                currentStatusId: (sData.quantity - newAssignedTotal) > 0 ? 'Partly Vehicle Assigned' : 'Assigned',
-                lastUpdateDate: timestamp
-            });
-            
             transaction.set(doc(firestore, `plants/${plantId}/trips`, docId), tripData);
             transaction.set(doc(firestore, 'trips', docId), tripData);
         });
@@ -616,18 +606,18 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
           </Form>
         </div>
 
-        <DialogFooter className="p-6 md:p-8 bg-slate-900 flex flex-col md:flex-row justify-between items-center shrink-0 gap-8">
-            <div className="flex items-center gap-10">
-                <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2 leading-none"><Calculator className="h-3.5 w-3.5" /> Balance remaining</span>
-                    <span className={cn("text-2xl md:text-3xl font-black tracking-tighter transition-all duration-500", balanceQty > 0.001 ? "text-orange-400" : "text-emerald-400")}>
+        <DialogFooter className="p-3 md:p-4 bg-slate-900 flex flex-col md:flex-row justify-between items-center shrink-0 gap-4 md:gap-8">
+            <div className="flex items-center gap-6">
+                <div className="flex flex-col gap-0.5">
+                    <span className="text-[8px] md:text-[9px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-1.5 md:gap-2 leading-none"><Calculator className="h-3 md:h-3.5 w-3 md:h-3.5" /> Balance remaining</span>
+                    <span className={cn("text-xl md:text-2xl font-black tracking-tighter transition-all duration-500 leading-none", balanceQty > 0.001 ? "text-orange-400" : "text-emerald-400")}>
                         {balanceQty.toFixed(3)} MT
                     </span>
                 </div>
             </div>
             <div className="flex items-center gap-4">
-                <ShieldCheck className="h-5 w-5 text-emerald-600" />
-                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest italic hidden sm:inline">Authorized Registry Handshake Node</span>
+                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                <span className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 tracking-widest italic hidden sm:inline">Authorized Registry Handshake Node</span>
             </div>
         </DialogFooter>
       </DialogContent>
