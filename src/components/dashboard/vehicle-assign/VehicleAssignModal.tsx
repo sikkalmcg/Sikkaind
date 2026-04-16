@@ -59,7 +59,7 @@ import {
   query, 
   where, 
   getDocs, 
-  Timestamp,
+  limit,
 } from "firebase/firestore";
 import { normalizePlantId, generateRandomTripId } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -259,6 +259,12 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
     };
     calculate();
   }, [isLoaded, isOpen, primaryShipment?.loadingPoint, primaryShipment?.unloadingPoint, setValue, isEditing]);
+
+  const balanceQty = useMemo(() => {
+    const currentPool = isEditing ? (totalBalanceQty + (trip?.assignedQtyInTrip || 0)) : totalBalanceQty;
+    const remaining = currentPool - (Number(assignQty) || 0);
+    return Number(Math.max(0, remaining).toFixed(3));
+  }, [totalBalanceQty, assignQty, isEditing, trip]);
 
   const handleTransporterSelect = (vendorId: string) => {
     const vendor = vendors?.find(v => v.id === vendorId);
@@ -499,8 +505,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                     </div>
                 </Card>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10">
-                    <Card className={cn("p-6 md:p-10 transition-all duration-500 rounded-[2.5rem] md:rounded-[2.5rem] shadow-xl", vehicleType === 'Market Vehicle' ? "bg-blue-50/30 border-2 border-blue-100 opacity-100" : "opacity-40 grayscale pointer-events-none border-slate-100")}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8 md:gap-10">
+                    <Card className={cn("p-6 md:p-10 transition-all duration-500 rounded-[1.5rem] md:rounded-[2.5rem] shadow-xl", vehicleType === 'Market Vehicle' ? "bg-blue-50/30 border-2 border-blue-100 opacity-100" : "opacity-40 grayscale pointer-events-none border-slate-100")}>
                         <div className="flex items-center gap-3 mb-6 md:mb-8 px-2">
                             <IndianRupee className="h-5 w-5 text-blue-600" />
                             <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-slate-700">Financial Particulars (Market node)</h3>
@@ -620,7 +626,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                     <Button 
                         type="submit" 
                         disabled={isSubmitting || calculatingDistance} 
-                        className="h-14 md:h-16 px-12 md:px-20 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl md:rounded-3xl font-black uppercase text-[11px] md:text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
+                        className="h-14 md:h-16 px-12 md:px-20 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl md:rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
                     >
                         {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} {isEditing ? 'Update Registry' : 'Establish Mission Node'}
                     </Button>
@@ -658,3 +664,4 @@ function ContextNode({ label, value, icon: Icon, className, bold }: any) {
         </div>
     );
 }
+
