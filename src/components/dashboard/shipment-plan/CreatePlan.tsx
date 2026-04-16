@@ -832,7 +832,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         onSearchClick={() => setHelpModal({type: 'consignor', title: 'Consignor Handbook', data: consignorRegistry})} 
                         onSelect={(party) => selectPartyNode(party, 'consignor')}
                       />
-                      <FormField control={control} name="consignorAddress" render={({ field }) => (
+                      <FormField control={control} name="loadingPoint" render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-[10px] font-bold uppercase text-slate-400 px-1">From *</FormLabel>
                             <FormControl>
