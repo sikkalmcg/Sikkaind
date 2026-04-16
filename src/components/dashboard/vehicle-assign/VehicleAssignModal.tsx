@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -307,6 +306,16 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                 freightStatus: 'Unpaid'
             };
 
+            const diff = isEditing ? values.assignQty - trip!.assignedQtyInTrip : values.assignQty;
+            const newAssignedTotal = (sData.assignedQty || 0) + diff;
+            
+            transaction.update(shipmentRef, { 
+                assignedQty: newAssignedTotal, 
+                balanceQty: sData.quantity - newAssignedTotal, 
+                currentStatusId: (sData.quantity - newAssignedTotal) > 0 ? 'Partly Vehicle Assigned' : 'Assigned',
+                lastUpdateDate: timestamp
+            });
+            
             transaction.set(doc(firestore, `plants/${plantId}/trips`, docId), tripData);
             transaction.set(doc(firestore, 'trips', docId), tripData);
         });
@@ -330,7 +339,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
           <div className="flex items-center gap-3 md:gap-4">
             <div className="p-2 md:p-3 bg-blue-600 rounded-xl shadow-lg rotate-3"><Truck className="h-5 w-5 md:h-7 md:w-7 text-white" /></div>
             <div>
-                <DialogTitle className="text-lg md:text-2xl font-black uppercase tracking-tight italic leading-none">SIKKA LMC | ALLOCATION BOARD</DialogTitle>
+                <DialogTitle className="text-lg md:text-2xl font-black uppercase tracking-tight italic leading-none">ASSIGN FLEET</DialogTitle>
                 <DialogDescription className="text-blue-300 font-bold uppercase text-[8px] md:text-[9px] tracking-widest mt-1 md:mt-2">Registry Terminal Node | {shipments.length > 1 ? 'BULK CONSOLIDATION' : 'SINGLE MISSION'}</DialogDescription>
             </div>
           </div>
@@ -520,7 +529,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                             <FormField name="isFixRate" control={control} render={({ field }) => (
                                 <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-4 border rounded-xl bg-white shadow-sm col-span-1 md:col-span-2">
                                     <FormControl>
-                                        <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded data-[state=checked]:bg-blue-900" />
+                                        <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-6 w-6 rounded-lg data-[state=checked]:bg-blue-900 shadow-md" />
                                     </FormControl>
                                     <div className="space-y-1 leading-none">
                                         <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest cursor-pointer">Fixed Rate Mission</FormLabel>
