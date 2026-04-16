@@ -44,7 +44,8 @@ import {
     Smartphone,
     User,
     CheckCircle2,
-    Package
+    Package,
+    ClipboardList
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -131,7 +132,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
   const [calculatingDistance, setCalculatingDistance] = useState(false);
   const isEditing = !!trip;
 
-  // Registry Node: Aggregate Balance
   const totalBalanceQty = useMemo(() => {
     return shipments.reduce((sum, s) => sum + (Number(s.balanceQty) || 0), 0);
   }, [shipments]);
@@ -161,14 +161,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
   const { data: vendors } = useCollection<FuelPump>(vendorQuery);
 
   const primaryShipment = shipments[0];
-
-  const selectedPlant = useMemo(() => {
-    if (!plants || !primaryShipment) return null;
-    return plants.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(primaryShipment.originPlantId).toLowerCase());
-  }, [plants, primaryShipment]);
-
-  const plantNameDisplay = selectedPlant?.name || primaryShipment?.originPlantId;
-  const plantAddressDisplay = selectedPlant?.address || primaryShipment?.loadingPoint;
 
   const carrierOptions = useMemo(() => {
     return (carriers || [])
@@ -299,7 +291,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             const docId = trip?.id || doc(collection(firestore, 'trips')).id;
             const tripId = trip?.tripId || generateRandomTripId();
             
-            // MISSION LOGIC: Aggregate items and update all shipments
             let aggregateItems: any[] = [];
             const shipmentIds: string[] = [];
 
@@ -312,7 +303,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                 shipmentIds.push(s.id);
                 aggregateItems = [...aggregateItems, ...(sData.items || [])];
 
-                // Update individual shipment balances (assumes full balance assign for bulk)
                 const sAssigned = sData.assignedQty + sData.balanceQty;
                 transaction.update(sRef, {
                     assignedQty: sAssigned,
@@ -365,85 +355,104 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-[1400px] h-[95vh] md:h-[90vh] flex flex-col p-0 border-none shadow-2xl bg-slate-50 rounded-[2rem] md:rounded-[3rem]">
+      <DialogContent className="max-w-[98vw] w-[1500px] h-[98vh] md:h-[95vh] flex flex-col p-0 border-none shadow-3xl bg-slate-50 rounded-[2rem] md:rounded-[3rem]">
         <DialogHeader className="bg-slate-900 text-white p-4 md:p-6 shrink-0 flex flex-row items-center justify-between pr-10 md:pr-12">
           <div className="flex items-center gap-3 md:gap-4">
             <div className="p-2 md:p-3 bg-blue-600 rounded-xl shadow-lg rotate-3"><Truck className="h-5 w-5 md:h-7 md:w-7 text-white" /></div>
             <div>
                 <DialogTitle className="text-lg md:text-2xl font-black uppercase tracking-tight italic leading-none">SIKKA LMC | ALLOCATION BOARD</DialogTitle>
-                <DialogDescription className="text-blue-300 font-bold uppercase text-[8px] md:text-[9px] tracking-widest mt-1 md:mt-2">Registry Terminal Node | {shipments.length > 1 ? 'BULK MODE' : 'SINGLE MODE'}</DialogDescription>
+                <DialogDescription className="text-blue-300 font-bold uppercase text-[8px] md:text-[9px] tracking-widest mt-1 md:mt-2">Registry Terminal Node | {shipments.length > 1 ? 'BULK CONSOLIDATION' : 'SINGLE MISSION'}</DialogDescription>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <Badge variant="outline" className="bg-white/5 border-white/10 text-white font-mono h-8 md:h-10 px-4 md:px-6 rounded-xl flex items-center hidden sm:flex">{format(currentTime, 'HH:mm:ss')}</Badge>
-            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 md:h-10 md:w-10 text-white/40 hover:text-white"><X size={20} /></Button>
+            <button onClick={onClose} className="h-8 w-8 md:h-10 md:w-10 bg-white p-0 text-red-600 hover:bg-red-50 transition-all rounded-xl shadow-lg flex items-center justify-center border-none">
+                <X size={20} className="stroke-[3]" />
+            </button>
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-6 md:space-y-10">
-          <Card className="p-5 md:p-10 border-2 border-slate-100 shadow-xl rounded-[1.5rem] md:rounded-[2.5rem] bg-white relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1.5 md:w-2 h-full bg-blue-900" />
-            <div className="flex items-center justify-between mb-6 md:mb-8">
-                <div className="flex items-center gap-3 md:gap-4">
-                    <div className="p-2 md:p-3 bg-blue-50 rounded-xl border border-blue-100 shadow-sm"><ShieldCheck className="h-5 w-5 md:h-6 md:w-6 text-blue-600" /></div>
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 md:space-y-12">
+          {/* HEADER SUMMARY: MISSION CONTEXT */}
+          <Card className="p-6 md:p-10 border-2 border-slate-100 shadow-xl rounded-[2.5rem] bg-white relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-2 h-full bg-blue-900" />
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100 shadow-sm"><ShieldCheck className="h-7 w-7 text-blue-600" /></div>
                     <div>
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mission Order Manifest</h3>
-                        <div className="flex items-center gap-3">
-                            <p className="text-lg md:text-2xl font-black text-slate-900 tracking-tighter uppercase">{primaryShipment.shipmentId}</p>
-                            {shipments.length > 1 && <Badge className="bg-blue-900 text-white font-black text-[9px] uppercase px-3 h-6">+{shipments.length - 1} MORE NODES</Badge>}
-                        </div>
+                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 leading-none">Mission Summary</h3>
+                        <p className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase mt-2">
+                            {shipments.length > 1 ? `CONSOLIDATED MANIFEST (${shipments.length})` : primaryShipment.shipmentId}
+                        </p>
                     </div>
                 </div>
-                <div className="text-right flex flex-col items-end">
-                    <span className="text-[9px] font-black uppercase text-slate-400">Aggregate Registry Total</span>
-                    <p className="text-xl md:text-2xl font-black text-blue-900 tracking-tighter">{totalBalanceQty.toFixed(3)} MT</p>
+                <div className="text-right flex flex-col items-end bg-slate-50 p-4 rounded-2xl border shadow-inner">
+                    <span className="text-[10px] font-black uppercase text-slate-500">Aggregate Registry Weight</span>
+                    <p className="text-2xl md:text-4xl font-black text-blue-900 tracking-tighter">{totalBalanceQty.toFixed(3)} <span className="text-sm font-bold text-slate-400 ml-1">MT</span></p>
                 </div>
             </div>
-            
-            {shipments.length > 1 && (
-                <div className="mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    {shipments.map(s => (
-                        <div key={s.id} className="bg-white p-3 rounded-xl border shadow-sm flex items-center gap-3">
-                            <Package className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                            <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-slate-900">{s.shipmentId}</span>
-                                <span className="text-[8px] font-bold text-slate-400">{s.balanceQty.toFixed(3)} MT</span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
 
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-4 md:gap-10">
-                <ContextNode label="Lifting Plant" value={plantNameDisplay} icon={Factory} />
-                <ContextNode label="Consignor" value={primaryShipment.consignor} icon={UserCircle} />
-                <ContextNode label="Site point" value={plantAddressDisplay} icon={MapPin} />
-                <ContextNode label="Consignee" value={primaryShipment.billToParty} icon={UserCircle} />
-                <ContextNode label="Drop plant" value={primaryShipment.deliveryAddress || primaryShipment.unloadingPoint} icon={MapPin} className="col-span-2 text-blue-900" bold />
+            <Separator className="my-8 opacity-50" />
+
+            {/* DYNAMIC SHIPMENT CONTAINERS Node */}
+            <div className="space-y-8">
+                <h3 className="text-[11px] font-black uppercase text-blue-900 tracking-[0.3em] flex items-center gap-3">
+                    <Package className="h-4 w-4" /> Order Registry Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {shipments.map((s) => {
+                        const sPlant = plants?.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(s.originPlantId).toLowerCase());
+                        const sPlantName = sPlant?.name || s.originPlantId;
+                        const sPlantAddr = sPlant?.address || s.loadingPoint;
+                        
+                        return (
+                            <Card key={s.id} className="border border-slate-100 bg-slate-50/50 rounded-[2rem] p-6 hover:border-blue-200 transition-all shadow-sm hover:shadow-lg relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-6 opacity-[0.03] rotate-12 transition-transform duration-700 group-hover:scale-110">
+                                    <ClipboardList size={120} />
+                                </div>
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="flex items-center gap-3">
+                                        <Badge className="bg-blue-900 text-white font-black uppercase text-[10px] px-3 h-6 border-none shadow-md">{s.shipmentId}</Badge>
+                                    </div>
+                                    <Badge variant="outline" className="bg-white border-blue-200 text-blue-900 font-black uppercase text-[10px] px-3 h-6">
+                                        {s.balanceQty.toFixed(3)} MT
+                                    </Badge>
+                                </div>
+                                <div className="grid grid-cols-2 gap-y-6 gap-x-4 relative z-10">
+                                    <ContextNode label="Lifting Plant" value={sPlantName} icon={Factory} />
+                                    <ContextNode label="Consignor" value={s.consignor} icon={UserCircle} />
+                                    <ContextNode label="Site Point" value={sPlantAddr} icon={MapPin} className="col-span-2" />
+                                    <ContextNode label="Consignee" value={s.billToParty} icon={UserCircle} />
+                                    <ContextNode label="Drop Plant" value={s.deliveryAddress || s.unloadingPoint} icon={MapPin} bold className="text-blue-900" />
+                                </div>
+                            </Card>
+                        );
+                    })}
+                </div>
             </div>
           </Card>
 
           <Form {...form}>
-            <form className="space-y-6 md:space-y-10" onSubmit={handleSubmit(onSubmit)}>
-                <Card className="border-none shadow-2xl rounded-[1.5rem] md:rounded-[2.5rem] bg-white overflow-hidden">
-                    <div className="p-5 md:p-8 bg-slate-50 border-b flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
-                        <h3 className="font-black text-[10px] md:text-xs uppercase tracking-[0.3em] text-slate-500 flex items-center gap-2 md:gap-3"><Truck className="h-4 w-4 md:h-5 md:w-5 text-blue-600"/> Fleet Entry Control</h3>
+            <form className="space-y-10" onSubmit={handleSubmit(onSubmit)}>
+                <Card className="border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden">
+                    <div className="p-6 md:p-8 bg-slate-50 border-b flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <h3 className="font-black text-xs uppercase tracking-[0.3em] text-slate-500 flex items-center gap-3"><Truck className="h-5 w-5 text-blue-600"/> Fleet Entry Control</h3>
                         <div className="bg-white p-1 rounded-xl border-2 border-slate-200 shadow-inner flex items-center gap-1">
-                            <button type="button" onClick={() => setValue('isNewVehicle', false)} className={cn("px-3 md:px-6 py-1.5 md:py-2 rounded-lg text-[8px] md:text-[10px] font-black uppercase transition-all", !isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>At Gate Registry</button>
-                            <button type="button" onClick={() => setValue('isNewVehicle', true)} className={cn("px-3 md:px-6 py-1.5 md:py-2 rounded-lg text-[8px] md:text-[10px] font-black uppercase transition-all", isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>Direct Manual Entry</button>
+                            <button type="button" onClick={() => setValue('isNewVehicle', false)} className={cn("px-4 md:px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all", !isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>At Gate Registry</button>
+                            <button type="button" onClick={() => setValue('isNewVehicle', true)} className={cn("px-4 md:px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all", isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>Direct Manual Entry</button>
                         </div>
                     </div>
-                    <div className="p-6 md:p-10 space-y-6 md:space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                            <div className="space-y-1.5 md:space-y-2">
-                                <label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Vehicle Number *</label>
+                    <div className="p-8 md:p-10 space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Vehicle Number *</label>
                                 {isNewVehicle ? (
-                                    <FormField name="vehicleNumber" control={control} render={({field}) => <FormItem><FormControl><div className="relative"><Input placeholder="XX00XX0000" className="h-11 md:h-12 rounded-xl font-black text-blue-900 uppercase text-lg shadow-inner border-slate-200 focus-visible:ring-blue-900" {...field} /></div></FormControl><FormMessage /></FormItem>} />
+                                    <FormField name="vehicleNumber" control={control} render={({field}) => <FormItem><FormControl><div className="relative"><Input placeholder="XX00XX0000" className="h-12 rounded-xl font-black text-blue-900 uppercase text-lg shadow-inner border-slate-200 focus-visible:ring-blue-900" {...field} /></div></FormControl><FormMessage /></FormItem>} />
                                 ) : (
                                     <FormField name="vehicleId" control={control} render={({field}) => (
                                         <FormItem>
                                         <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl><SelectTrigger className="h-11 md:h-12 rounded-xl font-black text-blue-900"><SelectValue placeholder={isDataLoading ? "Syncing Gate..." : "Resolve from Gate"} /></SelectTrigger></FormControl>
+                                            <FormControl><SelectTrigger className="h-12 rounded-xl font-black text-blue-900 shadow-sm border-slate-200"><SelectValue placeholder={isDataLoading ? "Syncing Gate..." : "Resolve from Gate"} /></SelectTrigger></FormControl>
                                             <SelectContent className="rounded-xl">{vehiclesAtGate.map(v => <SelectItem key={v.id} value={v.id} className="font-bold py-3 uppercase italic text-black">{v.vehicleNumber} ({v.driverName})</SelectItem>)}</SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -452,18 +461,18 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                                 )}
                             </div>
 
-                            <div className="space-y-1.5 md:space-y-2">
-                                <label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Pilot Name</label>
-                                <FormField name="driverName" control={control} render={({field}) => <FormItem><FormControl><Input placeholder="Pilot Name" className="h-11 md:h-12 rounded-xl font-bold uppercase" {...field} /></FormControl><FormMessage /></FormItem>} />
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Pilot Name</label>
+                                <FormField name="driverName" control={control} render={({field}) => <FormItem><FormControl><Input placeholder="Pilot Name" className="h-12 rounded-xl font-bold uppercase border-slate-200" {...field} /></FormControl><FormMessage /></FormItem>} />
                             </div>
 
-                            <div className="space-y-1.5 md:space-y-2">
-                                <label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Pilot Mobile</label>
-                                <FormField name="driverMobile" control={control} render={({field}) => <FormItem><FormControl><Input {...field} maxLength={10} placeholder="10 Digits" className="h-11 md:h-12 rounded-xl font-mono font-black" /></FormControl><FormMessage /></FormItem>} />
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Pilot Mobile</label>
+                                <FormField name="driverMobile" control={control} render={({field}) => <FormItem><FormControl><Input {...field} maxLength={10} placeholder="10 Digits" className="h-12 rounded-xl font-mono font-bold border-slate-200" /></FormControl><FormMessage /></FormItem>} />
                             </div>
 
-                            <div className="space-y-1.5 md:space-y-2">
-                                <label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Carrier Agent *</label>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Carrier Agent *</label>
                                 <FormField name="carrierId" control={control} render={({ field }) => (
                                     <FormItem>
                                     <SearchableSelect 
@@ -471,7 +480,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                                         onChange={field.onChange} 
                                         value={field.value} 
                                         placeholder={carrierOptions.length === 0 ? "No carriers for this plant" : "Pick Agent"}
-                                        className="h-11 md:h-12"
+                                        className="h-12"
                                         disabled={carrierOptions.length === 0}
                                     />
                                     <FormMessage />
@@ -479,12 +488,12 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                                 )} />
                             </div>
 
-                            <div className="space-y-1.5 md:space-y-2">
-                                <label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Fleet Type *</label>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Fleet Type *</label>
                                 <FormField name="vehicleType" control={control} render={({ field }) => (
                                     <FormItem>
                                     <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl><SelectTrigger className="h-11 md:h-12 rounded-xl font-bold"><SelectValue placeholder="Select Type"/></SelectTrigger></FormControl>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl font-bold border-slate-200"><SelectValue placeholder="Select Type"/></SelectTrigger></FormControl>
                                         <SelectContent className="rounded-xl">{VehicleTypes.map(t => <SelectItem key={t} value={t} className="font-bold py-2.5">{t}</SelectItem>)}</SelectContent>
                                     </Select>
                                     <FormMessage />
@@ -492,11 +501,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                                 )} />
                             </div>
 
-                            <div className="space-y-1.5 md:space-y-2">
-                                <label className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Assign Qty (MT) *</label>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Assign Qty (MT) *</label>
                                 <FormField name="assignQty" control={control} render={({field}) => (
                                     <FormItem>
-                                    <FormControl><Input {...field} value={field.value ?? ''} type="number" step="0.001" className="h-11 md:h-12 rounded-xl text-right font-black text-xl text-blue-900 shadow-inner" /></FormControl>
+                                    <FormControl><Input {...field} value={field.value ?? ''} type="number" step="0.001" className="h-12 rounded-xl text-right font-black text-xl text-blue-900 shadow-inner border-blue-900/20" /></FormControl>
                                     <FormMessage />
                                     </FormItem>
                                 )} />
@@ -505,22 +514,22 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                     </div>
                 </Card>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8 md:gap-10">
-                    <Card className={cn("p-6 md:p-10 transition-all duration-500 rounded-[1.5rem] md:rounded-[2.5rem] shadow-xl", vehicleType === 'Market Vehicle' ? "bg-blue-50/30 border-2 border-blue-100 opacity-100" : "opacity-40 grayscale pointer-events-none border-slate-100")}>
-                        <div className="flex items-center gap-3 mb-6 md:mb-8 px-2">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                    <Card className={cn("p-8 md:p-10 transition-all duration-500 rounded-[2.5rem] shadow-xl", vehicleType === 'Market Vehicle' ? "bg-blue-50/30 border-2 border-blue-100 opacity-100" : "opacity-40 grayscale pointer-events-none border-slate-100")}>
+                        <div className="flex items-center gap-3 mb-8 px-2">
                             <IndianRupee className="h-5 w-5 text-blue-600" />
-                            <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-slate-700">Financial Particulars (Market node)</h3>
+                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Financial Particulars (Market Node)</h3>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-end">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
                             <FormField name="transporterName" control={control} render={({field}) => (
                                 <FormItem>
-                                    <FormLabel className="text-[9px] md:text-[10px] font-black uppercase text-slate-400">Transporter Name *</FormLabel>
+                                    <FormLabel className="text-[10px] font-black uppercase text-slate-400">Transporter Name *</FormLabel>
                                     <SearchableSelect 
                                         options={vendorOptions} 
                                         onChange={(vId) => handleTransporterSelect(vId)} 
                                         value={vendors?.find(v => v.name === field.value)?.id || ''} 
                                         placeholder="Resolve from Registry"
-                                        className="h-11 md:h-12"
+                                        className="h-12"
                                     />
                                     <FormMessage />
                                 </FormItem>
@@ -528,11 +537,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                             
                             <FormField name="transporterMobile" control={control} render={({field}) => (
                                 <FormItem>
-                                    <FormLabel className="text-[9px] md:text-[10px] font-black uppercase text-slate-400">Transporter Mobile</FormLabel>
+                                    <FormLabel className="text-[10px] font-black uppercase text-slate-400">Transporter Mobile</FormLabel>
                                     <FormControl>
                                         <div className="relative group">
                                             <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
-                                            <Input placeholder="Registry Linked" {...field} maxLength={10} className="h-11 md:h-12 rounded-xl bg-white border-slate-200 font-mono pl-10" />
+                                            <Input placeholder="Registry Linked" {...field} maxLength={10} className="h-12 rounded-xl bg-white border-slate-200 font-mono pl-10" />
                                         </div>
                                     </FormControl>
                                     <FormMessage />
@@ -542,21 +551,21 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                             <FormField name="isFixRate" control={control} render={({ field }) => (
                                 <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-4 border rounded-xl bg-white shadow-sm col-span-1 md:col-span-2">
                                     <FormControl>
-                                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                        <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded data-[state=checked]:bg-blue-900" />
                                     </FormControl>
                                     <div className="space-y-1 leading-none">
-                                        <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Fixed Rate Mission</FormLabel>
+                                        <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest cursor-pointer">Fixed Rate Mission</FormLabel>
                                     </div>
                                 </FormItem>
                             )} />
 
                             <FormField name="ownerName" control={control} render={({field}) => (
                                 <FormItem>
-                                    <FormLabel className="text-[9px] md:text-[10px] font-black uppercase text-slate-400">Vehicle Owner Name</FormLabel>
+                                    <FormLabel className="text-[10px] font-black uppercase text-slate-400">Vehicle Owner Name</FormLabel>
                                     <FormControl>
                                         <div className="relative group">
                                             <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
-                                            <Input placeholder="Enter owner name" {...field} className="h-11 md:h-12 rounded-xl bg-white border-slate-200 font-bold pl-10 uppercase" />
+                                            <Input placeholder="Enter owner name" {...field} className="h-12 rounded-xl bg-white border-slate-200 font-bold pl-10 uppercase" />
                                         </div>
                                     </FormControl>
                                     <FormMessage />
@@ -565,11 +574,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
                             <FormField name="ownerMobile" control={control} render={({field}) => (
                                 <FormItem>
-                                    <FormLabel className="text-[9px] md:text-[10px] font-black uppercase text-slate-400">Owner Mobile Number</FormLabel>
+                                    <FormLabel className="text-[10px] font-black uppercase text-slate-400">Owner Mobile Number</FormLabel>
                                     <FormControl>
                                         <div className="relative group">
                                             <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
-                                            <Input placeholder="Optional" {...field} maxLength={10} className="h-11 md:h-12 rounded-xl bg-white border-slate-200 font-mono pl-10" />
+                                            <Input placeholder="Optional" {...field} maxLength={10} className="h-12 rounded-xl bg-white border-slate-200 font-mono pl-10" />
                                         </div>
                                     </FormControl>
                                     <FormMessage />
@@ -578,55 +587,55 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
                             <FormField name="freightRate" control={control} render={({field}) => (
                                 <FormItem>
-                                    <FormLabel className={cn("text-[9px] md:text-[10px] font-black uppercase", isFixRate ? "text-slate-300" : "text-blue-600")}>Freight Rate (MT) *</FormLabel>
-                                    <FormControl><Input type="number" step="0.01" {...field} disabled={isFixRate} className="h-11 md:h-12 rounded-xl bg-white border-blue-200 font-black text-blue-900 text-lg shadow-inner disabled:bg-slate-50 disabled:text-slate-300" /></FormControl>
+                                    <FormLabel className={cn("text-[10px] font-black uppercase", isFixRate ? "text-slate-300" : "text-blue-600")}>Freight Rate (MT) *</FormLabel>
+                                    <FormControl><Input type="number" step="0.01" {...field} disabled={isFixRate} className="h-12 rounded-xl bg-white border-blue-200 font-black text-blue-900 text-lg shadow-inner disabled:bg-slate-50 disabled:text-slate-300" /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />
 
                             <FormField name="fixedAmount" control={control} render={({field}) => (
                                 <FormItem>
-                                    <FormLabel className={cn("text-[9px] md:text-[10px] font-black uppercase", !isFixRate ? "text-slate-300" : "text-emerald-600")}>Fixed Total Amount *</FormLabel>
-                                    <FormControl><Input type="number" step="0.01" {...field} disabled={!isFixRate} className="h-11 md:h-12 rounded-xl bg-white border-emerald-200 font-black text-emerald-900 text-lg shadow-inner disabled:bg-slate-50 disabled:text-slate-300" /></FormControl>
+                                    <FormLabel className={cn("text-[10px] font-black uppercase", !isFixRate ? "text-slate-300" : "text-emerald-600")}>Fixed Total Amount *</FormLabel>
+                                    <FormControl><Input type="number" step="0.01" {...field} disabled={!isFixRate} className="h-12 rounded-xl bg-white border-emerald-200 font-black text-emerald-900 text-lg shadow-inner disabled:bg-slate-50 disabled:text-slate-300" /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />
                             
-                            <div className="flex flex-col gap-1 md:gap-1.5 md:col-span-2">
-                                <span className="text-[9px] md:text-[10px] font-black uppercase text-slate-400">
+                            <div className="flex flex-col gap-1.5 md:col-span-2">
+                                <span className="text-[10px] font-black uppercase text-slate-400">
                                     {isFixRate ? 'Fixed Mission Total' : 'Calculated Freight'}
                                 </span>
-                                <div className="h-11 md:h-12 px-4 md:px-5 flex items-center bg-blue-900 rounded-xl text-white font-black text-lg md:text-xl shadow-lg">
+                                <div className="h-14 px-6 flex items-center bg-blue-900 rounded-xl text-white font-black text-2xl shadow-xl">
                                     {isFixRate ? 'FIX RATE: ' : ''}₹ {calculatedFreight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </div>
                             </div>
                         </div>
                     </Card>
 
-                    <Card className="p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-xl flex items-center gap-6 md:gap-8 relative overflow-hidden group">
-                        <div className="flex flex-col gap-0.5 md:gap-1">
-                            <span className="text-[9px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest">Routing Distance node</span>
-                            <div className="flex items-center gap-2 md:gap-3">
-                                <h4 className="text-3xl md:text-5xl font-black text-blue-900 tracking-tighter">
-                                    {calculatingDistance ? <Loader2 className="h-8 w-8 md:h-10 md:w-10 animate-spin" /> : (currentDistance || '--')}
+                    <Card className="p-8 md:p-10 rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-xl flex items-center gap-8 relative overflow-hidden group">
+                        <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Routing Distance node</span>
+                            <div className="flex items-center gap-3">
+                                <h4 className="text-4xl md:text-6xl font-black text-blue-900 tracking-tighter">
+                                    {calculatingDistance ? <Loader2 className="h-10 w-10 animate-spin" /> : (currentDistance || '--')}
                                 </h4>
-                                <span className="text-base md:text-xl font-black text-slate-300">KM</span>
+                                <span className="text-xl md:text-2xl font-black text-slate-300">KM</span>
                             </div>
                         </div>
-                        <div className="h-12 md:h-16 w-px bg-slate-100 mx-1 md:mx-2" />
-                        <div className="flex items-start gap-3 md:gap-4">
-                            <AlertCircle className="h-5 w-5 md:h-6 md:w-6 text-blue-600 shrink-0 mt-0.5 md:mt-1 hidden sm:block" />
-                            <p className="text-[8px] md:text-[9px] font-bold text-slate-500 uppercase leading-normal max-w-[150px] md:max-w-[200px]">Distance synchronized with Google Maps mission routing protocol.</p>
+                        <div className="h-20 w-px bg-slate-100 mx-4" />
+                        <div className="flex items-start gap-4">
+                            <AlertCircle className="h-7 w-7 text-blue-600 shrink-0 mt-1 hidden sm:block" />
+                            <p className="text-[10px] font-bold text-slate-500 uppercase leading-relaxed max-w-[200px]">Distance node synchronized with Google Maps mission routing protocol.</p>
                         </div>
                     </Card>
                 </div>
 
-                <div className="flex flex-col md:flex-row justify-end pt-8 md:pt-10 border-t border-white/5 gap-4 md:gap-6">
-                    <button type="button" onClick={onClose} className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-blue-900 transition-all py-2">ABORT ALLOCATION</button>
+                <div className="flex flex-col md:flex-row justify-end pt-10 border-t border-white/5 gap-6">
+                    <button type="button" onClick={onClose} className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-blue-900 transition-all py-2">ABORT ALLOCATION</button>
                     <Button 
                         type="submit" 
                         disabled={isSubmitting || calculatingDistance} 
-                        className="h-14 md:h-16 px-12 md:px-20 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl md:rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
+                        className="h-16 px-16 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
                     >
                         {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} {isEditing ? 'Update Registry' : 'Establish Mission Node'}
                     </Button>
@@ -635,18 +644,18 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
           </Form>
         </div>
 
-        <DialogFooter className="p-4 md:p-6 bg-slate-900 flex flex-row justify-between items-center shrink-0 gap-4">
-            <div className="flex items-center gap-6">
-                <div className="flex flex-col gap-0.5">
-                    <span className="text-[8px] md:text-[9px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-1.5 md:gap-2"><Calculator className="h-3 w-3" /> Balance remaining</span>
-                    <span className={cn("text-xl md:text-2xl font-black tracking-tighter transition-all duration-500", balanceQty > 0.001 ? "text-orange-400" : "text-emerald-400")}>
+        <DialogFooter className="p-6 md:p-8 bg-slate-900 flex flex-col md:flex-row justify-between items-center shrink-0 gap-8">
+            <div className="flex items-center gap-10">
+                <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2 leading-none"><Calculator className="h-3.5 w-3.5" /> Balance remaining</span>
+                    <span className={cn("text-2xl md:text-3xl font-black tracking-tighter transition-all duration-500", balanceQty > 0.001 ? "text-orange-400" : "text-emerald-400")}>
                         {balanceQty.toFixed(3)} MT
                     </span>
                 </div>
             </div>
-            <div className="flex items-center gap-3 md:gap-4">
-                <ShieldCheck className="h-4 w-4 md:h-5 md:w-5 text-emerald-600" />
-                <span className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 tracking-widest italic hidden sm:inline">Authorized Registry Handshake node</span>
+            <div className="flex items-center gap-4">
+                <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest italic hidden sm:inline">Authorized Registry Handshake Node</span>
             </div>
         </DialogFooter>
       </DialogContent>
@@ -656,12 +665,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
 function ContextNode({ label, value, icon: Icon, className, bold }: any) {
     return (
-        <div className={cn("space-y-1 md:space-y-1.5", className)}>
-            <span className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 flex items-center gap-1.5 md:gap-2 tracking-widest leading-none">
+        <div className={cn("space-y-1.5", className)}>
+            <span className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 tracking-widest leading-none">
                 {Icon && <Icon className="h-2.5 w-2.5 md:h-3 md:w-3" />} {label}
             </span>
-            <p className={cn("text-[11px] md:text-xs leading-tight wrap", bold ? "font-black" : "font-bold text-slate-700")}>{value || '--'}</p>
+            <p className={cn("text-[10px] md:text-xs leading-snug wrap", bold ? "font-black" : "font-bold text-slate-700")}>{value || '--'}</p>
         </div>
     );
 }
-
