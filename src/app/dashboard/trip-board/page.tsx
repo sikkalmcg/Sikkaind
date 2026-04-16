@@ -434,11 +434,14 @@ function TripBoardContent() {
       <div className="sticky top-0 z-30 bg-white border-b px-4 py-3 md:px-8 md:py-4 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 mb-4 md:mb-6">
           <div className="flex items-center gap-3">
-            <div className="p-2 md:p-2.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3">
-              <MonitorPlay className="h-5 w-5 md:h-7 md:w-7" />
+            <div className="p-1.5 md:p-2.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3">
+              <MonitorPlay className="h-4 w-4 md:h-7 md:w-7" />
             </div>
             <div>
-              <h1 className="text-lg md:text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none">MISSION CONTROL BOARD</h1>
+              <h1 className="text-lg md:text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none">
+                <span className="md:hidden">TRIP BOARD</span>
+                <span className="hidden md:inline">MISSION CONTROL BOARD</span>
+              </h1>
               <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 md:mt-1">LIVE OPERATIONAL REGISTRY PLANT</p>
             </div>
           </div>
@@ -556,7 +559,7 @@ function TripBoardContent() {
 
 export default function TripBoardPage() {
     return (
-        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>}>
+        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-900" /></div>}>
             <TripBoardContent />
         </Suspense>
     );
