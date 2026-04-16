@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -22,7 +21,7 @@ import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList, CheckCircle2, Truck } from "lucide-react";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList, CheckCircle2, Truck, PlusCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -37,12 +36,6 @@ import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/Printable
 
 export type TripBoardTab = 'pending-assignment' | 'open-order' | 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
-/**
- * @fileOverview Mission Control Board.
- * Re-engineered header for optimized mobile visibility.
- * Flexible grid eliminates filter overlap and layout breakage.
- * Fixed: Missing icon imports causing ReferenceError.
- */
 function TripBoardContent() {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -76,7 +69,6 @@ function TripBoardContent() {
   
   const isInitialized = useRef(false);
 
-  // Bulk State
   const [selectedPendingIds, setSelectedPendingIds] = useState<string[]>([]);
 
   const [viewTripData, setViewTripData] = useState<any | null>(null);
@@ -682,4 +674,3 @@ export default function TripBoardPage() {
         </Suspense>
     );
 }
-

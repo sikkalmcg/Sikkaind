@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -45,11 +44,11 @@ import {
     User,
     CheckCircle2,
     Package,
-    ClipboardList
+    ClipboardList,
+    Separator
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
 import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser, FuelPump } from '@/types';
 import { VehicleTypes } from '@/lib/constants';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
@@ -444,7 +443,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                         </div>
                     </div>
                     <div className="p-8 md:p-10 space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Vehicle Number *</label>
                                 {isNewVehicle ? (
@@ -674,4 +673,3 @@ function ContextNode({ label, value, icon: Icon, className, bold }: any) {
         </div>
     );
 }
-
