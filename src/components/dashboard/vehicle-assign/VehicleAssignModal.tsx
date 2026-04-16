@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -42,9 +41,11 @@ import {
     IndianRupee,
     Weight,
     Smartphone,
-    User
+    User,
+    CheckCircle2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser, FuelPump } from '@/types';
 import { VehicleTypes } from '@/lib/constants';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
@@ -100,6 +101,8 @@ const formSchema = z.object({
     }),
     distance: z.coerce.number().optional().default(0),
     freightRate: z.coerce.number().optional().default(0),
+    isFixRate: z.boolean().default(false),
+    fixedAmount: z.coerce.number().optional().default(0),
 }).superRefine((data, ctx) => {
     if (data.vehicleType === 'Market Vehicle') {
         if (!data.transporterName?.trim()) {
@@ -130,12 +133,14 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     resolver: zodResolver(formSchema),
     defaultValues: { 
         assignQty: shipment.balanceQty !== undefined ? Number(Number(shipment.balanceQty).toFixed(3)) : 0,
-        vehicleType: 'Own Vehicle'
+        vehicleType: 'Own Vehicle',
+        isFixRate: false,
+        fixedAmount: 0
     },
   });
   const { watch, setValue, handleSubmit, reset, control, formState: { isSubmitting, errors } } = form;
 
-  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate, distance: currentDistance } = watch();
+  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate, isFixRate, fixedAmount, distance: currentDistance } = watch();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -191,7 +196,9 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
             ownerName: trip?.ownerName || '',
             ownerMobile: (trip as any)?.ownerMobile || '',
             distance: trip?.distance || 0,
-            freightRate: trip?.freightRate || 0
+            freightRate: trip?.freightRate || 0,
+            isFixRate: trip?.isFixRate || false,
+            fixedAmount: trip?.fixedAmount || 0
         });
     }
   }, [isOpen, trip, shipment, carrierOptions, reset]);
@@ -256,6 +263,20 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     if (vendor) {
         setValue('transporterName', vendor.name, { shouldValidate: true });
         setValue('transporterMobile', vendor.mobile || '', { shouldValidate: true });
+        
+        if (vendor.isFixRate !== undefined) {
+            setValue('isFixRate', vendor.isFixRate);
+        }
+        
+        if (vendor.defaultRate) {
+            if (vendor.isFixRate) {
+                setValue('fixedAmount', vendor.defaultRate);
+                setValue('freightRate', 0);
+            } else {
+                setValue('freightRate', vendor.defaultRate);
+                setValue('fixedAmount', 0);
+            }
+        }
     }
   };
 
@@ -321,7 +342,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     }
   };
 
-  const calculatedFreight = (Number(assignQty) || 0) * (Number(freightRate) || 0);
+  const calculatedFreight = isFixRate ? (Number(fixedAmount) || 0) : ((Number(assignQty) || 0) * (Number(freightRate) || 0));
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -475,6 +496,17 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                 </FormItem>
                             )} />
 
+                            <FormField name="isFixRate" control={control} render={({ field }) => (
+                                <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-4 border rounded-xl bg-white shadow-sm col-span-1 md:col-span-2">
+                                    <FormControl>
+                                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                    </FormControl>
+                                    <div className="space-y-1 leading-none">
+                                        <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Fixed Rate Mission</FormLabel>
+                                    </div>
+                                </FormItem>
+                            )} />
+
                             <FormField name="ownerName" control={control} render={({field}) => (
                                 <FormItem>
                                     <FormLabel className="text-[9px] md:text-[10px] font-black uppercase text-slate-400">Vehicle Owner Name</FormLabel>
@@ -501,11 +533,29 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                 </FormItem>
                             )} />
 
-                            <FormField name="freightRate" control={control} render={({field}) => <FormItem><FormLabel className="text-[9px] md:text-[10px] font-black uppercase text-blue-600">Freight Rate (MT) *</FormLabel><FormControl><Input type="number" step="0.01" {...field} className="h-11 md:h-12 rounded-xl bg-white border-blue-200 font-black text-blue-900 text-lg shadow-inner" /></FormControl><FormMessage /></FormItem>} />
+                            <FormField name="freightRate" control={control} render={({field}) => (
+                                <FormItem>
+                                    <FormLabel className={cn("text-[9px] md:text-[10px] font-black uppercase", isFixRate ? "text-slate-300" : "text-blue-600")}>Freight Rate (MT) *</FormLabel>
+                                    <FormControl><Input type="number" step="0.01" {...field} disabled={isFixRate} className="h-11 md:h-12 rounded-xl bg-white border-blue-200 font-black text-blue-900 text-lg shadow-inner disabled:bg-slate-50 disabled:text-slate-300" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <FormField name="fixedAmount" control={control} render={({field}) => (
+                                <FormItem>
+                                    <FormLabel className={cn("text-[9px] md:text-[10px] font-black uppercase", !isFixRate ? "text-slate-300" : "text-emerald-600")}>Fixed Total Amount *</FormLabel>
+                                    <FormControl><Input type="number" step="0.01" {...field} disabled={!isFixRate} className="h-11 md:h-12 rounded-xl bg-white border-emerald-200 font-black text-emerald-900 text-lg shadow-inner disabled:bg-slate-50 disabled:text-slate-300" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
                             
-                            <div className="flex flex-col gap-1 md:gap-1.5">
-                                <span className="text-[9px] md:text-[10px] font-black uppercase text-slate-400">Calculated Freight</span>
-                                <div className="h-11 md:h-12 px-4 md:px-5 flex items-center bg-blue-900 rounded-xl text-white font-black text-lg md:text-xl shadow-lg">₹ {calculatedFreight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                            <div className="flex flex-col gap-1 md:gap-1.5 md:col-span-2">
+                                <span className="text-[9px] md:text-[10px] font-black uppercase text-slate-400">
+                                    {isFixRate ? 'Fixed Mission Total' : 'Calculated Freight'}
+                                </span>
+                                <div className="h-11 md:h-12 px-4 md:px-5 flex items-center bg-blue-900 rounded-xl text-white font-black text-lg md:text-xl shadow-lg">
+                                    {isFixRate ? 'FIX RATE: ' : ''}₹ {calculatedFreight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                0</div>
                             </div>
                         </div>
                     </Card>

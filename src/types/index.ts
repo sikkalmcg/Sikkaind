@@ -153,6 +153,8 @@ export interface Trip {
   ifsc?: string;
   upiId?: string;
   bankingAccounts?: any[];
+  isFixRate?: boolean;
+  fixedAmount?: number;
 }
 
 export interface LR {
@@ -310,6 +312,8 @@ export interface FuelPump {
   ifsc?: string;
   upiId?: string;
   qrCodeUrl?: string;
+  defaultRate?: number;
+  isFixRate?: boolean;
 }
 
 export interface FuelEntry {
