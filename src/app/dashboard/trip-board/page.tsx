@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -594,33 +595,37 @@ function TripBoardContent() {
 
         {/* Floating Bulk Action Bar */}
         {activeTab === 'pending-assignment' && selectedPendingIds.length > 0 && (
-            <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 duration-500">
-                <div className="bg-slate-900 text-white rounded-[2rem] shadow-3xl p-4 md:p-6 flex items-center gap-6 md:gap-10 border border-white/10 backdrop-blur-xl">
-                    <div className="flex items-center gap-4 border-r border-white/10 pr-6 md:pr-10">
-                        <div className="p-2.5 bg-blue-600 rounded-xl shadow-lg"><Truck className="h-5 w-5" /></div>
-                        <div>
-                            <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest">BULK ALLOCATION NODES</p>
-                            <p className="text-sm font-black text-white uppercase">{selectedPendingIds.length} ORDERS SELECTED</p>
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95vw] max-w-4xl animate-in slide-in-from-bottom-10 duration-500">
+                <div className="bg-slate-900 text-white rounded-[1.5rem] md:rounded-[2rem] shadow-3xl p-3 md:p-6 flex items-center justify-between gap-3 md:gap-10 border border-white/10 backdrop-blur-xl">
+                    <div className="flex items-center gap-2 md:gap-4 border-r border-white/10 pr-3 md:pr-10 shrink-0">
+                        <div className="p-1.5 md:p-2.5 bg-blue-600 rounded-lg md:rounded-xl shadow-lg shrink-0"><Truck className="h-4 w-4 md:h-5 md:w-5" /></div>
+                        <div className="hidden sm:block">
+                            <p className="text-[7px] md:text-[8px] font-black uppercase text-slate-400 tracking-widest">BULK ALLOCATION</p>
+                            <p className="text-[10px] md:text-sm font-black text-white uppercase">{selectedPendingIds.length} SELECTED</p>
+                        </div>
+                        <div className="sm:hidden">
+                            <p className="text-[10px] font-black text-white">{selectedPendingIds.length}</p>
                         </div>
                     </div>
-                    <div className="flex flex-col gap-0.5">
-                        <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Aggregate Registry Qty</span>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-xl md:text-2xl font-black text-blue-400 tracking-tighter">{bulkTotalQty.toFixed(3)}</span>
-                            <span className="text-[10px] font-black text-slate-500">MT</span>
+                    <div className="flex flex-col gap-0 min-w-0">
+                        <span className="text-[7px] md:text-[8px] font-black uppercase text-slate-400 tracking-widest truncate">Agg. Qty</span>
+                        <div className="flex items-baseline gap-1 md:gap-2">
+                            <span className="text-sm md:text-2xl font-black text-blue-400 tracking-tighter">{bulkTotalQty.toFixed(2)}</span>
+                            <span className="text-[7px] md:text-[10px] font-black text-slate-500">MT</span>
                         </div>
                     </div>
                     <Button 
                         onClick={handleBulkAssign}
-                        className="bg-white hover:bg-blue-50 text-blue-900 h-12 md:h-14 px-8 md:px-12 rounded-2xl font-black uppercase text-[10px] md:text-xs tracking-widest shadow-xl transition-all active:scale-95 border-none"
+                        className="bg-white hover:bg-blue-50 text-blue-900 h-10 md:h-14 px-4 md:px-12 rounded-xl md:rounded-2xl font-black uppercase text-[8px] md:text-xs tracking-widest shadow-xl transition-all active:scale-95 border-none flex-1 max-w-[200px]"
                     >
-                        INITIALIZE BULK ASSIGN
+                        <span className="hidden md:inline">INITIALIZE BULK ASSIGN</span>
+                        <span className="md:hidden">ASSIGN</span>
                     </Button>
                     <button 
                         onClick={() => setSelectedPendingIds([])}
-                        className="p-2 hover:bg-white/10 rounded-full text-slate-400 transition-colors"
+                        className="p-1 md:p-2 hover:bg-white/10 rounded-full text-slate-400 transition-colors shrink-0"
                     >
-                        <X className="h-5 w-5" />
+                        <X className="h-4 w-4 md:h-5 md:w-5" />
                     </button>
                 </div>
             </div>

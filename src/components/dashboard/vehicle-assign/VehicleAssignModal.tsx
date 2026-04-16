@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -42,7 +43,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser, FuelPump } from '@/types';
-import { VehicleTypes } from '@/lib/constants';
+import { VehicleTypes, PaymentTerms } from '@/lib/constants';
 import { useFirestore, useUser, useMemoFirebase, useDoc, useCollection } from "@/firebase";
 import { 
   collection, 
@@ -95,6 +96,7 @@ const formSchema = z.object({
     freightRate: z.coerce.number().optional().default(0),
     isFixRate: z.boolean().default(false),
     fixedAmount: z.coerce.number().optional().default(0),
+    paymentTerm: z.enum(PaymentTerms).optional().default('Paid'),
 }).superRefine((data, ctx) => {
     if (data.vehicleType === 'Market Vehicle') {
         if (!data.transporterName?.trim()) {
@@ -128,12 +130,13 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
         assignQty: Number(totalBalanceQty.toFixed(3)),
         vehicleType: 'Own Vehicle',
         isFixRate: false,
-        fixedAmount: 0
+        fixedAmount: 0,
+        paymentTerm: 'Paid'
     },
   });
-  const { watch, setValue, handleSubmit, reset, control, formState: { isSubmitting, errors } } = form;
+  const { watch, setValue, handleSubmit, reset, control, formState: { isSubmitting } } = form;
 
-  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate, isFixRate, fixedAmount } = watch();
+  const { isNewVehicle, vehicleId, assignQty, vehicleType, freightRate, isFixRate, fixedAmount } = watch();
 
   const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
   const { data: plants } = useCollection<Plant>(plantsQuery);
@@ -184,7 +187,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             distance: trip?.distance || 0,
             freightRate: trip?.freightRate || 0,
             isFixRate: trip?.isFixRate || false,
-            fixedAmount: trip?.fixedAmount || 0
+            fixedAmount: trip?.fixedAmount || 0,
+            paymentTerm: (trip?.paymentTerm as any) || primaryShipment.paymentTerm || 'Paid'
         });
     }
   }, [isOpen, trip, primaryShipment, carrierOptions, reset, totalBalanceQty]);
@@ -326,7 +330,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
           <div className="flex items-center gap-3 md:gap-4">
             <div className="p-2 md:p-3 bg-blue-600 rounded-xl shadow-lg rotate-3"><Truck className="h-5 w-5 md:h-7 md:w-7 text-white" /></div>
             <div>
-                <DialogTitle className="text-lg md:text-2xl font-black uppercase tracking-tight italic leading-none">ASSIGN FLEET</DialogTitle>
+                <DialogTitle className="text-lg md:text-2xl font-black uppercase tracking-tight italic leading-none text-white">ASSIGN FLEET</DialogTitle>
                 <DialogDescription className="text-blue-300 font-bold uppercase text-[8px] md:text-[9px] tracking-widest mt-1 md:mt-2">Registry Terminal Node | {shipments.length > 1 ? 'BULK CONSOLIDATION' : 'SINGLE MISSION'}</DialogDescription>
             </div>
           </div>
@@ -621,3 +625,4 @@ function ContextNode({ label, value, icon: Icon, className, bold }: any) {
         </div>
     );
 }
+
