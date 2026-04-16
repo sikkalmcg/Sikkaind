@@ -45,7 +45,7 @@ import {
     User
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser } from '@/types';
+import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser, FuelPump } from '@/types';
 import { VehicleTypes } from '@/lib/constants';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
 import { 
@@ -145,6 +145,9 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
   const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
   const { data: plants } = useCollection<Plant>(plantsQuery);
 
+  const vendorQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "fuel_pumps")) : null, [firestore]);
+  const { data: vendors } = useCollection<FuelPump>(vendorQuery);
+
   const selectedPlant = useMemo(() => {
     if (!plants) return null;
     return plants.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(shipment.originPlantId).toLowerCase());
@@ -157,6 +160,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     return (carriers || [])
       .map(c => ({ value: c.id, label: c.name }));
   }, [carriers]);
+
+  const vendorOptions = useMemo(() => {
+    return (vendors || [])
+      .map(v => ({ value: v.id, label: v.name }));
+  }, [vendors]);
 
   useEffect(() => {
     if (isOpen) {
@@ -242,6 +250,14 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
     const remaining = currentPool - (Number(assignQty) || 0);
     return Number(Math.max(0, remaining).toFixed(3));
   }, [shipment.balanceQty, assignQty, isEditing, trip]);
+
+  const handleTransporterSelect = (vendorId: string) => {
+    const vendor = vendors?.find(v => v.id === vendorId);
+    if (vendor) {
+        setValue('transporterName', vendor.name, { shouldValidate: true });
+        setValue('transporterMobile', vendor.mobile || '', { shouldValidate: true });
+    }
+  };
 
   const onSubmit = async (values: FormValues) => {
     if (!firestore || !user) return;
@@ -432,7 +448,19 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                             <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-slate-700">Financial Particulars (Market node)</h3>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-end">
-                            <FormField name="transporterName" control={control} render={({field}) => <FormItem><FormLabel className="text-[9px] md:text-[10px] font-black uppercase text-slate-400">Transporter Name *</FormLabel><FormControl><Input {...field} className="h-11 md:h-12 rounded-xl bg-white border-slate-200 font-bold" /></FormControl><FormMessage /></FormItem>} />
+                            <FormField name="transporterName" control={control} render={({field}) => (
+                                <FormItem>
+                                    <FormLabel className="text-[9px] md:text-[10px] font-black uppercase text-slate-400">Transporter Name *</FormLabel>
+                                    <SearchableSelect 
+                                        options={vendorOptions} 
+                                        onChange={(vId) => handleTransporterSelect(vId)} 
+                                        value={vendors?.find(v => v.name === field.value)?.id || ''} 
+                                        placeholder="Resolve from Registry"
+                                        className="h-11 md:h-12"
+                                    />
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
                             
                             <FormField name="transporterMobile" control={control} render={({field}) => (
                                 <FormItem>
@@ -440,7 +468,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipment, trip, on
                                     <FormControl>
                                         <div className="relative group">
                                             <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
-                                            <Input placeholder="Optional" {...field} maxLength={10} className="h-11 md:h-12 rounded-xl bg-white border-slate-200 font-mono pl-10" />
+                                            <Input placeholder="Registry Linked" {...field} maxLength={10} className="h-11 md:h-12 rounded-xl bg-white border-slate-200 font-mono pl-10" />
                                         </div>
                                     </FormControl>
                                     <FormMessage />
@@ -543,3 +571,4 @@ function ContextNode({ label, value, icon: Icon, className, bold }: any) {
         </div>
     );
 }
+
