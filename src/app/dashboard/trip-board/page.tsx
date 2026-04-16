@@ -33,14 +33,13 @@ import { DatePicker } from '@/components/date-picker';
 import { startOfDay, endOfDay, subDays, format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
 
 export type TripBoardTab = 'open-order' | 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
 /**
  * @fileOverview Trip Board Terminal.
- * Fixed: Nested scrollbars and compact mobile filters.
+ * Synchronized with SSR-safe context handling and dynamic mobile headers.
  */
 function TripBoardContent() {
   const { toast } = useToast();
@@ -75,21 +74,19 @@ function TripBoardContent() {
   
   const isInitialized = useRef(false);
 
+  // Modal Registry State
   const [viewTripData, setViewTripData] = useState<any | null>(null);
   const [cancelTripData, setCancelTripData] = useState<any | null>(null);
   const [editVehicleTrip, setEditVehicleTrip] = useState<any | null>(null);
-
   const [arrivedTrip, setArrivedTrip] = useState<any | null>(null);
   const [unloadedTrip, setUnloadedTrip] = useState<any | null>(null);
   const [rejectTrip, setRejectTrip] = useState<any | null>(null);
   const [podStatusTrip, setPodStatusTrip] = useState<any | null>(null);
   const [podUploadTrip, setPodUploadTrip] = useState<any | null>(null);
   const [srnTrip, setSrnTrip] = useState<any | null>(null);
-
   const [previewLrData, setPreviewLrData] = useState<EnrichedLR | null>(null);
   const [editLrTrip, setEditLrTrip] = useState<any | null>(null);
   const [editLrCarrier, setEditLrCarrier] = useState<any | null>(null);
-
   const [isAssignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState<any | null>(null);
   const [editingTrip, setEditingTrip] = useState<WithId<Trip> | null>(null);
@@ -227,7 +224,7 @@ function TripBoardContent() {
     return () => unsubscribers.forEach(u => u());
   }, [firestore, JSON.stringify(selectedPlants)]);
 
- const joinedData = useMemo(() => {
+  const joinedData = useMemo(() => {
     const normalizedSelected = selectedPlants.map(normalizePlantId);
     
     return trips
@@ -260,7 +257,6 @@ function TripBoardContent() {
             billToParty: t.billToParty || shipment?.billToParty || '--',
             shipToParty: t.shipToParty || shipment?.shipToParty || '--',
             from: t.loadingPoint || shipment?.loadingPoint || '--',
-            loadingPoint: t.loadingPoint || shipment?.loadingPoint || '--',
             unloadingPoint: t.unloadingPoint || shipment?.unloadingPoint || t.destination || '--',
             vehicleNumber: t.vehicleNumber,
             driverName: t.driverName,
@@ -374,7 +370,7 @@ function TripBoardContent() {
     }
   };
 
-  const processedData = useMemo(() => {
+  const sortedData = useMemo(() => {
     const dayStart = fromDate ? startOfDay(fromDate) : null;
     const dayEnd = toDate ? endOfDay(toDate) : null;
 
@@ -416,11 +412,11 @@ function TripBoardContent() {
     return res;
   }, [joinedData]);
 
-  const totalPages = Math.ceil(processedData.length / itemsPerPage);
-  const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
+  const paginatedData = sortedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handleDownloadExcel = () => {
-    const exportData = processedData.map(t => ({
+    const exportData = sortedData.map(t => ({
         'Plant': t.plantName, 'Trip ID': t.tripId, 'Vehicle Number': t.vehicleNumber, 'LR Number': t.lrNumber, 'Consignor': t.consignor, 'Consignee': t.consignee, 'Destination': t.unloadingPoint, 'Weight (MT)': t.dispatchedQty, 'Status': t.tripStatus, 'Date': t.startDate ? format(t.startDate, 'dd-MM-yy HH:mm') : '--'
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -431,11 +427,11 @@ function TripBoardContent() {
 
   return (
     <div className="flex flex-1 flex-col h-full overflow-hidden bg-white">
-      <div className="sticky top-0 z-30 bg-white border-b px-4 py-3 md:px-8 md:py-4 shadow-sm">
+      <div className="sticky top-0 z-30 bg-white border-b px-4 py-3 md:px-8 md:py-4 shadow-sm shrink-0">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 mb-4 md:mb-6">
           <div className="flex items-center gap-3">
-            <div className="p-1.5 md:p-2.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3">
-              <MonitorPlay className="h-4 w-4 md:h-7 md:w-7" />
+            <div className="p-1.5 md:p-2 bg-blue-900 text-white rounded-xl shadow-lg rotate-3">
+              <MonitorPlay className="h-5 w-5 md:h-6 md:w-6" />
             </div>
             <div>
               <h1 className="text-lg md:text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none">
@@ -446,7 +442,7 @@ function TripBoardContent() {
             </div>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:flex xl:items-end gap-2 md:gap-3 bg-slate-50 p-2 md:p-4 rounded-2xl md:rounded-3xl border border-slate-100 shadow-inner w-full lg:w-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:flex xl:items-end gap-2 md:gap-3 bg-slate-50 p-2 md:p-3 rounded-2xl md:rounded-3xl border border-slate-100 shadow-inner w-full lg:w-auto">
             <div className="grid gap-1">
               <Label className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 px-1">LIFTING SCOPE</Label>
               <MultiSelectPlantFilter options={plants} selected={selectedPlants} onChange={handlePlantChange} isLoading={isAuthLoading} />
@@ -467,7 +463,7 @@ function TripBoardContent() {
               </div>
             </div>
             <div className="flex items-center gap-2 sm:col-span-2 xl:col-span-1 justify-end pt-1">
-              <Button variant="outline" size="sm" onClick={handleDownloadExcel} className="h-9 px-3 md:px-4 font-black uppercase text-[9px] md:text-[10px] tracking-widest border-slate-200 rounded-xl bg-white">
+              <Button variant="outline" size="sm" onClick={handleDownloadExcel} className="h-9 px-3 md:px-4 font-black uppercase text-[9px] md:text-[10px] tracking-widest border-slate-200 rounded-xl bg-white shadow-sm">
                 <FileDown className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2"/> EXPORT
               </Button>
               <Button variant="ghost" size="icon" className="h-9 w-9 text-blue-900" onClick={() => window.location.reload()}>
@@ -497,27 +493,25 @@ function TripBoardContent() {
         </Tabs>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-8 py-4 md:py-6 bg-slate-50">
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6 bg-slate-50 custom-scrollbar">
         {isLoading ? (
             <div className="flex h-64 flex-col items-center justify-center gap-4">
                 <Loader2 className="h-10 w-10 animate-spin text-blue-900" />
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 animate-pulse">Syncing nodes...</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 animate-pulse">Syncing Registry...</p>
             </div>
         ) : (
-            <div className="space-y-6 md:space-y-10">
-                <div className="space-y-4">
-                    <TripBoardTable 
-                        data={paginatedData} 
-                        activeTab={activeTab} 
-                        isAdmin={isAdminSession} 
-                        onAction={handleAction} 
-                    />
-                    <Pagination 
-                        currentPage={currentPage} totalPages={totalPages} 
-                        onPageChange={setCurrentPage} itemCount={processedData.length} 
-                        canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPages} 
-                    />
-                </div>
+            <div className="space-y-6">
+                <TripBoardTable 
+                    data={paginatedData} 
+                    activeTab={activeTab} 
+                    isAdmin={isAdminSession} 
+                    onAction={handleAction} 
+                />
+                <Pagination 
+                    currentPage={currentPage} totalPages={totalPages} 
+                    onPageChange={setCurrentPage} itemCount={sortedData.length} 
+                    canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPages} 
+                />
             </div>
         )}
       </div>
