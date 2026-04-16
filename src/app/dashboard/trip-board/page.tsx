@@ -20,9 +20,9 @@ import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAss
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId } from '@/lib/utils';
-import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
+import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container } from "lucide-react";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -37,10 +37,6 @@ import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/Printable
 
 export type TripBoardTab = 'open-order' | 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
-/**
- * @fileOverview Trip Board Terminal.
- * Synchronized with SSR-safe context handling and dynamic mobile headers.
- */
 function TripBoardContent() {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -74,7 +70,6 @@ function TripBoardContent() {
   
   const isInitialized = useRef(false);
 
-  // Modal Registry State
   const [viewTripData, setViewTripData] = useState<any | null>(null);
   const [cancelTripData, setCancelTripData] = useState<any | null>(null);
   const [editVehicleTrip, setEditVehicleTrip] = useState<any | null>(null);
@@ -370,7 +365,7 @@ function TripBoardContent() {
     }
   };
 
-  const sortedData = useMemo(() => {
+  const processedData = useMemo(() => {
     const dayStart = fromDate ? startOfDay(fromDate) : null;
     const dayEnd = toDate ? endOfDay(toDate) : null;
 
@@ -412,11 +407,11 @@ function TripBoardContent() {
     return res;
   }, [joinedData]);
 
-  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
-  const paginatedData = sortedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(processedData.length / itemsPerPage);
+  const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handleDownloadExcel = () => {
-    const exportData = sortedData.map(t => ({
+    const exportData = processedData.map(t => ({
         'Plant': t.plantName, 'Trip ID': t.tripId, 'Vehicle Number': t.vehicleNumber, 'LR Number': t.lrNumber, 'Consignor': t.consignor, 'Consignee': t.consignee, 'Destination': t.unloadingPoint, 'Weight (MT)': t.dispatchedQty, 'Status': t.tripStatus, 'Date': t.startDate ? format(t.startDate, 'dd-MM-yy HH:mm') : '--'
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -427,53 +422,61 @@ function TripBoardContent() {
 
   return (
     <div className="flex flex-1 flex-col h-full overflow-hidden bg-white">
-      <div className="sticky top-0 z-30 bg-white border-b px-4 py-3 md:px-8 md:py-4 shadow-sm shrink-0">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 mb-4 md:mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 md:p-2 bg-blue-900 text-white rounded-xl shadow-lg rotate-3">
-              <MonitorPlay className="h-5 w-5 md:h-6 md:w-6" />
+      <div className="sticky top-0 z-30 bg-white border-b px-4 py-2 md:px-8 md:py-4 shadow-sm shrink-0">
+        <div className="flex flex-col gap-3 md:gap-6">
+          {/* Row 1: Title and Search */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="p-1 md:p-2 bg-blue-900 text-white rounded-lg md:rounded-xl shadow-lg rotate-3 shrink-0">
+                <MonitorPlay className="h-4 w-4 md:h-6 md:w-6" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-sm md:text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none truncate">
+                  <span className="md:hidden">TRIP BOARD</span>
+                  <span className="hidden md:inline">MISSION CONTROL BOARD</span>
+                </h1>
+                <p className="hidden md:block text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 md:mt-1">LIVE OPERATIONAL REGISTRY PLANT</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg md:text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none">
-                <span className="md:hidden">TRIP BOARD</span>
-                <span className="hidden md:inline">MISSION CONTROL BOARD</span>
-              </h1>
-              <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 md:mt-1">LIVE OPERATIONAL REGISTRY PLANT</p>
+
+            {/* Search Bar - Right Top for Mobile/Desktop */}
+            <div className="relative flex-1 max-w-[140px] md:max-w-[240px]">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 md:h-4 md:w-4 text-slate-400" />
+              <Input 
+                placeholder="Search..." 
+                value={searchTerm} 
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
+                className="pl-7 md:pl-9 h-8 md:h-10 rounded-lg md:rounded-xl border-slate-200 font-bold bg-slate-50 text-[10px] md:text-sm focus-visible:ring-blue-900" 
+              />
             </div>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:flex xl:items-end gap-2 md:gap-3 bg-slate-50 p-2 md:p-3 rounded-2xl md:rounded-3xl border border-slate-100 shadow-inner w-full lg:w-auto">
-            <div className="grid gap-1">
-              <Label className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 px-1">LIFTING SCOPE</Label>
+          {/* Row 2: Filters */}
+          <div className="grid grid-cols-2 md:flex md:items-end gap-2 bg-slate-50/50 p-2 rounded-xl md:rounded-2xl border border-slate-100 shadow-inner">
+            <div className="flex flex-col gap-0.5">
+              <Label className="text-[7px] md:text-[9px] font-black uppercase text-slate-400 px-1">PLANT SCOPE</Label>
               <MultiSelectPlantFilter options={plants} selected={selectedPlants} onChange={handlePlantChange} isLoading={isAuthLoading} />
             </div>
-            <div className="grid gap-1">
-              <Label className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 px-1">PERIOD FROM</Label>
-              <DatePicker date={fromDate} setDate={setFromDate} className="h-9 rounded-xl bg-white border-none shadow-sm text-[10px] md:text-xs" />
+            <div className="flex flex-col gap-0.5">
+              <Label className="text-[7px] md:text-[9px] font-black uppercase text-slate-400 px-1">DATE FROM</Label>
+              <DatePicker date={fromDate} setDate={setFromDate} className="h-8 md:h-10 rounded-lg md:rounded-xl bg-white border-none shadow-sm text-[9px] md:text-xs px-2" />
             </div>
-            <div className="grid gap-1">
-              <Label className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 px-1">PERIOD TO</Label>
-              <DatePicker date={toDate} setDate={setTodayDate} className="h-9 rounded-xl bg-white border-none shadow-sm text-[10px] md:text-xs" />
+            <div className="flex flex-col gap-0.5">
+              <Label className="text-[7px] md:text-[9px] font-black uppercase text-slate-400 px-1">DATE TO</Label>
+              <DatePicker date={toDate} setDate={setTodayDate} className="h-8 md:h-10 rounded-lg md:rounded-xl bg-white border-none shadow-sm text-[9px] md:text-xs px-2" />
             </div>
-            <div className="grid gap-1">
-              <Label className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 px-1">SEARCH REGISTRY</Label>
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                <Input placeholder="Search trips..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 h-9 w-full xl:w-[200px] rounded-xl border-slate-200 font-bold bg-white text-[10px] md:text-xs" />
-              </div>
-            </div>
-            <div className="flex items-center gap-2 sm:col-span-2 xl:col-span-1 justify-end pt-1">
-              <Button variant="outline" size="sm" onClick={handleDownloadExcel} className="h-9 px-3 md:px-4 font-black uppercase text-[9px] md:text-[10px] tracking-widest border-slate-200 rounded-xl bg-white shadow-sm">
-                <FileDown className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2"/> EXPORT
+            <div className="flex items-center gap-1 mt-auto">
+              <Button variant="outline" size="sm" onClick={handleDownloadExcel} className="h-8 md:h-10 px-2 md:px-4 font-black uppercase text-[8px] md:text-[10px] tracking-widest border-slate-200 rounded-lg md:rounded-xl bg-white shadow-sm flex-1 md:flex-none">
+                <FileDown className="h-3 w-3 md:h-4 md:w-4 mr-1"/> EXPORT
               </Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-blue-900" onClick={() => window.location.reload()}>
-                <RefreshCcw className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-10 md:w-10 text-blue-900" onClick={() => window.location.reload()}>
+                <RefreshCcw className="h-3.5 w-3.5 md:h-4 md:w-4" />
               </Button>
             </div>
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); }} className="w-full">
+        <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); }} className="w-full mt-4">
           <TabsList className="bg-transparent h-9 md:h-10 p-0 border-b-0 gap-4 md:gap-8 justify-start overflow-x-auto no-scrollbar shrink-0">
             {[
                 { id: 'open-order', label: 'Open Order', count: counts.openOrder },
@@ -509,7 +512,7 @@ function TripBoardContent() {
                 />
                 <Pagination 
                     currentPage={currentPage} totalPages={totalPages} 
-                    onPageChange={setCurrentPage} itemCount={sortedData.length} 
+                    onPageChange={setCurrentPage} itemCount={processedData.length} 
                     canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPages} 
                 />
             </div>
