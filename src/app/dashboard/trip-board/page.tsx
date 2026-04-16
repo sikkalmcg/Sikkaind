@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -37,6 +36,11 @@ import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/Printable
 
 export type TripBoardTab = 'pending-assignment' | 'open-order' | 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
+/**
+ * @fileOverview Mission Control Board.
+ * Re-engineered header for optimized mobile visibility.
+ * Flexible grid eliminates filter overlap and layout breakage.
+ */
 function TripBoardContent() {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -495,7 +499,7 @@ function TripBoardContent() {
 
   return (
     <div className="flex flex-1 flex-col h-full overflow-hidden bg-white">
-      <div className="sticky top-0 z-30 bg-white border-b px-4 py-1.5 md:px-8 md:py-2 shadow-sm shrink-0">
+      <div className="sticky top-0 z-30 bg-white border-b px-4 py-1 md:px-8 md:py-2 shadow-sm shrink-0">
         <div className="flex flex-col gap-2 md:gap-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 md:gap-3">
@@ -522,8 +526,8 @@ function TripBoardContent() {
             </div>
           </div>
           
-          <div className="grid grid-cols-2 md:flex md:items-end gap-1.5 bg-slate-50/50 p-1.5 rounded-xl border border-slate-100 shadow-inner">
-            <div className="flex flex-col gap-0.5">
+          <div className="flex flex-wrap items-end gap-1.5 bg-slate-50/50 p-1.5 rounded-xl border border-slate-100 shadow-inner">
+            <div className="flex flex-col gap-0.5 flex-1 min-w-[140px]">
               <Label className="text-[7px] md:text-[8px] font-black uppercase text-slate-400 px-1">PLANT SCOPE</Label>
               <MultiSelectPlantFilter options={plants} selected={selectedPlants} onChange={handlePlantChange} isLoading={isAuthLoading} />
             </div>
