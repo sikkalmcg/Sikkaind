@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -465,59 +466,59 @@ function TripBoardContent() {
 
   return (
     <div className="flex flex-1 flex-col h-full overflow-hidden bg-white">
-      <div className="sticky top-0 z-30 bg-white border-b px-4 py-2 md:px-8 md:py-4 shadow-sm shrink-0">
-        <div className="flex flex-col gap-3 md:gap-6">
+      <div className="sticky top-0 z-30 bg-white border-b px-4 py-1.5 md:px-8 md:py-2 shadow-sm shrink-0">
+        <div className="flex flex-col gap-2 md:gap-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 md:gap-3">
-              <div className="p-1 md:p-1.5 bg-blue-900 text-white rounded-lg md:rounded-xl shadow-lg rotate-3 shrink-0">
-                <MonitorPlay className="h-4 w-4 md:h-5 md:w-5" />
+              <div className="p-1 md:p-1.5 bg-blue-900 text-white rounded-lg shadow-lg rotate-3 shrink-0">
+                <MonitorPlay className="h-3.5 w-3.5 md:h-4 md:w-4" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-sm md:text-2xl font-black text-blue-900 tracking-tight uppercase italic leading-none truncate">
+                <h1 className="text-sm md:text-xl font-black text-blue-900 tracking-tight uppercase italic leading-none truncate">
                   <span className="md:hidden">TRIP BOARD</span>
                   <span className="hidden md:inline">MISSION CONTROL BOARD</span>
                 </h1>
-                <p className="hidden md:block text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 md:mt-1">LIVE OPERATIONAL REGISTRY PLANT</p>
+                <p className="hidden md:block text-[7px] md:text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">LIVE OPERATIONAL REGISTRY PLANT</p>
               </div>
             </div>
 
-            <div className="relative flex-1 max-w-[140px] md:max-w-[240px]">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 md:h-4 md:w-4 text-slate-400" />
+            <div className="relative flex-1 max-w-[140px] md:max-w-[200px]">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
               <Input 
                 placeholder="Search..." 
                 value={searchTerm} 
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
-                className="pl-7 md:pl-9 h-8 md:h-10 rounded-lg md:rounded-xl border-slate-200 font-bold bg-slate-50 text-[10px] md:text-sm focus-visible:ring-blue-900" 
+                className="pl-7 h-8 md:h-9 rounded-lg md:rounded-xl border-slate-200 font-bold bg-slate-50 text-[10px] md:text-xs focus-visible:ring-blue-900 shadow-inner" 
               />
             </div>
           </div>
           
-          <div className="grid grid-cols-2 md:flex md:items-end gap-2 bg-slate-50/50 p-2 rounded-xl md:rounded-2xl border border-slate-100 shadow-inner">
+          <div className="grid grid-cols-2 md:flex md:items-end gap-1.5 bg-slate-50/50 p-1.5 rounded-xl border border-slate-100 shadow-inner">
             <div className="flex flex-col gap-0.5">
-              <Label className="text-[7px] md:text-[9px] font-black uppercase text-slate-400 px-1">PLANT SCOPE</Label>
+              <Label className="text-[7px] md:text-[8px] font-black uppercase text-slate-400 px-1">PLANT SCOPE</Label>
               <MultiSelectPlantFilter options={plants} selected={selectedPlants} onChange={handlePlantChange} isLoading={isAuthLoading} />
             </div>
             <div className="flex flex-col gap-0.5">
-              <Label className="text-[7px] md:text-[9px] font-black uppercase text-slate-400 px-1">DATE FROM</Label>
-              <DatePicker date={fromDate} setDate={setFromDate} className="h-8 md:h-10 rounded-lg md:rounded-xl bg-white border-none shadow-sm text-[9px] md:text-xs px-2" />
+              <Label className="text-[7px] md:text-[8px] font-black uppercase text-slate-400 px-1">DATE FROM</Label>
+              <DatePicker date={fromDate} setDate={setFromDate} className="h-8 md:h-9 rounded-lg bg-white border-none shadow-sm text-[9px] px-2" />
             </div>
             <div className="flex flex-col gap-0.5">
-              <Label className="text-[7px] md:text-[9px] font-black uppercase text-slate-400 px-1">DATE TO</Label>
-              <DatePicker date={toDate} setDate={setTodayDate} className="h-8 md:h-10 rounded-lg md:rounded-xl bg-white border-none shadow-sm text-[9px] md:text-xs px-2" />
+              <Label className="text-[7px] md:text-[8px] font-black uppercase text-slate-400 px-1">DATE TO</Label>
+              <DatePicker date={toDate} setDate={setTodayDate} className="h-8 md:h-9 rounded-lg bg-white border-none shadow-sm text-[9px] px-2" />
             </div>
-            <div className="flex items-center gap-1 mt-auto">
-              <Button variant="outline" size="sm" onClick={handleDownloadExcel} className="h-8 md:h-10 px-2 md:px-4 font-black uppercase text-[8px] md:text-[10px] tracking-widest border-slate-200 rounded-lg md:rounded-xl bg-white shadow-sm flex-1 md:flex-none">
-                <FileDown className="h-3 w-3 md:h-4 md:w-4 mr-1"/> EXPORT
+            <div className="flex items-center gap-1 mt-auto ml-auto">
+              <Button variant="outline" size="sm" onClick={handleDownloadExcel} className="h-8 md:h-9 px-2 md:px-4 font-black uppercase text-[8px] md:text-[9px] tracking-widest border-slate-200 rounded-lg bg-white shadow-sm">
+                <FileDown className="h-3 w-3 mr-1"/> EXPORT
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-10 md:w-10 text-blue-900" onClick={() => window.location.reload()}>
-                <RefreshCcw className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-blue-900" onClick={() => window.location.reload()}>
+                <RefreshCcw className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); }} className="w-full mt-4">
-          <TabsList className="bg-transparent h-9 md:h-10 p-0 border-b-0 gap-4 md:gap-8 justify-start overflow-x-auto no-scrollbar shrink-0">
+        <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); }} className="w-full mt-2 md:mt-3">
+          <TabsList className="bg-transparent h-8 md:h-9 p-0 border-b-0 gap-3 md:gap-6 justify-start overflow-x-auto no-scrollbar shrink-0">
             {[
                 { id: 'pending-assignment', label: 'Assign fleet Pending', count: counts.pendingAssignment, icon: ClipboardList },
                 { id: 'open-order', label: 'Open Order', count: counts.openOrder },
@@ -528,34 +529,36 @@ function TripBoardContent() {
                 { id: 'rejection', label: 'Rejection/SRN', count: counts.rejection },
                 { id: 'closed', label: 'History Ledger', count: counts.closed }
             ].map(t => (
-                <TabsTrigger key={t.id} value={t.id} className="relative h-9 md:h-10 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[9px] md:text-[11px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-1.5 md:gap-2 whitespace-nowrap">
-                    {t.icon && <t.icon className="h-3 md:h-3.5 w-3 md:w-3.5" />}
-                    {t.label} <Badge className="ml-1 md:ml-2 bg-slate-100 text-slate-500 border-none font-black text-[8px] md:text-[9px] px-1.5">{t.count}</Badge>
+                <TabsTrigger key={t.id} value={t.id} className="relative h-8 md:h-9 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[8px] md:text-[10px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-1 md:gap-1.5 whitespace-nowrap">
+                    {t.icon && <t.icon className="h-2.5 md:h-3 w-2.5 md:w-3" />}
+                    {t.label} <Badge className="ml-1 bg-slate-100 text-slate-500 border-none font-black text-[7px] md:text-[8px] px-1 h-4">{t.count}</Badge>
                 </TabsTrigger>
             ))}
           </TabsList>
         </Tabs>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6 bg-slate-50 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-2 md:py-4 bg-slate-50 custom-scrollbar">
         {isLoading ? (
             <div className="flex h-64 flex-col items-center justify-center gap-4">
-                <Loader2 className="h-10 w-10 animate-spin text-blue-900" />
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 animate-pulse">Syncing Registry...</p>
+                <Loader2 className="h-8 w-8 animate-spin text-blue-900" />
+                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-400 animate-pulse">Syncing Registry...</p>
             </div>
         ) : (
-            <div className="space-y-6">
+            <div className="space-y-4">
                 <TripBoardTable 
                     data={paginatedData} 
                     activeTab={activeTab} 
                     isAdmin={isAdminSession} 
                     onAction={handleAction} 
                 />
-                <Pagination 
-                    currentPage={currentPage} totalPages={totalPages} 
-                    onPageChange={setCurrentPage} itemCount={processedData.length} 
-                    canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPages} 
-                />
+                <div className="py-2 px-2 bg-white rounded-xl border border-slate-100">
+                    <Pagination 
+                        currentPage={currentPage} totalPages={totalPages} 
+                        onPageChange={setCurrentPage} itemCount={processedData.length} 
+                        canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPages} 
+                    />
+                </div>
             </div>
         )}
       </div>

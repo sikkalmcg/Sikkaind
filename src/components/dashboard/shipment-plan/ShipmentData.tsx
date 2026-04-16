@@ -231,8 +231,11 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         'Total Units': s.totalUnitsCount || '--',
         'FROM': s.loadingPoint || s.plantName,
         'Consignor': s.consignor || 'N/A',
+        'Consignor Code': s.customerCode || '--',
         'Bill to Party': s.billToParty || 'N/A',
+        'Bill to Code': s.billToCode || '--',
         'Ship to Party': s.shipToParty || 'N/A',
+        'Ship to Code': s.shipToCode || '--',
         'Destination': s.unloadingPoint || 'N/A',
         'Order Qty': s.materialTypeId === 'FTL' ? '1 Load' : `${s.quantity.toFixed(3)} ${s.materialTypeId}`,
         'Status': s.currentStatusId,
@@ -374,21 +377,21 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
   
   return (
     <Card className="border-none shadow-md bg-white rounded-[2.5rem] overflow-hidden">
-      <CardHeader className="bg-slate-50 border-b p-8">
+      <CardHeader className="bg-slate-50 border-b p-4 md:p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-                <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3"><FileText className="h-6 w-6" /></div>
+                <div className="p-1.5 md:p-2 bg-blue-900 text-white rounded-xl shadow-lg rotate-3 shrink-0"><FileText className="h-4 w-4 md:h-5 md:w-5" /></div>
                 <div>
-                    <CardTitle className="text-xl font-black uppercase text-blue-900 italic leading-none">Order Ledger Registry</CardTitle>
-                    <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-2">Consolidated mission plans across authorized plants</CardDescription>
+                    <CardTitle className="text-sm md:text-lg font-black uppercase text-blue-900 italic leading-none">Order Ledger Registry</CardTitle>
+                    <CardDescription className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-400 mt-1 md:mt-2">Consolidated mission plans across authorized plants</CardDescription>
                 </div>
             </div>
             <div className="flex items-center gap-3">
                 {selectedIds.length > 0 && isAdmin && (
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button variant="destructive" className="h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest gap-2 shadow-lg shadow-red-100 animate-in zoom-in duration-300 border-none transition-all active:scale-95">
-                                <Trash2 className="h-4 w-4" /> Purge Selected ({selectedIds.length})
+                            <Button variant="destructive" className="h-9 px-4 rounded-xl font-black uppercase text-[9px] tracking-widest gap-2 shadow-lg border-none active:scale-95">
+                                <Trash2 className="h-3.5 w-3.5" /> Purge ({selectedIds.length})
                             </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent className="border-none shadow-3xl rounded-[2rem] p-0 overflow-hidden bg-white">
@@ -401,7 +404,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                             </div>
                             <div className="p-10">
                                 <p className="text-sm font-medium text-slate-600 leading-relaxed italic border-l-4 border-red-100 pl-4">
-                                    "You are about to permanently erase <span className="font-black text-slate-900">{selectedIds.length} mission nodes</span> from the active registry. All associated vehicle allocations will be reverted and records moved to system archive. This action is irreversible."
+                                    "You are about to permanently erase <span className="font-black text-slate-900">{selectedIds.length} mission nodes</span> from the active registry. This action is irreversible."
                                 </p>
                             </div>
                             <AlertDialogFooter className="bg-slate-50 p-6 flex-row justify-end gap-3 border-t">
@@ -412,16 +415,16 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                     </AlertDialog>
                 )}
                 <div className="relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
                     <Input
-                        placeholder="Quick filter registry..."
+                        placeholder="Filter registry..."
                         value={searchTerm}
                         onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                        className="pl-10 w-[320px] h-11 rounded-2xl bg-white border-slate-200 shadow-sm font-bold focus-visible:ring-blue-900"
+                        className="pl-9 w-full md:w-[240px] h-9 rounded-xl bg-white border-slate-200 shadow-sm font-bold focus-visible:ring-blue-900 text-[10px]"
                     />
                 </div>
-                <Button variant="outline" size="sm" onClick={handleExport} className="h-11 px-6 gap-2 font-black text-[11px] uppercase border-slate-200 text-blue-900 bg-white shadow-sm hover:bg-slate-50 transition-all">
-                    <FileDown className="h-4 w-4" /> Export Ledger
+                <Button variant="outline" size="sm" onClick={handleExport} className="h-9 px-4 gap-2 font-black text-[9px] uppercase border-slate-200 text-blue-900 bg-white shadow-sm hover:bg-slate-50 transition-all">
+                    <FileDown className="h-3.5 w-3.5" /> Export
                 </Button>
             </div>
         </div>
@@ -431,41 +434,37 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             <div className="overflow-auto max-h-[600px] custom-scrollbar border-t">
                 <Table className="border-collapse w-full min-w-[1400px]">
                     <TableHeader className="bg-slate-100 sticky top-0 z-50 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
-                    <TableRow className="h-14 hover:bg-transparent border-b-2 border-slate-200">
+                    <TableRow className="h-10 md:h-12 hover:bg-transparent border-b-2 border-slate-200">
                         {isAdmin && (
                             <TableHead className="w-16 px-6 bg-slate-100">
                                 <Checkbox 
                                     checked={isAllOnPageSelected}
                                     onCheckedChange={(checked) => handleSelectAllOnPage(!!checked)}
-                                    className="h-5 w-5 data-[state=checked]:bg-blue-900 shadow-md border-slate-300"
+                                    className="h-4 w-4 data-[state=checked]:bg-blue-900 shadow-sm border-slate-300"
                                 />
                             </TableHead>
                         )}
-                        <TableHead className="text-[10px] font-black uppercase px-6 w-32 bg-slate-100">Plant</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 w-36 bg-slate-100">Order ID</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40 bg-slate-100">Order Date</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 w-36 text-center bg-slate-100">Vehicle No</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100">Pilot Mobile</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100">Invoice No</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100">E-Waybill No</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100">LR No</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100">LR Date</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100">Consignor</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100">Consignee</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100">Item Description</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-24 bg-slate-100">Units</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-right w-32 bg-slate-100">Order Qty</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40 bg-slate-100">Status</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-8 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-24">Action</TableHead>
+                        <TableHead className="text-[9px] font-black uppercase px-6 w-32 bg-slate-100">Plant</TableHead>
+                        <TableHead className="text-[9px] font-black uppercase px-4 w-36 bg-slate-100">Order ID</TableHead>
+                        <TableHead className="text-[9px] font-black uppercase px-4 text-center w-40 bg-slate-100">Order Date</TableHead>
+                        <TableHead className="text-[9px] font-black uppercase px-4 w-36 text-center bg-slate-100">Vehicle No</TableHead>
+                        <TableHead className="text-[9px] font-black uppercase px-4 text-center w-36 bg-slate-100">Pilot Mobile</TableHead>
+                        <TableHead className="text-[9px] font-black uppercase px-4 text-center w-36 bg-slate-100">LR No</TableHead>
+                        <TableHead className="text-[9px] font-black uppercase px-4 w-48 bg-slate-100">Consignor</TableHead>
+                        <TableHead className="text-[9px] font-black uppercase px-4 w-48 bg-slate-100">Consignee</TableHead>
+                        <TableHead className="text-[9px] font-black uppercase px-4 w-40 bg-slate-100">Destination</TableHead>
+                        <TableHead className="text-[9px] font-black uppercase px-4 text-right w-32 bg-slate-100">Order Qty</TableHead>
+                        <TableHead className="text-[9px] font-black uppercase px-4 text-center w-40 bg-slate-100">Status</TableHead>
+                        <TableHead className="text-[9px] font-black uppercase px-8 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-24">Action</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
                     {loading ? (
                         Array.from({ length: 5 }).map((_, i) => (
-                        <TableRow key={i} className="h-16"><TableCell colSpan={isAdmin ? 17 : 16} className="px-6 py-2"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                        <TableRow key={i} className="h-12 md:h-14"><TableCell colSpan={isAdmin ? 12 : 11} className="px-6 py-2"><Skeleton className="h-6 w-full" /></TableCell></TableRow>
                         ))
                     ) : paginatedShipments.length === 0 ? (
-                        <TableRow><TableCell colSpan={isAdmin ? 17 : 16} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={isAdmin ? 12 : 11} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
                     ) : (
                         paginatedShipments.map(s => {
                         const isChecked = selectedIds.includes(s.id);
@@ -476,7 +475,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                         
                         return (
                             <TableRow key={s.id} className={cn(
-                                "hover:bg-blue-50/20 even:bg-slate-50/50 transition-all h-16 border-b border-slate-100 last:border-0 group text-[11px] font-medium text-slate-600",
+                                "hover:bg-blue-50/20 even:bg-slate-50/50 transition-all h-12 md:h-14 border-b border-slate-100 last:border-0 group text-[10px] md:text-[11px] font-medium text-slate-600",
                                 isChecked && "bg-blue-50/40"
                             )}>
                             {isAdmin && (
@@ -484,77 +483,50 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                                     <Checkbox 
                                         checked={isChecked}
                                         onCheckedChange={(checked) => handleSelectRow(s.id, !!checked)}
-                                        className="h-5 w-5 data-[state=checked]:bg-blue-900 shadow-sm border-slate-300"
+                                        className="h-4 w-4 data-[state=checked]:bg-blue-900 shadow-sm border-slate-300"
                                     />
                                 </TableCell>
                             )}
                             <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{s.plantName}</TableCell>
-                            <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs">{s.shipmentId}</TableCell>
+                            <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-[10px]">{s.shipmentId}</TableCell>
                             <TableCell className="px-4 text-center whitespace-nowrap text-slate-500 font-bold">{formatSafeDateString(s.creationDate, 'dd/MM/yy HH:mm')}</TableCell>
                             <TableCell className="px-4 text-center font-black text-slate-900 uppercase tracking-tighter">{s.vehicleNumber || '--'}</TableCell>
                             <TableCell className="px-4 text-center font-mono font-bold text-slate-400">{s.driverMobile || '--'}</TableCell>
-                            <TableCell className="px-4 text-center font-bold text-slate-800">{s.summarizedInvoices}</TableCell>
-                            <TableCell className="px-4 text-center font-bold text-slate-800">{s.ewaybillNumber || '--'}</TableCell>
                             <TableCell className="px-4 text-center">
                                 {s.lrNumber ? (
                                     <button 
                                         type="button" 
                                         onClick={(e) => openLRPrint(e, s)} 
-                                        className="font-black text-blue-700 hover:underline underline-offset-4 decoration-blue-200 uppercase text-[11px]"
+                                        className="font-black text-blue-700 hover:underline underline-offset-4 decoration-blue-200 uppercase text-[10px]"
                                     >
                                         {s.lrNumber}
                                     </button>
                                 ) : '--'}
                             </TableCell>
-                            <TableCell className="px-4 text-center whitespace-nowrap text-slate-500">{formatSafeDateString(s.lrDate, 'dd/MM/yy')}</TableCell>
-                            <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={s.consignor}>{s.consignor}</TableCell>
-                            <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={s.billToParty}>{s.billToParty}</TableCell>
-                            <TableCell className="px-4 truncate font-medium text-slate-500 uppercase italic text-[10px]" title={s.summarizedItems}>"{s.summarizedItems}"</TableCell>
-                            <TableCell className="px-4 text-center font-black text-slate-900">{s.totalUnitsCount}</TableCell>
+                            <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px]" title={s.consignor}>{s.consignor}</TableCell>
+                            <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px]" title={s.billToParty}>{s.billToParty}</TableCell>
+                            <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-[10px]">{s.unloadingPoint}</TableCell>
                             <TableCell className="px-4 text-right font-black text-blue-900">
                                 {s.materialTypeId === 'FTL' ? '1 LOAD' : s.quantity.toFixed(3)}
                             </TableCell>
                             <TableCell className="px-4 text-center">
-                                <Badge variant="outline" className={cn("text-[9px] font-black uppercase px-2.5 h-6 border shadow-sm", getStatusColor(s.currentStatusId))}>
+                                <Badge variant="outline" className={cn("text-[8px] font-black uppercase px-2 h-5 md:h-6 border shadow-sm", getStatusColor(s.currentStatusId))}>
                                     {s.currentStatusId}
                                 </Badge>
                             </TableCell>
                             <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
-                                <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:bg-green-50" disabled={!canAssign} onClick={() => handleOpenAssignModal(s)}>
-                                                    <PlusCircle className="h-4 w-4" />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent className="bg-slate-900 text-white font-black uppercase text-[10px]">{!canAssign ? 'Blocked' : 'Assign Fleet'}</TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:bg-blue-50" disabled={!canEdit} onClick={() => onEdit(s)}>
-                                                    <Edit2 className="h-4 w-4" />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent className="bg-slate-900 text-white font-black uppercase text-[10px]">Registry Lock</TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <div className="inline-block">
-                                                    <DeleteShipmentConfirmationDialog onConfirm={() => onDelete(s.id)} shipment={s} disabled={!isAdmin}>
-                                                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50" disabled={!isAdmin}>
-                                                            <Ban className="h-4 w-4" />
-                                                        </Button>
-                                                    </DeleteShipmentConfirmationDialog>
-                                                </div>
-                                            </TooltipTrigger>
-                                            <TooltipContent className="bg-slate-900 text-white font-black uppercase text-[10px]">Revocation</TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
+                                <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-green-600 hover:bg-green-50" disabled={!canAssign} onClick={() => handleOpenAssignModal(s)}>
+                                        <PlusCircle className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50" disabled={!canEdit} onClick={() => onEdit(s)}>
+                                        <Edit2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <DeleteShipmentConfirmationDialog onConfirm={() => onDelete(s.id)} shipment={s} disabled={!isAdmin}>
+                                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50" disabled={!isAdmin}>
+                                            <Ban className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </DeleteShipmentConfirmationDialog>
                                 </div>
                             </TableCell>
                             </TableRow>
@@ -566,12 +538,12 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             </div>
         </div>
         
-        <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-10">
-                <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows:</span>
+        <div className="p-4 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows:</span>
                     <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
-                        <SelectTrigger className="h-9 w-[80px] rounded-xl border-slate-200 bg-white font-black text-xs shadow-sm">
+                        <SelectTrigger className="h-8 w-[70px] rounded-lg border-slate-200 bg-white font-black text-[10px] shadow-sm">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
@@ -584,9 +556,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 </div>
                 {selectedIds.length > 0 && (
                     <div className="flex items-center gap-2 animate-in slide-in-from-left-2">
-                        <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                        <span className="text-[10px] font-black uppercase text-blue-900">{selectedIds.length} Nodes Selected</span>
-                        <button onClick={() => setSelectedIds([])} className="text-[10px] font-bold text-slate-400 hover:text-red-600 underline ml-2">Clear</button>
+                        <CheckCircle2 className="h-3.5 w-3.5 text-blue-600" />
+                        <span className="text-[9px] font-black uppercase text-blue-900">{selectedIds.length} Nodes Selected</span>
+                        <button onClick={() => setSelectedIds([])} className="text-[9px] font-bold text-slate-400 hover:text-red-600 underline ml-1">Clear</button>
                     </div>
                 )}
             </div>

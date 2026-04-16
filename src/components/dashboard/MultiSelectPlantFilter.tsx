@@ -29,7 +29,7 @@ interface MultiSelectPlantFilterProps {
 /**
  * @fileOverview Multi-Select Plant Filter Node.
  * Hardened for accurate pluralization and staged selection logic.
- * Fixed: Popover height management for mobile to ensure Apply button visibility.
+ * Fixed: Label bug where count was out of sync with checkboxes.
  */
 export default function MultiSelectPlantFilter({
   options,
@@ -78,15 +78,19 @@ export default function MultiSelectPlantFilter({
 
   const getButtonLabel = () => {
     if (isLoading) return 'Syncing Plants...';
-    if (selected.length === 0) return 'Select Plant';
-    const isAll = options.length > 0 && selected.length === options.length;
+    
+    // UI Fix: Use stagedSelected when open to show real-time count
+    const currentList = open ? stagedSelected : selected;
+    
+    if (currentList.length === 0) return 'Select Plant';
+    const isAll = options.length > 0 && currentList.length === options.length;
     if (isAll && options.length > 1) return 'All Authorized Plants';
     
-    const count = selected.length;
+    const count = currentList.length;
     const unit = count === 1 ? 'Plant' : 'Plants';
     
     if (count === 1) {
-        const plant = options.find(o => o.id === selected[0]);
+        const plant = options.find(o => o.id === currentList[0]);
         return `1 Plant Selected${plant ? ` (${plant.id})` : ''}`;
     }
     
@@ -140,6 +144,7 @@ export default function MultiSelectPlantFilter({
           >
             <Checkbox
               checked={isAllSelected}
+              onCheckedChange={handleSelectAll}
               className="border-slate-300 data-[state=checked]:bg-blue-900 data-[state=checked]:border-blue-900 pointer-events-none"
             />
             <span
@@ -173,6 +178,7 @@ export default function MultiSelectPlantFilter({
                 >
                   <Checkbox
                     checked={stagedSelected.includes(option.id)}
+                    onCheckedChange={() => handleToggle(option.id)}
                     className="border-slate-300 data-[state=checked]:bg-blue-900 data-[state=checked]:border-blue-900 pointer-events-none"
                   />
                   <span
