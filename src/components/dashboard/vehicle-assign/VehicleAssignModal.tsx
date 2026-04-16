@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, isValid } from 'date-fns';
+import { format } from 'date-fns';
 import { 
   Dialog, 
   DialogContent, 
@@ -35,15 +35,10 @@ import {
     Factory,
     Calculator,
     UserCircle,
-    Lock,
-    ArrowRightLeft,
-    AlertCircle,
     X,
     IndianRupee,
-    Weight,
     Smartphone,
     User,
-    CheckCircle2,
     Package,
     ClipboardList
 } from 'lucide-react';
@@ -66,7 +61,6 @@ import {
 import { normalizePlantId, generateRandomTripId } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
-import { useJsApiLoader } from '@react-google-maps/api';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 
 interface VehicleAssignModalProps {
@@ -79,8 +73,6 @@ interface VehicleAssignModalProps {
 }
 
 const VEHICLE_REGEX = /^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/;
-const MAPS_JS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
-const MAP_LIBRARIES: ("places")[] = ['places'];
 
 const formSchema = z.object({
     isNewVehicle: z.boolean().default(false),
@@ -125,12 +117,9 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
   const userProfileRef = useMemo(() => (firestore && user) ? doc(firestore, "users", user.uid) : null, [firestore, user]);
   const { data: userProfile } = useDoc<SubUser>(userProfileRef);
   
-  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: MAPS_JS_KEY, libraries: MAP_LIBRARIES });
-
   const [vehiclesAtGate, setVehiclesAtGate] = useState<any[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [calculatingDistance, setCalculatingDistance] = useState(false);
   const isEditing = !!trip;
 
   const totalBalanceQty = useMemo(() => {
@@ -148,7 +137,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
   });
   const { watch, setValue, handleSubmit, reset, control, formState: { isSubmitting, errors } } = form;
 
-  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate, isFixRate, fixedAmount, distance: currentDistance } = watch();
+  const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate, isFixRate, fixedAmount } = watch();
 
   const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
   const { data: plants } = useCollection<Plant>(plantsQuery);
@@ -232,26 +221,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
     };
     fetchRegistryData();
   }, [isOpen, firestore, primaryShipment?.originPlantId]);
-
-  useEffect(() => {
-    if (!isLoaded || !isOpen || !primaryShipment?.loadingPoint || !primaryShipment?.unloadingPoint || isEditing) return;
-    const calculate = () => {
-      setCalculatingDistance(true);
-      const service = new google.maps.DirectionsService();
-      service.route({
-          origin: primaryShipment.loadingPoint!,
-          destination: primaryShipment.unloadingPoint!,
-          travelMode: google.maps.TravelMode.DRIVING,
-      }, (response, status) => {
-          setCalculatingDistance(false);
-          if (status === 'OK' && response) {
-              const distKm = (response.routes[0].legs[0].distance?.value || 0) / 1000;
-              setValue('distance', Number(distKm.toFixed(2)));
-          }
-      });
-    };
-    calculate();
-  }, [isLoaded, isOpen, primaryShipment?.loadingPoint, primaryShipment?.unloadingPoint, setValue, isEditing]);
 
   const balanceQty = useMemo(() => {
     const currentPool = isEditing ? (totalBalanceQty + (trip?.assignedQtyInTrip || 0)) : totalBalanceQty;
@@ -613,19 +582,13 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                     </Card>
 
                     <Card className="p-8 md:p-10 rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-xl flex items-center gap-8 relative overflow-hidden group">
-                        <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Routing Distance node</span>
-                            <div className="flex items-center gap-3">
-                                <h4 className="text-4xl md:text-6xl font-black text-blue-900 tracking-tighter">
-                                    {calculatingDistance ? <Loader2 className="h-10 w-10 animate-spin" /> : (currentDistance || '--')}
-                                </h4>
-                                <span className="text-xl md:text-2xl font-black text-slate-300">KM</span>
-                            </div>
-                        </div>
-                        <div className="h-20 w-px bg-slate-100 mx-4" />
-                        <div className="flex items-start gap-4">
-                            <AlertCircle className="h-7 w-7 text-blue-600 shrink-0 mt-1 hidden sm:block" />
-                            <p className="text-[10px] font-bold text-slate-500 uppercase leading-relaxed max-w-[200px]">Distance node synchronized with Google Maps mission routing protocol.</p>
+                        <div className="flex flex-col gap-4">
+                            <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.3em] flex items-center gap-2">
+                                <ShieldCheck className="h-4 w-4 text-emerald-600" /> Authorized Registry Handshake
+                            </span>
+                            <p className="text-xs font-bold text-slate-400 leading-relaxed uppercase max-w-[300px]">
+                                This allocation is being recorded in the mission ledger. Ensure all particulars match the physical manifest before committing the node.
+                            </p>
                         </div>
                     </Card>
                 </div>
@@ -634,7 +597,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                     <button type="button" onClick={onClose} className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-blue-900 transition-all py-2">ABORT ALLOCATION</button>
                     <Button 
                         type="submit" 
-                        disabled={isSubmitting || calculatingDistance} 
+                        disabled={isSubmitting} 
                         className="h-16 px-16 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none"
                     >
                         {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} {isEditing ? 'Update Registry' : 'Establish Mission Node'}
