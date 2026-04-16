@@ -18,10 +18,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { 
   Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+  SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -482,7 +479,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                     </div>
                 </Card>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <div className="grid grid-cols-1 gap-10">
                     <Card className={cn("p-8 md:p-10 transition-all duration-500 rounded-[2.5rem] shadow-xl", vehicleType === 'Market Vehicle' ? "bg-blue-50/30 border-2 border-blue-100 opacity-100" : "opacity-40 grayscale pointer-events-none border-slate-100")}>
                         <div className="flex items-center gap-3 mb-8 px-2">
                             <IndianRupee className="h-5 w-5 text-blue-600" />
@@ -577,17 +574,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                                     {isFixRate ? 'FIX RATE: ' : ''}₹ {calculatedFreight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </div>
                             </div>
-                        </div>
-                    </Card>
-
-                    <Card className="p-8 md:p-10 rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-xl flex items-center gap-8 relative overflow-hidden group">
-                        <div className="flex flex-col gap-4">
-                            <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.3em] flex items-center gap-2">
-                                <ShieldCheck className="h-4 w-4 text-emerald-600" /> Authorized Registry Handshake
-                            </span>
-                            <p className="text-xs font-bold text-slate-400 leading-relaxed uppercase max-w-[300px]">
-                                This allocation is being recorded in the mission ledger. Ensure all particulars match the physical manifest before committing the node.
-                            </p>
                         </div>
                     </Card>
                 </div>
