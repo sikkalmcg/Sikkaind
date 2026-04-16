@@ -52,7 +52,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser, FuelPump } from '@/types';
 import { VehicleTypes } from '@/lib/constants';
-import { useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
+import { useFirestore, useUser, useMemoFirebase, useDoc, useCollection } from "@/firebase";
 import { 
   collection, 
   doc, 
@@ -150,11 +150,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
   const { isNewVehicle, vehicleId, assignQty, vehicleNumber, vehicleType, freightRate, isFixRate, fixedAmount, distance: currentDistance } = watch();
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
   const { data: plants } = useCollection<Plant>(plantsQuery);
 
@@ -172,6 +167,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
     return (vendors || [])
       .map(v => ({ value: v.id, label: v.name }));
   }, [vendors]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (isOpen && primaryShipment) {
@@ -434,7 +434,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
           <Form {...form}>
             <form className="space-y-10" onSubmit={handleSubmit(onSubmit)}>
-                <Card className="border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden">
+                <Card className="border-none shadow-2xl rounded-[2rem] md:rounded-[2.5rem] bg-white overflow-hidden">
                     <div className="p-6 md:p-8 bg-slate-50 border-b flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <h3 className="font-black text-xs uppercase tracking-[0.3em] text-slate-500 flex items-center gap-3"><Truck className="h-5 w-5 text-blue-600"/> Fleet Entry Control</h3>
                         <div className="bg-white p-1 rounded-xl border-2 border-slate-200 shadow-inner flex items-center gap-1">
@@ -673,4 +673,3 @@ function ContextNode({ label, value, icon: Icon, className, bold }: any) {
         </div>
     );
 }
-
