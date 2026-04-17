@@ -57,12 +57,6 @@ const getStatusColor = (status: string) => {
     }
 }
 
-const formatDate = (date: any) => {
-    if (!date) return '--';
-    const d = parseSafeDate(date);
-    return d ? format(d, 'dd/MM/yy HH:mm') : '--';
-};
-
 const cleanName = (name?: string) => {
     if (!name) return '--';
     return name.split('@')[0].toUpperCase();
@@ -111,11 +105,11 @@ export default function TripBoardTable({
                             />
                         </TableHead>
                         <TableHead className="px-6 w-32 bg-slate-100">Plant</TableHead>
-                        <TableHead className="px-4 w-36 bg-slate-100">Order ID</TableHead>
+                        <TableHead className="px-4 w-36 bg-slate-100">Sales Order No</TableHead>
                         <TableHead className="px-4 w-48 bg-slate-100">Consignor</TableHead>
                         <TableHead className="px-4 w-48 bg-slate-100">Consignee</TableHead>
                         <TableHead className="px-4 w-48 bg-slate-100">Destination</TableHead>
-                        <TableHead className="px-4 w-32 text-right bg-slate-100">Total Qty</TableHead>
+                        <TableHead className="px-4 w-32 text-right bg-slate-100">Order Qty</TableHead>
                         <TableHead className="px-4 w-32 text-right bg-slate-100">Balance Qty</TableHead>
                         <TableHead className="px-4 text-center bg-slate-100">Status</TableHead>
                         <TableHead className="px-8 w-24 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">Action</TableHead>
@@ -123,7 +117,7 @@ export default function TripBoardTable({
                 </TableHeader>
                 <TableBody>
                     {data.length === 0 ? (
-                        <TableRow><TableCell colSpan={10} className="h-48 text-center text-slate-400 italic font-black uppercase tracking-widest opacity-20">No pending assignments.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={10} className="h-64 text-center text-slate-400 italic font-black uppercase tracking-widest opacity-20">No pending assignments.</TableCell></TableRow>
                     ) : (
                         data.map((row) => (
                             <TableRow key={row.id} className="h-12 md:h-14 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 even:bg-slate-50/30 transition-all group text-[10px] md:text-[11px] font-medium text-slate-600">

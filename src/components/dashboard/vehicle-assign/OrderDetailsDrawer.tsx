@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -15,10 +16,6 @@ interface OrderDetailsDrawerProps {
   shipment: any;
 }
 
-/**
- * @fileOverview SIKKA LMC - Order Payload Registry View.
- * Specialized read-only drawer for inspecting full sale order particulars.
- */
 export default function OrderDetailsDrawer({ isOpen, onClose, shipment }: OrderDetailsDrawerProps) {
   if (!shipment) return null;
 
@@ -26,11 +23,11 @@ export default function OrderDetailsDrawer({ isOpen, onClose, shipment }: OrderD
 
   const detailNodes = [
     { label: 'Plant Node', value: shipment.plantName || shipment.originPlantId, icon: Factory },
-    { label: 'Registry Order ID', value: shipment.shipmentId, icon: FileText, bold: true, color: 'text-blue-700' },
+    { label: 'Sales Order No', value: shipment.shipmentId, icon: FileText, bold: true, color: 'text-blue-700' },
     { label: 'Creation Pulse', value: format(creationDate, 'dd MMM yyyy | HH:mm'), icon: Clock },
-    { label: 'Aggregate Weight', value: `${shipment.quantity} ${shipment.materialTypeId}`, icon: Calculator, bold: true },
-    { label: 'Assigned Weight', value: `${shipment.assignedQty || 0} ${shipment.materialTypeId}`, icon: ShieldCheck, color: 'text-emerald-600' },
-    { label: 'Registry Balance', value: `${shipment.balanceQty || 0} ${shipment.materialTypeId}`, icon: TrendingUp, color: 'text-orange-600' },
+    { label: 'Aggregate Weight', value: `${shipment.quantity} MT`, icon: Calculator, bold: true },
+    { label: 'Assigned Weight', value: `${shipment.assignedQty || 0} MT`, icon: ShieldCheck, color: 'text-emerald-600' },
+    { label: 'Registry Balance', value: `${shipment.balanceQty || 0} MT`, icon: TrendingUp, color: 'text-orange-600' },
   ];
 
   return (
@@ -53,7 +50,8 @@ export default function OrderDetailsDrawer({ isOpen, onClose, shipment }: OrderD
 
         <ScrollArea className="max-h-[70vh] p-8 bg-[#f8fafc]">
             <div className="space-y-10">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-8 p-10 bg-white rounded-[2rem] border-2 border-slate-100 shadow-xl">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-8 p-10 bg-white rounded-[2rem] border-2 border-slate-100 shadow-xl relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-2 h-full bg-blue-900" />
                     {detailNodes.map((node, i) => (
                         <div key={i} className="space-y-1.5">
                             <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
@@ -61,7 +59,7 @@ export default function OrderDetailsDrawer({ isOpen, onClose, shipment }: OrderD
                             </span>
                             <p className={cn(
                                 "text-sm uppercase leading-tight",
-                                node.bold ? "font-black text-slate-900" : "font-bold text-slate-600",
+                                node.bold ? "font-black text-slate-900" : "font-bold text-slate-700",
                                 node.color
                             )}>{node.value}</p>
                         </div>
@@ -117,10 +115,7 @@ export default function OrderDetailsDrawer({ isOpen, onClose, shipment }: OrderD
         </ScrollArea>
 
         <DialogFooter className="p-8 bg-slate-50 border-t shrink-0 flex-row justify-end gap-4">
-            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest mr-auto flex items-center gap-2 italic">
-                <ShieldCheck className="h-4 w-4 text-blue-600" /> Authorized Registry Pulse Sync: Optimal
-            </span>
-            <Button onClick={onClose} className="bg-slate-900 hover:bg-black text-white px-12 h-12 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl border-none transition-all active:scale-95">
+            <Button onClick={onClose} className="bg-slate-900 hover:bg-black text-white px-12 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl border-none transition-all active:scale-95">
                 Close Registry
             </Button>
         </DialogFooter>
