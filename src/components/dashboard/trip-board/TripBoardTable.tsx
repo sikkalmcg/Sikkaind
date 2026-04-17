@@ -158,6 +158,7 @@ export default function TripBoardTable({
         <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b">
           <TableRow className="h-10 md:h-12 hover:bg-transparent text-[9px] md:text-[10px] font-black uppercase text-slate-500">
             <TableHead className="px-6 w-32 bg-slate-100">Plant</TableHead>
+            <TableHead className="text-[9px] md:text-[10px] font-black uppercase px-4 w-36 bg-slate-100">Sales Order No</TableHead>
             <TableHead className="px-4 w-36 text-center bg-slate-100">LR No</TableHead>
             <TableHead className="px-4 w-32 text-center bg-slate-100">LR Date</TableHead>
             <TableHead className="px-4 w-32 bg-slate-100">Trip ID</TableHead>
@@ -172,7 +173,7 @@ export default function TripBoardTable({
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={10} className="h-48 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
+              <TableCell colSpan={11} className="h-48 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
                 No records detected in {activeTab} view.
               </TableCell>
             </TableRow>
@@ -180,6 +181,7 @@ export default function TripBoardTable({
             data.map((row) => (
               <TableRow key={row.id} className="h-12 md:h-14 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 transition-all group text-[10px] md:text-[11px] font-medium text-slate-600">
                 <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{row.plantName}</TableCell>
+                <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-[10px] md:text-xs">{row.orderNo || '--'}</TableCell>
                 <TableCell className="px-4 text-center">
                     <LRButton row={row} />
                 </TableCell>

@@ -23,12 +23,13 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import type { Plant, Shipment, WithId, Party, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Search, Truck, Calculator, Trash2, Plus, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save, FileDown, Upload, History, Fingerprint } from 'lucide-react';
+import { ShieldCheck, Search, Truck, Calculator, Trash2, Plus, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save, FileDown, Upload, History, Fingerprint, Weight } from 'lucide-react';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDocs, limit } from "firebase/firestore";
 import { cn, normalizePlantId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import { PaymentTerms } from '@/lib/constants';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 const formSchema = z.object({
   originPlantId: z.string().min(1, 'Plant selection is required.'),
@@ -522,9 +523,11 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                             </Label>
                             <FormField control={control} name="originPlantId" render={({ field }) => (
                                 <Select onValueChange={field.onChange} value={field.value}>
-                                    <SelectTrigger className="h-9 w-full md:w-[180px] bg-slate-50 rounded-lg font-black text-blue-900 border-none shadow-sm focus:ring-blue-900 text-[10px]">
-                                        <SelectValue placeholder="Pick plant" />
-                                    </SelectTrigger>
+                                    <FormControl>
+                                        <SelectTrigger className="h-9 w-full md:w-[180px] bg-slate-50 rounded-lg font-black text-blue-900 border-none shadow-sm focus:ring-blue-900 text-[10px]">
+                                            <SelectValue placeholder="Pick plant" />
+                                        </SelectTrigger>
+                                    </FormControl>
                                     <SelectContent className="rounded-xl">
                                         {authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-2 uppercase italic text-black text-[10px]">{p.name}</SelectItem>)}
                                     </SelectContent>
@@ -596,7 +599,10 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                       )} />
                       <FormField control={control} name="paymentTerm" render={({ field }) => (
                         <FormItem><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">Payment Term</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl><SelectContent className="rounded-xl">{PaymentTerms.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl>
+                                <SelectContent className="rounded-xl">{PaymentTerms.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                            </Select>
                         </FormItem>
                       )} />
                   </div>
