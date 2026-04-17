@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -219,7 +218,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
   const handleExport = () => {
     const dataToExport = filteredShipments.map(s => ({
         'Plant': s.plantName,
-        'Order ID': s.shipmentId,
+        'Sales Order No': s.shipmentId,
         'Order Date': formatSafeDateString(s.creationDate, 'dd/MM/yy HH:mm'),
         'Vehicle Number': s.vehicleNumber || '--',
         'Pilot Mobile': s.driverMobile || '--',
@@ -237,7 +236,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         'Ship to Party': s.shipToParty || 'N/A',
         'Ship to Code': s.shipToCode || '--',
         'Destination': s.unloadingPoint || 'N/A',
-        'Order Qty': s.materialTypeId === 'FTL' ? '1 Load' : `${s.quantity.toFixed(3)} ${s.materialTypeId}`,
+        'Order Qty': `${s.quantity.toFixed(3)} MT`,
         'Status': s.currentStatusId,
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -334,8 +333,10 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 buyerName: row.billToParty || '',
                 buyerAddress: row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
                 buyerGtin: row.billToGtin || '',
+                buyerCode: row.billToCode || '',
                 shipToParty: row.shipToParty || row.billToParty || '',
                 shipToGtin: row.shipToGtin || '',
+                shipToCode: row.shipToCode || '',
                 deliveryAddress: row.deliveryAddress || row.unloadingPoint || '',
                 vehicleNumber: row.vehicleNumber || '--',
                 driverName: row.driverName || '--',
@@ -359,8 +360,10 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 buyerName: lrDoc.buyerName || row.billToParty || '',
                 buyerAddress: lrDoc.buyerAddress || row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
                 buyerGtin: lrDoc.buyerGtin || row.billToGtin || '',
+                buyerCode: lrDoc.buyerCode || row.billToCode || '',
                 shipToParty: lrDoc.shipToParty || row.shipToParty || row.billToParty || '',
                 shipToGtin: lrDoc.shipToGtin || row.shipToGtin || '',
+                shipToCode: lrDoc.shipToCode || row.shipToCode || '',
                 deliveryAddress: lrDoc.deliveryAddress || row.deliveryAddress || row.unloadingPoint || '',
                 vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
                 driverName: row.driverName || lrDoc.driverName,
@@ -445,7 +448,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                             </TableHead>
                         )}
                         <TableHead className="text-[9px] font-black uppercase px-6 w-32 bg-slate-100">Plant</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase px-4 w-36 bg-slate-100">Order ID</TableHead>
+                        <TableHead className="text-[9px] font-black uppercase px-4 w-36 bg-slate-100">Sales Order No</TableHead>
                         <TableHead className="text-[9px] font-black uppercase px-4 text-center w-40 bg-slate-100">Order Date</TableHead>
                         <TableHead className="text-[9px] font-black uppercase px-4 w-36 text-center bg-slate-100">Vehicle No</TableHead>
                         <TableHead className="text-[9px] font-black uppercase px-4 text-center w-36 bg-slate-100">Pilot Mobile</TableHead>
@@ -461,7 +464,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                     <TableBody>
                     {loading ? (
                         Array.from({ length: 5 }).map((_, i) => (
-                        <TableRow key={i} className="h-12 md:h-14"><TableCell colSpan={isAdmin ? 12 : 11} className="px-6 py-2"><Skeleton className="h-6 w-full" /></TableCell></TableRow>
+                        <TableRow key={i} className="h-12 md:h-14"><TableCell colSpan={isAdmin ? 12 : 11} className="px-6 py-2"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                         ))
                     ) : paginatedShipments.length === 0 ? (
                         <TableRow><TableCell colSpan={isAdmin ? 12 : 11} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
@@ -507,7 +510,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                             <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px]" title={s.billToParty}>{s.billToParty}</TableCell>
                             <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-[10px]">{s.unloadingPoint}</TableCell>
                             <TableCell className="px-4 text-right font-black text-blue-900">
-                                {s.materialTypeId === 'FTL' ? '1 LOAD' : s.quantity.toFixed(3)}
+                                {`${s.quantity.toFixed(3)} MT`}
                             </TableCell>
                             <TableCell className="px-4 text-center">
                                 <Badge variant="outline" className={cn("text-[8px] font-black uppercase px-2 h-5 md:h-6 border shadow-sm", getStatusColor(s.currentStatusId))}>
@@ -578,7 +581,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         <VehicleAssignModal 
             isOpen={isAssignModalOpen}
             onClose={() => { setAssignModalOpen(false); setSelectedShipment(null); }}
-            shipment={selectedShipment}
+            shipments={[selectedShipment]}
             onAssignmentComplete={() => { setAssignModalOpen(false); setSelectedShipment(null); }}
             carriers={plantCarriers}
         />

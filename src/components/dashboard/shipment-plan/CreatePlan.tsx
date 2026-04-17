@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -23,8 +22,31 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import type { Plant, Shipment, WithId, Party, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Search, Truck, Calculator, Trash2, Plus, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save, FileDown, Upload, History, Fingerprint, Weight } from 'lucide-react';
-import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
+import { 
+  ShieldCheck, 
+  Search, 
+  Truck, 
+  Calculator, 
+  Trash2, 
+  Plus, 
+  PlusCircle, 
+  Loader2, 
+  Factory, 
+  UserCircle, 
+  MapPin, 
+  FileText, 
+  Lock, 
+  Sparkles, 
+  X, 
+  Save, 
+  FileDown, 
+  Upload, 
+  History, 
+  Fingerprint, 
+  Weight, 
+  ClipboardList 
+} from 'lucide-react';
+import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDocs, limit } from "firebase/firestore";
 import { cn, normalizePlantId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
@@ -314,7 +336,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         if(isSameAsBillTo) {
             setValue('shipToParty', party.name, { shouldValidate: true });
             setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-            const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
+            const city = party.city && party.city !== 'N/A' ? party.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
             if (city) {
                 setValue('unloadingPoint', city, { shouldValidate: true });
                 setValue('deliveryAddress', party.address || '', { shouldValidate: true });
@@ -322,7 +344,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         }
     } else if (type === 'shipToParty') {
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-        const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
+        const city = party.city && party.city !== 'N/A' ? party.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
         if (city) {
             setValue('unloadingPoint', city, { shouldValidate: true });
             setValue('deliveryAddress', party.address || '', { shouldValidate: true });
@@ -342,7 +364,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     try {
         const plantId = normalizePlantId(values.originPlantId);
 
-        // Registry Uniqueness Handshake
         const dupQuery = query(collection(firestore, `plants/${plantId}/shipments`), where("shipmentId", "==", values.shipmentId), limit(1));
         const dupSnap = await getDocs(dupQuery);
         if (!dupSnap.empty) {
@@ -374,7 +395,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 assignedQty: 0,
                 balanceQty: values.quantity,
                 userId: user.uid,
-                materialTypeId: 'MT' // Fixed MT Weight node
+                materialTypeId: 'MT'
             };
 
             tx.set(shipRef, dataToSave);
@@ -506,152 +527,152 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   };
 
   return (
-    <div className="w-full space-y-6 md:space-y-10">
-      <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white">
-        <CardHeader className="bg-slate-50/80 p-4 md:p-6 border-b">
-            <div className="flex flex-col lg:flex-row justify-between items-center gap-6 w-full">
-                <div className="flex items-center gap-4 shrink-0 w-full lg:w-auto">
-                    <div className="p-2 md:p-2.5 bg-blue-900 rounded-xl text-white shadow-lg rotate-3 shrink-0"><ShieldCheck className="h-5 w-5 md:h-6 md:w-6" /></div>
-                    <CardTitle className="text-lg md:text-xl font-black text-blue-900 tracking-tight uppercase italic leading-none">Order Plan</CardTitle>
-                </div>
-                
-                <div className="flex-1 flex justify-center w-full">
-                    <div className="flex flex-col md:flex-row items-center gap-3 bg-white p-2 rounded-xl border-2 border-slate-200 shadow-inner w-full md:w-auto">
-                        <div className="flex flex-col gap-0.5 w-full md:w-auto">
-                            <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest px-1 flex items-center gap-1.5">
-                                <Factory className="h-3 w-3" /> Select Bulk Plant *
-                            </Label>
-                            <FormField control={control} name="originPlantId" render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger className="h-9 w-full md:w-[180px] bg-slate-50 rounded-lg font-black text-blue-900 border-none shadow-sm focus:ring-blue-900 text-[10px]">
-                                            <SelectValue placeholder="Pick plant" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent className="rounded-xl">
-                                        {authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-2 uppercase italic text-black text-[10px]">{p.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            )} />
-                        </div>
-                        <div className="hidden md:block h-8 w-px bg-slate-100 mx-2" />
-                        <div className="flex gap-1.5 w-full md:w-auto">
-                            <Button variant="outline" onClick={handleExportTemplate} disabled={!originPlantId} className="flex-1 md:flex-none h-9 px-3 rounded-lg font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[9px] tracking-widest gap-1.5 disabled:opacity-30"><FileDown size={14} /><span>Template</span></Button>
-                            <Button variant="outline" asChild disabled={!originPlantId || isBulkUploading} className={cn("flex-1 md:flex-none h-9 px-3 rounded-lg font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[9px] tracking-widest gap-1.5 cursor-pointer transition-all", !originPlantId && "opacity-30 cursor-not-allowed pointer-events-none")}>
-                                <label className="flex items-center justify-center gap-1.5">{isBulkUploading ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />}<span>Bulk Upload</span><input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleBulkUpload} disabled={isBulkUploading || !originPlantId} /></label>
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="shrink-0 w-full lg:w-auto">
-                    <Button onClick={handleSubmit(handlePost)} className="w-full lg:w-auto h-10 px-10 bg-blue-900 hover:bg-slate-900 rounded-xl font-black shadow-xl transition-all active:scale-95 text-white border-none uppercase text-[10px] tracking-widest">Commit Plan (F8)</Button>
-                </div>
-            </div>
-        </CardHeader>
-
-        <CardContent className="p-6 md:p-12">
-          <Form {...form}>
-            <form className="space-y-10 md:space-y-16">
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 bg-slate-50 p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-inner">
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Registry Timestamp</label>
-                    <div className="h-14 bg-white border rounded-xl flex items-center px-5 font-mono text-blue-900 font-bold shadow-sm">{format(currentTime, 'dd-MM-yyyy HH:mm:ss')}</div>
+    <Form {...form}>
+      <div className="w-full space-y-6 md:space-y-10">
+        <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white">
+          <CardHeader className="bg-slate-50/80 p-4 md:p-6 border-b">
+              <div className="flex flex-col lg:flex-row justify-between items-center gap-6 w-full">
+                  <div className="flex items-center gap-4 shrink-0 w-full lg:w-auto">
+                      <div className="p-2 md:p-2.5 bg-blue-900 rounded-xl text-white shadow-lg rotate-3 shrink-0"><ShieldCheck className="h-5 w-5 md:h-6 md:w-6" /></div>
+                      <CardTitle className="text-lg md:text-xl font-black text-blue-900 tracking-tight uppercase italic leading-none">Order Plan</CardTitle>
                   </div>
                   
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Active Plant Context</label>
-                    <div className="h-14 bg-blue-50 border-2 border-blue-100 text-blue-900 rounded-xl flex items-center px-5 font-black uppercase tracking-tighter shadow-sm overflow-hidden truncate">{selectedPlantName || '-- NOT SELECTED --'}</div>
-                  </div>
-
-                  <FormField control={control} name="shipmentId" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 flex items-center gap-2">SALES ORDER NO. * <Fingerprint className="h-3 w-3 opacity-40"/></FormLabel>
-                        <FormControl><Input placeholder="ENTER NO." {...field} className="h-14 rounded-xl font-black text-blue-900 uppercase shadow-inner border-slate-200 focus-visible:ring-blue-900" /></FormControl>
-                        <FormMessage />
-                    </FormItem>
-                  )} />
-
-                  <FormField control={control} name="quantity" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">TOTAL QUANTITY (MT) *</FormLabel>
-                        <FormControl><div className="relative group"><Weight className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-400 opacity-20" /><Input type="number" step="0.001" {...field} className="h-14 pl-12 rounded-xl font-black text-xl text-blue-900 border-slate-200 shadow-inner focus-visible:ring-blue-900" /></div></FormControl>
-                        <FormMessage />
-                    </FormItem>
-                  )} />
-               </div>
-
-               <div className="p-6 md:p-10 rounded-[2.5rem] border-2 border-dashed border-blue-100 bg-blue-50/10 space-y-8">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-blue-100 pb-4 gap-4">
-                    <div className="flex items-center gap-3 text-blue-900 font-black text-sm uppercase tracking-tighter"><Truck size={20}/> 2. Optional LR Registry Section</div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-                      <FormField control={control} name="lrNumber" render={({ field }) => (
-                        <FormItem><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">LR Number</FormLabel><FormControl><Input {...field} placeholder="ENTER LR" className="h-14 bg-white rounded-xl font-black uppercase tracking-widest border-slate-200 shadow-inner" /></FormControl></FormItem>
-                      )} />
-                      <FormField control={control} name="lrDate" render={({ field }) => (
-                        <FormItem className="flex flex-col"><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">LR Date</FormLabel><DatePicker date={field.value || undefined} setDate={field.onChange} className="h-14 bg-white" /><FormMessage /></FormItem>
-                      )} />
-                      <FormField control={control} name="carrierId" render={({ field }) => (
-                        <FormItem><FormLabel className="text-[10px] font-bold text-blue-600 uppercase">Carrier Agent</FormLabel>
-                            <SearchableSelect options={(carriers || []).map(c => ({ value: c.id, label: c.name }))} onChange={field.onChange} value={field.value || ''} placeholder="Pick Agent" className="h-14" />
-                        </FormItem>
-                      )} />
-                      <FormField control={control} name="paymentTerm" render={({ field }) => (
-                        <FormItem><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">Payment Term</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl>
-                                <SelectContent className="rounded-xl">{PaymentTerms.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </FormItem>
-                      )} />
-                  </div>
-               </div>
-
-               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-12">
-                  <div className="space-y-8 p-6 md:p-10 rounded-[3rem] border-2 border-slate-100 bg-white shadow-xl relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-600" />
-                      <AutocompleteInput label="Consignor Entity *" placeholder="Search registry..." value={watchedConsignor} onChange={v => setValue('consignor', v)} suggestions={consignorRegistry} onSearchClick={() => setHelpModal({type: 'consignor', title: 'Consignor Handbook', data: consignorRegistry})} onSelect={(p) => selectPartyNode(p, 'consignor')} />
-                      <FormField control={control} name="loadingPoint" render={({ field }) => (
-                        <FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-400 px-1">From *</FormLabel><FormControl><div className="relative group"><MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-400 opacity-20" /><Input {...field} disabled className="h-14 pl-12 rounded-2xl font-black text-slate-900 border-slate-200 bg-slate-100 uppercase cursor-not-allowed" /></div></FormControl></FormItem>
-                      )} />
-                  </div>
-
-                  <div className="space-y-8 p-6 md:p-10 rounded-[3rem] border-2 border-slate-100 bg-white shadow-xl relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-600" />
-                      <AutocompleteInput label="Consignee / Bill To *" placeholder="Search registry..." value={billToParty} onChange={v => setValue('billToParty', v)} suggestions={consigneeRegistry} onSearchClick={() => setHelpModal({type: 'billToParty', title: 'Buyer Registry', data: consigneeRegistry})} onSelect={(p) => selectPartyNode(p, 'billToParty')} />
-                      <FormField control={control} name="isSameAsBillTo" render={({ field }) => (
-                          <div className="flex items-center gap-3 px-2"><Checkbox checked={field.value} onCheckedChange={field.onChange} id="sameAs" className="h-6 w-6 rounded-lg data-[state=checked]:bg-emerald-600 shadow-md" /><label htmlFor="sameAs" className="text-[11px] font-black uppercase text-slate-400 cursor-pointer tracking-widest">Ship to is same as Consignee</label></div>
-                      )} />
-                      <div className={cn("space-y-8 transition-all duration-500", isSameAsBillTo && "opacity-40 grayscale pointer-events-none")}>
-                        <AutocompleteInput label="Ship To Party *" placeholder="Search drop plant..." value={watchedShipTo} onChange={v => setValue('shipToParty', v)} suggestions={consigneeRegistry} onSearchClick={() => setHelpModal({type: 'shipToParty', title: 'Ship To Plant Registry', data: consigneeRegistry})} onSelect={(p) => selectPartyNode(p, 'shipToParty')} />
+                  <div className="flex-1 flex justify-center w-full">
+                      <div className="flex flex-col md:flex-row items-center gap-3 bg-white p-2 rounded-xl border-2 border-slate-200 shadow-inner w-full md:w-auto">
+                          <div className="flex flex-col gap-0.5 w-full md:w-auto">
+                              <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest px-1 flex items-center gap-1.5">
+                                  <Factory className="h-3 w-3" /> Select Bulk Plant *
+                              </Label>
+                              <FormField control={control} name="originPlantId" render={({ field }) => (
+                                  <Select onValueChange={field.onChange} value={field.value}>
+                                      <FormControl>
+                                          <SelectTrigger className="h-9 w-full md:w-[180px] bg-slate-50 rounded-lg font-black text-blue-900 border-none shadow-sm focus:ring-blue-900 text-[10px]">
+                                              <SelectValue placeholder="Pick plant" />
+                                          </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent className="rounded-xl">
+                                          {authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-2 uppercase italic text-black text-[10px]">{p.name}</SelectItem>)}
+                                      </SelectContent>
+                                  </Select>
+                              )} />
+                          </div>
+                          <div className="hidden md:block h-8 w-px bg-slate-100 mx-2" />
+                          <div className="flex gap-1.5 w-full md:w-auto">
+                              <Button variant="outline" onClick={handleExportTemplate} disabled={!originPlantId} className="flex-1 md:flex-none h-9 px-3 rounded-lg font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[9px] tracking-widest gap-1.5 disabled:opacity-30"><FileDown size={14} /><span>Template</span></Button>
+                              <Button variant="outline" asChild disabled={!originPlantId || isBulkUploading} className={cn("flex-1 md:flex-none h-9 px-3 rounded-lg font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[9px] tracking-widest gap-1.5 cursor-pointer transition-all", !originPlantId && "opacity-30 cursor-not-allowed pointer-events-none")}>
+                                  <label className="flex items-center justify-center gap-1.5">{isBulkUploading ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />}<span>Bulk Upload</span><input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleBulkUpload} disabled={isBulkUploading || !originPlantId} /></label>
+                              </Button>
+                          </div>
                       </div>
-                      <FormField control={control} name="unloadingPoint" render={({ field }) => (
-                        <FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-400 px-1">Destination City *</FormLabel><FormControl><div className="relative group"><MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-emerald-400 opacity-20" /><Input {...field} className="h-14 pl-12 rounded-2xl font-bold bg-slate-50/30 border-slate-200 uppercase" /></div></FormControl></FormItem>
-                      )} />
                   </div>
-               </div>
 
-               <section className="space-y-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between px-2 gap-4">
-                        <h3 className="text-[11px] md:text-sm font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3"><Calculator className="h-5 w-5 text-blue-600" /> 3. Manifest Items Registry</h3>
-                        <Button type="button" variant="outline" size="sm" onClick={() => append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '' })} className="h-10 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all rounded-xl w-full sm:w-auto"><Plus size={16} /> Add Row</Button>
-                    </div>
-                    <div className="rounded-[2rem] border-2 border-slate-200 bg-white shadow-2xl overflow-hidden">
-                        <div className="overflow-x-auto"><Table className="min-w-[1000px]"><TableHeader className="bg-slate-900"><TableRow className="hover:bg-transparent border-none h-14"><TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">INVOICE #</TableHead><TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">E-Waybill No.</TableHead><TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead><TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">Units</TableHead><TableHead className="w-12"></TableHead></TableRow></TableHeader><TableBody>{fields.map((field, index) => (<TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-none hover:bg-blue-50/10 transition-colors group"><TableCell className="px-8"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-10 rounded-xl font-black uppercase bg-slate-50 border-slate-200" /></TableCell><TableCell className="px-4"><Input {...form.register(`items.${index}.ewaybillNumber`)} className="h-10 rounded-xl font-mono text-blue-600 bg-slate-50 border-slate-200 uppercase" /></TableCell><TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-10 rounded-xl font-bold bg-slate-50 border-slate-200 uppercase" /></TableCell><TableCell className="px-4"><Input type="number" {...form.register(`items.${index}.units`)} className="h-10 text-center font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" /></TableCell><TableCell className="pr-6 text-right"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-400 hover:text-red-600 rounded-lg"><Trash2 size={18}/></Button></TableCell></TableRow>))}</TableBody><TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16"><TableRow className="hover:bg-transparent border-none"><TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL MANIFEST REGISTRY</TableCell><TableCell className="text-center font-black text-lg text-blue-900">{totals.units}</TableCell><TableCell></TableCell></TableRow></TableFooter></Table></div>
-                    </div>
-               </section>
+                  <div className="shrink-0 w-full lg:w-auto">
+                      <Button onClick={handleSubmit(handlePost)} className="w-full lg:w-auto h-10 px-10 bg-blue-900 hover:bg-slate-900 rounded-xl font-black shadow-xl transition-all active:scale-95 text-white border-none uppercase text-[10px] tracking-widest">Commit Plan (F8)</Button>
+                  </div>
+              </div>
+          </CardHeader>
 
-               <section className="space-y-4">
-                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2 px-1"><MapPin className="h-4 w-4 text-blue-600"/> 4. Delivery Address Registry</h3>
-                    <FormField control={control} name="deliveryAddress" render={({ field }) => (<FormItem><FormControl><Textarea rows={3} placeholder="Provide verified delivery address particulars..." className="resize-none bg-white border-slate-200 rounded-[2rem] md:rounded-3xl p-6 md:p-8 font-bold shadow-sm focus-visible:ring-blue-900 transition-all text-sm" {...field} /></FormControl><FormMessage /></FormItem>)} />
-               </section>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-      {helpModal && <SearchRegistryModal isOpen={!!helpModal} onClose={() => setHelpModal(null)} title={helpModal.title} data={helpModal.data} onSelect={handleRegistrySelect} />}
-    </div>
+          <CardContent className="p-6 md:p-12">
+              <form className="space-y-10 md:space-y-16">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 bg-slate-50 p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-inner">
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Registry Timestamp</label>
+                      <div className="h-14 bg-white border rounded-xl flex items-center px-5 font-mono text-blue-900 font-bold shadow-sm">{format(currentTime, 'dd-MM-yyyy HH:mm:ss')}</div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Active Plant Context</label>
+                      <div className="h-14 bg-blue-50 border-2 border-blue-100 text-blue-900 rounded-xl flex items-center px-5 font-black uppercase tracking-tighter shadow-sm overflow-hidden truncate">{selectedPlantName || '-- NOT SELECTED --'}</div>
+                    </div>
+
+                    <FormField control={control} name="shipmentId" render={({ field }) => (
+                      <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 flex items-center gap-2">SALES ORDER NO. * <Fingerprint className="h-3 w-3 opacity-40"/></FormLabel>
+                          <FormControl><Input placeholder="ENTER NO." {...field} className="h-14 rounded-xl font-black text-blue-900 uppercase shadow-inner border-slate-200 focus-visible:ring-blue-900" /></FormControl>
+                          <FormMessage />
+                      </FormItem>
+                    )} />
+
+                    <FormField control={control} name="quantity" render={({ field }) => (
+                      <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">TOTAL QUANTITY (MT) *</FormLabel>
+                          <FormControl><div className="relative group"><Weight className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-400 opacity-20" /><Input type="number" step="0.001" {...field} className="h-14 pl-12 rounded-xl font-black text-xl text-blue-900 border-slate-200 shadow-inner focus-visible:ring-blue-900" /></div></FormControl>
+                          <FormMessage />
+                      </FormItem>
+                    )} />
+                 </div>
+
+                 <div className="p-6 md:p-10 rounded-[2.5rem] border-2 border-dashed border-blue-100 bg-blue-50/10 space-y-8">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-blue-100 pb-4 gap-4">
+                      <div className="flex items-center gap-3 text-blue-900 font-black text-sm uppercase tracking-tighter"><Truck size={20}/> 2. Optional LR Registry Section</div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+                        <FormField control={control} name="lrNumber" render={({ field }) => (
+                          <FormItem><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">LR Number</FormLabel><FormControl><Input {...field} placeholder="ENTER LR" className="h-14 bg-white rounded-xl font-black uppercase tracking-widest border-slate-200 shadow-inner" /></FormControl></FormItem>
+                        )} />
+                        <FormField control={control} name="lrDate" render={({ field }) => (
+                          <FormItem className="flex flex-col"><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">LR Date</FormLabel><DatePicker date={field.value || undefined} setDate={field.onChange} className="h-14 bg-white" /><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={control} name="carrierId" render={({ field }) => (
+                          <FormItem><FormLabel className="text-[10px] font-bold text-blue-600 uppercase">Carrier Agent</FormLabel>
+                              <SearchableSelect options={(carriers || []).map(c => ({ value: c.id, label: c.name }))} onChange={field.onChange} value={field.value || ''} placeholder="Pick Agent" className="h-14" />
+                          </FormItem>
+                        )} />
+                        <FormField control={control} name="paymentTerm" render={({ field }) => (
+                          <FormItem><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">Payment Term</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl><SelectTrigger className="h-14 bg-white rounded-xl font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl>
+                                  <SelectContent className="rounded-xl">{PaymentTerms.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                              </Select>
+                          </FormItem>
+                        )} />
+                    </div>
+                 </div>
+
+                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-12">
+                    <div className="space-y-8 p-6 md:p-10 rounded-[3rem] border-2 border-slate-100 bg-white shadow-xl relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-600" />
+                        <AutocompleteInput label="Consignor Entity *" placeholder="Search registry..." value={watchedConsignor} onChange={v => setValue('consignor', v)} suggestions={consignorRegistry} onSearchClick={() => setHelpModal({type: 'consignor', title: 'Consignor Handbook', data: consignorRegistry})} onSelect={(p) => selectPartyNode(p, 'consignor')} />
+                        <FormField control={control} name="loadingPoint" render={({ field }) => (
+                          <FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-400 px-1">From *</FormLabel><FormControl><div className="relative group"><MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-400 opacity-20" /><Input {...field} disabled className="h-14 pl-12 rounded-2xl font-black text-slate-900 border-slate-200 bg-slate-100 uppercase cursor-not-allowed" /></div></FormControl></FormItem>
+                        )} />
+                    </div>
+
+                    <div className="space-y-8 p-6 md:p-10 rounded-[3rem] border-2 border-slate-100 bg-white shadow-xl relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-600" />
+                        <AutocompleteInput label="Consignee / Bill To *" placeholder="Search registry..." value={billToParty} onChange={v => setValue('billToParty', v)} suggestions={consigneeRegistry} onSearchClick={() => setHelpModal({type: 'billToParty', title: 'Buyer Registry', data: consigneeRegistry})} onSelect={(p) => selectPartyNode(p, 'billToParty')} />
+                        <FormField control={control} name="isSameAsBillTo" render={({ field }) => (
+                            <div className="flex items-center gap-3 px-2"><Checkbox checked={field.value} onCheckedChange={field.onChange} id="sameAs" className="h-6 w-6 rounded-lg data-[state=checked]:bg-emerald-600 shadow-md" /><label htmlFor="sameAs" className="text-[11px] font-black uppercase text-slate-400 cursor-pointer tracking-widest">Ship to is same as Consignee</label></div>
+                        )} />
+                        <div className={cn("space-y-8 transition-all duration-500", isSameAsBillTo && "opacity-40 grayscale pointer-events-none")}>
+                          <AutocompleteInput label="Ship To Party *" placeholder="Search drop plant..." value={watchedShipTo} onChange={v => setValue('shipToParty', v)} suggestions={consigneeRegistry} onSearchClick={() => setHelpModal({type: 'shipToParty', title: 'Ship To Plant Registry', data: consigneeRegistry})} onSelect={(p) => selectPartyNode(p, 'shipToParty')} />
+                        </div>
+                        <FormField control={control} name="unloadingPoint" render={({ field }) => (
+                          <FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-400 px-1">Destination City *</FormLabel><FormControl><div className="relative group"><MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-emerald-400 opacity-20" /><Input {...field} className="h-14 pl-12 rounded-2xl font-bold bg-slate-50/30 border-slate-200 uppercase" /></div></FormControl></FormItem>
+                        )} />
+                    </div>
+                 </div>
+
+                 <section className="space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-2 gap-4">
+                          <h3 className="text-[11px] md:text-sm font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3"><Calculator className="h-5 w-5 text-blue-600" /> 3. Manifest Items Registry</h3>
+                          <Button type="button" variant="outline" size="sm" onClick={() => append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '' })} className="h-10 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all rounded-xl w-full sm:w-auto"><Plus size={16} /> Add Row</Button>
+                      </div>
+                      <div className="rounded-[2rem] border-2 border-slate-200 bg-white shadow-2xl overflow-hidden">
+                          <div className="overflow-x-auto"><Table className="min-w-[1000px]"><TableHeader className="bg-slate-900"><TableRow className="hover:bg-transparent border-none h-14"><TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">INVOICE #</TableHead><TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">E-Waybill No.</TableHead><TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead><TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">Units</TableHead><TableHead className="w-12"></TableHead></TableRow></TableHeader><TableBody>{fields.map((field, index) => (<TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-none hover:bg-blue-50/10 transition-colors group"><TableCell className="px-8"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-10 rounded-xl font-black uppercase bg-slate-50 border-slate-200" /></TableCell><TableCell className="px-4"><Input {...form.register(`items.${index}.ewaybillNumber`)} className="h-10 rounded-xl font-mono text-blue-600 bg-slate-50 border-slate-200 uppercase" /></TableCell><TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-10 rounded-xl font-bold bg-slate-50 border-slate-200 uppercase" /></TableCell><TableCell className="px-4"><Input type="number" {...form.register(`items.${index}.units`)} className="h-10 text-center font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" /></TableCell><TableCell className="pr-6 text-right"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-400 hover:text-red-600 rounded-lg"><Trash2 size={18}/></Button></TableCell></TableRow>))}</TableBody><TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16"><TableRow className="hover:bg-transparent border-none"><TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL MANIFEST REGISTRY</TableCell><TableCell className="text-center font-black text-lg text-blue-900">{totals.units}</TableCell><TableCell></TableCell></TableRow></TableFooter></Table></div>
+                      </div>
+                 </section>
+
+                 <section className="space-y-4">
+                      <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2 px-1"><MapPin className="h-4 w-4 text-blue-600"/> 4. Delivery Address Registry</h3>
+                      <FormField control={control} name="deliveryAddress" render={({ field }) => (<FormItem><FormControl><Textarea rows={3} placeholder="Provide verified delivery address particulars..." className="resize-none bg-white border-slate-200 rounded-[2rem] md:rounded-3xl p-6 md:p-8 font-bold shadow-sm focus-visible:ring-blue-900 transition-all text-sm" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                 </section>
+              </form>
+          </CardContent>
+        </Card>
+        {helpModal && <SearchRegistryModal isOpen={!!helpModal} onClose={() => setHelpModal(null)} title={helpModal.title} data={helpModal.data} onSelect={handleRegistrySelect} />}
+      </div>
+    </Form>
   );
 }
 
