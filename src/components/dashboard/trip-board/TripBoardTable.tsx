@@ -1,10 +1,10 @@
-
 'use client';
 
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { 
     Eye, 
     Navigation, 
@@ -23,7 +23,8 @@ import {
     ArrowRight,
     Clock,
     Activity,
-    Smartphone
+    Smartphone,
+    History
 } from 'lucide-react';
 import { cn, parseSafeDate } from '@/lib/utils';
 import { format, isValid } from 'date-fns';
@@ -297,7 +298,7 @@ export default function TripBoardTable({
                                 <TableCell className="px-4 text-right font-black text-slate-900">{row.qtyUom}</TableCell>
                                 <TableCell className="px-4 text-right font-black text-orange-600 bg-orange-50/10">{row.balanceUom}</TableCell>
                                 <TableCell className="px-4 text-center">
-                                    <Badge variant="outline" className={cn("text-[8px] md:text-[9px] font-black uppercase px-2 h-5 md:h-6", getStatusColor(row.currentStatusId))}>{row.currentStatusId}</Badge>
+                                    <Badge variant="outline" className={cn("text-[8px] md:text-[9px] font-black uppercase px-2.5 h-5 md:h-6", getStatusColor(row.currentStatusId))}>{row.currentStatusId}</Badge>
                                 </TableCell>
                                 <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
                                     <Button size="sm" onClick={() => onAction('assign', row)} className="h-7 md:h-8 bg-blue-900 hover:bg-black text-white font-black text-[8px] md:text-[9px] uppercase px-3 md:px-4 rounded-lg gap-1.5">
