@@ -366,7 +366,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   }, [helpModal, selectPartyNode]);
 
   const handlePost = async (values: FormValues) => {
-    if (!firestore || !user) return;
+    if (!firestore || !shipment || !user) return;
     showLoader();
     try {
         const plantId = normalizePlantId(values.originPlantId);
@@ -643,8 +643,9 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     <div className="w-full space-y-6 md:space-y-10">
       <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white">
         <CardHeader className="bg-slate-50/80 p-4 md:p-6 border-b">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <div className="flex items-center gap-4 w-full md:w-auto">
+            <div className="flex flex-col lg:flex-row justify-between items-center gap-6 w-full">
+                {/* Left: Title Node */}
+                <div className="flex items-center gap-4 shrink-0 w-full lg:w-auto">
                     <div className="p-2 md:p-2.5 bg-blue-900 rounded-xl text-white shadow-lg rotate-3 shrink-0"><ShieldCheck className="h-5 w-5 md:h-6 md:w-6" /></div>
                     <div>
                         <CardTitle className="text-lg md:text-xl font-black text-blue-900 tracking-tight uppercase italic leading-none">Order Plan</CardTitle>
@@ -652,7 +653,8 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     </div>
                 </div>
                 
-                <div className="flex flex-col items-center gap-3 w-full md:w-auto">
+                {/* Center: Plant Select Node */}
+                <div className="flex-1 flex justify-center w-full">
                     <div className="flex flex-col md:flex-row items-center gap-3 bg-white p-2 rounded-xl border-2 border-slate-200 shadow-inner w-full md:w-auto">
                         <div className="flex flex-col gap-0.5 w-full md:w-auto">
                             <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest px-1 flex items-center gap-1.5">
@@ -669,7 +671,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                                 </Select>
                             )} />
                         </div>
-                        <div className="hidden md:block h-8 w-px bg-slate-100" />
+                        <div className="hidden md:block h-8 w-px bg-slate-100 mx-2" />
                         <div className="flex gap-1.5 w-full md:w-auto">
                             <Button 
                                 variant="outline" 
@@ -678,8 +680,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                                 className="flex-1 md:flex-none h-9 px-3 rounded-lg font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[9px] tracking-widest gap-1.5 disabled:opacity-30"
                             >
                                 <FileDown size={14} />
-                                <span className="md:hidden">Excel</span>
-                                <span className="hidden md:inline">Template</span>
+                                <span>Template</span>
                             </Button>
                             <Button 
                                 variant="outline" 
@@ -692,15 +693,17 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                             >
                                 <label className="flex items-center justify-center gap-1.5">
                                     {isBulkUploading ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />}
-                                    <span className="md:hidden">Bulk</span>
-                                    <span className="hidden md:inline">Bulk Upload</span>
+                                    <span>Bulk Upload</span>
                                     <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleBulkUpload} disabled={isBulkUploading || !originPlantId} />
                                 </label>
                             </Button>
                         </div>
                     </div>
+                </div>
 
-                    <Button onClick={handleSubmit(handlePost)} className="w-full md:w-auto h-10 px-8 md:px-12 bg-blue-900 hover:bg-slate-900 rounded-xl font-black shadow-xl transition-all active:scale-95 text-white border-none uppercase text-[10px] tracking-widest">
+                {/* Right: Commit Button Node */}
+                <div className="shrink-0 w-full lg:w-auto">
+                    <Button onClick={handleSubmit(handlePost)} className="w-full lg:w-auto h-10 px-10 bg-blue-900 hover:bg-slate-900 rounded-xl font-black shadow-xl transition-all active:scale-95 text-white border-none uppercase text-[10px] tracking-widest">
                         Commit Plan (F8)
                     </Button>
                 </div>
