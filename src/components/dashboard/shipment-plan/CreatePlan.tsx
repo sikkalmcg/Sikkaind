@@ -23,7 +23,7 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import type { Plant, Shipment, WithId, SubUser, Party, MasterQtyType, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Search, Truck, Calculator, Trash2, Plus, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save, FileDown, Upload, History, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Search, Truck, Calculator, Trash2, Plus, PlusCircle, Loader2, Factory, UserCircle, MapPin, FileText, Lock, Sparkles, X, Save, FileDown, Upload, History, AlertCircle, Fingerprint } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDoc, getDocs, limit, Timestamp } from "firebase/firestore";
 import { cn, normalizePlantId, formatSequenceId } from '@/lib/utils';
@@ -642,42 +642,42 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   return (
     <div className="w-full space-y-6 md:space-y-10">
       <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white">
-        <CardHeader className="bg-slate-50/80 p-6 md:p-10 border-b">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-                <div className="flex items-center gap-5 w-full md:w-auto">
-                    <div className="p-3 md:p-4 bg-blue-900 rounded-2xl text-white shadow-xl rotate-3 shrink-0"><ShieldCheck className="h-6 w-6 md:h-8 md:w-8" /></div>
+        <CardHeader className="bg-slate-50/80 p-4 md:p-6 border-b">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="flex items-center gap-4 w-full md:w-auto">
+                    <div className="p-2 md:p-2.5 bg-blue-900 rounded-xl text-white shadow-lg rotate-3 shrink-0"><ShieldCheck className="h-5 w-5 md:h-6 md:w-6" /></div>
                     <div>
-                        <CardTitle className="text-xl md:text-3xl font-black text-blue-900 tracking-tight uppercase italic leading-none text-wrap">Order Plan Registry</CardTitle>
-                        <CardDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Secure Mission Asset Deployment Terminal</CardDescription>
+                        <CardTitle className="text-lg md:text-xl font-black text-blue-900 tracking-tight uppercase italic leading-none">Order Plan</CardTitle>
+                        <CardDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Secure Mission Asset Deployment Terminal</CardDescription>
                     </div>
                 </div>
                 
-                <div className="flex flex-col items-center gap-4 md:gap-6 w-full md:w-auto">
-                    <div className="flex flex-col md:flex-row items-center gap-4 bg-white p-3 rounded-2xl border-2 border-slate-200 shadow-inner w-full md:w-auto">
-                        <div className="flex flex-col gap-1 w-full md:w-auto">
-                            <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1 flex items-center gap-2">
+                <div className="flex flex-col items-center gap-3 w-full md:w-auto">
+                    <div className="flex flex-col md:flex-row items-center gap-3 bg-white p-2 rounded-xl border-2 border-slate-200 shadow-inner w-full md:w-auto">
+                        <div className="flex flex-col gap-0.5 w-full md:w-auto">
+                            <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest px-1 flex items-center gap-1.5">
                                 <Factory className="h-3 w-3" /> Select Bulk Plant *
                             </Label>
                             <FormField control={control} name="originPlantId" render={({ field }) => (
                                 <Select onValueChange={field.onChange} value={field.value}>
-                                    <SelectTrigger className="h-11 w-full md:w-[220px] bg-slate-50 rounded-xl font-black text-blue-900 border-none shadow-sm focus:ring-blue-900">
+                                    <SelectTrigger className="h-9 w-full md:w-[180px] bg-slate-50 rounded-lg font-black text-blue-900 border-none shadow-sm focus:ring-blue-900 text-[10px]">
                                         <SelectValue placeholder="Pick plant" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl">
-                                        {authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>)}
+                                        {authorizedPlants.map(p => <SelectItem key={p.id} value={p.id} className="font-bold py-2 uppercase italic text-black text-[10px]">{p.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             )} />
                         </div>
-                        <div className="hidden md:block h-10 w-px bg-slate-100" />
-                        <div className="flex gap-2 w-full md:w-auto">
+                        <div className="hidden md:block h-8 w-px bg-slate-100" />
+                        <div className="flex gap-1.5 w-full md:w-auto">
                             <Button 
                                 variant="outline" 
                                 onClick={handleExportTemplate} 
                                 disabled={!originPlantId}
-                                className="flex-1 md:flex-none h-11 px-3 md:px-6 rounded-xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[10px] tracking-widest gap-2 disabled:opacity-30"
+                                className="flex-1 md:flex-none h-9 px-3 rounded-lg font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[9px] tracking-widest gap-1.5 disabled:opacity-30"
                             >
-                                <FileDown size={16} />
+                                <FileDown size={14} />
                                 <span className="md:hidden">Excel</span>
                                 <span className="hidden md:inline">Template</span>
                             </Button>
@@ -686,12 +686,12 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                                 asChild 
                                 disabled={!originPlantId || isBulkUploading}
                                 className={cn(
-                                    "flex-1 md:flex-none h-11 px-3 md:px-6 rounded-xl font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[10px] tracking-widest gap-2 cursor-pointer transition-all",
+                                    "flex-1 md:flex-none h-9 px-3 rounded-lg font-black border-slate-200 text-blue-900 bg-white hover:bg-slate-50 shadow-sm uppercase text-[9px] tracking-widest gap-1.5 cursor-pointer transition-all",
                                     !originPlantId && "opacity-30 cursor-not-allowed pointer-events-none"
                                 )}
                             >
-                                <label className="flex items-center justify-center gap-2">
-                                    {isBulkUploading ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
+                                <label className="flex items-center justify-center gap-1.5">
+                                    {isBulkUploading ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />}
                                     <span className="md:hidden">Bulk</span>
                                     <span className="hidden md:inline">Bulk Upload</span>
                                     <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleBulkUpload} disabled={isBulkUploading || !originPlantId} />
@@ -700,7 +700,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         </div>
                     </div>
 
-                    <Button onClick={handleSubmit(handlePost)} className="w-full md:w-auto h-14 px-12 md:px-20 bg-blue-900 hover:bg-slate-900 rounded-2xl font-black shadow-xl transition-all active:scale-95 text-white border-none uppercase text-xs tracking-widest">
+                    <Button onClick={handleSubmit(handlePost)} className="w-full md:w-auto h-10 px-8 md:px-12 bg-blue-900 hover:bg-slate-900 rounded-xl font-black shadow-xl transition-all active:scale-95 text-white border-none uppercase text-[10px] tracking-widest">
                         Commit Plan (F8)
                     </Button>
                 </div>
@@ -961,4 +961,15 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
       )}
     </div>
   );
+}
+
+function ContextNode({ label, value, icon: Icon, className, bold }: any) {
+    return (
+        <div className={cn("space-y-1.5", className)}>
+            <span className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 tracking-widest leading-none">
+                {Icon && <Icon className="h-2.5 w-2.5 md:h-3 md:w-3" />} {label}
+            </span>
+            <p className={cn("text-[10px] md:text-xs leading-snug wrap", bold ? "font-black" : "font-bold text-slate-700")}>{value || '--'}</p>
+        </div>
+    );
 }
