@@ -14,10 +14,19 @@ import {
     RotateCcw,
     Trash2,
     FileText,
-    PlusCircle
+    PlusCircle,
+    MapPin,
+    User,
+    Phone,
+    ClipboardCheck,
+    Calendar,
+    ArrowRight,
+    Clock,
+    Activity,
+    Smartphone
 } from 'lucide-react';
 import { cn, parseSafeDate } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { 
     DropdownMenu, 
     DropdownMenuContent, 
@@ -57,10 +66,144 @@ const getStatusColor = (status: string) => {
     }
 }
 
-const cleanName = (name?: string) => {
-    if (!name) return '--';
-    return name.split('@')[0].toUpperCase();
-};
+/**
+ * @fileOverview Transit Mission Card.
+ * High-density UI node for monitoring in-transit missions.
+ */
+function TransitTripCard({ row, onAction }: { row: any, onAction: (type: string, trip: any) => void }) {
+    const formattedDate = row.startDate ? format(new Date(row.startDate), 'dd MMM') : '--';
+    const gateOutTime = row.gateOutDateTime ? format(new Date(row.gateOutDateTime), 'dd MMM, hh:mm aa') : '--';
+    
+    return (
+        <div className="bg-white border border-slate-200 rounded-xl mb-4 overflow-hidden shadow-sm hover:shadow-md transition-all">
+            {/* TOP HEADER ROW */}
+            <div className="grid grid-cols-1 md:grid-cols-10 gap-2 p-4 pb-2 bg-white">
+                <div className="col-span-1 space-y-1">
+                    <p className="text-[10px] font-black text-blue-700 uppercase tracking-tighter">#{row.tripId}</p>
+                    <p className="text-[10px] font-bold text-slate-400">{formattedDate}</p>
+                </div>
+                
+                <div className="col-span-1 space-y-1">
+                    <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        <span className="text-[10px] font-black text-slate-700 uppercase truncate" title={row.consignor}>{row.consignor}</span>
+                    </div>
+                    <p className="text-[9px] text-slate-400 truncate pl-2.5 italic">{row.from}</p>
+                </div>
+
+                <div className="col-span-1 space-y-1">
+                    <div className="flex items-center gap-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                        <span className="text-[10px] font-black text-slate-700 uppercase truncate" title={row.consignee}>{row.consignee}</span>
+                    </div>
+                    <p className="text-[9px] text-slate-400 truncate pl-2.5 italic">{row.unloadingPoint}</p>
+                </div>
+
+                <div className="col-span-1">
+                    <span className="text-[9px] font-bold text-slate-500 uppercase leading-tight line-clamp-2">{row.carrier || row.transporterName}</span>
+                </div>
+
+                <div className="col-span-1 flex items-center gap-2">
+                    <Truck className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                    <span className="text-[11px] font-black text-slate-900 uppercase tracking-tighter">{row.vehicleNumber}</span>
+                </div>
+
+                <div className="col-span-1 flex items-center gap-2">
+                    <Smartphone className="h-3 w-3 text-slate-400 shrink-0" />
+                    <span className="text-[10px] font-bold text-slate-700">{row.driverMobile}</span>
+                </div>
+
+                <div className="col-span-1">
+                    <span className="text-[10px] font-bold text-blue-700 truncate block">{row.invoiceNumbers}</span>
+                </div>
+
+                <div className="col-span-1 flex items-center gap-1.5">
+                    <FileText className="h-3 w-3 text-slate-300" />
+                    <span className="text-[10px] font-black text-slate-900">{row.lrNumber || '--'}</span>
+                </div>
+
+                <div className="col-span-2 text-right">
+                    <p className="text-[11px] font-black text-slate-900">{row.qtyUom}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Product: {row.material || 'Assorted'}</p>
+                </div>
+            </div>
+
+            {/* MIDDLE META ROW */}
+            <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-6 text-[10px] font-bold text-slate-500 bg-slate-50/30 border-y border-slate-100">
+                <div className="flex items-center gap-8">
+                    <div className="flex gap-1.5">
+                        <span className="text-slate-400 uppercase tracking-widest text-[8px]">SO/STO No:</span>
+                        <span className="text-blue-900 font-black">{row.orderNo}</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                        <span className="text-slate-400 uppercase tracking-widest text-[8px]">DO No:</span>
+                        <span className="text-blue-900 font-black">{row.doNumber || '--'}</span>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-8">
+                    <div className="flex gap-1.5">
+                        <span className="text-slate-400 uppercase tracking-widest text-[8px]">Transit TAT:</span>
+                        <span className="text-slate-900">{row.transitHour || '1 days'}</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                        <span className="text-slate-400 uppercase tracking-widest text-[8px]">STA:</span>
+                        <span className="text-slate-900 font-black uppercase">{row.staDate || '--'}</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                        <span className="text-slate-400 uppercase tracking-widest text-[8px]">E-Way Bill Expiry:</span>
+                        <span className="text-orange-600 font-black">{row.ewaybillExpiry || '--'}</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                        <span className="text-slate-400 uppercase tracking-widest text-[8px]">Distance:</span>
+                        <span className="text-blue-600 font-black underline decoration-blue-200 underline-offset-4">{row.distance || '--'} Kms</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* BOTTOM ACTION ROW */}
+            <div className="p-3 px-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] font-black uppercase h-5 px-3">Dispatched</Badge>
+                        <span className="text-[10px] font-bold text-slate-400">{gateOutTime}</span>
+                    </div>
+                    <Separator orientation="vertical" className="h-4" />
+                    <div className="flex items-center gap-4 opacity-40 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all">
+                        <Activity size={14} className="text-slate-300" />
+                        <History size={14} className="text-slate-300" />
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => onAction('pod-upload', row)}
+                        className="h-8 px-4 bg-slate-900 text-white hover:bg-black rounded-lg text-[9px] font-black uppercase tracking-widest transition-all active:scale-95"
+                    >
+                        Upload POD
+                    </Button>
+                    <Button 
+                        size="sm" 
+                        onClick={() => onAction('arrived', row)}
+                        className="h-8 px-6 bg-blue-900 hover:bg-black text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow-lg shadow-blue-900/10 transition-all active:scale-95"
+                    >
+                        Arrived In
+                    </Button>
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => onAction('view', row)}
+                        className="h-8 px-4 text-blue-600 hover:bg-blue-50 rounded-lg text-[9px] font-black uppercase tracking-widest"
+                    >
+                        View Details
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function TripBoardTable({ 
     data, 
@@ -90,6 +233,24 @@ export default function TripBoardTable({
   };
 
   const isAllOnPageSelected = data.length > 0 && data.every(row => selectedIds.includes(row.id));
+
+  // --- TRANSIT CARD VIEW Node ---
+  if (activeTab === 'transit') {
+    return (
+        <div className="flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-700">
+            {data.length === 0 ? (
+                <div className="h-64 flex flex-col items-center justify-center bg-white border rounded-[2.5rem] border-dashed border-slate-200">
+                    <Navigation className="h-12 w-12 text-slate-200 mb-4" />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No missions currently in transit scope.</p>
+                </div>
+            ) : (
+                data.map((row) => (
+                    <TransitTripCard key={row.id} row={row} onAction={onAction} />
+                ))
+            )}
+        </div>
+    );
+  }
 
   if (activeTab === 'pending-assignment') {
       return (
@@ -124,7 +285,7 @@ export default function TripBoardTable({
                                 <TableCell className="px-4">
                                     <Checkbox 
                                         checked={selectedIds.includes(row.id)} 
-                                        onCheckedChange={(v) => onSelectRow?.(row.id, !!v)}
+                                        onSelectRow={(v) => onSelectRow?.(row.id, !!v)}
                                         className="h-4 w-4 data-[state=checked]:bg-blue-900"
                                     />
                                 </TableCell>
