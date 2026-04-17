@@ -457,7 +457,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         consignorAddress: getVal(row, ["Consignor Address", "Consignor Site"]),
                         loadingPoint: getVal(row, ["From", "From (City)"]),
                         billToParty: getVal(row, ["Consignee Name", "Consignee"]),
-                        billToGtin: getVal(row, ["Consignee GSTIN", "Consignee Gst"]),
+                        billToGtin: getVal(row, ["Consignee Gst"]),
                         shipToParty: getVal(row, ["Ship To Name", "Ship To"]),
                         shipToGtin: getVal(row, ["Ship To GSTIN", "Ship To Gst"]),
                         unloadingPoint: getVal(row, ["Destination Point", "To"]),

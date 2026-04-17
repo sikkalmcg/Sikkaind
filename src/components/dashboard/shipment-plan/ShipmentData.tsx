@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -437,9 +438,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             <div className="overflow-auto max-h-[600px] custom-scrollbar border-t">
                 <Table className="border-collapse w-full min-w-[1400px]">
                     <TableHeader className="bg-slate-100 sticky top-0 z-50 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
-                    <TableRow className="h-10 md:h-12 hover:bg-transparent border-b-2 border-slate-200">
+                    <TableRow className="h-16 hover:bg-transparent border-b-2 border-slate-200">
                         {isAdmin && (
-                            <TableHead className="w-16 px-6 bg-slate-100">
+                            <TableHead className="w-16 px-6 bg-slate-100 align-middle">
                                 <Checkbox 
                                     checked={isAllOnPageSelected}
                                     onCheckedChange={(checked) => handleSelectAllOnPage(!!checked)}
@@ -447,18 +448,18 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                                 />
                             </TableHead>
                         )}
-                        <TableHead className="text-[9px] font-black uppercase px-6 w-32 bg-slate-100">Plant</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase px-4 w-36 bg-slate-100">Sales Order No</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase px-4 text-center w-40 bg-slate-100">Order Date</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase px-4 w-36 text-center bg-slate-100">Vehicle No</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase px-4 text-center w-36 bg-slate-100">Pilot Mobile</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase px-4 text-center w-36 bg-slate-100">LR No</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase px-4 w-48 bg-slate-100">Consignor</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase px-4 w-48 bg-slate-100">Consignee</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase px-4 w-40 bg-slate-100">Destination</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase px-4 text-right w-32 bg-slate-100">Order Qty</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase px-4 text-center w-40 bg-slate-100">Status</TableHead>
-                        <TableHead className="text-[9px] font-black uppercase px-8 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-24">Action</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-6 w-32 bg-slate-100 align-middle">Plant</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-36 bg-slate-100 align-middle">Sales Order No</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40 bg-slate-100 align-middle">Order Date</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-36 text-center bg-slate-100 align-middle">Vehicle No</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100 align-middle">Pilot Mobile</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100 align-middle">LR No</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100 align-middle">Consignor</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100 align-middle">Consignee</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-40 bg-slate-100 align-middle">Destination</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-right w-32 bg-slate-100 align-middle">Order Qty</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40 bg-slate-100 align-middle">Status</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-8 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-24 align-middle">Action</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -482,7 +483,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                                 isChecked && "bg-blue-50/40"
                             )}>
                             {isAdmin && (
-                                <TableCell className="px-6">
+                                <TableCell className="px-6 align-middle">
                                     <Checkbox 
                                         checked={isChecked}
                                         onCheckedChange={(checked) => handleSelectRow(s.id, !!checked)}
@@ -490,12 +491,12 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                                     />
                                 </TableCell>
                             )}
-                            <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{s.plantName}</TableCell>
-                            <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-[10px]">{s.shipmentId}</TableCell>
-                            <TableCell className="px-4 text-center whitespace-nowrap text-slate-500 font-bold">{formatSafeDateString(s.creationDate, 'dd/MM/yy HH:mm')}</TableCell>
-                            <TableCell className="px-4 text-center font-black text-slate-900 uppercase tracking-tighter">{s.vehicleNumber || '--'}</TableCell>
-                            <TableCell className="px-4 text-center font-mono font-bold text-slate-400">{s.driverMobile || '--'}</TableCell>
-                            <TableCell className="px-4 text-center">
+                            <TableCell className="px-6 font-bold text-slate-600 uppercase truncate align-middle">{s.plantName}</TableCell>
+                            <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-[10px] align-middle">{s.shipmentId}</TableCell>
+                            <TableCell className="px-4 text-center whitespace-nowrap text-slate-500 font-bold align-middle">{formatSafeDateString(s.creationDate, 'dd/MM/yy HH:mm')}</TableCell>
+                            <TableCell className="px-4 text-center font-black text-slate-900 uppercase tracking-tighter align-middle">{s.vehicleNumber || '--'}</TableCell>
+                            <TableCell className="px-4 text-center font-mono font-bold text-slate-400 align-middle">{s.driverMobile || '--'}</TableCell>
+                            <TableCell className="px-4 text-center align-middle">
                                 {s.lrNumber ? (
                                     <button 
                                         type="button" 
@@ -506,18 +507,18 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                                     </button>
                                 ) : '--'}
                             </TableCell>
-                            <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px]" title={s.consignor}>{s.consignor}</TableCell>
-                            <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px]" title={s.billToParty}>{s.billToParty}</TableCell>
-                            <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-[10px]">{s.unloadingPoint}</TableCell>
-                            <TableCell className="px-4 text-right font-black text-blue-900">
+                            <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px] align-middle" title={s.consignor}>{s.consignor}</TableCell>
+                            <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px] align-middle" title={s.billToParty}>{s.billToParty}</TableCell>
+                            <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-[10px] align-middle">{s.unloadingPoint}</TableCell>
+                            <TableCell className="px-4 text-right font-black text-blue-900 align-middle">
                                 {`${s.quantity.toFixed(3)} MT`}
                             </TableCell>
-                            <TableCell className="px-4 text-center">
-                                <Badge variant="outline" className={cn("text-[8px] font-black uppercase px-2 h-5 md:h-6 border shadow-sm", getStatusColor(s.currentStatusId))}>
+                            <TableCell className="px-4 text-center align-middle">
+                                <Badge variant="outline" className={cn("text-[8px] font-black uppercase px-2.5 h-5 md:h-6 border shadow-sm", getStatusColor(s.currentStatusId))}>
                                     {s.currentStatusId}
                                 </Badge>
                             </TableCell>
-                            <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
+                            <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)] align-middle">
                                 <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-green-600 hover:bg-green-50" disabled={!canAssign} onClick={() => handleOpenAssignModal(s)}>
                                         <PlusCircle className="h-3.5 w-3.5" />
