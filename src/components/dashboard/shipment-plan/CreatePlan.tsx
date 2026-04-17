@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -51,7 +52,6 @@ import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy
 import { cn, normalizePlantId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import { PaymentTerms } from '@/lib/constants';
-import { SearchableSelect } from '@/components/ui/searchable-select';
 
 const formSchema = z.object({
   originPlantId: z.string().min(1, 'Plant selection is required.'),
@@ -72,6 +72,7 @@ const formSchema = z.object({
   lrNumber: z.string().optional().or(z.literal('')).transform(v => v?.toUpperCase().trim()),
   lrDate: z.date().optional().nullable(),
   carrierId: z.string().optional().or(z.literal('')),
+  carrierName: z.string().optional().or(z.literal('')),
   paymentTerm: z.enum(PaymentTerms).optional(),
   deliveryAddress: z.string().optional().or(z.literal('')),
   items: z.array(z.object({
@@ -82,7 +83,6 @@ const formSchema = z.object({
     itemDescription: z.string().min(1, "Item desc required"),
     hsnSac: z.string().optional(),
   })).optional().default([]),
-  carrierName: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -223,7 +223,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   const [currentTime, setCurrentTime] = useState(new Date());
   const [helpModal, setHelpModal] = useState<{ type: string; title: string; data: any[] } | null>(null);
   const [isBulkUploading, setIsBulkUploading] = useState(false);
-  const [lastUsedLr, setLastUsedLr] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -234,8 +233,8 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     resolver: zodResolver(formSchema),
     defaultValues: {
         originPlantId: '', shipmentId: '', consignor: '', consignorAddress: '', billToParty: '', shipToParty: '', loadingPoint: '', unloadingPoint: '',
-        materialTypeId: 'MT', quantity: 0, lrNumber: '', carrierId: '', paymentTerm: 'Paid',
-        isSameAsBillTo: false, lrDate: null, items: [], carrierName: ''
+        materialTypeId: 'MT', quantity: 0, lrNumber: '', carrierId: '', carrierName: '', paymentTerm: 'Paid',
+        isSameAsBillTo: false, lrDate: null, items: []
     },
   });
 
@@ -273,32 +272,16 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     return authorizedPlants.find(p => p.id === originPlantId)?.name || '';
   }, [originPlantId, authorizedPlants]);
 
+  // CARRIER HANDSHAKE node: Auto-populate first carrier of selected plant
   useEffect(() => {
-    if (!firestore || !originPlantId) {
-        setLastUsedLr(null);
-        return;
+    if (carriers && carriers.length > 0) {
+        setValue('carrierId', carriers[0].id);
+        setValue('carrierName', carriers[0].name, { shouldValidate: true });
+    } else {
+        setValue('carrierId', '');
+        setValue('carrierName', '', { shouldValidate: true });
     }
-    const fetchLastLr = async () => {
-        try {
-            const pId = normalizePlantId(originPlantId);
-            const q = query(
-                collection(firestore, `plants/${pId}/shipments`),
-                orderBy("creationDate", "desc"),
-                limit(10) 
-            );
-            const snap = await getDocs(q);
-            const lastShipmentWithLr = snap.docs.find(d => d.data().lrNumber && d.data().lrNumber !== '');
-            if (lastShipmentWithLr) {
-                setLastUsedLr(lastShipmentWithLr.data().lrNumber);
-            } else {
-                setLastUsedLr(null);
-            }
-        } catch (e) {
-            console.error("LR Registry Fetch Failure:", e);
-        }
-    };
-    fetchLastLr();
-  }, [originPlantId, firestore]);
+  }, [carriers, setValue]);
 
   useEffect(() => {
     if (originPlantId && authorizedPlants.length > 0) {
@@ -367,7 +350,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         const dupQuery = query(collection(firestore, `plants/${plantId}/shipments`), where("shipmentId", "==", values.shipmentId), limit(1));
         const dupSnap = await getDocs(dupQuery);
         if (!dupSnap.empty) {
-            toast({ variant: 'destructive', title: "Registry Conflict", description: `Sales Order No ${values.shipmentId} already exists in this plant.` });
+            toast({ variant: 'destructive', title: "Registry Conflict", description: `Sales Order No ${values.shipmentId} already exists.` });
             hideLoader();
             return;
         }
@@ -426,7 +409,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     if (!file || !firestore || !user) return;
 
     if (!uiPlantId) {
-        toast({ variant: 'destructive', title: "Lifting Plant Required", description: "Select Plant Node before upload." });
+        toast({ variant: 'destructive', title: "Plant Required", description: "Select Plant Node before upload." });
         event.target.value = '';
         return;
     }
@@ -595,7 +578,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
                     <FormField control={control} name="quantity" render={({ field }) => (
                       <FormItem>
-                          <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">TOTAL QUANTITY (MT) *</FormLabel>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">TOTAL QUANTITY (MT) *</FormLabel>
                           <FormControl><div className="relative group"><Weight className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-400 opacity-20" /><Input type="number" step="0.001" {...field} className="h-14 pl-12 rounded-xl font-black text-xl text-blue-900 border-slate-200 shadow-inner focus-visible:ring-blue-900" /></div></FormControl>
                           <FormMessage />
                       </FormItem>
@@ -613,9 +596,17 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         <FormField control={control} name="lrDate" render={({ field }) => (
                           <FormItem className="flex flex-col"><FormLabel className="text-[10px] font-bold text-slate-400 uppercase">LR Date</FormLabel><DatePicker date={field.value || undefined} setDate={field.onChange} className="h-14 bg-white" /><FormMessage /></FormItem>
                         )} />
-                        <FormField control={control} name="carrierId" render={({ field }) => (
-                          <FormItem><FormLabel className="text-[10px] font-bold text-blue-600 uppercase">Carrier Agent</FormLabel>
-                              <SearchableSelect options={(carriers || []).map(c => ({ value: c.id, label: c.name }))} onChange={field.onChange} value={field.value || ''} placeholder="Pick Agent" className="h-14" />
+                        <FormField control={control} name="carrierName" render={({ field }) => (
+                          <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Carrier Agent</FormLabel>
+                              <FormControl>
+                                  <Input 
+                                      readOnly 
+                                      disabled 
+                                      {...field} 
+                                      placeholder="Auto-resolved from Registry" 
+                                      className="h-14 bg-slate-100 rounded-xl font-black uppercase text-blue-900 border-none shadow-inner cursor-not-allowed" 
+                                  />
+                              </FormControl>
                           </FormItem>
                         )} />
                         <FormField control={control} name="paymentTerm" render={({ field }) => (
@@ -659,7 +650,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                           <Button type="button" variant="outline" size="sm" onClick={() => append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '' })} className="h-10 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all rounded-xl w-full sm:w-auto"><Plus size={16} /> Add Row</Button>
                       </div>
                       <div className="rounded-[2rem] border-2 border-slate-200 bg-white shadow-2xl overflow-hidden">
-                          <div className="overflow-x-auto"><Table className="min-w-[1000px]"><TableHeader className="bg-slate-900"><TableRow className="hover:bg-transparent border-none h-14"><TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">INVOICE #</TableHead><TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">E-Waybill No.</TableHead><TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead><TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">Units</TableHead><TableHead className="w-12"></TableHead></TableRow></TableHeader><TableBody>{fields.map((field, index) => (<TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-none hover:bg-blue-50/10 transition-colors group"><TableCell className="px-8"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-10 rounded-xl font-black uppercase bg-slate-50 border-slate-200" /></TableCell><TableCell className="px-4"><Input {...form.register(`items.${index}.ewaybillNumber`)} className="h-10 rounded-xl font-mono text-blue-600 bg-slate-50 border-slate-200 uppercase" /></TableCell><TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-10 rounded-xl font-bold bg-slate-50 border-slate-200 uppercase" /></TableCell><TableCell className="px-4"><Input type="number" {...form.register(`items.${index}.units`)} className="h-10 text-center font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" /></TableCell><TableCell className="pr-6 text-right"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-400 hover:text-red-600 rounded-lg"><Trash2 size={18}/></Button></TableCell></TableRow>))}</TableBody><TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16"><TableRow className="hover:bg-transparent border-none"><TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL MANIFEST REGISTRY</TableCell><TableCell className="text-center font-black text-lg text-blue-900">{totals.units}</TableCell><TableCell></TableCell></TableRow></TableFooter></Table></div>
+                          <div className="overflow-x-auto"><Table className="min-w-[1000px]"><TableHeader className="bg-slate-900"><TableRow className="hover:bg-transparent border-none h-14"><TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">DOC REF #</TableHead><TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">E-Waybill No.</TableHead><TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead><TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">Units</TableHead><TableHead className="w-12"></TableHead></TableRow></TableHeader><TableBody>{fields.map((field, index) => (<TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-none hover:bg-blue-50/10 transition-colors group"><TableCell className="px-8"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-10 rounded-xl font-black uppercase bg-slate-50 border-slate-200" /></TableCell><TableCell className="px-4"><Input {...form.register(`items.${index}.ewaybillNumber`)} className="h-10 rounded-xl font-mono text-blue-600 bg-slate-50 border-slate-200 uppercase" /></TableCell><TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-10 rounded-xl font-bold bg-slate-50 border-slate-200 uppercase" /></TableCell><TableCell className="px-4"><Input type="number" {...form.register(`items.${index}.units`)} className="h-10 text-center font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" /></TableCell><TableCell className="pr-6 text-right"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-400 hover:text-red-600 rounded-lg"><Trash2 size={18}/></Button></TableCell></TableRow>))}</TableBody><TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16"><TableRow className="hover:bg-transparent border-none"><TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL MANIFEST REGISTRY</TableCell><TableCell className="text-center font-black text-lg text-blue-900">{totals.units}</TableCell><TableCell></TableCell></TableRow></TableFooter></Table></div>
                       </div>
                  </section>
 
