@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -649,7 +648,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     <div className="p-2 md:p-2.5 bg-blue-900 rounded-xl text-white shadow-lg rotate-3 shrink-0"><ShieldCheck className="h-5 w-5 md:h-6 md:w-6" /></div>
                     <div>
                         <CardTitle className="text-lg md:text-xl font-black text-blue-900 tracking-tight uppercase italic leading-none">Order Plan</CardTitle>
-                        <CardDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Secure Mission Asset Deployment Terminal</CardDescription>
                     </div>
                 </div>
                 
