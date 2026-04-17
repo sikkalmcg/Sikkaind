@@ -17,6 +17,7 @@ import {
     PlusCircle,
     MapPin,
     User,
+    UserCircle,
     Phone,
     ClipboardCheck,
     Calendar,
@@ -31,7 +32,8 @@ import {
     ChevronRight,
     Package,
     Weight,
-    Factory
+    Factory,
+    ShieldCheck
 } from 'lucide-react';
 import { cn, parseSafeDate } from '@/lib/utils';
 import { format, isValid } from 'date-fns';
