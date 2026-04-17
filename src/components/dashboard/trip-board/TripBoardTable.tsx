@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -24,7 +25,12 @@ import {
     Clock,
     Activity,
     Smartphone,
-    History
+    History,
+    FileCheck,
+    ArrowRightLeft,
+    Ban,
+    ChevronRight,
+    Package
 } from 'lucide-react';
 import { cn, parseSafeDate } from '@/lib/utils';
 import { format, isValid } from 'date-fns';
@@ -56,10 +62,15 @@ const getStatusColor = (status: string) => {
         case 'partly vehicle assigned': return 'bg-orange-500/10 text-orange-700 border-orange-200';
         case 'assigned': 
         case 'vehicle assigned': return 'bg-blue-500/10 text-blue-700 border-blue-200';
+        case 'yard':
+        case 'loading':
+        case 'yard/loading':
         case 'loaded':
         case 'loading-complete': return 'bg-orange-500/10 text-orange-700 border-orange-200';
         case 'in-transit': return 'bg-purple-500/10 text-purple-700 border-indigo-200';
-        case 'arrived': return 'bg-teal-500/10 text-teal-700 border-teal-200';
+        case 'arrived': 
+        case 'arrival-for-delivery':
+        case 'arrive-for-deliver': return 'bg-teal-500/10 text-teal-700 border-teal-200';
         case 'delivered': return 'bg-green-500/10 text-green-700 border-green-200';
         case 'rejected': return 'bg-red-500/10 text-red-700 border-red-200';
         case 'closed': return 'bg-slate-900 text-white border-none';
@@ -68,138 +79,176 @@ const getStatusColor = (status: string) => {
 }
 
 /**
- * @fileOverview Transit Mission Card.
- * High-density UI node for monitoring in-transit missions.
+ * @fileOverview Mission Registry Card Node.
+ * High-density UI node for monitoring mission status across all operational tabs.
  */
-function TransitTripCard({ row, onAction }: { row: any, onAction: (type: string, trip: any) => void }) {
+function MissionRegistryCard({ row, activeTab, isAdmin, onAction }: { row: any, activeTab: string, isAdmin: boolean, onAction: (type: string, trip: any) => void }) {
     const formattedDate = row.startDate ? format(new Date(row.startDate), 'dd MMM') : '--';
-    const gateOutTime = row.gateOutDateTime ? format(new Date(row.gateOutDateTime), 'dd MMM, hh:mm aa') : '--';
+    const statusTime = row.lastUpdated ? format(new Date(row.lastUpdated), 'dd MMM, hh:mm aa') : '--';
     
+    // REGISTRY RULE: Remove Edit LR for tabs after In-Transit
+    const tabsAfterTransit = ['arrived', 'pod-status', 'rejection', 'closed'];
+    const canEditLR = !tabsAfterTransit.includes(activeTab);
+
     return (
-        <div className="bg-white border border-slate-200 rounded-xl mb-4 overflow-hidden shadow-sm hover:shadow-md transition-all">
-            {/* TOP HEADER ROW */}
-            <div className="grid grid-cols-1 md:grid-cols-10 gap-2 p-4 pb-2 bg-white">
+        <div className="bg-white border border-slate-200 rounded-[1.5rem] mb-6 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 group">
+            {/* 1. PRIMARY MANIFEST ROW */}
+            <div className="grid grid-cols-1 md:grid-cols-10 gap-3 p-5 pb-3 bg-white">
                 <div className="col-span-1 space-y-1">
                     <p className="text-[10px] font-black text-blue-700 uppercase tracking-tighter">#{row.tripId}</p>
-                    <p className="text-[10px] font-bold text-slate-400">{formattedDate}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase">{formattedDate}</p>
                 </div>
                 
                 <div className="col-span-1 space-y-1">
-                    <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <div className="flex items-center gap-1.5">
+                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
                         <span className="text-[10px] font-black text-slate-700 uppercase truncate" title={row.consignor}>{row.consignor}</span>
                     </div>
-                    <p className="text-[9px] text-slate-400 truncate pl-2.5 italic">{row.from}</p>
+                    <p className="text-[9px] text-slate-400 truncate pl-3 uppercase italic">"{row.from}"</p>
                 </div>
 
                 <div className="col-span-1 space-y-1">
-                    <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                    <div className="flex items-center gap-1.5">
+                        <div className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
                         <span className="text-[10px] font-black text-slate-700 uppercase truncate" title={row.consignee}>{row.consignee}</span>
                     </div>
-                    <p className="text-[9px] text-slate-400 truncate pl-2.5 italic">{row.unloadingPoint}</p>
+                    <p className="text-[9px] text-slate-400 truncate pl-3 uppercase italic">"{row.unloadingPoint}"</p>
                 </div>
 
                 <div className="col-span-1">
-                    <span className="text-[9px] font-bold text-slate-500 uppercase leading-tight line-clamp-2">{row.carrier || row.transporterName}</span>
+                    <span className="text-[9px] font-black text-slate-400 uppercase leading-tight line-clamp-2">{row.carrier || row.transporterName || 'Self Registry'}</span>
                 </div>
 
                 <div className="col-span-1 flex items-center gap-2">
-                    <Truck className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                    <div className="p-1.5 bg-blue-50 rounded-lg"><Truck className="h-3.5 w-3.5 text-blue-600" /></div>
                     <span className="text-[11px] font-black text-slate-900 uppercase tracking-tighter">{row.vehicleNumber}</span>
                 </div>
 
                 <div className="col-span-1 flex items-center gap-2">
-                    <Smartphone className="h-3 w-3 text-slate-400 shrink-0" />
-                    <span className="text-[10px] font-bold text-slate-700">{row.driverMobile}</span>
+                    <Smartphone className="h-3.5 w-3.5 text-slate-300" />
+                    <span className="text-[10px] font-mono font-bold text-slate-700">{row.driverMobile || '--'}</span>
                 </div>
 
                 <div className="col-span-1">
-                    <span className="text-[10px] font-bold text-blue-700 truncate block">{row.invoiceNumbers}</span>
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] font-black text-blue-800 truncate" title={row.invoiceNumbers}>{row.invoiceNumbers}</span>
+                        <span className="text-[8px] font-bold text-slate-300 uppercase">INVOICES</span>
+                    </div>
                 </div>
 
-                <div className="col-span-1 flex items-center gap-1.5">
-                    <FileText className="h-3 w-3 text-slate-300" />
-                    <span className="text-[10px] font-black text-slate-900">{row.lrNumber || '--'}</span>
+                <div className="col-span-1 flex items-center gap-2">
+                    <FileText className="h-3.5 w-3.5 text-orange-400" />
+                    <span className="text-[10px] font-black text-slate-900 uppercase">{row.lrNumber || '--'}</span>
                 </div>
 
                 <div className="col-span-2 text-right">
-                    <p className="text-[11px] font-black text-slate-900">{row.qtyUom}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Product: {row.material || 'Assorted'}</p>
+                    <p className="text-[13px] font-black text-slate-900 tracking-tighter">{row.qtyUom}</p>
+                    <Badge variant="outline" className="text-[8px] font-black uppercase px-2 h-4 border-slate-100 bg-slate-50 text-slate-400">NODE: {row.material || 'CARGO'}</Badge>
                 </div>
             </div>
 
-            {/* MIDDLE META ROW */}
-            <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-6 text-[10px] font-bold text-slate-500 bg-slate-50/30 border-y border-slate-100">
-                <div className="flex items-center gap-8">
-                    <div className="flex gap-1.5">
-                        <span className="text-slate-400 uppercase tracking-widest text-[8px]">SO/STO No:</span>
-                        <span className="text-blue-900 font-black">{row.orderNo}</span>
+            {/* 2. REGISTRY METADATA ROW */}
+            <div className="px-5 py-3 flex flex-wrap items-center justify-between gap-6 text-[10px] font-bold text-slate-500 bg-slate-50/40 border-y border-slate-100">
+                <div className="flex items-center gap-10">
+                    <div className="flex flex-col">
+                        <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none">Sales Order No</span>
+                        <span className="text-blue-900 font-black tracking-tight">{row.orderNo}</span>
                     </div>
-                    <div className="flex gap-1.5">
-                        <span className="text-slate-400 uppercase tracking-widest text-[8px]">DO No:</span>
-                        <span className="text-blue-900 font-black">{row.doNumber || '--'}</span>
+                    <div className="flex flex-col">
+                        <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none">Route Distance</span>
+                        <span className="text-slate-900 font-bold">{row.distance || '--'} KMS</span>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none">Payment Term</span>
+                        <span className="text-slate-700 font-black uppercase">{row.paymentTerm}</span>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-8">
-                    <div className="flex gap-1.5">
-                        <span className="text-slate-400 uppercase tracking-widest text-[8px]">Transit TAT:</span>
-                        <span className="text-slate-900">{row.transitHour || '1 days'}</span>
-                    </div>
-                    <div className="flex gap-1.5">
-                        <span className="text-slate-400 uppercase tracking-widest text-[8px]">STA:</span>
-                        <span className="text-slate-900 font-black uppercase">{row.staDate || '--'}</span>
-                    </div>
-                    <div className="flex gap-1.5">
-                        <span className="text-slate-400 uppercase tracking-widest text-[8px]">E-Way Bill Expiry:</span>
-                        <span className="text-orange-600 font-black">{row.ewaybillExpiry || '--'}</span>
-                    </div>
-                    <div className="flex gap-1.5">
-                        <span className="text-slate-400 uppercase tracking-widest text-[8px]">Distance:</span>
-                        <span className="text-blue-600 font-black underline decoration-blue-200 underline-offset-4">{row.distance || '--'} Kms</span>
+                <div className="flex items-center gap-10">
+                    {activeTab === 'transit' && (
+                        <div className="flex flex-col">
+                            <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none">Expected arrival (STA)</span>
+                            <span className="text-blue-600 font-black uppercase">{row.staDate || 'TBD'}</span>
+                        </div>
+                    )}
+                    <div className="flex flex-col items-end">
+                        <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none">Assigned Operator</span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            <User size={10} className="text-slate-300" />
+                            <span className="text-[10px] font-black text-slate-600 uppercase">@{row.assignedUsername?.split('@')[0]}</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* BOTTOM ACTION ROW */}
-            <div className="p-3 px-4 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] font-black uppercase h-5 px-3">Dispatched</Badge>
-                        <span className="text-[10px] font-bold text-slate-400">{gateOutTime}</span>
+            {/* 3. ACTION TERMINAL ROW */}
+            <div className="p-3 px-5 flex items-center justify-between bg-white">
+                <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-3">
+                        <Badge variant="outline" className={cn("text-[9px] h-6 font-black uppercase tracking-tighter px-4 border shadow-sm", getStatusColor(row.tripStatus))}>
+                            {row.tripStatus}
+                        </Badge>
+                        <div className="flex flex-col">
+                            <span className="text-[8px] font-black uppercase text-slate-400 leading-none">Registry Update</span>
+                            <span className="text-[10px] font-bold text-slate-500">{statusTime}</span>
+                        </div>
                     </div>
-                    <Separator orientation="vertical" className="h-4" />
-                    <div className="flex items-center gap-4 opacity-40 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all">
-                        <Activity size={14} className="text-slate-300" />
-                        <History size={14} className="text-slate-300" />
+                    <Separator orientation="vertical" className="h-5 bg-slate-100" />
+                    <div className="flex items-center gap-4 opacity-30 group-hover:opacity-100 transition-all duration-500">
+                        <Activity size={14} className="text-slate-400 hover:text-blue-600 cursor-help" title="Mission Telemetry" />
+                        <History size={14} className="text-slate-400 hover:text-blue-600 cursor-help" title="Registry History" />
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => onAction('pod-upload', row)}
-                        className="h-8 px-4 bg-slate-900 text-white hover:bg-black rounded-lg text-[9px] font-black uppercase tracking-widest transition-all active:scale-95"
-                    >
-                        Upload POD
-                    </Button>
-                    <Button 
-                        size="sm" 
-                        onClick={() => onAction('arrived', row)}
-                        className="h-8 px-6 bg-blue-900 hover:bg-black text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow-lg shadow-blue-900/10 transition-all active:scale-95"
-                    >
-                        Arrived In
-                    </Button>
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => onAction('view', row)}
-                        className="h-8 px-4 text-blue-600 hover:bg-blue-50 rounded-lg text-[9px] font-black uppercase tracking-widest"
-                    >
-                        View Details
-                    </Button>
+                    {/* CONTEXTUAL ACTION NODES */}
+                    {activeTab === 'open-order' && (
+                        <Button size="sm" onClick={() => onAction('vehicle-in', row)} className="h-9 px-6 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Vehicle IN</Button>
+                    )}
+                    {activeTab === 'loading' && (
+                        <Button size="sm" onClick={() => onAction('vehicle-out', row)} className="h-9 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Vehicle OUT</Button>
+                    )}
+                    {activeTab === 'transit' && (
+                        <>
+                            <Button variant="outline" size="sm" onClick={() => onAction('pod-upload', row)} className="h-9 px-5 border-slate-200 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-slate-50">Upload POD</Button>
+                            <Button size="sm" onClick={() => onAction('arrived', row)} className="h-9 px-8 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-900/10">Arrived In</Button>
+                        </>
+                    )}
+                    {activeTab === 'arrived' && (
+                        <>
+                            <Button variant="outline" size="sm" onClick={() => onAction('pod-upload', row)} className="h-9 px-5 border-slate-200 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-slate-50">Upload POD</Button>
+                            <Button size="sm" onClick={() => onAction('unloaded', row)} className="h-9 px-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Mark Unloaded</Button>
+                        </>
+                    )}
+                    {activeTab === 'rejection' && (
+                        <>
+                            <Button variant="outline" size="sm" onClick={() => onAction('re-sent', row)} className="h-9 px-6 border-blue-200 text-blue-700 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-blue-50">Mission Re-sent</Button>
+                            <Button size="sm" onClick={() => onAction('srn', row)} className="h-9 px-8 bg-red-600 hover:bg-red-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">SRN Entry</Button>
+                        </>
+                    )}
+
+                    <DropdownMenu modal={false}>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-900 transition-all"><MoreHorizontal size={18} /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuPortal>
+                            <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-slate-200 shadow-3xl bg-white z-[100]">
+                                <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Registry Control</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => onAction('view', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onAction('track', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50"><Navigation className="h-4 w-4 text-emerald-600" /> Track GIS</DropdownMenuItem>
+                                {canEditLR && (
+                                    <DropdownMenuItem onClick={() => onAction('edit-lr', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50"><FileText className="h-4 w-4 text-orange-600" /> Edit LR manifest</DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => onAction('edit-vehicle', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50"><Edit2 className="h-4 w-4 text-blue-400" /> Correct Vehicle</DropdownMenuItem>
+                                {isAdmin && (
+                                    <>
+                                        <DropdownMenuSeparator className="bg-slate-50" />
+                                        <DropdownMenuItem onClick={() => onAction('cancel', row)} className="gap-3 font-bold py-2.5 text-red-600 rounded-xl cursor-pointer hover:bg-red-50"><Ban className="h-4 w-4" /> Purge Mission</DropdownMenuItem>
+                                    </>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenuPortal>
+                    </DropdownMenu>
                 </div>
             </div>
         </div>
@@ -216,65 +265,31 @@ export default function TripBoardTable({
     onSelectAll
 }: TripBoardTableProps) {
   
-  const LRButton = ({ row }: { row: any }) => {
-    if (!row.lrNumber) return <span>--</span>;
-    return (
-        <button 
-            type="button"
-            onClick={(e) => { 
-                e.preventDefault(); 
-                e.stopPropagation(); 
-                onAction('view-lr', row); 
-            }} 
-            className="font-black text-blue-700 hover:underline text-[10px] md:text-[11px] uppercase tracking-tighter transition-all active:scale-95"
-        >
-            {row.lrNumber}
-        </button>
-    );
-  };
-
   const isAllOnPageSelected = data.length > 0 && data.every(row => selectedIds.includes(row.id));
 
-  // --- TRANSIT CARD VIEW Node ---
-  if (activeTab === 'transit') {
-    return (
-        <div className="flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-700">
-            {data.length === 0 ? (
-                <div className="h-64 flex flex-col items-center justify-center bg-white border rounded-[2.5rem] border-dashed border-slate-200">
-                    <Navigation className="h-12 w-12 text-slate-200 mb-4" />
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No missions currently in transit scope.</p>
-                </div>
-            ) : (
-                data.map((row) => (
-                    <TransitTripCard key={row.id} row={row} onAction={onAction} />
-                ))
-            )}
-        </div>
-    );
-  }
-
+  // --- PENDING ASSIGNMENT Table View ---
   if (activeTab === 'pending-assignment') {
       return (
         <div className="overflow-x-auto">
             <Table className="border-collapse w-full min-w-[1200px]">
                 <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b">
                     <TableRow className="h-10 md:h-12 hover:bg-transparent text-[9px] md:text-[10px] font-black uppercase text-slate-500">
-                        <TableHead className="w-12 px-4 bg-slate-100">
+                        <TableHead className="w-12 px-4 bg-slate-100 align-middle">
                             <Checkbox 
                                 checked={isAllOnPageSelected} 
                                 onCheckedChange={(v) => onSelectAll?.(!!v)}
-                                className="h-4 w-4 data-[state=checked]:bg-blue-900"
+                                className="h-4 w-4 data-[state=checked]:bg-blue-900 border-slate-300"
                             />
                         </TableHead>
-                        <TableHead className="px-6 w-32 bg-slate-100">Plant</TableHead>
-                        <TableHead className="px-4 w-36 bg-slate-100">Sales Order No</TableHead>
-                        <TableHead className="px-4 w-48 bg-slate-100">Consignor</TableHead>
-                        <TableHead className="px-4 w-48 bg-slate-100">Consignee</TableHead>
-                        <TableHead className="px-4 w-48 bg-slate-100">Destination</TableHead>
-                        <TableHead className="px-4 w-32 text-right bg-slate-100">Order Qty</TableHead>
-                        <TableHead className="px-4 w-32 text-right bg-slate-100">Balance Qty</TableHead>
-                        <TableHead className="px-4 text-center bg-slate-100">Status</TableHead>
-                        <TableHead className="px-8 w-24 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">Action</TableHead>
+                        <TableHead className="px-6 w-32 bg-slate-100 align-middle">Plant</TableHead>
+                        <TableHead className="px-4 w-36 bg-slate-100 align-middle">Sales Order No</TableHead>
+                        <TableHead className="px-4 w-48 bg-slate-100 align-middle">Consignor</TableHead>
+                        <TableHead className="px-4 w-48 bg-slate-100 align-middle">Consignee</TableHead>
+                        <TableHead className="px-4 w-48 bg-slate-100 align-middle">Destination</TableHead>
+                        <TableHead className="px-4 w-32 text-right bg-slate-100 align-middle">Order Qty</TableHead>
+                        <TableHead className="px-4 w-32 text-right bg-slate-100 align-middle">Balance Qty</TableHead>
+                        <TableHead className="px-4 text-center bg-slate-100 align-middle">Status</TableHead>
+                        <TableHead className="px-8 w-24 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] align-middle">Action</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -283,25 +298,25 @@ export default function TripBoardTable({
                     ) : (
                         data.map((row) => (
                             <TableRow key={row.id} className="h-12 md:h-14 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 even:bg-slate-50/30 transition-all group text-[10px] md:text-[11px] font-medium text-slate-600">
-                                <TableCell className="px-4">
+                                <TableCell className="px-4 align-middle">
                                     <Checkbox 
                                         checked={selectedIds.includes(row.id)} 
-                                        onSelectRow={(v) => onSelectRow?.(row.id, !!v)}
-                                        className="h-4 w-4 data-[state=checked]:bg-blue-900"
+                                        onCheckedChange={(checked) => onSelectRow?.(row.id, !!checked)}
+                                        className="h-4 w-4 data-[state=checked]:bg-blue-900 border-slate-300"
                                     />
                                 </TableCell>
-                                <TableCell className="px-6 font-bold uppercase truncate">{row.plantName}</TableCell>
-                                <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-[10px] md:text-xs">{row.orderNo}</TableCell>
-                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px] md:text-xs">{row.consignor}</TableCell>
-                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px] md:text-xs">{row.billToParty}</TableCell>
-                                <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-[10px] md:text-xs">{row.unloadingPoint}</TableCell>
-                                <TableCell className="px-4 text-right font-black text-slate-900">{row.qtyUom}</TableCell>
-                                <TableCell className="px-4 text-right font-black text-orange-600 bg-orange-50/10">{row.balanceUom}</TableCell>
-                                <TableCell className="px-4 text-center">
+                                <TableCell className="px-6 font-bold uppercase truncate align-middle">{row.plantName}</TableCell>
+                                <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-[10px] md:text-xs align-middle">{row.orderNo}</TableCell>
+                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px] md:text-xs align-middle">{row.consignor}</TableCell>
+                                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px] md:text-xs align-middle">{row.billToParty}</TableCell>
+                                <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-[10px] md:text-xs align-middle">{row.unloadingPoint}</TableCell>
+                                <TableCell className="px-4 text-right font-black text-slate-900 align-middle">{row.qtyUom}</TableCell>
+                                <TableCell className="px-4 text-right font-black text-orange-600 bg-orange-50/10 align-middle">{row.balanceUom}</TableCell>
+                                <TableCell className="px-4 text-center align-middle">
                                     <Badge variant="outline" className={cn("text-[8px] md:text-[9px] font-black uppercase px-2.5 h-5 md:h-6", getStatusColor(row.currentStatusId))}>{row.currentStatusId}</Badge>
                                 </TableCell>
-                                <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
-                                    <Button size="sm" onClick={() => onAction('assign', row)} className="h-7 md:h-8 bg-blue-900 hover:bg-black text-white font-black text-[8px] md:text-[9px] uppercase px-3 md:px-4 rounded-lg gap-1.5">
+                                <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)] align-middle">
+                                    <Button size="sm" onClick={() => onAction('assign', row)} className="h-7 md:h-8 bg-blue-900 hover:bg-black text-white font-black text-[8px] md:text-[9px] uppercase px-3 md:px-4 rounded-lg gap-1.5 border-none shadow-md transition-all active:scale-95">
                                         <PlusCircle size={10}/> Assign
                                     </Button>
                                 </TableCell>
@@ -314,81 +329,21 @@ export default function TripBoardTable({
       );
   }
 
+  // --- GLOBAL CARD VIEW Node ---
   return (
-    <div className="overflow-x-auto">
-      <Table className="border-collapse w-full min-w-[1400px]">
-        <TableHeader className="bg-slate-50 sticky top-0 z-10 border-b">
-          <TableRow className="h-10 md:h-12 hover:bg-transparent text-[9px] md:text-[10px] font-black uppercase text-slate-500">
-            <TableHead className="px-6 w-32 bg-slate-100">Plant</TableHead>
-            <TableHead className="text-[9px] md:text-[10px] font-black uppercase px-4 w-36 bg-slate-100">Sales Order No</TableHead>
-            <TableHead className="px-4 w-36 text-center bg-slate-100">LR No</TableHead>
-            <TableHead className="px-4 w-32 text-center bg-slate-100">LR Date</TableHead>
-            <TableHead className="px-4 w-32 bg-slate-100">Trip ID</TableHead>
-            <TableHead className="px-4 w-36 bg-slate-100">Vehicle No</TableHead>
-            <TableHead className="px-4 w-48 bg-slate-100">Consignor</TableHead>
-            <TableHead className="px-4 w-48 bg-slate-100">Consignee</TableHead>
-            <TableHead className="px-4 text-right font-black bg-slate-100 w-32">Weight (MT)</TableHead>
-            <TableHead className="px-4 text-center bg-slate-100 w-40">Trip Status</TableHead>
-            <TableHead className="px-8 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-24">Action</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={11} className="h-48 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">
-                No records detected in {activeTab} view.
-              </TableCell>
-            </TableRow>
-          ) : (
-            data.map((row) => (
-              <TableRow key={row.id} className="h-12 md:h-14 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 transition-all group text-[10px] md:text-[11px] font-medium text-slate-600">
-                <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{row.plantName}</TableCell>
-                <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-[10px] md:text-xs">{row.orderNo || '--'}</TableCell>
-                <TableCell className="px-4 text-center">
-                    <LRButton row={row} />
-                </TableCell>
-                <TableCell className="px-4 text-center text-slate-500 font-bold whitespace-nowrap text-[10px] md:text-[11px]">
-                    {row.lrDate ? format(new Date(row.lrDate), 'dd/MM/yy') : '--'}
-                </TableCell>
-                <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-[10px] md:text-xs uppercase">{row.tripId}</TableCell>
-                <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{row.vehicleNumber}</TableCell>
-                <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px] md:text-xs" title={row.consignor}>{row.consignor}</TableCell>
-                <TableCell className="px-4 truncate font-medium text-slate-500 uppercase text-[10px] md:text-xs">{row.consignee}</TableCell>
-                <TableCell className="px-4 text-right font-black text-blue-900 text-[10px] md:text-xs">{(Number(row.dispatchedQty) || 0).toFixed(3)} MT</TableCell>
-                <TableCell className="px-4 text-center">
-                    <Badge variant="outline" className={cn("text-[8px] md:text-[9px] font-black uppercase px-2 h-5 md:h-6 border shadow-sm", getStatusColor(row.tripStatus))}>
-                        {row.tripStatus}
-                    </Badge>
-                </TableCell>
-                <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
-                    <div className="flex justify-end items-center gap-2">
-                        {activeTab === 'transit' && (
-                            <Button size="sm" onClick={() => onAction('arrived', row)} className="h-7 md:h-8 bg-blue-900 hover:bg-black text-white font-black text-[8px] md:text-[9px] uppercase px-3 md:px-4 rounded-lg">Arrived</Button>
-                        )}
-                        {activeTab === 'arrived' && (
-                            <Button size="sm" onClick={() => onAction('unloaded', row)} className="h-7 md:h-8 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[8px] md:text-[9px] uppercase px-3 md:px-4 rounded-lg">Unloaded</Button>
-                        )}
-                        <DropdownMenu modal={false}>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-white text-slate-400 hover:text-blue-900"><MoreHorizontal className="h-4 w-4" /></Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuPortal>
-                                <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl border-slate-200 shadow-2xl z-[100] bg-white">
-                                    <DropdownMenuLabel className="text-[9px] font-black uppercase text-slate-400 px-2 pb-2">Registry Control</DropdownMenuLabel>
-                                    <DropdownMenuItem onClick={() => onAction('view', row)} className="gap-3 font-bold py-2.5 rounded-lg cursor-pointer hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => onAction('track', row)} className="gap-3 font-bold py-2.5 rounded-lg cursor-pointer hover:bg-blue-50"><Navigation className="h-4 w-4 text-emerald-600" /> Track GIS</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => onAction('edit-lr', row)} className="gap-3 font-bold py-2.5 rounded-lg cursor-pointer hover:bg-blue-50"><FileText className="h-4 w-4 text-orange-600" /> Edit LR manifest</DropdownMenuItem>
-                                    {isAdmin && <DropdownMenuItem onClick={() => onAction('cancel', row)} className="gap-3 font-bold py-2.5 text-red-600 rounded-lg cursor-pointer hover:bg-red-50"><Trash2 className="h-4 w-4" /> Purge Mission</DropdownMenuItem>}
-                                </DropdownMenuContent>
-                            </DropdownMenuPortal>
-                        </DropdownMenu>
-                    </div>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+    <div className="flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-700">
+        {data.length === 0 ? (
+            <div className="h-64 flex flex-col items-center justify-center bg-white border-2 border-slate-100 rounded-[2.5rem] border-dashed">
+                <div className="p-4 bg-slate-50 rounded-2xl mb-4"><Package className="h-10 w-10 text-slate-200" /></div>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">No mission nodes found in {activeTab.toUpperCase()} registry.</p>
+            </div>
+        ) : (
+            <div className="grid grid-cols-1 gap-1">
+                {data.map((row) => (
+                    <MissionRegistryCard key={row.id} row={row} activeTab={activeTab} isAdmin={isAdmin} onAction={onAction} />
+                ))}
+            </div>
+        )}
     </div>
   );
 }
