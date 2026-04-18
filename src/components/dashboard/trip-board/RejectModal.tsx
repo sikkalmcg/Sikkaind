@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -10,7 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
-import { Truck, AlertCircle, X, ShieldAlert, Calendar, Clock, MessageSquare } from 'lucide-react';
+import { Truck, AlertCircle, X, ShieldAlert, Calendar, Clock, MessageSquare, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
