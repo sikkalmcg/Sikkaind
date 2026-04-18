@@ -47,7 +47,7 @@ function TripBoardContent() {
   const { showLoader, hideLoader } = useLoading();
   
   const activeTab = (searchParams.get('tab') as TripBoardTab) || 'pending-assignment';
-  const urlPlants = useMemo(() => searchParams.get('plants')?.split(',').filter(Boolean) || [], [searchParams]);
+  const urlPlants = useMemo(() => (searchParams.get('plants')?.split(',').filter(Boolean) || []).map(normalizePlantId), [searchParams]);
 
   const [selectedPlants, setSelectedPlants] = useState<string[]>(urlPlants);
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
@@ -125,15 +125,16 @@ function TripBoardContent() {
                 authIds = baseList.map(p => p.id);
             }
 
-            setAuthorizedPlantIds(authIds);
-            const authorizedPlants = baseList.filter(p => authIds.includes(p.id));
+            const normalizedAuthIds = authIds.map(normalizePlantId);
+            setAuthorizedPlantIds(normalizedAuthIds);
+            const authorizedPlants = baseList.filter(p => normalizedAuthIds.includes(normalizePlantId(p.id)));
             setPlants(authorizedPlants);
 
             if (!isInitialized.current) {
                 if (urlPlants.length > 0) {
-                    setSelectedPlants(urlPlants);
-                } else if (authIds.length > 0) {
-                    setSelectedPlants(authIds);
+                    setSelectedPlants(urlPlants.map(normalizePlantId));
+                } else if (normalizedAuthIds.length > 0) {
+                    setSelectedPlants(normalizedAuthIds);
                 }
                 isInitialized.current = true;
             }
@@ -143,24 +144,35 @@ function TripBoardContent() {
   }, [firestore, user, allMasterPlants, isAdminSession, urlPlants]);
 
   const handlePlantChange = (ids: string[]) => {
-    setSelectedPlants(ids);
-    updateURL(ids);
+    const normalized = ids.map(normalizePlantId);
+    setSelectedPlants(normalized);
+    updateURL(normalized);
   };
 
   useEffect(() => {
     if (!firestore || !user || selectedPlants.length === 0) {
-        if (selectedPlants.length === 0 && isInitialized.current) {
-            setTrips([]);
-            setShipments([]);
-            setLrs([]);
-            setIsLoading(false);
-        }
-        return;
+      if (selectedPlants.length === 0 && isInitialized.current) {
+          setAllData({ shipments: [], trips: [], entries: [], lrs: [] });
+          setIsLoading(false);
+      }
+      return;
     }
+
     setIsLoading(true);
     const unsubscribers: (() => void)[] = [];
 
-    selectedPlants.forEach((plantId) => {
+    unsubscribers.push(onSnapshot(collection(firestore, "vehicleEntries"), (snap) => {
+        setEntries(snap.docs.map(d => ({ 
+            id: d.id, 
+            ...d.data(),
+            entryTimestamp: parseSafeDate(d.data().entryTimestamp),
+            exitTimestamp: parseSafeDate(d.data().exitTimestamp)
+        } as any)));
+    }));
+
+    selectedPlants.forEach((pId) => {
+      const plantId = normalizePlantId(pId);
+      
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/trips`), (snap) => {
         const list = snap.docs.map(d => ({ 
             id: d.id, 
@@ -177,7 +189,7 @@ function TripBoardContent() {
             lastUpdated: parseSafeDate(d.data().lastUpdated)
         } as any));
         setTrips(prev => {
-            const others = prev.filter(t => t.originPlantId !== plantId);
+            const others = prev.filter(t => normalizePlantId(t.originPlantId) !== plantId);
             return [...others, ...list];
         });
         setIsLoading(false);
@@ -191,7 +203,7 @@ function TripBoardContent() {
             creationDate: parseSafeDate(d.data().creationDate)
         } as any));
         setShipments(prev => {
-            const others = prev.filter(s => s.originPlantId !== plantId);
+            const others = prev.filter(s => normalizePlantId(s.originPlantId) !== plantId);
             return [...others, ...list];
         });
       }));
@@ -204,20 +216,11 @@ function TripBoardContent() {
           date: parseSafeDate(d.data().date)
         } as any));
         setLrs(prev => {
-            const others = prev.filter(l => l.originPlantId !== plantId);
+            const others = prev.filter(l => normalizePlantId(l.originPlantId) !== plantId);
             return [...others, ...list];
         });
       }));
     });
-
-    unsubscribers.push(onSnapshot(collection(firestore, "vehicleEntries"), (snap) => {
-        setEntries(snap.docs.map(d => ({ 
-            id: d.id, 
-            ...d.data(),
-            entryTimestamp: parseSafeDate(d.data().entryTimestamp),
-            exitTimestamp: parseSafeDate(d.data().exitTimestamp)
-        } as any)));
-    }));
 
     return () => unsubscribers.forEach(u => u());
   }, [firestore, JSON.stringify(selectedPlants)]);
@@ -228,12 +231,13 @@ function TripBoardContent() {
     return trips
       .filter(t => normalizedSelected.includes(normalizePlantId(t.originPlantId)))
       .map(t => {
+        const tPlantId = normalizePlantId(t.originPlantId);
         const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : t.shipmentIds;
-        const shipment = shipments.find(s => s.id === shipId || s.shipmentId === shipId);
-        const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId || (l.lrNumber === t.lrNumber && l.originPlantId === t.originPlantId));
-        const entry = entries.find(e => e.tripId === t.id || (e.vehicleNumber === t.vehicleNumber && e.status === 'OUT' && normalizePlantId(e.plantId) === normalizePlantId(t.originPlantId)));
+        const shipment = shipments.find(s => (s.id === shipId || s.shipmentId === shipId) && normalizePlantId(s.originPlantId) === tPlantId);
+        const lr = lrs.find(l => (l.tripDocId === t.id || l.tripId === t.tripId || l.lrNumber === t.lrNumber) && normalizePlantId(l.originPlantId) === tPlantId);
+        const entry = entries.find(e => (e.tripId === t.id || (e.vehicleNumber === t.vehicleNumber && e.status === 'OUT')) && normalizePlantId(e.plantId) === tPlantId);
         const carrier = dbCarriers?.find(c => c.id === t.carrierId);
-        const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(t.originPlantId));
+        const plant = plants.find(p => normalizePlantId(p.id) === tPlantId);
 
         const items = lr?.items || t.items || shipment?.items || [];
         const invoiceNumbers = Array.from(new Set(items.map((i: any) => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo).filter(Boolean))).join(', ');
@@ -256,11 +260,6 @@ function TripBoardContent() {
             shipToParty: t.shipToParty || shipment?.shipToParty || '--',
             from: t.loadingPoint || shipment?.loadingPoint || '--',
             unloadingPoint: t.unloadingPoint || shipment?.unloadingPoint || t.destination || '--',
-            vehicleNumber: t.vehicleNumber,
-            driverName: t.driverName,
-            driverMobile: t.driverMobile,
-            fleetType: t.vehicleType,
-            vendorName: t.transporterName || '--',
             assignedUsername: t.userName || '--',
             invoiceNumbers: invoiceNumbers || shipment?.invoiceNumber || '--',
             itemDescription: summarizedItems,
@@ -294,6 +293,214 @@ function TripBoardContent() {
         };
     });
 }, [trips, shipments, lrs, entries, plants, dbCarriers, selectedPlants]);
+
+  const processedData = useMemo(() => {
+    const dayStart = fromDate ? startOfDay(fromDate) : null;
+    const dayEnd = toDate ? endOfDay(toDate) : null;
+    const normalizedSelected = selectedPlants.map(normalizePlantId);
+
+    if (activeTab === 'pending-assignment') {
+        let list = shipments
+            .filter(s => normalizedSelected.includes(normalizePlantId(s.originPlantId)))
+            .filter(s => {
+                if (['cancelled', 'short closed'].includes(s.currentStatusId?.toLowerCase())) return false;
+                if (s.balanceQty <= 0) return false;
+                const cDate = parseSafeDate(s.creationDate);
+                if (dayStart && cDate && cDate < dayStart) return false;
+                if (dayEnd && cDate && cDate > dayEnd) return false;
+                return true;
+            })
+            .map(s => {
+                const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(s.originPlantId));
+                return {
+                    ...s,
+                    plantName: plant?.name || s.originPlantId,
+                    type: 'shipment',
+                    orderNo: s.shipmentId,
+                    qtyUom: `${s.quantity} MT`,
+                    balanceUom: `${s.balanceQty} MT`,
+                    carrierObj: dbCarriers?.find(c => c.id === s.carrierId)
+                };
+            })
+            .filter(s => {
+                if (!searchTerm) return true;
+                const searchLower = searchTerm.toLowerCase();
+                return (s.shipmentId?.toLowerCase().includes(searchLower) || s.consignor?.toLowerCase().includes(searchLower) || s.billToParty?.toLowerCase().includes(searchLower));
+            });
+
+        if (sortAlphabetical) {
+            list = list.sort((a, b) => (a.billToParty || '').localeCompare(b.billToParty || ''));
+        }
+        return list;
+    }
+
+    return joinedData.filter(t => {
+      const start = t.startDate;
+      if (dayStart && start && start < dayStart) return false;
+      if (dayEnd && start && start > dayEnd) return false;
+      
+      const s = t.normalizedStatus;
+      switch (activeTab) {
+        case 'open-order': return s === 'assigned' || s === 'vehicle-assigned';
+        case 'loading': return s === 'yard' || s === 'yard/loading' || s === 'loading' || s === 'loaded' || s === 'loading-complete';
+        case 'transit': return s === 'in-transit';
+        case 'arrived': return s === 'arrived' || s === 'arrival-for-delivery' || s === 'arrive-for-deliver';
+        case 'pod-status': return s === 'delivered';
+        case 'rejection': return s === 'rejected';
+        case 'closed': return s === 'closed';
+        default: return true;
+      }
+    }).filter(t => {
+      if (!searchTerm) return true;
+      const s = searchTerm.toLowerCase();
+      return (t.tripId?.toLowerCase().includes(s) || t.vehicleNumber?.toLowerCase().includes(s) || t.lrNumber?.toLowerCase().includes(s) || t.consignor?.toLowerCase().includes(s) || t.consignee?.toLowerCase().includes(s));
+    });
+  }, [joinedData, shipments, activeTab, fromDate, toDate, searchTerm, selectedPlants, plants, sortAlphabetical, dbCarriers]);
+
+  const counts = useMemo(() => {
+    const res = { pendingAssignment: 0, openOrder: 0, loading: 0, transit: 0, arrived: 0, pod: 0, rejection: 0, closed: 0 };
+    
+    const normalizedSelected = selectedPlants.map(normalizePlantId);
+    shipments.forEach(s => {
+        if (normalizedSelected.includes(normalizePlantId(s.originPlantId))) {
+            if (!['cancelled', 'short closed'].includes(s.currentStatusId?.toLowerCase()) && s.balanceQty > 0) {
+                res.pendingAssignment++;
+            }
+        }
+    });
+
+    joinedData.forEach(t => {
+        const s = t.normalizedStatus;
+        if (s === 'assigned' || s === 'vehicle-assigned') res.openOrder++;
+        else if (s === 'yard' || s === 'yard/loading' || s === 'loading' || s === 'loaded' || s === 'loading-complete') res.loading++;
+        else if (s === 'in-transit') res.transit++;
+        else if (s === 'arrived' || s === 'arrival-for-delivery' || s === 'arrive-for-deliver') res.arrived++;
+        else if (s === 'delivered') res.pod++;
+        else if (s === 'rejected') res.rejection++;
+        else if (s === 'closed') res.closed++;
+    });
+    return res;
+  }, [joinedData, shipments, selectedPlants]);
+
+  const totalPages = Math.ceil(processedData.length / itemsPerPage);
+  const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handleSelectPendingRow = (id: string, checked: boolean) => {
+    setSelectedPendingIds(prev => checked ? [...prev, id] : prev.filter(i => i !== id));
+  };
+
+  const handleSelectAllPending = (checked: boolean) => {
+    if (checked) {
+        setSelectedPendingIds(paginatedData.map(d => d.id));
+    } else {
+        setSelectedPendingIds([]);
+    }
+  };
+
+  const selectedPendingShipments = useMemo(() => {
+    return shipments.filter(s => selectedPendingIds.includes(s.id));
+  }, [selectedPendingIds, shipments]);
+
+  const bulkTotalQty = useMemo(() => {
+    return selectedPendingShipments.reduce((sum, s) => sum + (Number(s.balanceQty) || 0), 0);
+  }, [selectedPendingShipments]);
+
+  const handleBulkAssign = () => {
+    if (selectedPendingShipments.length === 0) return;
+    setSelectedShipmentsForAssign(selectedPendingShipments);
+    setAssignModalOpen(true);
+  };
+
+  const handleDownloadExcel = () => {
+    const exportData = processedData.map(t => ({
+        'Plant': t.plantName, 'ID': t.tripId || t.shipmentId, 'Vehicle Number': t.vehicleNumber || '--', 'LR Number': t.lrNumber || '--', 'Consignor': t.consignor, 'Consignee': t.consignee || t.billToParty, 'Destination': t.unloadingPoint, 'Weight (MT)': t.dispatchedQty || t.quantity, 'Status': t.tripStatus || t.currentStatusId, 'Date': t.startDate ? format(t.startDate, 'dd-MM-yy HH:mm') : (t.creationDate ? format(t.creationDate, 'dd-MM-yy HH:mm') : '--')
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, ws, "Mission Registry");
+    XLSX.writeFile(workbook, `TripBoard_${activeTab}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+  };
+
+  const handleAction = async (type: string, row: any) => {
+    if (type === 'assign') {
+        setSelectedShipmentsForAssign([row]);
+        setAssignModalOpen(true);
+    }
+    if (type === 'toggle-sort') {
+        setSortAlphabetical(!sortAlphabetical);
+        return;
+    }
+    if (type === 'view') setViewTripData(row);
+    if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${row.vehicleNumber}`);
+    if (type === 'view-lr') setPreviewLrData(row);
+    if (type === 'edit-lr') {
+        setEditLrTrip(row);
+        setEditLrCarrier(row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId));
+    }
+    if (type === 'edit-vehicle') setEditVehicleTrip(row);
+    if (type === 'cancel') setCancelTripData(row);
+    if (type === 'arrived') setArrivedTrip(row);
+    if (type === 'unloaded') setUnloadedTrip(row);
+    if (type === 'reject') setRejectTrip(row);
+    if (type === 'pod-status') setPodStatusTrip(row);
+    if (type === 'pod-upload') setPodUploadTrip(row);
+    if (type === 'srn') setSrnTrip(row);
+    if (type === 'vehicle-in') {
+        if (!firestore || !user) return;
+        showLoader();
+        try {
+            const plantId = normalizePlantId(row.originPlantId);
+            const ts = serverTimestamp();
+            await addDoc(collection(firestore, "vehicleEntries"), {
+                tripId: row.id,
+                plantId: plantId,
+                vehicleNumber: row.vehicleNumber,
+                status: "IN",
+                entryTimestamp: ts,
+                purpose: "Loading"
+            });
+            const update = { tripStatus: 'Yard/Loading', currentStatusId: 'yard/loading', entryTime: ts, lastUpdated: ts };
+            await updateDoc(doc(firestore, `plants/${plantId}/trips`, row.id), update);
+            await setDoc(doc(firestore, 'trips', row.id), update, { merge: true });
+            toast({ title: 'Vehicle In Logged' });
+        } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
+        finally { hideLoader(); }
+    }
+    if (type === 'vehicle-out') {
+        if (!firestore || !user) return;
+        showLoader();
+        try {
+            const plantId = normalizePlantId(row.originPlantId);
+            const ts = serverTimestamp();
+            if (row.entry?.id) {
+                await updateDoc(doc(firestore, "vehicleEntries", row.entry.id), { status: "OUT", exitTimestamp: ts });
+            } else {
+                await addDoc(collection(firestore, "vehicleEntries"), { tripId: row.id, plantId, vehicleNumber: row.vehicleNumber, status: "OUT", exitTimestamp: ts, outType: "Loaded" });
+            }
+            const update = { tripStatus: 'In Transit', currentStatusId: 'in-transit', outDate: ts, lastUpdated: ts };
+            await updateDoc(doc(firestore, `plants/${plantId}/trips`, row.id), update);
+            await setDoc(doc(firestore, 'trips', row.id), update, { merge: true });
+            toast({ title: 'Vehicle Out & Dispatched' });
+        } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
+        finally { hideLoader(); }
+    }
+    if (type === 're-sent') {
+        if (!firestore || !user) return;
+        showLoader();
+        try {
+            const plantId = normalizePlantId(row.originPlantId);
+            const tripRef = doc(firestore, `plants/${plantId}/trips`, row.id);
+            const globalTripRef = doc(firestore, 'trips', row.id);
+            const ts = serverTimestamp();
+            const currentName = user.displayName || user.email?.split('@')[0] || 'System';
+            const update = { tripStatus: 'In Transit', currentStatusId: 'in-transit', resentAt: ts, resentBy: currentName, lastUpdated: ts };
+            await updateDoc(tripRef, update);
+            await setDoc(globalTripRef, update, { merge: true });
+            toast({ title: 'Mission Re-activated' });
+        } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
+        finally { hideLoader(); }
+    }
+  };
 
   const handleArrivedPost = async (values: any) => {
     if (!firestore || !user || !arrivedTrip) return;
@@ -547,216 +754,6 @@ function TripBoardContent() {
     } finally { hideLoader(); }
   };
 
-  const handleAction = async (type: string, row: any) => {
-    if (type === 'assign') {
-        setSelectedShipmentsForAssign([row]);
-        setAssignModalOpen(true);
-    }
-    if (type === 'toggle-sort') {
-        setSortAlphabetical(!sortAlphabetical);
-        return;
-    }
-    if (type === 'view') setViewTripData(row);
-    if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${row.vehicleNumber}`);
-    if (type === 'view-lr') setPreviewLrData(row);
-    if (type === 'edit-lr') {
-        setEditLrTrip(row);
-        // Ensure carrierObj is available for shipments in Pending Assignment too
-        setEditLrCarrier(row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId));
-    }
-    if (type === 'edit-vehicle') setEditVehicleTrip(row);
-    if (type === 'cancel') setCancelTripData(row);
-    if (type === 'arrived') setArrivedTrip(row);
-    if (type === 'unloaded') setUnloadedTrip(row);
-    if (type === 'reject') setRejectTrip(row);
-    if (type === 'pod-status') setPodStatusTrip(row);
-    if (type === 'pod-upload') setPodUploadTrip(row);
-    if (type === 'srn') setSrnTrip(row);
-    if (type === 'vehicle-in') {
-        if (!firestore || !user) return;
-        showLoader();
-        try {
-            const plantId = normalizePlantId(row.originPlantId);
-            const ts = serverTimestamp();
-            await addDoc(collection(firestore, "vehicleEntries"), {
-                tripId: row.id,
-                plantId: plantId,
-                vehicleNumber: row.vehicleNumber,
-                status: "IN",
-                entryTimestamp: ts,
-                purpose: "Loading"
-            });
-            const update = { tripStatus: 'Yard/Loading', currentStatusId: 'yard/loading', entryTime: ts, lastUpdated: ts };
-            await updateDoc(doc(firestore, `plants/${plantId}/trips`, row.id), update);
-            await setDoc(doc(firestore, 'trips', row.id), update, { merge: true });
-            toast({ title: 'Vehicle In Logged' });
-        } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
-        finally { hideLoader(); }
-    }
-    if (type === 'vehicle-out') {
-        if (!firestore || !user) return;
-        showLoader();
-        try {
-            const plantId = normalizePlantId(row.originPlantId);
-            const ts = serverTimestamp();
-            if (row.entry?.id) {
-                await updateDoc(doc(firestore, "vehicleEntries", row.entry.id), { status: "OUT", exitTimestamp: ts });
-            } else {
-                await addDoc(collection(firestore, "vehicleEntries"), { tripId: row.id, plantId, vehicleNumber: row.vehicleNumber, status: "OUT", exitTimestamp: ts, outType: "Loaded" });
-            }
-            const update = { tripStatus: 'In Transit', currentStatusId: 'in-transit', outDate: ts, lastUpdated: ts };
-            await updateDoc(doc(firestore, `plants/${plantId}/trips`, row.id), update);
-            await setDoc(doc(firestore, 'trips', row.id), update, { merge: true });
-            toast({ title: 'Vehicle Out & Dispatched' });
-        } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
-        finally { hideLoader(); }
-    }
-    if (type === 're-sent') {
-        if (!firestore || !user) return;
-        showLoader();
-        try {
-            const plantId = normalizePlantId(row.originPlantId);
-            const tripRef = doc(firestore, `plants/${plantId}/trips`, row.id);
-            const globalTripRef = doc(firestore, 'trips', row.id);
-            const ts = serverTimestamp();
-            const currentName = user.displayName || user.email?.split('@')[0] || 'System';
-            const update = { tripStatus: 'In Transit', currentStatusId: 'in-transit', resentAt: ts, resentBy: currentName, lastUpdated: ts };
-            await updateDoc(tripRef, update);
-            await setDoc(globalTripRef, update, { merge: true });
-            toast({ title: 'Mission Re-activated' });
-        } catch (e: any) { toast({ variant: 'destructive', title: 'Error', description: e.message }); }
-        finally { hideLoader(); }
-    }
-  };
-
-  const processedData = useMemo(() => {
-    const dayStart = fromDate ? startOfDay(fromDate) : null;
-    const dayEnd = toDate ? endOfDay(toDate) : null;
-
-    if (activeTab === 'pending-assignment') {
-        const normalizedSelected = selectedPlants.map(normalizePlantId);
-        let list = shipments
-            .filter(s => normalizedSelected.includes(normalizePlantId(s.originPlantId)))
-            .filter(s => {
-                if (['cancelled', 'short closed'].includes(s.currentStatusId?.toLowerCase())) return false;
-                if (s.balanceQty <= 0) return false;
-                const cDate = parseSafeDate(s.creationDate);
-                if (dayStart && cDate && cDate < dayStart) return false;
-                if (dayEnd && cDate && cDate > dayEnd) return false;
-                return true;
-            })
-            .map(s => {
-                const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(s.originPlantId));
-                return {
-                    ...s,
-                    plantName: plant?.name || s.originPlantId,
-                    type: 'shipment',
-                    orderNo: s.shipmentId,
-                    qtyUom: `${s.quantity} MT`,
-                    balanceUom: `${s.balanceQty} MT`,
-                    // MISSION HANDSHAKE: Pre-resolve carrier object for documentation editing
-                    carrierObj: dbCarriers?.find(c => c.id === s.carrierId)
-                };
-            })
-            .filter(s => {
-                if (!searchTerm) return true;
-                const searchLower = searchTerm.toLowerCase();
-                return (s.shipmentId?.toLowerCase().includes(searchLower) || s.consignor?.toLowerCase().includes(searchLower) || s.billToParty?.toLowerCase().includes(searchLower));
-            });
-
-        if (sortAlphabetical) {
-            list = list.sort((a, b) => (a.billToParty || '').localeCompare(b.billToParty || ''));
-        }
-        return list;
-    }
-
-    return joinedData.filter(t => {
-      const start = t.startDate;
-      if (dayStart && start && start < dayStart) return false;
-      if (dayEnd && start && start > dayEnd) return false;
-      
-      const s = t.normalizedStatus;
-      switch (activeTab) {
-        case 'open-order': return s === 'assigned' || s === 'vehicle-assigned';
-        case 'loading': return s === 'yard' || s === 'yard/loading' || s === 'loading' || s === 'loaded' || s === 'loading-complete';
-        case 'transit': return s === 'in-transit';
-        case 'arrived': return s === 'arrived' || s === 'arrival-for-delivery' || s === 'arrive-for-deliver';
-        case 'pod-status': return s === 'delivered';
-        case 'rejection': return s === 'rejected';
-        case 'closed': return s === 'closed';
-        default: return true;
-      }
-    }).filter(t => {
-      if (!searchTerm) return true;
-      const s = searchTerm.toLowerCase();
-      return (t.tripId?.toLowerCase().includes(s) || t.vehicleNumber?.toLowerCase().includes(s) || t.lrNumber?.toLowerCase().includes(s) || t.consignor?.toLowerCase().includes(s) || t.consignee?.toLowerCase().includes(s));
-    });
-  }, [joinedData, shipments, activeTab, fromDate, toDate, searchTerm, selectedPlants, plants, sortAlphabetical, dbCarriers]);
-
-  const counts = useMemo(() => {
-    const res = { pendingAssignment: 0, openOrder: 0, loading: 0, transit: 0, arrived: 0, pod: 0, rejection: 0, closed: 0 };
-    
-    const normalizedSelected = selectedPlants.map(normalizePlantId);
-    shipments.forEach(s => {
-        if (normalizedSelected.includes(normalizePlantId(s.originPlantId))) {
-            if (!['cancelled', 'short closed'].includes(s.currentStatusId?.toLowerCase()) && s.balanceQty > 0) {
-                res.pendingAssignment++;
-            }
-        }
-    });
-
-    joinedData.forEach(t => {
-        const s = t.normalizedStatus;
-        if (s === 'assigned' || s === 'vehicle-assigned') res.openOrder++;
-        else if (s === 'yard' || s === 'yard/loading' || s === 'loading' || s === 'loaded' || s === 'loading-complete') res.loading++;
-        else if (s === 'in-transit') res.transit++;
-        else if (s === 'arrived' || s === 'arrival-for-delivery' || s === 'arrive-for-deliver') res.arrived++;
-        else if (s === 'delivered') res.pod++;
-        else if (s === 'rejected') res.rejection++;
-        else if (s === 'closed') res.closed++;
-    });
-    return res;
-  }, [joinedData, shipments, selectedPlants]);
-
-  const totalPages = Math.ceil(processedData.length / itemsPerPage);
-  const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const handleSelectPendingRow = (id: string, checked: boolean) => {
-    setSelectedPendingIds(prev => checked ? [...prev, id] : prev.filter(i => i !== id));
-  };
-
-  const handleSelectAllPending = (checked: boolean) => {
-    if (checked) {
-        setSelectedPendingIds(paginatedData.map(d => d.id));
-    } else {
-        setSelectedPendingIds([]);
-    }
-  };
-
-  const selectedPendingShipments = useMemo(() => {
-    return shipments.filter(s => selectedPendingIds.includes(s.id));
-  }, [selectedPendingIds, shipments]);
-
-  const bulkTotalQty = useMemo(() => {
-    return selectedPendingShipments.reduce((sum, s) => sum + (Number(s.balanceQty) || 0), 0);
-  }, [selectedPendingShipments]);
-
-  const handleBulkAssign = () => {
-    if (selectedPendingShipments.length === 0) return;
-    setSelectedShipmentsForAssign(selectedPendingShipments);
-    setAssignModalOpen(true);
-  };
-
-  const handleDownloadExcel = () => {
-    const exportData = processedData.map(t => ({
-        'Plant': t.plantName, 'ID': t.tripId || t.shipmentId, 'Vehicle Number': t.vehicleNumber || '--', 'LR Number': t.lrNumber || '--', 'Consignor': t.consignor, 'Consignee': t.consignee || t.billToParty, 'Destination': t.unloadingPoint, 'Weight (MT)': t.dispatchedQty || t.quantity, 'Status': t.tripStatus || t.currentStatusId, 'Date': t.startDate ? format(t.startDate, 'dd-MM-yy HH:mm') : (t.creationDate ? format(t.creationDate, 'dd-MM-yy HH:mm') : '--')
-    }));
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, ws, "Mission Registry");
-    XLSX.writeFile(workbook, `TripBoard_${activeTab}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
-  };
-
   return (
     <div className="flex flex-1 flex-col h-full overflow-hidden bg-white">
       <div className="sticky top-0 z-30 bg-white border-b px-4 py-1 md:px-8 md:py-2 shadow-sm shrink-0">
@@ -801,7 +798,7 @@ function TripBoardContent() {
             </div>
             <div className="flex items-center gap-1 mt-auto ml-auto">
               <Button variant="outline" size="sm" onClick={handleDownloadExcel} className="h-8 md:h-9 px-2 md:px-4 font-black uppercase text-[8px] md:text-[9px] tracking-widest border-slate-200 rounded-lg bg-white shadow-sm">
-                <FileDown className="h-3 w-3 mr-1"/> EXPORT
+                <FileDown className="h-3.5 w-3.5 mr-1"/> EXPORT
               </Button>
               <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-blue-900" onClick={() => window.location.reload()}>
                 <RefreshCcw className="h-3.5 w-3.5" />

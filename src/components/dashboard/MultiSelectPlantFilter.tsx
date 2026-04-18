@@ -1,8 +1,9 @@
+
 'use client';
 
 import * as React from 'react';
 import { Check, ChevronDown, Search, X, Factory } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, normalizePlantId } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -29,7 +30,7 @@ interface MultiSelectPlantFilterProps {
  * @fileOverview Multi-Select Plant Filter Node.
  * Re-engineered for high-density ERP layouts.
  * Optimized for mobile: Removed rigid widths and scaled down typography.
- * Fixed: Registry count discrepancy by validating selection against available options.
+ * Fixed: Registry count discrepancy by validating selection against available options and normalizing IDs.
  */
 export default function MultiSelectPlantFilter({
   options,
@@ -39,37 +40,40 @@ export default function MultiSelectPlantFilter({
 }: MultiSelectPlantFilterProps) {
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState('');
-  const [stagedSelected, setStagedSelected] = React.useState<string[]>(selected);
+  const [stagedSelected, setStagedSelected] = React.useState<string[]>([]);
 
   React.useEffect(() => {
     if (open) {
-      setStagedSelected(selected);
+      setStagedSelected(selected.map(normalizePlantId));
     }
   }, [open, selected]);
 
   const filteredOptions = options.filter((option) =>
-    option.name.toLowerCase().includes(searchTerm.toLowerCase())
+    option.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    normalizePlantId(option.id).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const isAllSelected = options.length > 0 && stagedSelected.length === options.length;
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setStagedSelected(options.map((o) => o.id));
+      setStagedSelected(options.map((o) => normalizePlantId(o.id)));
     } else {
       setStagedSelected([]);
     }
   };
 
   const handleToggle = (id: string) => {
+    const normId = normalizePlantId(id);
     setStagedSelected(prev => 
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(normId) ? prev.filter((item) => item !== normId) : [...prev, normId]
     );
   };
 
   const handleApply = () => {
-    // Registry Pulse: Return unique IDs only
-    onChange(Array.from(new Set(stagedSelected)));
+    // Registry Pulse: Return normalized unique IDs only
+    const result = Array.from(new Set(stagedSelected.map(normalizePlantId)));
+    onChange(result);
     setOpen(false);
   };
 
@@ -82,7 +86,9 @@ export default function MultiSelectPlantFilter({
     
     // UI Fix Node: Ensure we only count items that actually exist in the current options registry
     const currentList = open ? stagedSelected : selected;
-    const validSelected = currentList.filter(id => options.some(o => o.id === id));
+    const validSelected = currentList
+      .map(normalizePlantId)
+      .filter(id => options.some(o => normalizePlantId(o.id) === id));
     
     if (validSelected.length === 0) return 'Select Plant';
     
@@ -93,8 +99,8 @@ export default function MultiSelectPlantFilter({
     const unit = count === 1 ? 'Plant' : 'Plants';
     
     if (count === 1) {
-        const plant = options.find(o => o.id === validSelected[0]);
-        return `1 Plant Selected${plant ? ` (${plant.id})` : ''}`;
+        const plant = options.find(o => normalizePlantId(o.id) === validSelected[0]);
+        return `1 Plant Selected${plant ? ` (${normalizePlantId(plant.id)})` : ''}`;
     }
     
     return `${count} ${unit} Selected`;
@@ -165,36 +171,39 @@ export default function MultiSelectPlantFilter({
                 No matching plants detected.
               </div>
             ) : (
-              filteredOptions.map((option) => (
-                <div
-                  key={option.id}
-                  className={cn(
-                    "flex items-center space-x-2.5 px-3 py-2.5 rounded-xl transition-all cursor-pointer group",
-                    stagedSelected.includes(option.id) 
-                      ? "bg-blue-50/50" 
-                      : "hover:bg-slate-50"
-                  )}
-                  onClick={(e) => {
-                      e.preventDefault();
-                      handleToggle(option.id);
-                  }}
-                >
-                  <Checkbox
-                    checked={stagedSelected.includes(option.id)}
-                    onCheckedChange={() => handleToggle(option.id)}
-                    className="h-5 w-5 border-slate-300 data-[state=checked]:bg-blue-900 data-[state=checked]:border-blue-900 pointer-events-none"
-                  />
-                  <div className="flex flex-col flex-1 truncate">
-                    <span className={cn(
-                      "text-[13px] font-bold transition-colors uppercase leading-tight truncate",
-                      stagedSelected.includes(option.id) ? "text-blue-900 font-black" : "text-slate-700 group-hover:text-blue-900"
-                    )}>
-                      {option.name}
-                    </span>
-                    <span className="text-[9px] font-bold text-slate-400 font-mono tracking-tighter">ID: {option.id}</span>
-                  </div>
-                </div>
-              ))
+              filteredOptions.map((option) => {
+                const normId = normalizePlantId(option.id);
+                return (
+                    <div
+                    key={option.id}
+                    className={cn(
+                        "flex items-center space-x-2.5 px-3 py-2.5 rounded-xl transition-all cursor-pointer group",
+                        stagedSelected.includes(normId) 
+                        ? "bg-blue-50/50" 
+                        : "hover:bg-slate-50"
+                    )}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        handleToggle(option.id);
+                    }}
+                    >
+                    <Checkbox
+                        checked={stagedSelected.includes(normId)}
+                        onCheckedChange={() => handleToggle(option.id)}
+                        className="h-5 w-5 border-slate-300 data-[state=checked]:bg-blue-900 data-[state=checked]:border-blue-900 pointer-events-none"
+                    />
+                    <div className="flex flex-col flex-1 truncate">
+                        <span className={cn(
+                        "text-[13px] font-bold transition-colors uppercase leading-tight truncate",
+                        stagedSelected.includes(normId) ? "text-blue-900 font-black" : "text-slate-700 group-hover:text-blue-900"
+                        )}>
+                        {option.name}
+                        </span>
+                        <span className="text-[9px] font-bold text-slate-400 font-mono tracking-tighter">ID: {normId}</span>
+                    </div>
+                    </div>
+                );
+              })
             )}
           </div>
         </ScrollArea>
