@@ -21,7 +21,7 @@ import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryE
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId, cn } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
-import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy } from "firebase/firestore";
+import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList, CheckCircle2, Truck, PlusCircle, ArrowUpDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -82,7 +82,7 @@ function TripBoardContent() {
   const [podStatusTrip, setPodStatusTrip] = useState<any | null>(null);
   const [podUploadTrip, setPodUploadTrip] = useState<any | null>(null);
   const [srnTrip, setSrnTrip] = useState<any | null>(null);
-  const [previewLrData, setPreviewLrData] = useState<EnrichedLR | null>(null);
+  const [previewLrData, setLrPreviewData] = useState<EnrichedLR | null>(null);
   const [editLrTrip, setEditLrTrip] = useState<any | null>(null);
   const [editLrCarrier, setEditLrCarrier] = useState<any | null>(null);
   const [isAssignModalOpen, setAssignModalOpen] = useState(false);
@@ -294,6 +294,258 @@ function TripBoardContent() {
         };
     });
 }, [trips, shipments, lrs, entries, plants, dbCarriers, selectedPlants]);
+
+  const handleArrivedPost = async (values: any) => {
+    if (!firestore || !user || !arrivedTrip) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(arrivedTrip.originPlantId);
+        const tripRef = doc(firestore, `plants/${plantId}/trips`, arrivedTrip.id);
+        const globalTripRef = doc(firestore, 'trips', arrivedTrip.id);
+        const historyRef = collection(firestore, `plants/${plantId}/status_updates`);
+
+        const arrivalDate = new Date(values.arrivedDate);
+        const [hours, mins] = (values.arrivedTime || '00:00').split(':');
+        arrivalDate.setHours(parseInt(hours), parseInt(mins), 0, 0);
+
+        const ts = serverTimestamp();
+        const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || 'System');
+
+        const updateData = {
+            tripStatus: 'Arrival for Delivery',
+            currentStatusId: 'arrival-for-delivery',
+            arrivalDate: arrivalDate,
+            lastUpdated: ts
+        };
+
+        await updateDoc(tripRef, updateData);
+        await updateDoc(globalTripRef, updateData);
+
+        await addDoc(historyRef, {
+            tripId: arrivedTrip.tripId,
+            vehicleNumber: arrivedTrip.vehicleNumber || 'N/A',
+            shipToParty: arrivedTrip.shipToParty || 'N/A',
+            unloadingPoint: arrivedTrip.unloadingPoint || 'N/A',
+            previousStatus: arrivedTrip.tripStatus || arrivedTrip.currentStatusId,
+            previousStatusTimestamp: arrivedTrip.lastUpdated || arrivedTrip.startDate,
+            newStatus: 'Arrival for Delivery',
+            timestamp: ts,
+            updatedBy: currentName,
+            remarks: 'Vehicle reported at destination node.'
+        });
+
+        toast({ title: 'Arrival Recorded', description: `Registry updated for ${arrivedTrip.vehicleNumber}.` });
+        setArrivedTrip(null);
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Update Failed', description: e.message });
+    } finally { hideLoader(); }
+  };
+
+  const handleUnloadedPost = async (values: any) => {
+    if (!firestore || !user || !unloadedTrip) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(unloadedTrip.originPlantId);
+        const tripRef = doc(firestore, `plants/${plantId}/trips`, unloadedTrip.id);
+        const globalTripRef = doc(firestore, 'trips', unloadedTrip.id);
+        const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, unloadedTrip.shipmentIds[0]);
+        const historyRef = collection(firestore, `plants/${plantId}/status_updates`);
+
+        const unloadDate = new Date(values.unloadDate);
+        const [hours, mins] = (values.unloadTime || '00:00').split(':');
+        unloadDate.setHours(parseInt(hours), parseInt(mins), 0, 0);
+
+        const ts = serverTimestamp();
+        const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || 'System');
+
+        const updateData = {
+            tripStatus: 'Delivered',
+            currentStatusId: 'delivered',
+            actualCompletionDate: unloadDate,
+            lastUpdated: ts
+        };
+
+        await updateDoc(tripRef, updateData);
+        await updateDoc(globalTripRef, updateData);
+        await updateDoc(shipmentRef, { currentStatusId: 'Delivered', lastUpdateDate: ts });
+
+        await addDoc(historyRef, {
+            tripId: unloadedTrip.tripId,
+            vehicleNumber: unloadedTrip.vehicleNumber || 'N/A',
+            shipToParty: unloadedTrip.shipToParty || 'N/A',
+            unloadingPoint: unloadedTrip.unloadingPoint || 'N/A',
+            previousStatus: unloadedTrip.tripStatus || unloadedTrip.currentStatusId,
+            previousStatusTimestamp: unloadedTrip.lastUpdated || unloadedTrip.startDate,
+            newStatus: 'Delivered',
+            timestamp: ts,
+            updatedBy: currentName,
+            remarks: 'Vehicle unloaded at destination.'
+        });
+
+        toast({ title: 'Unload Handshake OK', description: 'Mission transitioned to Delivered node.' });
+        setUnloadedTrip(null);
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Error', description: e.message });
+    } finally { hideLoader(); }
+  };
+
+  const handleRejectPost = async (values: any) => {
+    if (!firestore || !user || !rejectTrip) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(rejectTrip.originPlantId);
+        const tripRef = doc(firestore, `plants/${plantId}/trips`, rejectTrip.id);
+        const globalTripRef = doc(firestore, 'trips', rejectTrip.id);
+        const historyRef = collection(firestore, `plants/${plantId}/status_updates`);
+
+        const rejectDate = new Date(values.rejectDate);
+        const [hours, mins] = (values.rejectTime || '00:00').split(':');
+        rejectDate.setHours(parseInt(hours), parseInt(mins), 0, 0);
+
+        const ts = serverTimestamp();
+        const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || 'System');
+
+        const updateData = {
+            tripStatus: 'Rejected',
+            currentStatusId: 'rejected',
+            rejectedAt: rejectDate,
+            rejectReason: values.rejectedBy,
+            rejectRemark: values.remark || '',
+            lastUpdated: ts
+        };
+
+        await updateDoc(tripRef, updateData);
+        await updateDoc(globalTripRef, updateData);
+
+        await addDoc(historyRef, {
+            tripId: rejectTrip.tripId,
+            vehicleNumber: rejectTrip.vehicleNumber || 'N/A',
+            shipToParty: rejectTrip.shipToParty || 'N/A',
+            unloadingPoint: rejectTrip.unloadingPoint || 'N/A',
+            previousStatus: rejectTrip.tripStatus || rejectTrip.currentStatusId,
+            previousStatusTimestamp: rejectTrip.lastUpdated || rejectTrip.startDate,
+            newStatus: 'Rejected',
+            timestamp: ts,
+            updatedBy: currentName,
+            remarks: `Mission REJECTED: ${values.rejectedBy}. ${values.remark || ''}`
+        });
+
+        toast({ title: 'Rejection Logged', description: `Trip ${rejectTrip.tripId} marked as Rejected.` });
+        setRejectTrip(null);
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Error', description: e.message });
+    } finally { hideLoader(); }
+  };
+
+  const handlePodStatusPost = async (values: any) => {
+    if (!firestore || !user || !podStatusTrip) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(podStatusTrip.originPlantId);
+        const tripRef = doc(firestore, `plants/${plantId}/trips`, podStatusTrip.id);
+        const globalTripRef = doc(firestore, 'trips', podStatusTrip.id);
+        const ts = serverTimestamp();
+        const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || 'System');
+
+        const updateData = {
+            podReceived: values.podReceived,
+            podStatus: values.podReceived ? 'Verified' : 'Pending',
+            podVerifiedBy: currentName,
+            lastUpdated: ts
+        };
+
+        await updateDoc(tripRef, updateData);
+        await updateDoc(globalTripRef, updateData);
+
+        toast({ title: 'POD Status Updated' });
+        setPodStatusTrip(null);
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Error', description: e.message });
+    } finally { hideLoader(); }
+  };
+
+  const handleSrnPost = async (values: any) => {
+    if (!firestore || !user || !srnTrip) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(srnTrip.originPlantId);
+        const tripRef = doc(firestore, `plants/${plantId}/trips`, srnTrip.id);
+        const globalTripRef = doc(firestore, 'trips', srnTrip.id);
+        const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, srnTrip.shipmentIds[0]);
+        const historyRef = collection(firestore, `plants/${plantId}/status_updates`);
+
+        const ts = serverTimestamp();
+        const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || 'System');
+
+        const updateData = {
+            tripStatus: 'Closed',
+            currentStatusId: 'closed',
+            srnNumber: values.srnNumber,
+            srnDate: values.srnDate,
+            srnBy: currentName,
+            lastUpdated: ts
+        };
+
+        await updateDoc(tripRef, updateData);
+        await updateDoc(globalTripRef, updateData);
+        await updateDoc(shipmentRef, { currentStatusId: 'Rejected', lastUpdateDate: ts });
+
+        await addDoc(historyRef, {
+            tripId: srnTrip.tripId,
+            vehicleNumber: srnTrip.vehicleNumber || 'N/A',
+            shipToParty: srnTrip.shipToParty || 'N/A',
+            unloadingPoint: srnTrip.unloadingPoint || 'N/A',
+            previousStatus: srnTrip.tripStatus || srnTrip.currentStatusId,
+            previousStatusTimestamp: srnTrip.lastUpdated || srnTrip.startDate,
+            newStatus: 'Closed (SRN)',
+            timestamp: ts,
+            updatedBy: currentName,
+            remarks: `SRN Registered: ${values.srnNumber}. Mission closed.`
+        });
+
+        toast({ title: 'SRN Registered', description: `Mission finalized and archived.` });
+        setSrnTrip(null);
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Error', description: e.message });
+    } finally { hideLoader(); }
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!firestore || !user || !cancelTripData) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(cancelTripData.originPlantId);
+        const shipmentId = cancelTripData.shipmentIds?.[0];
+        
+        await runTransaction(firestore, async (transaction) => {
+            const tripRef = doc(firestore, `plants/${plantId}/trips`, cancelTripData.id);
+            const globalTripRef = doc(firestore, 'trips', cancelTripData.id);
+            const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipmentId);
+
+            const shipSnap = await transaction.get(shipmentRef);
+            if (!shipSnap.exists()) throw new Error("Shipment node not found.");
+            
+            const sData = shipSnap.data() as Shipment;
+            const newAssigned = (sData.assignedQty || 0) - cancelTripData.assignedQtyInTrip;
+            const newBalance = sData.quantity - newAssigned;
+
+            transaction.update(shipmentRef, {
+                assignedQty: newAssigned,
+                balanceQty: newBalance,
+                currentStatusId: newAssigned > 0 ? 'Partly Vehicle Assigned' : 'pending',
+                lastUpdateDate: serverTimestamp()
+            });
+
+            transaction.delete(tripRef);
+            transaction.delete(globalTripRef);
+        });
+
+        toast({ title: 'Mission Revoked', description: 'Fleet allocation successfully reverted.' });
+        setCancelTripData(null);
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Revocation Failed', description: e.message });
+    } finally { hideLoader(); }
+  };
 
   const handleAction = async (type: string, row: any) => {
     if (type === 'assign') {
@@ -677,14 +929,14 @@ function TripBoardContent() {
       )}
 
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
-      {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={() => {}} />}
+      {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={handleCancelConfirm} />}
       {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={async () => {}} />}
-      {arrivedTrip && <ArrivedModal isOpen={!!arrivedTrip} onClose={() => setArrivedTrip(null)} trip={arrivedTrip} onPost={() => {}} />}
-      {unloadedTrip && <UnloadedModal isOpen={!!unloadedTrip} onClose={() => setUnloadedTrip(null)} trip={unloadedTrip} onPost={() => {}} />}
-      {rejectTrip && <RejectModal isOpen={!!rejectTrip} onClose={() => setRejectTrip(null)} trip={rejectTrip} onPost={() => {}} />}
-      {podStatusTrip && <PodStatusModal isOpen={!!podStatusTrip} onClose={() => setPodStatusTrip(null)} trip={podStatusTrip} onPost={() => {}} />}
+      {arrivedTrip && <ArrivedModal isOpen={!!arrivedTrip} onClose={() => setArrivedTrip(null)} trip={arrivedTrip} onPost={handleArrivedPost} />}
+      {unloadedTrip && <UnloadedModal isOpen={!!unloadedTrip} onClose={() => setUnloadedTrip(null)} trip={unloadedTrip} onPost={handleUnloadedPost} />}
+      {rejectTrip && <RejectModal isOpen={!!rejectTrip} onClose={() => setRejectTrip(null)} trip={rejectTrip} onPost={handleRejectPost} />}
+      {podStatusTrip && <PodStatusModal isOpen={!!podStatusTrip} onClose={() => setPodStatusTrip(null)} trip={podStatusTrip} onPost={handlePodStatusPost} />}
       {podUploadTrip && <PodUploadModal isOpen={!!podUploadTrip} onClose={() => setPodUploadTrip(null)} trip={podUploadTrip} onSuccess={() => setPodUploadTrip(null)} />}
-      {srnTrip && <SrnModal isOpen={!!srnTrip} onClose={() => setSrnTrip(null)} trip={srnTrip} onPost={() => {}} />}
+      {srnTrip && <SrnModal isOpen={!!srnTrip} onClose={() => setSrnTrip(null)} trip={srnTrip} onPost={handleSrnPost} />}
       {previewLrData && <LRPrintPreviewModal isOpen={!!previewLrData} onClose={() => setPreviewLrData(null)} lr={previewLrData} />}
       {editLrTrip && editLrCarrier && (
         <LRGenerationModal 
