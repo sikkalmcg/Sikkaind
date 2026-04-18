@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -78,6 +79,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const driverMobile = lr.driverMobile || lr.trip?.driverMobile || '--';
   const paymentTerm = lr.paymentTerm || lr.trip?.paymentTerm || 'PAID';
 
+  // CARRIER PROFILE HANDSHAKE node: Match image standards
+  const carrier = lr.carrier || {};
+
   return (
     <div className="A4-page p-[12mm] bg-white text-black font-sans text-[8.5pt] leading-tight flex flex-col relative box-border h-[297mm] w-[210mm] overflow-hidden select-text border-none mx-auto">
       {/* 1. TOP HEADER Terminal */}
@@ -93,16 +97,16 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <img src="https://image2url.com/r2/default/images/1774853131451-83a2a90c-6707-43fc-9b92-c364ad369d96.jpeg" alt="Registry Logo" className="max-h-full max-w-full object-contain" />
           </div>
           <div className="space-y-1">
-            <h1 className="text-[16pt] font-black uppercase tracking-tight leading-none text-slate-900">{lr.carrier?.name || 'SIKKA LMC'}</h1>
-            <p className="text-[7pt] font-bold text-slate-600 uppercase max-w-[450px] leading-tight">{lr.carrier?.address || 'B-11, BULANDSHAHR ROAD GZB'}</p>
+            <h1 className="text-[16pt] font-black uppercase tracking-tight leading-none text-slate-900">{carrier.name || 'SIKKA LMC'}</h1>
+            <p className="text-[7pt] font-bold text-slate-600 uppercase max-w-[450px] leading-tight">{carrier.address || 'B-11, BULANDSHAHR ROAD GZB'}</p>
             <div className="text-[7pt] font-black text-slate-400 flex flex-wrap gap-x-4 pt-1 uppercase leading-snug">
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">PHONE:</span> <span className="text-slate-900 font-mono">{lr.carrier?.mobile || '9136688004'}</span></p>
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">GSTIN:</span> <span className="font-mono text-slate-900">{lr.carrier?.gstin || '--'}</span></p>
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">PAN:</span> <span className="font-mono text-slate-900">{lr.carrier?.pan || '--'}</span></p>
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">STATE:</span> <span className="text-slate-900">{lr.carrier?.stateName || '--'}</span></p>
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">CODE:</span> <span className="text-slate-900">{lr.carrier?.stateCode || '--'}</span></p>
-              {lr.carrier?.email && <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">E-MAIL:</span> <span className="text-slate-900 lowercase font-bold">{lr.carrier.email}</span></p>}
-              {lr.carrier?.website && <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">WEB:</span> <span className="text-slate-900 lowercase font-bold">{lr.carrier.website}</span></p>}
+              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">PHONE:</span> <span className="text-slate-900 font-mono">{carrier.mobile || '9136688004'}</span></p>
+              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">GSTIN:</span> <span className="font-mono text-slate-900">{carrier.gstin || '--'}</span></p>
+              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">PAN:</span> <span className="font-mono text-slate-900">{carrier.pan || '--'}</span></p>
+              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">STATE:</span> <span className="text-slate-900">{carrier.stateName || '--'}</span></p>
+              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">CODE:</span> <span className="text-slate-900">{carrier.stateCode || '--'}</span></p>
+              {carrier.email && <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">E-MAIL:</span> <span className="text-slate-900 lowercase font-bold">{carrier.email}</span></p>}
+              {carrier.website && <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">WEB:</span> <span className="text-slate-900 lowercase font-bold">{carrier.website}</span></p>}
             </div>
           </div>
         </div>
@@ -122,7 +126,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           { label: 'VEHICLE REGISTRY', value: vehicleNumber, bold: true },
           { label: 'PILOT CONTACT', value: driverMobile, mono: true },
           { label: 'PAYMENT TERM', value: paymentTerm },
-          { label: 'SALES ORDER NO', value: lr.shipment?.shipmentId || '--', bold: true, color: 'text-blue-700' }
+          { label: 'SALES ORDER NO', value: lr.shipment?.shipmentId || lr.trip?.shipmentId || '--', bold: true, color: 'text-blue-700' }
         ].map((node, i) => (
           <div className="py-2.5 px-1 text-center flex flex-col justify-center gap-1" key={i}>
             <span className="text-[6.5pt] font-black uppercase text-slate-400 block leading-tight tracking-[0.1em]">{node.label}</span>

@@ -58,6 +58,7 @@ import {
 import { normalizePlantId, generateRandomTripId } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
+import { useJsApiLoader } from '@react-google-maps/api';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 
 interface VehicleAssignModalProps {
@@ -285,6 +286,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             const tripData: any = {
                 ...values,
                 tripId,
+                shipmentId: primaryShipment.shipmentId, // MANIFEST FIX: Persist Sales Order No explicitly
                 originPlantId: plantId,
                 shipmentIds,
                 assignedQtyInTrip: values.assignQty, 

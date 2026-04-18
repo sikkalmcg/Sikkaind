@@ -20,7 +20,7 @@ import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAss
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId, cn } from '@/lib/utils';
-import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
+import { useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList, CheckCircle2, Truck, PlusCircle, ArrowUpDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -236,6 +236,7 @@ function TripBoardContent() {
       .map(t => {
         const tPlantId = normalizePlantId(t.originPlantId);
         const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : t.shipmentIds;
+        // REGISTRY HANDSHAKE FIX: Search by document ID or logical shipmentId for robust linking
         const shipment = shipments.find(s => (s.id === shipId || s.shipmentId === shipId) && normalizePlantId(s.originPlantId) === tPlantId);
         const lr = lrs.find(l => (l.tripDocId === t.id || l.tripId === t.tripId || l.lrNumber === t.lrNumber) && normalizePlantId(l.originPlantId) === tPlantId);
         const entry = entries.find(e => (e.tripId === t.id || (e.vehicleNumber === t.vehicleNumber && e.status === 'OUT')) && normalizePlantId(e.plantId) === tPlantId);
@@ -255,7 +256,7 @@ function TripBoardContent() {
             ...t,
             plant,
             plantName: plant?.name || t.originPlantId,
-            orderNo: shipment?.shipmentId || '--',
+            orderNo: shipment?.shipmentId || t.shipmentId || '--',
             orderCreatedUser: shipment?.userName || '--',
             consignor: t.consignor || shipment?.consignor || '--',
             consignee: t.shipToParty || shipment?.shipToParty || shipment?.billToParty || '--',
