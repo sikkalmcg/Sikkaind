@@ -29,6 +29,7 @@ interface MultiSelectPlantFilterProps {
  * @fileOverview Multi-Select Plant Filter Node.
  * Re-engineered for high-density ERP layouts.
  * Optimized for mobile: Removed rigid widths and scaled down typography.
+ * Fixed: Registry count discrepancy by validating selection against available options.
  */
 export default function MultiSelectPlantFilter({
   options,
@@ -79,18 +80,20 @@ export default function MultiSelectPlantFilter({
   const getButtonLabel = () => {
     if (isLoading) return 'Syncing Plants...';
     
-    // UI Fix: Use stagedSelected when open to show real-time count
+    // UI Fix Node: Ensure we only count items that actually exist in the current options registry
     const currentList = open ? stagedSelected : selected;
+    const validSelected = currentList.filter(id => options.some(o => o.id === id));
     
-    if (currentList.length === 0) return 'Select Plant';
-    const isAll = options.length > 0 && currentList.length === options.length;
+    if (validSelected.length === 0) return 'Select Plant';
+    
+    const isAll = options.length > 0 && validSelected.length === options.length;
     if (isAll && options.length > 1) return 'All Authorized Plants';
     
-    const count = currentList.length;
+    const count = validSelected.length;
     const unit = count === 1 ? 'Plant' : 'Plants';
     
     if (count === 1) {
-        const plant = options.find(o => o.id === currentList[0]);
+        const plant = options.find(o => o.id === validSelected[0]);
         return `1 Plant Selected${plant ? ` (${plant.id})` : ''}`;
     }
     
