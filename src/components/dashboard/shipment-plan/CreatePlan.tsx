@@ -271,26 +271,16 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     return authorizedPlants.find(p => p.id === originPlantId)?.name || '';
   }, [originPlantId, authorizedPlants]);
 
-  // CARRIER HANDSHAKE node: Auto-populate carrier of selected plant with fallback for Sikka nodes
+  // CARRIER HANDSHAKE node: Strictly resolve from Added Carriers master registry
   useEffect(() => {
     if (carriers && carriers.length > 0) {
         setValue('carrierId', carriers[0].id);
         setValue('carrierName', carriers[0].name, { shouldValidate: true });
-    } else if (originPlantId) {
-        // Registry Fallback Node: Default to Sikka LMC if no carrier provisioned in DB
-        const pId = normalizePlantId(originPlantId);
-        if (pId === '1426' || pId === 'ID20') {
-            setValue('carrierId', 'ID20');
-            setValue('carrierName', 'SIKKA LMC', { shouldValidate: true });
-        } else if (pId === '1214' || pId === 'ID23') {
-            setValue('carrierId', 'ID21');
-            setValue('carrierName', 'SIKKA LMC', { shouldValidate: true });
-        } else {
-            setValue('carrierId', '');
-            setValue('carrierName', '', { shouldValidate: true });
-        }
+    } else {
+        setValue('carrierId', '');
+        setValue('carrierName', 'NOT REGISTERED', { shouldValidate: true });
     }
-  }, [carriers, originPlantId, setValue]);
+  }, [carriers, setValue]);
 
   useEffect(() => {
     if (originPlantId && authorizedPlants.length > 0) {
@@ -608,12 +598,15 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         <FormField control={control} name="carrierName" render={({ field }) => (
                           <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Carrier Agent</FormLabel>
                               <FormControl>
-                                  <Input 
-                                      readOnly 
-                                      {...field} 
-                                      placeholder="Auto-resolved from Registry" 
-                                      className="h-14 bg-slate-100 rounded-xl font-black uppercase text-blue-900 border-none shadow-inner" 
-                                  />
+                                  <div className="relative group">
+                                      <Input 
+                                          readOnly 
+                                          {...field} 
+                                          placeholder="Awaiting Registry" 
+                                          className="h-14 bg-slate-100 rounded-xl font-black uppercase text-blue-900 border-none shadow-inner pl-10" 
+                                      />
+                                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300" />
+                                  </div>
                               </FormControl>
                           </FormItem>
                         )} />

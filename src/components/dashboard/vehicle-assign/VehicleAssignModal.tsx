@@ -158,25 +158,17 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
   }, [vendors]);
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
     if (isOpen && primaryShipment) {
-        // REGISTRY HANDSHAKE: Resolve Carrier from Shipment manifest (Immutable Node)
+        // REGISTRY HANDSHAKE: Resolve Carrier from Shipment manifest (Source of Truth)
         let carrierId = trip?.carrierId || primaryShipment.carrierId || '';
         let carrierName = trip?.carrierName || primaryShipment.carrierName || '';
 
-        // Registry Resolution Handshake: Resolve missing carrier from plant identity for specific nodes
-        if (primaryShipment.originPlantId) {
-            const pId = normalizePlantId(primaryShipment.originPlantId);
-            if (pId === '1426' || pId === 'ID20') {
-                carrierId = 'ID20';
-                carrierName = 'SIKKA LMC';
-            } else if (pId === '1214' || pId === 'ID23') {
-                carrierId = 'ID21';
-                carrierName = 'SIKKA LMC';
+        // If no carrier is assigned to shipment, attempt to resolve from registry using origin plant
+        if (!carrierId && carriers.length > 0) {
+            const plantCarrier = carriers.find(c => normalizePlantId(c.plantId) === normalizePlantId(primaryShipment.originPlantId));
+            if (plantCarrier) {
+                carrierId = plantCarrier.id;
+                carrierName = plantCarrier.name;
             }
         }
 
@@ -201,7 +193,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             paymentTerm: (trip?.paymentTerm as any) || primaryShipment.paymentTerm || 'Paid'
         });
     }
-  }, [isOpen, trip, primaryShipment, reset, totalBalanceQty]);
+  }, [isOpen, trip, primaryShipment, reset, totalBalanceQty, carriers]);
 
   useEffect(() => {
     if (!isOpen || isNewVehicle || !vehicleId) return;
@@ -268,6 +260,10 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             const plantId = normalizePlantId(primaryShipment.originPlantId);
             const timestamp = serverTimestamp();
             const currentName = userProfile?.fullName || user.displayName || user.email?.split('@')[0] || 'System Operator';
+            const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, primaryShipment.id);
+            const shipmentSnap = await transaction.get(shipmentRef);
+            if (!shipmentSnap.exists()) throw new Error("Order registry node error.");
+            
             const docId = trip?.id || doc(collection(firestore, 'trips')).id;
             const tripId = trip?.tripId || generateRandomTripId();
             
@@ -283,7 +279,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                 shipmentIds.push(s.id);
                 aggregateItems = [...aggregateItems, ...(sData.items || [])];
 
-                const sAssigned = sData.assignedQty + sData.balanceQty;
+                const sAssigned = (sData.assignedQty || 0) + (sData.balanceQty || 0);
                 transaction.update(sRef, {
                     assignedQty: sAssigned,
                     balanceQty: 0,
@@ -331,8 +327,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
   };
 
   const calculatedFreight = isFixRate ? (Number(fixedAmount) || 0) : ((Number(assignQty) || 0) * (Number(freightRate) || 0));
-
-  if (!primaryShipment) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -452,7 +446,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-blue-900 tracking-widest px-1 flex items-center gap-2">
-                                    <ShieldCheck className="h-3.5 w-3.5" /> Carrier Agent (Lifting Node Locked)
+                                    <ShieldCheck className="h-3.5 w-3.5" /> Carrier Agent (Source Locked)
                                 </label>
                                 <FormField name="carrierName" control={control} render={({ field }) => (
                                     <FormItem>
@@ -613,7 +607,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
         <DialogFooter className="p-4 md:p-6 bg-slate-900 flex flex-col md:flex-row justify-between items-center shrink-0 gap-4 md:gap-8">
             <div className="flex items-center gap-6">
                 <div className="flex flex-col gap-0.5">
-                    <span className="text-[8px] md:text-[9px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-1.5 md:gap-2 leading-none"><Calculator className="h-3 md:h-3.5 w-3 md:h-3.5" /> Balance remaining</span>
+                    <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-1.5 md:gap-2 leading-none"><Calculator className="h-3 md:h-3.5 w-3 md:h-3.5" /> Balance remaining</span>
                     <span className={cn("text-xl md:text-2xl font-black tracking-tighter transition-all duration-500 leading-none", balanceQty > 0.001 ? "text-orange-400" : "text-emerald-400")}>
                         {balanceQty.toFixed(3)} MT
                     </span>
@@ -621,7 +615,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             </div>
             <div className="flex items-center gap-4">
                 <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                <span className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 tracking-widest italic hidden sm:inline">Authorized Registry Handshake Node</span>
+                <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest italic hidden sm:inline">Authorized Registry Handshake Node</span>
             </div>
         </DialogFooter>
       </DialogContent>
