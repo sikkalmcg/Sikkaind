@@ -189,7 +189,16 @@ function MissionRegistryCard({
                 <div className="col-span-1 flex flex-col justify-center">
                     <div className="flex items-center gap-2">
                         <FileText className="h-3.5 w-3.5 text-orange-400" />
-                        <span className="text-[10px] font-black text-slate-900 uppercase">{row.lrNumber || '--'}</span>
+                        {row.lrNumber ? (
+                            <button 
+                                onClick={() => onAction('view-lr', row)}
+                                className="text-[10px] font-black text-blue-700 hover:underline uppercase tracking-tighter text-left"
+                            >
+                                {row.lrNumber}
+                            </button>
+                        ) : (
+                            <span className="text-[10px] font-black text-slate-900 uppercase">--</span>
+                        )}
                     </div>
                 </div>
 
