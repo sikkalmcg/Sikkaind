@@ -79,7 +79,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const driverMobile = lr.driverMobile || lr.trip?.driverMobile || '--';
   const paymentTerm = lr.paymentTerm || lr.trip?.paymentTerm || 'PAID';
 
-  // CARRIER PROFILE HANDSHAKE node: Match image standards
+  // CARRIER PROFILE HANDSHAKE node: Resolve from provided carrier object
   const carrier = lr.carrier || {};
 
   return (
@@ -126,7 +126,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           { label: 'VEHICLE REGISTRY', value: vehicleNumber, bold: true },
           { label: 'PILOT CONTACT', value: driverMobile, mono: true },
           { label: 'PAYMENT TERM', value: paymentTerm },
-          { label: 'SALES ORDER NO', value: lr.shipment?.shipmentId || lr.trip?.shipmentId || '--', bold: true, color: 'text-blue-700' }
+          { label: 'SALES ORDER NO', value: lr.shipment?.shipmentId || (lr as any).shipmentObj?.shipmentId || lr.trip?.shipmentId || '--', bold: true, color: 'text-blue-700' }
         ].map((node, i) => (
           <div className="py-2.5 px-1 text-center flex flex-col justify-center gap-1" key={i}>
             <span className="text-[6.5pt] font-black uppercase text-slate-400 block leading-tight tracking-[0.1em]">{node.label}</span>

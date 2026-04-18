@@ -82,7 +82,7 @@ function TripBoardContent() {
   const [podStatusTrip, setPodStatusTrip] = useState<any | null>(null);
   const [podUploadTrip, setPodUploadTrip] = useState<any | null>(null);
   const [srnTrip, setSrnTrip] = useState<any | null>(null);
-  const [previewLrData, setPreviewLrData] = useState<EnrichedLR | null>(null);
+  const [lrPreviewData, setLrPreviewData] = useState<EnrichedLR | null>(null);
   const [editLrTrip, setEditLrTrip] = useState<any | null>(null);
   const [editLrCarrier, setEditLrCarrier] = useState<any | null>(null);
   const [isAssignModalOpen, setAssignModalOpen] = useState(false);
@@ -435,7 +435,7 @@ function TripBoardContent() {
     }
     if (type === 'view') setViewTripData(row);
     if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${row.vehicleNumber}`);
-    if (type === 'view-lr') setPreviewLrData(row);
+    if (type === 'view-lr') setLrPreviewData(row);
     if (type === 'edit-lr') {
         setEditLrTrip(row);
         setEditLrCarrier(row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId));
@@ -940,7 +940,7 @@ function TripBoardContent() {
       {podStatusTrip && <PodStatusModal isOpen={!!podStatusTrip} onClose={() => setPodStatusTrip(null)} trip={podStatusTrip} onPost={handlePodStatusPost} />}
       {podUploadTrip && <PodUploadModal isOpen={!!podUploadTrip} onClose={() => setPodUploadTrip(null)} trip={podUploadTrip} onSuccess={() => setPodUploadTrip(null)} />}
       {srnTrip && <SrnModal isOpen={!!srnTrip} onClose={() => setSrnTrip(null)} trip={srnTrip} onPost={handleSrnPost} />}
-      {previewLrData && <LRPrintPreviewModal isOpen={!!previewLrData} onClose={() => setPreviewLrData(null)} lr={previewLrData} />}
+      {lrPreviewData && <LRPrintPreviewModal isOpen={!!lrPreviewData} onClose={() => setLrPreviewData(null)} lr={lrPreviewData} />}
       {editLrTrip && editLrCarrier && (
         <LRGenerationModal 
             isOpen={!!editLrTrip}
