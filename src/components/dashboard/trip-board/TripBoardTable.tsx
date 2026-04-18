@@ -38,7 +38,8 @@ import {
     X,
     Filter,
     ArrowUpDown,
-    Upload
+    Upload,
+    XCircle
 } from 'lucide-react';
 import { cn, parseSafeDate } from '@/lib/utils';
 import { format, isValid } from 'date-fns';
@@ -107,6 +108,7 @@ function MissionRegistryCard({
     const formattedDate = dateNode ? format(new Date(dateNode), 'dd MMM') : '--';
     const statusTime = row.lastUpdated ? format(new Date(row.lastUpdated), 'dd MMM, hh:mm aa') : (row.creationDate ? format(new Date(row.creationDate), 'dd MMM, hh:mm aa') : '--');
     
+    // REGISTRY RULE: Edit LR restricted for stages after Transit
     const tabsAfterTransit = ['arrived', 'pod-status', 'rejection', 'closed'];
     const canEditLR = !tabsAfterTransit.includes(activeTab) && !isPending;
 
@@ -269,7 +271,10 @@ function MissionRegistryCard({
                         <Button size="sm" onClick={() => onAction('arrived', row)} className="h-9 px-8 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-900/10">Arrived In</Button>
                     )}
                     {activeTab === 'arrived' && (
-                        <Button size="sm" onClick={() => onAction('unloaded', row)} className="h-9 px-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Mark Unloaded</Button>
+                        <div className="flex items-center gap-2">
+                             <Button variant="outline" size="sm" onClick={() => onAction('reject', row)} className="h-9 px-6 border-red-200 text-red-600 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-red-50 shadow-sm transition-all active:scale-95">Reject Mission</Button>
+                             <Button size="sm" onClick={() => onAction('unloaded', row)} className="h-9 px-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Mark Unloaded</Button>
+                        </div>
                     )}
                     {activeTab === 'pod-status' && (
                         <Button variant="outline" size="sm" onClick={() => onAction('pod-upload', row)} className="h-9 px-8 border-slate-200 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-slate-50 gap-2">
