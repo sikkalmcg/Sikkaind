@@ -37,14 +37,16 @@ import {
     Smartphone,
     User,
     Package,
-    ClipboardList
+    ClipboardList,
+    Lock,
+    Sparkles
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser, FuelPump } from '@/types';
 import { VehicleTypes, PaymentTerms } from '@/lib/constants';
-import { useFirestore, useUser, useMemoFirebase, useDoc, useCollection } from "@/firebase";
+import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
 import { 
   collection, 
   doc, 
@@ -84,6 +86,7 @@ const formSchema = z.object({
     }),
     vehicleType: z.enum(VehicleTypes, { required_error: 'Vehicle type is required' }),
     carrierId: z.string().min(1, 'Carrier is required'),
+    carrierName: z.string().optional().default(''),
     assignQty: z.coerce.number().positive('Assign quantity must be positive'),
     transporterName: z.string().optional().default(''),
     transporterMobile: z.string().optional().or(z.literal('')).refine(val => !val || /^\d{10}$/.test(val), {
@@ -132,7 +135,9 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
         vehicleType: 'Own Vehicle',
         isFixRate: false,
         fixedAmount: 0,
-        paymentTerm: 'Paid'
+        paymentTerm: 'Paid',
+        carrierId: '',
+        carrierName: ''
     },
   });
   const { watch, setValue, handleSubmit, reset, control, formState: { isSubmitting } } = form;
@@ -147,11 +152,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
   const primaryShipment = shipments?.[0];
 
-  const carrierOptions = useMemo(() => {
-    return (carriers || [])
-      .map(c => ({ value: c.id, label: c.name }));
-  }, [carriers]);
-
   const vendorOptions = useMemo(() => {
     return (vendors || [])
       .map(v => ({ value: v.id, label: v.name }));
@@ -164,13 +164,9 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
   useEffect(() => {
     if (isOpen && primaryShipment) {
-        let initialCarrierId = trip?.carrierId || primaryShipment.carrierId || '';
-        
-        if (initialCarrierId && !carrierOptions.find(o => o.value === initialCarrierId)) {
-            initialCarrierId = carrierOptions.length > 0 ? carrierOptions[0].value : '';
-        } else if (!initialCarrierId && carrierOptions.length > 0) {
-            initialCarrierId = carrierOptions[0].value;
-        }
+        // REGISTRY HANDSHAKE: Resolve Carrier from Shipment manifest (Immutable Node)
+        const carrierId = trip?.carrierId || primaryShipment.carrierId || '';
+        const carrierName = trip?.carrierName || primaryShipment.carrierName || 'UNASSIGNED';
 
         reset({
             isNewVehicle: false,
@@ -179,7 +175,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             driverName: trip?.driverName || '',
             driverMobile: trip?.driverMobile || '',
             vehicleType: (trip?.vehicleType as any) || 'Own Vehicle',
-            carrierId: initialCarrierId,
+            carrierId: carrierId,
+            carrierName: carrierName,
             assignQty: trip?.assignedQtyInTrip ?? Number(totalBalanceQty.toFixed(3)),
             transporterName: trip?.transporterName || '',
             transporterMobile: (trip as any)?.transporterMobile || '',
@@ -192,7 +189,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             paymentTerm: (trip?.paymentTerm as any) || primaryShipment.paymentTerm || 'Paid'
         });
     }
-  }, [isOpen, trip, primaryShipment, carrierOptions, reset, totalBalanceQty]);
+  }, [isOpen, trip, primaryShipment, reset, totalBalanceQty]);
 
   useEffect(() => {
     if (!isOpen || isNewVehicle || !vehicleId) return;
@@ -286,7 +283,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             const tripData: any = {
                 ...values,
                 tripId,
-                shipmentId: primaryShipment.shipmentId, // MANIFEST FIX: Persist Sales Order No explicitly
+                shipmentId: primaryShipment.shipmentId, 
                 originPlantId: plantId,
                 shipmentIds,
                 assignedQtyInTrip: values.assignQty, 
@@ -312,7 +309,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             transaction.set(doc(firestore, `plants/${plantId}/trips`, docId), tripData);
             transaction.set(doc(firestore, 'trips', docId), tripData);
         });
-        toast({ title: 'Consolidated Mission Established', description: `Registry synced for ${shipments.length} orders.` });
+        toast({ title: 'Mission Established', description: `Registry synced for ${shipments.length} orders.` });
         onAssignmentComplete();
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Registry Error', description: e.message });
@@ -345,7 +342,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 md:space-y-12">
-          {/* HEADER SUMMARY: MISSION CONTEXT */}
           <Card className="p-6 md:p-10 border-2 border-slate-100 shadow-xl rounded-[2.5rem] bg-white relative overflow-hidden">
             <div className="absolute top-0 left-0 w-2 h-full bg-blue-900" />
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
@@ -443,18 +439,23 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Carrier Agent *</label>
-                                <FormField name="carrierId" control={control} render={({ field }) => (
+                                <label className="text-[10px] font-black uppercase text-blue-900 tracking-widest px-1 flex items-center gap-2">
+                                    <ShieldCheck className="h-3.5 w-3.5" /> Carrier Agent (Lifting Node Locked)
+                                </label>
+                                <FormField name="carrierName" control={control} render={({ field }) => (
                                     <FormItem>
-                                    <SearchableSelect 
-                                        options={carrierOptions} 
-                                        onChange={field.onChange} 
-                                        value={field.value} 
-                                        placeholder={carrierOptions.length === 0 ? "No carriers for this plant" : "Pick Agent"}
-                                        className="h-12"
-                                        disabled={carrierOptions.length === 0}
-                                    />
-                                    <FormMessage />
+                                        <FormControl>
+                                            <div className="relative group">
+                                                <Input 
+                                                    readOnly 
+                                                    disabled 
+                                                    {...field} 
+                                                    className="h-12 rounded-xl font-black uppercase text-slate-400 bg-slate-100 border-none shadow-inner cursor-not-allowed pl-10" 
+                                                />
+                                                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300" />
+                                            </div>
+                                        </FormControl>
+                                        <FormMessage />
                                     </FormItem>
                                 )} />
                             </div>
@@ -598,7 +599,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
           </Form>
         </div>
 
-        <DialogFooter className="p-3 md:p-4 bg-slate-900 flex flex-col md:flex-row justify-between items-center shrink-0 gap-4 md:gap-8">
+        <DialogFooter className="p-4 md:p-6 bg-slate-900 flex flex-col md:flex-row justify-between items-center shrink-0 gap-4 md:gap-8">
             <div className="flex items-center gap-6">
                 <div className="flex flex-col gap-0.5">
                     <span className="text-[8px] md:text-[9px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-1.5 md:gap-2 leading-none"><Calculator className="h-3 md:h-3.5 w-3 md:h-3.5" /> Balance remaining</span>
