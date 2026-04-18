@@ -107,7 +107,7 @@ export default function PrintablePaymentSlip({ freight, payment }: { freight: En
             <div className="flex justify-between items-start border-b-4 border-black pb-6 mb-8 shrink-0">
                 <div className="space-y-1.5 flex-1 pr-10">
                     <h1 className="text-[16pt] font-black uppercase leading-none tracking-tight text-slate-900">{carrier.name || 'SIKKA LMC'}</h1>
-                    <p className="text-[8pt] font-bold text-slate-600 uppercase max-w-[450px] leading-tight">{carrier.address || 'GHAZIABAD, UTTAR PRADESH'}</p>
+                    <p className="text-[8.5pt] font-bold text-slate-600 uppercase max-w-[450px] leading-tight">{carrier.address || 'GHAZIABAD, UTTAR PRADESH'}</p>
                     <div className="text-[8pt] font-black pt-2 flex flex-wrap gap-x-4 gap-y-1 uppercase leading-snug">
                         <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">PHONE:</span> <span className="text-slate-900 font-mono">{carrier.mobile || '9136688004'}</span></p>
                         <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">GSTIN:</span> <span className="font-mono text-slate-900">{carrier.gstin || '--'}</span></p>
