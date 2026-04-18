@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,7 +33,9 @@ import {
     Package,
     Weight,
     Factory,
-    ShieldCheck
+    ShieldCheck,
+    X,
+    Filter
 } from 'lucide-react';
 import { cn, parseSafeDate } from '@/lib/utils';
 import { format, isValid } from 'date-fns';
@@ -47,6 +49,7 @@ import {
     DropdownMenuPortal
 } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 interface TripBoardTableProps {
   data: any[];
@@ -81,11 +84,6 @@ const getStatusColor = (status: string) => {
     }
 }
 
-/**
- * @fileOverview Mission Registry Card Node.
- * High-density UI node for monitoring mission status across all operational tabs.
- * Refined to support both Shipments (Pending) and Trips (Active).
- */
 function MissionRegistryCard({ 
     row, 
     activeTab, 
@@ -106,7 +104,6 @@ function MissionRegistryCard({
     const formattedDate = dateNode ? format(new Date(dateNode), 'dd MMM') : '--';
     const statusTime = row.lastUpdated ? format(new Date(row.lastUpdated), 'dd MMM, hh:mm aa') : (row.creationDate ? format(new Date(row.creationDate), 'dd MMM, hh:mm aa') : '--');
     
-    // REGISTRY RULE: Remove Edit LR for tabs after In-Transit
     const tabsAfterTransit = ['arrived', 'pod-status', 'rejection', 'closed'];
     const canEditLR = !tabsAfterTransit.includes(activeTab) && !isPending;
 
@@ -118,7 +115,6 @@ function MissionRegistryCard({
             "bg-white border-2 rounded-[1.5rem] mb-6 overflow-hidden transition-all duration-300 group relative",
             isSelected ? "border-blue-600 shadow-2xl bg-blue-50/5" : "border-slate-100 shadow-sm hover:shadow-xl hover:border-slate-200"
         )}>
-            {/* 1. PRIMARY MANIFEST ROW */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 p-5 pb-3">
                 {isPending && (
                     <div className="col-span-1 flex items-center justify-center border-r border-slate-100 pr-2">
@@ -204,7 +200,6 @@ function MissionRegistryCard({
                 </div>
             </div>
 
-            {/* 2. REGISTRY METADATA ROW */}
             <div className="px-5 py-2.5 flex flex-wrap items-center justify-between gap-6 text-[10px] font-bold text-slate-500 bg-slate-50/50 border-y border-slate-100">
                 <div className="flex items-center gap-10">
                     <div className="flex flex-col">
@@ -215,12 +210,10 @@ function MissionRegistryCard({
                         <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none">Payment Term</span>
                         <span className="text-slate-700 font-black uppercase">{row.paymentTerm || 'PAID'}</span>
                     </div>
-                    {isPending && (
-                        <div className="flex flex-col">
-                            <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none">Consignee</span>
-                            <span className="text-slate-900 font-bold truncate max-w-[150px] uppercase">{row.billToParty}</span>
-                        </div>
-                    )}
+                    <div className="flex flex-col">
+                        <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none">Consignee</span>
+                        <span className="text-slate-900 font-black uppercase truncate max-w-[200px]">{row.billToParty || row.consignee || '--'}</span>
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-10">
@@ -234,7 +227,6 @@ function MissionRegistryCard({
                 </div>
             </div>
 
-            {/* 3. ACTION TERMINAL ROW */}
             <div className="p-3 px-5 flex items-center justify-between bg-white">
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-3">
@@ -254,7 +246,6 @@ function MissionRegistryCard({
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {/* CONTEXTUAL ACTION NODES */}
                     {isPending && (
                         <Button 
                             size="sm" 
@@ -345,36 +336,76 @@ export default function TripBoardTable({
     onSelectRow,
     onSelectAll
 }: TripBoardTableProps) {
-  
-  const isAllOnPageSelected = data.length > 0 && data.every(row => selectedIds.includes(row.id));
+  const [filterLetter, setFilterLetter] = useState<string | null>(null);
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+  const filteredByLetter = useMemo(() => {
+    if (!filterLetter || activeTab !== 'pending-assignment') return data;
+    return data.filter(row => {
+        const name = (row.billToParty || row.consignee || "").trim().toUpperCase();
+        return name.startsWith(filterLetter);
+    });
+  }, [data, filterLetter, activeTab]);
+
   const isPending = activeTab === 'pending-assignment';
 
   return (
     <div className="flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-700">
-        {isPending && data.length > 0 && (
-            <div className="flex items-center justify-between px-6 py-4 bg-white border border-slate-200 rounded-2xl mb-6 shadow-sm">
-                <div className="flex items-center gap-3">
-                    <Checkbox 
-                        checked={isAllOnPageSelected}
-                        onCheckedChange={(checked) => onSelectAll?.(!!checked)}
-                        className="h-5 w-5 data-[state=checked]:bg-blue-900 shadow-md border-slate-300"
-                    />
-                    <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Select all mission plants on this page</span>
+        {isPending && (
+            <div className="mb-8 space-y-4">
+                <div className="flex items-center gap-3 px-2">
+                    <Filter className="h-4 w-4 text-blue-600" />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Filter Mission by Consignee Node</h3>
                 </div>
-                <Badge variant="outline" className="bg-blue-50 text-blue-900 border-blue-200 font-black uppercase text-[10px] h-6 px-4">
-                    {selectedIds.length} Nodes Ready
-                </Badge>
+                <div className="bg-white border-2 border-slate-100 rounded-[2rem] p-3 shadow-xl flex items-center">
+                    <ScrollArea className="w-full">
+                        <div className="flex items-center gap-1.5 min-w-max px-2">
+                            <Button 
+                                variant={filterLetter === null ? "default" : "ghost"}
+                                size="sm"
+                                onClick={() => setFilterLetter(null)}
+                                className={cn(
+                                    "h-9 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                    filterLetter === null ? "bg-blue-900 text-white shadow-lg" : "text-slate-400 hover:bg-slate-50"
+                                )}
+                            >
+                                All Records
+                            </Button>
+                            <Separator orientation="vertical" className="h-6 mx-2 bg-slate-100" />
+                            {alphabet.map(letter => (
+                                <Button
+                                    key={letter}
+                                    variant={filterLetter === letter ? "default" : "ghost"}
+                                    size="sm"
+                                    onClick={() => setFilterLetter(letter)}
+                                    className={cn(
+                                        "h-9 w-9 p-0 rounded-xl text-[11px] font-black uppercase transition-all",
+                                        filterLetter === letter ? "bg-blue-900 text-white shadow-lg scale-110" : "text-slate-400 hover:bg-blue-50 hover:text-blue-600"
+                                    )}
+                                >
+                                    {letter}
+                                </Button>
+                            ))}
+                        </div>
+                        <ScrollBar orientation="horizontal" className="h-1" />
+                    </ScrollArea>
+                </div>
             </div>
         )}
 
-        {data.length === 0 ? (
+        {filteredByLetter.length === 0 ? (
             <div className="h-64 flex flex-col items-center justify-center bg-white border-2 border-slate-100 rounded-[2.5rem] border-dashed">
                 <div className="p-4 bg-slate-50 rounded-2xl mb-4"><Package className="h-10 w-10 text-slate-200" /></div>
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">No mission nodes found in {activeTab.toUpperCase()} registry.</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">
+                    {filterLetter ? `No Consignees starting with "${filterLetter}" detected.` : `No mission nodes found in ${activeTab.toUpperCase()} registry.`}
+                </p>
+                {filterLetter && (
+                    <Button variant="link" onClick={() => setFilterLetter(null)} className="mt-2 text-blue-600 font-black uppercase text-[9px] tracking-widest">Clear Filter Node</Button>
+                )}
             </div>
         ) : (
             <div className="grid grid-cols-1 gap-1">
-                {data.map((row) => (
+                {filteredByLetter.map((row) => (
                     <MissionRegistryCard 
                         key={row.id} 
                         row={row} 
