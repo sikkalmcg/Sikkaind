@@ -1,7 +1,8 @@
+
 'use client';
 
 import { format, isValid } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, parseSafeDate } from '@/lib/utils';
 import { ShieldCheck, Landmark, Truck, MapPin, Calculator, FileText, User, Receipt, History } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Timestamp } from 'firebase/firestore';
@@ -15,13 +16,13 @@ import { Timestamp } from 'firebase/firestore';
 
 export default function PrintableVoucher({ trip }: { trip: any }) {
     const freight = trip.freightData || {};
-    const carrier = trip.carrierObj || {};
+    const carrier = trip.carrierObj || (typeof trip.carrier === 'object' ? trip.carrier : {});
     const payments = freight.payments || [];
     
     const formatDate = (date: any, pattern: string = 'dd-MMM-yyyy') => {
         if (!date) return '--';
         const d = date instanceof Timestamp ? date.toDate() : new Date(date);
-        return isValid(d) ? format(d, pattern) : '--';
+        return isValid(d) ? format(d, pattern).toUpperCase() : '--';
     };
 
     // Financial Calculation Registry Plants
@@ -195,7 +196,7 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
                                         <td className="px-2 text-right border-r border-slate-200 font-black text-blue-700">{p.banking > 0 ? `₹${p.banking.toLocaleString()}` : '--'}</td>
                                         <td className="px-2 text-right border-r border-slate-200 font-bold text-orange-600">{p.tds > 0 ? `₹${p.tds.toLocaleString()}` : '--'}</td>
                                         <td className="px-2 text-right border-r border-slate-200 font-bold text-red-600">{p.ded > 0 ? `₹${p.ded.toLocaleString()}` : '--'}</td>
-                                        <td className="px-2 text-center border-r border-white/10 whitespace-nowrap">{formatDate(p.date, 'dd.MM.yy')}</td>
+                                        <td className="px-2 text-center border-r border-white/10 whitespace-nowrap">{format(new Date(p.date), 'dd.MM.yy')}</td>
                                         <td className="px-3 font-mono text-[7pt] border-r border-slate-200 uppercase truncate max-w-[100px]">{p.ref}</td>
                                         <td className="px-3 font-mono text-[7pt] text-slate-500 leading-tight">
                                             {p.details}

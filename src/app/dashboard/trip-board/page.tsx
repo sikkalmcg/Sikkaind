@@ -435,7 +435,44 @@ function TripBoardContent() {
     }
     if (type === 'view') setViewTripData(row);
     if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${row.vehicleNumber}`);
-    if (type === 'view-lr') setLrPreviewData(row);
+    if (type === 'view-lr') {
+        const pIdStr = normalizePlantId(row.originPlantId);
+        let finalCarrier = row.carrierObj;
+
+        // IDENTITY SAFEGUARD: Re-resolve full Sikka profile if needed for LR view
+        if (!finalCarrier && pIdStr === '1426') {
+            finalCarrier = {
+                id: 'ID20',
+                name: 'SIKKA LMC',
+                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
+                mobile: '9136688004',
+                gstin: '07AYQPS6936B1ZZ',
+                stateCode: '07',
+                stateName: 'DELHI',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com'
+            };
+        } else if (!finalCarrier) {
+            finalCarrier = {
+                id: 'ID21',
+                name: 'SIKKA LMC',
+                address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
+                mobile: '9136688004',
+                gstin: '09AYQPS6936B1ZV',
+                stateCode: '09',
+                stateName: 'UTTAR PRADESH',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com'
+            };
+        }
+
+        setLrPreviewData({
+            ...row,
+            carrier: finalCarrier,
+            shipment: row.shipmentObj || row,
+            plant: row.plant || { id: row.originPlantId, name: row.plantName }
+        });
+    }
     if (type === 'edit-lr') {
         setEditLrTrip(row);
         setEditLrCarrier(row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId));

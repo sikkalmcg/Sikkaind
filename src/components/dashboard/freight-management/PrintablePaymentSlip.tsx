@@ -1,7 +1,8 @@
+
 'use client';
 
 import { format, isValid } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, parseSafeDate } from '@/lib/utils';
 import { ShieldCheck, History, Landmark, Calculator, Receipt, User, Truck, MapPin } from 'lucide-react';
 import type { EnrichedFreight } from '@/app/dashboard/freight-management/page';
 import { Separator } from '@/components/ui/separator';
@@ -17,13 +18,12 @@ import { Timestamp } from 'firebase/firestore';
 export default function PrintablePaymentSlip({ freight, payment }: { freight: EnrichedFreight, payment: any }) {
     const { trip, plant, shipment } = freight;
     
-    // Carrier Logic Node
-    const carrier = (typeof trip.carrier === 'string' ? { name: trip.carrier, address: 'N/A', gstin: 'N/A', stateName: 'N/A' } : (trip as any).carrierObj) || {};
+    // Carrier Logic Node: Re-resolve full profile for the header
+    const carrier = (trip as any).carrierObj || (typeof trip.carrier === 'string' ? { name: trip.carrier, address: 'N/A', gstin: 'N/A', stateName: 'N/A' } : trip.carrier) || {};
 
     const formatDate = (date: any, pattern: string = 'dd-MMM-yyyy') => {
-        if (!date) return '--';
-        const d = date instanceof Timestamp ? date.toDate() : new Date(date);
-        return isValid(d) ? format(d, pattern) : '--';
+        const d = parseSafeDate(date);
+        return d && isValid(d) ? format(d, pattern).toUpperCase() : '--';
     };
 
     // Financial Calculation Registry Nodes
