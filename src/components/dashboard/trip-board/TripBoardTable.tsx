@@ -289,9 +289,7 @@ function MissionRegistryCard({
                         <DropdownMenuPortal>
                             <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-slate-200 shadow-3xl bg-white z-[100]">
                                 <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Registry Control</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => onAction(isPending ? 'view-order' : 'view', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
-                                    <Eye className="h-4 w-4 text-blue-600" /> View Mission
-                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onAction(isPending ? 'view-order' : 'view', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
                                 
                                 {!isPending && (
                                     <DropdownMenuItem onClick={() => onAction('track', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
@@ -337,91 +335,22 @@ export default function TripBoardTable({
     onSelectRow,
     onSelectAll
 }: TripBoardTableProps) {
-  const [filterLetter, setFilterLetter] = useState<string | null>(null);
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUV".split(""); // Matching image scope
-
-  const filteredByLetter = useMemo(() => {
-    if (!filterLetter || activeTab !== 'pending-assignment') return data;
-    return data.filter(row => {
-        const name = (row.billToParty || row.consignee || "").trim().toUpperCase();
-        return name.startsWith(filterLetter);
-    });
-  }, [data, filterLetter, activeTab]);
-
-  const isPending = activeTab === 'pending-assignment';
 
   return (
     <div className="flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-700">
-        {isPending && (
-            <div className="mb-10 space-y-6">
-                <div className="flex items-center gap-3 px-2">
-                    <div className="p-1.5 bg-blue-50 rounded-lg"><Filter className="h-4 w-4 text-blue-600" /></div>
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Filter Mission by Consignee Node</h3>
-                </div>
-                
-                <div className="relative">
-                    <div className="absolute inset-0 bg-white/20 blur-2xl rounded-full -z-10" />
-                    <div className="bg-white rounded-full p-2.5 shadow-[0_15px_40px_rgba(0,0,0,0.06)] border border-slate-100 flex items-center h-16 w-full">
-                        <ScrollArea className="w-full">
-                            <div className="flex items-center gap-1 min-w-max px-2">
-                                <Button 
-                                    onClick={() => setFilterLetter(null)}
-                                    className={cn(
-                                        "h-11 px-8 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300",
-                                        filterLetter === null 
-                                            ? "bg-blue-900 text-white shadow-xl shadow-blue-900/20" 
-                                            : "bg-transparent text-slate-400 hover:text-blue-900 hover:bg-blue-50"
-                                    )}
-                                >
-                                    All Records
-                                </Button>
-                                <div className="h-6 w-px bg-slate-100 mx-4" />
-                                <div className="flex items-center gap-1 md:gap-4 px-2">
-                                    {alphabet.map(letter => (
-                                        <button
-                                            key={letter}
-                                            onClick={() => setFilterLetter(letter)}
-                                            className={cn(
-                                                "w-9 h-9 flex items-center justify-center rounded-full text-[11px] font-black uppercase transition-all duration-200",
-                                                filterLetter === letter 
-                                                    ? "bg-blue-50 text-blue-900 scale-110 shadow-inner" 
-                                                    : "text-slate-400 hover:text-blue-600 hover:bg-slate-50"
-                                            )}
-                                        >
-                                            {letter}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <ScrollBar orientation="horizontal" className="hidden" />
-                        </ScrollArea>
-                    </div>
-                </div>
-            </div>
-        )}
-
         <div className="space-y-1">
-            {filteredByLetter.length === 0 ? (
+            {data.length === 0 ? (
                 <div className="h-80 flex flex-col items-center justify-center bg-white border-2 border-slate-100 rounded-[3rem] border-dashed">
                     <div className="p-6 bg-slate-50 rounded-[2rem] mb-6 animate-pulse">
                         <Package className="h-14 w-14 text-slate-200" />
                     </div>
                     <p className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-300">
-                        {filterLetter ? `No Consignees starting with "${filterLetter}" detected.` : `No active mission nodes in current registry.`}
+                        No active mission nodes in current registry.
                     </p>
-                    {filterLetter && (
-                        <Button 
-                            variant="ghost" 
-                            onClick={() => setFilterLetter(null)} 
-                            className="mt-4 text-blue-600 font-black uppercase text-[10px] tracking-widest hover:bg-blue-50 rounded-xl"
-                        >
-                            Reset Registry Filter
-                        </Button>
-                    )}
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-0">
-                    {filteredByLetter.map((row) => (
+                    {data.map((row) => (
                         <MissionRegistryCard 
                             key={row.id} 
                             row={row} 
