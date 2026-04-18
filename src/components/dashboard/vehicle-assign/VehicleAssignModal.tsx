@@ -329,7 +329,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
           <div className="flex items-center gap-3 md:gap-4">
             <div className="p-2 md:p-3 bg-blue-600 rounded-xl shadow-lg rotate-3"><Truck className="h-5 w-5 md:h-7 md:w-7 text-white" /></div>
             <div>
-                <DialogTitle className="text-lg md:text-2xl font-black uppercase tracking-tight italic leading-none text-white">ASSIGN FLEET</DialogTitle>
+                <DialogTitle className="text-lg md:text-2xl font-black uppercase tracking-tight italic leading-none text-white">SIKKA LMC | ALLOCATION BOARD</DialogTitle>
                 <DialogDescription className="text-blue-300 font-bold uppercase text-[8px] md:text-[9px] tracking-widest mt-1 md:mt-2">Registry Terminal Node | {shipments.length > 1 ? 'BULK CONSOLIDATION' : 'SINGLE MISSION'}</DialogDescription>
             </div>
           </div>
@@ -368,7 +368,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {shipments.map((s) => {
-                        const sPlant = plants?.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(s.originPlantId).toLowerCase());
+                        const sPlant = plants?.find(p => p.id === s.originPlantId || normalizePlantId(p.id).toLowerCase() === normalizePlantId(s.originPlantId).toLowerCase());
                         const sPlantName = sPlant?.name || s.originPlantId;
                         const sPlantAddr = sPlant?.address || s.loadingPoint;
                         
@@ -448,9 +448,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                                             <div className="relative group">
                                                 <Input 
                                                     readOnly 
-                                                    disabled 
                                                     {...field} 
-                                                    className="h-12 rounded-xl font-black uppercase text-slate-400 bg-slate-100 border-none shadow-inner cursor-not-allowed pl-10" 
+                                                    className="h-12 rounded-xl font-black uppercase text-blue-900 bg-slate-100 border-none shadow-inner pl-10" 
                                                 />
                                                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300" />
                                             </div>

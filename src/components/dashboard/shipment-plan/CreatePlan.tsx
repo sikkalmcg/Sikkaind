@@ -19,7 +19,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/date-picker';
-import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import type { Plant, Shipment, WithId, Party, Carrier } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -601,10 +600,9 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                               <FormControl>
                                   <Input 
                                       readOnly 
-                                      disabled 
                                       {...field} 
                                       placeholder="Auto-resolved from Registry" 
-                                      className="h-14 bg-slate-100 rounded-xl font-black uppercase text-blue-900 border-none shadow-inner cursor-not-allowed" 
+                                      className="h-14 bg-slate-100 rounded-xl font-black uppercase text-blue-900 border-none shadow-inner" 
                                   />
                               </FormControl>
                           </FormItem>
@@ -656,7 +654,14 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
                  <section className="space-y-4">
                       <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2 px-1"><MapPin className="h-4 w-4 text-blue-600"/> 4. Delivery Address Registry</h3>
-                      <FormField control={control} name="deliveryAddress" render={({ field }) => (<FormItem><FormControl><Textarea rows={3} placeholder="Provide verified delivery address particulars..." className="resize-none bg-white border-slate-200 rounded-[2rem] md:rounded-3xl p-6 md:p-8 font-bold shadow-sm focus-visible:ring-blue-900 transition-all text-sm" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={control} name="deliveryAddress" render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Textarea rows={3} placeholder="Provide verified delivery address particulars..." className="resize-none bg-white border-slate-200 rounded-[2rem] md:rounded-3xl p-6 md:p-8 font-bold shadow-sm focus-visible:ring-blue-900 transition-all text-sm" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
                  </section>
               </form>
           </CardContent>
