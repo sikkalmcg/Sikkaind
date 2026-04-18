@@ -19,7 +19,7 @@ import LRGenerationModal from '@/components/dashboard/lr-create/LRGenerationModa
 import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAssignModal';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
-import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId } from '@/lib/utils';
+import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId, cn } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList, CheckCircle2, Truck, PlusCircle, ArrowUpDown } from "lucide-react";
