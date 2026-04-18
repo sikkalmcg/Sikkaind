@@ -82,7 +82,7 @@ function TripBoardContent() {
   const [podStatusTrip, setPodStatusTrip] = useState<any | null>(null);
   const [podUploadTrip, setPodUploadTrip] = useState<any | null>(null);
   const [srnTrip, setSrnTrip] = useState<any | null>(null);
-  const [previewLrData, setLrPreviewData] = useState<EnrichedLR | null>(null);
+  const [previewLrData, setPreviewLrData] = useState<EnrichedLR | null>(null);
   const [editLrTrip, setEditLrTrip] = useState<any | null>(null);
   const [editLrCarrier, setEditLrCarrier] = useState<any | null>(null);
   const [isAssignModalOpen, setAssignModalOpen] = useState(false);
@@ -152,7 +152,10 @@ function TripBoardContent() {
   useEffect(() => {
     if (!firestore || !user || selectedPlants.length === 0) {
       if (selectedPlants.length === 0 && isInitialized.current) {
-          setAllData({ shipments: [], trips: [], entries: [], lrs: [] });
+          setShipments([]);
+          setTrips([]);
+          setEntries([]);
+          setLrs([]);
           setIsLoading(false);
       }
       return;
