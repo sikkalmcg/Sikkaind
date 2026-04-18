@@ -141,9 +141,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             { title: 'CONSIGNEE (RECEIVER)', name: lr.buyerName || lr.shipToParty, addr: buyerAddress, gstin: lr.buyerGtin },
             { title: 'SHIP TO PARTY', name: lr.shipToParty || lr.buyerName, addr: shipToAddress, gstin: lr.shipToGtin }
         ].map((node, idx) => (
-            <div key={idx} className="border-2 border-black rounded-[1.5rem] p-4 pt-6 relative min-h-[120px] flex flex-col justify-center bg-white shadow-md text-center">
+            <div key={idx} className="border-2 border-black rounded-[1.5rem] p-4 pt-6 relative min-h-[140px] flex flex-col justify-center bg-white shadow-md text-center">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-1 rounded-full text-[6.5pt] font-black uppercase tracking-widest shadow-xl whitespace-nowrap">{node.title}</div>
-                <div className="space-y-1 mt-1">
+                <div className="space-y-1.5 mt-1">
                     <p className="text-[9pt] font-black uppercase text-slate-900 leading-tight line-clamp-2">{node.name}</p>
                     <p className="text-[7.5pt] font-bold text-slate-500 leading-snug italic uppercase line-clamp-2">{node.addr}</p>
                     <p className="font-black text-slate-900 text-[7.5pt] pt-1.5 border-t border-slate-100 mt-1.5">GSTIN: <span className="font-mono uppercase">{node.gstin || 'N/A'}</span></p>
