@@ -36,7 +36,8 @@ import {
     Factory,
     ShieldCheck,
     X,
-    Filter
+    Filter,
+    ArrowUpDown
 } from 'lucide-react';
 import { cn, parseSafeDate } from '@/lib/utils';
 import { format, isValid } from 'date-fns';

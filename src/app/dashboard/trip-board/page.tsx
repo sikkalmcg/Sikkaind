@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -21,7 +22,7 @@ import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList, CheckCircle2, Truck, PlusCircle } from "lucide-react";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList, CheckCircle2, Truck, PlusCircle, ArrowUpDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -52,6 +53,7 @@ function TripBoardContent() {
   const [fromDate, setFromDate] = useState<Date | undefined>(startOfDay(subDays(new Date(), 30)));
   const [toDate, setTodayDate] = useState<Date | undefined>(endOfDay(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortAlphabetical, setSortAlphabetical] = useState(false);
   
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -264,7 +266,7 @@ function TripBoardContent() {
             itemDescription: summarizedItems,
             ewaybillNumber: shipment?.ewaybillNumber || '--',
             unitUom: `${units || shipment?.totalUnits || '--'} PKG`,
-            qtyUom: `${dispatchedQty.toFixed(3)} ${shipment?.materialTypeId || 'MT'}`,
+            qtyUom: `${dispatchedQty.toFixed(3)} MT`,
             dispatchedQty,
             lrNumber: lr?.lrNumber || t.lrNumber || shipment?.lrNumber || '',
             lrDate: parseSafeDate(lr?.date || t.lrDate || shipment?.lrDate),
@@ -297,6 +299,10 @@ function TripBoardContent() {
     if (type === 'assign') {
         setSelectedShipmentsForAssign([row]);
         setAssignModalOpen(true);
+    }
+    if (type === 'toggle-sort') {
+        setSortAlphabetical(!sortAlphabetical);
+        return;
     }
     if (type === 'view') setViewTripData(row);
     if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${row.vehicleNumber}`);
@@ -376,7 +382,7 @@ function TripBoardContent() {
 
     if (activeTab === 'pending-assignment') {
         const normalizedSelected = selectedPlants.map(normalizePlantId);
-        return shipments
+        let list = shipments
             .filter(s => normalizedSelected.includes(normalizePlantId(s.originPlantId)))
             .filter(s => {
                 if (['cancelled', 'short closed'].includes(s.currentStatusId?.toLowerCase())) return false;
@@ -393,8 +399,8 @@ function TripBoardContent() {
                     plantName: plant?.name || s.originPlantId,
                     type: 'shipment',
                     orderNo: s.shipmentId,
-                    qtyUom: `${s.quantity} ${s.materialTypeId}`,
-                    balanceUom: `${s.balanceQty} ${s.materialTypeId}`
+                    qtyUom: `${s.quantity} MT`,
+                    balanceUom: `${s.balanceQty} MT`
                 };
             })
             .filter(s => {
@@ -402,6 +408,11 @@ function TripBoardContent() {
                 const searchLower = searchTerm.toLowerCase();
                 return (s.shipmentId?.toLowerCase().includes(searchLower) || s.consignor?.toLowerCase().includes(searchLower) || s.billToParty?.toLowerCase().includes(searchLower));
             });
+
+        if (sortAlphabetical) {
+            list = list.sort((a, b) => (a.billToParty || '').localeCompare(b.billToParty || ''));
+        }
+        return list;
     }
 
     return joinedData.filter(t => {
@@ -425,7 +436,7 @@ function TripBoardContent() {
       const s = searchTerm.toLowerCase();
       return (t.tripId?.toLowerCase().includes(s) || t.vehicleNumber?.toLowerCase().includes(s) || t.lrNumber?.toLowerCase().includes(s) || t.consignor?.toLowerCase().includes(s) || t.consignee?.toLowerCase().includes(s));
     });
-  }, [joinedData, shipments, activeTab, fromDate, toDate, searchTerm, selectedPlants, plants]);
+  }, [joinedData, shipments, activeTab, fromDate, toDate, searchTerm, selectedPlants, plants, sortAlphabetical]);
 
   const counts = useMemo(() => {
     const res = { pendingAssignment: 0, openOrder: 0, loading: 0, transit: 0, arrived: 0, pod: 0, rejection: 0, closed: 0 };
@@ -505,7 +516,7 @@ function TripBoardContent() {
                   <span className="md:hidden">TRIP BOARD</span>
                   <span className="hidden md:inline">MISSION CONTROL BOARD</span>
                 </h1>
-                <p className="hidden md:block text-[7px] md:text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">LIVE OPERATIONAL REGISTRY Plant</p>
+                <p className="hidden md:block text-[7px] md:text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">LIVE OPERATIONAL REGISTRY PLANT</p>
               </div>
             </div>
 
@@ -573,6 +584,24 @@ function TripBoardContent() {
             </div>
         ) : (
             <div className="space-y-4">
+                {activeTab === 'pending-assignment' && (
+                    <div className="flex items-center gap-3 px-2 mb-2 animate-in fade-in duration-300">
+                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Group by:</span>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleAction('toggle-sort', null)}
+                            className={cn(
+                                "h-8 px-4 gap-2 font-black text-[9px] uppercase tracking-widest rounded-xl transition-all shadow-sm",
+                                sortAlphabetical 
+                                    ? "bg-blue-900 text-white border-blue-900 shadow-blue-200" 
+                                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                            )}
+                        >
+                            <ArrowUpDown className="h-3 w-3" /> Consignee A-Z
+                        </Button>
+                    </div>
+                )}
                 <TripBoardTable 
                     data={paginatedData} 
                     activeTab={activeTab} 
