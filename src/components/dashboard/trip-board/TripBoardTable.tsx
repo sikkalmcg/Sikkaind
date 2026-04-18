@@ -37,7 +37,8 @@ import {
     ShieldCheck,
     X,
     Filter,
-    ArrowUpDown
+    ArrowUpDown,
+    Upload
 } from 'lucide-react';
 import { cn, parseSafeDate } from '@/lib/utils';
 import { format, isValid } from 'date-fns';
@@ -265,16 +266,15 @@ function MissionRegistryCard({
                         <Button size="sm" onClick={() => onAction('vehicle-out', row)} className="h-9 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Vehicle OUT</Button>
                     )}
                     {activeTab === 'transit' && (
-                        <>
-                            <Button variant="outline" size="sm" onClick={() => onAction('pod-upload', row)} className="h-9 px-5 border-slate-200 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-slate-50">Upload POD</Button>
-                            <Button size="sm" onClick={() => onAction('arrived', row)} className="h-9 px-8 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-900/10">Arrived In</Button>
-                        </>
+                        <Button size="sm" onClick={() => onAction('arrived', row)} className="h-9 px-8 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-900/10">Arrived In</Button>
                     )}
                     {activeTab === 'arrived' && (
-                        <>
-                            <Button variant="outline" size="sm" onClick={() => onAction('pod-upload', row)} className="h-9 px-5 border-slate-200 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-slate-50">Upload POD</Button>
-                            <Button size="sm" onClick={() => onAction('unloaded', row)} className="h-9 px-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Mark Unloaded</Button>
-                        </>
+                        <Button size="sm" onClick={() => onAction('unloaded', row)} className="h-9 px-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Mark Unloaded</Button>
+                    )}
+                    {activeTab === 'pod-status' && (
+                        <Button variant="outline" size="sm" onClick={() => onAction('pod-upload', row)} className="h-9 px-8 border-slate-200 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-slate-50 gap-2">
+                            <Upload size={14} className="text-blue-600" /> Upload POD
+                        </Button>
                     )}
                     {activeTab === 'rejection' && (
                         <>
