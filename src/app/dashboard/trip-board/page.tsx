@@ -239,7 +239,10 @@ function TripBoardContent() {
         const shipment = shipments.find(s => (s.id === shipId || s.shipmentId === shipId) && normalizePlantId(s.originPlantId) === tPlantId);
         const lr = lrs.find(l => (l.tripDocId === t.id || l.tripId === t.tripId || l.lrNumber === t.lrNumber) && normalizePlantId(l.originPlantId) === tPlantId);
         const entry = entries.find(e => (e.tripId === t.id || (e.vehicleNumber === t.vehicleNumber && e.status === 'OUT')) && normalizePlantId(e.plantId) === tPlantId);
-        const carrier = dbCarriers?.find(c => c.id === t.carrierId);
+        
+        // REGISTRY HANDSHAKE: Strictly resolve Carrier from Added Carriers registry (carrier-management node)
+        const carrier = (dbCarriers || []).find(c => c.id === t.carrierId || c.id === shipment?.carrierId);
+        
         const plant = plants.find(p => normalizePlantId(p.id) === tPlantId);
 
         const items = lr?.items || t.items || shipment?.items || [];
@@ -290,7 +293,7 @@ function TripBoardContent() {
             shipmentObj: shipment,
             lrData: lr,
             carrierObj: carrier,
-            entry,
+            carrierName: carrier?.name || '--',
             paymentTerm: t.paymentTerm || shipment?.paymentTerm || 'Paid',
             normalizedStatus: s
         };
@@ -322,7 +325,7 @@ function TripBoardContent() {
                     orderNo: s.shipmentId,
                     qtyUom: `${s.quantity} MT`,
                     balanceUom: `${s.balanceQty} MT`,
-                    carrierObj: dbCarriers?.find(c => c.id === s.carrierId)
+                    carrierObj: (dbCarriers || []).find(c => c.id === s.carrierId)
                 };
             })
             .filter(s => {
@@ -445,49 +448,8 @@ function TripBoardContent() {
             let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
             let snap = await getDocs(q);
             
-            const pIdStr = normalizePlantId(row.originPlantId);
-            const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
-            let finalCarrier: any = row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId);
-
-            if (!finalCarrier && (pIdStr === '1426' || pIdStr === 'ID20')) {
-                finalCarrier = {
-                    id: 'ID20',
-                    name: 'SIKKA LMC',
-                    address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
-                    mobile: '9136688004',
-                    gstin: '07AYQPS6936B1ZZ',
-                    stateCode: '07',
-                    stateName: 'DELHI',
-                    pan: 'AYQPS6936B',
-                    email: 'sil@sikkaenterprises.com'
-                };
-            } else if (!finalCarrier && (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmcShorthand)) {
-                finalCarrier = {
-                    id: 'ID21',
-                    name: 'SIKKA LMC',
-                    address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
-                    mobile: '9136688004',
-                    gstin: '09AYQPS6936B1ZV',
-                    stateCode: '09',
-                    stateName: 'UTTAR PRADESH',
-                    pan: 'AYQPS6936B',
-                    email: 'sil@sikkaenterprises.com'
-                };
-            }
-
-            if (!finalCarrier) {
-                finalCarrier = {
-                    id: 'ID20',
-                    name: 'SIKKA LMC',
-                    address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
-                    mobile: '9136688004',
-                    gstin: '07AYQPS6936B1ZZ',
-                    stateCode: '07',
-                    stateName: 'DELHI',
-                    pan: 'AYQPS6936B',
-                    email: 'sil@sikkaenterprises.com'
-                };
-            }
+            // REGISTRY HANDSHAKE: Resolve Carrier strictly from DB list
+            const finalCarrier = (dbCarriers || []).find(c => c.id === row.carrierId || c.id === row.shipmentObj?.carrierId) || row.carrierObj;
 
             const shipmentObj = row.shipmentObj || row;
 
@@ -544,8 +506,8 @@ function TripBoardContent() {
                     buyerName: lrDoc.buyerName || shipmentObj.billToParty || row.billToParty || '',
                     buyerAddress: lrDoc.buyerAddress || shipmentObj.buyerAddress || shipmentObj.billToAddress || shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
                     buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
-                    shipToParty: lrDoc.shipToParty || shipmentObj.shipToParty || shipmentObj.billToParty || '',
-                    shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || '',
+                    shipToParty: lrDoc.shipToParty || row.shipToParty || row.billToParty || '',
+                    shipToGtin: lrDoc.shipToGtin || row.shipToGtin || '',
                     deliveryAddress: lrDoc.deliveryAddress || shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
                     vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
                     driverName: row.driverName || lrDoc.driverName,
@@ -561,7 +523,7 @@ function TripBoardContent() {
     }
     if (type === 'edit-lr') {
         setEditLrTrip(row);
-        setEditLrCarrier(row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId));
+        setEditLrCarrier((dbCarriers || []).find(c => c.id === row.carrierId || c.id === row.shipmentObj?.carrierId) || row.carrierObj);
     }
     if (type === 'edit-vehicle') setEditVehicleTrip(row);
     if (type === 'cancel') setCancelTripData(row);

@@ -132,7 +132,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
     return shipments.map(shipment => {
         const trip = trips.find(t => t.shipmentIds && t.shipmentIds.includes(shipment.id));
         const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(shipment.originPlantId));
-        const carrier = allCarriers.find(c => c.id === trip?.carrierId || c.id === shipment.carrierId);
+        
+        // REGISTRY HANDSHAKE: Strictly resolve Carrier from Added Carriers registry (carrier-management node)
+        const carrier = (allCarriers || []).find(c => c.id === trip?.carrierId || c.id === shipment.carrierId);
 
         const itemsManifest = shipment.items || [];
         const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
@@ -259,49 +261,8 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
-        const pIdStr = normalizePlantId(row.originPlantId);
-        const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
-        let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId);
-
-        if (!finalCarrier && (pIdStr === '1426' || pIdStr === 'ID20')) {
-            finalCarrier = {
-                id: 'ID20',
-                name: 'SIKKA LMC',
-                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
-                mobile: '9136688004',
-                gstin: '07AYQPS6936B1ZZ',
-                stateCode: '07',
-                stateName: 'DELHI',
-                pan: 'AYQPS6936B',
-                email: 'sil@sikkaenterprises.com'
-            };
-        } else if (!finalCarrier && (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmcShorthand)) {
-            finalCarrier = {
-                id: 'ID21',
-                name: 'SIKKA LMC',
-                address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
-                mobile: '9136688004',
-                gstin: '09AYQPS6936B1ZV',
-                stateCode: '09',
-                stateName: 'UTTAR PRADESH',
-                pan: 'AYQPS6936B',
-                email: 'sil@sikkaenterprises.com'
-            };
-        }
-
-        if (!finalCarrier) {
-            finalCarrier = {
-                id: 'ID20',
-                name: 'SIKKA LMC',
-                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
-                mobile: '9136688004',
-                gstin: '07AYQPS6936B1ZZ',
-                stateCode: '07',
-                stateName: 'DELHI',
-                pan: 'AYQPS6936B',
-                email: 'sil@sikkaenterprises.com'
-            };
-        }
+        // REGISTRY HANDSHAKE: Strictly resolve Carrier from DB list
+        const finalCarrier = (allCarriers || []).find(c => c.id === row.carrierId || c.id === row.carrierObj?.id) || row.carrierObj;
 
         const shipmentObj = row as any;
 
@@ -584,7 +545,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             onClose={() => { setAssignModalOpen(false); setSelectedShipment(null); }}
             shipments={[selectedShipment]}
             onAssignmentComplete={() => { setAssignModalOpen(false); setSelectedShipment(null); }}
-            carriers={plantCarriers}
+            carriers={allCarriers || []}
         />
       )}
     </Card>
