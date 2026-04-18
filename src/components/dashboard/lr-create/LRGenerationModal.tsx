@@ -95,7 +95,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, Code, or City..." 
                             value={search} 
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
@@ -132,7 +132,7 @@ function SearchRegistryModal({
 interface LRGenerationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  trip: WithId<Trip>;
+  trip: WithId<Trip> | WithId<Shipment>;
   carrier: WithId<Carrier>;
   lrToEdit?: WithId<LR> | null;
   onGenerate: (lrData: any) => void;
@@ -144,7 +144,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
   const { user } = useUser();
   
   const [shipment, setShipment] = useState<WithId<Shipment> | null>(null);
-  const [activeTrip, setActiveTrip] = useState<WithId<Trip> | null>(providedTrip || null);
+  const [activeTrip, setActiveTrip] = useState<any | null>(providedTrip || null);
   const [activeCarrier, setActiveCarrier] = useState<WithId<Carrier> | null>(providedCarrier || null);
   const [loading, setLoading] = useState(true);
   const [helpModal, setHelpModal] = useState<{ type: string; title: string; data: any[] } | null>(null);
@@ -187,7 +187,10 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
     const fetchData = async () => {
         setLoading(true);
         try {
-            const shipId = activeTrip?.shipmentIds?.[0];
+            // HANDSHAKE: Determine if providedTrip is a Trip or Shipment
+            const isTripNode = !!(activeTrip as any).tripId;
+            const shipId = isTripNode ? activeTrip?.shipmentIds?.[0] : activeTrip?.id;
+            
             if (!shipId) { setLoading(false); return; }
 
             const shipmentSnap = await getDoc(doc(firestore, `plants/${activeTrip!.originPlantId}/shipments`, shipId));
@@ -210,31 +213,31 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                         units: Number(sData.totalUnits) || 1, 
                         unitType: 'Package', 
                         itemDescription: sData.itemDescription || sData.material || 'GENERAL CARGO', 
-                        weight: Number(activeTrip!.assignedQtyInTrip || 0.001), 
+                        weight: Number(activeTrip!.assignedQtyInTrip || activeTrip!.quantity || 0.001), 
                         hsnSac: '' 
                     }];
                 }
 
-                const pTerm = sData.paymentTerm?.toLowerCase().includes('to pay') ? 'To Pay' : 'Paid';
+                const pTerm = (sData.paymentTerm || activeTrip.paymentTerm || 'Paid').toLowerCase().includes('to pay') ? 'To Pay' : 'Paid';
 
                 reset({
-                    lrNumber: sData.lrNumber || '',
-                    date: sData.lrDate?.toDate ? sData.lrDate.toDate() : new Date(),
-                    from: sData.loadingPoint || '',
-                    to: sData.unloadingPoint || '',
-                    vehicleNumber: activeTrip!.vehicleNumber,
-                    driverName: activeTrip!.driverName,
-                    driverMobile: activeTrip!.driverMobile,
+                    lrNumber: sData.lrNumber || activeTrip.lrNumber || '',
+                    date: parseSafeDate(sData.lrDate || activeTrip.lrDate) || new Date(),
+                    from: sData.loadingPoint || activeTrip.loadingPoint || '',
+                    to: sData.unloadingPoint || activeTrip.unloadingPoint || '',
+                    vehicleNumber: activeTrip!.vehicleNumber || '',
+                    driverName: activeTrip!.driverName || '',
+                    driverMobile: activeTrip!.driverMobile || '',
                     paymentTerm: pTerm as any,
                     weightSelection: 'Assigned Weight',
-                    consignorName: sData.consignor || '',
+                    consignorName: sData.consignor || activeTrip.consignor || '',
                     consignorAddress: sData.consignorAddress || sData.loadingPoint || '', 
                     consignorGtin: sData.consignorGtin || '',
                     consignorCode: sData.consignorCode || '',
-                    buyerName: sData.billToParty || '',
+                    buyerName: sData.billToParty || activeTrip.billToParty || '',
                     buyerGtin: sData.billToGtin || '',
                     buyerCode: sData.billToCode || '',
-                    shipToParty: sData.shipToParty || '',
+                    shipToParty: sData.shipToParty || activeTrip.shipToParty || '',
                     shipToGtin: sData.shipToGtin || '',
                     shipToCode: sData.shipToCode || '',
                     deliveryAddress: sData.deliveryAddress || sData.unloadingPoint || '',
@@ -253,7 +256,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
         setValue('consignorGtin', party.gstin || '', { shouldValidate: true });
         setValue('consignorCode', party.customerCode || '', { shouldValidate: true });
         setValue('consignorAddress', party.address || party.city || '', { shouldValidate: true });
-        setValue('from', party.city || '', { shouldValidate: true });
+        setValue('from', (party.city || '').toUpperCase(), { shouldValidate: true });
     } else if (type === 'buyerName') {
         setValue('buyerGtin', party.gstin || '', { shouldValidate: true });
         setValue('buyerCode', party.customerCode || '', { shouldValidate: true });
@@ -261,12 +264,12 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
         setValue('shipToCode', party.customerCode || '', { shouldValidate: true });
         setValue('deliveryAddress', party.address || party.city || '', { shouldValidate: true });
-        setValue('to', party.city || '', { shouldValidate: true });
+        setValue('to', (party.city || '').toUpperCase(), { shouldValidate: true });
     } else if (type === 'shipToParty') {
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
         setValue('shipToCode', party.customerCode || '', { shouldValidate: true });
         setValue('deliveryAddress', party.address || party.city || '', { shouldValidate: true });
-        setValue('to', party.city || '', { shouldValidate: true });
+        setValue('to', (party.city || '').toUpperCase(), { shouldValidate: true });
     }
   }, [setValue]);
 
@@ -291,16 +294,15 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
             const plantId = normalizePlantId(activeTrip.originPlantId);
             const lrId = lrToEdit?.id || `lr-${Date.now()}`;
             const lrRef = doc(firestore, `plants/${plantId}/lrs`, lrId);
-            const tripRef = doc(firestore, `plants/${plantId}/trips`, activeTrip.id);
-            const globalTripRef = doc(firestore, 'trips', activeTrip.id);
             const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipment.id);
 
-            const finalWeight = values.weightSelection === 'Actual Weight' ? totals.weight : activeTrip.assignedQtyInTrip;
+            const isTripNode = !!(activeTrip as any).tripId;
+            const finalWeight = values.weightSelection === 'Actual Weight' ? totals.weight : (isTripNode ? activeTrip.assignedQtyInTrip : activeTrip.quantity);
 
             const lrData = {
                 ...values,
-                tripDocId: activeTrip.id,
-                tripId: activeTrip.tripId, 
+                tripDocId: isTripNode ? activeTrip.id : null,
+                tripId: isTripNode ? activeTrip.tripId : 'PENDING_ALLOCATION', 
                 carrierId: activeCarrier!.id,
                 originPlantId: plantId,
                 assignedTripWeight: finalWeight,
@@ -310,25 +312,29 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
             };
 
             transaction.set(lrRef, lrData, { merge: true });
-            transaction.update(tripRef, { 
-                lrGenerated: true, 
-                lrNumber: values.lrNumber, 
-                lrDate: values.date, 
-                assignedQtyInTrip: finalWeight, 
-                vehicleNumber: values.vehicleNumber,
-                items: values.items,
-                paymentTerm: values.paymentTerm
+
+            if (isTripNode) {
+                const tripRef = doc(firestore, `plants/${plantId}/trips`, activeTrip.id);
+                const globalTripRef = doc(firestore, 'trips', activeTrip.id);
+                const tripUpdate = { 
+                    lrGenerated: true, 
+                    lrNumber: values.lrNumber, 
+                    lrDate: values.date, 
+                    assignedQtyInTrip: finalWeight, 
+                    vehicleNumber: values.vehicleNumber,
+                    items: values.items,
+                    paymentTerm: values.paymentTerm
+                };
+                transaction.update(tripRef, tripUpdate);
+                transaction.update(globalTripRef, tripUpdate);
+            }
+
+            transaction.update(shipmentRef, { 
+                lrNumber: values.lrNumber,
+                lrDate: values.date,
+                paymentTerm: values.paymentTerm,
+                lastUpdateDate: serverTimestamp() 
             });
-            transaction.update(globalTripRef, { 
-                lrGenerated: true, 
-                lrNumber: values.lrNumber, 
-                lrDate: values.date, 
-                assignedQtyInTrip: finalWeight, 
-                vehicleNumber: values.vehicleNumber,
-                items: values.items,
-                paymentTerm: values.paymentTerm
-            });
-            transaction.update(shipmentRef, { lastUpdateDate: serverTimestamp() });
         });
 
         toast({ title: 'LR Registry Updated' });

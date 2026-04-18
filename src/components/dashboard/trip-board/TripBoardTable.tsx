@@ -108,9 +108,9 @@ function MissionRegistryCard({
     const formattedDate = dateNode ? format(new Date(dateNode), 'dd MMM') : '--';
     const statusTime = row.lastUpdated ? format(new Date(row.lastUpdated), 'dd MMM, hh:mm aa') : (row.creationDate ? format(new Date(row.creationDate), 'dd MMM, hh:mm aa') : '--');
     
-    // REGISTRY RULE: Edit LR restricted for stages after Transit
-    const tabsAfterTransit = ['arrived', 'pod-status', 'rejection', 'closed'];
-    const canEditLR = !tabsAfterTransit.includes(activeTab) && !isPending;
+    // REGISTRY RULE: Edit LR allowed only in the first three tabs (Pending, Open Order, Loading)
+    const allowedTabs = ['pending-assignment', 'open-order', 'loading'];
+    const canEditLR = allowedTabs.includes(activeTab);
 
     const fromCity = (row.loadingPoint || row.from || row.plantName || '').split(',')[0].trim();
     const toCity = (row.unloadingPoint || row.destination || '').split(',')[0].trim();

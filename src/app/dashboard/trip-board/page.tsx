@@ -561,7 +561,8 @@ function TripBoardContent() {
     if (type === 'view-lr') setPreviewLrData(row);
     if (type === 'edit-lr') {
         setEditLrTrip(row);
-        setEditLrCarrier(row.carrierObj);
+        // Ensure carrierObj is available for shipments in Pending Assignment too
+        setEditLrCarrier(row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId));
     }
     if (type === 'edit-vehicle') setEditVehicleTrip(row);
     if (type === 'cancel') setCancelTripData(row);
@@ -652,7 +653,9 @@ function TripBoardContent() {
                     type: 'shipment',
                     orderNo: s.shipmentId,
                     qtyUom: `${s.quantity} MT`,
-                    balanceUom: `${s.balanceQty} MT`
+                    balanceUom: `${s.balanceQty} MT`,
+                    // MISSION HANDSHAKE: Pre-resolve carrier object for documentation editing
+                    carrierObj: dbCarriers?.find(c => c.id === s.carrierId)
                 };
             })
             .filter(s => {
@@ -688,7 +691,7 @@ function TripBoardContent() {
       const s = searchTerm.toLowerCase();
       return (t.tripId?.toLowerCase().includes(s) || t.vehicleNumber?.toLowerCase().includes(s) || t.lrNumber?.toLowerCase().includes(s) || t.consignor?.toLowerCase().includes(s) || t.consignee?.toLowerCase().includes(s));
     });
-  }, [joinedData, shipments, activeTab, fromDate, toDate, searchTerm, selectedPlants, plants, sortAlphabetical]);
+  }, [joinedData, shipments, activeTab, fromDate, toDate, searchTerm, selectedPlants, plants, sortAlphabetical, dbCarriers]);
 
   const counts = useMemo(() => {
     const res = { pendingAssignment: 0, openOrder: 0, loading: 0, transit: 0, arrived: 0, pod: 0, rejection: 0, closed: 0 };
