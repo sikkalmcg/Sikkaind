@@ -169,7 +169,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
         let carrierName = trip?.carrierName || primaryShipment.carrierName || '';
 
         // Registry Resolution Handshake: Resolve missing carrier from plant identity for specific nodes
-        if (!carrierName && primaryShipment.originPlantId) {
+        if (primaryShipment.originPlantId) {
             const pId = normalizePlantId(primaryShipment.originPlantId);
             if (pId === '1426' || pId === 'ID20') {
                 carrierId = 'ID20';
@@ -632,7 +632,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 function ContextNode({ label, value, icon: Icon, className, bold }: any) {
     return (
         <div className={cn("space-y-1.5", className)}>
-            <span className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 tracking-widest leading-none">
+            <span className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 tracking-widest leading-none">
                 {Icon && <Icon className="h-2.5 w-2.5 md:h-3 md:w-3" />} {label}
             </span>
             <p className={cn("text-xs leading-tight wrap", bold ? "font-black" : "font-bold text-slate-700")}>{value || '--'}</p>

@@ -95,7 +95,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, Code, or City..." 
                             value={search} 
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => setSearch(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
@@ -187,7 +187,6 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
     const fetchData = async () => {
         setLoading(true);
         try {
-            // HANDSHAKE: Determine if providedTrip is a Trip or Shipment
             const isTripNode = !!(activeTrip as any).tripId;
             const shipId = isTripNode ? activeTrip?.shipmentIds?.[0] : activeTrip?.id;
             
@@ -427,7 +426,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                                 <TableHeader className="bg-slate-900">
                                     <TableRow className="hover:bg-transparent border-none h-12">
                                         <TableHead className="text-white px-6 text-[9px] font-black uppercase">INVOICE NO *</TableHead>
-                                        <TableHead className="text-white text-[9px] font-black uppercase px-4">ITEM DESCRIPTION *</TableHead>
+                                        <TableHead className="text-white text-[9px] font-black uppercase px-4 w-48">ITEM DESCRIPTION *</TableHead>
                                         <TableHead className="text-white text-[9px] font-black uppercase px-4 text-center">PKGS</TableHead>
                                         <TableHead className="text-white text-[9px] font-black uppercase px-8 text-right">WEIGHT (MT)</TableHead>
                                         <TableHead className="w-12"></TableHead>
