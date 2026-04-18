@@ -165,8 +165,20 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
   useEffect(() => {
     if (isOpen && primaryShipment) {
         // REGISTRY HANDSHAKE: Resolve Carrier from Shipment manifest (Immutable Node)
-        const carrierId = trip?.carrierId || primaryShipment.carrierId || '';
-        const carrierName = trip?.carrierName || primaryShipment.carrierName || 'UNASSIGNED';
+        let carrierId = trip?.carrierId || primaryShipment.carrierId || '';
+        let carrierName = trip?.carrierName || primaryShipment.carrierName || '';
+
+        // Registry Resolution Handshake: Resolve missing carrier from plant identity for specific nodes
+        if (!carrierName && primaryShipment.originPlantId) {
+            const pId = normalizePlantId(primaryShipment.originPlantId);
+            if (pId === '1426' || pId === 'ID20') {
+                carrierId = 'ID20';
+                carrierName = 'SIKKA LMC';
+            } else if (pId === '1214' || pId === 'ID23') {
+                carrierId = 'ID21';
+                carrierName = 'SIKKA LMC';
+            }
+        }
 
         reset({
             isNewVehicle: false,
@@ -176,7 +188,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             driverMobile: trip?.driverMobile || '',
             vehicleType: (trip?.vehicleType as any) || 'Own Vehicle',
             carrierId: carrierId,
-            carrierName: carrierName,
+            carrierName: carrierName || 'UNASSIGNED',
             assignQty: trip?.assignedQtyInTrip ?? Number(totalBalanceQty.toFixed(3)),
             transporterName: trip?.transporterName || '',
             transporterMobile: (trip as any)?.transporterMobile || '',
@@ -324,7 +336,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[98vw] w-[1500px] h-[98vh] md:h-[95vh] flex flex-col p-0 border-none shadow-2xl bg-slate-50 rounded-[2rem] md:rounded-[3rem]">
+      <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-2xl bg-slate-50 rounded-[2rem] md:rounded-[3rem]">
         <DialogHeader className="bg-slate-900 text-white p-4 md:p-6 shrink-0 flex flex-row items-center justify-between pr-10 md:pr-12">
           <div className="flex items-center gap-3 md:gap-4">
             <div className="p-2 md:p-3 bg-blue-600 rounded-xl shadow-lg rotate-3"><Truck className="h-5 w-5 md:h-7 md:w-7 text-white" /></div>
@@ -623,7 +635,7 @@ function ContextNode({ label, value, icon: Icon, className, bold }: any) {
             <span className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 tracking-widest leading-none">
                 {Icon && <Icon className="h-2.5 w-2.5 md:h-3 md:w-3" />} {label}
             </span>
-            <p className={cn("text-[10px] md:text-xs leading-snug wrap", bold ? "font-black" : "font-bold text-slate-700")}>{value || '--'}</p>
+            <p className={cn("text-xs leading-tight wrap", bold ? "font-black" : "font-bold text-slate-700")}>{value || '--'}</p>
         </div>
     );
 }

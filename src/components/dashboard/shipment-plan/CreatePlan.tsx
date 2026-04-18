@@ -271,16 +271,26 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     return authorizedPlants.find(p => p.id === originPlantId)?.name || '';
   }, [originPlantId, authorizedPlants]);
 
-  // CARRIER HANDSHAKE node: Auto-populate first carrier of selected plant
+  // CARRIER HANDSHAKE node: Auto-populate carrier of selected plant with fallback for Sikka nodes
   useEffect(() => {
     if (carriers && carriers.length > 0) {
         setValue('carrierId', carriers[0].id);
         setValue('carrierName', carriers[0].name, { shouldValidate: true });
-    } else {
-        setValue('carrierId', '');
-        setValue('carrierName', '', { shouldValidate: true });
+    } else if (originPlantId) {
+        // Registry Fallback Node: Default to Sikka LMC if no carrier provisioned in DB
+        const pId = normalizePlantId(originPlantId);
+        if (pId === '1426' || pId === 'ID20') {
+            setValue('carrierId', 'ID20');
+            setValue('carrierName', 'SIKKA LMC', { shouldValidate: true });
+        } else if (pId === '1214' || pId === 'ID23') {
+            setValue('carrierId', 'ID21');
+            setValue('carrierName', 'SIKKA LMC', { shouldValidate: true });
+        } else {
+            setValue('carrierId', '');
+            setValue('carrierName', '', { shouldValidate: true });
+        }
     }
-  }, [carriers, setValue]);
+  }, [carriers, originPlantId, setValue]);
 
   useEffect(() => {
     if (originPlantId && authorizedPlants.length > 0) {
@@ -318,7 +328,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         if(isSameAsBillTo) {
             setValue('shipToParty', party.name, { shouldValidate: true });
             setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-            const city = party.city && party.city !== 'N/A' ? party.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
+            const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
             if (city) {
                 setValue('unloadingPoint', city, { shouldValidate: true });
                 setValue('deliveryAddress', party.address || '', { shouldValidate: true });
@@ -326,7 +336,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         }
     } else if (type === 'shipToParty') {
         setValue('shipToGtin', party.gstin || '', { shouldValidate: true });
-        const city = party.city && party.city !== 'N/A' ? party.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
+        const city = party.city && party.city !== 'N/A' ? party.city : (party.address && party.address !== 'N/A' ? party.address : 'N/A');
         if (city) {
             setValue('unloadingPoint', city, { shouldValidate: true });
             setValue('deliveryAddress', party.address || '', { shouldValidate: true });
