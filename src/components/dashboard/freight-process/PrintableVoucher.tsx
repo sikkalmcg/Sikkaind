@@ -10,7 +10,7 @@ import { Timestamp } from 'firebase/firestore';
  * @fileOverview SIKKA LMC - Printable Transporter Payment Voucher.
  * Synchronized with Detailed Liquidation Ledger.
  * Handshakes with Trip, Freight, and Banking registries.
- * Updated: Enhanced header with State, Code, Email, Website and Multi-Phone.
+ * Updated: Restored full Carrier Profile and standardized Terms & Conditions.
  */
 
 export default function PrintableVoucher({ trip }: { trip: any }) {
@@ -28,7 +28,6 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
     const totalFreight = Number(freight.totalFreightAmount || 0);
     const advanceAmt = Number(freight.advanceAmount || 0);
     
-    // Aggregates from payments array
     const cashPayments = payments.filter((p: any) => p.mode === 'Cash');
     const bankingPayments = payments.filter((p: any) => p.mode !== 'Cash');
     
@@ -61,7 +60,6 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
         { label: 'Destination', value: trip.unloadingPoint },
     ];
 
-    // CONSOLIDATED LEDGER MANIFEST (Include Advance as first row)
     const ledgerItems: any[] = [];
     if (advanceAmt > 0) {
         ledgerItems.push({
@@ -146,7 +144,7 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
             </div>
 
             {/* 4. FINANCIAL SUMMARY MANIFEST */}
-            <div className="mb-10 space-y-4">
+            <div className="mb-8 space-y-4">
                 <div className="flex items-center gap-2 px-1">
                     <Calculator className="h-4 w-4 text-blue-600" />
                     <h3 className="text-[9pt] font-black uppercase tracking-widest">LIQUIDATION SUMMARY</h3>
@@ -210,28 +208,36 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
                 </div>
             </div>
 
-            {/* 6. SIGNATURES & COMPLIANCE */}
-            <div className="mt-auto flex flex-col gap-10">
-                <div className="grid grid-cols-2 gap-24 px-10">
-                    <div className="text-center border-t-2 border-black border-dashed pt-2">
-                        <p className="font-black uppercase tracking-widest text-[9.5pt] text-slate-900">Verified By Signature</p>
-                        <span className="text-[7pt] text-slate-400 font-bold uppercase">(Mission Context Authentication)</span>
-                    </div>
-                    <div className="text-center border-t-2 border-black border-dashed pt-2">
-                        <p className="font-black uppercase tracking-widest text-[9.5pt] text-slate-900">Accountant Signature</p>
-                        <span className="text-[7pt] text-slate-400 font-bold uppercase">(Authorized Liquidation Plant)</span>
+            {/* 6. STANDARDIZED TERMS & SIGNATURES */}
+            <div className="mt-auto pt-8 border-t-2 border-slate-100 grid grid-cols-2 gap-12 shrink-0">
+                <div className="space-y-4">
+                    <span className="text-[9.5pt] font-black uppercase text-slate-900 border-b-2 border-black inline-block pb-1 tracking-widest italic">TERMS & CONDITIONS</span>
+                    <div className="space-y-1.5 pt-1">
+                        {[
+                            "AGENCY NOT RESPONSIBLE FOR RAIN OR CALAMITY.",
+                            "DISCREPANCIES MUST BE INTIMATED WITHIN 24 HOURS.",
+                            "VEHICLE OWNER RESPONSIBLE AFTER YARD DEPARTURE.",
+                            "ALL DISPUTES SUBJECT TO GHAZIABAD JURISDICTION."
+                        ].map((term, i) => (
+                            <p key={i} className="text-[7.5pt] font-black text-slate-600 leading-tight uppercase tracking-tight">
+                                {i + 1}. {term}
+                            </p>
+                        ))}
                     </div>
                 </div>
-
-                {/* Standardized Registry Footer */}
-                <div className="mt-8 pt-4 border-t border-slate-200 flex flex-col items-center gap-1.5 shrink-0">
-                    <p className="text-[7.5pt] font-black uppercase text-blue-400/80 tracking-widest">
-                        REGISTRY HANDSHAKE | CERTIFIED Plant SYNC
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
-                        <span className="text-[7.5pt] font-black uppercase tracking-[0.5em] text-slate-500">VERIFIED SIKKA LMC REGISTRY DOCUMENT</span>
+                <div className="flex flex-col justify-end text-center">
+                    <div className="border-t-2 border-black border-dashed pt-4">
+                        <p className="font-black uppercase tracking-widest text-[9.5pt] text-slate-900 italic">AUTHORIZED SIGNATURE</p>
+                        <span className="text-[7pt] text-slate-400 font-bold uppercase">(Mission Context Authentication)</span>
                     </div>
+                </div>
+            </div>
+
+            {/* FOOTER NODE */}
+            <div className="mt-8 pt-4 border-t border-slate-200 flex flex-col items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="text-[7.5pt] font-black uppercase tracking-[0.5em] text-slate-500">VERIFIED SIKKA LMC REGISTRY DOCUMENT</span>
                 </div>
             </div>
         </div>

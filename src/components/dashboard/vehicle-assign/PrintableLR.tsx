@@ -4,6 +4,7 @@ import React from 'react';
 import { format, isValid } from 'date-fns';
 import { cn, parseSafeDate } from '@/lib/utils';
 import type { LR, Trip, Shipment, Carrier, Plant } from '@/types';
+import { Timestamp } from 'firebase/firestore';
 
 export type EnrichedLR = LR & {
   trip: Trip;
@@ -79,6 +80,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
   return (
     <div className="A4-page p-[12mm] bg-white text-black font-sans text-[8.5pt] leading-tight flex flex-col relative box-border h-[297mm] w-[210mm] overflow-hidden select-text border-none mx-auto">
+      {/* 1. TOP HEADER Terminal */}
       <div className="flex justify-end mb-4 shrink-0">
         <div className="border-2 border-black px-4 py-1 bg-slate-50 shadow-sm">
             <span className="text-[9pt] font-black uppercase tracking-widest text-slate-900 leading-none">{copyType}</span>
@@ -179,8 +181,25 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       </div>
 
       <div className="grid grid-cols-2 gap-12 mb-8 shrink-0 px-4 mt-auto border-t-2 border-slate-100 pt-8">
-        <div className="space-y-3"><span className="text-[9pt] font-black uppercase text-slate-900 border-b-2 border-black inline-block pb-1 tracking-widest italic">TERMS & CONDITIONS</span><div className="space-y-1 pt-1">{["Agency not responsible for rain or calamity.", "Discrepancies must be intimated within 24 Hours.", "Vehicle owner responsible after yard departure.", "All disputes subject to Ghaziabad Jurisdiction."].map((term, i) => (<p key={i} className="text-[7pt] font-bold text-slate-500 leading-tight uppercase tracking-tight">{i + 1}. {term}</p>))}</div></div>
-        <div className="flex flex-col justify-end text-center"><div className="w-full border-t-2 border-black border-dashed mb-3 opacity-40" /><span className="text-[12pt] font-black uppercase tracking-[0.4em] text-slate-900 italic leading-none">AUTHORIZED SIGNATURE</span></div>
+        <div className="space-y-4">
+            <span className="text-[9.5pt] font-black uppercase text-slate-900 border-b-2 border-black inline-block pb-1 tracking-widest italic">TERMS & CONDITIONS</span>
+            <div className="space-y-1.5 pt-1">
+                {[
+                    "AGENCY NOT RESPONSIBLE FOR RAIN OR CALAMITY.",
+                    "DISCREPANCIES MUST BE INTIMATED WITHIN 24 HOURS.",
+                    "VEHICLE OWNER RESPONSIBLE AFTER YARD DEPARTURE.",
+                    "ALL DISPUTES SUBJECT TO GHAZIABAD JURISDICTION."
+                ].map((term, i) => (
+                    <p key={i} className="text-[7.5pt] font-black text-slate-600 leading-tight uppercase tracking-tight">
+                        {i + 1}. {term}
+                    </p>
+                ))}
+            </div>
+        </div>
+        <div className="flex flex-col justify-end text-center">
+            <div className="w-full border-t-2 border-black border-dashed mb-3 opacity-40" />
+            <span className="text-[12pt] font-black uppercase tracking-[0.4em] text-slate-900 italic leading-none">AUTHORIZED SIGNATURE</span>
+        </div>
       </div>
     </div>
   );
