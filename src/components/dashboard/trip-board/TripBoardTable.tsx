@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,9 +39,11 @@ import {
     Filter,
     ArrowUpDown,
     Upload,
-    XCircle
+    XCircle,
+    Signal,
+    Loader2
 } from 'lucide-react';
-import { cn, parseSafeDate } from '@/lib/utils';
+import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
 import { format, isValid } from 'date-fns';
 import { 
     DropdownMenu, 
@@ -54,6 +56,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { fetchWheelseyeLocation } from '@/app/actions/wheelseye';
+import { useRouter } from 'next/navigation';
 
 interface TripBoardTableProps {
   data: any[];
@@ -88,6 +92,86 @@ const getStatusColor = (status: string) => {
     }
 }
 
+/**
+ * @fileOverview Live Location Node Component.
+ * Handshakes with satellite registry and implements hover-expand logic.
+ */
+function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: string, vehicleType: string, onClick: () => void }) {
+    const [location, setLocation] = useState<{ city: string; full: string } | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
+
+    const syncLocation = useCallback(async () => {
+        if (!vehicleNo) return;
+        setIsLoading(true);
+        try {
+            const res = await fetchWheelseyeLocation(vehicleNo);
+            if (res.data && res.data.location) {
+                const parts = res.data.location.split(',').map((p: string) => p.trim());
+                setLocation({
+                    city: parts[0] || 'Resolving...',
+                    full: res.data.location
+                });
+            } else {
+                setLocation(null);
+            }
+        } catch (e) {
+            setLocation(null);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [vehicleNo]);
+
+    useEffect(() => {
+        if (vehicleType === 'Own Vehicle') {
+            syncLocation();
+            const interval = setInterval(syncLocation, 30000);
+            return () => clearInterval(interval);
+        }
+    }, [vehicleType, syncLocation]);
+
+    if (vehicleType === 'Market Vehicle' && !location) {
+        return (
+            <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 rounded-lg gap-2 text-[10px] font-black uppercase text-blue-600 hover:bg-blue-50 border border-blue-100 px-3 transition-all active:scale-95"
+                onClick={onClick}
+            >
+                <Signal className="h-3 w-3" /> SIM TRACK
+            </Button>
+        );
+    }
+
+    if (isLoading && !location) {
+        return <div className="flex items-center gap-2 text-slate-300 px-4"><Loader2 className="h-3 w-3 animate-spin" /><span className="text-[10px] font-black uppercase tracking-widest">Registry Sync...</span></div>;
+    }
+
+    if (!location) return null;
+
+    return (
+        <div 
+            className="group/loc relative flex items-center gap-3 cursor-pointer"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            onClick={onClick}
+        >
+            <div className={cn(
+                "flex items-center gap-2.5 px-4 py-2 bg-blue-50 border border-blue-100 rounded-xl transition-all duration-500 ease-in-out shadow-sm group-hover/loc:shadow-lg",
+                isHovered ? "max-w-[400px] border-blue-400 bg-white" : "max-w-[150px]"
+            )}>
+                <Navigation className={cn("h-3.5 w-3.5 shrink-0 text-blue-600 transition-transform duration-500", isHovered && "rotate-45")} />
+                <div className="flex flex-col min-w-0 overflow-hidden">
+                    <span className="text-[11px] font-black text-blue-900 uppercase truncate">
+                        {isHovered ? location.full : location.city}
+                    </span>
+                    {isHovered && <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest mt-0.5 animate-in fade-in slide-in-from-left-1">Tap to open GIS node</span>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function MissionRegistryCard({ 
     row, 
     activeTab, 
@@ -108,7 +192,6 @@ function MissionRegistryCard({
     const formattedDate = dateNode ? format(new Date(dateNode), 'dd MMM') : '--';
     const statusTime = row.lastUpdated ? format(new Date(row.lastUpdated), 'dd MMM, hh:mm aa') : (row.creationDate ? format(new Date(row.creationDate), 'dd MMM, hh:mm aa') : '--');
     
-    // REGISTRY RULE: Edit LR allowed only in the first three tabs (Pending, Open Order, Loading)
     const allowedTabs = ['pending-assignment', 'open-order', 'loading'];
     const canEditLR = allowedTabs.includes(activeTab);
 
@@ -259,82 +342,92 @@ function MissionRegistryCard({
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    {isPending && (
-                        <Button 
-                            size="sm" 
-                            onClick={() => onAction('assign', row)} 
-                            className="h-9 px-8 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all gap-2"
-                        >
-                            <PlusCircle size={14} /> Assign Fleet
-                        </Button>
-                    )}
-                    
-                    {activeTab === 'open-order' && (
-                        <Button size="sm" onClick={() => onAction('vehicle-in', row)} className="h-9 px-6 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Vehicle IN</Button>
-                    )}
-                    {activeTab === 'loading' && (
-                        <Button size="sm" onClick={() => onAction('vehicle-out', row)} className="h-9 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Vehicle OUT</Button>
-                    )}
+                <div className="flex items-center gap-6">
                     {activeTab === 'transit' && (
-                        <Button size="sm" onClick={() => onAction('arrived', row)} className="h-9 px-8 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-900/10">Arrived In</Button>
-                    )}
-                    {activeTab === 'arrived' && (
-                        <div className="flex items-center gap-2">
-                             <Button variant="outline" size="sm" onClick={() => onAction('reject', row)} className="h-9 px-6 border-red-200 text-red-600 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-red-50 shadow-sm transition-all active:scale-95">Reject Mission</Button>
-                             <Button size="sm" onClick={() => onAction('unloaded', row)} className="h-9 px-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Mark Unloaded</Button>
-                        </div>
-                    )}
-                    {activeTab === 'pod-status' && (
-                        <Button variant="outline" size="sm" onClick={() => onAction('pod-upload', row)} className="h-9 px-8 border-slate-200 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-slate-50 gap-2">
-                            <Upload size={14} className="text-blue-600" /> Upload POD
-                        </Button>
-                    )}
-                    {activeTab === 'rejection' && (
-                        <>
-                            <Button variant="outline" size="sm" onClick={() => onAction('re-sent', row)} className="h-9 px-6 border-blue-200 text-blue-700 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-blue-50">Mission Re-sent</Button>
-                            <Button size="sm" onClick={() => onAction('srn', row)} className="h-9 px-8 bg-red-600 hover:bg-red-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">SRN Entry</Button>
-                        </>
+                        <LiveLocationNode 
+                            vehicleNo={row.vehicleNumber} 
+                            vehicleType={row.vehicleType} 
+                            onClick={() => onAction('track', row)}
+                        />
                     )}
 
-                    <DropdownMenu modal={false}>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-900 transition-all"><MoreHorizontal size={18} /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuPortal>
-                            <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-slate-200 shadow-3xl bg-white z-[100]">
-                                <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Registry Control</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => onAction(isPending ? 'view-order' : 'view', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
-                                
-                                {!isPending && (
-                                    <DropdownMenuItem onClick={() => onAction('track', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
-                                        <Navigation className="h-4 w-4 text-emerald-600" /> Track GIS
-                                    </DropdownMenuItem>
-                                )}
+                    <div className="flex items-center gap-3">
+                        {isPending && (
+                            <Button 
+                                size="sm" 
+                                onClick={() => onAction('assign', row)} 
+                                className="h-9 px-8 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all gap-2"
+                            >
+                                <PlusCircle size={14} /> Assign Fleet
+                            </Button>
+                        )}
+                        
+                        {activeTab === 'open-order' && (
+                            <Button size="sm" onClick={() => onAction('vehicle-in', row)} className="h-9 px-6 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Vehicle IN</Button>
+                        )}
+                        {activeTab === 'loading' && (
+                            <Button size="sm" onClick={() => onAction('vehicle-out', row)} className="h-9 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Vehicle OUT</Button>
+                        )}
+                        {activeTab === 'transit' && (
+                            <Button size="sm" onClick={() => onAction('arrived', row)} className="h-9 px-10 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-blue-900/10">Arrived In</Button>
+                        )}
+                        {activeTab === 'arrived' && (
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" onClick={() => onAction('reject', row)} className="h-9 px-6 border-red-200 text-red-600 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-red-50 shadow-sm transition-all active:scale-95">Reject Mission</Button>
+                                <Button size="sm" onClick={() => onAction('unloaded', row)} className="h-9 px-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Mark Unloaded</Button>
+                            </div>
+                        )}
+                        {activeTab === 'pod-status' && (
+                            <Button variant="outline" size="sm" onClick={() => onAction('pod-upload', row)} className="h-9 px-8 border-slate-200 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-slate-50 gap-2">
+                                <Upload size={14} className="text-blue-600" /> Upload POD
+                            </Button>
+                        )}
+                        {activeTab === 'rejection' && (
+                            <>
+                                <Button variant="outline" size="sm" onClick={() => onAction('re-sent', row)} className="h-9 px-6 border-blue-200 text-blue-700 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-blue-50">Mission Re-sent</Button>
+                                <Button size="sm" onClick={() => onAction('srn', row)} className="h-9 px-8 bg-red-600 hover:bg-red-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">SRN Entry</Button>
+                            </>
+                        )}
 
-                                {canEditLR && (
-                                    <DropdownMenuItem onClick={() => onAction('edit-lr', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
-                                        <FileText className="h-4 w-4 text-orange-600" /> Edit LR manifest
-                                    </DropdownMenuItem>
-                                )}
-                                
-                                {!isPending && (
-                                    <DropdownMenuItem onClick={() => onAction('edit-vehicle', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
-                                        <Edit2 className="h-4 w-4 text-blue-400" /> Correct Vehicle
-                                    </DropdownMenuItem>
-                                )}
-
-                                {isAdmin && (
-                                    <>
-                                        <DropdownMenuSeparator className="bg-slate-50" />
-                                        <DropdownMenuItem onClick={() => onAction('cancel', row)} className="gap-3 font-bold py-2.5 text-red-600 rounded-xl cursor-pointer hover:bg-red-50">
-                                            <Ban className="h-4 w-4" /> Purge Mission
+                        <DropdownMenu modal={false}>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-900 transition-all"><MoreHorizontal size={18} /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuPortal>
+                                <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-slate-200 shadow-3xl bg-white z-[100]">
+                                    <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Registry Control</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => onAction(isPending ? 'view-order' : 'view', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
+                                    
+                                    {!isPending && (
+                                        <DropdownMenuItem onClick={() => onAction('track', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
+                                            <Navigation className="h-4 w-4 text-emerald-600" /> Track GIS
                                         </DropdownMenuItem>
-                                    </>
-                                )}
-                            </DropdownMenuContent>
-                        </DropdownMenuPortal>
-                    </DropdownMenu>
+                                    )}
+
+                                    {canEditLR && (
+                                        <DropdownMenuItem onClick={() => onAction('edit-lr', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
+                                            <FileText className="h-4 w-4 text-orange-600" /> Edit LR manifest
+                                        </DropdownMenuItem>
+                                    )}
+                                    
+                                    {!isPending && (
+                                        <DropdownMenuItem onClick={() => onAction('edit-vehicle', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
+                                            <Edit2 className="h-4 w-4 text-blue-400" /> Correct Vehicle
+                                        </DropdownMenuItem>
+                                    )}
+
+                                    {isAdmin && (
+                                        <>
+                                            <DropdownMenuSeparator className="bg-slate-50" />
+                                            <DropdownMenuItem onClick={() => onAction('cancel', row)} className="gap-3 font-bold py-2.5 text-red-600 rounded-xl cursor-pointer hover:bg-red-50">
+                                                <Ban className="h-4 w-4" /> Purge Mission
+                                            </DropdownMenuItem>
+                                        </>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenuPortal>
+                        </DropdownMenu>
+                    </div>
                 </div>
             </div>
         </div>
