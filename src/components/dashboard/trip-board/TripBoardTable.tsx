@@ -234,14 +234,6 @@ function MissionRegistryCard({
             "bg-white border-2 rounded-[1.5rem] mb-6 overflow-hidden transition-all duration-300 group relative",
             isSelected ? "border-blue-600 shadow-2xl bg-blue-50/5" : "border-slate-100 shadow-sm hover:shadow-xl hover:border-slate-200"
         )}>
-            {!isPending && row.vehicleType && (
-                <div className="absolute top-5 right-5 z-20">
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[8px] font-black uppercase px-3 h-5 shadow-sm rounded-lg">
-                        {getFleetLabel(row.vehicleType)}
-                    </Badge>
-                </div>
-            )}
-
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 p-5 pb-3 items-start">
                 {isPending && (
                     <div className="col-span-1 flex items-center justify-center border-r border-slate-100 pr-2 h-full">
@@ -325,14 +317,23 @@ function MissionRegistryCard({
                     </div>
                 )}
 
-                <div className={cn("text-right flex flex-col justify-end items-end h-full min-h-[60px]", (isPending || !showLrAndInvoices) ? "col-span-3" : "col-span-2")}>
-                    <div className="flex flex-col items-end pb-1">
-                        <p className="text-xl font-black text-slate-900 tracking-tighter leading-none">
-                            {isPending ? row.balanceUom : row.qtyUom}
-                        </p>
-                        <span className="text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] leading-none mt-2">
-                            {isPending ? `TOTAL REQ: ${row.qtyUom}` : `NODE: ${row.material || 'CARGO'}`}
-                        </span>
+                {/* WEIGHT & FLEET TYPE ROW - Realigned side-by-side */}
+                <div className={cn("flex flex-col justify-center h-full min-h-[60px]", (isPending || !showLrAndInvoices) ? "col-span-3" : "col-span-2")}>
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="flex flex-col items-start pb-1">
+                            <p className="text-xl font-black text-slate-900 tracking-tighter leading-none">
+                                {isPending ? row.balanceUom : row.qtyUom}
+                            </p>
+                            <span className="text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] leading-none mt-2">
+                                {isPending ? `TOTAL REQ: ${row.qtyUom}` : `NODE: ${row.material || 'CARGO'}`}
+                            </span>
+                        </div>
+
+                        {!isPending && row.vehicleType && (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[8px] font-black uppercase px-3 h-5 shadow-sm rounded-lg shrink-0">
+                                {getFleetLabel(row.vehicleType)}
+                            </Badge>
+                        )}
                     </div>
                 </div>
             </div>
