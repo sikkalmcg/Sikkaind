@@ -75,25 +75,23 @@ export default function SupervisorTaskPage() {
 
         const syncAuth = async () => {
             try {
-                const lastIdentity = localStorage.getItem('slmc_last_identity');
-                const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
+                const searchEmail = user.email;
+                if (!searchEmail) return;
                 
-                let userDocSnap = null;
                 const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
                 const qSnap = await getDocs(q);
-                if (!qSnap.empty) {
-                    userDocSnap = qSnap.docs[0];
-                }
+                let userDocSnap = null;
+                if (!qSnap.empty) userDocSnap = qSnap.docs[0];
 
-                const baseList = allPlants && allPlants.length > 0 ? allPlants : [];
+                const baseList = allPlants && allMasterPlants.length > 0 ? allMasterPlants : [];
                 let authIds: string[] = [];
                 const isAdminSession = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
                 const isRoot = isAdminSession || userDocSnap?.data()?.username === 'sikkaind';
 
                 if (userDocSnap) {
-                    authIds = isRoot ? baseList.map(p => p.id) : (userDocSnap.data().plantIds || []);
+                    authIds = isRoot ? (allPlants || []).map(p => p.id) : (userDocSnap.data().plantIds || []);
                 } else if (isRoot) {
-                    authIds = baseList.map(p => p.id);
+                    authIds = (allPlants || []).map(p => p.id);
                 }
 
                 setIsAdmin(isRoot);
@@ -115,111 +113,89 @@ export default function SupervisorTaskPage() {
         const unsubscribers: (() => void)[] = [];
         setIsLoading(true);
 
-        const normalizedAuthIds = authorizedPlantIds.map(id => id.toLowerCase());
-
-        // Sync Gate Entries Node
-        const qGate = collection(firestore, "vehicleEntries");
-        const unsubGate = onSnapshot(qGate, (snap) => {
-            const activeVehicles = snap.docs
-                .map(d => ({ ...d.data(), id: d.id } as any))
-                .filter(d => isAdmin || normalizedAuthIds.includes(normalizePlantId(d.plantId).toLowerCase()));
-            setVehicleEntries(activeVehicles);
+        // Sync Gate Entries Node (Global source)
+        unsubscribers.push(onSnapshot(collection(firestore, "vehicleEntries"), (snap) => {
+            setVehicleEntries(snap.docs.map(d => ({ ...d.data(), id: d.id })));
             setIsLoading(false);
-        });
-        unsubscribers.push(unsubGate);
+        }));
 
+        // Sync Regional Partitions
         authorizedPlantIds.forEach(pId => {
-            const normalizedPId = normalizePlantId(pId).toLowerCase();
+            const pIdNorm = normalizePlantId(pId).toLowerCase();
 
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/trips`), (snap) => {
-                const plantTrips = snap.docs.map(d => ({ ...d.data(), id: d.id, originPlantId: pId }));
-                setTrips(prev => {
-                    const others = prev.filter(t => normalizePlantId(t.originPlantId).toLowerCase() !== normalizedPId);
-                    return [...others, ...plantTrips];
-                });
+                const list = snap.docs.map(d => ({ ...d.data(), id: d.id, originPlantId: pId }));
+                setTrips(prev => [...prev.filter(t => normalizePlantId(t.originPlantId).toLowerCase() !== pIdNorm), ...list]);
             }));
 
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/shipments`), (snap) => {
-                const plantShipments = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() } as any));
-                setShipments(prev => {
-                    const others = prev.filter(s => normalizePlantId(s.originPlantId).toLowerCase() !== normalizedPId);
-                    return [...others, ...plantShipments];
-                });
+                const list = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() }));
+                setShipments(prev => [...prev.filter(s => normalizePlantId(s.originPlantId).toLowerCase() !== pIdNorm), ...list]);
             }));
 
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/lrs`), (snap) => {
-                const plantLrs = snap.docs.map(d => ({ ...d.data(), id: d.id, originPlantId: pId }));
-                setLrs(prev => {
-                    const others = prev.filter(l => normalizePlantId(l.originPlantId).toLowerCase() !== normalizedPId);
-                    return [...others, ...plantLrs];
-                });
+                const list = snap.docs.map(d => ({ ...d.data(), id: d.id, originPlantId: pId }));
+                setLrs(prev => [...prev.filter(l => normalizePlantId(l.originPlantId).toLowerCase() !== pIdNorm), ...list]);
             }));
 
-            const historyRef = query(
-                collection(firestore, `plants/${pId}/supervisor_tasks`), 
-                orderBy("timestamp", "desc"), 
-                limit(50)
-            );
-            const unsubHistory = onSnapshot(historyRef, (snap) => {
-                const plantHistory = snap.docs.map(d => ({
-                    ...d.data(),
-                    id: d.id,
-                    originPlantId: pId,
-                    timestamp: parseSafeDate(d.data().timestamp)
-                }));
-                setHistory(prev => {
-                    const others = prev.filter(h => normalizePlantId(h.originPlantId).toLowerCase() !== normalizedPId);
-                    const combined = [...others, ...plantHistory];
-                    return combined.sort((a, b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0));
-                });
-            });
-            unsubscribers.push(unsubHistory);
+            const historyRef = query(collection(firestore, `plants/${pId}/supervisor_tasks`), orderBy("timestamp", "desc"), limit(50));
+            unsubscribers.push(onSnapshot(historyRef, (snap) => {
+                const list = snap.docs.map(d => ({ ...d.data(), id: d.id, originPlantId: pId, timestamp: parseSafeDate(d.data().timestamp) }));
+                setHistory(prev => [...prev.filter(h => normalizePlantId(h.originPlantId).toLowerCase() !== pIdNorm), ...list].sort((a,b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0)));
+            }));
         });
 
         return () => unsubscribers.forEach(u => u());
-    }, [firestore, authorizedPlantIds, isAdmin]);
+    }, [firestore, authorizedPlantIds]);
 
     const activeTasks = useMemo(() => {
         const tasksMap = new Map<string, any>();
+        const normalizedAuthIds = authorizedPlantIds.map(id => id.toLowerCase());
 
-        // 1. Process Trips (Loading Missions)
-        trips.forEach(trip => {
-            const s = (trip.tripStatus || trip.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
-            const validLoadingStatuses = ['assigned', 'vehicle-assigned', 'yard', 'loading', 'yard-loading', 'loaded', 'loading-complete'];
-            if (!validLoadingStatuses.includes(s)) return;
+        vehicleEntries.forEach(entry => {
+            const entryPlantId = normalizePlantId(entry.plantId).toLowerCase();
+            const isAuthorized = isAdmin || normalizedAuthIds.includes(entryPlantId);
+            
+            if (entry.status !== 'IN' || entry.isTaskCompleted || !isAuthorized) return;
 
-            // Only show if vehicle is actually IN yard
-            const entry = vehicleEntries.find(e => 
-                (e.tripId === trip.id || (e.vehicleNumber === trip.vehicleNumber && normalizePlantId(e.plantId).toLowerCase() === normalizePlantId(trip.originPlantId).toLowerCase())) &&
-                e.status === 'IN'
+            // JOINT Node: Link Entry to Trip
+            const trip = trips.find(t => 
+                t.id === entry.tripId || 
+                (t.vehicleNumber === entry.vehicleNumber && normalizePlantId(t.originPlantId).toLowerCase() === entryPlantId && !['delivered', 'cancelled', 'closed'].includes((t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-')))
             );
 
-            if (!entry || entry.isTaskCompleted) return;
+            // Filter by Mission Status pulse
+            if (trip) {
+                const s = (trip.tripStatus || trip.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
+                const validLoadingStatuses = ['assigned', 'vehicle-assigned', 'yard', 'loading', 'yard-loading', 'loaded', 'loading-complete'];
+                if (!validLoadingStatuses.includes(s)) return;
+            }
 
-            const lr = lrs.find(l => l.tripDocId === trip.id || l.tripId === trip.tripId);
-            const shipId = Array.isArray(trip.shipmentIds) ? trip.shipmentIds[0] : trip.shipmentIds;
-            const shipment = shipments.find(s => s.id === shipId || s.shipmentId === shipId);
+            // Resolve Shipment & LR
+            const shipId = trip ? (Array.isArray(trip.shipmentIds) ? trip.shipmentIds[0] : trip.shipmentIds) : entry.shipmentId;
+            const shipment = shipments.find(s => (s.id === shipId || s.shipmentId === shipId) && normalizePlantId(s.originPlantId).toLowerCase() === entryPlantId);
             if (shipment?.currentStatusId === 'Cancelled') return;
 
-            const plannedUnits = (shipment?.items || []).reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0) || Number(shipment?.totalUnits || 0);
-            const normalizedPId = normalizePlantId(trip.originPlantId);
-            const pName = allPlants?.find((p: any) => normalizePlantId(p.id) === normalizedPId)?.name || trip.originPlantId;
+            const lr = lrs.find(l => (l.tripDocId === trip?.id || l.tripId === trip?.tripId || l.lrNumber === entry.lrNumber) && normalizePlantId(l.originPlantId).toLowerCase() === entryPlantId);
+
+            const pName = allPlants?.find((p: any) => normalizePlantId(p.id).toLowerCase() === entryPlantId)?.name || entry.plantId;
+            const plannedUnits = (shipment?.items || []).reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0) || Number(shipment?.totalUnits || entry.billedQty || 0);
 
             tasksMap.set(entry.id, {
                 id: entry.id,
-                tripId: trip.tripId,
-                lrNumber: lr?.lrNumber || trip.lrNumber || shipment?.lrNumber || '--',
-                realTripId: trip.id,
-                plantId: trip.originPlantId,
+                tripId: trip?.tripId || '--', 
+                lrNumber: lr?.lrNumber || entry.lrNumber || trip?.lrNumber || shipment?.lrNumber || '--',
+                realTripId: trip?.id || null,
+                plantId: entry.plantId,
                 plantName: pName,
-                purpose: 'Loading',
-                vehicleNumber: trip.vehicleNumber,
-                driverName: trip.driverName || entry.driverName || '--',
-                driverMobile: trip.driverMobile || entry.driverMobile || '--',
-                from: trip.loadingPoint || shipment?.loadingPoint || pName,
-                shipTo: trip.shipToParty || shipment?.shipToParty || '--',
-                destination: trip.unloadingPoint || shipment?.unloadingPoint || trip.destination || '--',
-                assignedQty: Number(trip.assignedQtyInTrip || trip.assignQty) || 0,
+                purpose: entry.purpose || 'Loading',
+                vehicleNumber: entry.vehicleNumber,
+                driverName: entry.driverName || trip?.driverName || '--',
+                driverMobile: entry.driverMobile || trip?.driverMobile || '--',
+                from: entry.from || trip?.loadingPoint || shipment?.loadingPoint || pName,
+                shipTo: entry.shipToParty || trip?.shipToParty || shipment?.shipToParty || '--',
+                destination: entry.unloadingPoint || trip?.unloadingPoint || shipment?.unloadingPoint || '--',
+                assignedQty: Number(trip?.assignedQtyInTrip || trip?.assignQty || entry.billedQty || 0),
                 plannedUnits,
                 status: 'IN',
                 isReadyForTask: true, 
@@ -229,39 +205,8 @@ export default function SupervisorTaskPage() {
             });
         });
 
-        // 2. Process loose entries (Unloading or Loading without Trip ID match)
-        vehicleEntries.forEach(entry => {
-            if (entry.status !== 'IN' || entry.isTaskCompleted || tasksMap.has(entry.id)) return;
-
-            const normalizedEntryPlantId = normalizePlantId(entry.plantId);
-            const pName = allPlants?.find((p: any) => normalizePlantId(p.id) === normalizedEntryPlantId)?.name || entry.plantId;
-
-            tasksMap.set(entry.id, {
-                id: entry.id,
-                tripId: entry.tripId || '--',
-                lrNumber: entry.lrNumber || '--',
-                plantId: entry.plantId,
-                plantName: pName,
-                purpose: entry.purpose || 'Loading',
-                vehicleNumber: entry.vehicleNumber,
-                driverName: entry.driverName || '--',
-                driverMobile: entry.driverMobile || '--',
-                from: entry.from || '--',
-                shipTo: entry.shipToParty || '--',
-                destination: entry.unloadingPoint || pName,
-                assignedQty: Number(entry.billedQty) || 0,
-                plannedUnits: Number(entry.billedQty) || 0, 
-                qtyType: entry.qtyType || 'MT',
-                status: 'IN',
-                isReadyForTask: true,
-                entryData: entry,
-                shipmentItems: [],
-                timestamp: parseSafeDate(entry.entryTimestamp) || new Date()
-            });
-        });
-
         return Array.from(tasksMap.values()).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-    }, [trips, vehicleEntries, shipments, allPlants, lrs]);
+    }, [trips, vehicleEntries, shipments, allPlants, lrs, authorizedPlantIds, isAdmin]);
 
     const filteredTasks = useMemo(() => {
         const selectedNorm = normalizePlantId(selectedPlant).toLowerCase();
@@ -447,7 +392,7 @@ export default function SupervisorTaskPage() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="px-4 font-bold text-slate-700 uppercase text-[11px] truncate max-w-[120px] italic">"{task.from}"</TableCell>
-                                                <TableCell className="px-4 font-bold text-slate-700 uppercase text-[11px] truncate max-w-[150px]">{task.shipTo}</TableCell>
+                                                <TableCell className="px-4 font-bold text-slate-800 uppercase text-[11px] truncate max-w-[150px]">{task.shipTo}</TableCell>
                                                 <TableCell className="px-4 font-bold text-slate-700 uppercase text-[11px] truncate max-w-[150px]">{task.destination}</TableCell>
                                                 <TableCell className="px-4 text-right font-black text-blue-900">
                                                     <div className="flex items-center justify-end gap-2">
