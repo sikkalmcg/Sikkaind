@@ -1,4 +1,3 @@
-
 'use client';
 
 import { format, isValid } from 'date-fns';
@@ -12,14 +11,13 @@ import { Timestamp } from 'firebase/firestore';
  * @fileOverview SIKKA LMC - Printable Payment Slip Node.
  * Professional A4 Layout with Top-Center Title architecture.
  * Synchronized with Detailed Liquidation Ledger.
- * Updated: Standardized Terms & Conditions block.
  */
 
 export default function PrintablePaymentSlip({ freight, payment }: { freight: EnrichedFreight, payment: any }) {
     const { trip, plant, shipment } = freight;
     
     // Carrier Logic Node: Re-resolve full profile for the header
-    const carrier = (trip as any).carrierObj || (typeof trip.carrier === 'string' ? { name: trip.carrier, address: 'N/A', gstin: 'N/A', stateName: 'N/A' } : trip.carrier) || {};
+    const carrier = (trip as any).carrierObj || (typeof trip.carrier === 'object' ? { name: trip.carrier, address: 'N/A', gstin: 'N/A', stateName: 'N/A' } : trip.carrier) || {};
 
     const formatDate = (date: any, pattern: string = 'dd-MMM-yyyy') => {
         const d = parseSafeDate(date);
@@ -208,7 +206,7 @@ export default function PrintablePaymentSlip({ freight, payment }: { freight: En
             {/* 6. STANDARDIZED TERMS & SIGNATURES */}
             <div className="mt-auto pt-8 border-t-2 border-slate-100 grid grid-cols-2 gap-12 shrink-0">
                 <div className="space-y-4">
-                    <span className="text-[9.5pt] font-black uppercase text-slate-900 border-b-2 border-black inline-block pb-1 tracking-widest italic">TERMS & CONDITIONS</span>
+                    <span className="text-[9pt] font-bold uppercase text-slate-900 border-b border-black inline-block pb-1 tracking-widest italic">TERMS & CONDITIONS</span>
                     <div className="space-y-1.5 pt-1">
                         {[
                             "AGENCY NOT RESPONSIBLE FOR RAIN OR CALAMITY.",
@@ -216,7 +214,7 @@ export default function PrintablePaymentSlip({ freight, payment }: { freight: En
                             "VEHICLE OWNER RESPONSIBLE AFTER YARD DEPARTURE.",
                             "ALL DISPUTES SUBJECT TO GHAZIABAD JURISDICTION."
                         ].map((term, i) => (
-                            <p key={i} className="text-[7.5pt] font-black text-slate-600 leading-tight uppercase tracking-tight">
+                            <p key={i} className="text-[7pt] font-normal text-slate-600 leading-tight uppercase tracking-tight">
                                 {i + 1}. {term}
                             </p>
                         ))}

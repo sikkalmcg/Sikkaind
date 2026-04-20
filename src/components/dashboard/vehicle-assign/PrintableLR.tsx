@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -115,7 +114,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <img src="https://image2url.com/r2/default/images/1774853131451-83a2a90c-6707-43fc-9b92-c364ad369d96.jpeg" alt="Registry Logo" className="max-h-full max-w-full object-contain" />
           </div>
           <div className="space-y-1">
-            <h1 className="text-[16pt] font-black uppercase tracking-tight leading-none text-slate-900">{carrier.name || 'SIKKA LMC'}</h1>
+            <h1 className="text-[16pt] font-black uppercase tracking-tight leading-none text-slate-900">{carrier.name || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
             <p className="text-[7pt] font-bold text-slate-600 uppercase max-w-[450px] leading-tight">{carrier.address || 'B-11, BULANDSHAHR ROAD GZB'}</p>
             <div className="text-[7pt] font-black text-slate-400 flex flex-wrap gap-x-4 pt-1 uppercase leading-snug">
               <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">PHONE:</span> <span className="text-slate-900 font-mono">{carrier.mobile || '9136688004'}</span></p>
@@ -205,10 +204,10 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
       <div className="grid grid-cols-2 gap-12 mb-8 shrink-0 px-4 mt-auto border-t-2 border-slate-100 pt-8">
         <div className="space-y-4">
-            <span className="text-[9.5pt] font-black uppercase text-slate-900 border-b-2 border-black inline-block pb-1 tracking-widest italic">TERMS & CONDITIONS</span>
+            <span className="text-[9pt] font-bold uppercase text-slate-900 border-b border-black inline-block pb-1 tracking-widest italic">TERMS & CONDITIONS</span>
             <div className="space-y-1.5 pt-1">
                 {registryTerms.map((term: string, i: number) => (
-                    <p key={i} className="text-[7.5pt] font-black text-slate-600 leading-tight uppercase tracking-tight">
+                    <p key={i} className="text-[7pt] font-normal text-slate-600 leading-tight uppercase tracking-tight">
                         {i + 1}. {term}
                     </p>
                 ))}
