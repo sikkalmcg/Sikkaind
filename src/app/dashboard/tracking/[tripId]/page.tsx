@@ -1,15 +1,15 @@
-import { TripTrackingClient } from './TripTrackingClient';
+'use client';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 /**
- * @fileOverview Trip Tracking Page Node (Server Component).
- * Manages static parameter generation for the mission registry.
+ * @fileOverview Redundant tracking sub-page neutralized.
  */
+export default function NeutralizedPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace('/dashboard/trip-board');
+  }, [router]);
 
-export function generateStaticParams() {
-  return [{ tripId: 'default' }];
-}
-
-export default async function Page({ params }: { params: Promise<{ tripId: string }> }) {
-  const { tripId } = await params;
-  return <TripTrackingClient tripId={tripId} />;
+  return null;
 }

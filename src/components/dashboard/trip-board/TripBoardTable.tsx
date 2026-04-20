@@ -56,9 +56,6 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { fetchWheelseyeLocation } from '@/app/actions/wheelseye';
-import { useRouter } from 'next/navigation';
-import { useFirestore } from '@/firebase';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 
 interface TripBoardTableProps {
   data: any[];
@@ -95,41 +92,18 @@ const getStatusColor = (status: string) => {
 
 /**
  * @fileOverview Live Location Node Component.
- * High-fidelity telemetry handshake with hover-expand logic.
+ * Optimized GIS Handshake: Own Vehicles show live telemetry; Market/Contract show SIM TRACK.
  */
 function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: string, vehicleType: string, onClick: () => void }) {
-    const firestore = useFirestore();
     const [location, setLocation] = useState<{ city: string; full: string } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
-    const [gpsEnabled, setGpsEnabled] = useState(false);
-    const [hasCheckedGps, setHasCheckedGps] = useState(false);
 
-    useEffect(() => {
-        if (!firestore || !vehicleNo) return;
-        const checkGps = async () => {
-            try {
-                // Registry Handshake: Check if vehicle has GPS enabled in master registry
-                const q = query(collection(firestore, "vehicles"), where("vehicleNumber", "==", vehicleNo.toUpperCase()), limit(1));
-                const snap = await getDocs(q);
-                if (!snap.empty) {
-                    const data = snap.docs[0].data();
-                    setGpsEnabled(!!data.gps_enabled);
-                } else if (vehicleType === 'Own Vehicle') {
-                    // Mission Fallback: Treat all Own Vehicles as GPS-active
-                    setGpsEnabled(true);
-                }
-            } catch (e) {
-                console.warn("GPS registry lookup delayed.");
-            } finally {
-                setHasCheckedGps(true);
-            }
-        };
-        checkGps();
-    }, [firestore, vehicleNo, vehicleType]);
+    // REGISTRY HANDSHAKE: Market & Contract vehicles utilize Sim Track node
+    const isSimTrackMode = vehicleType === 'Market Vehicle' || vehicleType === 'Contract Vehicle';
 
     const syncLocation = useCallback(async () => {
-        if (!vehicleNo || !gpsEnabled) return;
+        if (!vehicleNo || isSimTrackMode) return;
         setIsLoading(true);
         try {
             const res = await fetchWheelseyeLocation(vehicleNo);
@@ -145,20 +119,17 @@ function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: stri
         } finally {
             setIsLoading(false);
         }
-    }, [vehicleNo, gpsEnabled]);
+    }, [vehicleNo, isSimTrackMode]);
 
     useEffect(() => {
-        if (gpsEnabled) {
+        if (!isSimTrackMode) {
             syncLocation();
             const interval = setInterval(syncLocation, 30000); // 30s Registry Pulse
             return () => clearInterval(interval);
         }
-    }, [gpsEnabled, syncLocation]);
+    }, [isSimTrackMode, syncLocation]);
 
-    if (!hasCheckedGps) return <div className="w-32 h-9 bg-slate-50 animate-pulse rounded-xl" />;
-
-    // Market Vehicle OR No GPS found node
-    if (!gpsEnabled || (vehicleType === 'Market Vehicle' && !location)) {
+    if (isSimTrackMode) {
         return (
             <Button 
                 variant="ghost" 
@@ -182,7 +153,7 @@ function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: stri
 
     return (
         <div 
-            className="group/loc relative flex items-center transition-all duration-700 ease-in-out"
+            className="group/loc relative flex items-center transition-all duration-700 ease-in-out cursor-pointer"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             onClick={onClick}
@@ -205,7 +176,7 @@ function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: stri
                         {isHovered ? (location?.full || 'Resolving Registry Node...') : (location?.city || 'Resolving...')}
                     </span>
                     {isHovered && (
-                        <span className="text-[7px] font-black text-slate-400 uppercase tracking-[0.3em] mt-0.5 animate-in fade-in slide-in-from-left-2 duration-700">
+                        <span className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em] mt-0.5 animate-in fade-in slide-in-from-left-2 duration-700">
                             AUTHORIZED GIS TELEMETRY HANDSHAKE
                         </span>
                     )}

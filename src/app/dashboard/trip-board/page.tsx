@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -17,6 +16,7 @@ import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilte
 import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreviewModal';
 import LRGenerationModal from '@/components/dashboard/lr-create/LRGenerationModal';
 import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAssignModal';
+import TripTrackingModal from '@/components/dashboard/trip-board/TripTrackingModal';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId, cn } from '@/lib/utils';
@@ -88,6 +88,7 @@ function TripBoardContent() {
   const [isAssignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedShipmentsForAssign, setSelectedShipmentsForAssign] = useState<WithId<Shipment>[]>([]);
   const [editingTrip, setEditingTrip] = useState<WithId<Trip> | null>(null);
+  const [trackingTrip, setTrackingTrip] = useState<any | null>(null);
 
   const isAdminSession = useMemo(() => {
     return user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
@@ -240,9 +241,7 @@ function TripBoardContent() {
         const lr = lrs.find(l => (l.tripDocId === t.id || l.tripId === t.tripId || l.lrNumber === t.lrNumber) && normalizePlantId(l.originPlantId) === tPlantId);
         const entry = entries.find(e => (e.tripId === t.id || (e.vehicleNumber === t.vehicleNumber && e.status === 'OUT')) && normalizePlantId(e.plantId) === tPlantId);
         
-        // REGISTRY HANDSHAKE: Strictly resolve Carrier from Added Carriers registry (carrier-management node)
         const carrier = (dbCarriers || []).find(c => c.id === t.carrierId || c.id === shipment?.carrierId);
-        
         const plant = plants.find(p => normalizePlantId(p.id) === tPlantId);
 
         const items = lr?.items || t.items || shipment?.items || [];
@@ -437,7 +436,7 @@ function TripBoardContent() {
         return;
     }
     if (type === 'view') setViewTripData(row);
-    if (type === 'track') router.push(`/dashboard/shipment-tracking?search=${row.vehicleNumber}`);
+    if (type === 'track') setTrackingTrip(row);
     if (type === 'view-lr') {
         if (!row.lrNumber || !firestore) return;
         showLoader();
@@ -448,9 +447,7 @@ function TripBoardContent() {
             let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
             let snap = await getDocs(q);
             
-            // REGISTRY HANDSHAKE: Resolve Carrier strictly from DB list
             const finalCarrier = (dbCarriers || []).find(c => c.id === row.carrierId || c.id === row.shipmentObj?.carrierId) || row.carrierObj;
-
             const shipmentObj = row.shipmentObj || row;
 
             const manifestItems = row.items && row.items.length > 0 ? row.items : [{
@@ -1038,13 +1035,20 @@ function TripBoardContent() {
             onGenerate={() => { setEditLrTrip(null); setEditLrCarrier(null); }}
         />
       )}
+      {trackingTrip && (
+        <TripTrackingModal 
+            isOpen={!!trackingTrip}
+            onClose={() => setTrackingTrip(null)}
+            trip={trackingTrip}
+        />
+      )}
     </div>
   );
 }
 
 export default function TripBoardPage() {
     return (
-        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-blue-900" /></div>}>
+        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>}>
             <TripBoardContent />
         </Suspense>
     );

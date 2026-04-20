@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -43,7 +42,6 @@ const navigationGroups = [
     { name: 'Supervisor Task', href: '/dashboard/supervisor-task', icon: ClipboardCheck, permission: 'supervisor-task' },
   ]},
   { group: 'Tracking & GIS', items: [
-    { name: 'Track Consignment', href: '/dashboard/tracking/consignment', icon: Radar, permission: 'shipment-tracking' },
     { name: 'Fleet Live Map', href: '/dashboard/tracking/fleet-map', icon: Globe, permission: 'shipment-tracking' },
   ]},
   { group: 'Monitoring & Audit', items: [
@@ -110,7 +108,6 @@ export default function LogisticsSidebar({ isOpen, onToggle }: LogisticsSidebarP
     if (loading) return [];
     if (isRootAdmin) return navigationGroups;
 
-    // If profile not found OR no permissions assigned → show all non-admin items
     const hasPermissions = profile?.permissions && profile.permissions.length > 0;
 
     if (!profile || !hasPermissions) {
