@@ -244,7 +244,8 @@ function MissionRegistryCard({
                     <p className="text-[9px] font-bold text-slate-400 uppercase">{formattedDate}</p>
                 </div>
                 
-                <div className="col-span-3 space-y-1">
+                {/* MISSION GAPS node: Expand routing info if LR is hidden in Pending mode */}
+                <div className={cn("space-y-1", isPending ? "col-span-4.5" : "col-span-3")}>
                     <div className="flex items-center gap-1.5">
                         <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
                         <span className="text-[10px] font-black text-slate-700 uppercase truncate" title={row.consignor}>{row.consignor}</span>
@@ -283,21 +284,24 @@ function MissionRegistryCard({
                     )}
                 </div>
 
-                <div className="col-span-1.5 flex flex-col justify-center">
-                    <div className="flex items-center gap-2">
-                        <FileText className="h-3.5 w-3.5 text-orange-400" />
-                        {row.lrNumber ? (
-                            <button 
-                                onClick={() => onAction('view-lr', row)}
-                                className="text-[10px] font-black text-blue-700 hover:underline uppercase tracking-tighter text-left"
-                            >
-                                {row.lrNumber}
-                            </button>
-                        ) : (
-                            <span className="text-[10px] font-black text-slate-900 uppercase">--</span>
-                        )}
+                {/* LR NODE: Hidden in Pending Assignment mode per user request */}
+                {!isPending && (
+                    <div className="col-span-1.5 flex flex-col justify-center">
+                        <div className="flex items-center gap-2">
+                            <FileText className="h-3.5 w-3.5 text-orange-400" />
+                            {row.lrNumber ? (
+                                <button 
+                                    onClick={() => onAction('view-lr', row)}
+                                    className="text-[10px] font-black text-blue-700 hover:underline uppercase tracking-tighter text-left"
+                                >
+                                    {row.lrNumber}
+                                </button>
+                            ) : (
+                                <span className="text-[10px] font-black text-slate-900 uppercase">--</span>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 <div className="col-span-2 text-right flex flex-col justify-center">
                     <div className="flex items-baseline justify-end gap-1">
@@ -321,10 +325,14 @@ function MissionRegistryCard({
                         <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">Consignee Name</span>
                         <span className="text-slate-900 font-bold uppercase truncate max-w-[250px]">{row.consignee || '--'}</span>
                     </div>
-                    <div className="flex flex-col min-w-[120px]">
-                        <span className="text-[7px] font-black uppercase text-blue-900 tracking-widest leading-none mb-1">Invoice Numbers</span>
-                        <span className="text-blue-700 font-black font-mono tracking-tighter truncate max-w-[180px]">{row.invoiceNumbers || row.summarizedInvoices || '--'}</span>
-                    </div>
+                    
+                    {/* INVOICE NODE: Hidden in Pending Assignment mode per user request */}
+                    {!isPending && (
+                        <div className="flex flex-col min-w-[120px]">
+                            <span className="text-[7px] font-black uppercase text-blue-900 tracking-widest leading-none mb-1">Invoice Numbers</span>
+                            <span className="text-blue-700 font-black font-mono tracking-tighter truncate max-w-[180px]">{row.invoiceNumbers || row.summarizedInvoices || '--'}</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-6 border-l pl-6">
