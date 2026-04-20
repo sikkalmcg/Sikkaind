@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -393,7 +392,7 @@ function TripBoardContent() {
   }, [joinedData, shipments, selectedPlants]);
 
   const totalPages = Math.ceil(processedData.length / itemsPerPage);
-  const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * ITEMS_PER_PAGE);
+  const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handleSelectPendingRow = (id: string, checked: boolean) => {
     setSelectedPendingIds(prev => checked ? [...prev, id] : prev.filter(i => i !== id));
@@ -503,7 +502,7 @@ function TripBoardContent() {
             
             const pIdStr = normalizePlantId(row.originPlantId);
             const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
-            let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId);
+            let finalCarrier: any = row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId);
 
             if (!finalCarrier && (pIdStr === '1426' || pIdStr === 'ID20')) {
                 finalCarrier = {
