@@ -317,9 +317,9 @@ function MissionRegistryCard({
                         <span className="text-[7px] font-black uppercase text-blue-600 tracking-widest leading-none mb-1">Ship To Party</span>
                         <span className="text-slate-900 font-black uppercase truncate max-w-[250px]">{row.shipToParty || '--'}</span>
                     </div>
-                    <div className="flex flex-col flex-1 min-w-[300px]">
-                        <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">Full Delivery Address</span>
-                        <span className="text-slate-600 font-bold uppercase line-clamp-1 italic">{row.deliveryAddress || row.unloadingPoint || '--'}</span>
+                    <div className="flex flex-col min-w-[150px]">
+                        <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">Consignee Name</span>
+                        <span className="text-slate-900 font-bold uppercase truncate max-w-[250px]">{row.consignee || '--'}</span>
                     </div>
                     <div className="flex flex-col min-w-[120px]">
                         <span className="text-[7px] font-black uppercase text-blue-900 tracking-widest leading-none mb-1">Invoice Numbers</span>
