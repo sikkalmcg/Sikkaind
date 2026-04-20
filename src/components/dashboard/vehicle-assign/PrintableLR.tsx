@@ -52,13 +52,21 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             if (trimmed && trimmed !== '--') acc[desc].invoices.add(trimmed);
         });
     }
+
+    if (item.ewaybillNumber) {
+        item.ewaybillNumber.split(',').forEach((ewb: string) => {
+            const trimmed = ewb.trim();
+            if (trimmed && trimmed !== '--') acc[desc].ewaybills.add(trimmed);
+        });
+    }
     return acc;
   }, {} as Record<string, any>);
 
   const uniqueDescArray = Object.values(groupedByDesc);
   let displayItems = uniqueDescArray.map(group => ({
       ...group,
-      invoiceNumber: Array.from(group.invoices).join(', ')
+      invoiceNumber: Array.from(group.invoices).join(', '),
+      ewaybillNumber: Array.from(group.ewaybills).join(', ')
   }));
 
   const totalUnitsFinal = allItems.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
@@ -81,6 +89,16 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
   // CARRIER PROFILE HANDSHAKE node: Resolve from provided carrier object
   const carrier = lr.carrier || {};
+  
+  // Mission Logic Node: Resolve dynamic terms from carrier registry
+  const registryTerms = (carrier.terms && Array.isArray(carrier.terms) && carrier.terms.length > 0) 
+    ? carrier.terms 
+    : [
+        "AGENCY NOT RESPONSIBLE FOR RAIN OR CALAMITY.",
+        "DISCREPANCIES MUST BE INTIMATED WITHIN 24 HOURS.",
+        "VEHICLE OWNER RESPONSIBLE AFTER YARD DEPARTURE.",
+        "ALL DISPUTES SUBJECT TO GHAZIABAD JURISDICTION."
+      ];
 
   return (
     <div className="A4-page p-[12mm] bg-white text-black font-sans text-[8.5pt] leading-tight flex flex-col relative box-border h-[297mm] w-[210mm] overflow-hidden select-text border-none mx-auto">
@@ -121,12 +139,11 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      <div className="grid grid-cols-4 border-2 border-black rounded-xl overflow-hidden mb-6 bg-white divide-x-2 divide-black shadow-sm shrink-0">
+      <div className="grid grid-cols-3 border-2 border-black rounded-xl overflow-hidden mb-6 bg-white divide-x-2 divide-black shadow-sm shrink-0">
         {[
           { label: 'VEHICLE REGISTRY', value: vehicleNumber, bold: true },
           { label: 'PILOT CONTACT', value: driverMobile, mono: true },
-          { label: 'PAYMENT TERM', value: paymentTerm },
-          { label: 'SALES ORDER NO', value: lr.shipment?.shipmentId || (lr as any).shipmentObj?.shipmentId || lr.trip?.shipmentId || '--', bold: true, color: 'text-blue-700' }
+          { label: 'PAYMENT TERM', value: paymentTerm, bold: true },
         ].map((node, i) => (
           <div className="py-2.5 px-1 text-center flex flex-col justify-center gap-1" key={i}>
             <span className="text-[6.5pt] font-black uppercase text-slate-400 block leading-tight tracking-[0.1em]">{node.label}</span>
@@ -157,7 +174,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <table className="w-full border-collapse table-fixed">
             <thead className="bg-[#0a0c10] text-white text-[8pt] font-black uppercase tracking-[0.1em]">
                 <tr className="h-12">
-                <th className="border-r border-white/10 px-2 text-center w-36 leading-tight">Invoice No.</th>
+                <th className="border-r border-white/10 px-2 text-center w-28 leading-tight">Invoice No.</th>
+                <th className="border-r border-white/10 px-2 text-center w-32 leading-tight">E-Waybill No.</th>
                 <th className="border-r border-white/10 px-4 text-center leading-tight">DESCRIPTION OF GOODS</th>
                 <th className="border-r border-white/10 px-1 text-center w-20 leading-tight">NO. OF PKGS</th>
                 <th className="px-4 text-center w-32 leading-tight">WEIGHT (MT)</th>
@@ -167,6 +185,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 {displayItems.map((item, idx) => (
                 <tr key={idx} className="align-middle border-b-2 border-slate-100 last:border-b-0">
                     <td className="border-r-2 border-slate-100 px-1 py-1 font-black uppercase align-middle">{renderPairedValues(item.invoiceNumber)}</td>
+                    <td className="border-r-2 border-slate-100 px-1 py-1 font-black uppercase align-middle text-blue-800">{renderPairedValues(item.ewaybillNumber)}</td>
                     <td className="border-r-2 border-slate-100 px-4 py-1 uppercase italic font-black text-slate-700 leading-tight tracking-tighter text-center">{item.itemDescription}</td>
                     <td className="border-r-2 border-slate-100 px-1 text-center font-black text-[12pt] text-slate-900">{item.units}</td>
                     <td className="px-4 text-center font-black text-[12pt] text-slate-900 tracking-tighter">{idx === 0 ? totalWeightFinal.toFixed(3) : '--'}</td>
@@ -175,7 +194,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             </tbody>
             <tfoot className="bg-[#1a1d24] font-black h-12 border-t-2 border-black text-[10pt] text-white">
                 <tr>
-                <td colSpan={2} className="px-8 uppercase border-r border-white/10 tracking-[0.8em]">MANIFEST TOTALS:</td>
+                <td colSpan={3} className="px-8 uppercase border-r border-white/10 tracking-[0.8em]">MANIFEST TOTALS:</td>
                 <td className="border-r border-white/10 text-center font-black">{totalUnitsFinal}</td>
                 <td className="text-center px-4 font-black text-slate-400 tracking-tighter text-[13pt]">{totalWeightFinal.toFixed(3)} MT</td>
                 </tr>
@@ -188,12 +207,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         <div className="space-y-4">
             <span className="text-[9.5pt] font-black uppercase text-slate-900 border-b-2 border-black inline-block pb-1 tracking-widest italic">TERMS & CONDITIONS</span>
             <div className="space-y-1.5 pt-1">
-                {[
-                    "AGENCY NOT RESPONSIBLE FOR RAIN OR CALAMITY.",
-                    "DISCREPANCIES MUST BE INTIMATED WITHIN 24 HOURS.",
-                    "VEHICLE OWNER RESPONSIBLE AFTER YARD DEPARTURE.",
-                    "ALL DISPUTES SUBJECT TO GHAZIABAD JURISDICTION."
-                ].map((term, i) => (
+                {registryTerms.map((term: string, i: number) => (
                     <p key={i} className="text-[7.5pt] font-black text-slate-600 leading-tight uppercase tracking-tight">
                         {i + 1}. {term}
                     </p>
