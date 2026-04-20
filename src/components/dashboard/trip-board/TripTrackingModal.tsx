@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -13,13 +14,16 @@ import {
     Navigation, 
     Truck,
     Factory,
-    User
+    User,
+    Activity,
+    RefreshCcw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import dynamic from 'next/dynamic';
 import { fetchWheelseyeLocation } from '@/app/actions/wheelseye';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracking/TrackingMap'), { 
     ssr: false,
@@ -57,7 +61,8 @@ export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackin
             setIsLoading(true);
             try {
                 // Registry Handshake: Resolve origin plant coordinates
-                const plantRef = doc(firestore, "logistics_plants", trip.originPlantId);
+                const plantId = normalizePlantId(trip.originPlantId);
+                const plantRef = doc(firestore, "logistics_plants", plantId);
                 const plantSnap = await getDoc(plantRef);
                 if (plantSnap.exists()) {
                     const pData = plantSnap.data();
