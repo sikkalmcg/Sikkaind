@@ -17,6 +17,7 @@ import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreview
 import LRGenerationModal from '@/components/dashboard/lr-create/LRGenerationModal';
 import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAssignModal';
 import TripTrackingModal from '@/components/dashboard/trip-board/TripTrackingModal';
+import SimTrackModal from '@/components/dashboard/trip-board/SimTrackModal';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId, cn } from '@/lib/utils';
@@ -89,6 +90,7 @@ function TripBoardContent() {
   const [selectedShipmentsForAssign, setSelectedShipmentsForAssign] = useState<WithId<Shipment>[]>([]);
   const [editingTrip, setEditingTrip] = useState<WithId<Trip> | null>(null);
   const [trackingTrip, setTrackingTrip] = useState<any | null>(null);
+  const [simTrackTrip, setSimTrackTrip] = useState<any | null>(null);
 
   const isAdminSession = useMemo(() => {
     return user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
@@ -436,7 +438,14 @@ function TripBoardContent() {
         return;
     }
     if (type === 'view') setViewTripData(row);
-    if (type === 'track') setTrackingTrip(row);
+    if (type === 'track') {
+        // MISSION FIX: Differentiate between GIS and SIM Track
+        if (row.vehicleType === 'Market Vehicle' || row.vehicleType === 'Contract Vehicle') {
+            setSimTrackTrip(row);
+        } else {
+            setTrackingTrip(row);
+        }
+    }
     if (type === 'view-lr') {
         if (!row.lrNumber || !firestore) return;
         showLoader();
@@ -447,8 +456,51 @@ function TripBoardContent() {
             let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
             let snap = await getDocs(q);
             
-            const finalCarrier = (dbCarriers || []).find(c => c.id === row.carrierId || c.id === row.shipmentObj?.carrierId) || row.carrierObj;
-            const shipmentObj = row.shipmentObj || row;
+            const pIdStr = normalizePlantId(row.originPlantId);
+            const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
+            let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId);
+
+            if (!finalCarrier && (pIdStr === '1426' || pIdStr === 'ID20')) {
+                finalCarrier = {
+                    id: 'ID20',
+                    name: 'SIKKA LMC',
+                    address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
+                    mobile: '9136688004',
+                    gstin: '07AYQPS6936B1ZZ',
+                    stateCode: '07',
+                    stateName: 'DELHI',
+                    pan: 'AYQPS6936B',
+                    email: 'sil@sikkaenterprises.com'
+                };
+            } else if (!finalCarrier && (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmcShorthand)) {
+                finalCarrier = {
+                    id: 'ID21',
+                    name: 'SIKKA LMC',
+                    address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
+                    mobile: '9136688004',
+                    gstin: '09AYQPS6936B1ZV',
+                    stateCode: '09',
+                    stateName: 'UTTAR PRADESH',
+                    pan: 'AYQPS6936B',
+                    email: 'sil@sikkaenterprises.com'
+                };
+            }
+
+            if (!finalCarrier) {
+                finalCarrier = {
+                    id: 'ID20',
+                    name: 'SIKKA LMC',
+                    address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
+                    mobile: '9136688004',
+                    gstin: '07AYQPS6936B1ZZ',
+                    stateCode: '07',
+                    stateName: 'DELHI',
+                    pan: 'AYQPS6936B',
+                    email: 'sil@sikkaenterprises.com'
+                };
+            }
+
+            const shipmentObj = row as any;
 
             const manifestItems = row.items && row.items.length > 0 ? row.items : [{
                 invoiceNumber: row.summarizedInvoices || row.invoiceNumbers || 'NA',
@@ -1040,6 +1092,13 @@ function TripBoardContent() {
             isOpen={!!trackingTrip}
             onClose={() => setTrackingTrip(null)}
             trip={trackingTrip}
+        />
+      )}
+      {simTrackTrip && (
+        <SimTrackModal 
+            isOpen={!!simTrackTrip}
+            onClose={() => setSimTrackTrip(null)}
+            trip={simTrackTrip}
         />
       )}
     </div>
