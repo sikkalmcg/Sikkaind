@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/tooltip";
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 
-const LIVE_TASKS_PER_PAGE = 7;
+const LIVE_TASKS_PER_PAGE = 10;
 
 export default function SupervisorTaskPage() {
     const { toast } = useToast();
@@ -97,17 +97,17 @@ export default function SupervisorTaskPage() {
                 }
 
                 setIsAdmin(isRoot);
-                setAuthorizedPlantIds(authIds);
+                setAuthorizedPlantIds(authIds.map(normalizePlantId));
                 
                 if (authIds.length > 0 && selectedPlant === 'all-plants' && !isRoot) {
-                    setSelectedPlant(authIds[0]);
+                    setSelectedPlant(normalizePlantId(authIds[0]));
                 }
             } catch (e) {
                 setDbError(true);
             }
         };
         syncAuth();
-    }, [firestore, user, allPlants, selectedPlant]);
+    }, [firestore, user, allPlants]);
 
     useEffect(() => {
         if (!firestore || authorizedPlantIds.length === 0) return;
@@ -115,47 +115,50 @@ export default function SupervisorTaskPage() {
         const unsubscribers: (() => void)[] = [];
         setIsLoading(true);
 
-        const normalizedAuthIds = authorizedPlantIds.map(normalizePlantId);
+        const normalizedAuthIds = authorizedPlantIds.map(id => id.toLowerCase());
 
+        // Sync Gate Entries Node
         const qGate = collection(firestore, "vehicleEntries");
         const unsubGate = onSnapshot(qGate, (snap) => {
             const activeVehicles = snap.docs
                 .map(d => ({ ...d.data(), id: d.id } as any))
-                .filter(d => isAdmin || normalizedAuthIds.includes(normalizePlantId(d.plantId)));
+                .filter(d => isAdmin || normalizedAuthIds.includes(normalizePlantId(d.plantId).toLowerCase()));
             setVehicleEntries(activeVehicles);
             setIsLoading(false);
         });
         unsubscribers.push(unsubGate);
 
         authorizedPlantIds.forEach(pId => {
+            const normalizedPId = normalizePlantId(pId).toLowerCase();
+
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/trips`), (snap) => {
                 const plantTrips = snap.docs.map(d => ({ ...d.data(), id: d.id, originPlantId: pId }));
                 setTrips(prev => {
-                    const otherPlants = prev.filter(t => t.originPlantId !== pId);
-                    return [...otherPlants, ...plantTrips];
+                    const others = prev.filter(t => normalizePlantId(t.originPlantId).toLowerCase() !== normalizedPId);
+                    return [...others, ...plantTrips];
                 });
             }));
 
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/shipments`), (snap) => {
                 const plantShipments = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() } as any));
                 setShipments(prev => {
-                    const otherPlants = prev.filter(s => s.originPlantId !== pId);
-                    return [...otherPlants, ...plantShipments];
+                    const others = prev.filter(s => normalizePlantId(s.originPlantId).toLowerCase() !== normalizedPId);
+                    return [...others, ...plantShipments];
                 });
             }));
 
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/lrs`), (snap) => {
                 const plantLrs = snap.docs.map(d => ({ ...d.data(), id: d.id, originPlantId: pId }));
                 setLrs(prev => {
-                    const otherPlants = prev.filter(l => l.originPlantId !== pId);
-                    return [...otherPlants, ...plantLrs];
+                    const others = prev.filter(l => normalizePlantId(l.originPlantId).toLowerCase() !== normalizedPId);
+                    return [...others, ...plantLrs];
                 });
             }));
 
             const historyRef = query(
                 collection(firestore, `plants/${pId}/supervisor_tasks`), 
                 orderBy("timestamp", "desc"), 
-                limit(100)
+                limit(50)
             );
             const unsubHistory = onSnapshot(historyRef, (snap) => {
                 const plantHistory = snap.docs.map(d => ({
@@ -165,8 +168,8 @@ export default function SupervisorTaskPage() {
                     timestamp: parseSafeDate(d.data().timestamp)
                 }));
                 setHistory(prev => {
-                    const otherPlants = prev.filter(h => h.originPlantId !== pId);
-                    const combined = [...otherPlants, ...plantHistory];
+                    const others = prev.filter(h => normalizePlantId(h.originPlantId).toLowerCase() !== normalizedPId);
+                    const combined = [...others, ...plantHistory];
                     return combined.sort((a, b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0));
                 });
             });
@@ -177,102 +180,93 @@ export default function SupervisorTaskPage() {
     }, [firestore, authorizedPlantIds, isAdmin]);
 
     const activeTasks = useMemo(() => {
-        const tasks: any[] = [];
+        const tasksMap = new Map<string, any>();
 
+        // 1. Process Trips (Loading Missions)
         trips.forEach(trip => {
             const s = (trip.tripStatus || trip.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
-            
-            // MISSION FIX: Include Yard/Loading states to ensure orders stay visible after Vehicle IN
-            const validLoadingStatuses = ['assigned', 'vehicle-assigned', 'yard', 'loading', 'yard-loading'];
+            const validLoadingStatuses = ['assigned', 'vehicle-assigned', 'yard', 'loading', 'yard-loading', 'loaded', 'loading-complete'];
             if (!validLoadingStatuses.includes(s)) return;
 
-            const vehicleNum = trip.vehicleNumber || '--';
-            
-            const entry = vehicleEntries.find(e => e.tripId === trip.id || (e.vehicleNumber === trip.vehicleNumber && e.status === 'IN' && normalizePlantId(e.plantId) === normalizePlantId(trip.originPlantId)));
-            if (entry?.isTaskCompleted) return;
+            // Only show if vehicle is actually IN yard
+            const entry = vehicleEntries.find(e => 
+                (e.tripId === trip.id || (e.vehicleNumber === trip.vehicleNumber && normalizePlantId(e.plantId).toLowerCase() === normalizePlantId(trip.originPlantId).toLowerCase())) &&
+                e.status === 'IN'
+            );
+
+            if (!entry || entry.isTaskCompleted) return;
 
             const lr = lrs.find(l => l.tripDocId === trip.id || l.tripId === trip.tripId);
-
             const shipId = Array.isArray(trip.shipmentIds) ? trip.shipmentIds[0] : trip.shipmentIds;
             const shipment = shipments.find(s => s.id === shipId || s.shipmentId === shipId);
             if (shipment?.currentStatusId === 'Cancelled') return;
 
             const plannedUnits = (shipment?.items || []).reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0) || Number(shipment?.totalUnits || 0);
+            const normalizedPId = normalizePlantId(trip.originPlantId);
+            const pName = allPlants?.find((p: any) => normalizePlantId(p.id) === normalizedPId)?.name || trip.originPlantId;
 
-            const normalizedPlantIdStr = normalizePlantId(trip.originPlantId);
-            const pName = allPlants?.find((p: any) => normalizePlantId(p.id) === normalizedPlantIdStr)?.name || trip.originPlantId;
-
-            const consignor = trip.consignor || shipment?.consignor || '--';
-            const shipTo = trip.shipToParty || shipment?.shipToParty || '--';
-            const destination = trip.unloadingPoint || shipment?.unloadingPoint || trip.destination || '--';
-            const weight = Number(trip.assignedQtyInTrip || trip.assignQty) || 0;
-
-            tasks.push({
-                id: entry?.id || `trip-${trip.id}`,
+            tasksMap.set(entry.id, {
+                id: entry.id,
                 tripId: trip.tripId,
                 lrNumber: lr?.lrNumber || trip.lrNumber || shipment?.lrNumber || '--',
                 realTripId: trip.id,
                 plantId: trip.originPlantId,
                 plantName: pName,
                 purpose: 'Loading',
-                vehicleNumber: vehicleNum,
-                driverName: trip.driverName || entry?.driverName || '--',
-                driverMobile: trip.driverMobile || entry?.driverMobile || '--',
+                vehicleNumber: trip.vehicleNumber,
+                driverName: trip.driverName || entry.driverName || '--',
+                driverMobile: trip.driverMobile || entry.driverMobile || '--',
                 from: trip.loadingPoint || shipment?.loadingPoint || pName,
-                shipTo: shipTo,
-                destination: destination,
-                assignedQty: weight,
+                shipTo: trip.shipToParty || shipment?.shipToParty || '--',
+                destination: trip.unloadingPoint || shipment?.unloadingPoint || trip.destination || '--',
+                assignedQty: Number(trip.assignedQtyInTrip || trip.assignQty) || 0,
                 plannedUnits,
-                status: entry ? 'IN' : 'AWAITING ARRIVAL',
-                isReadyForTask: !!entry, 
+                status: 'IN',
+                isReadyForTask: true, 
                 entryData: entry,
-                originalTask: entry || { id: trip.id, ...trip },
                 shipmentItems: shipment?.items || [],
-                timestamp: parseSafeDate(trip.lastUpdated || trip.startDate) || new Date()
+                timestamp: parseSafeDate(entry.entryTimestamp) || new Date()
             });
         });
 
+        // 2. Process loose entries (Unloading or Loading without Trip ID match)
         vehicleEntries.forEach(entry => {
-            if (entry.purpose !== 'Unloading' || entry.status !== 'IN' || entry.isTaskCompleted) return;
+            if (entry.status !== 'IN' || entry.isTaskCompleted || tasksMap.has(entry.id)) return;
 
-            const vehicleNum = entry.vehicleNumber || '--';
             const normalizedEntryPlantId = normalizePlantId(entry.plantId);
             const pName = allPlants?.find((p: any) => normalizePlantId(p.id) === normalizedEntryPlantId)?.name || entry.plantId;
 
-            tasks.push({
+            tasksMap.set(entry.id, {
                 id: entry.id,
                 tripId: entry.tripId || '--',
                 lrNumber: entry.lrNumber || '--',
                 plantId: entry.plantId,
                 plantName: pName,
-                purpose: 'Unloading',
-                vehicleNumber: vehicleNum,
+                purpose: entry.purpose || 'Loading',
+                vehicleNumber: entry.vehicleNumber,
                 driverName: entry.driverName || '--',
                 driverMobile: entry.driverMobile || '--',
                 from: entry.from || '--',
                 shipTo: entry.shipToParty || '--',
                 destination: entry.unloadingPoint || pName,
                 assignedQty: Number(entry.billedQty) || 0,
-                billedQty: Number(entry.billedQty) || 0,
                 plannedUnits: Number(entry.billedQty) || 0, 
                 qtyType: entry.qtyType || 'MT',
-                invoiceNo: entry.documentNo || '--',
-                goodsDesc: entry.items || '--',
                 status: 'IN',
                 isReadyForTask: true,
                 entryData: entry,
-                originalTask: entry,
                 shipmentItems: [],
                 timestamp: parseSafeDate(entry.entryTimestamp) || new Date()
             });
         });
 
-        return tasks.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+        return Array.from(tasksMap.values()).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
     }, [trips, vehicleEntries, shipments, allPlants, lrs]);
 
     const filteredTasks = useMemo(() => {
+        const selectedNorm = normalizePlantId(selectedPlant).toLowerCase();
         return activeTasks.filter(t => {
-            const matchesPlant = selectedPlant === 'all-plants' || normalizePlantId(t.plantId) === normalizePlantId(selectedPlant);
+            const matchesPlant = selectedPlant === 'all-plants' || normalizePlantId(t.plantId).toLowerCase() === selectedNorm;
             const s = searchTerm.toLowerCase();
             const matchesSearch = !searchTerm || 
                 t.vehicleNumber?.toLowerCase().includes(s) || 
@@ -291,10 +285,11 @@ export default function SupervisorTaskPage() {
 
     const flattenedHistory = useMemo(() => {
         const flattened: any[] = [];
-        let sorted = history;
+        let sorted = [...history];
         
         if (selectedPlant !== 'all-plants') {
-            sorted = sorted.filter(h => normalizePlantId(h.originPlantId) === normalizePlantId(selectedPlant));
+            const selectedNorm = normalizePlantId(selectedPlant).toLowerCase();
+            sorted = sorted.filter(h => normalizePlantId(h.originPlantId).toLowerCase() === selectedNorm);
         }
         
         if (historySearchTerm) {
@@ -318,7 +313,8 @@ export default function SupervisorTaskPage() {
                         ...taskDoc,
                         taskItem: item,
                         taskId: taskDoc.id,
-                        isFirstOfTask: idx === 0
+                        isFirstOfTask: idx === 0,
+                        originPlantId: taskDoc.originPlantId
                     });
                 });
             }
@@ -361,11 +357,11 @@ export default function SupervisorTaskPage() {
                 <div className="flex flex-wrap items-center gap-4">
                     <div className="flex flex-col gap-1">
                         <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                            <Factory className="h-3 w-3" /> Plant Node registry
+                            <Factory className="h-3 w-3" /> Plant Node Registry
                         </Label>
                         {!isAdmin && authorizedPlantIds.length === 1 ? (
                             <div className="h-10 px-4 flex items-center bg-blue-50 border border-blue-100 rounded-xl text-blue-900 font-black text-xs shadow-sm uppercase min-w-[220px]">
-                                <ShieldCheck className="h-3.5 w-3.5 mr-2 text-blue-600" /> {allPlants?.find((p: any) => normalizePlantId(p.id) === normalizePlantId(authorizedPlantIds[0]))?.name || authorizedPlantIds[0]}
+                                <ShieldCheck className="h-3.5 w-3.5 mr-2 text-blue-600" /> {allPlants?.find((p: any) => normalizePlantId(p.id) === authorizedPlantIds[0])?.name || authorizedPlantIds[0]}
                             </div>
                         ) : (
                             <Select value={selectedPlant} onValueChange={(v) => { setSelectedPlant(v); setLivePage(1); setHistoryPage(1); }}>
@@ -375,7 +371,7 @@ export default function SupervisorTaskPage() {
                                 <SelectContent className="rounded-xl">
                                     <SelectItem value="all-plants" className="font-black uppercase text-[10px] tracking-widest text-blue-600">All Authorized Nodes</SelectItem>
                                     {(allPlants || []).filter(p => isAdmin || authorizedPlantIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id))).map(p => (
-                                        <SelectItem key={p.id} value={p.id} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>
+                                        <SelectItem key={p.id} value={normalizePlantId(p.id)} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -394,12 +390,12 @@ export default function SupervisorTaskPage() {
                     <CardHeader className="bg-slate-50 border-b p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <div>
                             <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-700">Live Task Allocation</CardTitle>
-                            <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Source: Assigned Fleet | Registry Handshake</CardDescription>
+                            <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Source: Gate Registry | Handshake Pulse</CardDescription>
                         </div>
                         <div className="relative group">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-blue-900 transition-colors" />
                             <Input 
-                                placeholder="Search Vehicle, Pilot, Trip, LR..." 
+                                placeholder="Search Vehicle, Pilot, Trip..." 
                                 value={searchTerm} 
                                 onChange={e => { setSearchTerm(e.target.value); setLivePage(1); }}
                                 className="pl-10 h-10 w-[300px] rounded-xl bg-white border-slate-200 shadow-sm font-bold focus-visible:ring-blue-900"
@@ -468,30 +464,16 @@ export default function SupervisorTaskPage() {
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/30 transition-colors shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <span className="inline-block">
-                                                                    <Button 
-                                                                        disabled={!task.isReadyForTask}
-                                                                        onClick={() => setTaskModalData(task)} 
-                                                                        className={cn(
-                                                                            "h-8 rounded-lg font-black text-[10px] uppercase tracking-widest px-6 shadow-lg border-none active:scale-95 transition-all",
-                                                                            task.isReadyForTask ? "bg-blue-900 hover:bg-slate-900 text-white" : "bg-slate-100 text-slate-300 cursor-not-allowed"
-                                                                        )}
-                                                                    >
-                                                                        Action Task
-                                                                    </Button>
-                                                                </span>
-                                                            </TooltipTrigger>
-                                                            {!task.isReadyForTask && (
-                                                                <TooltipContent className="bg-slate-900 text-white border-none shadow-2xl p-3">
-                                                                    <p className="text-[10px] font-black uppercase flex items-center gap-2"><AlertCircle className="h-3 w-3 text-amber-400" /> Awaiting Arrival</p>
-                                                                    <p className="text-xs font-medium mt-1">Task node activates upon gate entry registry pulse.</p>
-                                                                </TooltipContent>
-                                                            )}
-                                                        </Tooltip>
-                                                    </TooltipProvider>
+                                                    <Button 
+                                                        disabled={!task.isReadyForTask}
+                                                        onClick={() => setTaskModalData(task)} 
+                                                        className={cn(
+                                                            "h-8 rounded-lg font-black text-[10px] uppercase tracking-widest px-6 shadow-lg border-none active:scale-95 transition-all",
+                                                            task.isReadyForTask ? "bg-blue-900 hover:bg-slate-900 text-white" : "bg-slate-100 text-slate-300 cursor-not-allowed"
+                                                        )}
+                                                    >
+                                                        Action Task
+                                                    </Button>
                                                 </TableCell>
                                             </TableRow>
                                         ))
