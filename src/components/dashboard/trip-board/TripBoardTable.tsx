@@ -226,7 +226,7 @@ function MissionRegistryCard({
             "bg-white border-2 rounded-[1.5rem] mb-6 overflow-hidden transition-all duration-300 group relative",
             isSelected ? "border-blue-600 shadow-2xl bg-blue-50/5" : "border-slate-100 shadow-sm hover:shadow-xl hover:border-slate-200"
         )}>
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 p-5 pb-3">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 p-5 pb-3 items-center">
                 {isPending && (
                     <div className="col-span-1 flex items-center justify-center border-r border-slate-100 pr-2">
                         <Checkbox 
@@ -244,26 +244,26 @@ function MissionRegistryCard({
                     <p className="text-[9px] font-bold text-slate-400 uppercase">{formattedDate}</p>
                 </div>
                 
-                {/* MISSION GAPS node: Expand routing info if LR is hidden in Pending mode */}
-                <div className={cn("space-y-1", isPending ? "col-span-4.5" : "col-span-3")}>
+                {/* MISSION GRID node: Optimized spans and gaps to fix overlap */}
+                <div className={cn("space-y-1 pr-4", isPending ? "col-span-4" : "col-span-3")}>
                     <div className="flex items-center gap-1.5">
                         <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
                         <span className="text-[10px] font-black text-slate-700 uppercase truncate" title={row.consignor}>{row.consignor}</span>
                     </div>
                     <div className="flex items-center gap-2 pl-3">
-                        <span className="text-[10px] font-black text-slate-800">{fromCity}</span>
-                        <ArrowRight size={10} className="text-slate-300" />
-                        <span className="text-[10px] font-black text-blue-900">{toCity}</span>
+                        <span className="text-[10px] font-black text-slate-800 truncate max-w-[80px]">{fromCity}</span>
+                        <ArrowRight size={10} className="text-slate-300 shrink-0" />
+                        <span className="text-[10px] font-black text-blue-900 truncate max-w-[120px]">{toCity}</span>
                     </div>
                 </div>
 
-                <div className="col-span-2">
+                <div className={cn("space-y-1", isPending ? "col-span-3" : "col-span-2")}>
                     <div className="flex items-center gap-2">
-                        <Factory className="h-3 w-3 text-slate-400" />
+                        <Factory className="h-3 w-3 text-slate-400 shrink-0" />
                         <span className="text-[9px] font-black text-slate-500 uppercase truncate leading-tight">{row.plantName || row.originPlantId}</span>
                     </div>
                     <div className="mt-1 flex items-center gap-2">
-                        <UserCircle className="h-3 w-3 text-slate-300" />
+                        <UserCircle className="h-3 w-3 text-slate-300 shrink-0" />
                         <span className="text-[9px] font-bold text-slate-400 uppercase truncate">{row.carrier || row.transporterName || 'AWAITING ALLOCATION'}</span>
                     </div>
                 </div>
@@ -272,27 +272,24 @@ function MissionRegistryCard({
                     {!isPending ? (
                         <>
                             <div className="flex items-center gap-2">
-                                <Truck className="h-3.5 w-3.5 text-blue-600" />
-                                <span className="text-[11px] font-black text-slate-900 uppercase tracking-tighter">{row.vehicleNumber}</span>
+                                <Truck className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                                <span className="text-[11px] font-black text-slate-900 uppercase tracking-tighter truncate">{row.vehicleNumber}</span>
                             </div>
                             <span className="text-[9px] font-mono font-bold text-slate-400 pl-5">{row.driverMobile || '--'}</span>
                         </>
                     ) : (
-                        <div className="flex flex-col gap-1">
-                            <Badge variant="outline" className="w-fit bg-slate-50 text-slate-400 border-slate-100 text-[8px] font-black uppercase">FLEET PENDING</Badge>
-                        </div>
+                        <Badge variant="outline" className="w-fit bg-slate-50 text-slate-400 border-slate-100 text-[8px] font-black uppercase whitespace-nowrap">FLEET PENDING</Badge>
                     )}
                 </div>
 
-                {/* LR NODE: Hidden in Pending Assignment mode per user request */}
                 {!isPending && (
                     <div className="col-span-1.5 flex flex-col justify-center">
                         <div className="flex items-center gap-2">
-                            <FileText className="h-3.5 w-3.5 text-orange-400" />
+                            <FileText className="h-3.5 w-3.5 text-orange-400 shrink-0" />
                             {row.lrNumber ? (
                                 <button 
                                     onClick={() => onAction('view-lr', row)}
-                                    className="text-[10px] font-black text-blue-700 hover:underline uppercase tracking-tighter text-left"
+                                    className="text-[10px] font-black text-blue-700 hover:underline uppercase tracking-tighter text-left truncate"
                                 >
                                     {row.lrNumber}
                                 </button>
@@ -303,15 +300,13 @@ function MissionRegistryCard({
                     </div>
                 )}
 
-                <div className="col-span-2 text-right flex flex-col justify-center">
-                    <div className="flex items-baseline justify-end gap-1">
-                        <p className="text-[14px] font-black text-slate-900 tracking-tighter">
-                            {isPending ? row.balanceUom : row.qtyUom}
-                        </p>
-                    </div>
-                    <Badge variant="outline" className="w-fit ml-auto text-[8px] font-black uppercase px-2 h-4 border-slate-100 bg-slate-50 text-slate-400">
+                <div className="col-span-1 text-right flex flex-col justify-center items-end">
+                    <p className="text-[13px] font-black text-slate-900 tracking-tighter whitespace-nowrap">
+                        {isPending ? row.balanceUom : row.qtyUom}
+                    </p>
+                    <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest leading-none mt-1">
                         {isPending ? `TOTAL: ${row.qtyUom}` : `NODE: ${row.material || 'CARGO'}`}
-                    </Badge>
+                    </span>
                 </div>
             </div>
 
@@ -326,7 +321,6 @@ function MissionRegistryCard({
                         <span className="text-slate-900 font-bold uppercase truncate max-w-[250px]">{row.consignee || '--'}</span>
                     </div>
                     
-                    {/* INVOICE NODE: Hidden in Pending Assignment mode per user request */}
                     {!isPending && (
                         <div className="flex flex-col min-w-[120px]">
                             <span className="text-[7px] font-black uppercase text-blue-900 tracking-widest leading-none mb-1">Invoice Numbers</span>
@@ -377,7 +371,7 @@ function MissionRegistryCard({
                             <Button 
                                 size="sm" 
                                 onClick={() => onAction('assign', row)} 
-                                className="h-9 px-8 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all gap-2"
+                                className="h-9 px-8 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all gap-2"
                             >
                                 <PlusCircle size={14} /> Assign Fleet
                             </Button>
