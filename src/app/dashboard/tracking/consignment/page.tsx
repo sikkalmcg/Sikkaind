@@ -364,7 +364,30 @@ function TrackingPopup({ isOpen, onClose, consignment, livePos, onEtaResolved }:
                             center={{ lat: livePos.latitude, lng: livePos.longitude }}
                             zoom={12}
                             onLoad={onMapLoad}
-                            options={{ disableDefaultUI: true, styles: [{ elementType: "geometry", stylers: [{ color: "#242f3e" }] }] }}
+                            options={{ 
+                                disableDefaultUI: true, 
+                                styles: [
+                                    { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+                                    { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+                                    { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+                                    { 
+                                        featureType: "road", 
+                                        elementType: "geometry", 
+                                        stylers: [{ color: "#485a71" }] 
+                                    },
+                                    { 
+                                        featureType: "road", 
+                                        elementType: "geometry.stroke", 
+                                        stylers: [{ color: "#212a37" }] 
+                                    },
+                                    { 
+                                        featureType: "road.highway", 
+                                        elementType: "geometry", 
+                                        stylers: [{ color: "#746855" }] 
+                                    },
+                                    { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] }
+                                ]
+                            }}
                         >
                             <Marker position={{ lat: livePos.latitude, lng: livePos.longitude }} icon={{ url: DEFAULT_TRUCK_ICON, scaledSize: new google.maps.Size(45, 45) }} />
                             {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: true }} />}

@@ -183,9 +183,9 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
             const response = await fetch('/api/track', {
               method: 'POST',
               headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'text/plain',
               },
-              body: JSON.stringify({ apiKey }),
+              body: apiKey,
             }); 
             const result = await response.json();
 
@@ -369,7 +369,21 @@ export default function GISMonitor({ isOpen, onClose }: GISMonitorProps) {
                                         { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
                                         { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
                                         { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-                                        { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+                                        { 
+                                            featureType: "road", 
+                                            elementType: "geometry", 
+                                            stylers: [{ color: "#485a71" }] 
+                                        },
+                                        { 
+                                            featureType: "road", 
+                                            elementType: "geometry.stroke", 
+                                            stylers: [{ color: "#212a37" }] 
+                                        },
+                                        { 
+                                            featureType: "road.highway", 
+                                            elementType: "geometry", 
+                                            stylers: [{ color: "#746855" }] 
+                                        },
                                         { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] }
                                     ]
                                 }}
