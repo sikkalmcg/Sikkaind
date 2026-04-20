@@ -32,7 +32,7 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
  * Registry Logic: Cleans raw address data into professional 'Location Registry' format.
  */
 function cleanLocationRegistry(address: string): string {
-    if (!address || address === 'N/A') return 'Location Registry Sync...';
+    if (!address || address === 'N/A' || address === 'Address not available') return 'Location Registry Sync...';
     
     const forbidden = ["Registry", "Handshake", "Node", "Transit Interchange", "Cluster Perimeter", "Near En-route", "En-route", "Mission Transit"];
     let clean = address;
@@ -52,9 +52,16 @@ function cleanLocationRegistry(address: string): string {
 
 async function getSettings() {
     try {
-        const settingsRef = doc(firestore, "gps_settings", "wheelseye");
+        // REGISTRY SYNC: Match with settings/page.tsx node ID
+        const settingsRef = doc(firestore, "gps_settings", "api_config");
         const snap = await getDoc(settingsRef);
-        if (snap.exists()) return snap.data();
+        if (snap.exists()) {
+            const data = snap.data();
+            return {
+                apiUrl: "https://api.wheelseye.com/currentLoc",
+                accessToken: data.apiKey || process.env.NEXT_PUBLIC_WHEELSEYE_API_KEY || "53afc208-0981-48c7-b134-d85d2f33dc0c"
+            };
+        }
     } catch (e) {
         console.warn("Using default GIS settings node.");
     }
@@ -88,7 +95,7 @@ export async function fetchFleetLocation() {
         const lat = parseFloat(v.latitude || v.lat);
         const lng = parseFloat(v.longitude || v.lng || v.long);
 
-        if ((!rawLoc || rawLoc === 'N/A' || rawLoc.toLowerCase().includes('mission transit')) && !isNaN(lat) && !isNaN(lng)) {
+        if ((!rawLoc || rawLoc === 'N/A' || rawLoc === 'Address not available' || rawLoc.toLowerCase().includes('mission transit')) && !isNaN(lat) && !isNaN(lng)) {
             rawLoc = await reverseGeocode(lat, lng);
         }
 
@@ -147,7 +154,7 @@ export async function fetchWheelseyeLocation(vehicleNumber: string) {
         const lat = parseFloat(v.latitude || v.lat);
         const lng = parseFloat(v.longitude || v.lng);
 
-        if ((!rawLoc || rawLoc === 'N/A' || rawLoc.toLowerCase().includes('mission transit')) && !isNaN(lat) && !isNaN(lng)) {
+        if ((!rawLoc || rawLoc === 'N/A' || rawLoc === 'Address not available' || rawLoc.toLowerCase().includes('mission transit')) && !isNaN(lat) && !isNaN(lng)) {
             rawLoc = await reverseGeocode(lat, lng);
         }
 

@@ -107,19 +107,24 @@ function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: stri
         setIsLoading(true);
         try {
             const res = await fetchWheelseyeLocation(vehicleNo);
-            if (res.data && res.data.location) {
+            if (res && res.data && res.data.location && res.data.location !== 'Location Registry Sync...') {
                 const parts = res.data.location.split(',').map((p: string) => p.trim());
                 setLocation({
-                    city: parts[0] || 'Resolving...',
+                    city: parts[0] || 'RESOLVING...',
                     full: res.data.location
                 });
+            } else if (res && res.data && res.data.location === 'Location Registry Sync...') {
+                // If we get the fallback, we keep searching but don't clear old data if it exists
+                if (!location) {
+                    setLocation({ city: 'RESOLVING...', full: 'Establishing Handshake...' });
+                }
             }
         } catch (e) {
             console.warn("Telemetry signal latency.");
         } finally {
             setIsLoading(false);
         }
-    }, [vehicleNo, isSimTrackMode]);
+    }, [vehicleNo, isSimTrackMode, location]);
 
     useEffect(() => {
         if (!isSimTrackMode) {
@@ -151,6 +156,9 @@ function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: stri
         );
     }
 
+    const displayCity = location?.city || 'RESOLVING...';
+    const displayFull = location?.full || 'Establishing Satellite Registry Pulse...';
+
     return (
         <div 
             className="group/loc relative flex items-center transition-all duration-700 ease-in-out cursor-pointer"
@@ -173,7 +181,7 @@ function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: stri
                         "text-[11px] font-black uppercase truncate transition-colors duration-500",
                         isHovered ? "text-blue-900" : "text-blue-700"
                     )}>
-                        {isHovered ? (location?.full || 'Resolving Registry Node...') : (location?.city || 'Resolving...')}
+                        {isHovered ? displayFull : displayCity}
                     </span>
                     {isHovered && (
                         <span className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em] mt-0.5 animate-in fade-in slide-in-from-left-2 duration-700">
