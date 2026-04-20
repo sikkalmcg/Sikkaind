@@ -137,7 +137,7 @@ export default function SupervisorTaskPage() {
             }));
 
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/shipments`), (snap) => {
-                const plantShipments = snap.docs.map(d => ({ ...d.data(), id: d.id, originPlantId: pId }));
+                const plantShipments = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() } as any));
                 setShipments(prev => {
                     const otherPlants = prev.filter(s => s.originPlantId !== pId);
                     return [...otherPlants, ...plantShipments];
@@ -180,8 +180,11 @@ export default function SupervisorTaskPage() {
         const tasks: any[] = [];
 
         trips.forEach(trip => {
-            const s = (trip.tripStatus || trip.currentStatusId || '').toLowerCase().replace(/[\s_-]+/g, '-');
-            if (s !== 'assigned' && s !== 'vehicle-assigned') return;
+            const s = (trip.tripStatus || trip.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
+            
+            // MISSION FIX: Include Yard/Loading states to ensure orders stay visible after Vehicle IN
+            const validLoadingStatuses = ['assigned', 'vehicle-assigned', 'yard', 'loading', 'yard-loading'];
+            if (!validLoadingStatuses.includes(s)) return;
 
             const vehicleNum = trip.vehicleNumber || '--';
             
@@ -269,7 +272,6 @@ export default function SupervisorTaskPage() {
 
     const filteredTasks = useMemo(() => {
         return activeTasks.filter(t => {
-            // Registry Comparison Node: Ensure strict string handshake for plant filtering
             const matchesPlant = selectedPlant === 'all-plants' || normalizePlantId(t.plantId) === normalizePlantId(selectedPlant);
             const s = searchTerm.toLowerCase();
             const matchesSearch = !searchTerm || 
