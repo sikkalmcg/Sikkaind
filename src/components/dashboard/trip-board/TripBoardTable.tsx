@@ -244,7 +244,7 @@ function MissionRegistryCard({
                     <p className="text-[9px] font-bold text-slate-400 uppercase">{formattedDate}</p>
                 </div>
                 
-                <div className="col-span-2 space-y-1">
+                <div className="col-span-3 space-y-1">
                     <div className="flex items-center gap-1.5">
                         <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
                         <span className="text-[10px] font-black text-slate-700 uppercase truncate" title={row.consignor}>{row.consignor}</span>
@@ -284,15 +284,6 @@ function MissionRegistryCard({
                 </div>
 
                 <div className="col-span-1.5 flex flex-col justify-center">
-                    <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-black text-blue-800 truncate" title={row.invoiceNumbers || row.summarizedInvoices}>
-                            {row.invoiceNumbers || row.summarizedInvoices || '--'}
-                        </span>
-                        <span className="text-[8px] font-bold text-slate-300 uppercase">DOC REFS</span>
-                    </div>
-                </div>
-
-                <div className="col-span-1 flex flex-col justify-center">
                     <div className="flex items-center gap-2">
                         <FileText className="h-3.5 w-3.5 text-orange-400" />
                         {row.lrNumber ? (
@@ -320,26 +311,26 @@ function MissionRegistryCard({
                 </div>
             </div>
 
-            <div className="px-5 py-2.5 flex flex-wrap items-center justify-between gap-6 text-[10px] font-bold text-slate-500 bg-slate-50/50 border-y border-slate-100">
-                <div className="flex items-center gap-10">
-                    <div className="flex flex-col">
-                        <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none">Destination Node</span>
-                        <span className="text-slate-900 font-bold truncate max-w-[200px]">{row.unloadingPoint || '--'}</span>
+            <div className="px-5 py-3 flex flex-wrap items-center justify-between gap-8 text-[10px] font-bold text-slate-500 bg-slate-50/50 border-y border-slate-100">
+                <div className="flex flex-1 items-center gap-12">
+                    <div className="flex flex-col min-w-[150px]">
+                        <span className="text-[7px] font-black uppercase text-blue-600 tracking-widest leading-none mb-1">Ship To Party</span>
+                        <span className="text-slate-900 font-black uppercase truncate max-w-[250px]">{row.shipToParty || '--'}</span>
                     </div>
-                    <div className="flex flex-col">
-                        <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none">Payment Term</span>
-                        <span className="text-slate-700 font-black uppercase">{row.paymentTerm || 'PAID'}</span>
+                    <div className="flex flex-col flex-1 min-w-[300px]">
+                        <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">Full Delivery Address</span>
+                        <span className="text-slate-600 font-bold uppercase line-clamp-1 italic">{row.deliveryAddress || row.unloadingPoint || '--'}</span>
                     </div>
-                    <div className="flex flex-col">
-                        <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none">Consignee</span>
-                        <span className="text-slate-900 font-black uppercase truncate max-w-[200px]">{row.billToParty || row.consignee || '--'}</span>
+                    <div className="flex flex-col min-w-[120px]">
+                        <span className="text-[7px] font-black uppercase text-blue-900 tracking-widest leading-none mb-1">Invoice Numbers</span>
+                        <span className="text-blue-700 font-black font-mono tracking-tighter truncate max-w-[180px]">{row.invoiceNumbers || row.summarizedInvoices || '--'}</span>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-10">
+                <div className="flex items-center gap-6 border-l pl-6">
                     <div className="flex flex-col items-end">
                         <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none">Registry operator</span>
-                        <div className="flex items-center gap-1.5 mt-0.5">
+                        <div className="flex items-center gap-1.5 mt-1">
                             <User size={10} className="text-slate-300" />
                             <span className="text-[10px] font-black text-slate-600 uppercase">@{ (row.assignedUsername || row.orderCreatedUser || 'System')?.split('@')[0]}</span>
                         </div>
