@@ -24,7 +24,8 @@ import {
     ArrowRight,
     CircleDot,
     RefreshCcw,
-    X
+    X,
+    XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
@@ -36,7 +37,7 @@ import { Badge } from '@/components/ui/badge';
 /**
  * @fileOverview Track Consignment Terminal.
  * Implementation of advanced mission progress animation.
- * Features: Multi-stage tracking, Rejection-Return logic, and Red-Alert status nodes.
+ * Features: Multi-stage tracking, Rejection-Return logic, Date-Time display, and Red-Alert status nodes.
  */
 
 function TrackConsignmentContent() {
@@ -67,7 +68,7 @@ function TrackConsignmentContent() {
         { id: 'loading', label: 'LOADING', icon: Factory },
         { id: 'transit', label: 'IN-TRANSIT', icon: Truck },
         { id: 'arrived', label: 'ARRIVED', icon: MapPin },
-        { id: 'delivered', label: 'DELIVERED', icon: CheckCircle2 }
+        { id: 'final', label: 'DELIVERED', icon: CheckCircle2 }
     ];
 
     const getTargetIndex = (status: string) => {
@@ -95,11 +96,11 @@ function TrackConsignmentContent() {
                 
                 // MISSION REJECTION SEQUENCE node
                 if (rejected) {
-                    // First reach the "REJECTED" node at index 4
+                    // First reach the "REJECTED" node visually (Index 4)
                     setTimeout(() => {
                         setAnimIndex(4);
                         
-                        // Then initiate REVERSAL
+                        // Then initiate REVERSAL pulse after wait
                         setTimeout(() => {
                             setIsReversed(true);
                             let rev = 4;
@@ -276,7 +277,7 @@ function TrackConsignmentContent() {
                         </Card>
 
                         {/* ADVANCED ANIMATION NODE */}
-                        <div className="relative p-12 md:p-20 bg-white overflow-hidden min-h-[450px] flex flex-col justify-center">
+                        <div className="relative p-12 md:p-20 bg-white overflow-hidden min-h-[500px] flex flex-col justify-center">
                             {/* PROGRESS LINE BACKGROUND */}
                             <div className="absolute top-1/2 left-24 right-24 h-2 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden shadow-inner">
                                 <motion.div 
@@ -321,10 +322,10 @@ function TrackConsignmentContent() {
                                                         }} 
                                                         transition={{ repeat: Infinity, duration: 0.6 }}
                                                     >
-                                                        {i === 2 ? <Truck size={36} /> : <stage.icon size={36} />}
+                                                        {(isFinal && result.isRejected) ? <XCircle size={40} /> : (i === 2 ? <Truck size={40} /> : <stage.icon size={40} />)}
                                                     </motion.div>
                                                 ) : (
-                                                    <stage.icon size={32} className={cn(isReversed && i < animIndex && "scale-x-[-1] opacity-50")} />
+                                                    (isFinal && result.isRejected) ? <XCircle size={32} className="opacity-20" /> : <stage.icon size={32} className={cn(isReversed && i < animIndex && "scale-x-[-1] opacity-50")} />
                                                 )}
                                             </motion.div>
                                             <div className="text-center space-y-2">
@@ -333,12 +334,20 @@ function TrackConsignmentContent() {
                                                     active ? ((result.isRejected && isReversed) ? "text-red-700" : "text-blue-900") : "text-slate-200"
                                                 )}>{label}</p>
                                                 {active && (
-                                                    <p className={cn(
-                                                        "text-[9px] font-black font-mono h-5",
-                                                        (result.isRejected && isReversed) ? "text-red-400" : "text-slate-400"
-                                                    )}>
-                                                        {format(new Date(timestamp), 'HH:mm')}
-                                                    </p>
+                                                    <div className="flex flex-col items-center animate-in fade-in duration-500">
+                                                        <p className={cn(
+                                                            "text-[8px] font-black uppercase tracking-tighter mb-0.5",
+                                                            (result.isRejected && isReversed) ? "text-red-300" : "text-slate-400"
+                                                        )}>
+                                                            {format(new Date(timestamp), 'dd MMM yyyy')}
+                                                        </p>
+                                                        <p className={cn(
+                                                            "text-[10px] font-black font-mono leading-none",
+                                                            (result.isRejected && isReversed) ? "text-red-400" : "text-blue-900"
+                                                        )}>
+                                                            {format(new Date(timestamp), 'HH:mm')}
+                                                        </p>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
