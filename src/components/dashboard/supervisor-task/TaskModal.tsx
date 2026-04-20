@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useForm, useFieldArray, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -40,6 +40,7 @@ import { LRUnitTypes } from '@/lib/constants';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Label } from '@/components/ui/label';
+import { Timestamp } from 'firebase/firestore';
 
 const itemSchema = z.object({
     deliveryNo: z.string().min(1, "Delivery number is mandatory."),
@@ -62,7 +63,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
   const firestore = useFirestore();
   const { user } = useUser();
   const { showLoader, hideLoader } = useLoading();
-  const [initializedTaskId, setInitializedTaskId] = useState<string | null>(null);
+  const hasInitialized = useRef(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -77,44 +78,55 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
   const watchedItems = useWatch({ control, name: "items" }) || [];
 
-  // STABLE REGISTRY INITIALIZATION Node
+  // HIGH-FIDELITY REGISTRY HANDSHAKE Node
   useEffect(() => {
-    if (isOpen && task && initializedTaskId !== task.id) {
-        setInitializedTaskId(task.id);
-        
-        if (task.isHistoryEdit) {
-            reset({
-                remarks: task.remarks || '',
-                items: task.items || []
-            });
-        } else {
-            const initialItems = (task.shipmentItems || []).map((i: any) => ({
-                deliveryNo: '',
-                invoiceNo: i.invoiceNumber || '',
-                itemDescription: i.itemDescription || i.description || task.itemDescription || 'Goods particulars',
-                plannedUnit: Number(i.units) || Number(task.plannedUnits) || 0,
-                loadUnit: Number(i.units) || Number(task.plannedUnits) || 0,
-                uom: i.unitType || 'Package'
-            }));
-
-            if (initialItems.length > 0) {
-                reset({ remarks: '', items: initialItems });
-            } else {
-                reset({ remarks: '', items: [] });
-                append({ 
-                    deliveryNo: '', 
-                    invoiceNo: '', 
-                    itemDescription: 'Goods particulars', 
-                    plannedUnit: Number(task.plannedUnits) || 0, 
-                    loadUnit: Number(task.plannedUnits) || 0, 
-                    uom: 'Package' 
-                });
-            }
+    if (isOpen && task) {
+        // Reset initialization tracker on task ID change
+        if (hasInitialized.current && !task.isHistoryEdit) {
+            // Check if we are still looking at the same task
         }
+
+        const populateManifest = () => {
+            if (task.isHistoryEdit) {
+                reset({
+                    remarks: task.remarks || '',
+                    items: task.items || []
+                });
+            } else {
+                // Determine if we have a valid shipment manifest to pull from
+                const manifestSource = task.shipmentItems || [];
+                
+                if (manifestSource.length > 0) {
+                    const initialItems = manifestSource.map((i: any) => ({
+                        deliveryNo: '',
+                        invoiceNo: i.invoiceNumber || '',
+                        itemDescription: i.itemDescription || i.description || task.itemDescription || 'Goods particulars',
+                        plannedUnit: Number(i.units) || 0,
+                        loadUnit: Number(i.units) || 0, // PRE-FILL LOAD UNIT FROM PLAN
+                        uom: i.unitType || 'Package'
+                    }));
+                    reset({ remarks: '', items: initialItems });
+                } else {
+                    // Fallback to manual entry node if no manifest found
+                    reset({ remarks: '', items: [] });
+                    append({ 
+                        deliveryNo: '', 
+                        invoiceNo: '', 
+                        itemDescription: 'Goods particulars', 
+                        plannedUnit: Number(task.plannedUnits) || 0, 
+                        loadUnit: Number(task.plannedUnits) || 0, 
+                        uom: 'Package' 
+                    });
+                }
+            }
+            hasInitialized.current = true;
+        };
+
+        populateManifest();
     } else if (!isOpen) {
-        setInitializedTaskId(null);
+        hasInitialized.current = false;
     }
-  }, [isOpen, task, initializedTaskId, reset, append]);
+  }, [isOpen, task, reset, append]);
 
   const totals = useMemo(() => {
     return watchedItems.reduce((acc, curr) => ({
@@ -122,7 +134,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
     }), { load: 0 });
   }, [watchedItems]);
 
-  const unitMismatch = totals.load - task.plannedUnits;
+  const unitMismatch = totals.load - (Number(task.plannedUnits) || 0);
 
   const handleCommit = async (values: FormValues) => {
     if (!firestore || !user) return;
@@ -166,7 +178,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 manifestTotals: totals,
                 items: values.items,
                 remarks: values.remarks || '',
-                timestamp: task.isHistoryEdit ? task.timestamp : serverTimestamp(),
+                timestamp: task.isHistoryEdit ? (task.timestamp instanceof Timestamp ? task.timestamp : new Date(task.timestamp)) : serverTimestamp(),
                 lastModified: serverTimestamp(),
                 supervisor: task.isHistoryEdit ? task.supervisor : currentName,
                 modifiedBy: currentName,
@@ -199,7 +211,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-full h-[95vh] md:h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white rounded-[2rem] md:rounded-3xl">
+      <DialogContent className="max-w-[95vw] w-[1400px] h-[95vh] md:h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white rounded-[2rem] md:rounded-3xl">
         <DialogHeader className="p-4 md:p-5 bg-slate-900 text-white shrink-0 pr-12">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3 md:gap-4">
@@ -216,7 +228,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 </div>
             </div>
             <div className="flex items-center gap-4">
-                <Badge variant="outline" className="hidden sm:flex bg-white/10 border-white/10 text-emerald-400 font-black uppercase text-[9px] px-4 h-8 border-none rounded-full">
+                <Badge variant="outline" className="hidden sm:flex bg-white/10 border-white/10 text-emerald-400 font-black uppercase text-[10px] px-4 h-8 border-none rounded-full">
                     {task.isHistoryEdit ? "ADMIN OVERRIDE" : "VERIFIED NODE"}
                 </Badge>
                 <button onClick={onClose} className="h-8 w-8 bg-white p-0 text-red-600 hover:bg-red-50 transition-all rounded-lg shadow-lg flex items-center justify-center border-none">
@@ -259,7 +271,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 </Button>
             </div>
 
-            {/* HIGH-FIDELITY TABLE VIEW */}
             <div className="hidden md:block rounded-2xl border-2 border-slate-200 bg-white shadow-xl overflow-hidden">
                 <Table>
                     <TableHeader className="bg-slate-900">
@@ -345,7 +356,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 </Table>
             </div>
 
-            {/* MOBILE CARD VIEW */}
             <div className="md:hidden space-y-4">
                 {fields.map((field, index) => (
                     <Card key={field.id} className="p-5 rounded-[1.5rem] border-2 border-slate-100 shadow-lg bg-white relative group">

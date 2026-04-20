@@ -292,6 +292,13 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     }
   }, [originPlantId, authorizedPlants, setValue]);
 
+  // UX Fix node: Automatically append first item row to guide user input
+  useEffect(() => {
+    if (fields.length === 0) {
+        append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '' });
+    }
+  }, [fields.length, append]);
+
   useEffect(() => {
     if (isSameAsBillTo && billToParty) {
         setValue('shipToParty', billToParty, { shouldValidate: true });
@@ -722,13 +729,4 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
       </div>
     </Form>
   );
-}
-
-function ContextNode({ label, value, icon: Icon, className, bold }: any) {
-    return (
-        <div className={cn("space-y-1.5", className)}>
-            <span className="text-[8px] md:text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 tracking-widest leading-none">{Icon && <Icon className="h-2.5 w-2.5 md:h-3 md:w-3" />} {label}</span>
-            <p className={cn("text-[10px] md:text-xs leading-snug wrap", bold ? "font-black" : "font-bold text-slate-700")}>{value || '--'}</p>
-        </div>
-    );
 }
