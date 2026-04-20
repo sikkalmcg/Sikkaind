@@ -116,8 +116,8 @@ export default function CompletedShipmentsModal({ isOpen, onClose, plantId, plan
                     <Table className="border-collapse w-full min-w-[1600px]">
                     <TableHeader className="sticky top-0 bg-slate-100 z-10 border-b-2">
                         <TableRow className="h-14 hover:bg-transparent">
-                        <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500">Trip ID</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Vehicle Number</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-6 text-slate-500 w-32">Trip ID</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500 w-40">Vehicle Number</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Driver Name</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Consignor</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-slate-500">Bill To Party</TableHead>

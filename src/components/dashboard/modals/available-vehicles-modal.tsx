@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
@@ -33,10 +32,10 @@ const getStayHoursColor = (hours: number): StayHoursColor => {
 };
 
 const badgeClassMap: Record<StayHoursColor, string> = {
-    success: "bg-green-500 text-white",
+    success: "bg-green-600 text-white",
     warning: "bg-yellow-500 text-black",
     alert: "bg-orange-500 text-white",
-    danger: "bg-red-500 text-white"
+    danger: "bg-red-600 text-white"
 }
 
 export default function AvailableVehiclesModal({ isOpen, onClose, plantId, plantName, authorizedPlantIds, fromDate, toDate }: { isOpen: boolean; onClose: () => void; plantId: string; plantName: string; authorizedPlantIds: string[]; fromDate?: Date; toDate?: Date; }) {
@@ -109,7 +108,7 @@ export default function AvailableVehiclesModal({ isOpen, onClose, plantId, plant
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white">
+      <DialogContent className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-white rounded-3xl">
         <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
           <DialogTitle className="text-xl font-black uppercase tracking-tight italic">Available Vehicles Registry</DialogTitle>
           <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-1">

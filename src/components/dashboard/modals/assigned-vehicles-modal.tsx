@@ -30,7 +30,6 @@ export default function AssignedVehiclesModal({ isOpen, onClose, plantId, plantN
   const [gpsMap, setGpsMap] = useState<Map<string, any>>(new Map());
   const [loading, setLoading] = useState(true);
 
-  // 1. Satellite Handshake node
   const refreshGps = async () => {
     try {
         const res = await fetchFleetLocation();
@@ -49,7 +48,6 @@ export default function AssignedVehiclesModal({ isOpen, onClose, plantId, plantN
     }
   };
 
-  // 2. Multi-Node Registry Pulse
   useEffect(() => {
     if (!isOpen || !firestore || (plantId === 'all-plants' && authorizedPlantIds.length === 0)) return;
 
@@ -60,7 +58,6 @@ export default function AssignedVehiclesModal({ isOpen, onClose, plantId, plantN
     refreshGps();
 
     scopePlants.forEach(pId => {
-        // Trip Sync
         unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/trips`), (snap) => {
             const plantTrips = snap.docs.map(docSnap => {
                 const t = docSnap.data();
@@ -81,7 +78,6 @@ export default function AssignedVehiclesModal({ isOpen, onClose, plantId, plantN
             setLoading(false);
         }));
 
-        // Shipment Sync for Joining
         unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/shipments`), (snap) => {
             const plantShipments = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() } as WithId<Shipment>));
             setShipments(prev => [...prev.filter(s => s.originPlantId !== pId), ...plantShipments]);
@@ -95,7 +91,6 @@ export default function AssignedVehiclesModal({ isOpen, onClose, plantId, plantN
     };
   }, [isOpen, plantId, JSON.stringify(authorizedPlantIds), firestore]);
 
-  // 3. Logic Node: High-Performance Registry Join
   const joinedData = useMemo((): EnrichedTrip[] => {
     return trips.map(t => {
         const shipment = shipments.find(s => s.id === t.shipmentIds?.[0]);

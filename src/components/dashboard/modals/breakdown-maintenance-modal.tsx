@@ -33,7 +33,6 @@ export default function BreakdownMaintenanceModal({ isOpen, onClose, plantId, pl
             res.data.forEach((v: any) => {
                 const vNo = v.vehicleNumber?.toUpperCase().replace(/\s/g, '');
                 gpsMap.set(vNo, {
-                    // REGISTRY FIX: Always show actual location node
                     location: v.location || 'N/A',
                     lastUpdate: v.lastUpdateRaw ? format(new Date(v.lastUpdateRaw), 'HH:mm:ss') : '--:--:--'
                 });

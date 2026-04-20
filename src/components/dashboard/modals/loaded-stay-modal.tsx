@@ -64,7 +64,6 @@ export default function LoadedStayModal({ isOpen, onClose, plantId, plantName, a
                     tripSnap.forEach(doc => {
                         const t = doc.data();
                         const startTime = t.startDate instanceof Timestamp ? t.startDate.toDate() : new Date(t.startDate);
-                        // REGISTRY CHANGE: Use tripStatus (Operational Node)
                         const rawStatus = t.tripStatus?.toLowerCase() || '';
                         const status = rawStatus.replace(/[\s_-]+/g, '-');
 
