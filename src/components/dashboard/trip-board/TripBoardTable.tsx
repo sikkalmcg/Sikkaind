@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -41,7 +40,8 @@ import {
     Upload,
     XCircle,
     Signal,
-    Loader2
+    Loader2,
+    Plus
 } from 'lucide-react';
 import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
 import { format, isValid } from 'date-fns';
@@ -57,6 +57,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { fetchWheelseyeLocation } from '@/app/actions/wheelseye';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface TripBoardTableProps {
   data: any[];
@@ -311,7 +312,21 @@ function MissionRegistryCard({
                                     </button>
                                 </>
                             ) : (
-                                <span className="text-[10px] font-bold text-slate-300 italic">PENDING PRINT</span>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
+                                                onClick={() => onAction('edit-lr', row)}
+                                            >
+                                                <Plus size={16} className="stroke-[3]" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="bg-slate-900 text-white text-[10px] font-black uppercase">Initialize LR Registry</TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             )}
                         </div>
                     </div>
@@ -435,7 +450,7 @@ function MissionRegistryCard({
                             </DropdownMenuTrigger>
                             <DropdownMenuPortal>
                                 <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-slate-200 shadow-3xl bg-white z-[100]">
-                                    <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Registry Control</DropdownMenuLabel>
+                                    <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Mission Control</DropdownMenuLabel>
                                     <DropdownMenuItem onClick={() => onAction(isPending ? 'view-order' : 'view', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
                                     
                                     {showLrAndInvoices && (
