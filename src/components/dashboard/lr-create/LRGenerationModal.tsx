@@ -1,4 +1,3 @@
-
 'use client';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useForm, useFieldArray, useWatch, Controller } from 'react-hook-form';
@@ -11,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, PlusCircle, Trash2, ShieldCheck, FileText, Search, X } from 'lucide-react';
+import { Loader2, Plus, PlusCircle, Trash2, ShieldCheck, FileText, Search, X, Calculator } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
