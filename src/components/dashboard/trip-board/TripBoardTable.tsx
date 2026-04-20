@@ -351,13 +351,12 @@ function MissionRegistryCard({
                     </div>
                     <Separator orientation="vertical" className="h-5 bg-slate-100" />
                     <div className="flex items-center gap-4 opacity-30 group-hover:opacity-100 transition-all duration-500">
-                        {!isPending && <Activity size={14} className="text-slate-400 hover:text-blue-600 cursor-help" title="Mission Telemetry" />}
-                        <History size={14} className="text-slate-400 hover:text-blue-600 cursor-help" title="Registry History" />
+                        {!isPending && <History size={14} className="text-slate-400 hover:text-blue-600 cursor-help" title="Registry History" />}
                     </div>
                 </div>
 
                 <div className="flex items-center gap-6">
-                    {activeTab === 'transit' && (
+                    {(activeTab === 'transit' || activeTab === 'arrived') && (
                         <LiveLocationNode 
                             vehicleNo={row.vehicleNumber} 
                             vehicleType={row.vehicleType} 
@@ -387,8 +386,8 @@ function MissionRegistryCard({
                         )}
                         {activeTab === 'arrived' && (
                             <div className="flex items-center gap-2">
-                                <Button variant="outline" size="sm" onClick={() => onAction('reject', row)} className="h-9 px-6 border-red-200 text-red-600 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-red-50 shadow-sm transition-all active:scale-95">Reject Mission</Button>
-                                <Button size="sm" onClick={() => onAction('unloaded', row)} className="h-9 px-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Mark Unloaded</Button>
+                                <Button variant="outline" size="sm" onClick={() => onAction('reject', row)} className="h-9 px-6 border-red-200 text-red-600 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-red-50 shadow-sm transition-all active:scale-95">REJECT MISSION</Button>
+                                <Button size="sm" onClick={() => onAction('unloaded', row)} className="h-9 px-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">MARK UNLOADED</Button>
                             </div>
                         )}
                         {activeTab === 'pod-status' && (
