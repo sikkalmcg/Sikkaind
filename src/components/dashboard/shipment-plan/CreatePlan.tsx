@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format, isValid } from 'date-fns';
@@ -50,7 +49,7 @@ import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebas
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDocs, limit } from "firebase/firestore";
 import { cn, normalizePlantId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
-import { PaymentTerms } from '@/lib/constants';
+import { PaymentTerms, LRUnitTypes } from '@/lib/constants';
 
 const formSchema = z.object({
   originPlantId: z.string().min(1, 'Plant selection is required.'),
@@ -75,7 +74,7 @@ const formSchema = z.object({
   paymentTerm: z.enum(PaymentTerms).optional(),
   deliveryAddress: z.string().optional().or(z.literal('')),
   items: z.array(z.object({
-    invoiceNumber: z.string().min(1, "Doc ref required"),
+    invoiceNumber: z.string().optional().or(z.literal('')),
     ewaybillNumber: z.string().optional(),
     units: z.coerce.number().min(1, "Units required"),
     unitType: z.string().default('Package'),
@@ -178,7 +177,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, Code, or City..." 
                             value={search} 
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => setSearch(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
@@ -393,7 +392,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   const handleExportTemplate = () => {
     const headers = [
         "Plant ID", "SALES ORDER NO", "Consignor Name", "Consignor GSTIN", "From (City)", "Consignee Name", "Consignee GSTIN", "Ship To Name", "Ship To Party Code", "Ship To GSTIN", 
-        "Destination Point", "Quantity (MT)", "Invoice Number", "E-Waybill Number", "LR Number", "LR Date", "Payment Term", "Delivery Address", "Item Description", "Units", "Carrier Name"
+        "Destination Point", "Quantity (MT)", "Invoice Number", "E-Waybill Number", "LR Number", "LR Date", "Payment Term", "Delivery Address", "Item Description", "Units", "Unit Type", "Carrier Name"
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers]);
     const wb = XLSX.utils.book_new();
@@ -473,10 +472,10 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 const itemQty = Number(getVal(row, ["Quantity (MT)", "Quantity", "Qty"])) || 0;
                 orderGroups[groupKey].quantity += itemQty;
                 orderGroups[groupKey].rawItems.push({
-                    invoiceNumber: getVal(row, ["Invoice Number", "Invoice No"]) || 'NA',
+                    invoiceNumber: getVal(row, ["Invoice Number", "Invoice No"]) || '',
                     ewaybillNumber: getVal(row, ["E-Waybill Number", "Ewaybill No"]),
                     units: Number(getVal(row, ["Units", "Packages"])) || 1,
-                    unitType: 'Package',
+                    unitType: getVal(row, ["Unit Type", "UOM"]) || 'Package',
                     itemDescription: getVal(row, ["Item Description", "Description"]) || 'BULK UPLOAD MISSION',
                 });
             });
@@ -651,7 +650,57 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                           <Button type="button" variant="outline" size="sm" onClick={() => append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '' })} className="h-10 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all rounded-xl w-full sm:w-auto"><Plus size={16} /> Add Row</Button>
                       </div>
                       <div className="rounded-[2rem] border-2 border-slate-200 bg-white shadow-2xl overflow-hidden">
-                          <div className="overflow-x-auto"><Table className="min-w-[1000px]"><TableHeader className="bg-slate-900"><TableRow className="hover:bg-transparent border-none h-14"><TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">Invoice</TableHead><TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">E-Waybill No.</TableHead><TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead><TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-36">Units</TableHead><TableHead className="w-12"></TableHead></TableRow></TableHeader><TableBody>{fields.map((field, index) => (<TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-none hover:bg-blue-50/10 transition-colors group"><TableCell className="px-8"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-10 rounded-xl font-black uppercase bg-slate-50 border-slate-200" /></TableCell><TableCell className="px-4"><Input {...form.register(`items.${index}.ewaybillNumber`)} className="h-10 rounded-xl font-mono text-blue-600 bg-slate-50 border-slate-200 uppercase" /></TableCell><TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-10 rounded-xl font-bold bg-slate-50 border-slate-200 uppercase" /></TableCell><TableCell className="px-4"><Input type="number" {...form.register(`items.${index}.units`)} className="h-10 text-center font-black text-blue-900 bg-transparent border-none shadow-none focus-visible:ring-0" /></TableCell><TableCell className="pr-6 text-right"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-400 hover:text-red-600 rounded-lg"><Trash2 size={18}/></Button></TableCell></TableRow>))}</TableBody><TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16"><TableRow className="hover:bg-transparent border-none"><TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL MANIFEST REGISTRY</TableCell><TableCell className="text-center font-black text-lg text-blue-900">{totals.units}</TableCell><TableCell></TableCell></TableRow></TableFooter></Table></div>
+                          <div className="overflow-x-auto">
+                              <Table className="min-w-[1200px]">
+                                <TableHeader className="bg-slate-900">
+                                    <TableRow className="hover:bg-transparent border-none h-14">
+                                        <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">Invoice</TableHead>
+                                        <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">E-Waybill No.</TableHead>
+                                        <TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead>
+                                        <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-56">Units / UOM</TableHead>
+                                        <TableHead className="w-12"></TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {fields.map((field, index) => (
+                                        <TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-none hover:bg-blue-50/10 transition-colors group">
+                                            <TableCell className="px-8"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-10 rounded-xl font-black uppercase bg-slate-50 border-slate-200" /></TableCell>
+                                            <TableCell className="px-4"><Input {...form.register(`items.${index}.ewaybillNumber`)} className="h-10 rounded-xl font-mono text-blue-600 bg-slate-50 border-slate-200 uppercase" /></TableCell>
+                                            <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-10 rounded-xl font-bold bg-slate-50 border-slate-200 uppercase" /></TableCell>
+                                            <TableCell className="px-4">
+                                                <div className="flex items-center gap-2">
+                                                    <Input type="number" {...form.register(`items.${index}.units`)} className="h-10 w-20 text-center font-black text-blue-900 bg-white border-slate-200 rounded-lg shadow-inner" />
+                                                    <Controller
+                                                        name={`items.${index}.unitType`}
+                                                        control={control}
+                                                        render={({ field }) => (
+                                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                                <FormControl>
+                                                                    <SelectTrigger className="h-10 flex-1 min-w-[120px] rounded-lg border-slate-200 bg-white font-black text-[10px] uppercase shadow-sm">
+                                                                        <SelectValue placeholder="TYPE" />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent className="rounded-xl">
+                                                                    {LRUnitTypes.map(t => <SelectItem key={t} value={t} className="font-bold py-2 uppercase text-[10px]">{t}</SelectItem>)}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        )}
+                                                    />
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="pr-6 text-right"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-400 hover:text-red-600 rounded-lg"><Trash2 size={18}/></Button></TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                                <TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16">
+                                    <TableRow className="hover:bg-transparent border-none">
+                                        <TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL MANIFEST REGISTRY</TableCell>
+                                        <TableCell className="text-center font-black text-lg text-blue-900">{totals.units}</TableCell>
+                                        <TableCell></TableCell>
+                                    </TableRow>
+                                </TableFooter>
+                              </Table>
+                          </div>
                       </div>
                  </section>
 
