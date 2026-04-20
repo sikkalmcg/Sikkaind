@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -58,6 +57,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { fetchWheelseyeLocation } from '@/app/actions/wheelseye';
 import { useRouter } from 'next/navigation';
+import { useFirestore } from '@/firebase';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 
 interface TripBoardTableProps {
   data: any[];
@@ -94,15 +95,41 @@ const getStatusColor = (status: string) => {
 
 /**
  * @fileOverview Live Location Node Component.
- * Handshakes with satellite registry and implements hover-expand logic.
+ * High-fidelity telemetry handshake with hover-expand logic.
  */
 function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: string, vehicleType: string, onClick: () => void }) {
+    const firestore = useFirestore();
     const [location, setLocation] = useState<{ city: string; full: string } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
+    const [gpsEnabled, setGpsEnabled] = useState(false);
+    const [hasCheckedGps, setHasCheckedGps] = useState(false);
+
+    useEffect(() => {
+        if (!firestore || !vehicleNo) return;
+        const checkGps = async () => {
+            try {
+                // Registry Handshake: Check if vehicle has GPS enabled in master registry
+                const q = query(collection(firestore, "vehicles"), where("vehicleNumber", "==", vehicleNo.toUpperCase()), limit(1));
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                    const data = snap.docs[0].data();
+                    setGpsEnabled(!!data.gps_enabled);
+                } else if (vehicleType === 'Own Vehicle') {
+                    // Mission Fallback: Treat all Own Vehicles as GPS-active
+                    setGpsEnabled(true);
+                }
+            } catch (e) {
+                console.warn("GPS registry lookup delayed.");
+            } finally {
+                setHasCheckedGps(true);
+            }
+        };
+        checkGps();
+    }, [firestore, vehicleNo, vehicleType]);
 
     const syncLocation = useCallback(async () => {
-        if (!vehicleNo) return;
+        if (!vehicleNo || !gpsEnabled) return;
         setIsLoading(true);
         try {
             const res = await fetchWheelseyeLocation(vehicleNo);
@@ -112,61 +139,80 @@ function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: stri
                     city: parts[0] || 'Resolving...',
                     full: res.data.location
                 });
-            } else {
-                setLocation(null);
             }
         } catch (e) {
-            setLocation(null);
+            console.warn("Telemetry signal latency.");
         } finally {
             setIsLoading(false);
         }
-    }, [vehicleNo]);
+    }, [vehicleNo, gpsEnabled]);
 
     useEffect(() => {
-        if (vehicleType === 'Own Vehicle') {
+        if (gpsEnabled) {
             syncLocation();
-            const interval = setInterval(syncLocation, 30000);
+            const interval = setInterval(syncLocation, 30000); // 30s Registry Pulse
             return () => clearInterval(interval);
         }
-    }, [vehicleType, syncLocation]);
+    }, [gpsEnabled, syncLocation]);
 
-    if (vehicleType === 'Market Vehicle' && !location) {
+    if (!hasCheckedGps) return <div className="w-32 h-9 bg-slate-50 animate-pulse rounded-xl" />;
+
+    // Market Vehicle OR No GPS found node
+    if (!gpsEnabled || (vehicleType === 'Market Vehicle' && !location)) {
         return (
             <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-8 rounded-lg gap-2 text-[10px] font-black uppercase text-blue-600 hover:bg-blue-50 border border-blue-100 px-3 transition-all active:scale-95"
+                className="h-9 px-5 rounded-xl gap-2 text-[10px] font-black uppercase text-blue-600 hover:bg-blue-900 hover:text-white border-2 border-blue-100 transition-all active:scale-95 shadow-sm"
                 onClick={onClick}
             >
-                <Signal className="h-3 w-3" /> SIM TRACK
+                <Signal className="h-3.5 w-3.5" /> SIM TRACK
             </Button>
         );
     }
 
     if (isLoading && !location) {
-        return <div className="flex items-center gap-2 text-slate-300 px-4"><Loader2 className="h-3 w-3 animate-spin" /><span className="text-[10px] font-black uppercase tracking-widest">Registry Sync...</span></div>;
+        return (
+            <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl opacity-60">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-900" />
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Resolving Node...</span>
+            </div>
+        );
     }
-
-    if (!location) return null;
 
     return (
         <div 
-            className="group/loc relative flex items-center gap-3 cursor-pointer"
+            className="group/loc relative flex items-center transition-all duration-700 ease-in-out"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             onClick={onClick}
         >
             <div className={cn(
-                "flex items-center gap-2.5 px-4 py-2 bg-blue-50 border border-blue-100 rounded-xl transition-all duration-500 ease-in-out shadow-sm group-hover/loc:shadow-lg",
-                isHovered ? "max-w-[400px] border-blue-400 bg-white" : "max-w-[150px]"
+                "flex items-center gap-3 px-4 py-2.5 bg-blue-50 border-2 border-blue-100 rounded-[1.25rem] transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-sm group-hover/loc:shadow-2xl group-hover/loc:border-blue-500 group-hover/loc:bg-white overflow-hidden",
+                isHovered ? "max-w-[600px] pr-8" : "max-w-[150px]"
             )}>
-                <Navigation className={cn("h-3.5 w-3.5 shrink-0 text-blue-600 transition-transform duration-500", isHovered && "rotate-45")} />
-                <div className="flex flex-col min-w-0 overflow-hidden">
-                    <span className="text-[11px] font-black text-blue-900 uppercase truncate">
-                        {isHovered ? location.full : location.city}
-                    </span>
-                    {isHovered && <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest mt-0.5 animate-in fade-in slide-in-from-left-1">Tap to open GIS node</span>}
+                <div className={cn(
+                    "p-1.5 rounded-lg transition-all duration-500",
+                    isHovered ? "bg-blue-600 text-white rotate-45 shadow-lg" : "bg-blue-100 text-blue-600"
+                )}>
+                    <Navigation className="h-3.5 w-3.5 shrink-0" />
                 </div>
+                <div className="flex flex-col min-w-0">
+                    <span className={cn(
+                        "text-[11px] font-black uppercase truncate transition-colors duration-500",
+                        isHovered ? "text-blue-900" : "text-blue-700"
+                    )}>
+                        {isHovered ? (location?.full || 'Resolving Registry Node...') : (location?.city || 'Resolving...')}
+                    </span>
+                    {isHovered && (
+                        <span className="text-[7px] font-black text-slate-400 uppercase tracking-[0.3em] mt-0.5 animate-in fade-in slide-in-from-left-2 duration-700">
+                            AUTHORIZED GIS TELEMETRY HANDSHAKE
+                        </span>
+                    )}
+                </div>
+                {!isHovered && location && (
+                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse ml-1 shrink-0" />
+                )}
             </div>
         </div>
     );
