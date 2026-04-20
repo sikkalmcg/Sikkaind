@@ -423,12 +423,6 @@ function MissionRegistryCard({
                                     <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Registry Control</DropdownMenuLabel>
                                     <DropdownMenuItem onClick={() => onAction(isPending ? 'view-order' : 'view', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
                                     
-                                    {!isPending && (
-                                        <DropdownMenuItem onClick={() => onAction('track', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
-                                            <Navigation className="h-4 w-4 text-emerald-600" /> Track GIS
-                                        </DropdownMenuItem>
-                                    )}
-
                                     {canEditLR && (
                                         <DropdownMenuItem onClick={() => onAction('edit-lr', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
                                             <FileText className="h-4 w-4 text-orange-600" /> Edit LR manifest
