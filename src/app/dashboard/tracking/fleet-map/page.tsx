@@ -11,7 +11,8 @@ import {
     Navigation,
     Clock,
     User,
-    ShieldCheck
+    ShieldCheck,
+    Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
@@ -199,7 +200,7 @@ export default function FleetLiveMapPage() {
                                     <div className="flex items-center gap-3">
                                         <div className={cn(
                                             "h-2 w-2 rounded-full", 
-                                            isMoving ? "bg-emerald-400 animate-pulse" : "bg-red-500"
+                                            isMoving ? "bg-emerald-400 animate-pulse" : "bg-red-50"
                                         )} />
                                         <span className={cn("text-[13px] font-black uppercase tracking-tighter", isActive ? "text-white" : "text-slate-200 group-hover:text-white")}>
                                             {v.vehicleNumber}
