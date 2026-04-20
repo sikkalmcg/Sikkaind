@@ -32,7 +32,7 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
  * Registry Logic: Cleans raw address data into professional 'Location Registry' format.
  */
 function cleanLocationRegistry(address: string): string {
-    if (!address || address === 'N/A' || address === 'Address not available') return 'Location Registry Sync...';
+    if (!address || address === 'N/A' || address === 'Address not available' || address.includes('Establishing')) return 'Location Registry Sync...';
     
     const forbidden = ["Registry", "Handshake", "Node", "Transit Interchange", "Cluster Perimeter", "Near En-route", "En-route", "Mission Transit"];
     let clean = address;
@@ -126,7 +126,9 @@ export async function fetchFleetLocation() {
 export async function fetchWheelseyeLocation(vehicleNumber: string) {
   const settings = await getSettings();
   const cleanNo = vehicleNumber?.toUpperCase().replace(/\s/g, '');
-  const url = `${settings.apiUrl}?accessToken=${settings.accessToken}&vehicleNo=${cleanNo}`;
+  
+  // REGISTRY HANDSHAKE: Fetching full list and filtering locally to ensure high match probability
+  const url = `${settings.apiUrl}?accessToken=${settings.accessToken}`;
 
   try {
     const response = await fetch(url, {
@@ -137,14 +139,13 @@ export async function fetchWheelseyeLocation(vehicleNumber: string) {
     if (!response.ok) return { data: null, error: "Gateway Unreachable" };
 
     const result = await response.json();
+    const list = result?.data?.list || result?.data || [];
     
-    if (result && result.data) {
-        let v = null;
-        if (result.data.list && Array.isArray(result.data.list)) {
-            v = result.data.list.find((item: any) => item.vehicleNumber?.toUpperCase().replace(/\s/g, '') === cleanNo) || result.data.list[0];
-        } else {
-            v = Array.isArray(result.data) ? result.data[0] : result.data;
-        }
+    if (Array.isArray(list)) {
+        const v = list.find((item: any) => {
+            const vNo = (item.vehicleNumber || item.vehicleNo || item.regNo)?.toUpperCase().replace(/\s/g, '');
+            return vNo === cleanNo;
+        });
 
         if (!v) return { data: null, error: "Vehicle not found in live stream." };
 
