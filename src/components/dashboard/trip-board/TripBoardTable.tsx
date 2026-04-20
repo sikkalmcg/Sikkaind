@@ -307,16 +307,21 @@ function MissionRegistryCard({
                 {!isPending && (
                     <div className="col-span-2 flex flex-col justify-center">
                         <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">LR Number</span>
-                        {row.lrNumber ? (
-                            <button 
-                                onClick={() => onAction('view-lr', row)} 
-                                className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter text-left"
-                            >
-                                {row.lrNumber}
-                            </button>
-                        ) : (
-                            <span className="text-[10px] font-bold text-slate-300 italic">NOT GENERATED</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                            {row.lrNumber ? (
+                                <>
+                                    <FileText className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                                    <button 
+                                        onClick={() => onAction('view-lr', row)} 
+                                        className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter text-left"
+                                    >
+                                        {row.lrNumber}
+                                    </button>
+                                </>
+                            ) : (
+                                <span className="text-[10px] font-bold text-slate-300 italic">NOT GENERATED</span>
+                            )}
+                        </div>
                     </div>
                 )}
 
