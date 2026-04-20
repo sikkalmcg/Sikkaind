@@ -221,14 +221,23 @@ function MissionRegistryCard({
     const fromCity = (row.loadingPoint || row.from || row.plantName || '').split(',')[0].trim();
     const toCity = (row.unloadingPoint || row.destination || '').split(',')[0].trim();
 
+    // Registry Identity Mapper Node
+    const getFleetLabel = (type: string) => {
+        const t = type?.toLowerCase() || '';
+        if (t.includes('own')) return 'OWN FLEET';
+        if (t.includes('contract')) return 'CONTRACT NODE';
+        if (t.includes('market')) return 'MARKET NODE';
+        return type?.toUpperCase() || 'UNASSIGNED';
+    };
+
     return (
         <div className={cn(
             "bg-white border-2 rounded-[1.5rem] mb-6 overflow-hidden transition-all duration-300 group relative",
             isSelected ? "border-blue-600 shadow-2xl bg-blue-50/5" : "border-slate-100 shadow-sm hover:shadow-xl hover:border-slate-200"
         )}>
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 p-5 pb-3 items-center">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 p-5 pb-3 items-start">
                 {isPending && (
-                    <div className="col-span-1 flex items-center justify-center border-r border-slate-100 pr-2">
+                    <div className="col-span-1 flex items-center justify-center border-r border-slate-100 pr-2 h-full">
                         <Checkbox 
                             checked={isSelected}
                             onCheckedChange={(checked) => onSelect?.(!!checked)}
@@ -267,50 +276,42 @@ function MissionRegistryCard({
                     </div>
                 </div>
 
-                <div className="col-span-1.5 flex flex-col justify-center">
+                <div className="col-span-2 flex flex-col justify-center">
                     {!isPending ? (
                         <>
                             <div className="flex items-center gap-2">
-                                <Truck className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                                <Truck className="h-4 w-4 text-blue-600 shrink-0" />
                                 <span className="text-[11px] font-black text-slate-900 uppercase tracking-tighter truncate">{row.vehicleNumber}</span>
+                                {row.ewaybillNumber && row.ewaybillNumber !== '--' && (
+                                    <div className="flex items-center gap-1 ml-2">
+                                        <FileCheck size={12} className="text-orange-400" />
+                                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{row.ewaybillNumber.slice(-4)}</span>
+                                    </div>
+                                )}
                             </div>
-                            <span className="text-[9px] font-mono font-bold text-slate-400 pl-5">{row.driverMobile || '--'}</span>
+                            <span className="text-[9px] font-mono font-bold text-slate-400 pl-6">{row.driverMobile || '--'}</span>
                         </>
                     ) : (
                         <Badge variant="outline" className="w-fit bg-slate-50 text-slate-400 border-slate-100 text-[8px] font-black uppercase whitespace-nowrap">FLEET PENDING</Badge>
                     )}
                 </div>
 
-                {!isPending && (
-                    <div className="col-span-1.5 flex flex-col justify-center">
-                        <div className="flex items-center gap-2">
-                            <FileText className="h-3.5 w-3.5 text-orange-400 shrink-0" />
-                            {row.lrNumber ? (
-                                <button 
-                                    onClick={() => onAction('view-lr', row)}
-                                    className="text-[10px] font-black text-blue-700 hover:underline uppercase tracking-tighter text-left truncate"
-                                >
-                                    {row.lrNumber}
-                                </button>
-                            ) : (
-                                <span className="text-[10px] font-black text-slate-900 uppercase">--</span>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                <div className="col-span-1 text-right flex flex-col justify-center items-end">
+                {/* RIGHT COLUMN NODE: FLEET TYPE + WEIGHT + MATERIAL */}
+                <div className={cn("text-right flex flex-col justify-between items-end h-full", isPending ? "col-span-3" : "col-span-2")}>
                     {!isPending && row.vehicleType && (
-                        <Badge variant="outline" className="mb-1.5 bg-blue-50 text-blue-700 border-blue-200 text-[8px] font-black uppercase px-2 h-5 shadow-sm">
-                            {row.vehicleType}
+                        <Badge variant="outline" className="mb-2 bg-blue-50 text-blue-700 border-blue-200 text-[8px] font-black uppercase px-3 h-5 shadow-sm rounded-lg">
+                            {getFleetLabel(row.vehicleType)}
                         </Badge>
                     )}
-                    <p className="text-[13px] font-black text-slate-900 tracking-tighter whitespace-nowrap">
-                        {isPending ? row.balanceUom : row.qtyUom}
-                    </p>
-                    <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest leading-none mt-1">
-                        {isPending ? `TOTAL: ${row.qtyUom}` : `NODE: ${row.material || 'CARGO'}`}
-                    </span>
+                    
+                    <div className="flex flex-col items-end">
+                        <p className="text-xl font-black text-slate-900 tracking-tighter leading-none">
+                            {isPending ? row.balanceUom : row.qtyUom}
+                        </p>
+                        <span className="text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] leading-none mt-2">
+                            {isPending ? `TOTAL REQ: ${row.qtyUom}` : `NODE: ${row.material || 'CARGO'}`}
+                        </span>
+                    </div>
                 </div>
             </div>
 
