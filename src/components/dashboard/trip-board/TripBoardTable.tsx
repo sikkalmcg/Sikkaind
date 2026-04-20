@@ -94,14 +94,12 @@ const getStatusColor = (status: string) => {
 /**
  * @fileOverview Live Location Node Component.
  * Optimized GIS Handshake: Own Vehicles show live telemetry; Market/Contract show SIM TRACK.
- * Updated to display FULL physical address on hover with sliding transition.
  */
 function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: string, vehicleType: string, onClick: () => void }) {
     const [location, setLocation] = useState<{ city: string; full: string } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
 
-    // REGISTRY HANDSHAKE: Market & Contract vehicles utilize Sim Track node
     const isSimTrackMode = vehicleType === 'Market Vehicle' || vehicleType === 'Contract Vehicle';
 
     const syncLocation = useCallback(async () => {
@@ -128,7 +126,7 @@ function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: stri
     useEffect(() => {
         if (!isSimTrackMode) {
             syncLocation();
-            const interval = setInterval(syncLocation, 30000); // 30s Registry Pulse
+            const interval = setInterval(syncLocation, 30000);
             return () => clearInterval(interval);
         }
     }, [isSimTrackMode, syncLocation]);
@@ -166,7 +164,7 @@ function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: stri
             onClick={onClick}
         >
             <div className={cn(
-                "flex items-center gap-3 px-4 py-2.5 bg-blue-50 border-2 border-blue-100 rounded-[1.25rem] transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-sm group-hover/loc:shadow-2xl group-hover/loc:border-blue-500 group-hover/loc:bg-white overflow-hidden",
+                "flex items-center gap-3 px-4 py-2.5 bg-blue-50 border-2 border-blue-100 rounded-[1.25rem] transition-all duration-700 shadow-sm group-hover/loc:shadow-2xl group-hover/loc:border-blue-500 group-hover/loc:bg-white overflow-hidden",
                 isHovered ? "max-w-[700px] pr-8" : "max-w-[160px]"
             )}>
                 <div className={cn(
@@ -212,6 +210,10 @@ function MissionRegistryCard({
     onSelect?: (checked: boolean) => void
 }) {
     const isPending = activeTab === 'pending-assignment';
+    
+    // Mission Registry Logic Node: Show LR and Invoices only from Loading stage onwards
+    const showLrAndInvoices = ['loading', 'transit', 'arrived', 'pod-status', 'rejection', 'closed'].includes(activeTab);
+    
     const dateNode = isPending ? row.creationDate : row.startDate;
     const formattedDate = dateNode ? format(new Date(dateNode), 'dd MMM') : '--';
     const statusTime = row.lastUpdated ? format(new Date(row.lastUpdated), 'dd MMM, hh:mm aa') : (row.creationDate ? format(new Date(row.creationDate), 'dd MMM, hh:mm aa') : '--');
@@ -219,7 +221,6 @@ function MissionRegistryCard({
     const fromCity = (row.loadingPoint || row.from || row.plantName || '').split(',')[0].trim();
     const toCity = (row.unloadingPoint || row.destination || '').split(',')[0].trim();
 
-    // Registry Identity Mapper Node
     const getFleetLabel = (type: string) => {
         const t = type?.toLowerCase() || '';
         if (t.includes('own')) return 'OWN FLEET';
@@ -233,7 +234,6 @@ function MissionRegistryCard({
             "bg-white border-2 rounded-[1.5rem] mb-6 overflow-hidden transition-all duration-300 group relative",
             isSelected ? "border-blue-600 shadow-2xl bg-blue-50/5" : "border-slate-100 shadow-sm hover:shadow-xl hover:border-slate-200"
         )}>
-            {/* FLEET TYPE BADGE - ABSOLUTE TOP RIGHT CORNER */}
             {!isPending && row.vehicleType && (
                 <div className="absolute top-5 right-5 z-20">
                     <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[8px] font-black uppercase px-3 h-5 shadow-sm rounded-lg">
@@ -260,7 +260,7 @@ function MissionRegistryCard({
                     <p className="text-[9px] font-bold text-slate-400 uppercase">{formattedDate}</p>
                 </div>
                 
-                <div className={cn("space-y-1 pr-4", isPending ? "col-span-4" : "col-span-3")}>
+                <div className={cn("space-y-1 pr-4", showLrAndInvoices ? "col-span-3" : (isPending ? "col-span-4" : "col-span-4"))}>
                     <div className="flex items-center gap-1.5">
                         <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
                         <span className="text-[10px] font-black text-slate-700 uppercase truncate" title={row.consignor}>{row.consignor}</span>
@@ -272,7 +272,7 @@ function MissionRegistryCard({
                     </div>
                 </div>
 
-                <div className={cn("space-y-1", isPending ? "col-span-3" : "col-span-2")}>
+                <div className={cn("space-y-1", showLrAndInvoices ? "col-span-2" : (isPending ? "col-span-3" : "col-span-3"))}>
                     <div className="flex items-center gap-2">
                         <Factory className="h-3 w-3 text-slate-400 shrink-0" />
                         <span className="text-[9px] font-black text-slate-500 uppercase truncate leading-tight">{row.plantName || row.originPlantId}</span>
@@ -303,8 +303,8 @@ function MissionRegistryCard({
                     )}
                 </div>
 
-                {/* LR NODE - DYNAMIC COLUMN */}
-                {!isPending && (
+                {/* LR NODE - DYNAMIC COLUMN - Only from Loading onwards */}
+                {showLrAndInvoices && (
                     <div className="col-span-2 flex flex-col justify-center">
                         <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">LR Number</span>
                         <div className="flex items-center gap-2">
@@ -319,14 +319,13 @@ function MissionRegistryCard({
                                     </button>
                                 </>
                             ) : (
-                                <span className="text-[10px] font-bold text-slate-300 italic">NOT GENERATED</span>
+                                <span className="text-[10px] font-bold text-slate-300 italic">PENDING PRINT</span>
                             )}
                         </div>
                     </div>
                 )}
 
-                {/* RIGHT COLUMN NODE: WEIGHT + MATERIAL (PUSHED TO BOTTOM) */}
-                <div className={cn("text-right flex flex-col justify-end items-end h-full min-h-[60px]", isPending ? "col-span-3" : "col-span-2")}>
+                <div className={cn("text-right flex flex-col justify-end items-end h-full min-h-[60px]", (isPending || !showLrAndInvoices) ? "col-span-3" : "col-span-2")}>
                     <div className="flex flex-col items-end pb-1">
                         <p className="text-xl font-black text-slate-900 tracking-tighter leading-none">
                             {isPending ? row.balanceUom : row.qtyUom}
@@ -349,7 +348,7 @@ function MissionRegistryCard({
                         <span className="text-slate-900 font-bold uppercase truncate max-w-[250px]">{row.consignee || '--'}</span>
                     </div>
                     
-                    {!isPending && (
+                    {showLrAndInvoices && (
                         <div className="flex flex-col min-w-[120px]">
                             <span className="text-[7px] font-black uppercase text-blue-900 tracking-widest leading-none mb-1">Invoice Numbers</span>
                             <span className="text-blue-700 font-black font-mono tracking-tighter truncate max-w-[180px]">{row.invoiceNumbers || row.summarizedInvoices || '--'}</span>
@@ -380,9 +379,6 @@ function MissionRegistryCard({
                         </div>
                     </div>
                     <Separator orientation="vertical" className="h-5 bg-slate-100" />
-                    <div className="flex items-center gap-4 opacity-30 group-hover:opacity-100 transition-all duration-500">
-                        {!isPending && <History size={14} className="text-slate-400 hover:text-blue-600 cursor-help" title="Registry History" />}
-                    </div>
                 </div>
 
                 <div className="flex items-center gap-6">
@@ -412,7 +408,7 @@ function MissionRegistryCard({
                             <Button size="sm" onClick={() => onAction('vehicle-out', row)} className="h-9 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Vehicle OUT</Button>
                         )}
                         {activeTab === 'transit' && (
-                            <Button size="sm" onClick={() => onAction('arrived', row)} className="h-9 px-10 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-blue-900/10">Arrived In</Button>
+                            <Button size="sm" onClick={() => onAction('arrived', row)} className="h-9 px-10 bg-blue-900 hover:bg-black text-white rounded-xl font-black uppercase text-[10px] tracking-[0.2em] shadow-lg shadow-blue-900/10">Arrived In</Button>
                         )}
                         {activeTab === 'arrived' && (
                             <div className="flex items-center gap-2">
@@ -441,7 +437,7 @@ function MissionRegistryCard({
                                     <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Registry Control</DropdownMenuLabel>
                                     <DropdownMenuItem onClick={() => onAction(isPending ? 'view-order' : 'view', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
                                     
-                                    {(activeTab === 'pending-assignment' || activeTab === 'open-order' || activeTab === 'loading') && (
+                                    {showLrAndInvoices && (
                                         <DropdownMenuItem onClick={() => onAction('edit-lr', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
                                             <FileText className="h-4 w-4 text-orange-600" /> Edit LR manifest
                                         </DropdownMenuItem>
