@@ -134,6 +134,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           </div>
           <div className="text-[9pt] font-black uppercase space-y-1.5 px-2">
             <p className="flex justify-between gap-6"><span>DATE:</span> <span className="text-slate-900">{formatDate(lr.date)}</span></p>
+            <p className="flex justify-between gap-6"><span>FROM:</span> <span className="text-slate-900">{lr.from || '--'}</span></p>
+            <p className="flex justify-between gap-6"><span>TO:</span> <span className="text-slate-900">{lr.to || '--'}</span></p>
           </div>
         </div>
       </div>
