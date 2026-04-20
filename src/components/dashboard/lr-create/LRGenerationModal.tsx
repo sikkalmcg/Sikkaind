@@ -35,11 +35,11 @@ const formSchema = z.object({
   paymentTerm: z.enum(PaymentTerms),
   weightSelection: z.enum(['Assigned Weight', 'Actual Weight']),
   items: z.array(z.object({
-    invoiceNumber: z.string().min(1, "Invoice number required."),
+    deliveryNo: z.string().optional().or(z.literal('')),
+    invoiceNumber: z.string().optional().or(z.literal('')),
     units: z.coerce.number().min(1, "Unit count mandatory."),
     unitType: z.string().optional(),
     itemDescription: z.string().min(1, "Required"),
-    weight: z.coerce.number().min(0.001, "Weight must be positive."),
     hsnSac: z.string().optional(),
   })).min(1, "At least one row is required."),
   deliveryAddress: z.string().min(1, "Delivery Address is mandatory."),
@@ -95,7 +95,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, Code, or City..." 
                             value={search} 
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
@@ -198,21 +198,21 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                 setShipment({ id: shipmentSnap.id, ...sData } as WithId<Shipment>);
 
                 let initialItems = (sData.items || []).map(i => ({
+                    deliveryNo: (i as any).deliveryNo || '',
                     invoiceNumber: (i as any).invoiceNumber || (i as any).invoiceNo || (i as any).deliveryNumber || (i as any).deliveryNo || '',
                     units: i.units || 1,
                     unitType: i.unitType || 'Package',
                     itemDescription: i.itemDescription || i.description || sData.material || '',
-                    weight: Number(i.weight || 0.001),
                     hsnSac: i.hsnSac || ''
                 }));
 
                 if (initialItems.length === 0) {
                     initialItems = [{ 
-                        invoiceNumber: sData.invoiceNumber || 'NA', 
+                        deliveryNo: '',
+                        invoiceNumber: sData.invoiceNumber || '', 
                         units: Number(sData.totalUnits) || 1, 
                         unitType: 'Package', 
                         itemDescription: sData.itemDescription || sData.material || 'GENERAL CARGO', 
-                        weight: Number(activeTrip!.assignedQtyInTrip || activeTrip!.quantity || 0.001), 
                         hsnSac: '' 
                     }];
                 }
@@ -281,8 +281,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
   const totals = useMemo(() => {
     return watchedItems.reduce((acc, item) => ({
         units: acc.units + (Number(item?.units) || 0),
-        weight: acc.weight + (Number(item?.weight) || 0)
-    }), { units: 0, weight: 0 });
+    }), { units: 0 });
   }, [watchedItems]);
 
   const handlePost = async (values: FormValues) => {
@@ -296,7 +295,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
             const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipment.id);
 
             const isTripNode = !!(activeTrip as any).tripId;
-            const finalWeight = values.weightSelection === 'Actual Weight' ? totals.weight : (isTripNode ? activeTrip.assignedQtyInTrip : activeTrip.quantity);
+            const finalWeight = isTripNode ? activeTrip.assignedQtyInTrip : activeTrip.quantity;
 
             const lrData = {
                 ...values,
@@ -425,10 +424,9 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                             <Table>
                                 <TableHeader className="bg-slate-900">
                                     <TableRow className="hover:bg-transparent border-none h-12">
-                                        <TableHead className="text-white px-6 text-[9px] font-black uppercase">INVOICE NO *</TableHead>
+                                        <TableHead className="text-white px-6 text-[9px] font-black uppercase">INVOICE NO</TableHead>
                                         <TableHead className="text-white text-[9px] font-black uppercase px-4 w-48">ITEM DESCRIPTION *</TableHead>
                                         <TableHead className="text-white text-[9px] font-black uppercase px-4 text-center">PKGS</TableHead>
-                                        <TableHead className="text-white text-[9px] font-black uppercase px-8 text-right">WEIGHT (MT)</TableHead>
                                         <TableHead className="w-12"></TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -438,8 +436,7 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                                             <TableCell className="px-6"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-9 font-bold" /></TableCell>
                                             <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-9 font-bold uppercase" /></TableCell>
                                             <TableCell className="px-4 text-center"><Input type="number" {...form.register(`items.${index}.units`)} className="h-9 text-center font-black" /></TableCell>
-                                            <TableCell className="px-8 text-right"><Input type="number" step="0.001" {...form.register(`items.${index}.weight`)} className="h-9 text-right font-black" /></TableCell>
-                                            <TableCell className="pr-6"><Button variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length === 1} className="text-red-400"><Trash2 size={16}/></Button></TableCell>
+                                            <TableCell className="pr-6 text-right"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length === 1} className="text-red-400"><Trash2 size={16}/></Button></TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -447,7 +444,6 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                                     <TableRow className="hover:bg-transparent font-black">
                                         <TableCell colSpan={2} className="px-6 text-[10px] uppercase text-slate-400">REGISTRY TOTALS</TableCell>
                                         <TableCell className="text-center text-blue-900">{totals.units}</TableCell>
-                                        <TableCell className="text-right px-8 text-blue-900">{totals.weight.toFixed(3)} MT</TableCell>
                                         <TableCell></TableCell>
                                     </TableRow>
                                 </TableFooter>
