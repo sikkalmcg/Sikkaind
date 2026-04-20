@@ -93,6 +93,7 @@ const getStatusColor = (status: string) => {
 /**
  * @fileOverview Live Location Node Component.
  * Optimized GIS Handshake: Own Vehicles show live telemetry; Market/Contract show SIM TRACK.
+ * Updated to display FULL physical address on hover with sliding transition.
  */
 function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: string, vehicleType: string, onClick: () => void }) {
     const [location, setLocation] = useState<{ city: string; full: string } | null>(null);
@@ -107,24 +108,21 @@ function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: stri
         setIsLoading(true);
         try {
             const res = await fetchWheelseyeLocation(vehicleNo);
-            if (res && res.data && res.data.location && res.data.location !== 'Location Registry Sync...') {
-                const parts = res.data.location.split(',').map((p: string) => p.trim());
+            if (res && res.data && res.data.location && !res.data.location.includes('Sync...')) {
+                const fullAddress = res.data.location;
+                const parts = fullAddress.split(',').map((p: string) => p.trim()).filter(Boolean);
+                
                 setLocation({
                     city: parts[0] || 'RESOLVING...',
-                    full: res.data.location
+                    full: fullAddress
                 });
-            } else if (res && res.data && res.data.location === 'Location Registry Sync...') {
-                // If we get the fallback, we keep searching but don't clear old data if it exists
-                if (!location) {
-                    setLocation({ city: 'RESOLVING...', full: 'Establishing Handshake...' });
-                }
             }
         } catch (e) {
             console.warn("Telemetry signal latency.");
         } finally {
             setIsLoading(false);
         }
-    }, [vehicleNo, isSimTrackMode, location]);
+    }, [vehicleNo, isSimTrackMode]);
 
     useEffect(() => {
         if (!isSimTrackMode) {
@@ -168,7 +166,7 @@ function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: stri
         >
             <div className={cn(
                 "flex items-center gap-3 px-4 py-2.5 bg-blue-50 border-2 border-blue-100 rounded-[1.25rem] transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-sm group-hover/loc:shadow-2xl group-hover/loc:border-blue-500 group-hover/loc:bg-white overflow-hidden",
-                isHovered ? "max-w-[600px] pr-8" : "max-w-[150px]"
+                isHovered ? "max-w-[700px] pr-8" : "max-w-[160px]"
             )}>
                 <div className={cn(
                     "p-1.5 rounded-lg transition-all duration-500",
@@ -179,12 +177,12 @@ function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: stri
                 <div className="flex flex-col min-w-0">
                     <span className={cn(
                         "text-[11px] font-black uppercase truncate transition-colors duration-500",
-                        isHovered ? "text-blue-900" : "text-blue-700"
+                        isHovered ? "text-blue-900 whitespace-normal leading-tight" : "text-blue-700"
                     )}>
                         {isHovered ? displayFull : displayCity}
                     </span>
                     {isHovered && (
-                        <span className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em] mt-0.5 animate-in fade-in slide-in-from-left-2 duration-700">
+                        <span className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 animate-in fade-in slide-in-from-left-2 duration-700">
                             AUTHORIZED GIS TELEMETRY HANDSHAKE
                         </span>
                     )}

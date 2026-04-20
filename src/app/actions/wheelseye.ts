@@ -30,9 +30,10 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
 
 /**
  * Registry Logic: Cleans raw address data into professional 'Location Registry' format.
+ * Updated to return the FULL address manifest as per mission requirement.
  */
 function cleanLocationRegistry(address: string): string {
-    if (!address || address === 'N/A' || address === 'Address not available' || address.includes('Establishing')) return 'Location Registry Sync...';
+    if (!address || address === 'N/A' || address === 'Address not available' || address.toLowerCase().includes('establishing')) return 'Location Registry Sync...';
     
     const forbidden = ["Registry", "Handshake", "Node", "Transit Interchange", "Cluster Perimeter", "Near En-route", "En-route", "Mission Transit"];
     let clean = address;
@@ -41,33 +42,29 @@ function cleanLocationRegistry(address: string): string {
         clean = clean.replace(regex, '');
     });
 
-    const parts = clean.split(',').map(p => p.trim()).filter(Boolean);
-    if (parts.length >= 3) {
-        return `${parts[0]}, ${parts[1]}, ${parts[2]}`;
-    } else if (parts.length > 0) {
-        return parts.join(', ');
-    }
-    return 'Location Registry Sync...';
+    return clean.trim() || 'Location Registry Sync...';
 }
 
 async function getSettings() {
+    // MISSION SYNC: Primary Authorized Token Node
+    const AUTHORIZED_TOKEN = "53afc208-0981-48c7-b134-d85d2f33dc0c";
+    
     try {
-        // REGISTRY SYNC: Match with settings/page.tsx node ID
         const settingsRef = doc(firestore, "gps_settings", "api_config");
         const snap = await getDoc(settingsRef);
         if (snap.exists()) {
             const data = snap.data();
             return {
                 apiUrl: "https://api.wheelseye.com/currentLoc",
-                accessToken: data.apiKey || process.env.NEXT_PUBLIC_WHEELSEYE_API_KEY || "53afc208-0981-48c7-b134-d85d2f33dc0c"
+                accessToken: data.apiKey || AUTHORIZED_TOKEN
             };
         }
     } catch (e) {
-        console.warn("Using default GIS settings node.");
+        console.warn("Using authorized default GIS node.");
     }
     return {
         apiUrl: "https://api.wheelseye.com/currentLoc",
-        accessToken: process.env.NEXT_PUBLIC_WHEELSEYE_API_KEY || "53afc208-0981-48c7-b134-d85d2f33dc0c"
+        accessToken: AUTHORIZED_TOKEN
     };
 }
 
@@ -127,7 +124,6 @@ export async function fetchWheelseyeLocation(vehicleNumber: string) {
   const settings = await getSettings();
   const cleanNo = vehicleNumber?.toUpperCase().replace(/\s/g, '');
   
-  // REGISTRY HANDSHAKE: Fetching full list and filtering locally to ensure high match probability
   const url = `${settings.apiUrl}?accessToken=${settings.accessToken}`;
 
   try {
