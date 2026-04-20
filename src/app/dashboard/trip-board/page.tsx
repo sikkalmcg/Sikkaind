@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -392,7 +393,7 @@ function TripBoardContent() {
   }, [joinedData, shipments, selectedPlants]);
 
   const totalPages = Math.ceil(processedData.length / itemsPerPage);
-  const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * ITEMS_PER_PAGE);
 
   const handleSelectPendingRow = (id: string, checked: boolean) => {
     setSelectedPendingIds(prev => checked ? [...prev, id] : prev.filter(i => i !== id));
@@ -430,6 +431,49 @@ function TripBoardContent() {
     XLSX.writeFile(workbook, `TripBoard_${activeTab}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
+  const handleEditVehicleSave = async (tripId: string, values: any) => {
+    if (!firestore || !user || !editVehicleTrip) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(editVehicleTrip.originPlantId);
+        const ts = serverTimestamp();
+        const currentName = user.displayName || user.email?.split('@')[0] || 'System';
+
+        await runTransaction(firestore, async (transaction) => {
+            const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
+            const globalTripRef = doc(firestore, 'trips', tripId);
+            
+            const updateData = {
+                vehicleNumber: values.vehicleNumber,
+                driverMobile: values.driverMobile || '',
+                lastUpdated: ts
+            };
+
+            transaction.update(tripRef, updateData);
+            transaction.update(globalTripRef, updateData);
+
+            // Log activity
+            const logRef = doc(collection(firestore, "activity_logs"));
+            transaction.set(logRef, {
+                userId: user.uid,
+                userName: currentName,
+                action: 'Vehicle Correction',
+                tcode: 'Trip Board',
+                pageName: 'Mission Registry',
+                timestamp: ts,
+                description: `Corrected vehicle for Trip ${editVehicleTrip.tripId} to ${values.vehicleNumber}.`
+            });
+        });
+
+        toast({ title: 'Vehicle Corrected', description: 'Registry node updated successfully.' });
+        setEditVehicleTrip(null);
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Correction Failed', description: e.message });
+    } finally {
+        hideLoader();
+    }
+  };
+
   const handleAction = async (type: string, row: any) => {
     if (type === 'assign') {
         setSelectedShipmentsForAssign([row]);
@@ -441,7 +485,6 @@ function TripBoardContent() {
     }
     if (type === 'view') setViewTripData(row);
     if (type === 'track') {
-        // MISSION FIX: Differentiate between GIS and SIM Track
         if (row.vehicleType === 'Market Vehicle' || row.vehicleType === 'Contract Vehicle') {
             setSimTrackTrip(row);
         } else {
@@ -1071,7 +1114,7 @@ function TripBoardContent() {
 
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
       {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={handleCancelConfirm} />}
-      {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={async () => {}} />}
+      {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={handleEditVehicleSave} />}
       {arrivedTrip && <ArrivedModal isOpen={!!arrivedTrip} onClose={() => setArrivedTrip(null)} trip={arrivedTrip} onPost={handleArrivedPost} />}
       {unloadedTrip && <UnloadedModal isOpen={!!unloadedTrip} onClose={() => setUnloadedTrip(null)} trip={unloadedTrip} onPost={handleUnloadedPost} />}
       {rejectTrip && <RejectModal isOpen={!!rejectTrip} onClose={() => setRejectTrip(null)} trip={rejectTrip} onPost={handleRejectPost} />}
