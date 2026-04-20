@@ -121,7 +121,6 @@ export default function SupervisorTaskPage() {
         // Sync Gate Entries Node (Global source)
         unsubscribers.push(onSnapshot(collection(firestore, "vehicleEntries"), (snap) => {
             const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
-            // Pre-filter by authorized plants to keep state small
             setVehicleEntries(list.filter(e => isAdmin || normalizedAuthIds.includes(normalizePlantId(e.plantId).toLowerCase())));
             setIsLoading(false);
         }, () => setDbError(true)));
@@ -168,67 +167,69 @@ export default function SupervisorTaskPage() {
         return () => unsubscribers.forEach(u => u());
     }, [firestore, JSON.stringify(authorizedPlantIds), isAdmin]);
 
+    // MISSION CRITICAL: Use Trip-centric Map to avoid duplicates and ensure planned data is visible
     const activeTasks = useMemo(() => {
         const tasksMap = new Map<string, any>();
         const normalizedAuthIds = authorizedPlantIds.map(id => id.toLowerCase());
 
-        vehicleEntries.forEach(entry => {
-            const entryPlantId = normalizePlantId(entry.plantId).toLowerCase();
-            const isAuthorized = isAdmin || normalizedAuthIds.includes(entryPlantId);
+        // Base the task list on active TRIPS requiring supervisor loading verification
+        trips.forEach(trip => {
+            const tripPlantId = normalizePlantId(trip.originPlantId).toLowerCase();
+            const isAuthorized = isAdmin || normalizedAuthIds.includes(tripPlantId);
             
-            if (entry.status !== 'IN' || entry.isTaskCompleted || !isAuthorized) return;
+            if (!isAuthorized || trip.loadingVerified) return;
 
-            // MISSION JOIN: Resolve Trip node by Firestore ID or readable Trip ID
-            const entryVNo = entry.vehicleNumber?.toUpperCase().replace(/\s/g, '');
-            const trip = trips.find(t => 
-                t.id === entry.tripId || 
-                t.tripId === entry.tripId ||
-                (t.vehicleNumber?.toUpperCase().replace(/\s/g, '') === entryVNo && normalizePlantId(t.originPlantId).toLowerCase() === entryPlantId && !['delivered', 'cancelled', 'closed'].includes((t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-')))
-            );
-
-            // Filter by Mission Status pulse: Only show missions in assigned/loading phases
-            if (trip) {
-                const s = (trip.tripStatus || trip.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
-                const validLoadingStatuses = ['assigned', 'vehicle-assigned', 'yard', 'loading', 'yard-loading', 'loaded', 'loading-complete'];
-                if (!validLoadingStatuses.includes(s)) return;
-            }
-
-            // Resolve Shipment & LR manifests
-            const shipId = trip ? (Array.isArray(trip.shipmentIds) ? trip.shipmentIds[0] : trip.shipmentIds) : entry.shipmentId;
-            const shipment = shipments.find(s => (s.id === shipId || s.shipmentId === shipId) && normalizePlantId(s.originPlantId).toLowerCase() === entryPlantId);
+            const rawStatus = (trip.tripStatus || trip.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
+            const validLoadingStatuses = ['assigned', 'vehicle-assigned', 'yard', 'loading', 'yard-loading', 'loaded', 'loading-complete'];
             
-            // Block cancelled order manifests
+            if (!validLoadingStatuses.includes(rawStatus)) return;
+
+            // Join with Shipment Manifest
+            const shipId = Array.isArray(trip.shipmentIds) ? trip.shipmentIds[0] : trip.shipmentIds;
+            const shipment = shipments.find(s => (s.id === shipId || s.shipmentId === shipId) && normalizePlantId(s.originPlantId).toLowerCase() === tripPlantId);
+            
             if (shipment?.currentStatusId === 'Cancelled') return;
 
-            const lr = lrs.find(l => (l.tripDocId === trip?.id || l.tripId === trip?.tripId || l.lrNumber === entry.lrNumber) && normalizePlantId(l.originPlantId).toLowerCase() === entryPlantId);
+            // Join with Vehicle Entry (Gate status)
+            const entryVNo = trip.vehicleNumber?.toUpperCase().replace(/\s/g, '');
+            const entry = vehicleEntries.find(e => 
+                e.vehicleNumber?.toUpperCase().replace(/\s/g, '') === entryVNo && 
+                normalizePlantId(e.plantId).toLowerCase() === tripPlantId &&
+                e.status === 'IN' &&
+                !e.isTaskCompleted
+            );
 
-            const plantNode = allPlants?.find((p: any) => normalizePlantId(p.id).toLowerCase() === entryPlantId);
-            const pName = plantNode?.name || entry.plantId;
+            // Task is visible if trip is active, but only actionable if vehicle is physically IN the yard
+            const isReadyForTask = !!entry;
+
+            const lr = lrs.find(l => (l.tripDocId === trip.id || l.tripId === trip.tripId || l.lrNumber === trip.lrNumber) && normalizePlantId(l.originPlantId).toLowerCase() === tripPlantId);
+            const plantNode = allPlants?.find((p: any) => normalizePlantId(p.id).toLowerCase() === tripPlantId);
+            const pName = plantNode?.name || trip.originPlantId;
             
-            const plannedUnits = (shipment?.items || []).reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0) || Number(shipment?.totalUnits || entry.billedQty || 0);
+            const plannedUnits = (shipment?.items || []).reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0) || Number(shipment?.totalUnits || trip.totalUnits || 0);
 
-            tasksMap.set(entry.id, {
-                id: entry.id,
-                tripId: trip?.tripId || '--', 
-                lrNumber: lr?.lrNumber || entry.lrNumber || trip?.lrNumber || shipment?.lrNumber || '--',
-                realTripId: trip?.id || null,
-                plantId: entry.plantId,
+            tasksMap.set(trip.id, {
+                id: trip.id,
+                tripId: trip.tripId || '--', 
+                lrNumber: lr?.lrNumber || trip.lrNumber || shipment?.lrNumber || '--',
+                realTripId: trip.id,
+                plantId: trip.originPlantId,
                 plantName: pName,
-                purpose: entry.purpose || 'Loading',
-                vehicleNumber: entry.vehicleNumber,
-                driverName: entry.driverName || trip?.driverName || '--',
-                driverMobile: entry.driverMobile || trip?.driverMobile || '--',
-                from: entry.from || trip?.loadingPoint || shipment?.loadingPoint || pName,
-                shipTo: entry.shipToParty || trip?.shipToParty || shipment?.shipToParty || '--',
-                destination: entry.unloadingPoint || trip?.unloadingPoint || shipment?.unloadingPoint || '--',
-                assignedQty: Number(trip?.assignedQtyInTrip || trip?.assignQty || entry.billedQty || 0),
+                purpose: entry?.purpose || 'Loading',
+                vehicleNumber: trip.vehicleNumber,
+                driverName: trip.driverName || entry?.driverName || '--',
+                driverMobile: trip.driverMobile || entry?.driverMobile || '--',
+                from: trip.loadingPoint || shipment?.loadingPoint || pName,
+                shipTo: trip.shipToParty || shipment?.shipToParty || shipment?.billToParty || '--',
+                destination: trip.unloadingPoint || shipment?.unloadingPoint || trip.destination || '--',
+                assignedQty: Number(trip.assignedQtyInTrip || trip.assignQty || shipment?.quantity || 0),
                 plannedUnits,
-                status: 'IN',
-                isReadyForTask: true, 
+                status: entry ? 'IN' : 'AWAITING ARRIVAL',
+                isReadyForTask,
                 entryData: entry,
                 shipmentItems: shipment?.items || [],
-                timestamp: parseSafeDate(entry.entryTimestamp) || new Date(),
-                consignor: shipment?.consignor || trip?.consignor || entry.consignorName || '--'
+                timestamp: parseSafeDate(trip.startDate) || new Date(),
+                consignor: shipment?.consignor || trip.consignor || '--'
             });
         });
 
