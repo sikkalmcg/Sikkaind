@@ -64,6 +64,7 @@ export default function SupervisorTaskPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [dbError, setDbError] = useState(false);
 
+    // Registry Handshake: Fetch all plants for identity resolution
     const plantsQuery = useMemoFirebase(() => 
         firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
         [firestore]
@@ -71,7 +72,7 @@ export default function SupervisorTaskPage() {
     const { data: allPlants } = useCollection<any>(plantsQuery);
 
     useEffect(() => {
-        if (!firestore || !user) return;
+        if (!firestore || !user || !allPlants) return;
 
         const syncAuth = async () => {
             try {
@@ -83,16 +84,15 @@ export default function SupervisorTaskPage() {
                 let userDocSnap = null;
                 if (!qSnap.empty) userDocSnap = qSnap.docs[0];
 
-                const baseList = allPlants || [];
                 let authIds: string[] = [];
                 const isAdminSession = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
                 const isRoot = isAdminSession || userDocSnap?.data()?.username === 'sikkaind';
 
                 if (userDocSnap) {
                     const userData = userDocSnap.data();
-                    authIds = isRoot ? baseList.map(p => p.id) : (userData.plantIds || []);
+                    authIds = isRoot ? allPlants.map((p: any) => p.id) : (userData.plantIds || []);
                 } else if (isRoot) {
-                    authIds = baseList.map(p => p.id);
+                    authIds = allPlants.map((p: any) => p.id);
                 }
 
                 setIsAdmin(isRoot);
@@ -116,11 +116,15 @@ export default function SupervisorTaskPage() {
         const unsubscribers: (() => void)[] = [];
         setIsLoading(true);
 
+        const normalizedAuthIds = authorizedPlantIds.map(id => id.toLowerCase());
+
         // Sync Gate Entries Node (Global source)
         unsubscribers.push(onSnapshot(collection(firestore, "vehicleEntries"), (snap) => {
-            setVehicleEntries(snap.docs.map(d => ({ ...d.data(), id: d.id })));
+            const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+            // Pre-filter by authorized plants to keep state small
+            setVehicleEntries(list.filter(e => isAdmin || normalizedAuthIds.includes(normalizePlantId(e.plantId).toLowerCase())));
             setIsLoading(false);
-        }));
+        }, () => setDbError(true)));
 
         // Sync Regional Partitions
         authorizedPlantIds.forEach(pId => {
@@ -162,7 +166,7 @@ export default function SupervisorTaskPage() {
         });
 
         return () => unsubscribers.forEach(u => u());
-    }, [firestore, JSON.stringify(authorizedPlantIds)]);
+    }, [firestore, JSON.stringify(authorizedPlantIds), isAdmin]);
 
     const activeTasks = useMemo(() => {
         const tasksMap = new Map<string, any>();
@@ -177,10 +181,10 @@ export default function SupervisorTaskPage() {
             // JOINT Node: Link Entry to Trip
             const trip = trips.find(t => 
                 t.id === entry.tripId || 
-                (t.vehicleNumber === entry.vehicleNumber && normalizePlantId(t.originPlantId).toLowerCase() === entryPlantId && !['delivered', 'cancelled', 'closed'].includes((t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-')))
+                (t.vehicleNumber?.toUpperCase().replace(/\s/g, '') === entry.vehicleNumber?.toUpperCase().replace(/\s/g, '') && normalizePlantId(t.originPlantId).toLowerCase() === entryPlantId && !['delivered', 'cancelled', 'closed'].includes((t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-')))
             );
 
-            // Filter by Mission Status pulse
+            // Filter by Mission Status pulse: Only show missions in assigned/loading phases
             if (trip) {
                 const s = (trip.tripStatus || trip.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
                 const validLoadingStatuses = ['assigned', 'vehicle-assigned', 'yard', 'loading', 'yard-loading', 'loaded', 'loading-complete'];
@@ -329,7 +333,7 @@ export default function SupervisorTaskPage() {
                             </SelectTrigger>
                             <SelectContent className="rounded-xl">
                                 <SelectItem value="all-plants" className="font-black uppercase text-[10px] tracking-widest text-blue-600">All Authorized Nodes</SelectItem>
-                                {(allPlants || []).filter(p => isAdmin || authorizedPlantIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id))).map(p => (
+                                {(allPlants || []).filter((p: any) => isAdmin || authorizedPlantIds.some(aid => normalizePlantId(aid).toLowerCase() === normalizePlantId(p.id).toLowerCase())).map((p: any) => (
                                     <SelectItem key={p.id} value={normalizePlantId(p.id)} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>
                                 ))}
                             </SelectContent>
@@ -516,4 +520,3 @@ export default function SupervisorTaskPage() {
         </main>
     );
 }
-
