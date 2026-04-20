@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -43,7 +44,7 @@ import { Label } from '@/components/ui/label';
 import { Timestamp } from 'firebase/firestore';
 
 const itemSchema = z.object({
-    deliveryNo: z.string().min(1, "Delivery number is mandatory."),
+    deliveryNo: z.string().optional().default(''),
     invoiceNo: z.string().optional().default(''),
     itemDescription: z.string().min(1, "Required"),
     plannedUnit: z.coerce.number().default(0),
@@ -63,7 +64,9 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
   const firestore = useFirestore();
   const { user } = useUser();
   const { showLoader, hideLoader } = useLoading();
-  const hasInitialized = useRef(false);
+  
+  // Track last initialized task to prevent infinite loops but allow updates
+  const [lastInitedKey, setLastInitedKey] = useState<string>('');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -74,59 +77,57 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
     }
   });
 
-  const { control, handleSubmit, reset, setValue, formState: { isSubmitting, isValid } } = form;
+  const { control, handleSubmit, reset, setValue, formState: { isSubmitting, isValid, isDirty } } = form;
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
   const watchedItems = useWatch({ control, name: "items" }) || [];
 
   // HIGH-FIDELITY REGISTRY HANDSHAKE Node
   useEffect(() => {
-    if (isOpen && task) {
-        // Reset initialization tracker on task ID change
-        if (hasInitialized.current && !task.isHistoryEdit) {
-            // Check if we are still looking at the same task
-        }
-
-        const populateManifest = () => {
-            if (task.isHistoryEdit) {
-                reset({
-                    remarks: task.remarks || '',
-                    items: task.items || []
-                });
-            } else {
-                // Determine if we have a valid shipment manifest to pull from
-                const manifestSource = task.shipmentItems || [];
-                
-                if (manifestSource.length > 0) {
-                    const initialItems = manifestSource.map((i: any) => ({
-                        deliveryNo: '',
-                        invoiceNo: i.invoiceNumber || '',
-                        itemDescription: i.itemDescription || i.description || task.itemDescription || 'Goods particulars',
-                        plannedUnit: Number(i.units) || 0,
-                        loadUnit: Number(i.units) || 0, // PRE-FILL LOAD UNIT FROM PLAN
-                        uom: i.unitType || 'Package'
-                    }));
-                    reset({ remarks: '', items: initialItems });
-                } else {
-                    // Fallback to manual entry node if no manifest found
-                    reset({ remarks: '', items: [] });
-                    append({ 
-                        deliveryNo: '', 
-                        invoiceNo: '', 
-                        itemDescription: 'Goods particulars', 
-                        plannedUnit: Number(task.plannedUnits) || 0, 
-                        loadUnit: Number(task.plannedUnits) || 0, 
-                        uom: 'Package' 
-                    });
-                }
-            }
-            hasInitialized.current = true;
-        };
-
-        populateManifest();
-    } else if (!isOpen) {
-        hasInitialized.current = false;
+    if (!isOpen || !task) {
+        setLastInitedKey('');
+        return;
     }
-  }, [isOpen, task, reset, append]);
+
+    // Create a unique key for this specific manifest state
+    const manifestItems = task.shipmentItems || [];
+    const currentKey = `${task.id}_${manifestItems.length}_${task.isHistoryEdit ? 'edit' : 'verify'}`;
+
+    if (currentKey === lastInitedKey) return;
+
+    const populateManifest = () => {
+        if (task.isHistoryEdit) {
+            reset({
+                remarks: task.remarks || '',
+                items: task.items || []
+            });
+        } else {
+            if (manifestItems.length > 0) {
+                const initialItems = manifestItems.map((i: any) => ({
+                    deliveryNo: '',
+                    invoiceNo: i.invoiceNumber || i.invoiceNo || '',
+                    itemDescription: i.itemDescription || i.description || task.itemDescription || 'Goods particulars',
+                    plannedUnit: Number(i.units) || 0,
+                    loadUnit: Number(i.units) || 0, 
+                    uom: i.unitType || 'Package'
+                }));
+                reset({ remarks: '', items: initialItems });
+            } else {
+                reset({ remarks: '', items: [] });
+                append({ 
+                    deliveryNo: '', 
+                    invoiceNo: '', 
+                    itemDescription: 'Goods particulars', 
+                    plannedUnit: Number(task.plannedUnits) || 0, 
+                    loadUnit: Number(task.plannedUnits) || 0, 
+                    uom: 'Package' 
+                });
+            }
+        }
+        setLastInitedKey(currentKey);
+    };
+
+    populateManifest();
+  }, [isOpen, task, reset, append, lastInitedKey]);
 
   const totals = useMemo(() => {
     return watchedItems.reduce((acc, curr) => ({
@@ -265,7 +266,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                     variant="outline" 
                     size="sm" 
                     onClick={() => append({ deliveryNo: '', invoiceNo: '', itemDescription: 'Goods particulars', plannedUnit: 0, loadUnit: 0, uom: 'Package' })}
-                    className="h-8 md:h-9 px-3 md:px-5 gap-2 font-black text-[8px] md:text-[10px] uppercase border-blue-200 text-blue-700 bg-white hover:bg-blue-50 shadow-md transition-all active:scale-95"
+                    className="h-8 md:h-9 px-3 md:px-5 gap-2 font-black text-[8px] md:text-[10px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all active:scale-95"
                 >
                     <Plus className="h-3 w-3" /> ADD ROW
                 </Button>
@@ -275,7 +276,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                 <Table>
                     <TableHeader className="bg-slate-900">
                         <TableRow className="hover:bg-transparent border-none h-12">
-                            <TableHead className="text-white text-[9px] font-black uppercase px-8 w-48">DELIVERY NO *</TableHead>
+                            <TableHead className="text-white text-[9px] font-black uppercase px-8 w-48">DELIVERY NO</TableHead>
                             <TableHead className="text-white text-[9px] font-black uppercase px-4 w-48">INVOICE NO</TableHead>
                             <TableHead className="text-white text-[9px] font-black uppercase px-4">ITEM DESCRIPTION *</TableHead>
                             <TableHead className="text-white text-[9px] font-black uppercase px-4 text-center w-32">LOAD UNIT *</TableHead>
@@ -367,7 +368,7 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <Label className="text-[8px] font-black uppercase text-slate-400">Delivery No *</Label>
+                                <Label className="text-[8px] font-black uppercase text-slate-400">Delivery No</Label>
                                 <Controller name={`items.${index}.deliveryNo`} control={control} render={({field}) => <Input {...field} className="h-10 rounded-lg bg-slate-50 border-slate-200 font-bold text-[11px]" />} />
                             </div>
                             <div className="space-y-1.5">

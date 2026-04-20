@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -99,7 +100,7 @@ function AutocompleteInput({ value, onChange, onSearchClick, suggestions, placeh
             if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) setIsOpen(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        return () => document.removeResponder('mousedown', handleClickOutside);
     }, []);
 
     return (
@@ -363,17 +364,10 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         await runTransaction(firestore, async (tx) => {
             const shipRef = doc(collection(firestore, `plants/${plantId}/shipments`));
 
-            let manifestItems = values.items || [];
-            if (manifestItems.length === 0) {
-                manifestItems = [{
-                    invoiceNumber: 'INITIAL-PLAN',
-                    ewaybillNumber: '',
-                    units: 1,
-                    unitType: 'Package',
-                    itemDescription: 'AUTO-GEN MISSION PAYLOAD',
-                    hsnSac: ''
-                }];
-            }
+            // Mission Logic Node: Ensure manifest is correctly captured
+            const manifestItems = values.items && values.items.length > 0 
+                ? values.items.filter(i => i.itemDescription || i.invoiceNumber) 
+                : [];
 
             const dataToSave = {
                 ...values,
@@ -383,6 +377,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 assignedQty: 0,
                 balanceQty: values.quantity,
                 userId: user.uid,
+                userName: user.displayName || user.email,
                 materialTypeId: 'MT'
             };
 
@@ -496,7 +491,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     delete g.rawItems;
                     g.items = finalItems;
                     const shipRef = doc(collection(firestore, `plants/${g.originPlantId}/shipments`));
-                    tx.set(shipRef, { ...g, assignedQty: 0, balanceQty: g.quantity, currentStatusId: 'pending', creationDate: serverTimestamp(), userId: user.uid });
+                    tx.set(shipRef, { ...g, assignedQty: 0, balanceQty: g.quantity, currentStatusId: 'pending', creationDate: serverTimestamp(), userId: user.uid, userName: user.displayName || user.email });
                     successCount++;
                 }
             });
