@@ -244,7 +244,6 @@ function MissionRegistryCard({
                     <p className="text-[9px] font-bold text-slate-400 uppercase">{formattedDate}</p>
                 </div>
                 
-                {/* MISSION GRID node: Optimized spans and gaps to fix overlap */}
                 <div className={cn("space-y-1 pr-4", isPending ? "col-span-4" : "col-span-3")}>
                     <div className="flex items-center gap-1.5">
                         <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
@@ -301,6 +300,11 @@ function MissionRegistryCard({
                 )}
 
                 <div className="col-span-1 text-right flex flex-col justify-center items-end">
+                    {!isPending && row.vehicleType && (
+                        <Badge variant="outline" className="mb-1.5 bg-blue-50 text-blue-700 border-blue-200 text-[8px] font-black uppercase px-2 h-5 shadow-sm">
+                            {row.vehicleType}
+                        </Badge>
+                    )}
                     <p className="text-[13px] font-black text-slate-900 tracking-tighter whitespace-nowrap">
                         {isPending ? row.balanceUom : row.qtyUom}
                     </p>
