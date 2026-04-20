@@ -83,24 +83,27 @@ export default function SupervisorTaskPage() {
                 let userDocSnap = null;
                 if (!qSnap.empty) userDocSnap = qSnap.docs[0];
 
-                const baseList = allPlants && allMasterPlants.length > 0 ? allMasterPlants : [];
+                const baseList = allPlants || [];
                 let authIds: string[] = [];
                 const isAdminSession = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
                 const isRoot = isAdminSession || userDocSnap?.data()?.username === 'sikkaind';
 
                 if (userDocSnap) {
-                    authIds = isRoot ? (allPlants || []).map(p => p.id) : (userDocSnap.data().plantIds || []);
+                    const userData = userDocSnap.data();
+                    authIds = isRoot ? baseList.map(p => p.id) : (userData.plantIds || []);
                 } else if (isRoot) {
-                    authIds = (allPlants || []).map(p => p.id);
+                    authIds = baseList.map(p => p.id);
                 }
 
                 setIsAdmin(isRoot);
-                setAuthorizedPlantIds(authIds.map(normalizePlantId));
+                const normalized = authIds.map(normalizePlantId);
+                setAuthorizedPlantIds(normalized);
                 
-                if (authIds.length > 0 && selectedPlant === 'all-plants' && !isRoot) {
-                    setSelectedPlant(normalizePlantId(authIds[0]));
+                if (normalized.length > 0 && selectedPlant === 'all-plants' && !isRoot) {
+                    setSelectedPlant(normalized[0]);
                 }
             } catch (e) {
+                console.error("Auth Handshake Failure:", e);
                 setDbError(true);
             }
         };
@@ -125,28 +128,41 @@ export default function SupervisorTaskPage() {
 
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/trips`), (snap) => {
                 const list = snap.docs.map(d => ({ ...d.data(), id: d.id, originPlantId: pId }));
-                setTrips(prev => [...prev.filter(t => normalizePlantId(t.originPlantId).toLowerCase() !== pIdNorm), ...list]);
+                setTrips(prev => {
+                    const others = prev.filter(t => normalizePlantId(t.originPlantId).toLowerCase() !== pIdNorm);
+                    return [...others, ...list];
+                });
             }));
 
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/shipments`), (snap) => {
                 const list = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() }));
-                setShipments(prev => [...prev.filter(s => normalizePlantId(s.originPlantId).toLowerCase() !== pIdNorm), ...list]);
+                setShipments(prev => {
+                    const others = prev.filter(s => normalizePlantId(s.originPlantId).toLowerCase() !== pIdNorm);
+                    return [...others, ...list];
+                });
             }));
 
             unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/lrs`), (snap) => {
                 const list = snap.docs.map(d => ({ ...d.data(), id: d.id, originPlantId: pId }));
-                setLrs(prev => [...prev.filter(l => normalizePlantId(l.originPlantId).toLowerCase() !== pIdNorm), ...list]);
+                setLrs(prev => {
+                    const others = prev.filter(l => normalizePlantId(l.originPlantId).toLowerCase() !== pIdNorm);
+                    return [...others, ...list];
+                });
             }));
 
             const historyRef = query(collection(firestore, `plants/${pId}/supervisor_tasks`), orderBy("timestamp", "desc"), limit(50));
             unsubscribers.push(onSnapshot(historyRef, (snap) => {
                 const list = snap.docs.map(d => ({ ...d.data(), id: d.id, originPlantId: pId, timestamp: parseSafeDate(d.data().timestamp) }));
-                setHistory(prev => [...prev.filter(h => normalizePlantId(h.originPlantId).toLowerCase() !== pIdNorm), ...list].sort((a,b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0)));
+                setHistory(prev => {
+                    const others = prev.filter(h => normalizePlantId(h.originPlantId).toLowerCase() !== pIdNorm);
+                    const combined = [...others, ...list];
+                    return combined.sort((a,b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0));
+                });
             }));
         });
 
         return () => unsubscribers.forEach(u => u());
-    }, [firestore, authorizedPlantIds]);
+    }, [firestore, JSON.stringify(authorizedPlantIds)]);
 
     const activeTasks = useMemo(() => {
         const tasksMap = new Map<string, any>();
@@ -178,7 +194,9 @@ export default function SupervisorTaskPage() {
 
             const lr = lrs.find(l => (l.tripDocId === trip?.id || l.tripId === trip?.tripId || l.lrNumber === entry.lrNumber) && normalizePlantId(l.originPlantId).toLowerCase() === entryPlantId);
 
-            const pName = allPlants?.find((p: any) => normalizePlantId(p.id).toLowerCase() === entryPlantId)?.name || entry.plantId;
+            const plantNode = allPlants?.find((p: any) => normalizePlantId(p.id).toLowerCase() === entryPlantId);
+            const pName = plantNode?.name || entry.plantId;
+            
             const plannedUnits = (shipment?.items || []).reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0) || Number(shipment?.totalUnits || entry.billedQty || 0);
 
             tasksMap.set(entry.id, {
@@ -201,7 +219,8 @@ export default function SupervisorTaskPage() {
                 isReadyForTask: true, 
                 entryData: entry,
                 shipmentItems: shipment?.items || [],
-                timestamp: parseSafeDate(entry.entryTimestamp) || new Date()
+                timestamp: parseSafeDate(entry.entryTimestamp) || new Date(),
+                consignor: shipment?.consignor || trip?.consignor || entry.consignorName || '--'
             });
         });
 
@@ -304,27 +323,21 @@ export default function SupervisorTaskPage() {
                         <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
                             <Factory className="h-3 w-3" /> Plant Node Registry
                         </Label>
-                        {!isAdmin && authorizedPlantIds.length === 1 ? (
-                            <div className="h-10 px-4 flex items-center bg-blue-50 border border-blue-100 rounded-xl text-blue-900 font-black text-xs shadow-sm uppercase min-w-[220px]">
-                                <ShieldCheck className="h-3.5 w-3.5 mr-2 text-blue-600" /> {allPlants?.find((p: any) => normalizePlantId(p.id) === authorizedPlantIds[0])?.name || authorizedPlantIds[0]}
-                            </div>
-                        ) : (
-                            <Select value={selectedPlant} onValueChange={(v) => { setSelectedPlant(v); setLivePage(1); setHistoryPage(1); }}>
-                                <SelectTrigger className="w-[220px] h-10 rounded-xl bg-white border-slate-200 font-bold shadow-sm">
-                                    <SelectValue placeholder="Pick node" />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl">
-                                    <SelectItem value="all-plants" className="font-black uppercase text-[10px] tracking-widest text-blue-600">All Authorized Nodes</SelectItem>
-                                    {(allPlants || []).filter(p => isAdmin || authorizedPlantIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id))).map(p => (
-                                        <SelectItem key={p.id} value={normalizePlantId(p.id)} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
+                        <Select value={selectedPlant} onValueChange={(v) => { setSelectedPlant(v); setLivePage(1); setHistoryPage(1); }}>
+                            <SelectTrigger className="w-[220px] h-10 rounded-xl bg-white border-slate-200 font-bold shadow-sm">
+                                <SelectValue placeholder="Pick node" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                                <SelectItem value="all-plants" className="font-black uppercase text-[10px] tracking-widest text-blue-600">All Authorized Nodes</SelectItem>
+                                {(allPlants || []).filter(p => isAdmin || authorizedPlantIds.some(aid => normalizePlantId(aid) === normalizePlantId(p.id))).map(p => (
+                                    <SelectItem key={p.id} value={normalizePlantId(p.id)} className="font-bold py-3 uppercase italic text-black">{p.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                     {dbError && (
-                        <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full text-[10px] font-bold border border-orange-200 uppercase tracking-wider">
-                            <WifiOff className="h-3 w-3" /> <span>Registry Sync Issue</span>
+                        <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full text-[10px] font-bold border border-orange-200 uppercase tracking-wider animate-pulse">
+                            <WifiOff className="h-3 w-3" /> <span>REGISTRY SYNC ISSUE</span>
                         </div>
                     )}
                 </div>
@@ -503,3 +516,4 @@ export default function SupervisorTaskPage() {
         </main>
     );
 }
+
