@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -18,7 +17,7 @@ import {
     Activity,
     RefreshCcw
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, normalizePlantId } from '@/lib/utils';
 import { useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import dynamic from 'next/dynamic';
@@ -36,6 +35,11 @@ interface TripTrackingModalProps {
   trip: any;
 }
 
+/**
+ * @fileOverview Trip Tracking Modal Terminal.
+ * Synchronized with Server-side GIS Handshake node.
+ * Implements persistent loading clearing to prevent UI hangs.
+ */
 export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackingModalProps) {
     const firestore = useFirestore();
     const [livePos, setLivePos] = useState<any>(null);
@@ -43,16 +47,18 @@ export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackin
     const [originData, setOriginData] = useState<{ lat: number; lng: number; name: string } | null>(null);
 
     const refreshTelemetry = useCallback(async () => {
-        if (!trip.vehicleNumber) return;
+        if (!trip?.vehicleNumber) return;
         try {
             const res = await fetchWheelseyeLocation(trip.vehicleNumber);
-            if (res.data) setLivePos(res.data);
+            if (res.data) {
+                setLivePos(res.data);
+            }
         } catch (e) {
             console.warn("Telemetry pulse delayed.");
         } finally {
             setIsLoading(false);
         }
-    }, [trip.vehicleNumber]);
+    }, [trip?.vehicleNumber]);
 
     useEffect(() => {
         if (!isOpen || !firestore || !trip) return;
@@ -74,7 +80,8 @@ export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackin
                 }
                 await refreshTelemetry();
             } catch (e) {
-                console.error("Registry error");
+                console.error("Registry meta fetch error:", e);
+                setIsLoading(false);
             }
         };
 
@@ -92,7 +99,7 @@ export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackin
                     <div className="flex items-center gap-4">
                         <div className="p-2.5 bg-blue-600 rounded-2xl shadow-lg rotate-3"><Radar className="h-6 w-6 text-white" /></div>
                         <div>
-                            <DialogTitle className="text-xl font-black uppercase tracking-tight italic text-white leading-none">MISSION TELEMETRY Handshake</DialogTitle>
+                            <DialogTitle className="text-xl font-black uppercase tracking-tight italic text-white leading-none">MISSION TELEMETRY HANDSHAKE</DialogTitle>
                             <DialogDescription className="text-blue-400 font-bold uppercase text-[9px] tracking-widest mt-2">Vehicle: {trip.vehicleNumber} | Registry ID: {trip.tripId}</DialogDescription>
                         </div>
                     </div>
@@ -132,7 +139,7 @@ export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackin
                                 {[
                                     { label: 'Pilot Node', value: trip.driverName, icon: User },
                                     { label: 'Dispatch Point', value: originData?.name || trip.plantName, icon: Factory },
-                                    { label: 'Current location', value: livePos?.location || 'Resolving...', icon: MapPin, color: 'text-blue-600 font-black animate-pulse' },
+                                    { label: 'Current location', value: livePos?.location || (isLoading ? 'Resolving...' : 'Signal searching...'), icon: MapPin, color: livePos ? 'text-blue-600 font-black' : 'text-slate-400' },
                                     { label: 'Drop node', value: trip.unloadingPoint, icon: MapPin, bold: true },
                                     { label: 'Mission speed', value: `${livePos?.speed || 0} KM/H`, icon: Navigation, color: 'text-emerald-600 font-black' },
                                     { label: 'Registry status', value: trip.tripStatus, icon: ShieldCheck, badge: true }
@@ -154,7 +161,7 @@ export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackin
                             </div>
                         </ScrollArea>
                         <div className="p-8 bg-slate-50 border-t">
-                            <Button variant="outline" className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest gap-2" onClick={refreshTelemetry}>
+                            <Button variant="outline" className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest gap-2" onClick={refreshTelemetry} disabled={isLoading}>
                                 <RefreshCcw className={cn("h-4 w-4", isLoading && "animate-spin")} /> Force Registry Sync
                             </Button>
                         </div>

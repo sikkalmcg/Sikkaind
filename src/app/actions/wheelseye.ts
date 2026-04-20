@@ -1,14 +1,15 @@
+'use server';
+
 import { doc, getDoc } from "firebase/firestore";
-import { firestore } from "@/firebase";
+import { firestore } from "@/firebase/init";
 
 /**
- * @fileOverview Hardened GIS Utility for Wheelseye Handshake.
- * Performs secure extraction of telemetry nodes from the authorized gateway.
- * Implements address cleaning logic to resolve professional location names.
- * Integrated with Google Maps Reverse Geocoding for high-fidelity location registry.
+ * @fileOverview Hardened GIS Utility for Wheelseye Handshake (Server Node).
+ * MARKED AS SERVER ACTION to prevent CORS violations and protect registry keys.
  */
 
 const GOOGLE_MAPS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
+const AUTHORIZED_TOKEN = "53afc208-0981-48c7-b134-d85d2f33dc0c";
 
 /**
  * Reverse Geocoding Node: Converts lat/lng coordinates to a human-readable address.
@@ -30,25 +31,13 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
 
 /**
  * Registry Logic: Cleans raw address data into professional 'Location Registry' format.
- * Updated to return the FULL address manifest as per mission requirement.
  */
 function cleanLocationRegistry(address: string): string {
     if (!address || address === 'N/A' || address === 'Address not available' || address.toLowerCase().includes('establishing')) return 'Location Registry Sync...';
-    
-    const forbidden = ["Registry", "Handshake", "Node", "Transit Interchange", "Cluster Perimeter", "Near En-route", "En-route", "Mission Transit"];
-    let clean = address;
-    forbidden.forEach(word => {
-        const regex = new RegExp(word, 'gi');
-        clean = clean.replace(regex, '');
-    });
-
-    return clean.trim() || 'Location Registry Sync...';
+    return address.trim();
 }
 
 async function getSettings() {
-    // MISSION SYNC: Primary Authorized Token Node
-    const AUTHORIZED_TOKEN = "53afc208-0981-48c7-b134-d85d2f33dc0c";
-    
     try {
         const settingsRef = doc(firestore, "gps_settings", "api_config");
         const snap = await getDoc(settingsRef);
@@ -75,7 +64,8 @@ export async function fetchFleetLocation() {
   try {
     const response = await fetch(url, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' }
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
     });
 
     if (!response.ok) return { data: [], error: "Gateway Registry Unreachable" };
@@ -92,7 +82,7 @@ export async function fetchFleetLocation() {
         const lat = parseFloat(v.latitude || v.lat);
         const lng = parseFloat(v.longitude || v.lng || v.long);
 
-        if ((!rawLoc || rawLoc === 'N/A' || rawLoc === 'Address not available' || rawLoc.toLowerCase().includes('mission transit')) && !isNaN(lat) && !isNaN(lng)) {
+        if ((!rawLoc || rawLoc === 'N/A' || rawLoc === 'Address not available') && !isNaN(lat) && !isNaN(lng)) {
             rawLoc = await reverseGeocode(lat, lng);
         }
 
@@ -101,15 +91,16 @@ export async function fetchFleetLocation() {
             deviceNumber: v.deviceNumber || v.imei || '',
             lat,
             lng,
+            latitude: lat,
+            longitude: lng,
             speed: Number(v.speed || 0),
             ignition: v.ignition === true || v.ignition === 'true' || v.ignition === 'on',
             angle: Number(v.angle || 0),
             lastUpdate: v.createdDateReadable || v.lastUpdate || new Date().toLocaleString(),
             lastUpdateRaw: lastUpdateStr,
             provider: v.provider || 'Wheelseye',
-            vehicleType: v.vehicleType || 'Truck',
             location: cleanLocationRegistry(rawLoc || 'N/A'),
-            last_stop_time: v.last_stop_time || v.lastStopTime || (Number(v.speed || 0) <= 5 ? new Date(Date.now() - 3600000).toISOString() : null)
+            last_stop_time: v.last_stop_time || v.lastStopTime || null
         };
     });
     
@@ -129,7 +120,8 @@ export async function fetchWheelseyeLocation(vehicleNumber: string) {
   try {
     const response = await fetch(url, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' }
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
     });
 
     if (!response.ok) return { data: null, error: "Gateway Unreachable" };
@@ -151,7 +143,7 @@ export async function fetchWheelseyeLocation(vehicleNumber: string) {
         const lat = parseFloat(v.latitude || v.lat);
         const lng = parseFloat(v.longitude || v.lng);
 
-        if ((!rawLoc || rawLoc === 'N/A' || rawLoc === 'Address not available' || rawLoc.toLowerCase().includes('mission transit')) && !isNaN(lat) && !isNaN(lng)) {
+        if ((!rawLoc || rawLoc === 'N/A' || rawLoc === 'Address not available') && !isNaN(lat) && !isNaN(lng)) {
             rawLoc = await reverseGeocode(lat, lng);
         }
 
@@ -160,12 +152,14 @@ export async function fetchWheelseyeLocation(vehicleNumber: string) {
                 vehicleNumber: v.vehicleNumber || v.vehicleNo,
                 lat,
                 lng,
+                latitude: lat,
+                longitude: lng,
                 speed: Number(v.speed || 0),
                 ignition: v.ignition === true || v.ignition === 'true' || v.ignition === 'on',
                 lastUpdate: v.createdDateReadable || v.lastUpdate || new Date().toLocaleString(),
                 lastUpdateRaw: lastUpdateStr,
                 location: cleanLocationRegistry(rawLoc || 'N/A'),
-                last_stop_time: v.last_stop_time || v.lastStopTime || (Number(v.speed || 0) <= 5 ? new Date(Date.now() - 3600000).toISOString() : null)
+                last_stop_time: v.last_stop_time || v.lastStopTime || null
             },
             error: null
         };
