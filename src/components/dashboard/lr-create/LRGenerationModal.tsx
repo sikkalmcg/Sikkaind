@@ -22,6 +22,15 @@ import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebas
 import { collection, query, serverTimestamp, doc, getDoc, getDocs, limit, runTransaction, where, Timestamp } from "firebase/firestore";
 import { cn, normalizePlantId, parseSafeDate } from '@/lib/utils';
 
+const itemSchema = z.object({
+  invoiceNumber: z.string().optional().or(z.literal('')),
+  ewaybillNumber: z.string().optional().or(z.literal('')),
+  units: z.coerce.number().min(1, "Units required"),
+  unitType: z.string().default('Package'),
+  itemDescription: z.string().min(1, "Item desc required"),
+  hsnSac: z.string().optional(),
+});
+
 const formSchema = z.object({
   lrNumber: z.string().min(1, "LR Number is mandatory."),
   date: z.date({ required_error: "Registration date is required." }),
@@ -34,14 +43,7 @@ const formSchema = z.object({
   }),
   paymentTerm: z.enum(PaymentTerms),
   weightSelection: z.enum(['Assigned Weight', 'Actual Weight']),
-  items: z.array(z.object({
-    deliveryNo: z.string().optional().or(z.literal('')),
-    invoiceNumber: z.string().optional().or(z.literal('')),
-    units: z.coerce.number().min(1, "Unit count mandatory."),
-    unitType: z.string().optional(),
-    itemDescription: z.string().min(1, "Required"),
-    hsnSac: z.string().optional(),
-  })).min(1, "At least one row is required."),
+  items: z.array(itemSchema).min(1, "At least one row is required."),
   deliveryAddress: z.string().min(1, "Delivery Address is mandatory."),
   consignorName: z.string().min(1, "Consignor node required."),
   consignorAddress: z.string().optional().default(''),
@@ -95,7 +97,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, Code, or City..." 
                             value={search} 
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => setSearch(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
@@ -198,8 +200,8 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                 setShipment({ id: shipmentSnap.id, ...sData } as WithId<Shipment>);
 
                 let initialItems = (sData.items || []).map(i => ({
-                    deliveryNo: (i as any).deliveryNo || '',
-                    invoiceNumber: (i as any).invoiceNumber || (i as any).invoiceNo || (i as any).deliveryNumber || (i as any).deliveryNo || '',
+                    invoiceNumber: i.invoiceNumber || '',
+                    ewaybillNumber: i.ewaybillNumber || '',
                     units: i.units || 1,
                     unitType: i.unitType || 'Package',
                     itemDescription: i.itemDescription || i.description || sData.material || '',
@@ -208,8 +210,8 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
 
                 if (initialItems.length === 0) {
                     initialItems = [{ 
-                        deliveryNo: '',
                         invoiceNumber: sData.invoiceNumber || '', 
+                        ewaybillNumber: sData.ewaybillNumber || '',
                         units: Number(sData.totalUnits) || 1, 
                         unitType: 'Package', 
                         itemDescription: sData.itemDescription || sData.material || 'GENERAL CARGO', 
@@ -420,34 +422,64 @@ export default function LRGenerationModal({ isOpen, onClose, trip: providedTrip,
                             </div>
                         </section>
 
-                        <section className="rounded-3xl border-2 border-slate-200 bg-white shadow-xl overflow-hidden">
-                            <Table>
-                                <TableHeader className="bg-slate-900">
-                                    <TableRow className="hover:bg-transparent border-none h-12">
-                                        <TableHead className="text-white px-6 text-[9px] font-black uppercase">INVOICE NO</TableHead>
-                                        <TableHead className="text-white text-[9px] font-black uppercase px-4 w-48">ITEM DESCRIPTION *</TableHead>
-                                        <TableHead className="text-white text-[9px] font-black uppercase px-4 text-center">PKGS</TableHead>
-                                        <TableHead className="w-12"></TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {fields.map((field, index) => (
-                                        <TableRow key={field.id} className="h-16 border-b border-slate-100 hover:bg-blue-50/10 transition-colors group">
-                                            <TableCell className="px-6"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-9 font-bold" /></TableCell>
-                                            <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-9 font-bold uppercase" /></TableCell>
-                                            <TableCell className="px-4 text-center"><Input type="number" {...form.register(`items.${index}.units`)} className="h-9 text-center font-black" /></TableCell>
-                                            <TableCell className="pr-6 text-right"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length === 1} className="text-red-400"><Trash2 size={16}/></Button></TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                                <TableFooter className="bg-slate-50 h-14 border-t-2">
-                                    <TableRow className="hover:bg-transparent font-black">
-                                        <TableCell colSpan={2} className="px-6 text-[10px] uppercase text-slate-400">REGISTRY TOTALS</TableCell>
-                                        <TableCell className="text-center text-blue-900">{totals.units}</TableCell>
-                                        <TableCell></TableCell>
-                                    </TableRow>
-                                </TableFooter>
-                            </Table>
+                        <section className="space-y-6">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between px-2 gap-4">
+                                <h3 className="text-[11px] md:text-sm font-black uppercase tracking-[0.3em] text-slate-400 flex items-center gap-3"><Calculator className="h-5 w-5 text-blue-600" /> 3. Manifest Items Registry</h3>
+                                <Button type="button" variant="outline" size="sm" onClick={() => append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '' })} className="h-10 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white shadow-md hover:bg-blue-50 transition-all rounded-xl w-full sm:w-auto"><PlusCircle size={16} /> Add Row</Button>
+                            </div>
+                            <div className="rounded-[2rem] border-2 border-slate-200 bg-white shadow-2xl overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <Table className="min-w-[1200px]">
+                                        <TableHeader className="bg-slate-900">
+                                            <TableRow className="hover:bg-transparent border-none h-14">
+                                                <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">INVOICE</TableHead>
+                                                <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">E-WAYBILL NO.</TableHead>
+                                                <TableHead className="text-white text-[10px] font-black uppercase px-4">ITEM DESCRIPTION</TableHead>
+                                                <TableHead className="text-white text-[10px] font-black uppercase px-4 text-center w-56">UNITS / UOM</TableHead>
+                                                <TableHead className="w-12"></TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {fields.map((field, index) => (
+                                                <TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-none hover:bg-blue-50/10 transition-colors group">
+                                                    <TableCell className="px-8"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-10 rounded-xl font-black uppercase bg-slate-50 border-slate-200" /></TableCell>
+                                                    <TableCell className="px-4"><Input {...form.register(`items.${index}.ewaybillNumber`)} className="h-10 rounded-xl font-mono text-blue-600 bg-slate-50 border-slate-200 uppercase" /></TableCell>
+                                                    <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-10 rounded-xl font-bold bg-slate-50 border-slate-200 uppercase" /></TableCell>
+                                                    <TableCell className="px-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <Input type="number" {...form.register(`items.${index}.units`)} className="h-10 w-20 text-center font-black text-blue-900 bg-white border-slate-200 rounded-lg shadow-inner" />
+                                                            <Controller
+                                                                name={`items.${index}.unitType`}
+                                                                control={control}
+                                                                render={({ field }) => (
+                                                                    <Select onValueChange={field.onChange} value={field.value}>
+                                                                        <FormControl>
+                                                                            <SelectTrigger className="h-10 flex-1 min-w-[120px] rounded-lg border-slate-200 bg-white font-black text-[10px] uppercase shadow-sm">
+                                                                                <SelectValue placeholder="TYPE" />
+                                                                            </SelectTrigger>
+                                                                        </FormControl>
+                                                                        <SelectContent className="rounded-xl">
+                                                                            {LRUnitTypes.map(t => <SelectItem key={t} value={t} className="font-bold py-2 uppercase text-[10px]">{t}</SelectItem>)}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                )}
+                                                            />
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="pr-6 text-right"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-400 hover:text-red-600 rounded-lg"><Trash2 size={18}/></Button></TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                        <TableFooter className="bg-slate-50 border-t-2 border-slate-200 h-16">
+                                            <TableRow className="hover:bg-transparent border-none">
+                                                <TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL MANIFEST REGISTRY</TableCell>
+                                                <TableCell className="text-center font-black text-lg text-blue-900">{totals.units}</TableCell>
+                                                <TableCell></TableCell>
+                                            </TableRow>
+                                        </TableFooter>
+                                    </Table>
+                                </div>
+                            </div>
                         </section>
                     </form>
                 </Form>
