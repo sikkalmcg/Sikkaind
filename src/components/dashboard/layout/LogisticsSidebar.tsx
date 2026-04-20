@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -43,6 +44,7 @@ const navigationGroups = [
   ]},
   { group: 'Tracking & GIS', items: [
     { name: 'Fleet Live Map', href: '/dashboard/tracking/fleet-map', icon: Globe, permission: 'shipment-tracking' },
+    { name: 'Track Consignment', href: '/dashboard/tracking/consignment', icon: Radar, permission: 'track-consignment' },
   ]},
   { group: 'Monitoring & Audit', items: [
     { name: 'Trip Summary', href: '/dashboard/trip-summary', icon: ListTree, permission: 'shipment-summary' },
