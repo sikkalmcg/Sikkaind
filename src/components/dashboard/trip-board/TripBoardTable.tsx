@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -215,9 +216,6 @@ function MissionRegistryCard({
     const formattedDate = dateNode ? format(new Date(dateNode), 'dd MMM') : '--';
     const statusTime = row.lastUpdated ? format(new Date(row.lastUpdated), 'dd MMM, hh:mm aa') : (row.creationDate ? format(new Date(row.creationDate), 'dd MMM, hh:mm aa') : '--');
     
-    const allowedTabs = ['pending-assignment', 'open-order', 'loading'];
-    const canEditLR = allowedTabs.includes(activeTab);
-
     const fromCity = (row.loadingPoint || row.from || row.plantName || '').split(',')[0].trim();
     const toCity = (row.unloadingPoint || row.destination || '').split(',')[0].trim();
 
@@ -304,6 +302,23 @@ function MissionRegistryCard({
                         <Badge variant="outline" className="w-fit bg-slate-50 text-slate-400 border-slate-100 text-[8px] font-black uppercase whitespace-nowrap">FLEET PENDING</Badge>
                     )}
                 </div>
+
+                {/* LR NODE - DYNAMIC COLUMN */}
+                {!isPending && (
+                    <div className="col-span-2 flex flex-col justify-center">
+                        <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">LR Number</span>
+                        {row.lrNumber ? (
+                            <button 
+                                onClick={() => onAction('view-lr', row)} 
+                                className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter text-left"
+                            >
+                                {row.lrNumber}
+                            </button>
+                        ) : (
+                            <span className="text-[10px] font-bold text-slate-300 italic">NOT GENERATED</span>
+                        )}
+                    </div>
+                )}
 
                 {/* RIGHT COLUMN NODE: WEIGHT + MATERIAL (PUSHED TO BOTTOM) */}
                 <div className={cn("text-right flex flex-col justify-end items-end h-full min-h-[60px]", isPending ? "col-span-3" : "col-span-2")}>
@@ -421,7 +436,7 @@ function MissionRegistryCard({
                                     <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Registry Control</DropdownMenuLabel>
                                     <DropdownMenuItem onClick={() => onAction(isPending ? 'view-order' : 'view', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
                                     
-                                    {canEditLR && (
+                                    {(activeTab === 'pending-assignment' || activeTab === 'open-order' || activeTab === 'loading') && (
                                         <DropdownMenuItem onClick={() => onAction('edit-lr', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
                                             <FileText className="h-4 w-4 text-orange-600" /> Edit LR manifest
                                         </DropdownMenuItem>
