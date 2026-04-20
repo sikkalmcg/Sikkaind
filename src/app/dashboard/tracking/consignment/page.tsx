@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, Suspense } from 'react';
@@ -82,8 +81,8 @@ function TrackConsignmentContent() {
         try {
             const response = await fetch('/api/track', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ apiKey }),
+              headers: { 'Content-Type': 'text/plain' },
+              body: apiKey,
             }); 
             const result = await response.json();
     
@@ -143,8 +142,8 @@ function TrackConsignmentContent() {
 
             const response = await fetch('/api/track', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ apiKey }),
+              headers: { 'Content-Type': 'text/plain' },
+              body: apiKey,
             }); 
             const result = await response.json();
             

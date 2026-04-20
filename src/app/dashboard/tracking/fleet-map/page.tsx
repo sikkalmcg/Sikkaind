@@ -18,7 +18,6 @@ import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import type { Vehicle } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -73,8 +72,8 @@ export default function FleetLiveMapPage() {
         try {
             const response = await fetch('/api/track', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ apiKey }),
+              headers: { 'Content-Type': 'text/plain' },
+              body: apiKey, // Send raw API key string as expected by API
             }); 
             const result = await response.json();
     
