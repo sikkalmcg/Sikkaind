@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -70,7 +71,8 @@ interface TripBoardTableProps {
 }
 
 const getStatusColor = (status: string) => {
-    const s = status?.toLowerCase().replace(/[\s_-]+/g, '-') || '';
+    // Robust normalization for complex status strings like YARD/LOADING
+    const s = status?.toLowerCase().replace(/[\s/_-]+/g, '-') || '';
     switch(s) {
         case 'pending': return 'bg-yellow-500/10 text-yellow-700 border-yellow-200';
         case 'partly-vehicle-assigned': return 'bg-orange-500/10 text-orange-700 border-orange-200';
@@ -78,7 +80,7 @@ const getStatusColor = (status: string) => {
         case 'vehicle-assigned': return 'bg-blue-500/10 text-blue-700 border-blue-200';
         case 'yard':
         case 'loading':
-        case 'yard/loading':
+        case 'yard-loading':
         case 'loaded':
         case 'loading-complete': return 'bg-orange-500/10 text-orange-700 border-orange-200';
         case 'in-transit': return 'bg-purple-500/10 text-purple-700 border-indigo-200';

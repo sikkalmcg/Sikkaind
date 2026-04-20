@@ -167,7 +167,7 @@ export default function SupervisorTaskPage() {
         return () => unsubscribers.forEach(u => u());
     }, [firestore, JSON.stringify(authorizedPlantIds), isAdmin]);
 
-    // MISSION CRITICAL: Use Trip-centric Map to avoid duplicates and ensure planned data is visible
+    // MISSION CRITICAL: Use Trip-centric Map with improved status normalization
     const activeTasks = useMemo(() => {
         const tasksMap = new Map<string, any>();
         const normalizedAuthIds = authorizedPlantIds.map(id => id.toLowerCase());
@@ -179,7 +179,8 @@ export default function SupervisorTaskPage() {
             
             if (!isAuthorized || trip.loadingVerified) return;
 
-            const rawStatus = (trip.tripStatus || trip.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-');
+            // Standardized status normalization handling slashes, spaces, and dashes
+            const rawStatus = (trip.tripStatus || trip.currentStatusId || '').toLowerCase().trim().replace(/[\s/_-]+/g, '-');
             const validLoadingStatuses = ['assigned', 'vehicle-assigned', 'yard', 'loading', 'yard-loading', 'loaded', 'loading-complete'];
             
             if (!validLoadingStatuses.includes(rawStatus)) return;
