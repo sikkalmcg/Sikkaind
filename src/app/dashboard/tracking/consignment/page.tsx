@@ -9,26 +9,27 @@ import {
     Search, 
     Truck, 
     MapPin, 
-    FileText, 
     ShieldCheck, 
     Radar, 
     Factory, 
-    ChevronRight,
     Loader2,
     Calendar,
     User,
     Clock,
-    Navigation,
     CircleDot,
     X as XIcon,
     AlertCircle,
     Smartphone,
-    RefreshCcw
+    RefreshCcw,
+    ClipboardList,
+    CheckCircle2,
+    Box
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
-import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, doc, getDoc } from 'firebase/firestore';
 import { format, addSeconds, isValid } from 'date-fns';
-import { cn, parseSafeDate } from '@/lib/utils';
+import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
 import { useJsApiLoader, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
@@ -53,6 +54,9 @@ function TrackConsignmentContent() {
     const [isGpsEnabled, setIsGpsEnabled] = useState(false);
     const [isMapModalOpen, setIsMapModalOpen] = useState(false);
     const [eta, setEta] = useState<Date | null>(null);
+    
+    const [animIndex, setAnimIndex] = useState(-1);
+    const [isReversed, setIsReversed] = useState(false);
 
     useEffect(() => {
         const fetchApiKey = async () => {
@@ -70,11 +74,52 @@ function TrackConsignmentContent() {
         fetchApiKey();
     }, [firestore]);
 
-    const { isLoaded } = useJsApiLoader({
-        id: 'google-map-script',
-        googleMapsApiKey: MAPS_JS_KEY,
-        libraries: ['places']
-    });
+    const stages = [
+        { id: 'assigned', label: 'Assign', icon: ClipboardList },
+        { id: 'loading', label: 'Loading', icon: Factory },
+        { id: 'transit', label: 'In-Transit', icon: Truck },
+        { id: 'arrived', label: 'Arrived', icon: MapPin },
+        { id: 'delivered', label: 'Delivered', icon: CheckCircle2 }
+    ];
+
+    const getTargetIndex = (status: string) => {
+        const s = status?.toLowerCase().replace(/[\s_-]+/g, '-') || '';
+        if (['delivered', 'closed'].includes(s)) return 4;
+        if (['arrived', 'arrival-for-delivery', 'arrive-for-deliver'].includes(s)) return 3;
+        if (['in-transit', 'out-for-delivery'].includes(s)) return 2;
+        if (['yard', 'loading', 'loaded', 'loading-complete'].includes(s)) return 1;
+        return 0;
+    };
+
+    const runAnimation = useCallback((targetIndex: number, rejected: boolean) => {
+        setAnimIndex(-1);
+        setIsReversed(false);
+        let current = -1;
+        
+        const STEP_DURATION = 2500;
+
+        const interval = setInterval(() => {
+            current++;
+            if (current <= targetIndex) {
+                setAnimIndex(current);
+            } else {
+                clearInterval(interval);
+                if (rejected) {
+                    setTimeout(() => {
+                        setIsReversed(true);
+                        let rev = targetIndex;
+                        const revInterval = setInterval(() => {
+                            rev--;
+                            if (rev >= 0) setAnimIndex(rev);
+                            else {
+                                clearInterval(revInterval);
+                            }
+                        }, STEP_DURATION);
+                    }, 1000);
+                }
+            }
+        }, STEP_DURATION);
+    }, []);
 
     const refreshTelemetry = useCallback(async (vNo: string) => {
         if (!vNo || !apiKey) return;
@@ -115,6 +160,7 @@ function TrackConsignmentContent() {
         setConsignment(null);
         setLivePos(null);
         setIsGpsEnabled(false);
+        setAnimIndex(-1);
 
         try {
             const tripsRef = collection(firestore, "trips");
@@ -136,9 +182,9 @@ function TrackConsignmentContent() {
             const plantSnap = await getDoc(doc(firestore, "logistics_plants", trip.originPlantId));
             trip.plantName = plantSnap.exists() ? plantSnap.data().name : trip.originPlantId;
             
-            // CONCISE CITY LOGIC Node
             trip.toCity = trip.unloadingPoint?.split(',')[0].trim() || 'N/A';
-            trip.fromCity = (trip.loadingPoint || trip.plantName).split(',')[0].trim();
+            const fromLoc = trip.loadingPoint || trip.plantName || '';
+            trip.fromCity = fromLoc.split(',')[0].trim();
 
             const response = await fetch('/api/track', {
               method: 'POST',
@@ -155,17 +201,23 @@ function TrackConsignmentContent() {
                 }
             }
             
+            const status = (trip.tripStatus || trip.currentStatusId || 'assigned').toLowerCase();
+            const isRejected = status === 'rejected';
+
             setConsignment({ 
                 ...trip, 
-                assignedAt: parseSafeDate(trip.startDate) || new Date()
+                assignedAt: parseSafeDate(trip.startDate) || new Date(),
+                isRejected
             });
+
+            runAnimation(getTargetIndex(status), isRejected);
 
         } catch (e) {
             toast({ variant: 'destructive', title: "Sync Error", description: "Registry handshake failed." });
         } finally {
             setIsSearching(false);
         }
-    }, [firestore, searchQuery, toast, apiKey]);
+    }, [firestore, searchQuery, toast, apiKey, runAnimation]);
 
     useEffect(() => {
         if (urlSearch && firestore && apiKey) {
@@ -232,47 +284,137 @@ function TrackConsignmentContent() {
                             ))}
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            <Card className="lg:col-span-2 border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
-                                <CardHeader className="bg-slate-50 border-b p-8"><CardTitle className="text-sm font-black uppercase tracking-widest text-slate-700">Mission Tracking Manifest</CardTitle></CardHeader>
-                                <CardContent className="p-10">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                                        <div className="space-y-10">
-                                            <div className="flex gap-6 items-start">
-                                                <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100 shadow-sm"><MapPin className="h-6 w-6 text-blue-600" /></div>
-                                                <div>
-                                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">From Location Plant</p>
-                                                    <p className="text-sm font-black text-slate-900 uppercase leading-tight">{consignment.fromCity}</p>
-                                                    <p className="text-[10px] font-bold text-slate-400 mt-2 flex items-center gap-2">
-                                                        <Clock className="h-3 w-3" /> Assigned: {isValid(consignment.assignedAt) ? format(consignment.assignedAt, 'dd MMM yyyy p') : '--'}
-                                                    </p>
+                        {/* PROGRESS ANIMATION TERMINAL */}
+                        <Card className="border-none shadow-xl rounded-[3rem] bg-white overflow-hidden">
+                            <CardHeader className="bg-slate-50 border-b p-8">
+                                <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-700">Mission Tracking Manifest</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-12 md:p-20 relative min-h-[400px] flex flex-col justify-center">
+                                {/* PROGRESS BAR BACKGROUND */}
+                                <div className="absolute top-1/2 left-24 right-24 h-3 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden shadow-inner">
+                                    <motion.div 
+                                        className={cn(
+                                            "h-full transition-colors duration-1000", 
+                                            consignment.isRejected ? "bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]" : "bg-blue-900 shadow-[0_0_15px_rgba(30,58,138,0.5)]"
+                                        )}
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${(animIndex / 4) * 100}%` }}
+                                        transition={{ duration: 0.8, ease: "easeInOut" }}
+                                    />
+                                </div>
+
+                                {/* STAGES REGISTRY */}
+                                <div className="relative flex justify-between items-center h-full">
+                                    {stages.map((stage, i) => {
+                                        const active = i <= animIndex;
+                                        const isTarget = i === animIndex;
+                                        const isFinal = i === 4;
+                                        
+                                        const nodeColor = (consignment.isRejected && active) ? "bg-red-600 border-red-400" : "bg-blue-900 border-blue-400";
+                                        const label = (isFinal && consignment.isRejected) ? 'Mission Rejected' : stage.label;
+
+                                        return (
+                                            <div key={i} className="flex flex-col items-center gap-8 relative z-10 w-48">
+                                                <motion.div 
+                                                    animate={active ? { 
+                                                        scale: isTarget ? [1, 1.2, 1.1] : 1,
+                                                        boxShadow: isTarget ? "0 20px 40px rgba(0,0,0,0.15)" : "none"
+                                                    } : {}}
+                                                    className={cn(
+                                                        "h-20 w-20 md:h-24 md:w-24 rounded-[2rem] flex items-center justify-center transition-all duration-700 border-4",
+                                                        active ? `${nodeColor} text-white` : "bg-white border-slate-100 text-slate-200"
+                                                    )}
+                                                >
+                                                    {isTarget ? (
+                                                        <motion.div 
+                                                            animate={{ 
+                                                                x: isReversed ? [-3, 3, -3] : [3, -3, 3],
+                                                                scaleX: isReversed ? -1 : 1 
+                                                            }} 
+                                                            transition={{ repeat: Infinity, duration: 0.6 }}
+                                                        >
+                                                            <stage.icon size={36} />
+                                                        </motion.div>
+                                                    ) : (
+                                                        <stage.icon size={36} className={cn(isReversed && i < animIndex && "scale-x-[-1] opacity-50")} />
+                                                    )}
+                                                </motion.div>
+                                                <div className="text-center space-y-2">
+                                                    <p className={cn(
+                                                        "text-xs font-black uppercase tracking-widest transition-colors duration-500", 
+                                                        active ? (consignment.isRejected ? "text-red-700" : "text-slate-900") : "text-slate-300"
+                                                    )}>{label}</p>
+                                                    {active && (
+                                                        <Badge variant="outline" className={cn(
+                                                            "text-[9px] font-black font-mono border-none h-5",
+                                                            consignment.isRejected ? "text-red-400" : "text-blue-500"
+                                                        )}>
+                                                            {format(new Date(consignment.lastUpdated?.toDate ? consignment.lastUpdated.toDate() : (consignment.lastUpdated || Date.now())), 'HH:mm')}
+                                                        </Badge>
+                                                    )}
                                                 </div>
                                             </div>
-                                            <div className="flex gap-6 items-start">
-                                                <div className="p-3 bg-red-50 rounded-2xl border border-red-100 shadow-sm"><CircleDot className="h-6 w-6 text-red-600" /></div>
-                                                <div>
-                                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">To Destination Plant</p>
-                                                    <p className="text-sm font-black text-slate-900 uppercase leading-tight">{consignment.toCity}</p>
-                                                </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <AnimatePresence>
+                                    {consignment.isRejected && isReversed && (
+                                        <motion.div 
+                                            initial={{ opacity: 0, y: 30 }} 
+                                            animate={{ opacity: 1, y: 0 }} 
+                                            exit={{ opacity: 0 }}
+                                            className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-4 px-10 py-4 bg-red-50 border-2 border-red-100 rounded-[2rem] shadow-2xl"
+                                        >
+                                            <div className="p-2 bg-red-600 rounded-full animate-pulse shadow-lg"><AlertCircle className="text-white h-5 w-5" /></div>
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-black uppercase text-red-900 tracking-widest">CRITICAL MISSION REJECTION</span>
+                                                <span className="text-[10px] font-bold text-red-600 uppercase">Returning assets to original lifting node registry</span>
                                             </div>
-                                        </div>
-                                        <div className="space-y-10">
-                                            <div className="p-8 bg-blue-50 rounded-[2rem] border-2 border-blue-100 flex flex-col justify-center items-center text-center shadow-inner">
-                                                <Calendar className="h-10 w-10 text-blue-600 mb-4" />
-                                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Expected Delivery Plant</p>
-                                                <p className="text-2xl font-black text-blue-900 tracking-tighter">
-                                                    {eta && isValid(eta) ? format(eta, 'dd MMM yyyy') : '--'}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </CardContent>
+                            <Separator />
+                            <CardContent className="p-10 bg-slate-50/30">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                                    <div className="space-y-10">
+                                        <div className="flex gap-6 items-start">
+                                            <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100 shadow-sm"><MapPin className="h-6 w-6 text-blue-600" /></div>
+                                            <div>
+                                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">From Location Plant</p>
+                                                <p className="text-sm font-black text-slate-900 uppercase leading-tight">{consignment.fromCity}</p>
+                                                <p className="text-[10px] font-bold text-slate-400 mt-2 flex items-center gap-2">
+                                                    <Clock className="h-3 w-3" /> Assigned: {isValid(consignment.assignedAt) ? format(consignment.assignedAt, 'dd MMM yyyy p') : '--'}
                                                 </p>
                                             </div>
                                         </div>
+                                        <div className="flex gap-6 items-start">
+                                            <div className="p-3 bg-red-50 rounded-2xl border border-red-100 shadow-sm"><CircleDot className="h-6 w-6 text-red-600" /></div>
+                                            <div>
+                                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">To Destination Plant</p>
+                                                <p className="text-sm font-black text-slate-900 uppercase leading-tight">{consignment.toCity}</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                </CardContent>
-                            </Card>
-                            
+                                    <div className="space-y-10">
+                                        <div className="p-8 bg-blue-50 rounded-[2rem] border-2 border-blue-100 flex flex-col justify-center items-center text-center shadow-inner">
+                                            <Calendar className="h-10 w-10 text-blue-600 mb-4" />
+                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Expected Delivery Plant</p>
+                                            <p className="text-2xl font-black text-blue-900 tracking-tighter">
+                                                {eta && isValid(eta) ? format(eta, 'dd MMM yyyy') : '--'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
                             <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden flex flex-col">
                                 <CardHeader className="bg-slate-50 border-b p-8"><CardTitle className="text-sm font-black uppercase tracking-widest text-slate-700">Fleet Authorization</CardTitle></CardHeader>
-                                <CardContent className="p-8 flex-1 flex flex-col justify-between">
-                                    <div className="space-y-6">
+                                <CardContent className="p-8 flex-1 flex flex-col md:flex-row justify-between items-center gap-10">
+                                    <div className="flex-1 space-y-6">
                                         <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border">
                                             <div className={cn("p-3 rounded-full border-4", isGpsEnabled ? "bg-emerald-100 border-emerald-200 text-emerald-600" : "bg-slate-100 border-slate-200 text-slate-400")}>
                                                 <Smartphone className="h-8 w-8" />
@@ -282,13 +424,13 @@ function TrackConsignmentContent() {
                                                 <p className="text-[9px] font-bold text-slate-400 uppercase leading-tight">{isGpsEnabled ? 'Live telemetry signal active.' : 'Vehicle signal inactive.'}</p>
                                             </div>
                                         </div>
-                                        <div className="space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                             <InfoRow icon={Truck} label="Vehicle Number" value={consignment.vehicleNumber} />
-                                            <InfoRow icon={User} label="Driver" value={livePos?.driverName || 'N/A'} />
+                                            <InfoRow icon={User} label="Driver" value={livePos?.driverName || consignment.driverName || 'N/A'} />
                                             <InfoRow icon={MapPin} label="Live Location" value={livePos?.location || 'Syncing...'} isLocation={true} />
                                         </div>
                                     </div>
-                                    <div className="flex flex-col w-full gap-3 mt-6">
+                                    <div className="flex flex-col w-full md:w-64 gap-3">
                                         <Button onClick={() => setIsMapModalOpen(true)} disabled={!isGpsEnabled} className="w-full h-12 rounded-xl font-black uppercase text-xs shadow-lg">Track Mission</Button>
                                         <Button variant="outline" onClick={() => refreshTelemetry(consignment.vehicleNumber)} disabled={isSearching} className="w-full h-10 rounded-xl font-black uppercase text-[9px] tracking-widest gap-2">
                                             <RefreshCcw className={cn("h-3 w-3", isSearching && "animate-spin")} /> Force Sync
@@ -400,5 +542,9 @@ function TrackingPopup({ isOpen, onClose, consignment, livePos, onEtaResolved }:
 }
 
 export default function TrackConsignmentPage() {
-    return <Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-900" /></div>}><TrackConsignmentContent /></Suspense>;
+    return (
+        <Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-900" /></div>}>
+            <TrackConsignmentContent />
+        </Suspense>
+    );
 }
