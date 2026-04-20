@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -17,7 +16,7 @@ const libraries: ("places")[] = ['places'];
 interface TrackingMapProps {
   vehicles?: any[];
   livePos?: any;
-  origin?: { lat: number; lng: number; name: string };
+  origin?: string | { lat: number; lng: number; name: string };
   destination?: string | { lat: number; lng: number; name: string };
   height?: string;
   runningIconUrl?: string | null;
@@ -88,26 +87,42 @@ export default function TrackingMap({
   const runningIcon = runningIconUrl || DEFAULT_RUNNING_ICON;
   const stoppedIcon = stoppedIconUrl || DEFAULT_STOPPED_ICON;
 
-  // Directions logic
+  // Directions logic node: Resolve route from Origin to Destination
   useEffect(() => {
     if (!isLoaded || !origin || !destination) return;
 
     const directionsService = new google.maps.DirectionsService();
-    const dest = typeof destination === 'string' ? destination : { lat: destination.lat, lng: destination.lng };
+    
+    // Mission Logic: Handle both Coordinate Nodes and Address Strings
+    const originLocation = typeof origin === 'string' 
+        ? origin 
+        : (origin.lat && origin.lng ? { lat: origin.lat, lng: origin.lng } : null);
+        
+    const destinationLocation = typeof destination === 'string' 
+        ? destination 
+        : (destination.lat && destination.lng ? { lat: destination.lat, lng: destination.lng } : null);
+
+    if (!originLocation || !destinationLocation) return;
 
     directionsService.route(
       {
-        origin: { lat: origin.lat, lng: origin.lng },
-        destination: dest,
+        origin: originLocation,
+        destination: destinationLocation,
         travelMode: google.maps.TravelMode.DRIVING,
       },
       (result, status) => {
         if (status === google.maps.DirectionsStatus.OK && result) {
           setDirections(result);
+          
+          // Auto-adjust bounds to mission path
+          if (map && !livePos) {
+              const bounds = result.routes[0].bounds;
+              map.fitBounds(bounds);
+          }
         }
       }
     );
-  }, [isLoaded, origin, destination]);
+  }, [isLoaded, origin, destination, map, livePos]);
 
   const onMapLoad = useCallback((mapInstance: google.maps.Map) => {
     setMap(mapInstance);
@@ -115,36 +130,34 @@ export default function TrackingMap({
 
   const center = useMemo(() => {
     if (livePos) return { lat: livePos.latitude || livePos.lat, lng: livePos.longitude || livePos.lng };
-    if (origin) return { lat: origin.lat, lng: origin.lng };
+    if (origin && typeof origin === 'object' && origin.lat) return { lat: origin.lat, lng: origin.lng };
     if (vehicles.length > 0) return { lat: vehicles[0].latitude || vehicles[0].lat, lng: vehicles[0].longitude || vehicles[0].lng };
-    return { lat: 28.6139, lng: 77.2090 }; // Delhi
+    return { lat: 28.6139, lng: 77.2090 }; // Registry Default: Delhi Hub
   }, [livePos, origin, vehicles]);
 
   if (!isLoaded) {
     return (
-      <div className="flex items-center justify-center bg-slate-100 rounded-2xl animate-pulse" style={{ height }}>
-        <Loader2 className="h-8 w-8 animate-spin text-blue-900" />
+      <div className="flex items-center justify-center bg-slate-900 rounded-3xl animate-pulse" style={{ height }}>
+        <Loader2 className="h-10 w-10 animate-spin text-blue-400" />
       </div>
     );
   }
 
-  const destinationPos = typeof destination === 'object' ? destination : null;
-
   return (
-    <div className="w-full relative overflow-hidden rounded-[2rem] border-4 border-white shadow-xl" style={{ height }}>
+    <div className="w-full relative overflow-hidden rounded-[2.5rem] border-4 border-white/5 shadow-2xl" style={{ height }}>
       <GoogleMap
         mapContainerStyle={{ width: '100%', height: '100%' }}
         center={center}
-        zoom={livePos || origin ? 12 : 6}
+        zoom={livePos || (origin && typeof origin === 'object') ? 12 : 6}
         onLoad={onMapLoad}
         options={mapOptions}
       >
-        {/* Single Vehicle Mode (livePos) - Original GPS Location */}
+        {/* Asset Marker: Original Satellite Location */}
         {livePos && (
           <Marker
             position={{ lat: livePos.latitude || livePos.lat, lng: livePos.longitude || livePos.lng }}
             icon={{
-              url: livePos.speed > 5 ? runningIcon : stoppedIcon,
+              url: (livePos.speed || 0) > 5 ? runningIcon : stoppedIcon,
               scaledSize: new google.maps.Size(42, 42),
               anchor: new google.maps.Point(21, 21),
             }}
@@ -153,13 +166,13 @@ export default function TrackingMap({
           />
         )}
 
-        {/* Fleet Mode (vehicles) */}
+        {/* Fleet Registry Markers */}
         {vehicles.map((v, i) => (
           <Marker
             key={i}
             position={{ lat: v.latitude || v.lat, lng: v.longitude || v.lng }}
             icon={{
-              url: v.speed > 5 ? runningIcon : stoppedIcon,
+              url: (v.speed || 0) > 5 ? runningIcon : stoppedIcon,
               scaledSize: new google.maps.Size(35, 35),
               anchor: new google.maps.Point(17, 17),
             }}
@@ -167,35 +180,31 @@ export default function TrackingMap({
           />
         ))}
 
-        {/* Directions Path Rendering */}
+        {/* Mission Route Manifest */}
         {directions && (
-          <DirectionsRenderer
-            directions={directions}
-            options={{
-              suppressMarkers: true,
-              polylineOptions: {
-                strokeColor: "#3b82f6",
-                strokeWeight: 6,
-                strokeOpacity: 0.8
-              }
-            }}
-          />
-        )}
-
-        {/* Dispatch Marker */}
-        {origin && (
-          <Marker 
-            position={{ lat: origin.lat, lng: origin.lng }}
-            label={{ text: "Lifting Node", color: "white", fontSize: "10px", fontWeight: "900" }}
-          />
-        )}
-
-        {/* Destination Marker */}
-        {destinationPos && (
-          <Marker 
-            position={{ lat: destinationPos.lat, lng: destinationPos.lng }}
-            label={{ text: "Destination", color: "white", fontSize: "10px", fontWeight: "900" }}
-          />
+          <>
+            <DirectionsRenderer
+                directions={directions}
+                options={{
+                    suppressMarkers: true,
+                    polylineOptions: {
+                        strokeColor: "#3b82f6",
+                        strokeWeight: 7,
+                        strokeOpacity: 0.8
+                    }
+                }}
+            />
+            {/* Start Node Marker */}
+            <Marker 
+                position={directions.routes[0].legs[0].start_location}
+                label={{ text: "Lifting Node", color: "white", fontSize: "10px", fontWeight: "900" }}
+            />
+            {/* End Node Marker */}
+            <Marker 
+                position={directions.routes[0].legs[0].end_location}
+                label={{ text: "Drop Node", color: "white", fontSize: "10px", fontWeight: "900" }}
+            />
+          </>
         )}
 
         {selectedMarker && (
@@ -206,25 +215,25 @@ export default function TrackingMap({
             }}
             onCloseClick={() => setSelectedMarker(null)}
           >
-            <div className="p-2 min-w-[200px] text-slate-900 bg-white">
-              <p className="font-black text-xs uppercase border-b pb-1 mb-2">{selectedMarker.vehicleNumber || selectedMarker.deviceNumber}</p>
-              <div className="space-y-1.5">
+            <div className="p-3 min-w-[220px] text-slate-900 bg-white rounded-lg">
+              <p className="font-black text-xs uppercase border-b pb-2 mb-2 text-blue-900">{selectedMarker.vehicleNumber || selectedMarker.deviceNumber}</p>
+              <div className="space-y-2">
                 <div className="flex justify-between items-center text-[10px]">
-                  <span className="font-bold text-slate-400">Speed:</span>
-                  <span className="font-black text-blue-900">{selectedMarker.speed || 0} KM/H</span>
+                  <span className="font-bold text-slate-400 uppercase">Speed:</span>
+                  <span className="font-black text-slate-900">{selectedMarker.speed || 0} KM/H</span>
                 </div>
                 <div className="flex justify-between items-center text-[10px]">
-                  <span className="font-bold text-slate-400">Status:</span>
+                  <span className="font-bold text-slate-400 uppercase">Signal:</span>
                   <Badge className={cn(
-                    "h-4 text-[8px] font-black uppercase border-none",
-                    selectedMarker.speed > 5 ? "bg-emerald-500 text-white" : "bg-red-500 text-white"
+                    "h-4 text-[8px] font-black uppercase border-none px-2",
+                    (selectedMarker.speed || 0) > 5 ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
                   )}>
-                    {selectedMarker.speed > 5 ? 'MOVING' : 'STOPPED'}
+                    {(selectedMarker.speed || 0) > 5 ? 'MOVING' : 'STOPPED'}
                   </Badge>
                 </div>
-                <div className="pt-1.5 border-t">
-                  <p className="text-[8px] font-black text-slate-400 uppercase">Location Registry</p>
-                  <p className="text-[10px] font-bold text-slate-700 leading-tight uppercase">{selectedMarker.location || selectedMarker.address || 'Syncing...'}</p>
+                <div className="pt-2 border-t border-slate-100">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Satellite Registry Node</p>
+                  <p className="text-[10px] font-bold text-slate-700 leading-tight uppercase">{selectedMarker.location || selectedMarker.address || 'Resolving...'}</p>
                 </div>
               </div>
             </div>

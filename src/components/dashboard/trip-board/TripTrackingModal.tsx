@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,13 +38,13 @@ interface TripTrackingModalProps {
 /**
  * @fileOverview Trip Tracking Modal Terminal.
  * Synchronized with Server-side GIS Handshake node.
- * Implements persistent loading clearing to prevent UI hangs.
+ * Updated: Renders mission route from Consignor address to Consignee address.
  */
 export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackingModalProps) {
     const firestore = useFirestore();
     const [livePos, setLivePos] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [originData, setOriginData] = useState<{ lat: number; lng: number; name: string } | null>(null);
+    const [originData, setOriginData] = useState<{ lat?: number; lng?: number; name: string } | null>(null);
 
     const refreshTelemetry = useCallback(async () => {
         if (!trip?.vehicleNumber) return;
@@ -66,10 +66,14 @@ export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackin
         const fetchMeta = async () => {
             setIsLoading(true);
             try {
-                // Registry Handshake: Resolve origin plant coordinates
+                // Registry Handshake: Resolve origin plant context
                 const plantId = normalizePlantId(trip.originPlantId);
                 const plantRef = doc(firestore, "logistics_plants", plantId);
                 const plantSnap = await getDoc(plantRef);
+                
+                // MISSION ROUTE LOGIC: Target full addresses for the route manifest
+                const consignorAddr = trip.consignorAddress || trip.loadingPoint || (plantSnap.exists() ? plantSnap.data().address : null);
+                
                 if (plantSnap.exists()) {
                     const pData = plantSnap.data();
                     setOriginData({
@@ -78,6 +82,7 @@ export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackin
                         name: pData.name
                     });
                 }
+                
                 await refreshTelemetry();
             } catch (e) {
                 console.error("Registry meta fetch error:", e);
@@ -89,6 +94,10 @@ export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackin
         const interval = setInterval(refreshTelemetry, 30000);
         return () => clearInterval(interval);
     }, [isOpen, trip, firestore, refreshTelemetry]);
+
+    // Resolve specific addresses for the route line
+    const originLocation = useMemo(() => trip.consignorAddress || trip.loadingPoint || originData?.name || 'Lifting Node', [trip, originData]);
+    const destinationLocation = useMemo(() => trip.deliveryAddress || trip.unloadingPoint || trip.destination || 'Drop Node', [trip]);
 
     if (!trip) return null;
 
@@ -120,8 +129,8 @@ export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackin
                         ) : (
                             <TrackingMap 
                                 livePos={livePos}
-                                origin={originData || { lat: 28.6139, lng: 77.2090, name: trip.plantName }}
-                                destination={trip.unloadingPoint}
+                                origin={originLocation}
+                                destination={destinationLocation}
                                 height="100%"
                             />
                         )}
@@ -140,7 +149,7 @@ export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackin
                                     { label: 'Pilot Node', value: trip.driverName, icon: User },
                                     { label: 'Dispatch Point', value: originData?.name || trip.plantName, icon: Factory },
                                     { label: 'Current location', value: livePos?.location || (isLoading ? 'Resolving...' : 'Signal searching...'), icon: MapPin, color: livePos ? 'text-blue-600 font-black' : 'text-slate-400' },
-                                    { label: 'Drop node', value: trip.unloadingPoint, icon: MapPin, bold: true },
+                                    { label: 'Drop node', value: trip.shipToParty || trip.unloadingPoint, icon: MapPin, bold: true },
                                     { label: 'Mission speed', value: `${livePos?.speed || 0} KM/H`, icon: Navigation, color: 'text-emerald-600 font-black' },
                                     { label: 'Registry status', value: trip.tripStatus, icon: ShieldCheck, badge: true }
                                 ].map((item, i) => (
