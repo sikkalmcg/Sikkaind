@@ -178,10 +178,12 @@ export default function SupervisorTaskPage() {
             
             if (entry.status !== 'IN' || entry.isTaskCompleted || !isAuthorized) return;
 
-            // JOINT Node: Link Entry to Trip
+            // MISSION JOIN: Resolve Trip node by Firestore ID or readable Trip ID
+            const entryVNo = entry.vehicleNumber?.toUpperCase().replace(/\s/g, '');
             const trip = trips.find(t => 
                 t.id === entry.tripId || 
-                (t.vehicleNumber?.toUpperCase().replace(/\s/g, '') === entry.vehicleNumber?.toUpperCase().replace(/\s/g, '') && normalizePlantId(t.originPlantId).toLowerCase() === entryPlantId && !['delivered', 'cancelled', 'closed'].includes((t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-')))
+                t.tripId === entry.tripId ||
+                (t.vehicleNumber?.toUpperCase().replace(/\s/g, '') === entryVNo && normalizePlantId(t.originPlantId).toLowerCase() === entryPlantId && !['delivered', 'cancelled', 'closed'].includes((t.tripStatus || t.currentStatusId || '').toLowerCase().trim().replace(/[\s_-]+/g, '-')))
             );
 
             // Filter by Mission Status pulse: Only show missions in assigned/loading phases
@@ -191,9 +193,11 @@ export default function SupervisorTaskPage() {
                 if (!validLoadingStatuses.includes(s)) return;
             }
 
-            // Resolve Shipment & LR
+            // Resolve Shipment & LR manifests
             const shipId = trip ? (Array.isArray(trip.shipmentIds) ? trip.shipmentIds[0] : trip.shipmentIds) : entry.shipmentId;
             const shipment = shipments.find(s => (s.id === shipId || s.shipmentId === shipId) && normalizePlantId(s.originPlantId).toLowerCase() === entryPlantId);
+            
+            // Block cancelled order manifests
             if (shipment?.currentStatusId === 'Cancelled') return;
 
             const lr = lrs.find(l => (l.tripDocId === trip?.id || l.tripId === trip?.tripId || l.lrNumber === entry.lrNumber) && normalizePlantId(l.originPlantId).toLowerCase() === entryPlantId);
