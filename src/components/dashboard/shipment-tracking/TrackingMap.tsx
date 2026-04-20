@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -127,6 +128,8 @@ export default function TrackingMap({
     );
   }
 
+  const destinationPos = typeof destination === 'object' ? destination : null;
+
   return (
     <div className="w-full relative overflow-hidden rounded-[2rem] border-4 border-white shadow-xl" style={{ height }}>
       <GoogleMap
@@ -136,16 +139,17 @@ export default function TrackingMap({
         onLoad={onMapLoad}
         options={mapOptions}
       >
-        {/* Single Vehicle Mode (livePos) */}
+        {/* Single Vehicle Mode (livePos) - Original GPS Location */}
         {livePos && (
           <Marker
             position={{ lat: livePos.latitude || livePos.lat, lng: livePos.longitude || livePos.lng }}
             icon={{
               url: livePos.speed > 5 ? runningIcon : stoppedIcon,
-              scaledSize: new google.maps.Size(40, 40),
-              anchor: new google.maps.Point(20, 20),
+              scaledSize: new google.maps.Size(42, 42),
+              anchor: new google.maps.Point(21, 21),
             }}
             onClick={() => setSelectedMarker(livePos)}
+            zIndex={100}
           />
         )}
 
@@ -163,7 +167,7 @@ export default function TrackingMap({
           />
         ))}
 
-        {/* Directions */}
+        {/* Directions Path Rendering */}
         {directions && (
           <DirectionsRenderer
             directions={directions}
@@ -171,18 +175,26 @@ export default function TrackingMap({
               suppressMarkers: true,
               polylineOptions: {
                 strokeColor: "#3b82f6",
-                strokeWeight: 5,
+                strokeWeight: 6,
                 strokeOpacity: 0.8
               }
             }}
           />
         )}
 
-        {/* Origin/Dest Markers for Directions */}
+        {/* Dispatch Marker */}
         {origin && (
           <Marker 
             position={{ lat: origin.lat, lng: origin.lng }}
-            label={{ text: "Dispatch", color: "white", fontSize: "10px", fontWeight: "bold" }}
+            label={{ text: "Lifting Node", color: "white", fontSize: "10px", fontWeight: "900" }}
+          />
+        )}
+
+        {/* Destination Marker */}
+        {destinationPos && (
+          <Marker 
+            position={{ lat: destinationPos.lat, lng: destinationPos.lng }}
+            label={{ text: "Destination", color: "white", fontSize: "10px", fontWeight: "900" }}
           />
         )}
 

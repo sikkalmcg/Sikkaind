@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,18 +11,39 @@ import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp } from
 import VehicleMap from '@/components/dashboard/shipment-tracking/VehicleMap';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { fetchWheelseyeLocation } from '@/app/actions/wheelseye';
+import { useToast } from '@/hooks/use-toast';
 
 /**
  * @fileOverview Trip Tracking Client Handbook.
  * Handles the live GIS telemetry handshake and monitoring UI.
+ * Updated: Implements live GPS refresh loop for "Original Location" precision.
  */
 
 export function TripTrackingClient({ tripId }: { tripId: string }) {
   const router = useRouter();
   const firestore = useFirestore();
+  const { toast } = useToast();
 
   const [trip, setTrip] = useState<any>(null);
+  const [livePos, setLivePos] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchLiveTelemetry = useCallback(async (vNo: string) => {
+    if (!vNo) return;
+    setRefreshing(true);
+    try {
+        const response = await fetchWheelseyeLocation(vNo);
+        if (response.data) {
+            setLivePos(response.data);
+        }
+    } catch (e) {
+        console.warn("Telemetry pulse delayed.");
+    } finally {
+        setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!firestore || !tripId || tripId === 'default') {
@@ -43,12 +65,14 @@ export function TripTrackingClient({ tripId }: { tripId: string }) {
                 const plantSnap = await getDoc(plantRef);
                 if (plantSnap.exists()) {
                     const pData = plantSnap.data();
-                    tripData.plantLat = pData.latitude;
-                    tripData.plantLng = pData.longitude;
+                    tripData.plantLat = pData.latitude || 28.6139;
+                    tripData.plantLng = pData.longitude || 77.2090;
                     tripData.plantNameResolved = pData.name;
                 }
                 
                 setTrip(tripData);
+                // Initial Telemetry Pulse
+                fetchLiveTelemetry(tripData.vehicleNumber);
             }
         } catch (e) {
             console.error("Registry error");
@@ -57,7 +81,16 @@ export function TripTrackingClient({ tripId }: { tripId: string }) {
         }
     };
     fetchTrip();
-  }, [tripId, firestore]);
+  }, [tripId, firestore, fetchLiveTelemetry]);
+
+  // Auto-refresh Registry Node
+  useEffect(() => {
+    if (!trip?.vehicleNumber) return;
+    const interval = setInterval(() => {
+        fetchLiveTelemetry(trip.vehicleNumber);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [trip?.vehicleNumber, fetchLiveTelemetry]);
 
   if (loading) {
     return (
@@ -91,8 +124,12 @@ export function TripTrackingClient({ tripId }: { tripId: string }) {
                 </div>
             </div>
             <div className="flex items-center gap-3">
-                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-100 font-black uppercase text-[10px] h-8 px-4 flex gap-2">
-                    <ShieldCheck className="h-3 w-3" /> Live Handshake Active
+                <Badge variant="outline" className={cn(
+                    "font-black uppercase text-[10px] h-8 px-4 flex gap-2 border-none",
+                    livePos ? "bg-emerald-50 text-emerald-700 shadow-sm" : "bg-red-50 text-red-600"
+                )}>
+                    {refreshing ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+                    {livePos ? "Live Handshake Active" : "Searching Signal..."}
                 </Badge>
             </div>
         </div>
@@ -104,12 +141,13 @@ export function TripTrackingClient({ tripId }: { tripId: string }) {
                     <CardContent className="p-0">
                         <VehicleMap 
                             vehicleNo={trip.vehicleNumber} 
+                            livePos={livePos}
                             origin={{ 
                                 lat: trip.plantLat || 28.6139, 
                                 lng: trip.plantLng || 77.2090, 
                                 name: trip.plantNameResolved || "Lifting Node" 
                             }}
-                            destination={{ lat: 19.0760, lng: 72.8777, name: trip.unloadingPoint }}
+                            destination={trip.unloadingPoint}
                         />
                     </CardContent>
                 </Card>
@@ -123,7 +161,8 @@ export function TripTrackingClient({ tripId }: { tripId: string }) {
                         <CardContent className="p-8 space-y-8">
                             {[
                                 { label: 'Vehicle Registry', value: trip.vehicleNumber, icon: Truck, bold: true },
-                                { label: 'Pilot Name', value: trip.driverName, icon: Truck },
+                                { label: 'Pilot Name', value: trip.driverName, icon: User },
+                                { label: 'Current location', value: livePos?.location || "Resolving Satellite...", icon: MapPin, color: "text-blue-600 animate-pulse" },
                                 { label: 'Dispatch point', value: trip.plantNameResolved || trip.originPlantId, icon: Factory },
                                 { label: 'Delivery point', value: trip.unloadingPoint, icon: MapPin },
                                 { label: 'Assigned Status', value: trip.currentStatusId, icon: ShieldCheck, badge: true }
@@ -135,9 +174,9 @@ export function TripTrackingClient({ tripId }: { tripId: string }) {
                                     <div className="space-y-1">
                                         <p className="text-[9px] font-black uppercase text-slate-400 leading-none">{item.label}</p>
                                         {item.badge ? (
-                                            <Badge className="bg-blue-900 text-white font-black uppercase text-[9px] mt-1">{item.value}</Badge>
+                                            <Badge className="bg-blue-900 text-white font-black uppercase text-[9px] mt-1 shadow-md border-none">{item.value}</Badge>
                                         ) : (
-                                            <p className={cn("text-xs uppercase", item.bold ? "font-black text-slate-900" : "font-bold text-slate-600")}>{item.value}</p>
+                                            <p className={cn("text-xs uppercase leading-tight", item.bold ? "font-black text-slate-900" : "font-bold text-slate-600", item.color)}>{item.value || '--'}</p>
                                         )}
                                     </div>
                                 </div>

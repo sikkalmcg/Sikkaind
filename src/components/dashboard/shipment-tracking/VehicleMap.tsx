@@ -1,3 +1,4 @@
+
 'use client';
 
 import dynamic from 'next/dynamic';
@@ -7,6 +8,7 @@ const TrackingMap = dynamic(() => import('./TrackingMap'), { ssr: false });
 
 interface VehicleMapProps {
   vehicleNo: string;
+  livePos?: any;
   origin: { lat: number; lng: number; name: string };
   destination: string | { lat: number; lng: number; name: string };
 }
