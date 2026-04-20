@@ -55,7 +55,7 @@ export type ModalId =
  * @fileOverview Logistics Dashboard (Monitoring Hub).
  * Optimized for mobile: Single scroll node and compact header grid.
  */
-export default function DashboardPage() {
+function DashboardContent() {
   const { user } = useUser();
   const firestore = useFirestore();
   const [selectedPlant, setSelectedPlant] = useState("all-plants");
@@ -178,5 +178,17 @@ export default function DashboardPage() {
       {selectedModal === "loaded-trips" && <LoadedTripsModal isOpen={true} onClose={() => setSelectedModal(null)} plantId={selectedPlant} plantName={activePlantName} authorizedPlantIds={authorizedPlantIds} fromDate={fromDate} toDate={toDate} />}
       {selectedModal === "gis-monitor" && <GISMonitor isOpen={true} onClose={() => setSelectedModal(null)} />}
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+        <div className="flex h-screen w-full items-center justify-center bg-[#f8fafc]">
+            <Loader2 className="h-10 w-10 animate-spin text-blue-900" />
+        </div>
+    }>
+        <DashboardContent />
+    </Suspense>
   );
 }
