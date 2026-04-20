@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, Suspense } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,8 +29,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
-import { collection, query, where, getDocs, limit, doc, getDoc } from 'firebase/firestore';
-import { format, addSeconds, isValid } from 'date-fns';
+import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp } from 'firebase/firestore';
+import { format, isValid } from 'date-fns';
 import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
 import { useJsApiLoader, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
 import { useToast } from '@/hooks/use-toast';
@@ -315,7 +315,8 @@ function TrackConsignmentContent() {
                                     
                                     const activeColor = (consignment.isRejected && isReversed) ? "bg-red-600 border-red-400" : "bg-blue-600 border-blue-400";
                                     const label = (isFinal && consignment.isRejected) ? 'MISSION REJECTED' : stage.label;
-                                    const timestamp = consignment.lastUpdated?.toDate ? consignment.lastUpdated.toDate() : (consignment.lastUpdated || Date.now());
+                                    const timestampNode = consignment.lastUpdated || consignment.startDate || Date.now();
+                                    const timestamp = timestampNode instanceof Timestamp ? timestampNode.toDate() : new Date(timestampNode);
 
                                     return (
                                         <div key={i} className="flex flex-col items-center gap-8 relative z-10 w-48">
@@ -332,7 +333,7 @@ function TrackConsignmentContent() {
                                                 {isTarget ? (
                                                     <motion.div 
                                                         animate={{ 
-                                                            x: isReversed ? [-3, 3, -3] : [3, -3, 3],
+                                                            x: isReversed ? [-2, 2, -2] : [2, -2, 2],
                                                             scaleX: isReversed ? -1 : 1 
                                                         }} 
                                                         transition={{ repeat: Infinity, duration: 0.6 }}
@@ -345,16 +346,18 @@ function TrackConsignmentContent() {
                                             </motion.div>
                                             <div className="text-center space-y-2">
                                                 <p className={cn(
-                                                    "text-xs font-black uppercase tracking-widest transition-colors duration-500", 
+                                                    "text-[10px] font-black uppercase tracking-widest transition-colors duration-500", 
                                                     active ? ((consignment.isRejected && isReversed) ? "text-red-700" : "text-slate-900") : "text-slate-200"
                                                 )}>{label}</p>
                                                 {active && (
-                                                    <p className={cn(
-                                                        "text-[9px] font-black font-mono h-5",
-                                                        (consignment.isRejected && isReversed) ? "text-red-400" : "text-slate-400"
-                                                    )}>
-                                                        {format(new Date(timestamp), 'HH:mm')}
-                                                    </p>
+                                                    <div className="flex flex-col items-center gap-1.5 mt-2 animate-in fade-in duration-700">
+                                                        <p className="text-[10px] font-black font-mono text-red-600 leading-none tracking-tighter">
+                                                            {format(timestamp, 'dd MMM yyyy')}
+                                                        </p>
+                                                        <p className="text-[10px] font-black font-mono text-red-600 leading-none">
+                                                            {format(timestamp, 'HH:mm')}
+                                                        </p>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
@@ -452,7 +455,7 @@ function TrackingPopup({ isOpen, onClose, consignment, livePos, onEtaResolved }:
                 if (status === "OK" && result) {
                     setDirections(result);
                     const duration = result.routes[0].legs[0].duration?.value || 0;
-                    onEtaResolved(addSeconds(new Date(), duration));
+                    onEtaResolved(new Date(Date.now() + duration * 1000));
                 }
             }
         );

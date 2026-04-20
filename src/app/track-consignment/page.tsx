@@ -300,7 +300,8 @@ function TrackConsignmentContent() {
                                     // Visual Handshake logic
                                     const activeColor = (result.isRejected && isReversed) ? "bg-red-600 border-red-400" : "bg-blue-600 border-blue-400";
                                     const label = (isFinal && result.isRejected) ? 'MISSION REJECTED' : stage.label;
-                                    const timestamp = result.lastUpdated?.toDate ? result.lastUpdated.toDate() : (result.lastUpdated || Date.now());
+                                    const timestampNode = result.lastUpdated || result.startDate || Date.now();
+                                    const timestamp = timestampNode instanceof Timestamp ? timestampNode.toDate() : new Date(timestampNode);
 
                                     return (
                                         <div key={i} className="flex flex-col items-center gap-6 relative z-10 w-48">
@@ -334,18 +335,12 @@ function TrackConsignmentContent() {
                                                     active ? ((result.isRejected && isReversed) ? "text-red-700" : "text-blue-900") : "text-slate-200"
                                                 )}>{label}</p>
                                                 {active && (
-                                                    <div className="flex flex-col items-center animate-in fade-in duration-500">
-                                                        <p className={cn(
-                                                            "text-[8px] font-black uppercase tracking-tighter mb-0.5",
-                                                            (result.isRejected && isReversed) ? "text-red-300" : "text-slate-400"
-                                                        )}>
-                                                            {format(new Date(timestamp), 'dd MMM yyyy')}
+                                                    <div className="flex flex-col items-center gap-1.5 mt-2 animate-in fade-in duration-700">
+                                                        <p className="text-[10px] font-black font-mono text-red-600 leading-none tracking-tighter">
+                                                            {format(timestamp, 'dd MMM yyyy')}
                                                         </p>
-                                                        <p className={cn(
-                                                            "text-[10px] font-black font-mono leading-none",
-                                                            (result.isRejected && isReversed) ? "text-red-400" : "text-blue-900"
-                                                        )}>
-                                                            {format(new Date(timestamp), 'HH:mm')}
+                                                        <p className="text-[10px] font-black font-mono text-red-600 leading-none">
+                                                            {format(timestamp, 'HH:mm')}
                                                         </p>
                                                     </div>
                                                 )}
