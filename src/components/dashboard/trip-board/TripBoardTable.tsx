@@ -216,6 +216,9 @@ function MissionRegistryCard({
     
     // Mission Registry Logic Node: Show LR and Invoices only from Loading stage onwards
     const showLrAndInvoices = ['loading', 'transit', 'arrived', 'pod-status', 'rejection', 'closed'].includes(activeTab);
+
+    // REGISTRY LOCK Node: Edit LR only allowed in Loading and Transit stages
+    const canEditLRNode = ['loading', 'transit'].includes(activeTab);
     
     const dateNode = isPending ? row.creationDate : row.startDate;
     const formattedDate = dateNode ? format(new Date(dateNode), 'dd MMM') : '--';
@@ -314,21 +317,23 @@ function MissionRegistryCard({
                                     </button>
                                 </>
                             ) : (
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button 
-                                                variant="ghost" 
-                                                size="icon" 
-                                                className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
-                                                onClick={() => onAction('edit-lr', row)}
-                                            >
-                                                <Plus size={16} className="stroke-[3]" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="bg-slate-900 text-white text-[10px] font-black uppercase">Initialize LR Registry</TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                                canEditLRNode && (
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100"
+                                                    onClick={() => onAction('edit-lr', row)}
+                                                >
+                                                    <Plus size={16} className="stroke-[3]" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-slate-900 text-white text-[10px] font-black uppercase">Initialize LR Registry</TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                )
                             )}
                         </div>
                     </div>
@@ -455,7 +460,7 @@ function MissionRegistryCard({
                                     <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Mission Control</DropdownMenuLabel>
                                     <DropdownMenuItem onClick={() => onAction(isPending ? 'view-order' : 'view', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
                                     
-                                    {showLrAndInvoices && (
+                                    {showLrAndInvoices && canEditLRNode && (
                                         <DropdownMenuItem onClick={() => onAction('edit-lr', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
                                             <FileText className="h-4 w-4 text-orange-600" /> Edit LR manifest
                                         </DropdownMenuItem>
