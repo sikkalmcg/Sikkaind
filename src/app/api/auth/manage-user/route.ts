@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { action, email, password, username, mobileNo, userId, newPassword, userData } = body;
+        const { action, email, password, userData, userId, newPassword } = body;
 
         if (action === 'createUser') {
             if (!email || !password || !userData) return NextResponse.json({ error: "Required params missing." }, { status: 400 });
@@ -66,20 +66,21 @@ export async function POST(req: NextRequest) {
             const adminEmail = 'sikkaind.admin@sikka.com';
             const adminPassword = 'sikkaind';
             try {
-                const created = await adminAuth.createUser({
-                    email: adminEmail,
-                    password: adminPassword,
-                    emailVerified: true,
-                    displayName: 'Sikka Admin'
-                }).catch(async (e) => {
-                    if (e.code === 'auth/email-already-exists') {
-                        const user = await adminAuth.getUserByEmail(adminEmail);
-                        return adminAuth.updateUser(user.uid, { password: adminPassword });
-                    }
-                    throw e;
-                });
+                let uid;
+                try {
+                    const existing = await adminAuth.getUserByEmail(adminEmail);
+                    await adminAuth.updateUser(existing.uid, { password: adminPassword });
+                    uid = existing.uid;
+                } catch (e: any) {
+                    const created = await adminAuth.createUser({
+                        email: adminEmail,
+                        password: adminPassword,
+                        emailVerified: true,
+                        displayName: 'Sikka Admin'
+                    });
+                    uid = created.uid;
+                }
                 
-                const uid = (created as any).uid || (await adminAuth.getUserByEmail(adminEmail)).uid;
                 const ts = FieldValue.serverTimestamp();
 
                 await adminDb.collection("users").doc(adminEmail).set({
