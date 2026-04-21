@@ -1,6 +1,5 @@
-
 'use client';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import type { WithId, SubUser, Plant } from '@/types';
@@ -9,11 +8,9 @@ import UserManagementTab from '@/components/dashboard/sub-user-management/UserMa
 import EditUserModal from '@/components/dashboard/sub-user-management/EditUserModal';
 import { useUser, useAuth, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { Loader2, Users, ShieldCheck, LayoutGrid, WifiOff } from 'lucide-react';
-import { doc, onSnapshot, query, collection, orderBy, getDoc, writeBatch, serverTimestamp, setDoc, updateDoc, deleteDoc, where, getDocs, limit, addDoc } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Loader2, Users, ShieldCheck, WifiOff } from 'lucide-react';
+import { doc, onSnapshot, query, collection, orderBy, getDoc, serverTimestamp, setDoc, updateDoc, deleteDoc, where, getDocs, limit, addDoc } from 'firebase/firestore';
 import { useLoading } from '@/context/LoadingContext';
-import { format } from 'date-fns';
 import { sanitizeRegistryNode, handleFirestoreError, OperationType } from '@/lib/utils';
 
 /**
@@ -104,12 +101,9 @@ export default function UserManagementPage() {
         showLoader();
         try {
             const ts = serverTimestamp();
-            const currentOperator = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0]);
-
             const cleanUsername = data.username.toLowerCase().replace(/\s+/g, '');
             const systemEmail = cleanUsername === 'sikkaind' ? 'sikkaind.admin@sikka.com' : `${cleanUsername}@sikka.com`;
 
-            // 1. Create in Firebase Auth (via API Handshake)
             const authResponse = await fetch('/api/auth/manage-user', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -120,7 +114,6 @@ export default function UserManagementPage() {
                 })
             });
 
-            // CRITICAL: Consume body only once to avoid "Body already used" runtime error
             const authResult = await authResponse.json();
 
             if (!authResponse.ok) {
@@ -129,7 +122,6 @@ export default function UserManagementPage() {
 
             const { uid } = authResult;
 
-            // 2. Create in Firestore Registry
             await setDoc(doc(firestore, "users", systemEmail), {
                 ...data,
                 id: systemEmail,
@@ -137,14 +129,12 @@ export default function UserManagementPage() {
                 username: cleanUsername,
                 email: systemEmail,
                 createdAt: ts,
-                createdBy: currentOperator,
                 status: 'Active'
             });
 
             toast({ title: 'Identity Provisioned', description: `User ${cleanUsername} successfully established.` });
             setActiveTab('user-management');
         } catch (error: any) {
-            console.error("Provisioning failure:", error);
             toast({ variant: 'destructive', title: 'Provisioning Error', description: error.message });
         } finally {
             hideLoader();
@@ -153,12 +143,6 @@ export default function UserManagementPage() {
 
     const handleUserUpdated = async (userId: string, data: Partial<SubUser>) => {
         if (!firestore) return;
-        
-        if (data.plantIds && new Set(data.plantIds).size !== data.plantIds.length) {
-            toast({ variant: 'destructive', title: "Validation Error", description: "Duplicate plant assignment not allowed." });
-            return;
-        }
-
         showLoader();
         try {
             if (data.password) {
@@ -188,7 +172,6 @@ export default function UserManagementPage() {
             toast({ title: 'Registry Updated', description: 'Identity node modified.' });
             setEditingUser(null);
         } catch (error: any) {
-            console.error("Update failure:", error);
             toast({ variant: 'destructive', title: 'Update Failed', description: error.message });
         } finally {
             hideLoader();
@@ -203,18 +186,15 @@ export default function UserManagementPage() {
             const userSnap = await getDoc(userRef);
             
             if (userSnap.exists()) {
-                const userData = userSnap.data() as SubUser;
-                const currentOperator = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || "Admin");
-
+                const userData = userSnap.data();
                 await addDoc(collection(firestore, "recycle_bin"), {
                     pageName: "User Management",
-                    userName: currentOperator,
+                    userName: user.email?.split('@')[0] || "Admin",
                     deletedAt: serverTimestamp(),
                     data: sanitizeRegistryNode({ ...userData, id: userId, type: 'User' })
                 });
-
                 await deleteDoc(userRef);
-                toast({ title: 'Identity Revoked', description: `User ${userData.username} removed from active registry.` });
+                toast({ title: 'Identity Revoked', description: `User removed from active registry.` });
             }
         } catch (error: any) {
             handleFirestoreError(error, OperationType.DELETE, `users/${userId}`);
@@ -291,3 +271,4 @@ export default function UserManagementPage() {
         </main>
     );
 }
+
