@@ -9,6 +9,10 @@ import Footer from '@/components/website/Footer';
 import { LoadingProvider } from '@/context/LoadingContext';
 import GlobalLoader from '@/components/ui/global-loader';
 
+/**
+ * @fileOverview Client-side Root Layout Wrapper.
+ * Manages providers and ensures hooks like usePathname execute within the correct context.
+ */
 export default function RootLayoutClient({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
@@ -17,40 +21,21 @@ export default function RootLayoutClient({ children }: { children: ReactNode }) 
     setMounted(true);
   }, []);
 
-  // Is list mein wo paths rakhein jahan Header/Footer NAHI chahiye
-  const hideLayoutPaths = [
-    '/login',
-    '/dashboard',
-    '/modules',
-    '/user-management'
-  ];
-
-  const isWebsitePage = !hideLayoutPaths.some(path => pathname?.startsWith(path));
-
-  // Hydration error se bachne ke liye: 
-  // Jab tak mounted na ho, basic structure dikhayein
-  if (!mounted) {
-    return (
-      <FirebaseClientProvider>
-        <LoadingProvider>
-          <GlobalLoader />
-          <main className="contents">{children}</main>
-          <Toaster />
-        </LoadingProvider>
-      </FirebaseClientProvider>
-    );
-  }
+  // Registry Logic: Safely handle null pathname during SSR
+  const isWebsitePage = !pathname || (
+                        !pathname.startsWith('/login') && 
+                        !pathname.startsWith('/dashboard') && 
+                        !pathname.startsWith('/modules') && 
+                        !pathname.startsWith('/user-management'));
 
   return (
     <FirebaseClientProvider>
       <LoadingProvider>
         <GlobalLoader />
         <Suspense fallback={null}>
-          {isWebsitePage && <Header />}
-          <main className={isWebsitePage ? 'block' : 'contents'}>
-            {children}
-          </main>
-          {isWebsitePage && <Footer />}
+          {mounted && isWebsitePage && <Header />}
+          <main className={mounted && isWebsitePage ? 'block' : 'contents'}>{children}</main>
+          {mounted && isWebsitePage && <Footer />}
         </Suspense>
         <Toaster />
       </LoadingProvider>

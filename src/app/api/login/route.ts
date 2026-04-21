@@ -1,3 +1,4 @@
+
 import { adminDb as db, FieldValue } from "@/firebase/admin";
 import { NextRequest, NextResponse } from "next/server";
 import type { SubUser } from "@/types";
@@ -5,7 +6,7 @@ import type { SubUser } from "@/types";
 /**
  * @fileOverview Login API Route.
  * Performs session establishment and identity resolution.
- * Updated: Scrubbed client-specific redirect logic for a unified operational flow.
+ * Removed: Client role redirection node as requested.
  */
 export async function POST(req: NextRequest) {
     const { uid, email } = await req.json();

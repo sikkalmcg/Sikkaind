@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -10,25 +11,24 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { 
   Loader2, 
   ShieldCheck, 
   KeyRound, 
-  Smartphone, 
   Factory, 
-  CheckCircle2, 
   Save, 
   X, 
   Activity, 
   Truck,
+  LayoutGrid,
   Briefcase
 } from 'lucide-react';
 import type { SubUser, Plant, WithId } from '@/types';
 import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions } from '@/lib/constants';
-import { cn, normalizePlantId } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
   fullName: z.string().min(2, 'Full name required.'),
@@ -61,7 +61,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
     defaultValues: {
       fullName: '',
       mobile: '',
-      password: '', 
+      password: '',
       jobRole: 'Operator',
       status: 'Active',
       defaultModule: 'Logistics',
@@ -234,7 +234,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                                 <div className="space-y-4">
                                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">Permissions Manifest</p>
                                     <div className="grid grid-cols-1 gap-2">
-                                        {SikkaLogisticsPagePermissions.slice(0, 10).map(p => (
+                                        {SikkaLogisticsPagePermissions.slice(0, 8).map(p => (
                                             <div key={p.id} onClick={() => watchedAccessLogistics && togglePermission(p.id)} className={cn("flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group",
                                                 watchedPermissions.includes(p.id) ? "bg-white border-blue-900 shadow-md" : "border-slate-50 hover:border-slate-200"
                                             )}>
@@ -251,7 +251,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
 
                         <Card className={cn("border-2 transition-all rounded-[3rem] overflow-hidden", watchedAccessAccounts ? "border-emerald-200 bg-white shadow-2xl" : "border-slate-100 opacity-40 grayscale")}>
                             <CardHeader className="p-6 border-b bg-slate-50/50 flex flex-row items-center justify-between">
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-3">
                                     <div className={cn("p-3 rounded-2xl shadow-lg", watchedAccessAccounts ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-400")}><Briefcase className="h-6 w-6" /></div>
                                     <CardTitle className="text-md font-black uppercase italic text-slate-800">Accounts & Admin</CardTitle>
                                 </div>

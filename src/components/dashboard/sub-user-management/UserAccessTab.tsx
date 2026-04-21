@@ -1,12 +1,13 @@
+
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -15,7 +16,6 @@ import {
   ShieldCheck, 
   UserPlus, 
   KeyRound, 
-  Smartphone, 
   Briefcase, 
   Factory, 
   LayoutGrid, 
@@ -26,7 +26,6 @@ import {
 } from 'lucide-react';
 import type { SubUser, Plant } from '@/types';
 import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions } from '@/lib/constants';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
@@ -54,7 +53,7 @@ interface UserAccessTabProps {
   isAdmin: boolean;
 }
 
-export default function UserAccessTab({ onUserCreated, existingUsernames, logisticsPlants, accountsPlants, isAdmin }: UserAccessTabProps) {
+export default function UserAccessTab({ onUserCreated, logisticsPlants, accountsPlants, isAdmin }: UserAccessTabProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -108,6 +107,7 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
         <CardContent className="p-10">
           <Form {...form}>
             <form onSubmit={handleSubmit(onUserCreated)} className="space-y-12">
+              {/* 1. IDENTITY PARTICULARS */}
               <section className="space-y-6">
                 <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2 px-1 italic">
                   <ShieldCheck className="h-4 w-4 text-blue-600" /> 1. Operational Identity Particulars
@@ -137,7 +137,7 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                   <FormField name="mobile" control={form.control} render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-[10px] font-black uppercase text-slate-500">Contact Node *</FormLabel>
-                      <FormControl><Input placeholder="10 Digit Number" {...field} maxLength={10} className="h-12 rounded-xl font-mono font-bold bg-white border-slate-200" /></FormControl>
+                      <FormControl><Input placeholder="10 Digit Number" {...field} maxLength={10} className="h-12 rounded-xl font-mono font-bold bg-white" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -164,7 +164,9 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                 </div>
               </section>
 
+              {/* 2. ACCESS SCOPE MATRIX */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* LOGISTICS NODE */}
                 <Card className={cn("border-2 transition-all rounded-[2.5rem] overflow-hidden", accessLogistics ? "border-blue-200 bg-blue-50/10 shadow-2xl" : "border-slate-100 opacity-40")}>
                   <CardHeader className="p-6 border-b bg-white/50 flex flex-row items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -201,7 +203,7 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                         <LayoutGrid className="h-3 w-3" /> Module Permissions
                       </p>
                       <div className="grid grid-cols-1 gap-2">
-                        {SikkaLogisticsPagePermissions.slice(0, 10).map(p => (
+                        {SikkaLogisticsPagePermissions.slice(0, 8).map(p => (
                           <div key={p.id} onClick={() => accessLogistics && togglePermission(p.id)} className={cn(
                             "flex items-center gap-2.5 p-2 rounded-xl border transition-all cursor-pointer group",
                             selectedPermissions.includes(p.id) ? "bg-white border-blue-900 shadow-sm" : "border-slate-50 hover:border-slate-200"
@@ -217,13 +219,14 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                   </CardContent>
                 </Card>
 
+                {/* ACCOUNTS & ADMIN NODE */}
                 <Card className={cn("border-2 transition-all rounded-[2.5rem] overflow-hidden", (accessAccounts || isAdmin) ? "border-emerald-200 bg-white shadow-2xl" : "border-slate-100 opacity-40")}>
                   <CardHeader className="p-6 border-b bg-slate-50/50 flex flex-row items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className={cn("p-2 rounded-xl shadow-lg", (accessAccounts || isAdmin) ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-400")}>
                         <Briefcase className="h-5 w-5" />
                       </div>
-                      <CardTitle className="text-md font-black uppercase italic text-slate-800">Accounts & Security</CardTitle>
+                      <CardTitle className="text-md font-black uppercase italic tracking-tight text-slate-800">Accounts & Security</CardTitle>
                     </div>
                     <FormField name="access_accounts" control={form.control} render={({ field }) => (
                       <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md data-[state=checked]:bg-emerald-600 shadow-sm" />

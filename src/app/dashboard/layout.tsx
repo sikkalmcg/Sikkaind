@@ -1,7 +1,8 @@
+
 'use client';
 
-import { ReactNode, useEffect, useState, Suspense, useMemo } from "react";
-import { useUser, useAuth, useFirestore } from "@/firebase";
+import { ReactNode, useEffect, useState, Suspense } from "react";
+import { useUser, useFirestore } from "@/firebase";
 import { useRouter, usePathname } from "next/navigation";
 import LogisticsHeader from "@/components/dashboard/layout/LogisticsHeader";
 import LogisticsSidebar from "@/components/dashboard/layout/LogisticsSidebar";
@@ -15,7 +16,7 @@ import { handleFirestoreError, OperationType } from "@/lib/utils";
 /**
  * @fileOverview Dashboard Layout Plant.
  * Manages core authorization pulse and sidebar/header integration.
- * Updated: Scrubbed client restriction node for a unified operator flow.
+ * Removed: Restricted "Client" role enforcement node as requested.
  */
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, isUserLoading } = useUser();

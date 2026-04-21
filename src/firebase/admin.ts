@@ -1,10 +1,11 @@
+
 import * as admin from 'firebase-admin';
-import { getApps, initializeApp } from 'firebase-admin/app';
+import { getApps, initializeApp, credential } from 'firebase-admin/app';
+import serviceAccount from '@/serviceAccountKey.json';
 
 /**
  * @fileOverview Refined Firebase Admin SDK Handshake.
- * Utilizing Application Default Credentials (ADC) for environment-level auth.
- * This removes dependency on deleted serviceAccountKey.json.
+ * Implements a hardened singleton pattern with explicit service account credentials.
  */
 
 function getAdminApp() {
@@ -12,12 +13,12 @@ function getAdminApp() {
   if (apps.length > 0) return apps[0];
 
   try {
-    // Initializes with Application Default Credentials
     return initializeApp({
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'studio-2134942499-abd6c'
+      credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+      databaseURL: `https://${serviceAccount.project_id}-default-rtdb.firebaseio.com`
     });
   } catch (e) {
-    console.error("Critical: Admin SDK Handshake Failure", e);
+    console.error("Critical: Admin SDK Registry Handshake Failure", e);
     return null;
   }
 }
