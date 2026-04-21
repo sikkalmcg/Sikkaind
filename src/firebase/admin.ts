@@ -5,6 +5,7 @@ import { getApps } from 'firebase-admin/app';
 /**
  * @fileOverview Firebase Admin SDK initialization node.
  * Provides privileged access for user management and system-level operations.
+ * Configured for production environment handshake.
  */
 
 const config = {
@@ -14,12 +15,16 @@ const config = {
 };
 
 if (!getApps().length) {
-  admin.initializeApp({
-    credential: config.clientEmail && config.privateKey 
-      ? admin.credential.cert(config as admin.ServiceAccount)
-      : admin.credential.applicationDefault(),
-    databaseURL: `https://${config.projectId}-default-rtdb.firebaseio.com`
-  });
+  try {
+    admin.initializeApp({
+      credential: (config.clientEmail && config.privateKey)
+        ? admin.credential.cert(config as admin.ServiceAccount)
+        : admin.credential.applicationDefault(),
+      databaseURL: `https://${config.projectId}-default-rtdb.firebaseio.com`
+    });
+  } catch (e) {
+    console.error("Critical: Admin SDK Handshake Failure", e);
+  }
 }
 
 const adminAuth = admin.auth();

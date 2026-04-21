@@ -1,6 +1,11 @@
+
 import { adminAuth, adminDb, FieldValue } from "@/firebase/admin";
 import { NextRequest, NextResponse } from "next/server";
 
+/**
+ * @fileOverview Auth Management API Route.
+ * Provides privileged administrative functions for Firebase Auth.
+ */
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
@@ -10,7 +15,6 @@ export async function POST(req: NextRequest) {
             if (!username) return NextResponse.json({ error: "Username required." }, { status: 400 });
             const cleanUsername = username.toLowerCase().trim();
             
-            // Optimized query node
             const q = adminDb.collection("users").where("username", "==", cleanUsername).limit(1);
             const snap = await q.get();
 
@@ -39,21 +43,19 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: true, userId: snap.docs[0].id, email: userData.email });
         }
 
-        if (action === 'resetPassword') {
-            if (!userId || !newPassword) return NextResponse.json({ error: "Params missing." }, { status: 400 });
-            const userRef = adminDb.collection("users").doc(userId);
-            const userSnap = await userRef.get();
-
-            if (!userSnap.exists) return NextResponse.json({ error: "User not found." }, { status: 404 });
-
-            const userData = userSnap.data()!;
-            const email = userData.email || (userData.username === 'sikkaind' ? 'sikkaind.admin@sikka.com' : `${userData.username}@sikka.com`);
-
-            await userRef.update({ password: newPassword, passwordUpdatedAt: FieldValue.serverTimestamp() });
-            const userRecord = await adminAuth.getUserByEmail(email);
-            await adminAuth.updateUser(userRecord.uid, { password: newPassword });
-
-            return NextResponse.json({ success: true });
+        if (action === 'resetPassword' || action === 'updatePassword') {
+            const targetEmail = email || body.email;
+            const targetPassword = newPassword || password;
+            
+            if (!targetEmail || !targetPassword) return NextResponse.json({ error: "Params missing." }, { status: 400 });
+            
+            try {
+                const userRecord = await adminAuth.getUserByEmail(targetEmail);
+                await adminAuth.updateUser(userRecord.uid, { password: targetPassword });
+                return NextResponse.json({ success: true });
+            } catch (e: any) {
+                return NextResponse.json({ error: e.message }, { status: 500 });
+            }
         }
 
         if (action === 'bootstrap') {
@@ -106,11 +108,11 @@ export async function POST(req: NextRequest) {
                     const created = await adminAuth.createUser({ email, password, emailVerified: true });
                     return NextResponse.json({ success: true, uid: created.uid });
                 }
-                throw e;
+                return NextResponse.json({ error: e.message }, { status: 500 });
             }
         }
 
-        return NextResponse.json({ error: "Invalid action." }, { status: 400 });
+        return NextResponse.json({ error: "Invalid action registry node." }, { status: 400 });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }

@@ -116,12 +116,13 @@ export default function UserManagementPage() {
                 })
             });
 
+            const resultData = await authResponse.json();
+
             if (!authResponse.ok) {
-                const errorData = await authResponse.json();
-                throw new Error(errorData.error || "Auth provisioning failed.");
+                throw new Error(resultData.error || "Auth provisioning failed.");
             }
 
-            const { uid } = await authResponse.json();
+            const { uid } = resultData;
 
             // 2. Create in Firestore
             await setDoc(doc(firestore, "users", systemEmail), {
@@ -139,7 +140,7 @@ export default function UserManagementPage() {
             setActiveTab('user-management');
         } catch (error: any) {
             console.error("Provisioning failure:", error);
-            handleFirestoreError(error, OperationType.WRITE, `users/${data.username}`);
+            toast({ variant: 'destructive', title: 'Provisioning Error', description: error.message });
         } finally {
             hideLoader();
         }
@@ -175,9 +176,10 @@ export default function UserManagementPage() {
                         })
                     });
 
+                    const authResult = await authResponse.json();
+
                     if (!authResponse.ok) {
-                        const errorData = await authResponse.json();
-                        throw new Error(errorData.error || "Auth sync failed.");
+                        throw new Error(authResult.error || "Auth sync failed.");
                     }
                 }
             }
@@ -187,7 +189,7 @@ export default function UserManagementPage() {
             setEditingUser(null);
         } catch (error: any) {
             console.error("Update failure:", error);
-            handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+            toast({ variant: 'destructive', title: 'Update Failed', description: error.message });
         } finally {
             hideLoader();
         }
