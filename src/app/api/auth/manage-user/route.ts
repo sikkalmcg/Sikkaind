@@ -19,11 +19,10 @@ export async function POST(req: NextRequest) {
                 // 1. Establish Identity node in Authentication
                 let userRecord;
                 try {
-                    const existing = await adminAuth.getUserByEmail(email);
-                    uid = existing.uid;
-                    // Update password if identity exists
-                    await adminAuth.updateUser(uid, { password });
-                    userRecord = existing;
+                    // Check if identity exists
+                    userRecord = await adminAuth.getUserByEmail(email);
+                    // Update password if identity exists to match mission manifest
+                    await adminAuth.updateUser(userRecord.uid, { password });
                 } catch (e: any) {
                     if (e.code === 'auth/user-not-found') {
                         userRecord = await adminAuth.createUser({
@@ -38,14 +37,15 @@ export async function POST(req: NextRequest) {
                 const uid = userRecord.uid;
 
                 // 2. Synchronize Identity node with Firestore Registry
+                // This ensures the database write happens in the same authorized context
                 const userRegistryRef = adminDb.collection("users").doc(uid);
                 await userRegistryRef.set({
                     ...userData,
                     uid,
                     email,
                     status: 'Active',
-                    createdAt: FieldValue.serverTimestamp(),
-                    updatedAt: FieldValue.serverTimestamp()
+                    updatedAt: FieldValue.serverTimestamp(),
+                    createdAt: FieldValue.serverTimestamp()
                 }, { merge: true });
 
                 // 3. Register Administrative Privileges if applicable
@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Invalid mission action." }, { status: 400 });
 
     } catch (error: any) {
+        console.error("Terminal Synchronization Error:", error);
         return NextResponse.json({ error: "Terminal synchronization error." }, { status: 500 });
     }
 }

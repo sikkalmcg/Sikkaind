@@ -8,7 +8,7 @@ import * as admin from 'firebase-admin';
 
 if (!admin.apps.length) {
   try {
-    // Authorized environment pulse: handshakes automatically in Firebase Studio
+    // Authorized environment pulse: utilizes ADC in Firebase Studio/Production environment
     admin.initializeApp();
   } catch (error) {
     console.error('Admin SDK Handshake Failure:', error);

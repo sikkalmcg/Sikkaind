@@ -1,4 +1,3 @@
-
 /**
  * @fileOverview Firebase Client Configuration Node.
  * Synchronized with project registry settings.
