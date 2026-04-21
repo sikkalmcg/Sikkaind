@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -10,7 +10,22 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, ShieldCheck, UserPlus, KeyRound, Smartphone, Briefcase, Factory, LayoutGrid, CheckCircle2, Truck, Save } from 'lucide-react';
+import { 
+  Loader2, 
+  ShieldCheck, 
+  UserPlus, 
+  KeyRound, 
+  Smartphone, 
+  Briefcase, 
+  Factory, 
+  LayoutGrid, 
+  CheckCircle2, 
+  Truck, 
+  Save,
+  Radar,
+  Eye,
+  ShieldAlert
+} from 'lucide-react';
 import type { SubUser, Plant } from '@/types';
 import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions } from '@/lib/constants';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -24,9 +39,10 @@ const formSchema = z.object({
   username: z.string().min(3, 'Username required (min 3 chars).').toLowerCase().transform(v => v.replace(/\s+/g, '')),
   password: z.string().min(6, 'Password required (min 6 chars).'),
   jobRole: z.string().min(1, 'Role required.'),
-  defaultModule: z.enum(['Logistics', 'Accounts', 'Administration']).default('Logistics'),
+  defaultModule: z.enum(['Logistics', 'Accounts', 'Administration', 'Trip Board']).default('Logistics'),
   access_logistics: z.boolean().default(true),
   access_accounts: z.boolean().default(false),
+  access_client: z.boolean().default(false),
   plantIds: z.array(z.string()).default([]),
   accounts_plant_ids: z.array(z.string()).default([]),
   permissions: z.array(z.string()).default([]),
@@ -54,6 +70,7 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
       defaultModule: 'Logistics',
       access_logistics: true,
       access_accounts: false,
+      access_client: false,
       plantIds: [],
       accounts_plant_ids: [],
       permissions: [],
@@ -63,18 +80,35 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
   const { watch, setValue, handleSubmit, formState: { isSubmitting } } = form;
   const accessLogistics = watch('access_logistics');
   const accessAccounts = watch('access_accounts');
+  const accessClient = watch('access_client');
   const selectedPermissions = watch('permissions') || [];
   const selectedLogisticsPlants = watch('plantIds') || [];
   const selectedAccountsPlants = watch('accounts_plant_ids') || [];
+
+  // CLIENT HANDSHAKE node: If client access is enabled, force Job Role and restrict permissions
+  useEffect(() => {
+    if (accessClient) {
+        setValue('jobRole', 'Client');
+        setValue('access_logistics', false);
+        setValue('access_accounts', false);
+        setValue('defaultModule', 'Trip Board');
+        // Force Read-only Mission Permissions
+        setValue('permissions', ['trip-board', 'shipment-tracking', 'track-consignment']);
+    } else if (form.getValues('jobRole') === 'Client') {
+        setValue('jobRole', 'Operator');
+        setValue('access_logistics', true);
+        setValue('permissions', []);
+    }
+  }, [accessClient, setValue]);
 
   const togglePermission = (id: string) => {
     const next = selectedPermissions.includes(id) ? selectedPermissions.filter(p => p !== id) : [...selectedPermissions, id];
     setValue('permissions', next, { shouldValidate: true });
   };
 
-  const togglePlant = (id: string, type: 'logistics' | 'accounts') => {
-    const field = type === 'logistics' ? 'plantIds' : 'accounts_plant_ids';
-    const current = (type === 'logistics' ? selectedLogisticsPlants : selectedAccountsPlants) || [];
+  const togglePlant = (id: string, type: 'logistics' | 'accounts' | 'client') => {
+    const field = type === 'accounts' ? 'accounts_plant_ids' : 'plantIds';
+    const current = (type === 'accounts' ? selectedAccountsPlants : selectedLogisticsPlants) || [];
     const next = current.includes(id) ? current.filter(p => p !== id) : [...current, id];
     setValue(field as any, next, { shouldValidate: true });
   };
@@ -132,20 +166,25 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                   )} />
                   <FormField name="jobRole" control={form.control} render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[10px] font-black uppercase text-slate-500">Job Role / Designation *</FormLabel>
-                      <FormControl><Input placeholder="Operator, Manager, etc." {...field} className="h-12 rounded-xl font-bold bg-white" /></FormControl>
+                      <FormLabel className="text-[10px] font-black uppercase text-slate-500">System Role Node *</FormLabel>
+                      <FormControl><Input placeholder="Operator, Manager, etc." {...field} readOnly={accessClient} className={cn("h-12 rounded-xl font-bold bg-white", accessClient && "bg-slate-100 text-blue-900 font-black")} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField name="defaultModule" control={form.control} render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-[10px] font-black uppercase text-slate-500">Default Terminal Node</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger className="h-12 rounded-xl font-bold bg-white"><SelectValue /></SelectTrigger></FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger className="h-12 rounded-xl font-bold bg-white"><SelectValue placeholder="Select Module" /></SelectTrigger></FormControl>
                         <SelectContent className="rounded-xl">
-                          <SelectItem value="Logistics" className="font-bold py-2.5">Logistics Hub</SelectItem>
-                          <SelectItem value="Accounts" className="font-bold py-2.5">Accounts Hub</SelectItem>
-                          <SelectItem value="Administration" className="font-bold py-2.5">Administration</SelectItem>
+                          {!accessClient && (
+                            <>
+                                <SelectItem value="Logistics" className="font-bold py-2.5">Logistics Hub</SelectItem>
+                                <SelectItem value="Accounts" className="font-bold py-2.5">Accounts Hub</SelectItem>
+                                <SelectItem value="Administration" className="font-bold py-2.5">Administration</SelectItem>
+                            </>
+                          )}
+                          <SelectItem value="Trip Board" className="font-bold py-2.5 text-blue-600">Trip Board (Client)</SelectItem>
                         </SelectContent>
                       </Select>
                     </FormItem>
@@ -153,27 +192,24 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                 </div>
               </section>
 
-              {/* 2. ACCESS SCOPE */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+              {/* 2. ACCESS SCOPE MATRIX */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* LOGISTICS NODE */}
                 <Card className={cn("border-2 transition-all rounded-[2.5rem] overflow-hidden", accessLogistics ? "border-blue-200 bg-blue-50/10 shadow-2xl" : "border-slate-100 opacity-40")}>
-                  <CardHeader className="p-8 border-b bg-white/50 flex flex-row items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className={cn("p-3 rounded-2xl shadow-lg", accessLogistics ? "bg-blue-900 text-white" : "bg-slate-200 text-slate-400")}>
-                        <Truck className="h-6 w-6" />
+                  <CardHeader className="p-6 border-b bg-white/50 flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={cn("p-2 rounded-xl shadow-lg", accessLogistics ? "bg-blue-900 text-white" : "bg-slate-200 text-slate-400")}>
+                        <Truck className="h-5 w-5" />
                       </div>
-                      <div>
-                        <CardTitle className="text-lg font-black uppercase italic tracking-tight">Logistics Hub</CardTitle>
-                        <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Node Scope & Permissions</CardDescription>
-                      </div>
+                      <CardTitle className="text-md font-black uppercase italic tracking-tight">Logistics Hub</CardTitle>
                     </div>
                     <FormField name="access_logistics" control={form.control} render={({ field }) => (
-                      <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-6 w-6 rounded-lg data-[state=checked]:bg-blue-900 shadow-md" />
+                      <Checkbox disabled={accessClient} checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md data-[state=checked]:bg-blue-900 shadow-sm" />
                     )} />
                   </CardHeader>
-                  <CardContent className="p-8 space-y-10">
-                    <div className="space-y-4">
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Factory className="h-3 w-3" /> Lifting Node Authorization</p>
+                  <CardContent className="p-6 space-y-8">
+                    <div className="space-y-3">
+                      <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Factory className="h-3 w-3" /> Lifting Node Authorization</p>
                       <div className="flex flex-wrap gap-2">
                         {logisticsPlants.map(p => (
                           <Badge 
@@ -181,29 +217,29 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                             onClick={() => accessLogistics && togglePlant(p.id, 'logistics')}
                             variant={selectedLogisticsPlants.includes(p.id) ? 'default' : 'outline'}
                             className={cn(
-                              "cursor-pointer font-black uppercase text-[10px] px-4 py-1.5 rounded-xl transition-all border-2",
-                              selectedLogisticsPlants.includes(p.id) ? "bg-blue-900 border-blue-900 shadow-lg" : "hover:bg-blue-50 border-slate-100"
+                              "cursor-pointer font-black uppercase text-[8px] px-3 py-1 rounded-lg transition-all border-2",
+                              selectedLogisticsPlants.includes(p.id) ? "bg-blue-900 border-blue-900 shadow-md" : "hover:bg-blue-50 border-slate-100"
                             )}
                           >
-                            {p.name}
+                            {p.id}
                           </Badge>
                         ))}
                       </div>
                     </div>
-                    <div className="space-y-4">
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
+                    <div className="space-y-3">
+                      <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
                         <LayoutGrid className="h-3 w-3" /> Module Permissions
                       </p>
-                      <div className="grid grid-cols-2 gap-3">
-                        {SikkaLogisticsPagePermissions.map(p => (
+                      <div className="grid grid-cols-1 gap-2">
+                        {SikkaLogisticsPagePermissions.slice(0, 8).map(p => (
                           <div key={p.id} onClick={() => accessLogistics && togglePermission(p.id)} className={cn(
-                            "flex items-center gap-3 p-3 rounded-2xl border-2 transition-all cursor-pointer group",
-                            selectedPermissions.includes(p.id) ? "bg-white border-blue-900 shadow-md" : "border-slate-50 hover:border-slate-200"
+                            "flex items-center gap-2.5 p-2 rounded-xl border transition-all cursor-pointer group",
+                            selectedPermissions.includes(p.id) ? "bg-white border-blue-900 shadow-sm" : "border-slate-50 hover:border-slate-200"
                           )}>
-                            <div className={cn("h-4 w-4 rounded-md border flex items-center justify-center transition-colors", selectedPermissions.includes(p.id) ? "bg-blue-900 border-blue-900 shadow-inner" : "bg-white border-slate-200")}>
-                              {selectedPermissions.includes(p.id) && <CheckCircle2 className="h-3 w-3 text-white" />}
+                            <div className={cn("h-3.5 w-3.5 rounded-sm border flex items-center justify-center transition-colors", selectedPermissions.includes(p.id) ? "bg-blue-900 border-blue-900" : "bg-white border-slate-200")}>
+                              {selectedPermissions.includes(p.id) && <CheckCircle2 className="h-2.5 w-2.5 text-white" />}
                             </div>
-                            <span className={cn("text-[11px] font-black uppercase tracking-tight", selectedPermissions.includes(p.id) ? "text-blue-900" : "text-slate-500")}>{p.name}</span>
+                            <span className={cn("text-[10px] font-black uppercase tracking-tight", selectedPermissions.includes(p.id) ? "text-blue-900" : "text-slate-400")}>{p.name}</span>
                           </div>
                         ))}
                       </div>
@@ -211,58 +247,117 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                   </CardContent>
                 </Card>
 
+                {/* CLIENT PORTAL NODE */}
+                <Card className={cn("border-2 transition-all rounded-[2.5rem] overflow-hidden", accessClient ? "border-blue-600 bg-white shadow-2xl" : "border-slate-100 opacity-40")}>
+                    <CardHeader className="p-6 border-b bg-blue-900 text-white flex flex-row items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white/10 rounded-xl border border-white/20 shadow-inner">
+                                <Radar className="h-5 w-5 text-blue-400" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-md font-black uppercase italic tracking-tight">Client Portal Node</CardTitle>
+                                <p className="text-[8px] font-bold uppercase text-blue-300">Authorized Read-Only Handshake</p>
+                            </div>
+                        </div>
+                        <FormField name="access_client" control={form.control} render={({ field }) => (
+                            <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-6 w-6 rounded-lg data-[state=checked]:bg-blue-500 border-white/20 shadow-xl" />
+                        )} />
+                    </CardHeader>
+                    <CardContent className="p-8 space-y-8">
+                        <div className="space-y-4">
+                            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Factory className="h-3 w-3 text-blue-600" /> Authorized Lifting Nodes</p>
+                            <div className="flex flex-wrap gap-2">
+                                {logisticsPlants.map(p => (
+                                    <Badge 
+                                        key={p.id} 
+                                        onClick={() => accessClient && togglePlant(p.id, 'client')}
+                                        variant={selectedLogisticsPlants.includes(p.id) ? 'default' : 'outline'}
+                                        className={cn(
+                                            "cursor-pointer font-black uppercase text-[9px] px-4 py-1.5 rounded-xl transition-all border-2",
+                                            selectedLogisticsPlants.includes(p.id) ? "bg-blue-900 border-blue-900 shadow-md" : "hover:bg-blue-50 border-slate-100"
+                                        )}
+                                    >
+                                        {p.name}
+                                    </Badge>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        <div className="p-5 bg-blue-50 rounded-2xl border-2 border-blue-100 space-y-3">
+                            <div className="flex items-center gap-2 text-blue-900">
+                                <Eye className="h-4 w-4" />
+                                <span className="text-[10px] font-black uppercase">Read-Only Policy Active</span>
+                            </div>
+                            <p className="text-[9px] font-bold text-blue-700 uppercase leading-relaxed">
+                                Client nodes are strictly locked to mission tracking & trip board manifests. Write access nodes (Allocation, Entries, Processes) are explicitly scrubbed.
+                            </p>
+                        </div>
+
+                        {accessClient && (
+                            <div className="space-y-2">
+                                <p className="text-[9px] font-black uppercase text-slate-400 px-1">Authorized Handshake Manifest</p>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {['Trip Board Ledger', 'Live Mission Telemetry', 'Consignment Registry'].map(p => (
+                                        <div key={p} className="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-lg border border-slate-100">
+                                            <ShieldCheck size={12} className="text-emerald-500" />
+                                            <span className="text-[9px] font-black uppercase text-slate-500">{p}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
                 {/* ACCOUNTS & ADMIN NODE */}
-                <Card className={cn("border-2 transition-all rounded-[2.5rem] overflow-hidden", (accessAccounts || isAdmin) ? "border-emerald-200 bg-emerald-50/10 shadow-2xl" : "border-slate-100 opacity-40")}>
-                  <CardHeader className="p-8 border-b bg-white/50 flex flex-row items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className={cn("p-3 rounded-2xl shadow-lg", (accessAccounts || isAdmin) ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-400")}>
-                        <Briefcase className="h-6 w-6" />
+                <Card className={cn("border-2 transition-all rounded-[2.5rem] overflow-hidden", (accessAccounts || isAdmin) ? "border-emerald-200 bg-white shadow-2xl" : "border-slate-100 opacity-40")}>
+                  <CardHeader className="p-6 border-b bg-slate-50/50 flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={cn("p-2 rounded-xl shadow-lg", (accessAccounts || isAdmin) ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-400")}>
+                        <Briefcase className="h-5 w-5" />
                       </div>
-                      <div>
-                        <CardTitle className="text-lg font-black uppercase italic tracking-tight">Accounts & Security</CardTitle>
-                        <CardDescription className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Financial & Security Handshake</CardDescription>
-                      </div>
+                      <CardTitle className="text-md font-black uppercase italic tracking-tight text-slate-800">Accounts & Security</CardTitle>
                     </div>
                     <FormField name="access_accounts" control={form.control} render={({ field }) => (
-                      <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-6 w-6 rounded-lg data-[state=checked]:bg-emerald-600 shadow-md" />
+                      <Checkbox disabled={accessClient} checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md data-[state=checked]:bg-emerald-600 shadow-sm" />
                     )} />
                   </CardHeader>
-                  <CardContent className="p-8 space-y-10">
-                    {isAdmin && (
+                  <CardContent className="p-6 space-y-8">
+                    {isAdmin && !accessClient && (
                       <div className="space-y-4">
-                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
-                          <ShieldCheck className="h-3 w-3" /> Security Admin Permissions
+                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
+                          <ShieldAlert className="h-3 w-3 text-red-600" /> Admin Security Node
                         </p>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-2">
                           {AdminPagePermissionsList.map(p => (
                             <div key={p.id} onClick={() => togglePermission(p.id)} className={cn(
-                              "flex items-center gap-3 p-3 rounded-2xl border-2 transition-all cursor-pointer group",
-                              selectedPermissions.includes(p.id) ? "bg-white border-emerald-600 shadow-md" : "border-slate-50 hover:border-slate-200"
+                              "flex items-center gap-3 p-2.5 rounded-xl border transition-all cursor-pointer group",
+                              selectedPermissions.includes(p.id) ? "bg-white border-emerald-600 shadow-sm" : "border-slate-50 hover:border-slate-200"
                             )}>
-                              <div className={cn("h-4 w-4 rounded-md border flex items-center justify-center transition-colors", selectedPermissions.includes(p.id) ? "bg-emerald-600 border-emerald-600 shadow-inner" : "bg-white border-slate-200")}>
-                                {selectedPermissions.includes(p.id) && <CheckCircle2 className="h-3.5 w-3.5 text-white" />}
+                              <div className={cn("h-3.5 w-3.5 rounded-sm border flex items-center justify-center transition-colors", selectedPermissions.includes(p.id) ? "bg-emerald-600 border-emerald-600 shadow-inner" : "bg-white border-slate-200")}>
+                                {selectedPermissions.includes(p.id) && <CheckCircle2 className="h-2.5 w-2.5 text-white" />}
                               </div>
-                              <span className={cn("text-[11px] font-black uppercase tracking-tight", selectedPermissions.includes(p.id) ? "text-emerald-700" : "text-slate-500")}>{p.name}</span>
+                              <span className={cn("text-[10px] font-black uppercase tracking-tight", selectedPermissions.includes(p.id) ? "text-emerald-700" : "text-slate-400")}>{p.name}</span>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
                     
-                    <div className="space-y-4">
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
-                        <LayoutGrid className="h-3 w-3" /> Accounts Modules
+                    <div className="space-y-3">
+                      <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
+                        <LayoutGrid className="h-3 w-3" /> Financial Hub
                       </p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 gap-2">
                         {SikkaAccountsPagePermissions.map(p => (
                           <div key={p.id} onClick={() => accessAccounts && togglePermission(p.id)} className={cn(
-                            "flex items-center gap-3 p-3 rounded-2xl border-2 transition-all cursor-pointer group",
-                            selectedPermissions.includes(p.id) ? "bg-white border-emerald-600 shadow-md" : "border-slate-50 hover:border-slate-200"
+                            "flex items-center gap-3 p-2.5 rounded-xl border transition-all cursor-pointer group",
+                            selectedPermissions.includes(p.id) ? "bg-white border-emerald-600 shadow-sm" : "border-slate-50 hover:border-slate-200"
                           )}>
-                            <div className={cn("h-4 w-4 rounded-md border flex items-center justify-center transition-colors", selectedPermissions.includes(p.id) ? "bg-emerald-600 border-emerald-600 shadow-inner" : "bg-white border-slate-200")}>
-                              {selectedPermissions.includes(p.id) && <CheckCircle2 className="h-3.5 w-3.5 text-white" />}
+                            <div className={cn("h-3.5 w-3.5 rounded-sm border flex items-center justify-center transition-colors", selectedPermissions.includes(p.id) ? "bg-emerald-600 border-emerald-600 shadow-inner" : "bg-white border-slate-200")}>
+                              {selectedPermissions.includes(p.id) && <CheckCircle2 className="h-2.5 w-2.5 text-white" />}
                             </div>
-                            <span className={cn("text-[11px] font-black uppercase tracking-tight", selectedPermissions.includes(p.id) ? "text-emerald-700" : "text-slate-500")}>{p.name}</span>
+                            <span className={cn("text-[10px] font-black uppercase tracking-tight", selectedPermissions.includes(p.id) ? "text-emerald-700" : "text-slate-400")}>{p.name}</span>
                           </div>
                         ))}
                       </div>
@@ -285,3 +380,4 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
     </div>
   );
 }
+
