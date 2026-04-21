@@ -80,7 +80,7 @@ export default function Header() {
               href={item.href}
               className={cn(
                 "text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:text-blue-600",
-                pathname === item.href ? "text-blue-600 border-b-2 border-blue-600 pb-1" : "text-slate-50"
+                pathname === item.href ? "text-blue-600 border-b-2 border-blue-600 pb-1" : "text-slate-600"
               )}
             >
               {item.name}
