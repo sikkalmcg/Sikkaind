@@ -8,17 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Menu, X, Radar, ChevronRight, User, Users, Lock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import placeholderData from '@/app/lib/placeholder-images.json';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 /**
  * @fileOverview Website Header Handbook.
- * Features: Dual Portal Selector (Client vs Employee) and responsive registry navigation.
- * Updated: Increased contrast and elevated z-index for login registry portal.
+ * Features: Simplified Portal Login for normal users.
  */
 export default function Header() {
   const pathname = usePathname();
@@ -89,37 +82,11 @@ export default function Header() {
         </div>
 
         <div className="hidden lg:flex lg:flex-1 lg:justify-end gap-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button className="bg-blue-900 hover:bg-black text-white font-black uppercase text-[10px] tracking-widest rounded-xl px-6 shadow-lg shadow-blue-900/20 transition-all active:scale-95 border-none">
-                    <Lock className="h-3.5 w-3.5 mr-2" /> Portal Login
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64 p-2 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-slate-200 mt-2 z-[1001]">
-                <Link href="/login?mode=client">
-                    <DropdownMenuItem className="gap-3 py-4 rounded-xl cursor-pointer hover:bg-blue-50 group">
-                        <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                            <User className="h-5 w-5" />
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="font-black uppercase text-[11px] tracking-tight text-slate-900">Client Login</span>
-                            <span className="text-[8px] font-bold text-slate-400 uppercase leading-none mt-1">Authorized Read-Only Access</span>
-                        </div>
-                    </DropdownMenuItem>
-                </Link>
-                <Link href="/login?mode=employee">
-                    <DropdownMenuItem className="gap-3 py-4 rounded-xl cursor-pointer hover:bg-emerald-50 group mt-1">
-                        <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                            <Users className="h-5 w-5" />
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="font-black uppercase text-[11px] tracking-tight text-slate-900">Employee Login</span>
-                            <span className="text-[8px] font-bold text-slate-400 uppercase leading-none mt-1">Registry Read/Write Access</span>
-                        </div>
-                    </DropdownMenuItem>
-                </Link>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button asChild className="bg-blue-900 hover:bg-black text-white font-black uppercase text-[10px] tracking-widest rounded-xl px-6 shadow-lg shadow-blue-900/20 transition-all active:scale-95 border-none">
+            <Link href="/login">
+              <Lock className="h-3.5 w-3.5 mr-2" /> Portal Login
+            </Link>
+          </Button>
 
           <Button asChild variant="outline" className="font-black uppercase text-[10px] tracking-widest rounded-xl px-6 border-slate-200 shadow-sm hover:bg-slate-50">
             <Link href="/track-consignment" className="flex items-center gap-2">
@@ -166,22 +133,13 @@ export default function Header() {
         </div>
         
         <div className="flex-1 overflow-y-auto py-6 px-4 space-y-4">
-          <div className="grid grid-cols-1 gap-2">
-            <Link href="/login?mode=client" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-100 rounded-2xl group active:scale-95 transition-all">
-                <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-lg"><User size={20} /></div>
-                <div className="flex flex-col">
-                    <span className="text-xs font-black uppercase text-blue-900 tracking-tight">Client Portal</span>
-                    <span className="text-[8px] font-bold text-blue-400 uppercase">View Mission Registry</span>
-                </div>
-            </Link>
-            <Link href="/login?mode=employee" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl group active:scale-95 transition-all">
-                <div className="p-2.5 bg-slate-900 text-white rounded-xl shadow-lg"><Users size={20} /></div>
-                <div className="flex flex-col">
-                    <span className="text-xs font-black uppercase text-slate-900 tracking-tight">Employee Portal</span>
-                    <span className="text-[8px] font-bold text-slate-400 uppercase">Full Registry Operations</span>
-                </div>
-            </Link>
-          </div>
+          <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-4 p-4 bg-slate-900 text-white rounded-2xl group active:scale-95 transition-all">
+              <div className="p-2.5 bg-blue-600 rounded-xl shadow-lg"><Lock size={20} /></div>
+              <div className="flex flex-col">
+                  <span className="text-xs font-black uppercase tracking-tight">Portal Login</span>
+                  <span className="text-[8px] font-bold text-blue-300 uppercase">Authorized Access Node</span>
+              </div>
+          </Link>
 
           <div className="h-px w-full bg-slate-200 opacity-50" />
 

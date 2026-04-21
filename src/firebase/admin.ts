@@ -6,6 +6,7 @@ import serviceAccount from '../serviceAccountKey.json';
 /**
  * @fileOverview Hardened Firebase Admin SDK Registry.
  * Synchronized with the serviceAccountKey.json manifest for secure identity provisioning.
+ * Using singleton pattern to prevent "App already exists" errors during HMR.
  */
 
 const app = (getApps().length === 0)

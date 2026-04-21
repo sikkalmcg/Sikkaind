@@ -43,7 +43,6 @@ const formSchema = z.object({
   defaultModule: z.enum(['Logistics', 'Accounts', 'Administration', 'Trip Board']).default('Logistics'),
   access_logistics: z.boolean().default(true),
   access_accounts: z.boolean().default(false),
-  access_client: z.boolean().default(false),
   plantIds: z.array(z.string()).default([]),
   accounts_plant_ids: z.array(z.string()).default([]),
   permissions: z.array(z.string()).default([]),
@@ -72,7 +71,6 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
       defaultModule: 'Logistics',
       access_logistics: true,
       access_accounts: false,
-      access_client: false,
       plantIds: [],
       accounts_plant_ids: [],
       permissions: [],
@@ -82,10 +80,13 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
   const { setValue, control, handleSubmit, reset } = form;
   const watchedAccessLogistics = useWatch({ control, name: 'access_logistics' });
   const watchedAccessAccounts = useWatch({ control, name: 'access_accounts' });
-  const watchedAccessClient = useWatch({ control, name: 'access_client' });
   const watchedPermissions = useWatch({ control, name: 'permissions' }) || [];
   const watchedLogisticsPlants = useWatch({ control, name: 'plantIds' }) || [];
   const watchedAccountsPlants = useWatch({ control, name: 'accounts_plant_ids' }) || [];
+
+  const isAdminSession = useMemo(() => {
+    return user?.jobRole === 'Admin' || user?.username === 'sikkaind';
+  }, [user]);
 
   useEffect(() => {
     if (isOpen && user) {
@@ -98,22 +99,12 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
         defaultModule: (user.defaultModule as any) || 'Logistics',
         access_logistics: user.access_logistics ?? true,
         access_accounts: user.access_accounts ?? false,
-        access_client: user.jobRole === 'Client',
         plantIds: user.plantIds || [],
         accounts_plant_ids: user.accounts_plant_ids || [],
         permissions: user.permissions || [],
       });
     }
   }, [isOpen, user, reset]);
-
-  useEffect(() => {
-    if (watchedAccessClient) {
-        setValue('jobRole', 'Client');
-        setValue('access_logistics', false);
-        setValue('access_accounts', false);
-        setValue('defaultModule', 'Trip Board');
-    }
-  }, [watchedAccessClient, setValue]);
 
   const togglePermission = (id: string) => {
     const next = watchedPermissions.includes(id) 
@@ -122,7 +113,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
     setValue('permissions', next, { shouldValidate: true });
   };
 
-  const togglePlant = (id: string, type: 'logistics' | 'accounts' | 'client') => {
+  const togglePlant = (id: string, type: 'logistics' | 'accounts') => {
     const field = type === 'accounts' ? 'accounts_plant_ids' : 'plantIds';
     const current = (type === 'accounts' ? watchedAccountsPlants : watchedLogisticsPlants) || [];
     const next = current.includes(id) ? current.filter(p => p !== id) : [...current, id];
@@ -152,7 +143,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
             </div>
             <div className="flex items-center gap-4">
                 <Badge variant="outline" className="bg-white/5 border-white/10 text-emerald-400 font-black uppercase text-[10px] px-6 h-10 border-none">Authorized Admin Control</Badge>
-                <Button variant="ghost" size="icon" onClick={onClose} className="h-10 w-10 text-white/40 hover:text-white hover:bg-white/10 rounded-xl"><X className="h-6 w-6" /></Button>
+                <button onClick={onClose} className="h-10 w-10 text-white/40 hover:text-white hover:bg-white/10 rounded-xl transition-all"><X className="h-6 w-6" /></button>
             </div>
           </div>
         </DialogHeader>
@@ -175,7 +166,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                             <FormField name="jobRole" control={form.control} render={({ field }) => (
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-black uppercase text-slate-500">System Role Node *</FormLabel>
-                                    <FormControl><Input {...field} readOnly={watchedAccessClient} className={cn("h-12 rounded-xl font-bold bg-slate-50/50 shadow-inner", watchedAccessClient && "bg-slate-100 text-blue-900 font-black")} /></FormControl>
+                                    <FormControl><Input {...field} className="h-12 rounded-xl font-bold bg-slate-50/50 shadow-inner" /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />
@@ -205,7 +196,6 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                                         <KeyRound className="h-3 w-3 opacity-40" />
                                     </FormLabel>
                                     <FormControl><Input type="password" placeholder="Leave blank to maintain current" {...field} className="h-12 rounded-xl font-bold border-blue-100" /></FormControl>
-                                    <FormDescription className="text-[8px] font-bold uppercase text-slate-400">Security Note: Overwrite resets Auth manifest.</FormDescription>
                                 </FormItem>
                             )} />
                             <FormField name="defaultModule" control={form.control} render={({ field }) => (
@@ -214,14 +204,10 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                                     <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue /></SelectTrigger></FormControl>
                                         <SelectContent className="rounded-xl">
-                                            {!watchedAccessClient && (
-                                                <>
-                                                    <SelectItem value="Logistics" className="font-bold py-2.5">Logistics Hub</SelectItem>
-                                                    <SelectItem value="Accounts" className="font-bold py-2.5">Accounts Hub</SelectItem>
-                                                    <SelectItem value="Administration" className="font-bold py-2.5">Administration</SelectItem>
-                                                </>
-                                            )}
-                                            <SelectItem value="Trip Board" className="font-bold py-2.5 text-blue-600">Trip Board (Client)</SelectItem>
+                                            <SelectItem value="Logistics" className="font-bold py-2.5">Logistics Hub</SelectItem>
+                                            <SelectItem value="Accounts" className="font-bold py-2.5">Accounts Hub</SelectItem>
+                                            <SelectItem value="Administration" className="font-bold py-2.5">Administration</SelectItem>
+                                            <SelectItem value="Trip Board" className="font-bold py-2.5 text-blue-600">Trip Board</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </FormItem>
@@ -229,15 +215,15 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                         </div>
                     </section>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <Card className={cn("border-2 transition-all rounded-[3rem] overflow-hidden flex flex-col", watchedAccessLogistics ? "border-blue-200 bg-white shadow-2xl" : "border-slate-100 opacity-40 grayscale")}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <Card className={cn("border-2 transition-all rounded-[3rem] overflow-hidden flex flex-col", watchedAccessLogistics ? "border-blue-200 bg-white shadow-2xl" : "border-slate-100 opacity-40")}>
                             <CardHeader className="p-6 border-b bg-slate-50/50 flex flex-row items-center justify-between shrink-0">
                                 <div className="flex items-center gap-4">
                                     <div className={cn("p-3 rounded-2xl shadow-lg", watchedAccessLogistics ? "bg-blue-900 text-white" : "bg-slate-200 text-slate-400")}><Truck className="h-6 w-6" /></div>
                                     <CardTitle className="text-md font-black uppercase italic tracking-tight">Logistics Hub</CardTitle>
                                 </div>
                                 <FormField name="access_logistics" control={form.control} render={({ field }) => (
-                                    <Checkbox disabled={watchedAccessClient} checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md data-[state=checked]:bg-blue-900 shadow-sm" />
+                                    <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md data-[state=checked]:bg-blue-900 shadow-sm" />
                                 )} />
                             </CardHeader>
                             <CardContent className="p-8 space-y-10 flex-1 flex flex-col overflow-hidden">
@@ -255,7 +241,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                                 </div>
                                 <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
                                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1 shrink-0">Permissions Manifest</p>
-                                    <ScrollArea className="flex-1 pr-4">
+                                    <ScrollArea className="flex-1 pr-4 max-h-[350px]">
                                         <div className="grid grid-cols-1 gap-2 pb-2">
                                             {SikkaLogisticsPagePermissions.map(p => (
                                                 <div key={p.id} onClick={() => watchedAccessLogistics && togglePermission(p.id)} className={cn("flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group",
@@ -273,59 +259,14 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                             </CardContent>
                         </Card>
 
-                        <Card className={cn("border-2 transition-all rounded-[3rem] overflow-hidden flex flex-col", watchedAccessClient ? "border-blue-600 bg-white shadow-2xl" : "border-slate-100 opacity-40")}>
-                            <CardHeader className="p-6 border-b bg-blue-900 text-white flex flex-row items-center justify-between shrink-0">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/10 rounded-xl border border-white/20 shadow-inner"><Radar className="h-5 w-5 text-blue-400" /></div>
-                                    <div>
-                                        <CardTitle className="text-md font-black uppercase italic">Client Portal Node</CardTitle>
-                                        <p className="text-[8px] font-bold uppercase text-blue-300">Read-Only Registry Access</p>
-                                    </div>
-                                </div>
-                                <FormField name="access_client" control={form.control} render={({ field }) => (
-                                    <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-6 w-6 rounded-lg data-[state=checked]:bg-blue-500 border-white/20 shadow-xl" />
-                                )} />
-                            </CardHeader>
-                            <CardContent className="p-8 space-y-8 flex-1">
-                                <div className="space-y-4">
-                                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Factory className="h-3 w-3 text-blue-600" /> Authorized Lifting Nodes</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {logisticsPlants.map(p => (
-                                            <Badge 
-                                                key={p.id} 
-                                                onClick={() => watchedAccessClient && togglePlant(p.id, 'client')}
-                                                variant={watchedLogisticsPlants.includes(p.id) ? 'default' : 'outline'}
-                                                className={cn(
-                                                    "cursor-pointer font-black uppercase text-[9px] px-4 py-1.5 rounded-xl transition-all border-2",
-                                                    watchedLogisticsPlants.includes(p.id) ? "bg-blue-900 border-blue-900 shadow-md" : "hover:bg-blue-50 border-slate-100"
-                                                )}
-                                            >
-                                                {p.name}
-                                            </Badge>
-                                        ))}
-                                    </div>
-                                </div>
-                                
-                                <div className="p-5 bg-blue-50 rounded-2xl border-2 border-blue-100 space-y-3">
-                                    <div className="flex items-center gap-2 text-blue-900">
-                                        <Eye className="h-4 w-4" />
-                                        <span className="text-[10px] font-black uppercase">Read-Only Enforced</span>
-                                    </div>
-                                    <p className="text-[9px] font-bold text-blue-700 uppercase leading-relaxed">
-                                        Identity node is restricted to mission tracking. Modifying manifests is strictly blocked across all partitions.
-                                    </p>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className={cn("border-2 transition-all rounded-[3rem] overflow-hidden flex flex-col", (watchedAccessAccounts || isAdminSession) ? "border-emerald-200 bg-white shadow-2xl" : "border-slate-100 opacity-40 grayscale")}>
+                        <Card className={cn("border-2 transition-all rounded-[3rem] overflow-hidden flex flex-col", (watchedAccessAccounts || isAdminSession) ? "border-emerald-200 bg-white shadow-2xl" : "border-slate-100 opacity-40")}>
                             <CardHeader className="p-6 border-b bg-slate-50/50 flex flex-row items-center justify-between shrink-0">
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-4">
                                     <div className={cn("p-3 rounded-2xl shadow-lg", (watchedAccessAccounts || isAdminSession) ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-400")}><Briefcase className="h-6 w-6" /></div>
                                     <CardTitle className="text-md font-black uppercase italic text-slate-800">Accounts & Admin</CardTitle>
                                 </div>
                                 <FormField name="access_accounts" control={form.control} render={({ field }) => (
-                                    <Checkbox disabled={watchedAccessClient} checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md data-[state=checked]:bg-emerald-600 shadow-sm" />
+                                    <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md data-[state=checked]:bg-emerald-600 shadow-sm" />
                                 )} />
                             </CardHeader>
                             <CardContent className="p-8 space-y-8 flex-1 flex flex-col overflow-hidden">
@@ -343,21 +284,19 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                                 </div>
                                 <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
                                     <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1 shrink-0">Admin Manifest</p>
-                                    <ScrollArea className="flex-1 pr-4">
-                                        {!watchedAccessClient && (
-                                            <div className="grid grid-cols-1 gap-2 pb-2">
-                                                {[...SikkaAccountsPagePermissions, ...AdminPagePermissionsList].map(p => (
-                                                    <div key={p.id} onClick={() => (watchedAccessAccounts || isAdminSession) && togglePermission(p.id)} className={cn("flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group",
-                                                        watchedPermissions.includes(p.id) ? "bg-white border-emerald-600 shadow-sm" : "border-slate-50 hover:border-slate-200"
-                                                    )}>
-                                                        <div className={cn("h-4 w-4 rounded-md border flex items-center justify-center transition-all", watchedPermissions.includes(p.id) ? "bg-emerald-600 border-emerald-600" : "bg-white border-slate-200")}>
-                                                            {watchedPermissions.includes(p.id) && <CheckCircle2 className="h-3 w-3 text-white" />}
-                                                        </div>
-                                                        <span className={cn("text-[10px] font-black uppercase tracking-tight", watchedPermissions.includes(p.id) ? "text-emerald-700" : "text-slate-400 group-hover:text-slate-600")}>{p.name}</span>
+                                    <ScrollArea className="flex-1 pr-4 max-h-[350px]">
+                                        <div className="grid grid-cols-1 gap-2 pb-2">
+                                            {[...SikkaAccountsPagePermissions, ...AdminPagePermissionsList].map(p => (
+                                                <div key={p.id} onClick={() => (watchedAccessAccounts || isAdminSession) && togglePermission(p.id)} className={cn("flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group",
+                                                    watchedPermissions.includes(p.id) ? "bg-white border-emerald-600 shadow-sm" : "border-slate-50 hover:border-slate-200"
+                                                )}>
+                                                    <div className={cn("h-4 w-4 rounded-md border flex items-center justify-center transition-all", watchedPermissions.includes(p.id) ? "bg-emerald-600 border-emerald-600" : "bg-white border-slate-200")}>
+                                                        {watchedPermissions.includes(p.id) && <CheckCircle2 className="h-3 w-3 text-white" />}
                                                     </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                                    <span className={cn("text-[10px] font-black uppercase tracking-tight", watchedPermissions.includes(p.id) ? "text-emerald-700" : "text-slate-400 group-hover:text-slate-600")}>{p.name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </ScrollArea>
                                 </div>
                             </CardContent>
@@ -387,4 +326,3 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
     </Dialog>
   );
 }
-

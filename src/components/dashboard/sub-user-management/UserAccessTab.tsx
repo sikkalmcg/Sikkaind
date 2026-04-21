@@ -42,7 +42,6 @@ const formSchema = z.object({
   defaultModule: z.enum(['Logistics', 'Accounts', 'Administration', 'Trip Board']).default('Logistics'),
   access_logistics: z.boolean().default(true),
   access_accounts: z.boolean().default(false),
-  access_client: z.boolean().default(false),
   plantIds: z.array(z.string()).default([]),
   accounts_plant_ids: z.array(z.string()).default([]),
   permissions: z.array(z.string()).default([]),
@@ -70,7 +69,6 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
       defaultModule: 'Logistics',
       access_logistics: true,
       access_accounts: false,
-      access_client: false,
       plantIds: [],
       accounts_plant_ids: [],
       permissions: [],
@@ -80,31 +78,16 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
   const { watch, setValue, handleSubmit, formState: { isSubmitting } } = form;
   const accessLogistics = watch('access_logistics');
   const accessAccounts = watch('access_accounts');
-  const accessClient = watch('access_client');
   const selectedPermissions = watch('permissions') || [];
   const selectedLogisticsPlants = watch('plantIds') || [];
   const selectedAccountsPlants = watch('accounts_plant_ids') || [];
-
-  useEffect(() => {
-    if (accessClient) {
-        setValue('jobRole', 'Client');
-        setValue('access_logistics', false);
-        setValue('access_accounts', false);
-        setValue('defaultModule', 'Trip Board');
-        setValue('permissions', ['trip-board', 'shipment-tracking', 'track-consignment']);
-    } else if (form.getValues('jobRole') === 'Client') {
-        setValue('jobRole', 'Operator');
-        setValue('access_logistics', true);
-        setValue('permissions', []);
-    }
-  }, [accessClient, setValue]);
 
   const togglePermission = (id: string) => {
     const next = selectedPermissions.includes(id) ? selectedPermissions.filter(p => p !== id) : [...selectedPermissions, id];
     setValue('permissions', next, { shouldValidate: true });
   };
 
-  const togglePlant = (id: string, type: 'logistics' | 'accounts' | 'client') => {
+  const togglePlant = (id: string, type: 'logistics' | 'accounts') => {
     const field = type === 'accounts' ? 'accounts_plant_ids' : 'plantIds';
     const current = (type === 'accounts' ? selectedAccountsPlants : selectedLogisticsPlants) || [];
     const next = current.includes(id) ? current.filter(p => p !== id) : [...current, id];
@@ -121,7 +104,7 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
             </div>
             <div>
               <CardTitle className="text-2xl font-black uppercase tracking-tight italic text-blue-900">Provision New Identity</CardTitle>
-              <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">Initialize system operator node & access manifest</CardDescription>
+              <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">Initialize normal system operator node</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -164,7 +147,7 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                   <FormField name="jobRole" control={form.control} render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-[10px] font-black uppercase text-slate-500">System Role Node *</FormLabel>
-                      <FormControl><Input placeholder="Operator, Manager, etc." {...field} readOnly={accessClient} className={cn("h-12 rounded-xl font-bold bg-white", accessClient && "bg-slate-100 text-blue-900 font-black")} /></FormControl>
+                      <FormControl><Input placeholder="Operator, Manager, etc." {...field} className="h-12 rounded-xl font-bold bg-white" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -174,14 +157,10 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl><SelectTrigger className="h-12 rounded-xl font-bold bg-white"><SelectValue placeholder="Select Module" /></SelectTrigger></FormControl>
                         <SelectContent className="rounded-xl">
-                          {!accessClient && (
-                            <>
-                                <SelectItem value="Logistics" className="font-bold py-2.5">Logistics Hub</SelectItem>
-                                <SelectItem value="Accounts" className="font-bold py-2.5">Accounts Hub</SelectItem>
-                                <SelectItem value="Administration" className="font-bold py-2.5">Administration</SelectItem>
-                            </>
-                          )}
-                          <SelectItem value="Trip Board" className="font-bold py-2.5 text-blue-600">Trip Board (Client)</SelectItem>
+                            <SelectItem value="Logistics" className="font-bold py-2.5">Logistics Hub</SelectItem>
+                            <SelectItem value="Accounts" className="font-bold py-2.5">Accounts Hub</SelectItem>
+                            <SelectItem value="Administration" className="font-bold py-2.5">Administration</SelectItem>
+                            <SelectItem value="Trip Board" className="font-bold py-2.5 text-blue-600">Trip Board</SelectItem>
                         </SelectContent>
                       </Select>
                     </FormItem>
@@ -189,17 +168,17 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                 </div>
               </section>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <Card className={cn("border-2 transition-all rounded-[2.5rem] overflow-hidden flex flex-col", accessLogistics ? "border-blue-200 bg-blue-50/10 shadow-2xl" : "border-slate-100 opacity-40")}>
                   <CardHeader className="p-6 border-b bg-white/50 flex flex-row items-center justify-between shrink-0">
-                    <div className="flex items-center gap-3">
-                      <div className={cn("p-2 rounded-xl shadow-lg", accessLogistics ? "bg-blue-900 text-white" : "bg-slate-200 text-slate-400")}>
+                    <div className="flex items-center gap-4">
+                      <div className={cn("p-3 rounded-xl shadow-lg", accessLogistics ? "bg-blue-900 text-white" : "bg-slate-200 text-slate-400")}>
                         <Truck className="h-5 w-5" />
                       </div>
                       <CardTitle className="text-md font-black uppercase italic tracking-tight">Logistics Hub</CardTitle>
                     </div>
                     <FormField name="access_logistics" control={form.control} render={({ field }) => (
-                      <Checkbox disabled={accessClient} checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md data-[state=checked]:bg-blue-900 shadow-sm" />
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md data-[state=checked]:bg-blue-900 shadow-sm" />
                     )} />
                   </CardHeader>
                   <CardContent className="p-6 space-y-8 flex-1 overflow-hidden flex flex-col">
@@ -225,7 +204,7 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                       <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1 shrink-0">
                         <LayoutGrid className="h-3 w-3" /> Module Permissions Manifest
                       </p>
-                      <ScrollArea className="flex-1 pr-4">
+                      <ScrollArea className="flex-1 pr-4 max-h-[300px]">
                         <div className="grid grid-cols-1 gap-2 pb-2">
                             {SikkaLogisticsPagePermissions.map(p => (
                             <div key={p.id} onClick={() => accessLogistics && togglePermission(p.id)} className={cn(
@@ -244,67 +223,22 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
                   </CardContent>
                 </Card>
 
-                <Card className={cn("border-2 transition-all rounded-[2.5rem] overflow-hidden flex flex-col", accessClient ? "border-blue-600 bg-white shadow-2xl" : "border-slate-100 opacity-40")}>
-                    <CardHeader className="p-6 border-b bg-blue-900 text-white flex flex-row items-center justify-between shrink-0">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-white/10 rounded-xl border border-white/20 shadow-inner"><Radar className="h-5 w-5 text-blue-400" /></div>
-                            <div>
-                                <CardTitle className="text-md font-black uppercase italic tracking-tight">Client Portal</CardTitle>
-                                <p className="text-[8px] font-bold uppercase text-blue-300">Read-Only Handshake</p>
-                            </div>
-                        </div>
-                        <FormField name="access_client" control={form.control} render={({ field }) => (
-                            <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-6 w-6 rounded-lg data-[state=checked]:bg-blue-500 border-white/20 shadow-xl" />
-                        )} />
-                    </CardHeader>
-                    <CardContent className="p-8 space-y-8 flex-1">
-                        <div className="space-y-4">
-                            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Factory className="h-3 w-3 text-blue-600" /> Lifting Node Authorization</p>
-                            <div className="flex flex-wrap gap-2">
-                                {logisticsPlants.map(p => (
-                                    <Badge 
-                                        key={p.id} 
-                                        onClick={() => accessClient && togglePlant(p.id, 'client')}
-                                        variant={selectedLogisticsPlants.includes(p.id) ? 'default' : 'outline'}
-                                        className={cn(
-                                            "cursor-pointer font-black uppercase text-[9px] px-4 py-1.5 rounded-xl transition-all border-2",
-                                            selectedLogisticsPlants.includes(p.id) ? "bg-blue-900 border-blue-900 shadow-md" : "hover:bg-blue-50 border-slate-100"
-                                        )}
-                                    >
-                                        {p.name}
-                                    </Badge>
-                                ))}
-                            </div>
-                        </div>
-                        
-                        <div className="p-5 bg-blue-50 rounded-2xl border-2 border-blue-100 space-y-3">
-                            <div className="flex items-center gap-2 text-blue-900">
-                                <Eye className="h-4 w-4" />
-                                <span className="text-[10px] font-black uppercase">Read-Only Policy</span>
-                            </div>
-                            <p className="text-[9px] font-bold text-blue-700 uppercase leading-relaxed">
-                                Client nodes are strictly locked to mission tracking. Write access nodes (Allocation, Entries, Processes) are explicitly scrubbed.
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
-
                 <Card className={cn("border-2 transition-all rounded-[2.5rem] overflow-hidden flex flex-col", (accessAccounts || isAdmin) ? "border-emerald-200 bg-white shadow-2xl" : "border-slate-100 opacity-40")}>
                   <CardHeader className="p-6 border-b bg-slate-50/50 flex flex-row items-center justify-between shrink-0">
-                    <div className="flex items-center gap-3">
-                      <div className={cn("p-2 rounded-xl shadow-lg", (accessAccounts || isAdmin) ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-400")}>
-                        <Briefcase className="h-5 w-5" />
+                    <div className="flex items-center gap-4">
+                      <div className={cn("p-3 rounded-xl shadow-lg", (accessAccounts || isAdmin) ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-400")}>
+                        <Briefcase className="h-6 w-6" />
                       </div>
                       <CardTitle className="text-md font-black uppercase italic tracking-tight text-slate-800">Accounts & Admin</CardTitle>
                     </div>
                     <FormField name="access_accounts" control={form.control} render={({ field }) => (
-                      <Checkbox disabled={accessClient} checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md data-[state=checked]:bg-emerald-600 shadow-sm" />
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md data-[state=checked]:bg-emerald-600 shadow-sm" />
                     )} />
                   </CardHeader>
                   <CardContent className="p-6 space-y-8 flex-1 overflow-hidden flex flex-col">
-                    <ScrollArea className="flex-1 pr-4">
+                    <ScrollArea className="flex-1 pr-4 max-h-[450px]">
                         <div className="space-y-8">
-                            {isAdmin && !accessClient && (
+                            {isAdmin && (
                             <div className="space-y-4">
                                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">
                                 <ShieldAlert className="h-3 w-3 text-red-600" /> Admin Security Node
@@ -363,4 +297,3 @@ export default function UserAccessTab({ onUserCreated, existingUsernames, logist
     </div>
   );
 }
-

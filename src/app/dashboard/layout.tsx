@@ -1,8 +1,7 @@
-
 'use client';
 
-import { ReactNode, useEffect, useState, Suspense, useMemo } from "react";
-import { useUser, useAuth, useFirestore } from "@/firebase";
+import { ReactNode, useEffect, useState, Suspense } from "react";
+import { useUser, useFirestore } from "@/firebase";
 import { useRouter, usePathname } from "next/navigation";
 import LogisticsHeader from "@/components/dashboard/layout/LogisticsHeader";
 import LogisticsSidebar from "@/components/dashboard/layout/LogisticsSidebar";
@@ -16,7 +15,7 @@ import { handleFirestoreError, OperationType } from "@/lib/utils";
 /**
  * @fileOverview Dashboard Layout Plant.
  * Manages core authorization pulse and sidebar/header integration.
- * Updated: Enforces strict READ-ONLY pathing for Client nodes.
+ * Normal Access Protocol: Removed specialized client enforcement logic.
  */
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, isUserLoading } = useUser();
@@ -68,17 +67,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             const profile = userDocSnap.data() as SubUser;
             setUserProfile(profile);
 
-            // CLIENT ENFORCEMENT Node: Only allow Trip Board access for Client Role
-            if (profile.jobRole === 'Client') {
-                if (pathname !== '/dashboard/trip-board' && !pathname.startsWith('/dashboard/tracking/')) {
-                    router.replace('/dashboard/trip-board');
-                    return;
-                }
-                setIsVerifying(false);
-                hideLoader();
-                return;
-            }
-
             const isFullAdmin = isRoot || profile.username?.toLowerCase() === 'sikkaind';
 
             if (isFullAdmin) {
@@ -87,6 +75,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 return;
             }
 
+            // Normal Permission Validation
             const currentSubPage = pathname.split('/').pop();
             const allPerms = [...SikkaLogisticsPagePermissions, ...SikkaAccountsPagePermissions, ...AdminPagePermissionsList];
             const matchingPerm = allPerms.find(p => p.id === currentSubPage || pathname.endsWith(`/${p.id}`));
