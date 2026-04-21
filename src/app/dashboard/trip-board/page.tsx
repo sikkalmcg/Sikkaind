@@ -1,5 +1,6 @@
+
 'use client';
-import { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, Suspense, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import TripBoardTable from '@/components/dashboard/trip-board/TripBoardTable';
@@ -23,7 +24,7 @@ import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId, cn } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useDoc, useCollection } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy, Timestamp } from "firebase/firestore";
-import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList, CheckCircle2, Truck, PlusCircle, ArrowUpDown } from "lucide-react";
+import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList, CheckCircle2, Truck, PlusCircle, ArrowUpDown, ShieldCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
@@ -69,6 +70,7 @@ function TripBoardContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
+  const [isClientReadOnly, setIsClientReadOnly] = useState(false);
   
   const isInitialized = useRef(false);
 
@@ -124,6 +126,11 @@ function TripBoardContent() {
                 const userData = qSnap.docs[0].data() as SubUser;
                 const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
                 authIds = isRoot ? baseList.map(p => p.id) : (userData.plantIds || []);
+                
+                // CLIENT HANDSHAKE Node: Set Read-Only if jobRole is Client
+                if (userData.jobRole === 'Client') {
+                    setIsClientReadOnly(true);
+                }
             } else if (isAdminSession) {
                 authIds = baseList.map(p => p.id);
             }
@@ -955,14 +962,22 @@ function TripBoardContent() {
               </div>
             </div>
 
-            <div className="relative flex-1 max-w-[140px] md:max-w-[200px]">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
-              <Input 
-                placeholder="Search..." 
-                value={searchTerm} 
-                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
-                className="pl-7 h-8 md:h-9 rounded-lg md:rounded-xl border-slate-200 font-bold bg-slate-50 text-[10px] md:text-xs focus-visible:ring-blue-900 shadow-inner" 
-              />
+            <div className="flex items-center gap-3">
+                {isClientReadOnly && (
+                    <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-4 py-1.5 rounded-full text-blue-900 font-black text-[10px] uppercase shadow-sm animate-in fade-in zoom-in duration-500">
+                        <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                        READ-ONLY ACCESS
+                    </div>
+                )}
+                <div className="relative flex-1 max-w-[140px] md:max-w-[200px]">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
+                    <Input 
+                        placeholder="Search..." 
+                        value={searchTerm} 
+                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
+                        className="pl-7 h-8 md:h-9 rounded-lg md:rounded-xl border-slate-200 font-bold bg-slate-50 text-[10px] md:text-xs focus-visible:ring-blue-900 shadow-inner" 
+                    />
+                </div>
             </div>
           </div>
           
@@ -1001,12 +1016,17 @@ function TripBoardContent() {
                 { id: 'pod-status', label: 'POD Verification', count: counts.pod },
                 { id: 'rejection', label: 'Rejection/SRN', count: counts.rejection },
                 { id: 'closed', label: 'History Ledger', count: counts.closed }
-            ].map(t => (
-                <TabsTrigger key={t.id} value={t.id} className="relative h-8 md:h-9 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[8px] md:text-[10px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-1 md:gap-1.5 whitespace-nowrap">
-                    {t.icon && <t.icon className="h-2.5 md:h-3 w-2.5 md:w-3" />}
-                    {t.label} <Badge className="ml-1 bg-slate-100 text-slate-500 border-none font-black text-[7px] md:text-[8px] px-1 h-4">{t.count}</Badge>
-                </TabsTrigger>
-            ))}
+            ].map(t => {
+                // CLIENT HIDE Node: Hide "Pending Assignment" and "Open Order" for Clients if desired?
+                // The user said "client ko trip board ka access milega automatic woh bhi data ko read krne ke liye na ki write krne ke liye"
+                // This usually implies tracking active missions. But we'll show all tabs, just disabling writes.
+                return (
+                    <TabsTrigger key={t.id} value={t.id} className="relative h-8 md:h-9 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[8px] md:text-[10px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-1 md:gap-1.5 whitespace-nowrap">
+                        {t.icon && <t.icon className="h-2.5 md:h-3 w-2.5 md:w-3" />}
+                        {t.label} <Badge className="ml-1 bg-slate-100 text-slate-500 border-none font-black text-[7px] md:text-[8px] px-1 h-4">{t.count}</Badge>
+                    </TabsTrigger>
+                );
+            })}
           </TabsList>
         </Tabs>
       </div>
@@ -1041,6 +1061,7 @@ function TripBoardContent() {
                     data={paginatedData} 
                     activeTab={activeTab} 
                     isAdmin={isAdminSession} 
+                    isReadOnly={isClientReadOnly}
                     onAction={handleAction} 
                     selectedIds={selectedPendingIds}
                     onSelectRow={handleSelectPendingRow}
@@ -1056,8 +1077,8 @@ function TripBoardContent() {
             </div>
         )}
 
-        {/* Floating Bulk Action Bar */}
-        {activeTab === 'pending-assignment' && selectedPendingIds.length > 0 && (
+        {/* Floating Bulk Action Bar - Hidden for Clients */}
+        {activeTab === 'pending-assignment' && selectedPendingIds.length > 0 && !isClientReadOnly && (
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95vw] max-w-4xl animate-in slide-in-from-bottom-10 duration-500">
                 <div className="bg-slate-900 text-white rounded-[1.5rem] md:rounded-[2rem] shadow-3xl p-3 md:p-6 flex items-center justify-between gap-3 md:gap-10 border border-white/10 backdrop-blur-xl">
                     <div className="flex items-center gap-2 md:gap-4 border-r border-white/10 pr-3 md:pr-10 shrink-0">

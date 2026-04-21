@@ -6,17 +6,26 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Radar, ChevronRight } from 'lucide-react';
+import { Menu, X, Radar, ChevronRight, User, Users, Lock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import placeholderData from '@/app/lib/placeholder-images.json';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
+/**
+ * @fileOverview Website Header Handbook.
+ * Features: Dual Portal Selector (Client vs Employee) and responsive registry navigation.
+ */
 export default function Header() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
 
-  // Prevent body scroll when mobile menu is open
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden';
@@ -71,7 +80,7 @@ export default function Header() {
               href={item.href}
               className={cn(
                 "text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:text-blue-600",
-                pathname === item.href ? "text-blue-600 border-b-2 border-blue-600 pb-1" : "text-slate-500"
+                pathname === item.href ? "text-blue-600 border-b-2 border-blue-600 pb-1" : "text-slate-50"
               )}
             >
               {item.name}
@@ -80,12 +89,41 @@ export default function Header() {
         </div>
 
         <div className="hidden lg:flex lg:flex-1 lg:justify-end gap-4">
-          <Button variant="ghost" asChild className="font-black uppercase text-[10px] tracking-widest hover:bg-slate-50">
-            <Link href="/login">Portal Login</Link>
-          </Button>
-          <Button asChild className="bg-blue-900 hover:bg-black text-white font-black uppercase text-[10px] tracking-widest rounded-xl px-6 shadow-lg shadow-blue-900/20 transition-all active:scale-95 border-none">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button className="bg-blue-900 hover:bg-black text-white font-black uppercase text-[10px] tracking-widest rounded-xl px-6 shadow-lg shadow-blue-900/20 transition-all active:scale-95 border-none">
+                    <Lock className="h-3.5 w-3.5 mr-2" /> Portal Login
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl shadow-3xl border-slate-200 mt-2">
+                <Link href="/login?mode=client">
+                    <DropdownMenuItem className="gap-3 py-3 rounded-xl cursor-pointer hover:bg-blue-50 group">
+                        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                            <User className="h-4 w-4" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-black uppercase text-[10px] tracking-tight">Client Login</span>
+                            <span className="text-[8px] font-bold text-slate-400 uppercase leading-none">Read-Only Access</span>
+                        </div>
+                    </DropdownMenuItem>
+                </Link>
+                <Link href="/login?mode=employee">
+                    <DropdownMenuItem className="gap-3 py-3 rounded-xl cursor-pointer hover:bg-emerald-50 group mt-1">
+                        <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                            <Users className="h-4 w-4" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-black uppercase text-[10px] tracking-tight">Employee Login</span>
+                            <span className="text-[8px] font-bold text-slate-400 uppercase leading-none">Read/Write Registry</span>
+                        </div>
+                    </DropdownMenuItem>
+                </Link>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button asChild variant="outline" className="font-black uppercase text-[10px] tracking-widest rounded-xl px-6 border-slate-200 shadow-sm hover:bg-slate-50">
             <Link href="/track-consignment" className="flex items-center gap-2">
-              <Radar className="h-4 w-4" /> Track Mission
+              <Radar className="h-4 w-4 text-blue-600" /> Track Mission
             </Link>
           </Button>
         </div>
@@ -127,7 +165,26 @@ export default function Header() {
           </button>
         </div>
         
-        <div className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
+        <div className="flex-1 overflow-y-auto py-6 px-4 space-y-4">
+          <div className="grid grid-cols-1 gap-2">
+            <Link href="/login?mode=client" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-100 rounded-2xl group active:scale-95 transition-all">
+                <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-lg"><User size={20} /></div>
+                <div className="flex flex-col">
+                    <span className="text-xs font-black uppercase text-blue-900 tracking-tight">Client Portal</span>
+                    <span className="text-[8px] font-bold text-blue-400 uppercase">View Mission Registry</span>
+                </div>
+            </Link>
+            <Link href="/login?mode=employee" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl group active:scale-95 transition-all">
+                <div className="p-2.5 bg-slate-900 text-white rounded-xl shadow-lg"><Users size={20} /></div>
+                <div className="flex flex-col">
+                    <span className="text-xs font-black uppercase text-slate-900 tracking-tight">Employee Portal</span>
+                    <span className="text-[8px] font-bold text-slate-400 uppercase">Full Registry Operations</span>
+                </div>
+            </Link>
+          </div>
+
+          <Separator className="opacity-50" />
+
           {[
             { name: 'Home', href: '/' },
             { name: 'Services', href: '/services' },
@@ -153,20 +210,17 @@ export default function Header() {
           ))}
         </div>
 
-        <div className="p-6 border-t bg-slate-50 space-y-4">
-          <Button variant="outline" asChild className="w-full h-14 font-black uppercase text-[11px] tracking-[0.2em] rounded-2xl border-slate-200 bg-white text-slate-900 shadow-md transition-all active:scale-95">
-            <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center gap-3">
-              <Radar className="h-4 w-4 text-blue-600" /> Portal Login
-            </Link>
-          </Button>
-          <Button asChild className="w-full h-14 bg-blue-900 hover:bg-black text-white font-black uppercase text-[11px] tracking-[0.2em] rounded-2xl shadow-xl shadow-blue-900/20 transition-all active:scale-95 border-none">
-            <Link href="/track-consignment" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center gap-3">
+        <div className="p-6 border-t bg-slate-50 space-y-4 text-center">
+            <Link href="/track-consignment" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center gap-3 w-full h-12 bg-white border border-slate-200 rounded-xl font-black uppercase text-[10px] tracking-widest text-blue-600 shadow-sm">
               <Radar className="h-4 w-4" /> Track Mission
             </Link>
-          </Button>
-          <p className="text-center text-[8px] font-black uppercase text-slate-400 tracking-[0.3em] pt-2">© Sikka Industries & Logistics Registry</p>
+          <p className="text-[8px] font-black uppercase text-slate-400 tracking-[0.3em] pt-2">© Sikka Industries & Logistics Registry</p>
         </div>
       </div>
     </header>
   );
+}
+
+function Separator({ className }: { className?: string }) {
+    return <div className={cn("h-px w-full bg-slate-200", className)} />;
 }

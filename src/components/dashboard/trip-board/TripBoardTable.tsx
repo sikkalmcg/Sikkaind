@@ -64,6 +64,7 @@ interface TripBoardTableProps {
   data: any[];
   activeTab: string;
   isAdmin: boolean;
+  isReadOnly?: boolean;
   onAction: (type: string, trip: any) => void;
   selectedIds?: string[];
   onSelectRow?: (id: string, checked: boolean) => void;
@@ -71,7 +72,6 @@ interface TripBoardTableProps {
 }
 
 const getStatusColor = (status: string) => {
-    // Robust normalization for complex status strings like YARD/LOADING
     const s = status?.toLowerCase().replace(/[\s/_-]+/g, '-') || '';
     switch(s) {
         case 'pending': return 'bg-yellow-500/10 text-yellow-700 border-yellow-200';
@@ -96,7 +96,6 @@ const getStatusColor = (status: string) => {
 
 /**
  * @fileOverview Live Location Node Component.
- * Optimized GIS Handshake: Own Vehicles show live telemetry; Market/Contract show SIM TRACK.
  */
 function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: string, vehicleType: string, onClick: () => void }) {
     const [location, setLocation] = useState<{ city: string; full: string } | null>(null);
@@ -120,7 +119,7 @@ function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: stri
                 });
             }
         } catch (e) {
-            console.warn("Telemetry signal latency.");
+            console.warn("Telemetry pulse delayed.");
         } finally {
             setIsLoading(false);
         }
@@ -201,6 +200,7 @@ function MissionRegistryCard({
     row, 
     activeTab, 
     isAdmin, 
+    isReadOnly,
     onAction,
     isSelected,
     onSelect
@@ -208,17 +208,14 @@ function MissionRegistryCard({
     row: any, 
     activeTab: string, 
     isAdmin: boolean, 
+    isReadOnly?: boolean,
     onAction: (type: string, trip: any) => void,
     isSelected?: boolean,
     onSelect?: (checked: boolean) => void
 }) {
     const isPending = activeTab === 'pending-assignment';
-    
-    // Mission Registry Logic Node: Show LR and Invoices only from Loading stage onwards
     const showLrAndInvoices = ['loading', 'transit', 'arrived', 'pod-status', 'rejection', 'closed'].includes(activeTab);
-
-    // REGISTRY LOCK Node: Edit LR only allowed in Loading and Transit stages
-    const canEditLRNode = ['loading', 'transit'].includes(activeTab);
+    const canEditLRNode = ['loading', 'transit'].includes(activeTab) && !isReadOnly;
     
     const dateNode = isPending ? row.creationDate : row.startDate;
     const formattedDate = dateNode ? format(new Date(dateNode), 'dd MMM') : '--';
@@ -241,7 +238,7 @@ function MissionRegistryCard({
             isSelected ? "border-blue-600 shadow-2xl bg-blue-50/5" : "border-slate-100 shadow-sm hover:shadow-xl hover:border-slate-200"
         )}>
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 p-5 pb-3 items-start">
-                {isPending && (
+                {isPending && !isReadOnly && (
                     <div className="col-span-1 flex items-center justify-center border-r border-slate-100 pr-2 h-full">
                         <Checkbox 
                             checked={isSelected}
@@ -251,7 +248,7 @@ function MissionRegistryCard({
                     </div>
                 )}
                 
-                <div className={cn("space-y-1", isPending ? "col-span-1" : "col-span-1")}>
+                <div className={cn("space-y-1", (isPending && !isReadOnly) ? "col-span-1" : "col-span-1")}>
                     <p className="text-[10px] font-black text-blue-700 uppercase tracking-tighter">
                         {isPending ? `SO: ${row.shipmentId}` : `#${row.tripId}`}
                     </p>
@@ -301,7 +298,6 @@ function MissionRegistryCard({
                     )}
                 </div>
 
-                {/* LR NODE - DYNAMIC COLUMN - Only from Loading onwards */}
                 {showLrAndInvoices && (
                     <div className="col-span-2 flex flex-col justify-center">
                         <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">LR Number</span>
@@ -339,7 +335,6 @@ function MissionRegistryCard({
                     </div>
                 )}
 
-                {/* WEIGHT & FLEET TYPE ROW - Realigned side-by-side */}
                 <div className={cn("flex flex-col justify-center h-full min-h-[60px]", (isPending || !showLrAndInvoices) ? "col-span-3" : "col-span-2")}>
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex flex-col items-start pb-1">
@@ -414,7 +409,7 @@ function MissionRegistryCard({
                     )}
 
                     <div className="flex items-center gap-3">
-                        {isPending && (
+                        {isPending && !isReadOnly && (
                             <Button 
                                 size="sm" 
                                 onClick={() => onAction('assign', row)} 
@@ -424,27 +419,27 @@ function MissionRegistryCard({
                             </Button>
                         )}
                         
-                        {activeTab === 'open-order' && (
+                        {activeTab === 'open-order' && !isReadOnly && (
                             <Button size="sm" onClick={() => onAction('vehicle-in', row)} className="h-9 px-6 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Vehicle IN</Button>
                         )}
-                        {activeTab === 'loading' && (
+                        {activeTab === 'loading' && !isReadOnly && (
                             <Button size="sm" onClick={() => onAction('vehicle-out', row)} className="h-9 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Vehicle OUT</Button>
                         )}
-                        {activeTab === 'transit' && (
+                        {activeTab === 'transit' && !isReadOnly && (
                             <Button size="sm" onClick={() => onAction('arrived', row)} className="h-9 px-10 bg-blue-900 hover:bg-black text-white rounded-xl font-black uppercase text-[10px] tracking-[0.2em] shadow-lg shadow-blue-900/10">Arrived In</Button>
                         )}
-                        {activeTab === 'arrived' && (
+                        {activeTab === 'arrived' && !isReadOnly && (
                             <div className="flex items-center gap-2">
                                 <Button variant="outline" size="sm" onClick={() => onAction('reject', row)} className="h-9 px-6 border-red-200 text-red-600 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-red-50 shadow-sm transition-all active:scale-95">REJECT MISSION</Button>
                                 <Button size="sm" onClick={() => onAction('unloaded', row)} className="h-9 px-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">MARK UNLOADED</Button>
                             </div>
                         )}
-                        {activeTab === 'pod-status' && (
+                        {activeTab === 'pod-status' && !isReadOnly && (
                             <Button variant="outline" size="sm" onClick={() => onAction('pod-upload', row)} className="h-9 px-8 border-slate-200 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-slate-50 gap-2">
                                 <Upload size={14} className="text-blue-600" /> Upload POD
                             </Button>
                         )}
-                        {activeTab === 'rejection' && (
+                        {activeTab === 'rejection' && !isReadOnly && (
                             <>
                                 <Button variant="outline" size="sm" onClick={() => onAction('re-sent', row)} className="h-9 px-6 border-blue-200 text-blue-700 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-blue-50">Mission Re-sent</Button>
                                 <Button size="sm" onClick={() => onAction('srn', row)} className="h-9 px-8 bg-red-600 hover:bg-red-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">SRN Entry</Button>
@@ -460,19 +455,19 @@ function MissionRegistryCard({
                                     <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Mission Control</DropdownMenuLabel>
                                     <DropdownMenuItem onClick={() => onAction(isPending ? 'view-order' : 'view', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Mission</DropdownMenuItem>
                                     
-                                    {showLrAndInvoices && canEditLRNode && (
+                                    {showLrAndInvoices && canEditLRNode && !isReadOnly && (
                                         <DropdownMenuItem onClick={() => onAction('edit-lr', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
                                             <FileText className="h-4 w-4 text-orange-600" /> Edit LR manifest
                                         </DropdownMenuItem>
                                     )}
                                     
-                                    {!isPending && (
+                                    {!isPending && !isReadOnly && (
                                         <DropdownMenuItem onClick={() => onAction('edit-vehicle', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
                                             <Edit2 className="h-4 w-4 text-blue-400" /> Correct Vehicle
                                         </DropdownMenuItem>
                                     )}
 
-                                    {isAdmin && (
+                                    {isAdmin && !isReadOnly && (
                                         <>
                                             <DropdownMenuSeparator className="bg-slate-50" />
                                             <DropdownMenuItem onClick={() => onAction('cancel', row)} className="gap-3 font-bold py-2.5 text-red-600 rounded-xl cursor-pointer hover:bg-red-50">
@@ -494,6 +489,7 @@ export default function TripBoardTable({
     data, 
     activeTab, 
     isAdmin,
+    isReadOnly = false,
     onAction,
     selectedIds = [],
     onSelectRow,
@@ -520,6 +516,7 @@ export default function TripBoardTable({
                             row={row} 
                             activeTab={activeTab} 
                             isAdmin={isAdmin} 
+                            isReadOnly={isReadOnly}
                             onAction={onAction} 
                             isSelected={selectedIds.includes(row.id)}
                             onSelect={(checked) => onSelectRow?.(row.id, checked)}

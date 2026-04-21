@@ -108,6 +108,18 @@ export default function LogisticsSidebar({ isOpen, onToggle }: LogisticsSidebarP
 
   const filteredNavigation = useMemo(() => {
     if (loading) return [];
+
+    // CLIENT UI Node: Strictly show only Trip Board for Client role
+    if (profile?.jobRole === 'Client') {
+        return [
+            { group: 'Client Registry', items: [
+                { name: 'Trip Board', href: '/dashboard/trip-board', icon: MonitorPlay, permission: 'trip-board' },
+                { name: 'Fleet Live Map', href: '/dashboard/tracking/fleet-map', icon: Globe, permission: 'shipment-tracking' },
+                { name: 'Track Consignment', href: '/dashboard/tracking/consignment', icon: Radar, permission: 'track-consignment' },
+            ]}
+        ];
+    }
+
     if (isRootAdmin) return navigationGroups;
 
     const hasPermissions = profile?.permissions && profile.permissions.length > 0;

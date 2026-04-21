@@ -1,6 +1,7 @@
+
 'use client';
 
-import { ReactNode, useEffect, useState, Suspense } from "react";
+import { ReactNode, useEffect, useState, Suspense, useMemo } from "react";
 import { useUser, useAuth, useFirestore } from "@/firebase";
 import { useRouter, usePathname } from "next/navigation";
 import LogisticsHeader from "@/components/dashboard/layout/LogisticsHeader";
@@ -15,8 +16,7 @@ import { handleFirestoreError, OperationType } from "@/lib/utils";
 /**
  * @fileOverview Dashboard Layout Plant.
  * Manages core authorization pulse and sidebar/header integration.
- * Consolidated scroll nodes to prevent double scrollbars.
- * Primary scroll control is now delegated to children for sticky header accuracy.
+ * Updated: Enforces strict READ-ONLY pathing for Client nodes.
  */
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, isUserLoading } = useUser();
@@ -27,6 +27,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthorizing, setIsVerifying] = useState(true);
+  const [userProfile, setUserProfile] = useState<SubUser | null>(null);
 
   useEffect(() => {
     setIsSidebarOpen(false);
@@ -65,6 +66,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             }
 
             const profile = userDocSnap.data() as SubUser;
+            setUserProfile(profile);
+
+            // CLIENT ENFORCEMENT Node: Only allow Trip Board access for Client Role
+            if (profile.jobRole === 'Client') {
+                if (pathname !== '/dashboard/trip-board' && !pathname.startsWith('/dashboard/tracking/')) {
+                    router.replace('/dashboard/trip-board');
+                    return;
+                }
+                setIsVerifying(false);
+                hideLoader();
+                return;
+            }
+
             const isFullAdmin = isRoot || profile.username?.toLowerCase() === 'sikkaind';
 
             if (isFullAdmin) {
@@ -120,7 +134,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <LogisticsHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
         </Suspense>
 
-        {/* REGISTRY FIX: overflow-hidden on main to ensure children handle internal scrolling correctly */}
         <main className="flex-1 relative overflow-hidden bg-slate-50">
           {children}
         </main>

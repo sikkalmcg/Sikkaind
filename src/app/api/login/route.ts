@@ -6,6 +6,7 @@ import type { SubUser } from "@/types";
 /**
  * @fileOverview Login API Route.
  * Performs session establishment and identity resolution.
+ * Updated: Automatically funnels 'Client' roles to the Trip Board registry.
  */
 export async function POST(req: NextRequest) {
     const { uid, email } = await req.json();
@@ -41,8 +42,13 @@ export async function POST(req: NextRequest) {
             tcode: 'SYS_AUTH',
             pageName: 'Login Registry',
             timestamp: FieldValue.serverTimestamp(),
-            description: `Session established for operator @${profile.username}.`
+            description: `Session established for operator @${profile.username}. Mode: ${profile.jobRole}`
         });
+
+        // CLIENT REDIRECT Node: Force clients directly to the Trip Board terminal
+        if (profile.jobRole === 'Client') {
+            return NextResponse.json({ redirect: '/dashboard/trip-board' });
+        }
 
         const accessible = [];
         if (profile.access_logistics) accessible.push('/dashboard');
