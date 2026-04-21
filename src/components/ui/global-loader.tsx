@@ -3,6 +3,10 @@
 import { useLoading } from '@/context/LoadingContext';
 import { Loader2 } from 'lucide-react';
 
+/**
+ * @fileOverview Global Visual Feedback Node.
+ * Provides a high-z-index overlay during registry sync operations.
+ */
 export default function GlobalLoader() {
   const { isLoading } = useLoading();
 

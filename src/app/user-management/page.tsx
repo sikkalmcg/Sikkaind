@@ -16,7 +16,7 @@ import { sanitizeRegistryNode } from '@/lib/utils';
 /**
  * @fileOverview Security Management Terminal.
  * Handles identity provisioning and access manifest synchronization.
- * Fixed: Handshake node re-engineered to perform atomic server-side writes.
+ * Fixed: Uses server-side API for atomic user creation and database entry.
  */
 export default function UserManagementPage() {
     const { user, isUserLoading } = useUser();
@@ -99,7 +99,7 @@ export default function UserManagementPage() {
             const cleanUsername = data.username.toLowerCase().replace(/\s+/g, '');
             const systemEmail = `${cleanUsername}@sikka.com`;
 
-            // ATOMIC SERVER HANDSHAKE: Auth + Firestore + Role in one call
+            // ATOMIC SERVER HANDSHAKE: Auth + Firestore in one call
             const authResponse = await fetch('/api/auth/manage-user', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -229,7 +229,7 @@ export default function UserManagementPage() {
                                             plants={logisticsPlants} 
                                             onUserUpdated={handleUserUpdated} 
                                             onUserDeleted={handleUserDeleted} 
-                                            onUserEdit={setEditingUser} 
+                                            onUserEdit={onUserEdit} 
                                         />
                                     </TabsContent>
                                 )}
