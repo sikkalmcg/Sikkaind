@@ -24,7 +24,8 @@ import {
   Activity, 
   Truck,
   LayoutGrid,
-  Briefcase
+  Briefcase,
+  CheckCircle2
 } from 'lucide-react';
 import type { SubUser, Plant, WithId } from '@/types';
 import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions } from '@/lib/constants';
