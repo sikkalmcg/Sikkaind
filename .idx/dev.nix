@@ -9,6 +9,7 @@
     pkgs.nodejs_20
     pkgs.pnpm
     pkgs.git-lfs
+    pkgs.sudo
   ];
 
   # Sets environment variables in the workspace
