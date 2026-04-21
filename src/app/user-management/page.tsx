@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,7 +10,7 @@ import EditUserModal from '@/components/dashboard/sub-user-management/EditUserMo
 import { useUser, useAuth, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Loader2, Users, ShieldCheck, WifiOff } from 'lucide-react';
-import { doc, onSnapshot, query, collection, orderBy, getDoc, where, getDocs, limit } from 'firebase/firestore';
+import { doc, onSnapshot, query, collection, orderBy, getDoc, where, getDocs, limit, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useLoading } from '@/context/LoadingContext';
 import { normalizePlantId } from '@/lib/utils';
@@ -131,7 +132,7 @@ export default function UserManagementPage() {
         if (!firestore) return;
         showLoader();
         try {
-            // Update via Admin SDK for consistency if password changed, otherwise standard update
+            // Registry Correction node: updateDoc and serverTimestamp now properly imported
             await updateDoc(doc(firestore, "users", userId), { 
                 ...data, 
                 lastUpdated: serverTimestamp() 

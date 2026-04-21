@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { action, email, password, userData } = body;
+        const { action, email, password, userData, username, mobile } = body;
 
         // AUTH NODE: PROVISION NEW USER + SYNC REGISTRY
         if (action === 'createUser') {
@@ -55,6 +55,41 @@ export async function POST(req: NextRequest) {
             }
 
             return NextResponse.json({ success: true, uid });
+        }
+
+        // AUTH NODE: IDENTIFY OPERATOR FOR RECOVERY
+        if (action === 'verifyUser') {
+            const q = await adminDb.collection("users")
+                .where("username", "==", String(username).toLowerCase())
+                .where("mobile", "==", mobile)
+                .limit(1)
+                .get();
+
+            if (q.empty) {
+                return NextResponse.json({ error: "Operator identity not recognized." }, { status: 404 });
+            }
+
+            return NextResponse.json({ success: true, email: q.docs[0].data().email });
+        }
+
+        // AUTH NODE: AUTHORIZED PASSWORD RESET
+        if (action === 'resetPassword') {
+            const q = await adminDb.collection("users").where("email", "==", email).limit(1).get();
+            if (q.empty) return NextResponse.json({ error: "Registry node missing." }, { status: 404 });
+
+            const userDoc = q.docs[0];
+            const uid = userDoc.data().uid;
+
+            if (uid) {
+                await adminAuth.updateUser(uid, { password });
+                await userDoc.ref.update({ 
+                    password, 
+                    lastPasswordChange: new Date().toISOString(),
+                    lastUpdated: FieldValue.serverTimestamp()
+                });
+                return NextResponse.json({ success: true });
+            }
+            throw new Error("UID handshake failed.");
         }
 
         // AUTH NODE: BOOTSTRAP ROOT ADMIN

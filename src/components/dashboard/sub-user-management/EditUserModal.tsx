@@ -252,7 +252,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
 
                         <Card className={cn("border-2 transition-all rounded-[3rem] overflow-hidden", watchedAccessAccounts ? "border-emerald-200 bg-white shadow-2xl" : "border-slate-100 opacity-40 grayscale")}>
                             <CardHeader className="p-6 border-b bg-slate-50/50 flex flex-row items-center justify-between">
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-4">
                                     <div className={cn("p-3 rounded-2xl shadow-lg", watchedAccessAccounts ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-400")}><Briefcase className="h-6 w-6" /></div>
                                     <CardTitle className="text-md font-black uppercase italic text-slate-800">Accounts & Admin</CardTitle>
                                 </div>

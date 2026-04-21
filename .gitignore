@@ -25,3 +25,5 @@ Thumbs.db
 *.tar.gz
 *.mp4
 *.pdf
+src/serviceAccountKey.json
+.env.local
