@@ -1,19 +1,20 @@
-
-import { initializeApp, getApps, getApp } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import * as admin from 'firebase-admin';
 
 /**
- * @fileOverview Hardened Firebase Admin SDK Registry.
- * Configuration: Uses Application Default Credentials (ADC) node.
- * Eliminates dependency on local JSON manifests for environment stability.
+ * @fileOverview Authorized Mission Control Node (Server-Side).
+ * Handshakes with the Identity Platform via Application Default Credentials (ADC).
+ * Decoupled from physical JSON manifests to prevent registry build failures.
  */
 
-const app = (getApps().length === 0)
-  ? initializeApp() 
-  : getApp();
+if (!admin.apps.length) {
+  try {
+    // Authorized environment pulse: handshakes automatically in Firebase Studio
+    admin.initializeApp();
+  } catch (error) {
+    console.error('Admin SDK Handshake Failure:', error);
+  }
+}
 
-const adminAuth = getAuth(app);
-const adminDb = getFirestore(app);
-
-export { adminAuth, adminDb, FieldValue };
+export const adminAuth = admin.auth();
+export const adminDb = admin.firestore();
+export const FieldValue = admin.firestore.FieldValue;

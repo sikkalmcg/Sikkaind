@@ -1,3 +1,4 @@
+
 import { adminDb as db, FieldValue } from "@/firebase/admin";
 import { NextRequest, NextResponse } from "next/server";
 import type { SubUser } from "@/types";
@@ -5,17 +6,15 @@ import type { SubUser } from "@/types";
 /**
  * @fileOverview Login API Route.
  * Performs session establishment and identity resolution.
- * Normal Login Protocol: Clients removed from specialized pathing.
  */
 export async function POST(req: NextRequest) {
+    const { uid, email } = await req.json();
+
+    if (!uid) {
+        return NextResponse.json({ error: "UID must be provided." }, { status: 400 });
+    }
+
     try {
-        const body = await req.json();
-        const { uid, email } = body;
-
-        if (!uid) {
-            return NextResponse.json({ error: "UID must be provided." }, { status: 400 });
-        }
-
         // Registry Handshake: Resolve by UID or Email (for bootstrapped accounts)
         let userSnap = await db.collection("users").doc(uid).get();
         
@@ -42,7 +41,7 @@ export async function POST(req: NextRequest) {
             tcode: 'SYS_AUTH',
             pageName: 'Login Registry',
             timestamp: FieldValue.serverTimestamp(),
-            description: `Session established for operator @${profile.username}. Mode: ${profile.jobRole}`
+            description: `Session established for operator @${profile.username}.`
         });
 
         const accessible = [];
@@ -56,11 +55,10 @@ export async function POST(req: NextRequest) {
         if (profile.defaultModule === 'Logistics' && profile.access_logistics) return NextResponse.json({ redirect: '/dashboard' });
         if (profile.defaultModule === 'Accounts' && profile.access_accounts) return NextResponse.json({ redirect: '/sikka-accounts/dashboard' });
         if (profile.defaultModule === 'Administration' && isAdmin) return NextResponse.json({ redirect: '/user-management' });
-        if (profile.defaultModule === 'Trip Board') return NextResponse.json({ redirect: '/dashboard/trip-board' });
 
         const redirect = accessible.length === 1 ? accessible[0] : '/modules';
         return NextResponse.json({ redirect });
-    } catch (e: any) {
+    } catch (e) {
         console.error("Login API Failure:", e);
         return NextResponse.json({ redirect: '/modules' });
     }

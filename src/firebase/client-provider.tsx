@@ -1,28 +1,19 @@
+
 'use client';
 
-import React, { useMemo, type ReactNode } from 'react';
+import React, { ReactNode, useMemo } from 'react';
+import { initializeFirebase } from './index';
 import { FirebaseProvider } from './provider';
-import { initializeFirebase } from './init';
-
-interface FirebaseClientProviderProps {
-  children: ReactNode;
-}
 
 /**
- * @fileOverview Client-Side Registry Provider.
- * Synchronized with decoupled initialization node to prevent useContext failure.
+ * @fileOverview Client-side Firebase Initialization Wrapper.
+ * Prevents multiple initializations and hydration mismatches.
  */
-export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
-  const firebaseServices = useMemo(() => {
-    return initializeFirebase();
-  }, []); 
+export function FirebaseClientProvider({ children }: { children: ReactNode }) {
+  const { firebaseApp, firestore, auth } = useMemo(() => initializeFirebase(), []);
 
   return (
-    <FirebaseProvider
-      firebaseApp={firebaseServices.firebaseApp}
-      auth={firebaseServices.auth}
-      firestore={firebaseServices.firestore}
-    >
+    <FirebaseProvider app={firebaseApp} firestore={firestore} auth={auth}>
       {children}
     </FirebaseProvider>
   );

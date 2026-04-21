@@ -1,3 +1,9 @@
+
+/**
+ * @fileOverview Firebase Client Configuration Node.
+ * Synchronized with project registry settings.
+ */
+
 export const firebaseConfig = {
   apiKey: "AIzaSyDkEktvsr9sIkfV2EO2QVYE7ud_AzozoIs",
   authDomain: "studio-2134942499-abd6c.firebaseapp.com",
