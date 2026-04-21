@@ -2,8 +2,8 @@ import { adminAuth, adminDb, FieldValue } from "@/firebase/admin";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * @fileOverview Identity Provisioning Terminal.
- * Performs authorized handshake with the Identity Platform and Firestore registry.
+ * @fileOverview Identity Provisioning Terminal (Server-Side).
+ * Consolidates Authentication identity establishment and Firestore registry write.
  */
 export async function POST(req: NextRequest) {
     try {
@@ -12,16 +12,15 @@ export async function POST(req: NextRequest) {
 
         if (action === 'createUser') {
             if (!email || !password) {
-                return NextResponse.json({ error: "Email and password node required." }, { status: 400 });
+                return NextResponse.json({ error: "Credentials manifest required." }, { status: 400 });
             }
 
             try {
                 // 1. Establish Identity node in Authentication
                 let userRecord;
                 try {
-                    // Check if identity exists
                     userRecord = await adminAuth.getUserByEmail(email);
-                    // Update password if identity exists to match mission manifest
+                    // Update credentials to match the provisioning request
                     await adminAuth.updateUser(userRecord.uid, { password });
                 } catch (e: any) {
                     if (e.code === 'auth/user-not-found') {
@@ -36,8 +35,8 @@ export async function POST(req: NextRequest) {
 
                 const uid = userRecord.uid;
 
-                // 2. Synchronize Identity node with Firestore Registry
-                // This ensures the database write happens in the same authorized context
+                // 2. Atomic Registry Write (Server-Side Handshake)
+                // This ensures the user is in the database even if client-side rules are restrictive
                 const userRegistryRef = adminDb.collection("users").doc(uid);
                 await userRegistryRef.set({
                     ...userData,
@@ -45,15 +44,17 @@ export async function POST(req: NextRequest) {
                     email,
                     status: 'Active',
                     updatedAt: FieldValue.serverTimestamp(),
-                    createdAt: FieldValue.serverTimestamp()
+                    createdAt: userData.createdAt || FieldValue.serverTimestamp()
                 }, { merge: true });
 
-                // 3. Register Administrative Privileges if applicable
+                // 3. Register Administrative Nodes
                 if (userData.jobRole === 'Admin' || userData.jobRole === 'Manager') {
                     await adminDb.collection("roles_admin").doc(uid).set({
                         email,
                         grantedAt: FieldValue.serverTimestamp()
                     });
+                } else {
+                    await adminDb.collection("roles_admin").doc(uid).delete().catch(() => {});
                 }
 
                 return NextResponse.json({ success: true, uid });
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Invalid mission action." }, { status: 400 });
 
     } catch (error: any) {
-        console.error("Terminal Synchronization Error:", error);
-        return NextResponse.json({ error: "Terminal synchronization error." }, { status: 500 });
+        console.error("Provisioning Terminal Error:", error);
+        return NextResponse.json({ error: "Terminal synchronization failure." }, { status: 500 });
     }
 }
