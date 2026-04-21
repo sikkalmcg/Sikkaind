@@ -26,8 +26,7 @@ export default function RootLayoutClient({ children }: { children: ReactNode }) 
                         !pathname.startsWith('/login') && 
                         !pathname.startsWith('/dashboard') && 
                         !pathname.startsWith('/modules') && 
-                        !pathname.startsWith('/user-management') &&
-                        !pathname.startsWith('/sikka-accounts'));
+                        !pathname.startsWith('/user-management'));
 
   return (
     <FirebaseClientProvider>

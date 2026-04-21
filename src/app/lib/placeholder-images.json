@@ -1,39 +1,20 @@
+
 {
   "placeholderImages": [
-    {
-      "id": "hero-warehouse",
-      "url": "https://picsum.photos/seed/101/1920/1080",
-      "description": "Logistics hub operation"
-    },
-    {
-      "id": "office-1",
-      "url": "https://picsum.photos/seed/102/800/600",
-      "description": "Sikka corporate office"
-    },
-    {
-      "id": "office-2",
-      "url": "https://picsum.photos/seed/103/800/600",
-      "description": "Logistics network center"
-    },
-    {
-      "id": "office-3",
-      "url": "https://picsum.photos/seed/104/800/600",
-      "description": "Warehouse storage unit"
-    },
-    {
-      "id": "office-4",
-      "url": "https://picsum.photos/seed/105/800/600",
-      "description": "Supply chain monitoring"
-    },
-    {
-      "id": "office-5",
-      "url": "https://picsum.photos/seed/106/800/600",
-      "description": "Logistics professional environment"
-    },
-    {
-      "id": "contact-bg",
-      "url": "https://picsum.photos/seed/107/1920/600",
-      "description": "Contact page background"
-    }
+    { "id": "hero-trucks", "url": "https://picsum.photos/seed/trucks/1200/800", "hint": "logistics trucks" },
+    { "id": "hero-rake", "url": "https://picsum.photos/seed/rake/1200/800", "hint": "railway logistics" },
+    { "id": "hero-warehouse", "url": "https://image2url.com/r2/default/images/1774854149015-99af6290-d0b6-45e6-8c7f-51bdcd1d4539.jpeg", "hint": "modern warehouse" },
+    { "id": "hero-tracking", "url": "https://picsum.photos/seed/gps/1200/800", "hint": "satellite tracking" },
+    { "id": "hero-freight", "url": "https://image2url.com/r2/default/images/1774853971873-fa4dde1f-444d-499e-9cd2-36eb100216e3.jpeg", "hint": "freight ship" },
+    { "id": "office-1", "url": "https://image2url.com/r2/default/images/1774853287710-ea6ba60c-f6a3-40a5-bb91-1d43ae80df44.jpeg", "hint": "modern office" },
+    { "id": "office-2", "url": "https://image2url.com/r2/default/images/1774853339717-6424c919-1229-42b2-89fa-fa6233a180a3.jpeg", "hint": "meeting room" },
+    { "id": "office-3", "url": "https://image2url.com/r2/default/images/1774853392444-92ff8052-aea1-474e-8782-5fd8fec4f80a.jpeg", "hint": "logistics hub" },
+    { "id": "office-4", "url": "https://image2url.com/r2/default/images/1774854280913-bc133a90-20af-4e8b-b577-235f25294e5e.jpeg", "hint": "data center" },
+    { "id": "office-5", "url": "https://image2url.com/r2/default/images/1774854347894-fd566c6b-270c-4ab9-ab4f-37e1d42d7810.jpeg", "hint": "corporate building" },
+    { "id": "logo", "url": "https://image2url.com/r2/default/images/1774853207394-0cf9608b-4e2e-4963-a043-10d58e94cd24.jpeg", "hint": "company logo" },
+    { "id": "loginlogo", "url": "https://image2url.com/r2/default/images/1774853645073-5e08ca2f-e12f-465f-9b61-30fdb875d95c.jpeg", "hint": "login logo" },
+    { "id": "logo-old", "url": "https://image2url.com/r2/default/images/1774853131451-83a2a90c-6707-43fc-9b92-c364ad369d96.jpeg", "hint": "vintage logo" },
+    { "id": "contact-bg", "url": "https://image2url.com/r2/default/images/1774853339717-6424c919-1229-42b2-89fa-fa6233a180a3.jpeg", "hint": "contact background" },
+    { "id": "services-bg", "url": "https://i.postimg.cc/157ZyfYJ/Whats-App-Image-2026-03-30-at-12-11-13-PM.jpg", "hint": "services background" }
   ]
 }

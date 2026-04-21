@@ -1,4 +1,3 @@
-
 import { adminDb as db, FieldValue } from "@/firebase/admin";
 import { NextRequest, NextResponse } from "next/server";
 import type { SubUser } from "@/types";
@@ -6,6 +5,7 @@ import type { SubUser } from "@/types";
 /**
  * @fileOverview Login API Route.
  * Performs session establishment and identity resolution.
+ * Updated: Scrubbed client-specific redirect logic for a unified operational flow.
  */
 export async function POST(req: NextRequest) {
     const { uid, email } = await req.json();
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
             tcode: 'SYS_AUTH',
             pageName: 'Login Registry',
             timestamp: FieldValue.serverTimestamp(),
-            description: `Session established for operator @${profile.username}.`
+            description: `Session established for operator @${profile.username}. Mode: ${profile.jobRole}`
         });
 
         const accessible = [];

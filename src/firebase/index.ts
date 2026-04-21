@@ -1,22 +1,15 @@
+/**
+ * @fileOverview Central Firebase Barrel Node.
+ * Reconfigured to export both instances (for server/logic) and hooks (for UI).
+ */
 
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
-import { getAuth, Auth } from 'firebase/auth';
-import { firebaseConfig } from './config';
-
-export function initializeFirebase(): {
-  firebaseApp: FirebaseApp;
-  firestore: Firestore;
-  auth: Auth;
-} {
-  const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  const firestore = getFirestore(firebaseApp);
-  const auth = getAuth(firebaseApp);
-
-  return { firebaseApp, firestore, auth };
-}
-
+export * from './init';
 export * from './provider';
-export * from './auth/use-user';
+export * from './client-provider';
 export * from './firestore/use-collection';
 export * from './firestore/use-doc';
+export * from './auth/use-user';
+export * from './non-blocking-updates';
+export * from './non-blocking-login';
+export * from './errors';
+export * from './error-emitter';

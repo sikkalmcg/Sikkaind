@@ -1,202 +1,254 @@
 'use client';
-
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/components/ui/use-toast';
+import { useState, useEffect, useMemo } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
+import type { WithId, SubUser, Plant } from '@/types';
+import UserAccessTab from '@/components/dashboard/sub-user-management/UserAccessTab';
+import UserManagementTab from '@/components/dashboard/sub-user-management/UserManagementTab';
+import EditUserModal from '@/components/dashboard/sub-user-management/EditUserModal';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useRouter } from 'next/navigation';
+import { Loader2, Users, ShieldCheck, WifiOff } from 'lucide-react';
+import { doc, onSnapshot, query, collection, orderBy, getDoc, serverTimestamp, updateDoc, deleteDoc, where, getDocs, limit, addDoc } from 'firebase/firestore';
 import { useLoading } from '@/context/LoadingContext';
-import { Users, UserPlus, ShieldCheck, Loader2, Boxes } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { sanitizeRegistryNode } from '@/lib/utils';
 
-const ALL_PERMISSIONS = [
-  { id: 'dashboard', label: 'Main Dashboard' },
-  { id: 'live-fleet', label: 'Live Fleet Map' },
-  { id: 'shipment-plan', label: 'Shipment Planning' },
-  { id: 'vehicle-assignment', label: 'Vehicle Assignment' },
-  { id: 'lr-generation', label: 'LR Generation' },
-  { id: 'in-transit-tracking', label: 'In-Transit Tracking' },
-  { id: 'status-management', label: 'Status Management' },
-  { id: 'freight-processing', label: 'Freight Processing' },
-  { id: 'payment-registry', label: 'Payment Registry' },
-  { id: 'fuel-management', label: 'Fuel Management' },
-  { id: 'gate-security', label: 'Gate Security (In/Out)' },
-  { id: 'hr-attendance', label: 'HR & Attendance' },
-  { id: 'inventory', label: 'Inventory Control' },
-  { id: 'customer-master', label: 'Customer Master' },
-  { id: 'carrier-master', label: 'Carrier Master' },
-  { id: 'vehicle-master', label: 'Vehicle Master' },
-  { id: 'reports-analysis', label: 'Reports & Analysis' },
-  { id: 'system-admin', label: 'System Administration' }
-];
-
+/**
+ * @fileOverview Security Management Terminal.
+ * Handles identity provisioning and access manifest synchronization.
+ * Fixed: Handshake node re-engineered to perform atomic server-side writes.
+ */
 export default function UserManagementPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [jobRole, setJobRole] = useState('Operator');
-  const [permissions, setPermissions] = useState<string[]>(['dashboard']);
-  
-  const { toast } = useToast();
-  const { setIsLoading } = useLoading();
+    const { user, isUserLoading } = useUser();
+    const firestore = useFirestore();
+    const router = useRouter();
+    const { toast } = useToast();
+    const { showLoader, hideLoader } = useLoading();
 
-  const handleTogglePermission = (id: string) => {
-    setPermissions(prev => 
-      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-    );
-  };
+    const [isAuthorized, setIsAuthorized] = useState(false);
+    const [activeTab, setActiveTab] = useState('user-access');
+    const [users, setUsers] = useState<WithId<SubUser>[]>([]);
+    const [isLoadingData, setIsLoadingData] = useState(true);
+    const [editingUser, setEditingUser] = useState<WithId<SubUser> | null>(null);
 
-  const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+    const [logisticsPlants, setLogisticsPlants] = useState<WithId<Plant>[]>([]);
+    const [accountsPlants, setAccountsPlants] = useState<WithId<Plant>[]>([]);
 
-    try {
-      const response = await fetch('/api/auth/manage-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'createUser',
-          email,
-          password,
-          userData: {
-            fullName,
-            jobRole,
-            username: email.split('@')[0],
-            status: 'Active',
-            access_logistics: true,
-            access_accounts: permissions.some(p => p.includes('payment') || p.includes('freight')),
-            permissions: permissions
-          }
-        }),
-      });
+    const isAdminSession = useMemo(() => {
+        return user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
+    }, [user?.email]);
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Provisioning node failed.');
+    useEffect(() => {
+        if (isUserLoading) return;
+        if (!user) { router.replace('/login'); return; }
 
-      toast({
-        title: "Identity Established",
-        description: `User ${fullName} has been added to the central registry.`,
-      });
+        const checkAuth = async () => {
+            if (!firestore) return;
+            try {
+                const searchEmail = user.email;
+                if (!searchEmail) return;
 
-      setEmail('');
-      setPassword('');
-      setFullName('');
-      setJobRole('Operator');
-      setPermissions(['dashboard']);
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Registry Failure",
-        description: error.message,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+                const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
+                const qSnap = await getDocs(q);
+                
+                if (!qSnap.empty || isAdminSession) {
+                    const data = !qSnap.empty ? qSnap.docs[0].data() as SubUser : null;
+                    if (isAdminSession || (data && (data.jobRole === 'Manager' || data.jobRole === 'Admin' || data.username === 'sikkaind'))) {
+                        setIsAuthorized(true);
+                    } else {
+                        router.replace('/modules');
+                    }
+                } else {
+                    router.replace('/modules');
+                }
+            } catch (e) {
+                router.replace('/login');
+            }
+        };
+        checkAuth();
+    }, [user, isUserLoading, firestore, router, isAdminSession]);
 
-  return (
-    <div className="p-8 max-w-5xl mx-auto space-y-8">
-      <div className="flex items-center gap-4 mb-8">
-        <div className="bg-blue-600 p-3 rounded-2xl shadow-lg">
-          <Users className="h-8 w-8 text-white" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-black uppercase tracking-tighter italic text-slate-900 leading-none">
-            User Management
-          </h1>
-          <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest mt-1">
-            Identity Provisioning Terminal
-          </p>
-        </div>
-      </div>
+    useEffect(() => {
+        if (!firestore || !isAuthorized) return;
+        setIsLoadingData(true);
+        
+        const unsubUsers = onSnapshot(query(collection(firestore, "users"), orderBy("fullName")), (snap) => {
+            setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as WithId<SubUser>)));
+        });
 
-      <Card className="border-slate-200 shadow-xl rounded-[2rem] overflow-hidden">
-        <CardHeader className="bg-slate-50 border-b border-slate-100 p-8">
-          <CardTitle className="flex items-center gap-2 uppercase tracking-tight italic text-blue-900">
-            <UserPlus className="h-5 w-5 text-blue-600" /> Establish New Identity
-          </CardTitle>
-          <CardDescription className="text-slate-500 font-medium">
-            Register a new operator node with custom permission manifests.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-8">
-          <form onSubmit={handleCreateUser} className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Full Name</Label>
-                  <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required placeholder="Ravi Kumar" className="h-12 border-slate-200 rounded-xl" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Operator Email</Label>
-                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="ravi@sikka.com" className="h-12 border-slate-200 rounded-xl" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Access Token (Password)</Label>
-                  <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" className="h-12 border-slate-200 rounded-xl" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Job Role</Label>
-                  <Select onValueChange={setJobRole} value={jobRole}>
-                    <SelectTrigger className="h-12 border-slate-200 rounded-xl">
-                      <SelectValue placeholder="Select Role" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl">
-                      <SelectItem value="Admin">Mission Administrator</SelectItem>
-                      <SelectItem value="Manager">Operations Manager</SelectItem>
-                      <SelectItem value="Operator">Standard Operator</SelectItem>
-                      <SelectItem value="Accountant">Financial Node</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+        const unsubLogistics = onSnapshot(collection(firestore, "logistics_plants"), (snap) => {
+            setLogisticsPlants(snap.docs.map(d => ({ id: d.id, ...d.data() } as WithId<Plant>)));
+        });
 
-              <div className="space-y-4">
-                <Label className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-2">
-                  <Boxes className="h-3 w-3" /> Permission Manifest
-                </Label>
-                <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50">
-                  <ScrollArea className="h-[300px] pr-4">
-                    <div className="grid grid-cols-1 gap-3">
-                      {ALL_PERMISSIONS.map((perm) => (
-                        <div key={perm.id} className="flex items-center space-x-3 bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
-                          <Checkbox 
-                            id={perm.id} 
-                            checked={permissions.includes(perm.id)}
-                            onCheckedChange={() => handleTogglePermission(perm.id)}
-                          />
-                          <Label htmlFor={perm.id} className="text-xs font-bold text-slate-700 cursor-pointer flex-1">
-                            {perm.label}
-                          </Label>
-                        </div>
-                      ))}
+        const unsubAccounts = onSnapshot(collection(firestore, "accounts_plants"), (snap) => {
+            setAccountsPlants(snap.docs.map(d => ({ id: d.id, ...d.data() } as WithId<Plant>)));
+            setIsLoadingData(false);
+        });
+
+        return () => { 
+            unsubUsers(); 
+            unsubLogistics(); 
+            unsubAccounts(); 
+        };
+    }, [firestore, isAuthorized]);
+
+    const handleUserCreated = async (data: Omit<SubUser, 'id'>) => {
+        if (!firestore || !user) return;
+        showLoader();
+        try {
+            const cleanUsername = data.username.toLowerCase().replace(/\s+/g, '');
+            const systemEmail = `${cleanUsername}@sikka.com`;
+
+            // ATOMIC SERVER HANDSHAKE: Auth + Firestore + Role in one call
+            const authResponse = await fetch('/api/auth/manage-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'createUser',
+                    email: systemEmail,
+                    password: data.password,
+                    userData: {
+                        ...data,
+                        username: cleanUsername,
+                        email: systemEmail,
+                        createdBy: user.email?.split('@')[0] || 'Admin'
+                    }
+                })
+            });
+
+            const result = await authResponse.json();
+            if (!authResponse.ok) throw new Error(result.error || "Registry provisioning failure.");
+
+            toast({ title: 'Identity Established', description: `User ${cleanUsername} is now active.` });
+            setActiveTab('user-management');
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Provisioning Error', description: error.message });
+        } finally {
+            hideLoader();
+        }
+    };
+
+    const handleUserUpdated = async (userId: string, data: Partial<SubUser>) => {
+        if (!firestore) return;
+        showLoader();
+        try {
+            if (data.password) {
+                const userSnap = await getDoc(doc(firestore, "users", userId));
+                if (userSnap.exists()) {
+                    const userData = userSnap.data() as SubUser;
+                    await fetch('/api/auth/manage-user', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'updatePassword',
+                            email: userData.email,
+                            password: data.password
+                        })
+                    });
+                }
+            }
+
+            await updateDoc(doc(firestore, "users", userId), { ...data, lastUpdated: serverTimestamp() });
+            toast({ title: 'Registry Updated', description: 'Identity profile modified.' });
+            setEditingUser(null);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Update Failed', description: error.message });
+        } finally {
+            hideLoader();
+        }
+    };
+
+    const handleUserDeleted = async (userId: string) => {
+        if (!firestore || !user) return;
+        showLoader();
+        try {
+            const userRef = doc(firestore, "users", userId);
+            const userSnap = await getDoc(userRef);
+            
+            if (userSnap.exists()) {
+                const userData = userSnap.data() as SubUser;
+                await addDoc(collection(firestore, "recycle_bin"), {
+                    pageName: "User Management",
+                    userName: user.email?.split('@')[0] || "Admin",
+                    deletedAt: serverTimestamp(),
+                    data: sanitizeRegistryNode({ ...userData, id: userId, type: 'User' })
+                });
+
+                await deleteDoc(userRef);
+                toast({ title: 'Identity Revoked' });
+            }
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            hideLoader();
+        }
+    };
+
+    return (
+        <main className="flex flex-1 flex-col h-full bg-[#f8fafc] animate-in fade-in duration-500">
+            <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="p-2 bg-primary text-white rounded-lg shadow-lg rotate-3">
+                        <Users className="h-6 w-6" />
                     </div>
-                  </ScrollArea>
+                    <div>
+                        <h1 className="text-2xl md:text-3xl font-black text-primary tracking-tight uppercase">Security Management</h1>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Authorized User Registry</p>
+                    </div>
                 </div>
-              </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-100">
-              <Button type="submit" className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-sm tracking-[0.2em] rounded-2xl shadow-lg transition-all active:scale-[0.98]">
-                Synchronize Identity Node
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+            <div className="flex-1 p-4 md:p-8 overflow-y-auto space-y-8">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <TabsList className="bg-transparent border-b h-12 rounded-none gap-10 p-0 mb-8">
+                        <TabsTrigger value="user-access" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Provision User</TabsTrigger>
+                        {isAuthorized && <TabsTrigger value="user-management" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Identity Registry ({users.length})</TabsTrigger>}
+                    </TabsList>
 
-      <div className="bg-slate-900 p-6 rounded-[2rem] text-white flex items-center justify-between shadow-2xl border border-white/5">
-        <div className="flex items-center gap-4">
-          <ShieldCheck className="h-8 w-8 text-blue-400" />
-          <div>
-            <p className="text-xs font-black uppercase tracking-widest text-blue-400 leading-none">Security Registry Active</p>
-            <p className="text-sm font-medium opacity-70 mt-1">All identity modifications are logged and audited in the system ledger.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+                    <div className="focus-visible:ring-0">
+                        {isLoadingData ? (
+                            <div className="flex h-64 flex-col items-center justify-center gap-4">
+                                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Syncing Security Registry...</p>
+                            </div>
+                        ) : (
+                            <>
+                                <TabsContent value="user-access" className="m-0 outline-none">
+                                    <UserAccessTab 
+                                        onUserCreated={handleUserCreated} 
+                                        existingUsernames={users.map(u => u.username)} 
+                                        logisticsPlants={logisticsPlants}
+                                        accountsPlants={accountsPlants}
+                                        isAdmin={isAdminSession}
+                                    />
+                                </TabsContent>
+                                {isAuthorized && (
+                                    <TabsContent value="user-management" className="m-0 outline-none">
+                                        <UserManagementTab 
+                                            users={users} 
+                                            plants={logisticsPlants} 
+                                            onUserUpdated={handleUserUpdated} 
+                                            onUserDeleted={handleUserDeleted} 
+                                            onUserEdit={setEditingUser} 
+                                        />
+                                    </TabsContent>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </Tabs>
+            </div>
+
+            {editingUser && (
+                <EditUserModal 
+                    isOpen={!!editingUser} 
+                    onClose={() => setEditingUser(null)} 
+                    user={editingUser} 
+                    onUserUpdated={handleUserUpdated}
+                    logisticsPlants={logisticsPlants}
+                    accountsPlants={accountsPlants}
+                />
+            )}
+        </main>
+    );
 }

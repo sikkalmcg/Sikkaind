@@ -1,21 +1,27 @@
 import * as admin from 'firebase-admin';
+import { getApps, initializeApp } from 'firebase-admin/app';
 
 /**
- * @fileOverview Authorized Mission Control Node (Server-Side).
- * Handshakes with the Identity Platform via Application Default Credentials (ADC).
- * Hardened to utilize environment nodes without physical key manifests.
+ * @fileOverview Refined Firebase Admin SDK Handshake.
+ * Utilizing Application Default Credentials (ADC) for environment-level auth.
  */
 
-if (!admin.apps.length) {
+function getAdminApp() {
+  const apps = getApps();
+  if (apps.length > 0) return apps[0];
+
   try {
-    admin.initializeApp({
-      projectId: "studio-2134942499-abd6c",
-    });
-  } catch (error) {
-    console.error('Admin SDK Handshake Failure:', error);
+    return initializeApp();
+  } catch (e) {
+    console.error("Critical: Admin SDK Handshake Failure", e);
+    return null;
   }
 }
 
-export const adminAuth = admin.auth();
-export const adminDb = admin.firestore();
-export const FieldValue = admin.firestore.FieldValue;
+const app = getAdminApp();
+
+const adminAuth = admin.auth(app as any);
+const adminDb = admin.firestore(app as any);
+const FieldValue = admin.firestore.FieldValue;
+
+export { adminAuth, adminDb, FieldValue };

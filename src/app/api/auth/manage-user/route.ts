@@ -2,73 +2,114 @@ import { adminAuth, adminDb, FieldValue } from "@/firebase/admin";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * @fileOverview Identity Provisioning Terminal (Server-Side).
- * Consolidates Authentication identity establishment and Firestore registry write.
+ * @fileOverview Security Node API.
+ * Performs atomic server-side identity provisioning and database sync.
  */
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { action, email, password, userData } = body;
+        const { action, email, password, username, mobileNo, userId, newPassword, userData } = body;
 
         if (action === 'createUser') {
-            if (!email || !password) {
-                return NextResponse.json({ error: "Credentials manifest required." }, { status: 400 });
-            }
-
+            if (!email || !password || !userData) return NextResponse.json({ error: "Required params missing." }, { status: 400 });
+            
             try {
-                // 1. Establish Identity node in Authentication
-                let userRecord;
+                let uid;
+                // 1. Authenticate Identity node
                 try {
-                    userRecord = await adminAuth.getUserByEmail(email);
-                    // Update credentials to match the provisioning request
-                    await adminAuth.updateUser(userRecord.uid, { password });
+                    const existing = await adminAuth.getUserByEmail(email);
+                    await adminAuth.updateUser(existing.uid, { password });
+                    uid = existing.uid;
                 } catch (e: any) {
                     if (e.code === 'auth/user-not-found') {
-                        userRecord = await adminAuth.createUser({
-                            email,
-                            password,
-                            displayName: userData?.fullName || 'New Operator',
-                            emailVerified: true
+                        const created = await adminAuth.createUser({ 
+                            email, 
+                            password, 
+                            emailVerified: true,
+                            displayName: userData.fullName 
                         });
+                        uid = created.uid;
                     } else throw e;
                 }
 
-                const uid = userRecord.uid;
-
-                // 2. Atomic Registry Write (Server-Side Handshake)
-                // This ensures the user is in the database even if client-side rules are restrictive
-                const userRegistryRef = adminDb.collection("users").doc(uid);
-                await userRegistryRef.set({
+                // 2. Establish Firestore Registry Node
+                const systemEmail = email.toLowerCase();
+                const ts = FieldValue.serverTimestamp();
+                
+                await adminDb.collection("users").doc(systemEmail).set({
                     ...userData,
-                    uid,
-                    email,
-                    status: 'Active',
-                    updatedAt: FieldValue.serverTimestamp(),
-                    createdAt: userData.createdAt || FieldValue.serverTimestamp()
+                    id: systemEmail,
+                    uid: uid,
+                    email: systemEmail,
+                    createdAt: ts,
+                    status: 'Active'
                 }, { merge: true });
 
-                // 3. Register Administrative Nodes
-                if (userData.jobRole === 'Admin' || userData.jobRole === 'Manager') {
+                // 3. Register Administrative Role if applicable
+                const role = userData.jobRole?.toLowerCase();
+                if (role === 'admin' || role === 'manager') {
                     await adminDb.collection("roles_admin").doc(uid).set({
-                        email,
-                        grantedAt: FieldValue.serverTimestamp()
+                        email: systemEmail,
+                        grantedAt: ts,
+                        role: userData.jobRole
                     });
-                } else {
-                    await adminDb.collection("roles_admin").doc(uid).delete().catch(() => {});
                 }
 
                 return NextResponse.json({ success: true, uid });
-
-            } catch (authError: any) {
-                console.error("Identity Handshake Failure:", authError);
-                return NextResponse.json({ error: authError.message }, { status: 500 });
+            } catch (error: any) {
+                console.error("Registry provisioning error:", error);
+                return NextResponse.json({ error: `Security Node Failure: ${error.message}` }, { status: 500 });
             }
         }
 
-        return NextResponse.json({ error: "Invalid mission action." }, { status: 400 });
+        if (action === 'bootstrap') {
+            const adminEmail = 'sikkaind.admin@sikka.com';
+            const adminPassword = 'sikkaind';
+            try {
+                const created = await adminAuth.createUser({
+                    email: adminEmail,
+                    password: adminPassword,
+                    emailVerified: true,
+                    displayName: 'Sikka Admin'
+                }).catch(async (e) => {
+                    if (e.code === 'auth/email-already-exists') {
+                        const user = await adminAuth.getUserByEmail(adminEmail);
+                        return adminAuth.updateUser(user.uid, { password: adminPassword });
+                    }
+                    throw e;
+                });
+                
+                const uid = (created as any).uid || (await adminAuth.getUserByEmail(adminEmail)).uid;
+                const ts = FieldValue.serverTimestamp();
 
+                await adminDb.collection("users").doc(adminEmail).set({
+                    username: 'sikkaind',
+                    fullName: 'Sikka Admin',
+                    email: adminEmail,
+                    jobRole: 'Admin',
+                    status: 'Active',
+                    plantIds: [],
+                    createdAt: ts,
+                    id: adminEmail,
+                    uid: uid,
+                    access_logistics: true,
+                    access_accounts: true
+                }, { merge: true });
+
+                await adminDb.collection("roles_admin").doc(uid).set({
+                    email: adminEmail,
+                    grantedAt: ts,
+                    role: 'Admin'
+                });
+
+                return NextResponse.json({ success: true });
+            } catch (error: any) {
+                return NextResponse.json({ error: error.message }, { status: 500 });
+            }
+        }
+
+        return NextResponse.json({ error: "Action node invalid." }, { status: 400 });
     } catch (error: any) {
-        console.error("Provisioning Terminal Error:", error);
-        return NextResponse.json({ error: "Terminal synchronization failure." }, { status: 500 });
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

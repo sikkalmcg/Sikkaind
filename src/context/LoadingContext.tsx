@@ -1,15 +1,11 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-
-/**
- * @fileOverview Mission Control Pulse Provider.
- * Manages the global loading state across the application registry.
- */
+import React, { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
 
 interface LoadingContextType {
   isLoading: boolean;
-  setIsLoading: (loading: boolean) => void;
+  showLoader: () => void;
+  hideLoader: () => void;
 }
 
 const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
@@ -17,8 +13,17 @@ const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
 export function LoadingProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
 
+  const showLoader = useCallback(() => setIsLoading(true), []);
+  const hideLoader = useCallback(() => setIsLoading(false), []);
+
+  const value = useMemo(() => ({ 
+    isLoading, 
+    showLoader, 
+    hideLoader 
+  }), [isLoading, showLoader, hideLoader]);
+
   return (
-    <LoadingContext.Provider value={{ isLoading, setIsLoading }}>
+    <LoadingContext.Provider value={value}>
       {children}
     </LoadingContext.Provider>
   );
