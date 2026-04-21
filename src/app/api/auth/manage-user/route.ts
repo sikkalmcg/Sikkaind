@@ -33,8 +33,7 @@ export async function POST(req: NextRequest) {
                     } else throw e;
                 }
 
-                // 2. Synchronize Firestore Registry (Bypassing client rules)
-                // We key by email for the 'isOwner' helper in security rules
+                // 2. Synchronize Firestore Registry
                 const userRef = adminDb.collection("users").doc(email);
                 const finalUserData = {
                     ...userData,
@@ -50,7 +49,7 @@ export async function POST(req: NextRequest) {
                 if (userData?.jobRole === 'Admin' || userData?.jobRole === 'Manager' || userData?.username === 'sikkaind') {
                     await adminDb.collection("roles_admin").doc(uid).set({
                         email,
-                        role: userData.jobRole,
+                        role: userData.jobRole || 'Admin',
                         authorizedAt: FieldValue.serverTimestamp()
                     });
                 }
@@ -83,6 +82,7 @@ export async function POST(req: NextRequest) {
                     uid = created.uid;
                 }
 
+                // Sync profile
                 await adminDb.collection("users").doc(adminEmail).set({
                     username: 'sikkaind',
                     fullName: 'Sikka Admin',
@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
                     uid: uid
                 }, { merge: true });
 
+                // Sync security role
                 await adminDb.collection("roles_admin").doc(uid).set({
                     email: adminEmail,
                     role: 'Admin',
@@ -102,7 +103,8 @@ export async function POST(req: NextRequest) {
 
                 return NextResponse.json({ success: true });
             } catch (error: any) {
-                return NextResponse.json({ error: error.message }, { status: 500 });
+                console.error("Bootstrap failure:", error);
+                return NextResponse.json({ error: `Bootstrap Error: ${error.message}` }, { status: 500 });
             }
         }
 

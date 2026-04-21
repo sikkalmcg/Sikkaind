@@ -232,31 +232,29 @@ export default function LoginPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ uid: user.uid, email: user.email })
             });
-            const loginData = await loginRes.json();
 
+            if (!loginRes.ok) {
+                const errorData = await loginRes.json();
+                throw new Error(errorData.error || "Registry authorization node rejected the session.");
+            }
+
+            const loginData = await loginRes.json();
             setIsRedirecting(true);
             router.push(loginData.redirect || '/modules');
         } catch (err: any) {
             console.error("Login Error:", err);
             if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-email') {
                 setError("Invalid operator credentials. Access Denied.");
+            } else if (err.code === 'auth/network-request-failed') {
+                setError("Network node unstable. Check your connection.");
+            } else if (err.message?.includes('authorization node')) {
+                setError(err.message);
             } else {
-                setError("System registry link failure. Please contact support.");
+                setError(`Registry link failure: ${err.message}`);
             }
             hideLoader();
         }
     };
-
-    if (isRedirecting) {
-        return (
-            <div className="flex h-screen items-center justify-center bg-gray-100">
-                <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="h-12 w-12 animate-spin text-gray-800" />
-                    <p className="text-sm font-semibold text-gray-600 uppercase tracking-widest">Securing Session...</p>
-                </div>
-            </div>
-        );
-    }
 
     const loginImageAsset = getImg('loginlogo');
 
@@ -342,11 +340,14 @@ export default function LoginPage() {
                                                     body: JSON.stringify({ action: 'bootstrap' })
                                                 });
                                                 const data = await res.json();
-                                                if (data.success) {
-                                                    toast({ title: 'Bootstrap Successful', description: 'Admin account initialized.' });
+                                                if (res.ok && data.success) {
+                                                    toast({ title: 'Bootstrap Successful', description: 'Admin account initialized. You can now login with SIKKAIND.' });
+                                                } else {
+                                                    toast({ variant: 'destructive', title: 'Bootstrap Failed', description: data.error || 'Identity node rejected.' });
                                                 }
                                             } catch (e: any) {
                                                 console.error(e);
+                                                toast({ variant: 'destructive', title: 'Bootstrap Failed', description: 'Registry communication error.' });
                                             } finally {
                                                 hideLoader();
                                             }

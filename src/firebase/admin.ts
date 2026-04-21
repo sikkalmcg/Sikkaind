@@ -13,13 +13,14 @@ function getAdminApp() {
 
   try {
     // Mission Registry Handshake: Utilizing environment ADC nodes
+    // Removing specific databaseURL to ensure handshake focus remains on Firestore/Auth
     return initializeApp({
-      projectId: "studio-2134942499-abd6c",
-      databaseURL: "https://studio-2134942499-abd6c-default-rtdb.firebaseio.com"
+      projectId: "studio-2134942499-abd6c"
     });
   } catch (e) {
     console.error("CRITICAL: Admin SDK Handshake Failure", e);
-    return null;
+    // Fallback node for local development if ADC is missing
+    return initializeApp();
   }
 }
 
