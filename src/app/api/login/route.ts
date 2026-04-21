@@ -6,17 +6,18 @@ import type { SubUser } from "@/types";
 /**
  * @fileOverview Login API Route.
  * Performs session establishment and identity resolution.
- * Removed: Client role redirection node as requested.
+ * Wrapped in try/catch to ensure JSON response nodes.
  */
 export async function POST(req: NextRequest) {
-    const { uid, email } = await req.json();
-
-    if (!uid) {
-        return NextResponse.json({ error: "UID must be provided." }, { status: 400 });
-    }
-
     try {
-        // Registry Handshake: Resolve by UID or Email (for bootstrapped accounts)
+        const body = await req.json();
+        const { uid, email } = body;
+
+        if (!uid) {
+            return NextResponse.json({ error: "UID must be provided." }, { status: 400 });
+        }
+
+        // Registry Handshake: Resolve by UID or Email
         let userSnap = await db.collection("users").doc(uid).get();
         
         if (!userSnap.exists && email) {
@@ -24,26 +25,26 @@ export async function POST(req: NextRequest) {
         }
 
         if (!userSnap.exists) {
+            // New user node: Default to module selection
             return NextResponse.json({ redirect: '/modules' });
         }
 
         const profile = userSnap.data() as SubUser;
         
-        // Repair Node: Ensure UID is stored in the email-keyed document for accurate activity indexing
-        if (userSnap.id === email && (profile as any).uid !== uid) {
-            await db.collection("users").doc(email).update({ uid: uid });
+        // Audit Node: Log activity
+        try {
+            await db.collection("activity_logs").add({
+                userId: uid,
+                userName: profile.fullName || profile.username || email,
+                action: 'Login',
+                tcode: 'SYS_AUTH',
+                pageName: 'Login Registry',
+                timestamp: FieldValue.serverTimestamp(),
+                description: `Session established for @${profile.username}.`
+            });
+        } catch (logErr) {
+            console.warn("Audit logging pulse failed, but proceeding with login.");
         }
-
-        // Log Activity Node
-        await db.collection("activity_logs").add({
-            userId: uid,
-            userName: profile.fullName || profile.username,
-            action: 'Login',
-            tcode: 'SYS_AUTH',
-            pageName: 'Login Registry',
-            timestamp: FieldValue.serverTimestamp(),
-            description: `Session established for operator @${profile.username}. Mode: ${profile.jobRole}`
-        });
 
         const accessible = [];
         if (profile.access_logistics) accessible.push('/dashboard');
@@ -52,15 +53,14 @@ export async function POST(req: NextRequest) {
         const isAdmin = profile.jobRole === 'Manager' || profile.jobRole === 'Admin' || profile.username?.toLowerCase() === 'sikkaind';
         if (isAdmin) accessible.push('/user-management');
 
-        // Resolve Default Terminal
+        // Resolve Default Terminal based on profile registry
         if (profile.defaultModule === 'Logistics' && profile.access_logistics) return NextResponse.json({ redirect: '/dashboard' });
-        if (profile.defaultModule === 'Accounts' && profile.access_accounts) return NextResponse.json({ redirect: '/sikka-accounts/dashboard' });
         if (profile.defaultModule === 'Administration' && isAdmin) return NextResponse.json({ redirect: '/user-management' });
 
         const redirect = accessible.length === 1 ? accessible[0] : '/modules';
         return NextResponse.json({ redirect });
-    } catch (e) {
-        console.error("Login API Failure:", e);
-        return NextResponse.json({ redirect: '/modules' });
+    } catch (e: any) {
+        console.error("Login API Crash:", e);
+        return NextResponse.json({ error: `Registry Internal Error: ${e.message}`, redirect: '/login' }, { status: 500 });
     }
 }
