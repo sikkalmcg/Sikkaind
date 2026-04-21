@@ -119,7 +119,7 @@ export default function UserManagementPage() {
                 })
             });
 
-            // CRITICAL: Consume body only once to avoid unhandled runtime error
+            // CRITICAL: Consume body only once to avoid "Body already used" runtime error
             const authResult = await authResponse.json();
 
             if (!authResponse.ok) {

@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
                 await adminAuth.updateUser(userRecord.uid, { password: targetPassword });
                 return NextResponse.json({ success: true });
             } catch (e: any) {
+                console.error("Auth Sync Error:", e);
                 return NextResponse.json({ error: `Auth Sync Failed: ${e.message}` }, { status: 500 });
             }
         }
@@ -120,12 +121,14 @@ export async function POST(req: NextRequest) {
 
                 return NextResponse.json({ success: true });
             } catch (error: any) {
+                console.error("Bootstrap failure:", error);
                 return NextResponse.json({ error: error.message }, { status: 500 });
             }
         }
 
         return NextResponse.json({ error: "Invalid action node." }, { status: 400 });
     } catch (error: any) {
+        console.error("Critical API Handshake Error:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
