@@ -2,189 +2,118 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ------------------------------------------------------------------------
-    // HELPER FUNCTIONS (Registry Core)
-    // ------------------------------------------------------------------------
+    /**
+     * CORE PHILOSOPHY
+     * This ruleset implements a Role-Based Access Control (RBAC) model combined with a 
+     * public-consumption pattern for marketing content. Administrative privileges are 
+     * determined by a dedicated 'Admin Role' collection, ensuring high security 
+     * for site management while maintaining a flexible schema for rapid iteration.
+     *
+     * DATA STRUCTURE
+     * - Content Entities (HeroContent, Products, Testimonials): Top-level collections 
+     *   that are publicly readable but admin-writable.
+     * - Lead Generation (ConsultationRequests): A top-level collection allowing 
+     *   anonymous submissions (creation) while restricting reading to administrators.
+     * - Authorization (app_roles): A restricted collection storing admin UIDs.
+     *
+     * KEY SECURITY DECISIONS
+     * - Authorization Independence: Security checks for administration utilize an exists() 
+     *   lookup on the admin roles collection, avoiding complex nested resource checks.
+     * - Structural Segregation: Different entity types are separated into collections 
+     *   based on their specific access patterns (Public Read vs. Admin Only).
+     * - Relational Integrity: On document creation, rules enforce that the internal 
+     *   document ID matches the Firestore path ID.
+     */
 
+    // --- Helper Functions ---
+
+    /**
+     * @description Checks if the user is authenticated with Firebase Auth.
+     */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * Checks if the currently authenticated user is an administrator.
-     * Includes system admin emails and role-based registry check.
+     * @description Checks if the authenticated user's UID exists in the admin users collection.
      */
     function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'sikkaind.admin@sikka.com' || 
-        request.auth.token.email == 'sikkalmcg@gmail.com' ||
-        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))
-      );
+      return isSignedIn() && exists(/databases/$(database)/documents/app_roles/admin_users/$(request.auth.uid));
     }
 
     /**
-     * Checks if the user is the owner of the document based on the path ID.
+     * @description Combines admin check with a verification that the resource being 
+     * modified actually exists. Used for updates and deletes.
      */
-    function isOwner(userId) {
-      return isSignedIn() && (request.auth.uid == userId || request.auth.token.email == userId);
+    function isExistingAdmin() {
+      return isAdmin() && resource != null;
     }
 
-    function isRecordOwner(recordOwnerId) {
-      return isSignedIn() && request.auth.uid == recordOwnerId;
+    // --- Collection Rules ---
+
+    /**
+     * @description Rules for landing page hero section content.
+     * @path /hero_content/{heroContentId}
+     * @allow (get, list) for any visitor; (create, update) for authenticated admins.
+     * @deny (create, update) for non-admin users or unauthenticated visitors.
+     * @principle Public read-only access for content with restricted admin writes.
+     */
+    match /hero_content/{heroContentId} {
+      allow get, list: if true;
+      allow create: if isAdmin() && request.resource.data.id == heroContentId;
+      allow update, delete: if isExistingAdmin();
     }
 
-    function isExistingDoc() {
-      return resource != null;
+    /**
+     * @description Rules for cloud products showcased on the site.
+     * @path /products/{productId}
+     * @allow (get, list) for any visitor; (create, update) for authenticated admins.
+     * @deny (delete) for non-admin users.
+     * @principle Enforces path consistency on creation and admin-only management.
+     */
+    match /products/{productId} {
+      allow get, list: if true;
+      allow create: if isAdmin() && request.resource.data.id == productId;
+      allow update, delete: if isExistingAdmin();
     }
 
-    // --- Data Integrity Helpers ---
-    
-    function isCreatingOwnProfile(authUserId) {
-      return request.resource.data.authUserId == authUserId;
+    /**
+     * @description Rules for customer testimonials.
+     * @path /testimonials/{testimonialId}
+     * @allow (get, list) for any visitor; (create, update, delete) for authenticated admins.
+     * @deny (update) for anonymous visitors.
+     * @principle Ensures marketing material is publicly accessible but protected from unauthorized edits.
+     */
+    match /testimonials/{testimonialId} {
+      allow get, list: if true;
+      allow create: if isAdmin() && request.resource.data.id == testimonialId;
+      allow update, delete: if isExistingAdmin();
     }
 
-    function isMaintainingProfileId() {
-      return request.resource.data.authUserId == resource.data.authUserId;
-    }
-    
-    function isCreatingOwnRecord(authUserId) {
-      return request.resource.data.employeeId == authUserId;
-    }
-
-    function isMaintainingRecordId() {
-      return request.resource.data.employeeId == resource.data.employeeId;
-    }
-
-    // ------------------------------------------------------------------------
-    // CORE REGISTRY RULES
-    // ------------------------------------------------------------------------
-
-    // --- SECURITY & ADMIN PLANTS ---
-
-    match /roles_admin/{authUserId} {
+    /**
+     * @description Rules for enterprise consultation requests.
+     * @path /consultation_requests/{requestId}
+     * @allow (create) for any visitor (anonymous); (get, list, update, delete) for admins.
+     * @deny (get, list) for the visitor who just submitted the request.
+     * @principle Allows open lead generation (creation) while keeping sensitive lead data private (admin-only read).
+     */
+    match /consultation_requests/{requestId} {
       allow get, list: if isAdmin();
-      allow create, update, delete: if isAdmin();
+      allow create: if request.resource.data.id == requestId;
+      allow update, delete: if isExistingAdmin();
     }
 
-    match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create, update: if isAdmin() || isOwner(userId);
-      allow delete: if isAdmin();
-
-      // Authorized Notification Registry Access
-      match /notifications/{notifId} {
-        allow read, list: if isOwner(userId) || isAdmin();
-        allow create, update: if isSignedIn(); 
-        allow delete: if isOwner(userId) || isAdmin();
-      }
-    }
-
-    // --- LOGISTICS MASTER DATA ---
-
-    match /logistics_plants/{plantId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    
-    match /carriers/{carrierId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    match /vehicles/{vehicleId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    match /fuel_pumps/{pumpId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    match /logistics_parties/{partyId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    match /material_types/{typeId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    // --- MISSION PARTITIONED DATA (Plants Hierarchy) ---
-    // Standardizing to recursive wildcard to allow collection listing (trips, shipments, etc.)
-    match /plants/{plantId}/{allSubPaths=**} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Global flat collections (for legacy sync or cross-plant views)
-    match /trips/{tripId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /vehicleEntries/{entryId} {
-      allow read, write: if isSignedIn();
-    }
-
-    // --- HR & ATTENDANCE NODES ---
-
-    match /departments/{departmentId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /holidays/{holidayId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /employees/{authUserId} {
-      allow get: if isOwner(authUserId) || isAdmin();
+    /**
+     * @description Rules for the administrative roles registry.
+     * @path /app_roles/admin_users/{adminUserId}
+     * @allow (get) for the user themselves; (list) for existing admins.
+     * @deny (create, update, delete) for all client-side requests.
+     * @principle Protects the source of truth for authorization; management is restricted to server-side/manual processes.
+     */
+    match /app_roles/admin_users/{adminUserId} {
+      allow get: if isSignedIn() && (request.auth.uid == adminUserId || isAdmin());
       allow list: if isAdmin();
-      allow create: if isOwner(authUserId) && isCreatingOwnProfile(authUserId);
-      allow update: if (isOwner(authUserId) || isAdmin()) && isExistingDoc() && isMaintainingProfileId();
-      allow delete: if isAdmin() && isExistingDoc();
-
-      match /attendanceRecords/{recordId} {
-        allow get, list: if isOwner(authUserId) || isAdmin();
-        allow create: if isOwner(authUserId) && isCreatingOwnRecord(authUserId);
-        allow update: if (isOwner(authUserId) || isAdmin()) && isExistingDoc() && isMaintainingRecordId();
-        allow delete: if (isOwner(authUserId) || isAdmin()) && isExistingDoc();
-      }
-    }
-
-    match /anomalyFlags/{flagId} {
-      allow get: if isAdmin() || (isExistingDoc() && isRecordOwner(resource.data.employeeId));
-      allow list: if isAdmin();
-      allow create, update, delete: if isAdmin();
-    }
-
-    // --- SYSTEM AUDIT & ARCHIVE ---
-
-    match /activity_logs/{logId} {
-      allow create: if isSignedIn();
-      allow read: if isAdmin();
-      allow update, delete: if false;
-    }
-
-    match /recycle_bin/{itemId} {
-      allow create: if isSignedIn();
-      allow read: if isAdmin();
-      allow delete: if isAdmin();
-    }
-
-    match /counters/{counterId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /gps_settings/{settingId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    // --- GLOBAL OVERRIDE ---
-    match /{allPaths=**} {
-      allow read, write: if isAdmin();
+      allow create, update, delete: if false;
     }
   }
 }

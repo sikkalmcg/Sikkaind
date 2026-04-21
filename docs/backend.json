@@ -1,284 +1,190 @@
 {
   "entities": {
-    "User": {
+    "HeroContent": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User",
+      "title": "HeroContent",
       "type": "object",
-      "description": "Represents a user of the PagePilot application, primarily for managing content creation and editing roles. Assumes an external authentication system.",
+      "description": "Represents the dynamic content for the hero section of the landing page, including the main headline, subheadline, and call-to-action.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the User entity."
+          "description": "Unique identifier for the HeroContent entity."
         },
-        "name": {
+        "headline": {
           "type": "string",
-          "description": "The display name of the user."
+          "description": "The main compelling headline for the hero section, highlighting the value proposition."
         },
-        "email": {
+        "subheadline": {
           "type": "string",
-          "description": "The user's email address, used for contact or display purposes. Not used for authentication.",
-          "format": "email"
+          "description": "The supporting subheadline that further articulates the cloud provider's value proposition for enterprise clients."
         },
-        "role": {
+        "callToActionText": {
           "type": "string",
-          "description": "The role of the user within the application (e.g., 'Admin', 'Editor', 'Contributor')."
+          "description": "Text displayed on the call-to-action button in the hero section, e.g., 'Request a Consultation'."
         },
-        "createdAt": {
+        "callToActionUrl": {
           "type": "string",
-          "description": "Timestamp when the user account was created.",
-          "format": "date-time"
+          "description": "The URL link for the call-to-action button in the hero section.",
+          "format": "uri"
         },
-        "updatedAt": {
+        "lastUpdated": {
           "type": "string",
-          "description": "Timestamp of the last update to the user's information.",
+          "description": "Timestamp indicating when the hero content was last updated, often by the AI Content Assistant Tool.",
           "format": "date-time"
         }
       },
       "required": [
         "id",
-        "name",
-        "email",
-        "role",
-        "createdAt",
-        "updatedAt"
+        "headline",
+        "subheadline",
+        "callToActionText",
+        "callToActionUrl",
+        "lastUpdated"
       ]
     },
-    "PageTemplate": {
+    "Product": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "PageTemplate",
+      "title": "Product",
       "type": "object",
-      "description": "Defines various responsive layouts and styles that can be applied to web pages for consistent presentation across devices.",
+      "description": "Details of a top cloud product offered by ApertureCloud, including its name, description, pricing, and key features.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the PageTemplate entity."
+          "description": "Unique identifier for the Product entity."
         },
         "name": {
           "type": "string",
-          "description": "A user-friendly name for the template (e.g., 'Blog Post Layout', 'Landing Page Template')."
+          "description": "The name of the cloud product featured on the landing page."
         },
         "description": {
           "type": "string",
-          "description": "A detailed description of the template's purpose and layout characteristics."
+          "description": "A clear description of the product's functionalities and benefits."
         },
-        "layoutDefinition": {
+        "priceTierDescription": {
           "type": "string",
-          "description": "A string or JSON representation defining the structural layout and styling rules (e.g., CSS class name, HTML structure snippet, or JSON configuration for a component-based editor)."
+          "description": "A descriptive string for the pricing tier, designed to be transparent (e.g., 'Starting from $X/month', 'Custom Pricing Available')."
         },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the page template was created.",
-          "format": "date-time"
+        "features": {
+          "type": "array",
+          "description": "A list of prominent features or benefits associated with this product.",
+          "items": {
+            "type": "string"
+          }
         },
-        "updatedAt": {
+        "imageUrl": {
           "type": "string",
-          "description": "Timestamp of the last update to the page template.",
-          "format": "date-time"
+          "description": "URL to an image or icon that visually represents the product.",
+          "format": "uri"
+        },
+        "displayOrder": {
+          "type": "number",
+          "description": "A numerical value indicating the order in which this product should be displayed in the showcase section."
         }
       },
       "required": [
         "id",
         "name",
         "description",
-        "layoutDefinition",
-        "createdAt",
-        "updatedAt"
+        "priceTierDescription",
+        "features",
+        "imageUrl",
+        "displayOrder"
       ]
     },
-    "Page": {
+    "Testimonial": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Page",
+      "title": "Testimonial",
       "type": "object",
-      "description": "Represents a single web page or article, containing content created by users, ready for public display.",
+      "description": "Represents an authentic customer testimonial or success story, including the quote, customer details, and company information with logo.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Page entity."
+          "description": "Unique identifier for the Testimonial entity."
         },
-        "title": {
+        "quote": {
           "type": "string",
-          "description": "The title of the web page or article."
+          "description": "The direct quote from the customer testimonial."
         },
-        "slug": {
+        "customerName": {
           "type": "string",
-          "description": "A URL-friendly identifier for the page, used in its public URL."
+          "description": "The name of the customer who provided the testimonial."
         },
-        "content": {
+        "customerTitle": {
           "type": "string",
-          "description": "The main body content of the page, potentially in HTML or Markdown format."
+          "description": "The job title or role of the customer (e.g., 'CTO', 'Head of IT')."
+        },
+        "companyName": {
+          "type": "string",
+          "description": "The name of the company the customer represents."
+        },
+        "companyLogoUrl": {
+          "type": "string",
+          "description": "URL to the logo of the company associated with the testimonial, used to build trust.",
+          "format": "uri"
+        },
+        "displayOrder": {
+          "type": "number",
+          "description": "A numerical value indicating the order in which this testimonial should be displayed in the client success stories section."
+        }
+      },
+      "required": [
+        "id",
+        "quote",
+        "customerName",
+        "customerTitle",
+        "companyName",
+        "companyLogoUrl",
+        "displayOrder"
+      ]
+    },
+    "ConsultationRequest": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ConsultationRequest",
+      "type": "object",
+      "description": "Represents a request submitted by an enterprise business to 'Request a Consultation' with ApertureCloud.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ConsultationRequest entity."
+        },
+        "companyName": {
+          "type": "string",
+          "description": "The name of the enterprise business requesting the consultation."
+        },
+        "contactPersonName": {
+          "type": "string",
+          "description": "The full name of the primary contact person from the requesting company."
+        },
+        "contactPersonEmail": {
+          "type": "string",
+          "description": "The email address of the primary contact person for communication regarding the consultation.",
+          "format": "email"
+        },
+        "contactPersonPhone": {
+          "type": "string",
+          "description": "The phone number of the primary contact person. (Optional)"
+        },
+        "message": {
+          "type": "string",
+          "description": "An optional message or specific query provided by the requester, detailing their needs or interests."
+        },
+        "requestDate": {
+          "type": "string",
+          "description": "The timestamp when the consultation request was submitted.",
+          "format": "date-time"
         },
         "status": {
           "type": "string",
-          "description": "The current publication status of the page (e.g., 'Draft', 'Published', 'Archived')."
-        },
-        "authorId": {
-          "type": "string",
-          "description": "Reference to the User who is the primary author of this page. (Relationship: User 1:N Page)"
-        },
-        "templateId": {
-          "type": "string",
-          "description": "Reference to the PageTemplate used to render this page's layout. (Relationship: PageTemplate 1:N Page)"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the page was initially created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp of the last update to the page's content or metadata.",
-          "format": "date-time"
-        },
-        "publishedAt": {
-          "type": "string",
-          "description": "Timestamp when the page was last published, if applicable.",
-          "format": "date-time"
+          "description": "The current processing status of the consultation request (e.g., 'New', 'Pending', 'Contacted', 'Archived')."
         }
       },
       "required": [
         "id",
-        "title",
-        "slug",
-        "content",
-        "status",
-        "authorId",
-        "templateId",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "NavigationMenu": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "NavigationMenu",
-      "type": "object",
-      "description": "Represents a configurable navigation menu for a website, which can contain multiple menu items.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the NavigationMenu entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "A descriptive name for the navigation menu (e.g., 'Primary Menu', 'Footer Menu')."
-        },
-        "description": {
-          "type": "string",
-          "description": "A brief description of where or how this menu is used on the site."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the navigation menu was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp of the last update to the navigation menu.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "description",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "NavigationMenuItem": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "NavigationMenuItem",
-      "type": "object",
-      "description": "Represents an individual item within a NavigationMenu, linking to a page or external URL.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the NavigationMenuItem entity."
-        },
-        "menuId": {
-          "type": "string",
-          "description": "Reference to the NavigationMenu this item belongs to. (Relationship: NavigationMenu 1:N NavigationMenuItem)"
-        },
-        "label": {
-          "type": "string",
-          "description": "The display text for the menu item that users will see."
-        },
-        "url": {
-          "type": "string",
-          "description": "The target URL for the menu item, can be an internal path or an external link.",
-          "format": "uri"
-        },
-        "pageId": {
-          "type": "string",
-          "description": "Optional reference to a Page if this menu item links to an internal page. (Relationship: Page 1:N NavigationMenuItem)"
-        },
-        "order": {
-          "type": "number",
-          "description": "The display order of this item within its parent menu or submenu."
-        },
-        "parentId": {
-          "type": "string",
-          "description": "Optional self-referencing ID for a parent menu item, enabling nested navigation. (Relationship: NavigationMenuItem 1:N NavigationMenuItem)"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the navigation menu item was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp of the last update to the navigation menu item.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "menuId",
-        "label",
-        "url",
-        "order",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "AIContentBrainstorm": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "AIContentBrainstorm",
-      "type": "object",
-      "description": "Logs requests and responses from the AI content brainstorming tool, aiding in tracking usage and improving AI suggestions.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the AIContentBrainstorm entity."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the User who initiated the AI brainstorming request. (Relationship: User 1:N AIContentBrainstorm)"
-        },
-        "prompt": {
-          "type": "string",
-          "description": "The input or query provided by the user to the AI tool."
-        },
-        "response": {
-          "type": "string",
-          "description": "The content generated or suggested by the AI based on the prompt."
-        },
-        "type": {
-          "type": "string",
-          "description": "The type of AI request made (e.g., 'Headline Generation', 'Paragraph Draft', 'Idea Generation')."
-        },
-        "timestamp": {
-          "type": "string",
-          "description": "Timestamp when the AI request was made and processed.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "userId",
-        "prompt",
-        "response",
-        "type",
-        "timestamp"
+        "companyName",
+        "contactPersonName",
+        "contactPersonEmail",
+        "requestDate",
+        "status"
       ]
     }
   },
@@ -291,162 +197,86 @@
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}",
+        "path": "/hero_content/{heroContentId}",
         "definition": {
-          "entityName": "User",
+          "entityName": "HeroContent",
           "schema": {
-            "$ref": "#/backend/entities/User"
+            "$ref": "#/backend/entities/HeroContent"
           },
-          "description": "Stores user profile information. Authorization for individual document access is based on matching 'userId' to 'request.auth.uid'. The 'role' field is primarily for client-side display, with authorization handled by dedicated role collections.",
+          "description": "Stores dynamic content for the landing page's hero section. Publicly readable for all users, write access is restricted to administrators.",
           "params": [
             {
-              "name": "userId",
-              "description": "The unique identifier of the user, matching 'request.auth.uid'."
+              "name": "heroContentId",
+              "description": "Unique identifier for a specific hero content configuration."
             }
           ]
         }
       },
       {
-        "path": "/roles_admin/{adminId}",
+        "path": "/products/{productId}",
         "definition": {
-          "entityName": "User",
+          "entityName": "Product",
           "schema": {
-            "$ref": "#/backend/entities/User"
+            "$ref": "#/backend/entities/Product"
           },
-          "description": "Dedicated collection to grant administrator privileges. The existence of a document for a 'userId' in this collection makes that user an admin. This is used for atomic role checks in security rules via 'exists()' without requiring 'get()' calls to user profiles. Documents typically contain only an ID and perhaps a timestamp.",
+          "description": "Contains details of top cloud products featured on the landing page. Publicly readable for all users, write access is restricted to administrators.",
           "params": [
             {
-              "name": "adminId",
-              "description": "The unique identifier of the user who is an administrator, matching 'request.auth.uid'."
+              "name": "productId",
+              "description": "Unique identifier for a specific product."
             }
           ]
         }
       },
       {
-        "path": "/roles_editor/{editorId}",
+        "path": "/testimonials/{testimonialId}",
         "definition": {
-          "entityName": "User",
+          "entityName": "Testimonial",
           "schema": {
-            "$ref": "#/backend/entities/User"
+            "$ref": "#/backend/entities/Testimonial"
           },
-          "description": "Dedicated collection to grant editor privileges. The existence of a document for a 'userId' in this collection makes that user an editor. Used for atomic role checks in security rules via 'exists()' to avoid 'get()' calls. Documents typically contain only an ID and perhaps a timestamp.",
+          "description": "Stores authentic customer testimonials and success stories. Publicly readable for all users, write access is restricted to administrators.",
           "params": [
             {
-              "name": "editorId",
-              "description": "The unique identifier of the user who is an editor, matching 'request.auth.uid'."
+              "name": "testimonialId",
+              "description": "Unique identifier for a specific testimonial."
             }
           ]
         }
       },
       {
-        "path": "/page_templates/{templateId}",
+        "path": "/consultation_requests/{requestId}",
         "definition": {
-          "entityName": "PageTemplate",
+          "entityName": "ConsultationRequest",
           "schema": {
-            "$ref": "#/backend/entities/PageTemplate"
+            "$ref": "#/backend/entities/ConsultationRequest"
           },
-          "description": "Stores global responsive page layout definitions. Accessible by authenticated users for reading, and modifiable by users with 'Admin' or 'Editor' roles.",
+          "description": "Records enterprise consultation requests submitted via the landing page form. Allows anonymous creation; read access is restricted to administrators.",
           "params": [
             {
-              "name": "templateId",
-              "description": "The unique identifier for a specific page template."
+              "name": "requestId",
+              "description": "Unique identifier for a specific consultation request."
             }
           ]
         }
       },
       {
-        "path": "/navigation_menus/{menuId}",
+        "path": "/app_roles/admin_users/{adminUserId}",
         "definition": {
-          "entityName": "NavigationMenu",
+          "entityName": "AdminRole",
           "schema": {
-            "$ref": "#/backend/entities/NavigationMenu"
+            "$ref": "#/backend/entities/AdminRole"
           },
-          "description": "Stores global navigation menus. Publicly readable for website display, and modifiable by users with 'Admin' or 'Editor' roles.",
+          "description": "Dedicated collection for Database Access Control (DBAC). Stores UIDs of users who have administrative privileges. The mere existence of a document here for a given UID signifies admin status. This conceptual 'AdminRole' entity is used for authorization purposes, and its schema is implicitly a marker (e.g., { 'grantedAt': timestamp }). This collection is typically managed manually by secure backend processes, not directly by client-side rules.",
           "params": [
             {
-              "name": "menuId",
-              "description": "The unique identifier for a specific navigation menu."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/navigation_menus/{menuId}/items/{itemId}",
-        "definition": {
-          "entityName": "NavigationMenuItem",
-          "schema": {
-            "$ref": "#/backend/entities/NavigationMenuItem"
-          },
-          "description": "Stores individual items within a specific navigation menu. Publicly readable, and modifiable by users with 'Admin' or 'Editor' roles. 'menuId' is implicitly denormalized in the path.",
-          "params": [
-            {
-              "name": "menuId",
-              "description": "The unique identifier of the parent navigation menu."
-            },
-            {
-              "name": "itemId",
-              "description": "The unique identifier for a specific navigation menu item."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{authorId}/draft_pages/{pageId}",
-        "definition": {
-          "entityName": "Page",
-          "schema": {
-            "$ref": "#/backend/entities/Page"
-          },
-          "description": "Stores private, draft versions of pages, accessible only by the 'authorId' or users with 'Admin'/'Editor' roles. The 'authorId' is denormalized both in the path and within the document for explicit ownership. The 'status' field will always be 'Draft'.",
-          "params": [
-            {
-              "name": "authorId",
-              "description": "The unique identifier of the user who authored this draft page, matching 'request.auth.uid'."
-            },
-            {
-              "name": "pageId",
-              "description": "The unique identifier for the draft page."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/published_pages/{pageId}",
-        "definition": {
-          "entityName": "Page",
-          "schema": {
-            "$ref": "#/backend/entities/Page"
-          },
-          "description": "Stores publicly viewable, published web pages. These documents are publicly readable. Write access is restricted to the 'authorId' (denormalized in the document) or users with 'Admin'/'Editor' roles. The 'status' field will always be 'Published'.",
-          "params": [
-            {
-              "name": "pageId",
-              "description": "The unique identifier for the published page."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/ai_brainstorms/{brainstormId}",
-        "definition": {
-          "entityName": "AIContentBrainstorm",
-          "schema": {
-            "$ref": "#/backend/entities/AIContentBrainstorm"
-          },
-          "description": "Logs AI content brainstorming requests and responses, strictly private to the 'userId' who initiated them. The 'userId' is denormalized both in the path and within the document for explicit ownership and simplified authorization.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user who initiated the AI brainstorm, matching 'request.auth.uid'."
-            },
-            {
-              "name": "brainstormId",
-              "description": "The unique identifier for the AI brainstorming session log."
+              "name": "adminUserId",
+              "description": "The UID of the administrative user."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore data structure for PagePilot is designed around strict adherence to Authorization Independence, Structural Segregation, and the DBAC principle to ensure robust security and simplified rules. \n\n**Authorization Independence via Denormalization:**\n*   **User Roles:** Instead of relying on a `role` field within the user's document which would necessitate a `get()` call in security rules (a hierarchical dependency), we introduce dedicated role collections: `/roles_admin/{adminId}` and `/roles_editor/{editorId}`. The mere existence of a document in these collections grants the respective role. Security rules can then use `exists(/roles_admin/$(request.auth.uid))` or `exists(/roles_editor/$(request.auth.uid))` for atomic authorization checks, completely eliminating `get()` calls for role verification. The `role` field in the `/users/{userId}` document will primarily serve for UI display or client-side logic.\n*   **Page Ownership:** For `/published_pages/{pageId}`, the `authorId` is denormalized directly into the `Page` document. This allows ownership checks for write operations (`request.auth.uid == resource.data.authorId`) to be atomic and independent of any parent document's attributes. For `/users/{authorId}/draft_pages/{pageId}`, the `authorId` is implicitly part of the path, making ownership checks straightforward (`request.auth.uid == authorId`).\n\n**Structural Segregation (Homogeneous Security Posture):**\n*   **Page Content:** Pages are segregated based on their `status`. Draft pages, which are private to the author and editors/admins, reside in `/users/{authorId}/draft_pages/{pageId}`. This path-based ownership makes authorization highly granular and efficient. Published pages, which are publicly viewable, reside in `/published_pages/{pageId}`. This separation ensures that all documents within a given collection share the same primary security posture (e.g., all documents in `/published_pages` are public-readable). This significantly simplifies security rules by preventing mixed access requirements within a single collection.\n*   **AI Content Brainstorm:** Each user's AI brainstorm logs are kept private within `/users/{userId}/ai_brainstorms/{brainstormId}`, ensuring data privacy and clear ownership.\n\n**QAPs (Rules are not Filters):**\n*   **Public Data:** Collections like `/published_pages`, `/page_templates`, `/navigation_menus`, and `/navigation_menus/{menuId}/items` are designed with public read access (or authenticated read for templates/menus) for their core purpose. Queries on these collections do not need server-side filtering by security rules because their public/broad accessibility is the intended design. Rules ensure *who* can write or modify, not *what* data can be read.\n*   **Private User Data:** For `/users/{userId}/draft_pages` and `/users/{userId}/ai_brainstorms`, the `userId` in the path ensures that a user can only query their own data, effectively making the list operation inherently filtered by the user's UID. Admin/Editor roles can be granted collection group access if needed, with rules allowing them to list across all users' drafts/brainstorms, while maintaining the `authorId`/`userId` denormalization for individual document access and write permissions."
+    "reasoning": "The Firestore data structure is designed to support the ApertureCloud landing page's content, consultation requests, and administrative access with a strong emphasis on security, scalability, and debuggability, adhering to the core design principles.\n\n**Authorization Independence:** This design primarily achieves authorization independence by using top-level collections for content (`hero_content`, `products`, `testimonials`) that are either publicly readable or restrict write access based on a top-level admin role check using `exists()`. For `ConsultationRequest` documents, anonymous users can create new requests, and administrators can read them, with no hierarchical dependencies. This avoids any `get()` calls in security rules, enabling atomic operations and simplifying rule logic. The `exists()` check for admin roles is performed directly on the `app_roles/admin_users/{adminUserId}` path, which is a peer-level check, not a hierarchical dependency on parent document data.\n\n**QAPs (Rules are not Filters):**\n*   For `hero_content`, `products`, and `testimonials` collections, all documents within them share the same security posture: public read access. This means clients can perform `list` queries on these collections without rules acting as filters, as all documents are accessible. This perfectly supports QAPs.\n*   For `consultation_requests`, anonymous users can `create` documents, but have no `read` access. Only authenticated administrators (whose UIDs are present in `app_roles/admin_users`) have `read` access. This allows administrators to perform `list` operations on `consultation_requests` efficiently, as all documents in this collection are readable by them. This also supports QAPs by ensuring that `list` operations for admins return all matching documents without further client-side filtering being necessary for authorization.\n\n**Structural Segregation:** Each major entity type (`HeroContent`, `Product`, `Testimonial`, `ConsultationRequest`, `AdminRole`) is placed in its own top-level collection. This ensures that all documents within a given collection share a homogeneous security posture. For example, all `Product` documents are publicly readable, and all `ConsultationRequest` documents are anonymously writable but admin-readable. This greatly simplifies security rules by removing the need for complex conditional logic based on document content within a single collection.\n\n**Access Modeling:**\n*   **Public Data:** `hero_content`, `products`, `testimonials` are structured as simple top-level collections, allowing public read access for the landing page.\n*   **Anonymous Write/Admin Read Data:** `consultation_requests` is a top-level collection allowing unauthenticated users to create documents and administrators to read them.\n*   **Global Roles (DBAC):** A dedicated collection `/app_roles/admin_users/{adminUserId}` is used to store the UIDs of administrative users. The mere existence of a document at `/app_roles/admin_users/$(request.auth.uid)` grants administrative privileges. This design avoids custom claims, relies solely on `request.auth.uid`, and makes administrative authorization explicit and debuggable."
   }
 }
