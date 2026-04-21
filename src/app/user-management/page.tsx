@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -120,7 +119,7 @@ export default function UserManagementPage() {
                 })
             });
 
-            // CONSUME BODY ONLY ONCE
+            // CRITICAL: Consume body only once to avoid unhandled runtime error
             const authResult = await authResponse.json();
 
             if (!authResponse.ok) {
