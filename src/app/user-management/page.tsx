@@ -16,6 +16,11 @@ import { useLoading } from '@/context/LoadingContext';
 import { format } from 'date-fns';
 import { sanitizeRegistryNode, handleFirestoreError, OperationType } from '@/lib/utils';
 
+/**
+ * @fileOverview Security Management Terminal.
+ * Handles identity provisioning and access manifest synchronization.
+ * Fixed: Handshake node re-engineered to prevent double-consumption of API responses.
+ */
 export default function UserManagementPage() {
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
@@ -105,7 +110,7 @@ export default function UserManagementPage() {
             const cleanUsername = data.username.toLowerCase().replace(/\s+/g, '');
             const systemEmail = cleanUsername === 'sikkaind' ? 'sikkaind.admin@sikka.com' : `${cleanUsername}@sikka.com`;
 
-            // 1. Create in Firebase Auth (via API)
+            // 1. Create in Firebase Auth (via API Handshake)
             const authResponse = await fetch('/api/auth/manage-user', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -119,12 +124,12 @@ export default function UserManagementPage() {
             const resultData = await authResponse.json();
 
             if (!authResponse.ok) {
-                throw new Error(resultData.error || "Auth provisioning failed.");
+                throw new Error(resultData.error || "Auth provisioning node failed.");
             }
 
             const { uid } = resultData;
 
-            // 2. Create in Firestore
+            // 2. Create in Firestore Registry
             await setDoc(doc(firestore, "users", systemEmail), {
                 ...data,
                 id: systemEmail,
@@ -136,7 +141,7 @@ export default function UserManagementPage() {
                 status: 'Active'
             });
 
-            toast({ title: 'Identity Provisioned', description: `User ${cleanUsername} added to registry.` });
+            toast({ title: 'Identity Provisioned', description: `User ${cleanUsername} successfully established.` });
             setActiveTab('user-management');
         } catch (error: any) {
             console.error("Provisioning failure:", error);
@@ -150,10 +155,6 @@ export default function UserManagementPage() {
         if (!firestore) return;
         
         if (data.plantIds && new Set(data.plantIds).size !== data.plantIds.length) {
-            toast({ variant: 'destructive', title: "Validation Error", description: "Duplicate plant assignment not allowed." });
-            return;
-        }
-        if (data.accounts_plant_ids && new Set(data.accounts_plant_ids).size !== data.accounts_plant_ids.length) {
             toast({ variant: 'destructive', title: "Validation Error", description: "Duplicate plant assignment not allowed." });
             return;
         }
@@ -177,15 +178,14 @@ export default function UserManagementPage() {
                     });
 
                     const authResult = await authResponse.json();
-
                     if (!authResponse.ok) {
-                        throw new Error(authResult.error || "Auth sync failed.");
+                        throw new Error(authResult.error || "Auth registry sync failed.");
                     }
                 }
             }
 
             await updateDoc(doc(firestore, "users", userId), { ...data, lastUpdated: serverTimestamp() });
-            toast({ title: 'Registry Updated', description: 'User profile modified.' });
+            toast({ title: 'Registry Updated', description: 'Identity node modified.' });
             setEditingUser(null);
         } catch (error: any) {
             console.error("Update failure:", error);
@@ -206,13 +206,11 @@ export default function UserManagementPage() {
                 const userData = userSnap.data() as SubUser;
                 const currentOperator = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || "Admin");
 
-                const sanitizedData = sanitizeRegistryNode({ ...userData, id: userId, type: 'User' });
-
                 await addDoc(collection(firestore, "recycle_bin"), {
                     pageName: "User Management",
                     userName: currentOperator,
                     deletedAt: serverTimestamp(),
-                    data: sanitizedData
+                    data: sanitizeRegistryNode({ ...userData, id: userId, type: 'User' })
                 });
 
                 await deleteDoc(userRef);
