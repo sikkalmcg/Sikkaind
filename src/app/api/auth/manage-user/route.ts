@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
                 }
 
                 // 2. Synchronize Firestore Registry (Bypassing client rules)
+                // We key by email for the 'isOwner' helper in security rules
                 const userRef = adminDb.collection("users").doc(email);
                 const finalUserData = {
                     ...userData,

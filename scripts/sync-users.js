@@ -1,11 +1,13 @@
 
 const admin = require('firebase-admin');
-const serviceAccount = require('../src/serviceAccountKey.json');
 
-// Initialize Firebase Admin SDK
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+// Initialize Firebase Admin SDK using Application Default Credentials
+// This bypasses the need for a local JSON file which might be invalid/deleted
+if (!admin.apps.length) {
+    admin.initializeApp({
+        projectId: "studio-2134942499-abd6c"
+    });
+}
 
 const db = admin.firestore();
 const auth = admin.auth();
