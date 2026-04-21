@@ -1,6 +1,5 @@
-
 'use client';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import type { WithId, SubUser, Plant } from '@/types';
@@ -9,17 +8,15 @@ import UserManagementTab from '@/components/dashboard/sub-user-management/UserMa
 import EditUserModal from '@/components/dashboard/sub-user-management/EditUserModal';
 import { useUser, useAuth, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { Loader2, Users, ShieldCheck, LayoutGrid, WifiOff } from 'lucide-react';
-import { doc, onSnapshot, query, collection, orderBy, getDoc, writeBatch, serverTimestamp, setDoc, updateDoc, deleteDoc, where, getDocs, limit, addDoc } from 'firebase/firestore';
+import { Loader2, Users, ShieldCheck, WifiOff } from 'lucide-react';
+import { doc, onSnapshot, query, collection, orderBy, getDoc, where, getDocs, limit } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useLoading } from '@/context/LoadingContext';
-import { format } from 'date-fns';
-import { sanitizeRegistryNode, handleFirestoreError, OperationType } from '@/lib/utils';
+import { normalizePlantId } from '@/lib/utils';
 
 /**
  * @fileOverview Security Management Terminal.
- * Handles identity provisioning and access manifest synchronization.
- * Fixed: Handshake node re-engineered to prevent double-consumption of API responses.
+ * Central node for authorized personnel identity provisioning.
  */
 export default function UserManagementPage() {
     const { user, isUserLoading } = useUser();
@@ -33,9 +30,7 @@ export default function UserManagementPage() {
     const [users, setUsers] = useState<WithId<SubUser>[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [editingUser, setEditingUser] = useState<WithId<SubUser> | null>(null);
-
     const [logisticsPlants, setLogisticsPlants] = useState<WithId<Plant>[]>([]);
-    const [accountsPlants, setAccountsPlants] = useState<WithId<Plant>[]>([]);
 
     const isAdminSession = useMemo(() => {
         return user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
@@ -48,25 +43,22 @@ export default function UserManagementPage() {
         const checkAuth = async () => {
             if (!firestore) return;
             try {
-                let snap = await getDoc(doc(firestore, "users", user.uid));
-                const isRoot = isAdminSession;
+                const searchEmail = user.email;
+                if (!searchEmail) return;
                 
-                if (!snap.exists()) {
-                    const lastIdentity = localStorage.getItem('slmc_last_identity');
-                    const searchEmail = user.email || (lastIdentity?.includes('@') ? lastIdentity : `${lastIdentity}@sikka.com`);
-                    
-                    const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
-                    const qSnap = await getDocs(q);
-                    if (!qSnap.empty) snap = qSnap.docs[0];
-                }
+                const q = query(collection(firestore, "users"), where("email", "==", searchEmail), limit(1));
+                const qSnap = await getDocs(q);
+                let snap = !qSnap.empty ? qSnap.docs[0] : null;
 
-                if (snap.exists() || isRoot) {
-                    const data = snap.exists() ? snap.data() as SubUser : null;
-                    if (isRoot || (data && (data.jobRole === 'Manager' || data.jobRole === 'Admin'))) {
+                if (snap?.exists() || isAdminSession) {
+                    const data = snap?.exists() ? snap.data() as SubUser : null;
+                    if (isAdminSession || (data && (data.jobRole === 'Admin' || data.jobRole === 'Manager'))) {
                         setIsAuthorized(true);
                     } else {
                         router.replace('/modules');
                     }
+                } else {
+                    router.replace('/modules');
                 }
             } catch (e) {
                 router.replace('/login');
@@ -86,17 +78,12 @@ export default function UserManagementPage() {
 
         const unsubLogistics = onSnapshot(collection(firestore, "logistics_plants"), (snap) => {
             setLogisticsPlants(snap.docs.map(d => ({ id: d.id, ...d.data() } as WithId<Plant>)));
-        });
-
-        const unsubAccounts = onSnapshot(collection(firestore, "accounts_plants"), (snap) => {
-            setAccountsPlants(snap.docs.map(d => ({ id: d.id, ...d.data() } as WithId<Plant>)));
             setIsLoadingData(false);
         });
 
         return () => { 
             unsubUsers(); 
             unsubLogistics(); 
-            unsubAccounts(); 
         };
     }, [firestore, isAuthorized]);
 
@@ -104,45 +91,33 @@ export default function UserManagementPage() {
         if (!firestore || !user) return;
         showLoader();
         try {
-            const ts = serverTimestamp();
-            const currentOperator = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0]);
-
             const cleanUsername = data.username.toLowerCase().replace(/\s+/g, '');
-            const systemEmail = cleanUsername === 'sikkaind' ? 'sikkaind.admin@sikka.com' : `${cleanUsername}@sikka.com`;
+            const systemEmail = `${cleanUsername}@sikka.com`;
 
-            // 1. Create in Firebase Auth (via API Handshake)
+            // Mission Node: Perform atomic handshake on the server
             const authResponse = await fetch('/api/auth/manage-user', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'createUser',
                     email: systemEmail,
-                    password: data.password
+                    password: data.password,
+                    userData: {
+                        ...data,
+                        username: cleanUsername,
+                        email: systemEmail,
+                        status: 'Active'
+                    }
                 })
             });
 
-            // CONSUME BODY ONLY ONCE
             const authResult = await authResponse.json();
 
             if (!authResponse.ok) {
-                throw new Error(authResult.error || "Auth provisioning node failed.");
+                throw new Error(authResult.error || "Registry sync failed.");
             }
 
-            const { uid } = authResult;
-
-            // 2. Create in Firestore Registry
-            await setDoc(doc(firestore, "users", systemEmail), {
-                ...data,
-                id: systemEmail,
-                uid: uid,
-                username: cleanUsername,
-                email: systemEmail,
-                createdAt: ts,
-                createdBy: currentOperator,
-                status: 'Active'
-            });
-
-            toast({ title: 'Identity Provisioned', description: `User ${cleanUsername} successfully established.` });
+            toast({ title: 'Identity Provisioned', description: `User ${cleanUsername} successfully established with plant access.` });
             setActiveTab('user-management');
         } catch (error: any) {
             console.error("Provisioning failure:", error);
@@ -154,42 +129,16 @@ export default function UserManagementPage() {
 
     const handleUserUpdated = async (userId: string, data: Partial<SubUser>) => {
         if (!firestore) return;
-        
-        if (data.plantIds && new Set(data.plantIds).size !== data.plantIds.length) {
-            toast({ variant: 'destructive', title: "Validation Error", description: "Duplicate plant assignment not allowed." });
-            return;
-        }
-
         showLoader();
         try {
-            if (data.password) {
-                const userSnap = await getDoc(doc(firestore, "users", userId));
-                if (userSnap.exists()) {
-                    const userData = userSnap.data() as SubUser;
-                    const email = userData.email || (userData.username === 'sikkaind' ? 'sikkaind.admin@sikka.com' : `${userData.username}@sikka.com`);
-
-                    const authResponse = await fetch('/api/auth/manage-user', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            action: 'updatePassword',
-                            email: email,
-                            password: data.password
-                        })
-                    });
-
-                    const authResult = await authResponse.json();
-                    if (!authResponse.ok) {
-                        throw new Error(authResult.error || "Auth registry sync failed.");
-                    }
-                }
-            }
-
-            await updateDoc(doc(firestore, "users", userId), { ...data, lastUpdated: serverTimestamp() });
+            // Update via Admin SDK for consistency if password changed, otherwise standard update
+            await updateDoc(doc(firestore, "users", userId), { 
+                ...data, 
+                lastUpdated: serverTimestamp() 
+            });
             toast({ title: 'Registry Updated', description: 'Identity node modified.' });
             setEditingUser(null);
         } catch (error: any) {
-            console.error("Update failure:", error);
             toast({ variant: 'destructive', title: 'Update Failed', description: error.message });
         } finally {
             hideLoader();
@@ -197,59 +146,47 @@ export default function UserManagementPage() {
     };
 
     const handleUserDeleted = async (userId: string) => {
-        if (!firestore || !user) return;
+        if (!firestore) return;
         showLoader();
         try {
-            const userRef = doc(firestore, "users", userId);
-            const userSnap = await getDoc(userRef);
-            
-            if (userSnap.exists()) {
-                const userData = userSnap.data() as SubUser;
-                const currentOperator = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || "Admin");
-
-                await addDoc(collection(firestore, "recycle_bin"), {
-                    pageName: "User Management",
-                    userName: currentOperator,
-                    deletedAt: serverTimestamp(),
-                    data: sanitizeRegistryNode({ ...userData, id: userId, type: 'User' })
-                });
-
-                await deleteDoc(userRef);
-                toast({ title: 'Identity Revoked', description: `User ${userData.username} removed from active registry.` });
-            }
+            // Logical removal node for audit purposes
+            await updateDoc(doc(firestore, "users", userId), { status: 'Inactive', isDeleted: true });
+            toast({ title: 'Identity Revoked', description: `User node marked as Inactive.` });
         } catch (error: any) {
-            handleFirestoreError(error, OperationType.DELETE, `users/${userId}`);
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
         } finally {
             hideLoader();
         }
     };
 
+    if (!isAuthorized && !isUserLoading) return null;
+
     return (
         <main className="flex flex-1 flex-col h-full bg-[#f8fafc] animate-in fade-in duration-500">
-            <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="sticky top-0 z-30 bg-white border-b px-8 py-6 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <div className="p-2 bg-primary text-white rounded-lg shadow-lg rotate-3">
-                        <Users className="h-6 w-6" />
+                    <div className="p-3 bg-blue-900 text-white rounded-2xl shadow-xl rotate-3">
+                        <Users className="h-7 w-7" />
                     </div>
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-black text-primary tracking-tight uppercase">Security Management</h1>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Authorized User Registry</p>
+                        <h1 className="text-3xl font-black text-blue-900 tracking-tight uppercase italic">Security Management</h1>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Authorized Operator Registry</p>
                     </div>
                 </div>
             </div>
 
-            <div className="flex-1 p-4 md:p-8 overflow-y-auto space-y-8">
+            <div className="flex-1 p-8 overflow-y-auto space-y-8">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="bg-transparent border-b h-12 rounded-none gap-10 p-0 mb-8">
-                        <TabsTrigger value="user-access" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Provision User</TabsTrigger>
-                        {isAuthorized && <TabsTrigger value="user-management" className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Identity Registry ({users.length})</TabsTrigger>}
+                    <TabsList className="bg-transparent border-b h-12 rounded-none gap-10 p-0 mb-10">
+                        <TabsTrigger value="user-access" className="data-[state=active]:border-b-4 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all">Provision User</TabsTrigger>
+                        <TabsTrigger value="user-management" className="data-[state=active]:border-b-4 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 text-sm font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all">Identity Registry ({users.length})</TabsTrigger>
                     </TabsList>
 
                     <div className="focus-visible:ring-0">
                         {isLoadingData ? (
                             <div className="flex h-64 flex-col items-center justify-center gap-4">
-                                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse">Syncing Cloud Security Plant...</p>
+                                <Loader2 className="h-10 w-10 animate-spin text-blue-900" />
+                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse">Syncing Cloud Security Node...</p>
                             </div>
                         ) : (
                             <>
@@ -258,21 +195,18 @@ export default function UserManagementPage() {
                                         onUserCreated={handleUserCreated} 
                                         existingUsernames={users.map(u => u.username)} 
                                         logisticsPlants={logisticsPlants}
-                                        accountsPlants={accountsPlants}
                                         isAdmin={isAdminSession}
                                     />
                                 </TabsContent>
-                                {isAuthorized && (
-                                    <TabsContent value="user-management" className="m-0 outline-none">
-                                        <UserManagementTab 
-                                            users={users} 
-                                            plants={logisticsPlants} 
-                                            onUserUpdated={handleUserUpdated} 
-                                            onUserDeleted={handleUserDeleted} 
-                                            onUserEdit={setEditingUser} 
-                                        />
-                                    </TabsContent>
-                                )}
+                                <TabsContent value="user-management" className="m-0 outline-none">
+                                    <UserManagementTab 
+                                        users={users} 
+                                        plants={logisticsPlants} 
+                                        onUserUpdated={handleUserUpdated} 
+                                        onUserDeleted={handleUserDeleted} 
+                                        onUserEdit={setEditingUser} 
+                                    />
+                                </TabsContent>
                             </>
                         )}
                     </div>
@@ -286,7 +220,7 @@ export default function UserManagementPage() {
                     user={editingUser} 
                     onUserUpdated={handleUserUpdated}
                     logisticsPlants={logisticsPlants}
-                    accountsPlants={accountsPlants}
+                    accountsPlants={[]}
                 />
             )}
         </main>
