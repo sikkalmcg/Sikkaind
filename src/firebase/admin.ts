@@ -3,13 +3,14 @@ import * as admin from 'firebase-admin';
 /**
  * @fileOverview Authorized Mission Control Node (Server-Side).
  * Handshakes with the Identity Platform via Application Default Credentials (ADC).
- * Decoupled from physical JSON manifests to prevent registry build failures.
+ * Hardened to utilize environment nodes without physical key manifests.
  */
 
 if (!admin.apps.length) {
   try {
-    // Authorized environment pulse: utilizes ADC in Firebase Studio/Production environment
-    admin.initializeApp();
+    admin.initializeApp({
+      projectId: "studio-2134942499-abd6c",
+    });
   } catch (error) {
     console.error('Admin SDK Handshake Failure:', error);
   }
