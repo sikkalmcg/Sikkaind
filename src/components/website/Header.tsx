@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -19,6 +18,7 @@ import {
 /**
  * @fileOverview Website Header Handbook.
  * Features: Dual Portal Selector (Client vs Employee) and responsive registry navigation.
+ * Updated: Increased contrast and elevated z-index for login registry portal.
  */
 export default function Header() {
   const pathname = usePathname();
@@ -68,7 +68,7 @@ export default function Header() {
           </button>
         </div>
 
-        <div className="hidden lg:flex lg:gap-x-10">
+        <div className="hidden lg:flex lg:gap-x-12">
           {[
             { name: 'Home', href: '/' },
             { name: 'Services', href: '/services' },
@@ -79,8 +79,8 @@ export default function Header() {
               key={item.name}
               href={item.href}
               className={cn(
-                "text-[11px] font-black uppercase tracking-[0.2em] transition-all hover:text-blue-600",
-                pathname === item.href ? "text-blue-600 border-b-2 border-blue-600 pb-1" : "text-slate-600"
+                "text-xs font-black uppercase tracking-[0.2em] transition-all hover:text-blue-600",
+                pathname === item.href ? "text-blue-600 border-b-2 border-blue-600 pb-1" : "text-slate-900"
               )}
             >
               {item.name}
@@ -95,26 +95,26 @@ export default function Header() {
                     <Lock className="h-3.5 w-3.5 mr-2" /> Portal Login
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl shadow-3xl border-slate-200 mt-2">
+            <DropdownMenuContent align="end" className="w-64 p-2 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-slate-200 mt-2 z-[1001]">
                 <Link href="/login?mode=client">
-                    <DropdownMenuItem className="gap-3 py-3 rounded-xl cursor-pointer hover:bg-blue-50 group">
-                        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                            <User className="h-4 w-4" />
+                    <DropdownMenuItem className="gap-3 py-4 rounded-xl cursor-pointer hover:bg-blue-50 group">
+                        <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                            <User className="h-5 w-5" />
                         </div>
                         <div className="flex flex-col">
-                            <span className="font-black uppercase text-[10px] tracking-tight">Client Login</span>
-                            <span className="text-[8px] font-bold text-slate-400 uppercase leading-none">Read-Only Access</span>
+                            <span className="font-black uppercase text-[11px] tracking-tight text-slate-900">Client Login</span>
+                            <span className="text-[8px] font-bold text-slate-400 uppercase leading-none mt-1">Authorized Read-Only Access</span>
                         </div>
                     </DropdownMenuItem>
                 </Link>
                 <Link href="/login?mode=employee">
-                    <DropdownMenuItem className="gap-3 py-3 rounded-xl cursor-pointer hover:bg-emerald-50 group mt-1">
-                        <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                            <Users className="h-4 w-4" />
+                    <DropdownMenuItem className="gap-3 py-4 rounded-xl cursor-pointer hover:bg-emerald-50 group mt-1">
+                        <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                            <Users className="h-5 w-5" />
                         </div>
                         <div className="flex flex-col">
-                            <span className="font-black uppercase text-[10px] tracking-tight">Employee Login</span>
-                            <span className="text-[8px] font-bold text-slate-400 uppercase leading-none">Read/Write Registry</span>
+                            <span className="font-black uppercase text-[11px] tracking-tight text-slate-900">Employee Login</span>
+                            <span className="text-[8px] font-bold text-slate-400 uppercase leading-none mt-1">Registry Read/Write Access</span>
                         </div>
                     </DropdownMenuItem>
                 </Link>
@@ -183,7 +183,7 @@ export default function Header() {
             </Link>
           </div>
 
-          <Separator className="opacity-50" />
+          <div className="h-px w-full bg-slate-200 opacity-50" />
 
           {[
             { name: 'Home', href: '/' },
@@ -219,8 +219,4 @@ export default function Header() {
       </div>
     </header>
   );
-}
-
-function Separator({ className }: { className?: string }) {
-    return <div className={cn("h-px w-full bg-slate-200", className)} />;
 }
