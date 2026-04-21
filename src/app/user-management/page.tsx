@@ -19,7 +19,6 @@ import { sanitizeRegistryNode, handleFirestoreError, OperationType } from '@/lib
 /**
  * @fileOverview Security Management Terminal.
  * Handles identity provisioning and access manifest synchronization.
- * Fixed: Handshake node re-engineered to prevent double-consumption of API responses.
  */
 export default function UserManagementPage() {
     const { user, isUserLoading } = useUser();
