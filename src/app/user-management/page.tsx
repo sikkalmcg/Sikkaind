@@ -121,6 +121,7 @@ export default function UserManagementPage() {
                 })
             });
 
+            // REGISTRY FIX: Consume body only once to prevent protocol violation
             const resultData = await authResponse.json();
 
             if (!authResponse.ok) {

@@ -20,19 +20,22 @@ function getAdminApp() {
   if (apps.length > 0) return apps[0];
 
   try {
-    // If explicit service account keys are provided, use them.
-    // Otherwise, let the SDK infer credentials from the Cloud environment.
-    const adminConfig = (config.clientEmail && config.privateKey)
-      ? {
+    // REGISTRY HANDSHAKE Node: In Google Cloud Workstations (Studio), 
+    // we should prioritize ambient credentials if explicit keys are missing.
+    
+    if (config.clientEmail && config.privateKey) {
+        return initializeApp({
           credential: admin.credential.cert(config as admin.ServiceAccount),
           databaseURL: `https://${config.projectId}-default-rtdb.firebaseio.com`
-        }
-      : {
-          projectId: config.projectId,
-          databaseURL: `https://${config.projectId}-default-rtdb.firebaseio.com`
-        };
+        });
+    }
 
-    return initializeApp(adminConfig);
+    // Default Node: Fallback to ambient service account / project config
+    return initializeApp({
+        projectId: config.projectId,
+        databaseURL: `https://${config.projectId}-default-rtdb.firebaseio.com`
+    });
+
   } catch (e) {
     console.error("Critical: Admin SDK Registry Handshake Failure", e);
     return null;
@@ -40,6 +43,8 @@ function getAdminApp() {
 }
 
 const app = getAdminApp();
+
+// MISSION CRITICAL: Ensure SDK instances are correctly initialized
 const adminAuth = admin.auth(app as any);
 const adminDb = admin.firestore(app as any);
 const FieldValue = admin.firestore.FieldValue;
