@@ -3,117 +3,26 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * CORE PHILOSOPHY
-     * This ruleset implements a Role-Based Access Control (RBAC) model combined with a 
-     * public-consumption pattern for marketing content. Administrative privileges are 
-     * determined by a dedicated 'Admin Role' collection, ensuring high security 
-     * for site management while maintaining a flexible schema for rapid iteration.
-     *
-     * DATA STRUCTURE
-     * - Content Entities (HeroContent, Products, Testimonials): Top-level collections 
-     *   that are publicly readable but admin-writable.
-     * - Lead Generation (ConsultationRequests): A top-level collection allowing 
-     *   anonymous submissions (creation) while restricting reading to administrators.
-     * - Authorization (app_roles): A restricted collection storing admin UIDs.
-     *
-     * KEY SECURITY DECISIONS
-     * - Authorization Independence: Security checks for administration utilize an exists() 
-     *   lookup on the admin roles collection, avoiding complex nested resource checks.
-     * - Structural Segregation: Different entity types are separated into collections 
-     *   based on their specific access patterns (Public Read vs. Admin Only).
-     * - Relational Integrity: On document creation, rules enforce that the internal 
-     *   document ID matches the Firestore path ID.
+     * MISSION REGISTRY SECURITY POLICY
+     * Everyone who is authenticated can read and write to the registry nodes.
+     * This ensures mission continuity across all authorized lifting nodes.
      */
 
-    // --- Helper Functions ---
-
-    /**
-     * @description Checks if the user is authenticated with Firebase Auth.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * @description Checks if the authenticated user's UID exists in the admin users collection.
-     */
+    // Grant access to all mission-critical collections for authenticated operators
+    match /{document=**} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Specific Node Access for Root Admin node
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/app_roles/admin_users/$(request.auth.uid));
-    }
-
-    /**
-     * @description Combines admin check with a verification that the resource being 
-     * modified actually exists. Used for updates and deletes.
-     */
-    function isExistingAdmin() {
-      return isAdmin() && resource != null;
-    }
-
-    // --- Collection Rules ---
-
-    /**
-     * @description Rules for landing page hero section content.
-     * @path /hero_content/{heroContentId}
-     * @allow (get, list) for any visitor; (create, update) for authenticated admins.
-     * @deny (create, update) for non-admin users or unauthenticated visitors.
-     * @principle Public read-only access for content with restricted admin writes.
-     */
-    match /hero_content/{heroContentId} {
-      allow get, list: if true;
-      allow create: if isAdmin() && request.resource.data.id == heroContentId;
-      allow update, delete: if isExistingAdmin();
-    }
-
-    /**
-     * @description Rules for cloud products showcased on the site.
-     * @path /products/{productId}
-     * @allow (get, list) for any visitor; (create, update) for authenticated admins.
-     * @deny (delete) for non-admin users.
-     * @principle Enforces path consistency on creation and admin-only management.
-     */
-    match /products/{productId} {
-      allow get, list: if true;
-      allow create: if isAdmin() && request.resource.data.id == productId;
-      allow update, delete: if isExistingAdmin();
-    }
-
-    /**
-     * @description Rules for customer testimonials.
-     * @path /testimonials/{testimonialId}
-     * @allow (get, list) for any visitor; (create, update, delete) for authenticated admins.
-     * @deny (update) for anonymous visitors.
-     * @principle Ensures marketing material is publicly accessible but protected from unauthorized edits.
-     */
-    match /testimonials/{testimonialId} {
-      allow get, list: if true;
-      allow create: if isAdmin() && request.resource.data.id == testimonialId;
-      allow update, delete: if isExistingAdmin();
-    }
-
-    /**
-     * @description Rules for enterprise consultation requests.
-     * @path /consultation_requests/{requestId}
-     * @allow (create) for any visitor (anonymous); (get, list, update, delete) for admins.
-     * @deny (get, list) for the visitor who just submitted the request.
-     * @principle Allows open lead generation (creation) while keeping sensitive lead data private (admin-only read).
-     */
-    match /consultation_requests/{requestId} {
-      allow get, list: if isAdmin();
-      allow create: if request.resource.data.id == requestId;
-      allow update, delete: if isExistingAdmin();
-    }
-
-    /**
-     * @description Rules for the administrative roles registry.
-     * @path /app_roles/admin_users/{adminUserId}
-     * @allow (get) for the user themselves; (list) for existing admins.
-     * @deny (create, update, delete) for all client-side requests.
-     * @principle Protects the source of truth for authorization; management is restricted to server-side/manual processes.
-     */
-    match /app_roles/admin_users/{adminUserId} {
-      allow get: if isSignedIn() && (request.auth.uid == adminUserId || isAdmin());
-      allow list: if isAdmin();
-      allow create, update, delete: if false;
+      return isSignedIn() && (
+        request.auth.token.email == 'sikkaind.admin@sikka.com' || 
+        request.auth.token.email == 'sikkalmcg@gmail.com'
+      );
     }
   }
 }

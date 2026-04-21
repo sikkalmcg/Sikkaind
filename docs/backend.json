@@ -1,282 +1,54 @@
 {
   "entities": {
-    "HeroContent": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "HeroContent",
+    "Plant": {
+      "title": "Plant",
+      "description": "Lifting node master registry.",
       "type": "object",
-      "description": "Represents the dynamic content for the hero section of the landing page, including the main headline, subheadline, and call-to-action.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the HeroContent entity."
-        },
-        "headline": {
-          "type": "string",
-          "description": "The main compelling headline for the hero section, highlighting the value proposition."
-        },
-        "subheadline": {
-          "type": "string",
-          "description": "The supporting subheadline that further articulates the cloud provider's value proposition for enterprise clients."
-        },
-        "callToActionText": {
-          "type": "string",
-          "description": "Text displayed on the call-to-action button in the hero section, e.g., 'Request a Consultation'."
-        },
-        "callToActionUrl": {
-          "type": "string",
-          "description": "The URL link for the call-to-action button in the hero section.",
-          "format": "uri"
-        },
-        "lastUpdated": {
-          "type": "string",
-          "description": "Timestamp indicating when the hero content was last updated, often by the AI Content Assistant Tool.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "headline",
-        "subheadline",
-        "callToActionText",
-        "callToActionUrl",
-        "lastUpdated"
-      ]
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "city": { "type": "string" }
+      }
     },
-    "Product": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Product",
+    "Shipment": {
+      "title": "Shipment",
+      "description": "Sales Order manifest.",
       "type": "object",
-      "description": "Details of a top cloud product offered by ApertureCloud, including its name, description, pricing, and key features.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Product entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the cloud product featured on the landing page."
-        },
-        "description": {
-          "type": "string",
-          "description": "A clear description of the product's functionalities and benefits."
-        },
-        "priceTierDescription": {
-          "type": "string",
-          "description": "A descriptive string for the pricing tier, designed to be transparent (e.g., 'Starting from $X/month', 'Custom Pricing Available')."
-        },
-        "features": {
-          "type": "array",
-          "description": "A list of prominent features or benefits associated with this product.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "imageUrl": {
-          "type": "string",
-          "description": "URL to an image or icon that visually represents the product.",
-          "format": "uri"
-        },
-        "displayOrder": {
-          "type": "number",
-          "description": "A numerical value indicating the order in which this product should be displayed in the showcase section."
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "description",
-        "priceTierDescription",
-        "features",
-        "imageUrl",
-        "displayOrder"
-      ]
+        "shipmentId": { "type": "string" },
+        "consignor": { "type": "string" },
+        "quantity": { "type": "number" },
+        "balanceQty": { "type": "number" }
+      }
     },
-    "Testimonial": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Testimonial",
+    "Trip": {
+      "title": "Trip",
+      "description": "Mission allocation registry.",
       "type": "object",
-      "description": "Represents an authentic customer testimonial or success story, including the quote, customer details, and company information with logo.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Testimonial entity."
-        },
-        "quote": {
-          "type": "string",
-          "description": "The direct quote from the customer testimonial."
-        },
-        "customerName": {
-          "type": "string",
-          "description": "The name of the customer who provided the testimonial."
-        },
-        "customerTitle": {
-          "type": "string",
-          "description": "The job title or role of the customer (e.g., 'CTO', 'Head of IT')."
-        },
-        "companyName": {
-          "type": "string",
-          "description": "The name of the company the customer represents."
-        },
-        "companyLogoUrl": {
-          "type": "string",
-          "description": "URL to the logo of the company associated with the testimonial, used to build trust.",
-          "format": "uri"
-        },
-        "displayOrder": {
-          "type": "number",
-          "description": "A numerical value indicating the order in which this testimonial should be displayed in the client success stories section."
-        }
-      },
-      "required": [
-        "id",
-        "quote",
-        "customerName",
-        "customerTitle",
-        "companyName",
-        "companyLogoUrl",
-        "displayOrder"
-      ]
-    },
-    "ConsultationRequest": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ConsultationRequest",
-      "type": "object",
-      "description": "Represents a request submitted by an enterprise business to 'Request a Consultation' with ApertureCloud.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the ConsultationRequest entity."
-        },
-        "companyName": {
-          "type": "string",
-          "description": "The name of the enterprise business requesting the consultation."
-        },
-        "contactPersonName": {
-          "type": "string",
-          "description": "The full name of the primary contact person from the requesting company."
-        },
-        "contactPersonEmail": {
-          "type": "string",
-          "description": "The email address of the primary contact person for communication regarding the consultation.",
-          "format": "email"
-        },
-        "contactPersonPhone": {
-          "type": "string",
-          "description": "The phone number of the primary contact person. (Optional)"
-        },
-        "message": {
-          "type": "string",
-          "description": "An optional message or specific query provided by the requester, detailing their needs or interests."
-        },
-        "requestDate": {
-          "type": "string",
-          "description": "The timestamp when the consultation request was submitted.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "The current processing status of the consultation request (e.g., 'New', 'Pending', 'Contacted', 'Archived')."
-        }
-      },
-      "required": [
-        "id",
-        "companyName",
-        "contactPersonName",
-        "contactPersonEmail",
-        "requestDate",
-        "status"
-      ]
+        "tripId": { "type": "string" },
+        "vehicleNumber": { "type": "string" },
+        "currentStatusId": { "type": "string" }
+      }
     }
   },
   "auth": {
     "providers": [
-      "password",
-      "anonymous"
+      "password"
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/hero_content/{heroContentId}",
-        "definition": {
-          "entityName": "HeroContent",
-          "schema": {
-            "$ref": "#/backend/entities/HeroContent"
-          },
-          "description": "Stores dynamic content for the landing page's hero section. Publicly readable for all users, write access is restricted to administrators.",
-          "params": [
-            {
-              "name": "heroContentId",
-              "description": "Unique identifier for a specific hero content configuration."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/products/{productId}",
-        "definition": {
-          "entityName": "Product",
-          "schema": {
-            "$ref": "#/backend/entities/Product"
-          },
-          "description": "Contains details of top cloud products featured on the landing page. Publicly readable for all users, write access is restricted to administrators.",
-          "params": [
-            {
-              "name": "productId",
-              "description": "Unique identifier for a specific product."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/testimonials/{testimonialId}",
-        "definition": {
-          "entityName": "Testimonial",
-          "schema": {
-            "$ref": "#/backend/entities/Testimonial"
-          },
-          "description": "Stores authentic customer testimonials and success stories. Publicly readable for all users, write access is restricted to administrators.",
-          "params": [
-            {
-              "name": "testimonialId",
-              "description": "Unique identifier for a specific testimonial."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/consultation_requests/{requestId}",
-        "definition": {
-          "entityName": "ConsultationRequest",
-          "schema": {
-            "$ref": "#/backend/entities/ConsultationRequest"
-          },
-          "description": "Records enterprise consultation requests submitted via the landing page form. Allows anonymous creation; read access is restricted to administrators.",
-          "params": [
-            {
-              "name": "requestId",
-              "description": "Unique identifier for a specific consultation request."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/app_roles/admin_users/{adminUserId}",
-        "definition": {
-          "entityName": "AdminRole",
-          "schema": {
-            "$ref": "#/backend/entities/AdminRole"
-          },
-          "description": "Dedicated collection for Database Access Control (DBAC). Stores UIDs of users who have administrative privileges. The mere existence of a document here for a given UID signifies admin status. This conceptual 'AdminRole' entity is used for authorization purposes, and its schema is implicitly a marker (e.g., { 'grantedAt': timestamp }). This collection is typically managed manually by secure backend processes, not directly by client-side rules.",
-          "params": [
-            {
-              "name": "adminUserId",
-              "description": "The UID of the administrative user."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore data structure is designed to support the ApertureCloud landing page's content, consultation requests, and administrative access with a strong emphasis on security, scalability, and debuggability, adhering to the core design principles.\n\n**Authorization Independence:** This design primarily achieves authorization independence by using top-level collections for content (`hero_content`, `products`, `testimonials`) that are either publicly readable or restrict write access based on a top-level admin role check using `exists()`. For `ConsultationRequest` documents, anonymous users can create new requests, and administrators can read them, with no hierarchical dependencies. This avoids any `get()` calls in security rules, enabling atomic operations and simplifying rule logic. The `exists()` check for admin roles is performed directly on the `app_roles/admin_users/{adminUserId}` path, which is a peer-level check, not a hierarchical dependency on parent document data.\n\n**QAPs (Rules are not Filters):**\n*   For `hero_content`, `products`, and `testimonials` collections, all documents within them share the same security posture: public read access. This means clients can perform `list` queries on these collections without rules acting as filters, as all documents are accessible. This perfectly supports QAPs.\n*   For `consultation_requests`, anonymous users can `create` documents, but have no `read` access. Only authenticated administrators (whose UIDs are present in `app_roles/admin_users`) have `read` access. This allows administrators to perform `list` operations on `consultation_requests` efficiently, as all documents in this collection are readable by them. This also supports QAPs by ensuring that `list` operations for admins return all matching documents without further client-side filtering being necessary for authorization.\n\n**Structural Segregation:** Each major entity type (`HeroContent`, `Product`, `Testimonial`, `ConsultationRequest`, `AdminRole`) is placed in its own top-level collection. This ensures that all documents within a given collection share a homogeneous security posture. For example, all `Product` documents are publicly readable, and all `ConsultationRequest` documents are anonymously writable but admin-readable. This greatly simplifies security rules by removing the need for complex conditional logic based on document content within a single collection.\n\n**Access Modeling:**\n*   **Public Data:** `hero_content`, `products`, `testimonials` are structured as simple top-level collections, allowing public read access for the landing page.\n*   **Anonymous Write/Admin Read Data:** `consultation_requests` is a top-level collection allowing unauthenticated users to create documents and administrators to read them.\n*   **Global Roles (DBAC):** A dedicated collection `/app_roles/admin_users/{adminUserId}` is used to store the UIDs of administrative users. The mere existence of a document at `/app_roles/admin_users/$(request.auth.uid)` grants administrative privileges. This design avoids custom claims, relies solely on `request.auth.uid`, and makes administrative authorization explicit and debuggable."
+    "/users/{userId}": {
+      "schema": "SubUser",
+      "description": "Authorized operator profiles."
+    },
+    "/plants/{plantId}/shipments/{shipmentId}": {
+      "schema": "Shipment",
+      "description": "Lifting node shipments."
+    },
+    "/plants/{plantId}/trips/{tripId}": {
+      "schema": "Trip",
+      "description": "Lifting node mission records."
+    }
   }
 }

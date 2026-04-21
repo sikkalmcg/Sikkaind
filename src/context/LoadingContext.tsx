@@ -13,7 +13,6 @@ const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
 export function LoadingProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
 
-  // MISSION CRITICAL: Stabilize loader functions to prevent recursive layout re-renders
   const showLoader = useCallback(() => setIsLoading(true), []);
   const hideLoader = useCallback(() => setIsLoading(false), []);
 
