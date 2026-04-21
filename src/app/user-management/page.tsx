@@ -121,14 +121,14 @@ export default function UserManagementPage() {
                 })
             });
 
-            // REGISTRY FIX: Consume body only once to prevent protocol violation
-            const resultData = await authResponse.json();
+            // CONSUME BODY ONLY ONCE
+            const authResult = await authResponse.json();
 
             if (!authResponse.ok) {
-                throw new Error(resultData.error || "Auth provisioning node failed.");
+                throw new Error(authResult.error || "Auth provisioning node failed.");
             }
 
-            const { uid } = resultData;
+            const { uid } = authResult;
 
             // 2. Create in Firestore Registry
             await setDoc(doc(firestore, "users", systemEmail), {
