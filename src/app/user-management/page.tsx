@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,6 +17,7 @@ import { sanitizeRegistryNode, handleFirestoreError, OperationType } from '@/lib
 /**
  * @fileOverview Security Management Terminal.
  * Handles identity provisioning and access manifest synchronization.
+ * Updated: Migrated provisioning logic to server-side for atomic identity establishing.
  */
 export default function UserManagementPage() {
     const { user, isUserLoading } = useUser();
@@ -100,17 +102,22 @@ export default function UserManagementPage() {
         if (!firestore || !user) return;
         showLoader();
         try {
-            const ts = serverTimestamp();
             const cleanUsername = data.username.toLowerCase().replace(/\s+/g, '');
             const systemEmail = cleanUsername === 'sikkaind' ? 'sikkaind.admin@sikka.com' : `${cleanUsername}@sikka.com`;
 
+            // MISSION CRITICAL: The API now handles BOTH Authentication and Firestore doc creation.
             const authResponse = await fetch('/api/auth/manage-user', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'createUser',
                     email: systemEmail,
-                    password: data.password
+                    password: data.password,
+                    userData: {
+                        ...data,
+                        username: cleanUsername,
+                        email: systemEmail
+                    }
                 })
             });
 
@@ -120,19 +127,7 @@ export default function UserManagementPage() {
                 throw new Error(authResult.error || "Auth provisioning node failed.");
             }
 
-            const { uid } = authResult;
-
-            await setDoc(doc(firestore, "users", systemEmail), {
-                ...data,
-                id: systemEmail,
-                uid: uid,
-                username: cleanUsername,
-                email: systemEmail,
-                createdAt: ts,
-                status: 'Active'
-            });
-
-            toast({ title: 'Identity Provisioned', description: `User ${cleanUsername} successfully established.` });
+            toast({ title: 'Identity established', description: `User @${cleanUsername} registered in mission registry.` });
             setActiveTab('user-management');
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Provisioning Error', description: error.message });
@@ -145,6 +140,7 @@ export default function UserManagementPage() {
         if (!firestore) return;
         showLoader();
         try {
+            // If password is being changed, sync with Identity Platform via API
             if (data.password) {
                 const userSnap = await getDoc(doc(firestore, "users", userId));
                 if (userSnap.exists()) {
@@ -187,9 +183,11 @@ export default function UserManagementPage() {
             
             if (userSnap.exists()) {
                 const userData = userSnap.data();
+                const currentOperator = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com' ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || "Admin");
+
                 await addDoc(collection(firestore, "recycle_bin"), {
                     pageName: "User Management",
-                    userName: user.email?.split('@')[0] || "Admin",
+                    userName: currentOperator,
                     deletedAt: serverTimestamp(),
                     data: sanitizeRegistryNode({ ...userData, id: userId, type: 'User' })
                 });
@@ -271,4 +269,3 @@ export default function UserManagementPage() {
         </main>
     );
 }
-
