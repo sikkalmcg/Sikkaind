@@ -126,11 +126,7 @@ function TripBoardContent() {
                 const userData = qSnap.docs[0].data() as SubUser;
                 const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
                 authIds = isRoot ? baseList.map(p => p.id) : (userData.plantIds || []);
-                
-                // CLIENT HANDSHAKE Node: Set Read-Only if jobRole is Client
-                if (userData.jobRole === 'Client') {
-                    setIsClientReadOnly(true);
-                }
+                if (userData.jobRole === 'Client') setIsClientReadOnly(true);
             } else if (isAdminSession) {
                 authIds = baseList.map(p => p.id);
             }
@@ -215,10 +211,7 @@ function TripBoardContent() {
             ...d.data(),
             creationDate: parseSafeDate(d.data().creationDate)
         } as any));
-        setShipments(prev => {
-            const others = prev.filter(s => normalizePlantId(s.originPlantId) !== plantId);
-            return [...others, ...list];
-        });
+        setShipments(prev => [...prev.filter(s => normalizePlantId(s.originPlantId) !== plantId), ...list]);
       }));
 
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/lrs`), (snap) => {
@@ -228,10 +221,7 @@ function TripBoardContent() {
           ...d.data(),
           date: parseSafeDate(d.data().date)
         } as any));
-        setLrs(prev => {
-            const others = prev.filter(l => normalizePlantId(l.originPlantId) !== plantId);
-            return [...others, ...list];
-        });
+        setLrs(prev => [...prev.filter(l => normalizePlantId(l.originPlantId) !== plantId), ...list]);
       }));
     });
 
@@ -458,7 +448,6 @@ function TripBoardContent() {
             transaction.update(tripRef, updateData);
             transaction.update(globalTripRef, updateData);
 
-            // Log activity
             const logRef = doc(collection(firestore, "activity_logs"));
             transaction.set(logRef, {
                 userId: user.uid,
@@ -909,21 +898,36 @@ function TripBoardContent() {
 
   const handleCancelConfirm = async () => {
     if (!firestore || !user || !cancelTripData) return;
+    
+    // MISSION FIX: Guard against missing path nodes
+    const plantId = normalizePlantId(cancelTripData.originPlantId);
+    const shipmentId = Array.isArray(cancelTripData.shipmentIds) ? cancelTripData.shipmentIds[0] : cancelTripData.shipmentIds;
+    
+    if (!plantId || !shipmentId) {
+        toast({ 
+            variant: 'destructive', 
+            title: 'Revocation Blocked', 
+            description: 'Mission registry path is incomplete. Manual cleanup required.' 
+        });
+        setCancelTripData(null);
+        return;
+    }
+
     showLoader();
     try {
-        const plantId = normalizePlantId(cancelTripData.originPlantId);
-        const shipmentId = cancelTripData.shipmentIds?.[0];
-        
         await runTransaction(firestore, async (transaction) => {
-            const tripRef = doc(firestore, `plants/${plantId}/trips`, cancelTripData.id);
-            const globalTripRef = doc(firestore, 'trips', cancelTripData.id);
+            const tripId = cancelTripData.id;
+            const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
+            const globalTripRef = doc(firestore, 'trips', tripId);
             const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipmentId);
 
             const shipSnap = await transaction.get(shipmentRef);
-            if (!shipSnap.exists()) throw new Error("Shipment node not found.");
+            if (!shipSnap.exists()) throw new Error("Linked shipment node not found in registry.");
             
             const sData = shipSnap.data() as Shipment;
-            const newAssigned = (sData.assignedQty || 0) - cancelTripData.assignedQtyInTrip;
+            const assignedInTrip = Number(cancelTripData.assignedQtyInTrip) || 0;
+            
+            const newAssigned = Math.max(0, (sData.assignedQty || 0) - assignedInTrip);
             const newBalance = sData.quantity - newAssigned;
 
             transaction.update(shipmentRef, {
@@ -937,10 +941,11 @@ function TripBoardContent() {
             transaction.delete(globalTripRef);
         });
 
-        toast({ title: 'Mission Revoked', description: 'Fleet allocation successfully reverted.' });
+        toast({ title: 'Mission Revoked', description: 'Fleet allocation successfully reverted in registry.' });
         setCancelTripData(null);
     } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Revocation Failed', description: e.message });
+        console.error("Purge Error:", e);
+        toast({ variant: 'destructive', title: 'Revocation Failed', description: e.message || 'Registry handshake failed.' });
     } finally { hideLoader(); }
   };
 
@@ -1016,17 +1021,12 @@ function TripBoardContent() {
                 { id: 'pod-status', label: 'POD Verification', count: counts.pod },
                 { id: 'rejection', label: 'Rejection/SRN', count: counts.rejection },
                 { id: 'closed', label: 'History Ledger', count: counts.closed }
-            ].map(t => {
-                // CLIENT HIDE Node: Hide "Pending Assignment" and "Open Order" for Clients if desired?
-                // The user said "client ko trip board ka access milega automatic woh bhi data ko read krne ke liye na ki write krne ke liye"
-                // This usually implies tracking active missions. But we'll show all tabs, just disabling writes.
-                return (
-                    <TabsTrigger key={t.id} value={t.id} className="relative h-8 md:h-9 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[8px] md:text-[10px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-1 md:gap-1.5 whitespace-nowrap">
-                        {t.icon && <t.icon className="h-2.5 md:h-3 w-2.5 md:w-3" />}
-                        {t.label} <Badge className="ml-1 bg-slate-100 text-slate-500 border-none font-black text-[7px] md:text-[8px] px-1 h-4">{t.count}</Badge>
-                    </TabsTrigger>
-                );
-            })}
+            ].map(t => (
+                <TabsTrigger key={t.id} value={t.id} className="relative h-8 md:h-9 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[8px] md:text-[10px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-1 md:gap-1.5 whitespace-nowrap">
+                    {t.icon && <t.icon className="h-2.5 md:h-3 w-2.5 md:w-3" />}
+                    {t.label} <Badge className="ml-1 bg-slate-100 text-slate-500 border-none font-black text-[7px] md:text-[8px] px-1 h-4">{t.count}</Badge>
+                </TabsTrigger>
+            ))}
           </TabsList>
         </Tabs>
       </div>
@@ -1077,7 +1077,6 @@ function TripBoardContent() {
             </div>
         )}
 
-        {/* Floating Bulk Action Bar - Hidden for Clients */}
         {activeTab === 'pending-assignment' && selectedPendingIds.length > 0 && !isClientReadOnly && (
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95vw] max-w-4xl animate-in slide-in-from-bottom-10 duration-500">
                 <div className="bg-slate-900 text-white rounded-[1.5rem] md:rounded-[2rem] shadow-3xl p-3 md:p-6 flex items-center justify-between gap-3 md:gap-10 border border-white/10 backdrop-blur-xl">

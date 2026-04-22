@@ -94,9 +94,6 @@ const getStatusColor = (status: string) => {
     }
 }
 
-/**
- * @fileOverview Live Location Node Component.
- */
 function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: string, vehicleType: string, onClick: () => void }) {
     const [location, setLocation] = useState<{ city: string; full: string } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -250,7 +247,7 @@ function MissionRegistryCard({
                 
                 <div className={cn("space-y-1", (isPending && !isReadOnly) ? "col-span-1" : "col-span-1")}>
                     <p className="text-[10px] font-black text-blue-700 uppercase tracking-tighter">
-                        {isPending ? `SO: ${row.shipmentId}` : `#${row.tripId}`}
+                        {isPending ? `SO: ${row.shipmentId || 'N/A'}` : `#${row.tripId || 'N/A'}`}
                     </p>
                     <p className="text-[9px] font-bold text-slate-400 uppercase">{formattedDate}</p>
                 </div>
@@ -258,19 +255,19 @@ function MissionRegistryCard({
                 <div className={cn("space-y-1 pr-4", showLrAndInvoices ? "col-span-3" : (isPending ? "col-span-4" : "col-span-4"))}>
                     <div className="flex items-center gap-1.5">
                         <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-                        <span className="text-[10px] font-black text-slate-700 uppercase truncate" title={row.consignor}>{row.consignor}</span>
+                        <span className="text-[10px] font-black text-slate-700 uppercase truncate" title={row.consignor}>{row.consignor || '--'}</span>
                     </div>
                     <div className="flex items-center gap-2 pl-3">
-                        <span className="text-[10px] font-black text-slate-800 truncate max-w-[80px]">{fromCity}</span>
+                        <span className="text-[10px] font-black text-slate-800 truncate max-w-[80px]">{fromCity || '--'}</span>
                         <ArrowRight size={10} className="text-slate-300 shrink-0" />
-                        <span className="text-[10px] font-black text-blue-900 truncate max-w-[120px]">{toCity}</span>
+                        <span className="text-[10px] font-black text-blue-900 truncate max-w-[120px]">{toCity || '--'}</span>
                     </div>
                 </div>
 
                 <div className={cn("space-y-1", showLrAndInvoices ? "col-span-2" : (isPending ? "col-span-3" : "col-span-3"))}>
                     <div className="flex items-center gap-2">
                         <Factory className="h-3 w-3 text-slate-400 shrink-0" />
-                        <span className="text-[9px] font-black text-slate-500 uppercase truncate leading-tight">{row.plantName || row.originPlantId}</span>
+                        <span className="text-[9px] font-black text-slate-500 uppercase truncate leading-tight">{row.plantName || row.originPlantId || 'N/A'}</span>
                     </div>
                     <div className="mt-1 flex items-center gap-2">
                         <UserCircle className="h-3 w-3 text-slate-300 shrink-0" />
@@ -283,7 +280,7 @@ function MissionRegistryCard({
                         <>
                             <div className="flex items-center gap-2">
                                 <Truck className="h-4 w-4 text-blue-600 shrink-0" />
-                                <span className="text-[11px] font-black text-slate-900 uppercase tracking-tighter truncate">{row.vehicleNumber}</span>
+                                <span className="text-[11px] font-black text-slate-900 uppercase tracking-tighter truncate">{row.vehicleNumber || 'PENDING'}</span>
                                 {row.ewaybillNumber && row.ewaybillNumber !== '--' && (
                                     <div className="flex items-center gap-1 ml-2">
                                         <FileCheck size={12} className="text-orange-400" />
@@ -339,10 +336,10 @@ function MissionRegistryCard({
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex flex-col items-start pb-1">
                             <p className="text-xl font-black text-slate-900 tracking-tighter leading-none">
-                                {isPending ? row.balanceUom : row.qtyUom}
+                                {isPending ? (row.balanceUom || '0 MT') : (row.qtyUom || '0 MT')}
                             </p>
                             <span className="text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] leading-none mt-2">
-                                {isPending ? `TOTAL REQ: ${row.qtyUom}` : `NODE: ${row.material || 'CARGO'}`}
+                                {isPending ? `TOTAL REQ: ${row.qtyUom || '0 MT'}` : `NODE: ${row.material || 'CARGO'}`}
                             </span>
                         </div>
 
@@ -389,7 +386,7 @@ function MissionRegistryCard({
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-3">
                         <Badge variant="outline" className={cn("text-[9px] h-6 font-black uppercase tracking-tighter px-4 border shadow-sm", getStatusColor(row.tripStatus || row.currentStatusId))}>
-                            {row.tripStatus || row.currentStatusId}
+                            {row.tripStatus || row.currentStatusId || 'ASSIGNED'}
                         </Badge>
                         <div className="flex flex-col">
                             <span className="text-[8px] font-black uppercase text-slate-400 leading-none">Registry Update</span>
