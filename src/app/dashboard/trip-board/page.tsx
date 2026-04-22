@@ -15,6 +15,7 @@ import PodUploadModal from '@/components/dashboard/trip-board/PodUploadModal';
 import SrnModal from '@/components/dashboard/trip-board/SrnModal';
 import MultiSelectPlantFilter from '@/components/dashboard/MultiSelectPlantFilter';
 import LRPrintPreviewModal from '@/components/dashboard/lr-create/LRPrintPreviewModal';
+import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
 import LRGenerationModal from '@/components/dashboard/lr-create/LRGenerationModal';
 import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAssignModal';
 import TripTrackingModal from '@/components/dashboard/trip-board/TripTrackingModal';
@@ -22,7 +23,7 @@ import SimTrackModal from '@/components/dashboard/trip-board/SimTrackModal';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId, cn } from '@/lib/utils';
-import { useFirestore, useUser, useMemoFirebase, useDoc, useCollection } from '@/firebase';
+import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy, Timestamp } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList, CheckCircle2, Truck, PlusCircle, ArrowUpDown, ShieldCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -35,7 +36,6 @@ import { DatePicker } from '@/components/date-picker';
 import { startOfDay, endOfDay, subDays, format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
-import { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
 
 export type TripBoardTab = 'pending-assignment' | 'open-order' | 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
@@ -235,7 +235,7 @@ function TripBoardContent() {
       .filter(t => normalizedSelected.includes(normalizePlantId(t.originPlantId)))
       .map(t => {
         const tPlantId = normalizePlantId(t.originPlantId);
-        const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : t.shipmentIds;
+        const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : (t.shipmentIds || t.shipmentId);
         const shipment = shipments.find(s => (s.id === shipId || s.shipmentId === shipId) && normalizePlantId(s.originPlantId) === tPlantId);
         const lr = lrs.find(l => (l.tripDocId === t.id || l.tripId === t.tripId || l.lrNumber === t.lrNumber) && normalizePlantId(l.originPlantId) === tPlantId);
         const entry = entries.find(e => (e.tripId === t.id || (e.vehicleNumber === t.vehicleNumber && e.status === 'OUT')) && normalizePlantId(e.plantId) === tPlantId);
@@ -899,15 +899,22 @@ function TripBoardContent() {
   const handleCancelConfirm = async () => {
     if (!firestore || !user || !cancelTripData) return;
     
-    // MISSION FIX: Guard against missing path nodes
-    const plantId = normalizePlantId(cancelTripData.originPlantId);
-    const shipmentId = Array.isArray(cancelTripData.shipmentIds) ? cancelTripData.shipmentIds[0] : cancelTripData.shipmentIds;
+    // MISSION FIX Node: Robust ID Resolution
+    let plantId = normalizePlantId(cancelTripData.originPlantId);
+    let shipIds = cancelTripData.shipmentIds || cancelTripData.shipmentId || [];
+    if (!Array.isArray(shipIds)) shipIds = [shipIds];
     
-    if (!plantId || !shipmentId) {
+    // Attempt recovery from parent node if missing
+    if (!plantId) {
+        const foundTrip = trips.find(t => t.id === cancelTripData.id);
+        plantId = normalizePlantId(foundTrip?.originPlantId || '');
+    }
+
+    if (!plantId) {
         toast({ 
             variant: 'destructive', 
             title: 'Revocation Blocked', 
-            description: 'Mission registry path is incomplete. Manual cleanup required.' 
+            description: 'Plant Node mapping is incomplete. Force purge may leave orphans.' 
         });
         setCancelTripData(null);
         return;
@@ -919,23 +926,28 @@ function TripBoardContent() {
             const tripId = cancelTripData.id;
             const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
             const globalTripRef = doc(firestore, 'trips', tripId);
-            const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipmentId);
-
-            const shipSnap = await transaction.get(shipmentRef);
-            if (!shipSnap.exists()) throw new Error("Linked shipment node not found in registry.");
             
-            const sData = shipSnap.data() as Shipment;
-            const assignedInTrip = Number(cancelTripData.assignedQtyInTrip) || 0;
-            
-            const newAssigned = Math.max(0, (sData.assignedQty || 0) - assignedInTrip);
-            const newBalance = sData.quantity - newAssigned;
+            // Loop through associated orders to restore balances
+            for (const shipId of shipIds) {
+                if (!shipId) continue;
+                const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipId);
+                const shipSnap = await transaction.get(shipmentRef);
+                
+                if (shipSnap.exists()) {
+                    const sData = shipSnap.data() as Shipment;
+                    const assignedInTrip = Number(cancelTripData.assignedQtyInTrip) || 0;
+                    
+                    const newAssigned = Math.max(0, (sData.assignedQty || 0) - assignedInTrip);
+                    const newBalance = sData.quantity - newAssigned;
 
-            transaction.update(shipmentRef, {
-                assignedQty: newAssigned,
-                balanceQty: newBalance,
-                currentStatusId: newAssigned > 0 ? 'Partly Vehicle Assigned' : 'pending',
-                lastUpdateDate: serverTimestamp()
-            });
+                    transaction.update(shipmentRef, {
+                        assignedQty: newAssigned,
+                        balanceQty: newBalance,
+                        currentStatusId: newAssigned > 0 ? 'Partly Vehicle Assigned' : 'pending',
+                        lastUpdateDate: serverTimestamp()
+                    });
+                }
+            }
 
             transaction.delete(tripRef);
             transaction.delete(globalTripRef);
