@@ -3,26 +3,21 @@ import * as admin from 'firebase-admin';
 
 /**
  * @fileOverview Standardized Firebase Admin SDK Node.
- * Uses the most reliable initialization pattern for Application Default Credentials (ADC).
- * Avoids rigid project ID binding to prevent metadata handshake failures.
+ * Re-engineered for high-reliability cloud handshake.
+ * Explicitly binds to the mission project ID to prevent token fetch failures.
  */
 
 function getAdminApp() {
   if (admin.apps.length > 0) return admin.apps[0];
 
   try {
-    // Attempt standard initialization (ADC)
-    return admin.initializeApp();
+    // Mission Handshake Node: Explicit Project ID binding for stable metadata lookup
+    return admin.initializeApp({
+      projectId: "studio-2134942499-abd6c"
+    });
   } catch (e) {
-    // Fallback attempt for specific environment nodes
-    try {
-        return admin.initializeApp({
-            projectId: "studio-2134942499-abd6c"
-        });
-    } catch (innerError) {
-        console.error("CRITICAL: Admin SDK Handshake Failure", innerError);
-        return null;
-    }
+    console.error("CRITICAL: Admin SDK Handshake Failure", e);
+    return null;
   }
 }
 

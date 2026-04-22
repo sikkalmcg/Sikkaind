@@ -8,7 +8,7 @@ import EditShipmentModal from '@/components/dashboard/shipment-plan/EditShipment
 import type { WithId, Shipment, Plant, SubUser } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, getDocs, where, limit, onSnapshot, writeBatch, orderBy } from "firebase/firestore";
+import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, getDocs, where, limit, onSnapshot, writeBatch, orderBy, deleteDoc } from "firebase/firestore";
 import { Loader2, WifiOff, Package, ListTree, Factory, ShieldCheck, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -24,7 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 /**
  * @fileOverview Order Plan Control (Master Hub).
  * UI REFINEMENT: Unified navigation tabs into the primary header for high-density ERP layout.
- * Terminology Sync: Renamed all Node references to Plant.
+ * Hardened: Robust path resolution for mission revocation and bulk purge nodes.
  */
 function ShipmentPlanContent() {
   const { toast } = useToast();
@@ -128,10 +128,6 @@ function ShipmentPlanContent() {
             });
             setIsLoadingShipments(false);
         }, async (error) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: colRef.path,
-                operation: 'list',
-            } satisfies SecurityRuleContext));
             setIsLoadingShipments(false);
         });
     });
@@ -169,15 +165,16 @@ function ShipmentPlanContent() {
     const shipment = allShipments.find(s => s.id === id);
     if (!shipment) return;
 
-    if (shipment.balanceQty <= 0) {
-        toast({ variant: 'destructive', title: 'Action Restricted', description: 'This order is fully assigned. Revocation blocked.' });
+    const plantId = normalizePlantId(shipment.originPlantId);
+    if (!plantId) {
+        toast({ variant: 'destructive', title: "Revocation Blocked", description: "Lifting Node origin not resolved." });
         return;
     }
     
     showLoader();
     try {
         await runTransaction(firestore, async (transaction) => {
-            const shipRef = doc(firestore, `plants/${shipment.originPlantId}/shipments`, id);
+            const shipRef = doc(firestore, `plants/${plantId}/shipments`, id);
             const ts = serverTimestamp();
             const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || 'System');
 
@@ -202,7 +199,7 @@ function ShipmentPlanContent() {
 
         toast({ title: 'Order Revoked', description: `Registry updated for ${shipment.shipmentId}.` });
     } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Commit Failed', description: 'Could not update registry.' });
+        toast({ variant: 'destructive', title: 'Commit Failed', description: e.message || 'Registry handshake error.' });
     } finally {
         hideLoader();
     }
@@ -219,6 +216,10 @@ function ShipmentPlanContent() {
         for (const id of ids) {
             const shipment = allShipments.find(s => s.id === id);
             if (!shipment) continue;
+            
+            const plantId = normalizePlantId(shipment.originPlantId);
+            if (!plantId) continue;
+
             const recycleRef = doc(collection(firestore, "recycle_bin"));
             batch.set(recycleRef, {
                 pageName: "Order Plan (Bulk)",
@@ -226,12 +227,13 @@ function ShipmentPlanContent() {
                 deletedAt: ts,
                 data: sanitizeRegistryNode({ ...shipment, id: shipment.id, type: 'Shipment' })
             });
-            batch.delete(doc(firestore, `plants/${shipment.originPlantId}/shipments`, id));
+            batch.delete(doc(firestore, `plants/${plantId}/shipments`, id));
         }
         await batch.commit();
         toast({ title: 'Bulk Purge Complete', description: `${ids.length} orders removed from registry.` });
     } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Purge Failed', description: 'Registry synchronization error.' });
+        console.error("Purge Error:", e);
+        toast({ variant: 'destructive', title: 'Purge Failed', description: e.message || 'Registry synchronization error.' });
     } finally {
         hideLoader();
     }
