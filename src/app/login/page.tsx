@@ -12,6 +12,7 @@ import { Eye, EyeOff, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 import placeholderData from '@/app/lib/placeholder-images.json';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import type { SubUser } from '@/types';
 
 /**
