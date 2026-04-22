@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
@@ -25,11 +24,12 @@ import {
     CircleDot,
     RefreshCcw,
     X,
-    XCircle
+    XCircle,
+    Wifi
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
-import { collection, query, where, getDocs, limit, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { format, isValid } from 'date-fns';
 import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -37,7 +37,7 @@ import { Badge } from '@/components/ui/badge';
 /**
  * @fileOverview Track Consignment Terminal.
  * Implementation of advanced mission progress animation.
- * Features: Multi-stage tracking, Rejection-Return logic, Date-Time display, and Red-Alert status nodes.
+ * Authorized Node: Publicly accessible tracking pulse.
  */
 
 function TrackConsignmentContent() {
@@ -50,10 +50,12 @@ function TrackConsignmentContent() {
     const [error, setError] = useState<string | null>(null);
     const [animIndex, setAnimIndex] = useState(-1);
     const [isReversed, setIsReversed] = useState(false);
+    const [dbReady, setDbReady] = useState(false);
 
     useEffect(() => {
+        if (firestore) setDbReady(true);
         refreshCaptcha();
-    }, []);
+    }, [firestore]);
 
     const refreshCaptcha = () => {
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -72,7 +74,7 @@ function TrackConsignmentContent() {
     ];
 
     const getTargetIndex = (status: string) => {
-        const s = status?.toLowerCase().replace(/[\s_-]+/g, '-') || '';
+        const s = status?.toLowerCase().replace(/[\s/_-]+/g, '-') || '';
         if (['delivered', 'closed'].includes(s)) return 4;
         if (['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'rejected'].includes(s)) return 3;
         if (['in-transit', 'out-for-delivery'].includes(s)) return 2;
@@ -85,7 +87,7 @@ function TrackConsignmentContent() {
         setIsReversed(false);
         let current = -1;
         
-        const STEP_DURATION = 1500;
+        const STEP_DURATION = 1200;
 
         const interval = setInterval(() => {
             current++;
@@ -96,11 +98,8 @@ function TrackConsignmentContent() {
                 
                 // MISSION REJECTION SEQUENCE node
                 if (rejected) {
-                    // First reach the "REJECTED" node visually (Index 4)
                     setTimeout(() => {
                         setAnimIndex(4);
-                        
-                        // Then initiate REVERSAL pulse after wait
                         setTimeout(() => {
                             setIsReversed(true);
                             let rev = 4;
@@ -112,7 +111,7 @@ function TrackConsignmentContent() {
                                     clearInterval(revInterval);
                                 }
                             }, 1000);
-                        }, 2000);
+                        }, 1500);
                     }, STEP_DURATION);
                 }
             }
@@ -120,10 +119,18 @@ function TrackConsignmentContent() {
     }, []);
 
     const handleTrack = async () => {
-        if (!tripIdInput.trim()) return setError("Registry Trip ID Required.");
+        if (!tripIdInput.trim()) {
+            setError("Registry Trip ID Required.");
+            return;
+        }
         if (captchaInput.toUpperCase() !== generatedCaptcha) {
             setError("Security Code Mismatch.");
             refreshCaptcha();
+            return;
+        }
+
+        if (!firestore) {
+            setError("Database Node Offline. Please wait.");
             return;
         }
 
@@ -132,22 +139,37 @@ function TrackConsignmentContent() {
         setResult(null);
 
         try {
-            const tripsRef = collection(firestore!, "trips");
-            const q = query(tripsRef, where("tripId", "==", tripIdInput.trim().toUpperCase()), limit(1));
+            const term = tripIdInput.trim().toUpperCase();
+            // Registry Handshake Node: Search Global Registry
+            const tripsRef = collection(firestore, "trips");
+            const q = query(tripsRef, where("tripId", "==", term), limit(1));
             const snap = await getDocs(q);
 
-            if (snap.empty) {
+            let tripDoc = !snap.empty ? snap.docs[0] : null;
+
+            // Fallback: Search by LR Number in global node
+            if (!tripDoc) {
+                const qLr = query(tripsRef, where("lrNumber", "==", term), limit(1));
+                const snapLr = await getDocs(qLr);
+                if (!snapLr.empty) tripDoc = snapLr.docs[0];
+            }
+
+            if (!tripDoc) {
                 setError("Mission Node not found in registry.");
                 refreshCaptcha();
             } else {
-                const tripData = { id: snap.docs[0].id, ...snap.docs[0].data() } as any;
+                const tripData = { id: tripDoc.id, ...tripDoc.data() } as any;
                 const plantId = normalizePlantId(tripData.originPlantId);
-                const shipId = tripData.shipmentIds?.[0];
+                const shipId = Array.isArray(tripData.shipmentIds) ? tripData.shipmentIds[0] : tripData.shipmentId;
                 
                 let shipmentData = null;
                 if (shipId) {
-                    const shipSnap = await getDoc(doc(firestore!, `plants/${plantId}/shipments`, shipId));
-                    if (shipSnap.exists()) shipmentData = shipSnap.data();
+                    try {
+                        const shipSnap = await getDoc(doc(firestore, `plants/${plantId}/shipments`, shipId));
+                        if (shipSnap.exists()) shipmentData = shipSnap.data();
+                    } catch (e) {
+                        console.warn("Shipment context inaccessible.");
+                    }
                 }
 
                 const status = (tripData.tripStatus || tripData.currentStatusId || 'assigned').toLowerCase();
@@ -158,14 +180,15 @@ function TrackConsignmentContent() {
                     shipment: shipmentData,
                     isRejected: isRejected,
                     qtyUom: `${tripData.assignedQtyInTrip || 0} MT`,
-                    route: `${(shipmentData?.loadingPoint || tripData.loadingPoint || 'Node').split(',')[0]} → ${(shipmentData?.unloadingPoint || tripData.unloadingPoint || 'Node').split(',')[0]}`
+                    route: `${(shipmentData?.loadingPoint || tripData.loadingPoint || 'Dispatch').split(',')[0]} → ${(shipmentData?.unloadingPoint || tripData.unloadingPoint || 'Destination').split(',')[0]}`
                 };
 
                 setResult(resObj);
                 runAnimation(getTargetIndex(status), isRejected);
             }
-        } catch (e) {
-            setError("Registry Link Failure.");
+        } catch (e: any) {
+            console.error("Tracking registry error:", e);
+            setError("Registry Link Failure: " + (e.message?.includes('permission') ? 'Authorized Access Only' : 'Sync Error'));
         } finally {
             setIsSearching(false);
         }
@@ -188,7 +211,7 @@ function TrackConsignmentContent() {
 
                 {!result ? (
                     <Card className="max-w-2xl mx-auto border-none shadow-3xl rounded-[3rem] overflow-hidden bg-white">
-                        <div className="p-12 space-y-10">
+                        <div className="p-10 md:p-14 space-y-10">
                             {error && (
                                 <motion.div 
                                     initial={{ x: -10, opacity: 0 }} 
@@ -198,10 +221,19 @@ function TrackConsignmentContent() {
                                     <AlertCircle size={16}/> {error}
                                 </motion.div>
                             )}
+
+                            <div className="flex items-center justify-center gap-3 py-2">
+                                <div className={cn("h-2 w-2 rounded-full transition-colors", dbReady ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-slate-200")}/>
+                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                    {dbReady ? "Registry Handshake Active" : "Establishing Cloud Pulse..."}
+                                </span>
+                            </div>
+
                             <div className="space-y-8">
                                 <div className="space-y-3">
-                                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Registry Trip ID Node *</Label>
+                                    <Label htmlFor="trip-id" className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Registry Trip ID Node *</Label>
                                     <Input 
+                                        id="trip-id"
                                         placeholder="e.g. T1000456" 
                                         value={tripIdInput} 
                                         onChange={e => setTripIdInput(e.target.value)} 
@@ -212,7 +244,7 @@ function TrackConsignmentContent() {
                                 <div className="space-y-3">
                                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Security Code *</Label>
                                     <div className="flex gap-4">
-                                        <div className="flex-1 h-16 bg-slate-900 rounded-2xl flex items-center justify-center font-black tracking-[0.6em] text-white text-2xl italic shadow-inner">
+                                        <div className="flex-1 h-16 bg-slate-900 rounded-2xl flex items-center justify-center font-black tracking-[0.6em] text-white text-2xl italic shadow-inner select-none">
                                             {generatedCaptcha}
                                         </div>
                                         <Input 
@@ -232,7 +264,7 @@ function TrackConsignmentContent() {
                                 </div>
                                 <Button 
                                     onClick={handleTrack} 
-                                    disabled={isSearching} 
+                                    disabled={isSearching || !dbReady} 
                                     className="w-full h-16 rounded-2xl bg-blue-900 text-white font-black uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 border-none"
                                 >
                                     {isSearching ? <Loader2 className="animate-spin mr-3" /> : <Search className="mr-3" />} RESOLVE MISSION
@@ -259,7 +291,7 @@ function TrackConsignmentContent() {
                                     { label: 'Ship To', value: result.shipToParty },
                                     { label: 'Route Registry', value: result.route, color: 'text-blue-400' },
                                     { label: 'Vehicle No', value: result.vehicleNumber, bold: true },
-                                    { label: 'Material', value: result.material, truncate: true },
+                                    { label: 'Material', value: result.material || 'CARGO', truncate: true },
                                     { label: 'Qty Node', value: result.qtyUom, color: 'text-emerald-400', bold: true },
                                     { label: 'LR Number', value: result.lrNumber || '--', bold: true },
                                 ].map((item, i) => (
@@ -277,7 +309,7 @@ function TrackConsignmentContent() {
                         </Card>
 
                         {/* ADVANCED ANIMATION NODE */}
-                        <div className="relative p-12 md:p-20 bg-white overflow-hidden min-h-[500px] flex flex-col justify-center">
+                        <div className="relative p-12 md:p-20 bg-white border border-slate-100 rounded-[4rem] shadow-2xl overflow-hidden min-h-[500px] flex flex-col justify-center">
                             {/* PROGRESS LINE BACKGROUND */}
                             <div className="absolute top-1/2 left-24 right-24 h-2 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden shadow-inner">
                                 <motion.div 
@@ -297,21 +329,20 @@ function TrackConsignmentContent() {
                                     const isTarget = i === animIndex;
                                     const isFinal = i === 4;
                                     
-                                    // Visual Handshake logic
                                     const activeColor = (result.isRejected && isReversed) ? "bg-red-600 border-red-400" : "bg-blue-600 border-blue-400";
                                     const label = (isFinal && result.isRejected) ? 'MISSION REJECTED' : stage.label;
                                     const timestampNode = result.lastUpdated || result.startDate || Date.now();
                                     const timestamp = timestampNode instanceof Timestamp ? timestampNode.toDate() : new Date(timestampNode);
 
                                     return (
-                                        <div key={i} className="flex flex-col items-center gap-6 relative z-10 w-48">
+                                        <div key={i} className="flex flex-col items-center gap-6 md:gap-10 relative z-10 w-48">
                                             <motion.div 
                                                 animate={active ? { 
                                                     scale: isTarget ? [1, 1.2, 1.1] : 1,
                                                     boxShadow: isTarget ? "0 20px 40px rgba(0,0,0,0.15)" : "none"
                                                 } : {}}
                                                 className={cn(
-                                                    "h-20 w-20 md:h-24 md:w-24 rounded-[2.5rem] flex items-center justify-center transition-all duration-700 border-4",
+                                                    "h-16 w-16 md:h-24 md:w-24 rounded-[2rem] md:rounded-[2.5rem] flex items-center justify-center transition-all duration-700 border-4",
                                                     active ? `${activeColor} text-white` : "bg-white border-slate-100 text-slate-200"
                                                 )}
                                             >
@@ -323,23 +354,23 @@ function TrackConsignmentContent() {
                                                         }} 
                                                         transition={{ repeat: Infinity, duration: 0.6 }}
                                                     >
-                                                        {(isFinal && result.isRejected) ? <XCircle size={40} /> : (i === 2 ? <Truck size={40} /> : <stage.icon size={40} />)}
+                                                        {(isFinal && result.isRejected) ? <XCircle size={32} /> : (i === 2 ? <Truck size={32} /> : <stage.icon size={32} />)}
                                                     </motion.div>
                                                 ) : (
-                                                    (isFinal && result.isRejected) ? <XCircle size={32} className="opacity-20" /> : <stage.icon size={32} className={cn(isReversed && i < animIndex && "scale-x-[-1] opacity-50")} />
+                                                    (isFinal && result.isRejected) ? <XCircle size={28} className="opacity-20" /> : <stage.icon size={28} className={cn(isReversed && i < animIndex && "scale-x-[-1] opacity-50")} />
                                                 )}
                                             </motion.div>
                                             <div className="text-center space-y-2">
                                                 <p className={cn(
-                                                    "text-[10px] font-black uppercase tracking-widest transition-colors duration-500", 
+                                                    "text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-colors duration-500", 
                                                     active ? ((result.isRejected && isReversed) ? "text-red-700" : "text-blue-900") : "text-slate-200"
                                                 )}>{label}</p>
                                                 {active && (
-                                                    <div className="flex flex-col items-center gap-1.5 mt-2 animate-in fade-in duration-700">
-                                                        <p className="text-[10px] font-black font-mono text-red-600 leading-none tracking-tighter">
-                                                            {format(timestamp, 'dd MMM yyyy')}
+                                                    <div className="flex flex-col items-center gap-1 mt-1 animate-in fade-in duration-700">
+                                                        <p className="text-[9px] font-black font-mono text-blue-600 leading-none tracking-tighter">
+                                                            {format(timestamp, 'dd MMM yy')}
                                                         </p>
-                                                        <p className="text-[10px] font-black font-mono text-red-600 leading-none">
+                                                        <p className="text-[9px] font-black font-mono text-slate-400 leading-none">
                                                             {format(timestamp, 'HH:mm')}
                                                         </p>
                                                     </div>
