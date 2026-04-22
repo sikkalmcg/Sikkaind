@@ -85,6 +85,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const vehicleNumber = lr.vehicleNumber || lr.trip?.vehicleNumber || '--';
   const driverMobile = lr.driverMobile || lr.trip?.driverMobile || '--';
   const paymentTerm = lr.paymentTerm || lr.trip?.paymentTerm || 'PAID';
+  const tripIdDisplay = lr.tripId || lr.trip?.tripId || '--';
 
   // CARRIER PROFILE HANDSHAKE node: Resolve from provided carrier object
   const carrier = lr.carrier || {};
@@ -140,8 +141,10 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      <div className="grid grid-cols-3 border-2 border-black rounded-xl overflow-hidden mb-6 bg-white divide-x-2 divide-black shadow-sm shrink-0">
+      {/* CORE MISSION PARTICULARS: Updated to 4 columns */}
+      <div className="grid grid-cols-4 border-2 border-black rounded-xl overflow-hidden mb-6 bg-white divide-x-2 divide-black shadow-sm shrink-0">
         {[
+          { label: 'TRIP ID NODE', value: tripIdDisplay, mono: true, bold: true, color: 'text-blue-900' },
           { label: 'VEHICLE REGISTRY', value: vehicleNumber, bold: true },
           { label: 'PILOT CONTACT', value: driverMobile, mono: true },
           { label: 'PAYMENT TERM', value: paymentTerm, bold: true },
