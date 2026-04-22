@@ -221,7 +221,7 @@ function TripBoardContent() {
           ...d.data(),
           date: parseSafeDate(d.data().date)
         } as any));
-        setLrs(prev => [...prev.filter(l => normalizePlantId(l.originPlantId) !== plantId), ...list]);
+        setLrs(prev => [...prev.filter(l => l.originPlantId !== plantId), ...list]);
       }));
     });
 
@@ -237,7 +237,7 @@ function TripBoardContent() {
         const tPlantId = normalizePlantId(t.originPlantId);
         const shipId = Array.isArray(t.shipmentIds) ? t.shipmentIds[0] : (t.shipmentIds || t.shipmentId);
         const shipment = shipments.find(s => (s.id === shipId || s.shipmentId === shipId) && normalizePlantId(s.originPlantId) === tPlantId);
-        const lr = lrs.find(l => (l.tripDocId === t.id || l.tripId === t.tripId || l.lrNumber === t.lrNumber) && normalizePlantId(l.originPlantId) === tPlantId);
+        const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId || (l.lrNumber === t.lrNumber && l.originPlantId === t.originPlantId));
         const entry = entries.find(e => (e.tripId === t.id || (e.vehicleNumber === t.vehicleNumber && e.status === 'OUT')) && normalizePlantId(e.plantId) === tPlantId);
         
         const carrier = (dbCarriers || []).find(c => c.id === t.carrierId || c.id === shipment?.carrierId);
@@ -245,12 +245,17 @@ function TripBoardContent() {
 
         const items = lr?.items || t.items || shipment?.items || [];
         const invoiceNumbers = Array.from(new Set(items.map((i: any) => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo).filter(Boolean))).join(', ');
-        const summarizedItems = Array.from(new Set(items.map((i: any) => i.itemDescription || i.description).filter(Boolean))).join(', ') || shipment?.itemDescription || shipment?.material || '--';
+        
+        const uniqueDescs = Array.from(new Set(items.map((i: any) => (i.itemDescription || i.description || '').toUpperCase().trim()).filter(Boolean)));
+        const summarizedItems = uniqueDescs.length > 2 
+            ? "VARIOUS ITEMS AS PER INVOICE" 
+            : (uniqueDescs.join(', ') || shipment?.itemDescription || shipment?.material || '--');
 
         const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
         const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
 
-        const s = (t.tripStatus || t.currentStatusId || 'assigned').toLowerCase().trim().replace(/[\s_-]+/g, '-');
+        // Registry Fix: Handle slashes and whitespace in status strings to prevent categorization overlap
+        const s = (t.tripStatus || t.currentStatusId || 'assigned').toLowerCase().trim().replace(/[\s/_-]+/g, '-');
 
         return {
             ...t,
@@ -348,7 +353,7 @@ function TripBoardContent() {
       const s = t.normalizedStatus;
       switch (activeTab) {
         case 'open-order': return s === 'assigned' || s === 'vehicle-assigned';
-        case 'loading': return s === 'yard' || s === 'yard/loading' || s === 'loading' || s === 'loaded' || s === 'loading-complete';
+        case 'loading': return s === 'yard' || s === 'yard-loading' || s === 'loading' || s === 'loaded' || s === 'loading-complete';
         case 'transit': return s === 'in-transit';
         case 'arrived': return s === 'arrived' || s === 'arrival-for-delivery' || s === 'arrive-for-deliver';
         case 'pod-status': return s === 'delivered';
@@ -378,7 +383,7 @@ function TripBoardContent() {
     joinedData.forEach(t => {
         const s = t.normalizedStatus;
         if (s === 'assigned' || s === 'vehicle-assigned') res.openOrder++;
-        else if (s === 'yard' || s === 'yard/loading' || s === 'loading' || s === 'loaded' || s === 'loading-complete') res.loading++;
+        else if (s === 'yard' || s === 'yard-loading' || s === 'loading' || s === 'loaded' || s === 'loading-complete') res.loading++;
         else if (s === 'in-transit') res.transit++;
         else if (s === 'arrived' || s === 'arrival-for-delivery' || s === 'arrive-for-deliver') res.arrived++;
         else if (s === 'delivered') res.pod++;
@@ -636,7 +641,7 @@ function TripBoardContent() {
                 entryTimestamp: ts,
                 purpose: "Loading"
             });
-            const update = { tripStatus: 'Yard/Loading', currentStatusId: 'yard/loading', entryTime: ts, lastUpdated: ts };
+            const update = { tripStatus: 'Yard/Loading', currentStatusId: 'yard-loading', entryTime: ts, lastUpdated: ts };
             await updateDoc(doc(firestore, `plants/${plantId}/trips`, row.id), update);
             await setDoc(doc(firestore, 'trips', row.id), update, { merge: true });
             toast({ title: 'Vehicle In Logged' });

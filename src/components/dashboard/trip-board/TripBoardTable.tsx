@@ -77,7 +77,7 @@ const getStatusColor = (status: string) => {
         case 'pending': return 'bg-yellow-500/10 text-yellow-700 border-yellow-200';
         case 'partly-vehicle-assigned': return 'bg-orange-500/10 text-orange-700 border-orange-200';
         case 'assigned': 
-        case 'vehicle-assigned': return 'bg-blue-500/10 text-blue-700 border-blue-200';
+        case 'vehicle-assigned': return 'bg-blue-50/10 text-blue-700 border-blue-200';
         case 'yard':
         case 'loading':
         case 'yard-loading':
@@ -255,7 +255,7 @@ function MissionRegistryCard({
                 )}
                 
                 <div className={cn("space-y-1", (isPending && !isReadOnly) ? "col-span-1" : "col-span-1")}>
-                    <p className="text-[10px] font-black text-blue-700 uppercase tracking-tighter">
+                    <p className="text-xs font-black text-blue-700 uppercase tracking-tighter">
                         {isPending ? `SO: ${row.shipmentId || 'N/A'}` : `#${row.tripId || 'N/A'}`}
                     </p>
                     <p className="text-[9px] font-bold text-slate-400 uppercase">{formattedDate}</p>
@@ -373,7 +373,7 @@ function MissionRegistryCard({
                     </div>
                     
                     <div className="flex flex-col min-w-[150px]">
-                        <span className="text-[7px] font-black uppercase text-slate-900 tracking-widest leading-none mb-1">Item Description</span>
+                        <span className="text-[7px] font-black uppercase text-blue-600 tracking-widest leading-none mb-1">Item Description</span>
                         <span className="text-slate-900 font-bold uppercase truncate max-w-[300px]" title={resolvedItemsDescription}>{resolvedItemsDescription}</span>
                     </div>
                 </div>
