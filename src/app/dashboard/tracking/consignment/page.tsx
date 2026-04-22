@@ -25,7 +25,9 @@ import {
     ClipboardList,
     CheckCircle2,
     Box,
-    ArrowLeft
+    ArrowLeft,
+    FileText,
+    Weight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
@@ -272,16 +274,15 @@ function TrackConsignmentContent() {
 
                 {consignment && (
                     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-700 pb-20">
-                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-6 p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-6 p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
                             {[
-                                { label: 'Plant Node', value: consignment.plantName, icon: Factory },
-                                { label: 'Vehicle', value: consignment.vehicleNumber, bold: true },
-                                { label: 'Trip ID', value: consignment.tripId, mono: true, color: 'text-blue-400' },
-                                { label: 'LR Number', value: consignment.lrNumber || '--', bold: true },
-                                { label: 'FROM (City)', value: consignment.fromCity, color: 'text-blue-200' },
-                                { label: 'TO (City)', value: consignment.toCity, color: 'text-emerald-400' },
-                                { label: 'Ship To', value: consignment.shipToParty || '--', truncate: true },
-                                { label: 'Weight', value: `${consignment.assignedQtyInTrip} MT`, color: 'text-emerald-400', bold: true },
+                                { label: 'Vehicle', value: consignment.vehicleNumber, bold: true, icon: Truck },
+                                { label: 'Pilot Mobile', value: consignment.driverMobile || '--', mono: true, color: 'text-blue-200', icon: Smartphone },
+                                { label: 'Trip ID', value: consignment.tripId, mono: true, color: 'text-blue-400', icon: FileText },
+                                { label: 'LR Number', value: consignment.lrNumber || '--', bold: true, icon: FileText },
+                                { label: 'Mission Route', value: `${consignment.fromCity} → ${consignment.toCity}`, color: 'text-emerald-400', bold: true, icon: MapPin },
+                                { label: 'Ship To', value: consignment.shipToParty || '--', truncate: true, icon: User },
+                                { label: 'Weight', value: `${consignment.assignedQtyInTrip} MT`, color: 'text-emerald-400', bold: true, icon: Weight },
                             ].map((item, i) => (
                                 <div key={i} className="space-y-1 relative z-10">
                                     <p className="text-[8px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-1.5">
@@ -396,7 +397,7 @@ function TrackConsignmentContent() {
                                             </div>
                                             <div className="flex-1">
                                                 <h4 className="font-black uppercase text-slate-900">{isGpsEnabled ? 'Satellite Link Active' : 'GPS Signal Offline'}</h4>
-                                                <p className="text-[9px] font-bold text-slate-400 uppercase leading-tight">{isGpsEnabled ? 'Live telemetry signal active.' : 'Vehicle signal inactive.'}</p>
+                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-1">{isGpsEnabled ? 'Live telemetry signal active.' : 'Vehicle signal inactive.'}</p>
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

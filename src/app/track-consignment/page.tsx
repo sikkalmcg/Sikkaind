@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
@@ -25,7 +26,10 @@ import {
     RefreshCcw,
     X,
     XCircle,
-    Wifi
+    Wifi,
+    Smartphone,
+    FileText,
+    Weight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
@@ -284,19 +288,20 @@ function TrackConsignmentContent() {
                         
                         <Card className="border-none shadow-3xl rounded-[3.5rem] bg-slate-900 text-white p-10 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 transition-transform duration-1000 group-hover:scale-110"><Box size={240} /></div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-8 relative z-10">
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-8 relative z-10">
                                 {[
-                                    { label: 'Consignor', value: result.consignor },
-                                    { label: 'Consignee', value: result.billToParty },
-                                    { label: 'Ship To', value: result.shipToParty },
-                                    { label: 'Route Registry', value: result.route, color: 'text-blue-400' },
-                                    { label: 'Vehicle No', value: result.vehicleNumber, bold: true },
-                                    { label: 'Material', value: result.material || 'CARGO', truncate: true },
-                                    { label: 'Qty Node', value: result.qtyUom, color: 'text-emerald-400', bold: true },
-                                    { label: 'LR Number', value: result.lrNumber || '--', bold: true },
+                                    { label: 'Vehicle', value: result.vehicleNumber, bold: true, icon: Truck },
+                                    { label: 'Pilot Mobile', value: result.driverMobile || '--', mono: true, color: 'text-blue-200', icon: Smartphone },
+                                    { label: 'Trip ID', value: result.tripId, mono: true, color: 'text-blue-400', icon: FileText },
+                                    { label: 'LR Number', value: result.lrNumber || '--', bold: true, icon: FileText },
+                                    { label: 'Mission Route', value: result.route, color: 'text-emerald-400', bold: true, icon: MapPin },
+                                    { label: 'Ship To', value: result.shipToParty || '--', truncate: true, icon: User },
+                                    { label: 'Weight', value: result.qtyUom, color: 'text-emerald-400', bold: true, icon: Weight },
                                 ].map((item, i) => (
                                     <div key={i} className="space-y-1">
-                                        <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest leading-none">{item.label}</span>
+                                        <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest leading-none flex items-center gap-1.5">
+                                            {item.icon && <item.icon size={10} />} {item.label}
+                                        </span>
                                         <p className={cn(
                                             "text-[11px] font-bold uppercase leading-tight", 
                                             item.bold && "font-black text-xs", 
