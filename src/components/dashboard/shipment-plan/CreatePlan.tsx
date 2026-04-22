@@ -304,7 +304,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         const match = consigneeRegistry.find(p => p.name === billToParty);
         if (match) {
             setValue('shipToGtin', match.gstin || '', { shouldValidate: true });
-            const city = match.city && match.city !== 'N/A' ? match.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
+            const city = match.city && match.city !== 'N/A' ? match.city : (match.address && match.address !== 'N/A' ? party.address : 'N/A');
             if (city) setValue('unloadingPoint', city, { shouldValidate: true });
             if (match.address) setValue('deliveryAddress', match.address, { shouldValidate: true });
         }
