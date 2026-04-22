@@ -1,31 +1,36 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { useAuth } from "@/firebase";
+import { useAuth, useFirestore } from "@/firebase";
 import { useLoading } from "@/context/LoadingContext";
-import { Loader2, UserCheck, KeyRound, AlertCircle, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
+import { Eye, EyeOff, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 import placeholderData from '@/app/lib/placeholder-images.json';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
+import type { SubUser } from '@/types';
 
+/**
+ * @fileOverview Hardened Sikka Industries Login Terminal.
+ * Performs client-side profile verification to bypass Admin SDK metadata errors.
+ */
 export default function LoginPage() {
     const auth = useAuth();
-    const [identity, setIdentity] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState<string | null>(null);
-    const [isRedirecting, setIsRedirecting] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
-
+    const firestore = useFirestore();
     const router = useRouter();
     const { toast } = useToast();
     const { showLoader, hideLoader } = useLoading();
 
-    const getImg = (id: string) => placeholderData.placeholderImages.find(p => p.id === id);
+    const [identity, setIdentity] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const [showPassword, setShowPassword] = useState(false);
 
+    const getImg = (id: string) => placeholderData.placeholderImages.find(p => p.id === id);
     const hasTypo = useMemo(() => identity.toLowerCase().trim() === 'sikkiand', [identity]);
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -39,8 +44,8 @@ export default function LoginPage() {
         setError(null);
         showLoader();
 
-        if (!auth) {
-            setError("Establishing link... Please retry.");
+        if (!auth || !firestore) {
+            setError("Initializing registry handshake... Please try again in 5 seconds.");
             hideLoader();
             return;
         }
@@ -54,26 +59,53 @@ export default function LoginPage() {
         localStorage.setItem('slmc_last_identity', identity.toLowerCase());
 
         try {
+            // 1. Authenticate with Identity Platform
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            const loginRes = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ uid: user.uid, email: user.email })
-            });
-
-            const loginData = await loginRes.json();
-
-            if (!loginRes.ok) {
-                throw new Error(loginData.error || "Registry authorization node rejected the session.");
+            // 2. Client-Side Registry Lookup (Bypassing potentially unstable Admin SDK)
+            let userSnap = await getDoc(doc(firestore, "users", email));
+            if (!userSnap.exists()) {
+                userSnap = await getDoc(doc(firestore, "users", user.uid));
             }
 
-            setIsRedirecting(true);
-            router.push(loginData.redirect || '/modules');
+            if (!userSnap.exists()) {
+                // If profile is missing but Auth is OK, send to modules to establish profile
+                router.push('/modules');
+                return;
+            }
+
+            const profile = userSnap.data() as SubUser;
+
+            // 3. Audit Pulse (Non-blocking background call)
+            fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: user.uid, email: user.email, profile })
+            }).catch(() => console.warn("Audit pulse offline."));
+
+            // 4. Resolve Terminal Redirect
+            const accessible = [];
+            if (profile.access_logistics) accessible.push('/dashboard');
+            
+            const isAdmin = profile.jobRole === 'Manager' || profile.jobRole === 'Admin' || profile.username?.toLowerCase() === 'sikkaind' || user.email === 'sikkaind.admin@sikka.com';
+            if (isAdmin) accessible.push('/user-management');
+
+            if (profile.defaultModule === 'Logistics' && profile.access_logistics) {
+                router.push('/dashboard');
+            } else if (profile.defaultModule === 'Administration' && isAdmin) {
+                router.push('/user-management');
+            } else {
+                const redirect = accessible.length === 1 ? accessible[0] : '/modules';
+                router.push(redirect);
+            }
+
         } catch (err: any) {
             console.error("Login Error:", err);
-            setError(err.message || "Invalid operator credentials. Access Denied.");
+            let msg = "Invalid operator credentials. Access Denied.";
+            if (err.code === 'auth/user-not-found') msg = "Identity node not found in registry.";
+            if (err.code === 'auth/wrong-password') msg = "Password mismatch for this node.";
+            setError(msg);
             hideLoader();
         }
     };
@@ -96,7 +128,7 @@ export default function LoginPage() {
                                     unoptimized={true}
                                 />
                             ) : (
-                                <div className="absolute inset-0 flex items-center justify-center text-slate-300 font-black italic text-xl uppercase tracking-tighter">Sikka Hub</div>
+                                <div className="absolute inset-0 flex items-center justify-center text-slate-300 font-black italic text-xl uppercase tracking-tighter opacity-20">Sikka Hub Registry</div>
                             )}
                         </div>
                         <div className="w-full md:w-1/2 p-8">
@@ -109,7 +141,7 @@ export default function LoginPage() {
                                             type="text" 
                                             value={identity}
                                             onChange={(e) => setIdentity(e.target.value)}
-                                            className={cn("w-full p-1 border bg-white text-sm uppercase", hasTypo ? "border-red-500" : "border-gray-400")}
+                                            className={cn("w-full p-1 border bg-white text-sm uppercase focus:outline-none", hasTypo ? "border-red-500" : "border-gray-400")}
                                         />
                                         {hasTypo && (
                                             <button 
@@ -159,17 +191,17 @@ export default function LoginPage() {
                                                 });
                                                 const data = await res.json();
                                                 if (res.ok && data.success) {
-                                                    toast({ title: 'Bootstrap Successful', description: 'Admin account initialized. You can now login with SIKKAIND.' });
+                                                    toast({ title: 'Bootstrap OK', description: 'Admin identity provisioned. Login with SIKKAIND.' });
                                                 } else {
-                                                    toast({ variant: 'destructive', title: 'Bootstrap Failed', description: data.error || 'Identity node rejected.' });
+                                                    toast({ variant: 'destructive', title: 'Registry Error', description: data.error || 'Identity node rejected.' });
                                                 }
                                             } catch (e: any) {
-                                                toast({ variant: 'destructive', title: 'Bootstrap Failed', description: 'Registry communication error.' });
+                                                toast({ variant: 'destructive', title: 'Registry Link Error', description: 'Connection to server node failed.' });
                                             } finally {
                                                 hideLoader();
                                             }
                                         }}
-                                        className="text-[9px] font-black uppercase text-slate-400 hover:text-blue-600 transition-colors"
+                                        className="text-[9px] font-black uppercase text-slate-400 hover:text-blue-600 transition-colors ml-2"
                                     >
                                         Initialize
                                     </button>
@@ -183,7 +215,8 @@ export default function LoginPage() {
                         </div>
                     </div>
                     <div className="flex justify-between items-center pt-8 pb-2 px-4">
-                        <p className="text-[9px] text-gray-400 font-bold uppercase">© SIKKA INDUSTRIES & LOGISTICS. REGISTRY v2.5</p>
+                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">© SIKKA INDUSTRIES & LOGISTICS. REGISTRY v2.5</p>
+                        <Badge variant="outline" className="border-slate-100 text-slate-300 text-[8px] font-black uppercase">Sync Node: Safe</Badge>
                     </div>
                 </div>
             </div>

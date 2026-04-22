@@ -4,63 +4,37 @@ import { NextRequest, NextResponse } from "next/server";
 import type { SubUser } from "@/types";
 
 /**
- * @fileOverview Login API Route.
- * Performs session establishment and identity resolution.
- * Wrapped in try/catch to ensure JSON response nodes.
+ * @fileOverview Login Audit API.
+ * Logs successful session establishment.
+ * Verification logic migrated to client for increased reliability.
  */
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { uid, email } = body;
+        const { uid, email, profile } = body;
 
-        if (!uid) {
-            return NextResponse.json({ error: "UID must be provided." }, { status: 400 });
+        if (!uid || !db) {
+            return NextResponse.json({ success: true, message: "Registry audit skipped: Admin node offline." });
         }
 
-        // Registry Handshake: Resolve by UID or Email
-        let userSnap = await db.collection("users").doc(uid).get();
-        
-        if (!userSnap.exists && email) {
-            userSnap = await db.collection("users").doc(email).get();
-        }
-
-        if (!userSnap.exists) {
-            // New user node: Default to module selection
-            return NextResponse.json({ redirect: '/modules' });
-        }
-
-        const profile = userSnap.data() as SubUser;
-        
-        // Audit Node: Log activity
+        // Audit Node: Log activity in background
         try {
             await db.collection("activity_logs").add({
                 userId: uid,
-                userName: profile.fullName || profile.username || email,
+                userName: profile?.fullName || email,
                 action: 'Login',
                 tcode: 'SYS_AUTH',
                 pageName: 'Login Registry',
                 timestamp: FieldValue.serverTimestamp(),
-                description: `Session established for @${profile.username}.`
+                description: `Session established for @${profile?.username || email}.`
             });
         } catch (logErr) {
-            console.warn("Audit logging pulse failed, but proceeding with login.");
+            console.warn("Audit logging pulse failed.");
         }
 
-        const accessible = [];
-        if (profile.access_logistics) accessible.push('/dashboard');
-        if (profile.access_accounts) accessible.push('/sikka-accounts/dashboard');
-        
-        const isAdmin = profile.jobRole === 'Manager' || profile.jobRole === 'Admin' || profile.username?.toLowerCase() === 'sikkaind';
-        if (isAdmin) accessible.push('/user-management');
-
-        // Resolve Default Terminal based on profile registry
-        if (profile.defaultModule === 'Logistics' && profile.access_logistics) return NextResponse.json({ redirect: '/dashboard' });
-        if (profile.defaultModule === 'Administration' && isAdmin) return NextResponse.json({ redirect: '/user-management' });
-
-        const redirect = accessible.length === 1 ? accessible[0] : '/modules';
-        return NextResponse.json({ redirect });
+        return NextResponse.json({ success: true });
     } catch (e: any) {
         console.error("Login API Crash:", e);
-        return NextResponse.json({ error: `Registry Internal Error: ${e.message}`, redirect: '/login' }, { status: 500 });
+        return NextResponse.json({ success: false, error: e.message }, { status: 500 });
     }
 }

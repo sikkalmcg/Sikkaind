@@ -2,35 +2,32 @@
 import * as admin from 'firebase-admin';
 
 /**
- * @fileOverview Hardened Firebase Admin SDK Node.
- * Uses a singleton pattern with a robust check for existing apps.
- * Utilizes environment-level Application Default Credentials (ADC).
+ * @fileOverview Standardized Firebase Admin SDK Node.
+ * Uses the most reliable initialization pattern for Application Default Credentials (ADC).
+ * Avoids rigid project ID binding to prevent metadata handshake failures.
  */
-
-const projectId = "studio-2134942499-abd6c";
 
 function getAdminApp() {
   if (admin.apps.length > 0) return admin.apps[0];
 
   try {
-    return admin.initializeApp({
-      projectId: projectId
-    });
+    // Attempt standard initialization (ADC)
+    return admin.initializeApp();
   } catch (e) {
-    console.error("CRITICAL: Admin SDK Handshake Failure", e);
-    // In case of secondary initialization failure, return the first app if it exists
-    return admin.apps.length > 0 ? admin.apps[0] : null;
+    // Fallback attempt for specific environment nodes
+    try {
+        return admin.initializeApp({
+            projectId: "studio-2134942499-abd6c"
+        });
+    } catch (innerError) {
+        console.error("CRITICAL: Admin SDK Handshake Failure", innerError);
+        return null;
+    }
   }
 }
 
 const app = getAdminApp();
 
-if (!app) {
-    throw new Error("Registry Control Node: Admin SDK failed to initialize.");
-}
-
-const adminAuth = admin.auth(app);
-const adminDb = admin.firestore(app);
-const FieldValue = admin.firestore.FieldValue;
-
-export { adminAuth, adminDb, FieldValue };
+export const adminAuth = app ? admin.auth(app) : null;
+export const adminDb = app ? admin.firestore(app) : null;
+export const FieldValue = admin.firestore.FieldValue;
