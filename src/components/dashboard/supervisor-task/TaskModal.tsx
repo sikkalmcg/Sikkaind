@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm, useFieldArray, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -65,7 +64,6 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
   const { user } = useUser();
   const { showLoader, hideLoader } = useLoading();
   
-  // Track last initialized task to prevent infinite loops but allow updates
   const [lastInitedKey, setLastInitedKey] = useState<string>('');
 
   const form = useForm<FormValues>({
@@ -77,18 +75,16 @@ export default function TaskModal({ isOpen, onClose, task, onSuccess }: { isOpen
     }
   });
 
-  const { control, handleSubmit, reset, setValue, formState: { isSubmitting, isValid, isDirty } } = form;
+  const { control, handleSubmit, reset, setValue, formState: { isSubmitting, isValid } } = form;
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
   const watchedItems = useWatch({ control, name: "items" }) || [];
 
-  // HIGH-FIDELITY REGISTRY HANDSHAKE Node
   useEffect(() => {
     if (!isOpen || !task) {
         setLastInitedKey('');
         return;
     }
 
-    // Create a unique key for this specific manifest state
     const manifestItems = task.shipmentItems || [];
     const currentKey = `${task.id}_${manifestItems.length}_${task.isHistoryEdit ? 'edit' : 'verify'}`;
 

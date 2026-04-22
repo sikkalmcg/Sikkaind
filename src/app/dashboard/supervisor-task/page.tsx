@@ -1,14 +1,13 @@
-
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, onSnapshot, doc, getDoc, getDocs, Timestamp, orderBy, limit, deleteDoc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore";
-import { Loader2, WifiOff, ClipboardList, ShieldCheck, Factory, User, Search, RefreshCcw, Trash2, AlertTriangle, ClipboardCheck, Weight, MapPin, Truck, AlertCircle, Smartphone, ListTree, History } from "lucide-react";
+import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
+import { collection, query, where, onSnapshot, doc, getDocs, orderBy, limit, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { Loader2, WifiOff, ClipboardCheck, Factory, Search, Trash2, Weight, MapPin, Truck, History, Smartphone } from "lucide-react";
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,28 +17,15 @@ import TaskModal from '@/components/dashboard/supervisor-task/TaskModal';
 import TaskHistoryTable from '@/components/dashboard/supervisor-task/TaskHistoryTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 
 const LIVE_TASKS_PER_PAGE = 10;
 
-export default function SupervisorTaskPage() {
+/**
+ * @fileOverview Supervisor Task Hub.
+ * Optimized for high-density manifest verification and audit trails.
+ */
+function SupervisorTaskContent() {
     const { toast } = useToast();
     const firestore = useFirestore();
     const { user } = useUser();
@@ -64,7 +50,6 @@ export default function SupervisorTaskPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [dbError, setDbError] = useState(false);
 
-    // Registry Handshake: Fetch all plants for identity resolution
     const plantsQuery = useMemoFirebase(() => 
         firestore ? query(collection(firestore, "logistics_plants"), orderBy("createdAt", "desc")) : null, 
         [firestore]
@@ -118,14 +103,12 @@ export default function SupervisorTaskPage() {
 
         const normalizedAuthIds = authorizedPlantIds.map(id => id.toLowerCase());
 
-        // Sync Gate Entries Node (Global source)
         unsubscribers.push(onSnapshot(collection(firestore, "vehicleEntries"), (snap) => {
             const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
             setVehicleEntries(list.filter(e => isAdmin || normalizedAuthIds.includes(normalizePlantId(e.plantId).toLowerCase())));
             setIsLoading(false);
         }, () => setDbError(true)));
 
-        // Sync Regional Partitions
         authorizedPlantIds.forEach(pId => {
             const pIdNorm = normalizePlantId(pId).toLowerCase();
 
@@ -167,31 +150,26 @@ export default function SupervisorTaskPage() {
         return () => unsubscribers.forEach(u => u());
     }, [firestore, JSON.stringify(authorizedPlantIds), isAdmin]);
 
-    // MISSION CRITICAL: Use Trip-centric Map with improved status normalization
     const activeTasks = useMemo(() => {
         const tasksMap = new Map<string, any>();
         const normalizedAuthIds = authorizedPlantIds.map(id => id.toLowerCase());
 
-        // Base the task list on active TRIPS requiring supervisor loading verification
         trips.forEach(trip => {
             const tripPlantId = normalizePlantId(trip.originPlantId).toLowerCase();
             const isAuthorized = isAdmin || normalizedAuthIds.includes(tripPlantId);
             
             if (!isAuthorized || trip.loadingVerified) return;
 
-            // Standardized status normalization handling slashes, spaces, and dashes
             const rawStatus = (trip.tripStatus || trip.currentStatusId || '').toLowerCase().trim().replace(/[\s/_-]+/g, '-');
             const validLoadingStatuses = ['assigned', 'vehicle-assigned', 'yard', 'loading', 'yard-loading', 'loaded', 'loading-complete'];
             
             if (!validLoadingStatuses.includes(rawStatus)) return;
 
-            // Join with Shipment Manifest
             const shipId = Array.isArray(trip.shipmentIds) ? trip.shipmentIds[0] : trip.shipmentIds;
             const shipment = shipments.find(s => (s.id === shipId || s.shipmentId === shipId) && normalizePlantId(s.originPlantId).toLowerCase() === tripPlantId);
             
             if (shipment?.currentStatusId === 'Cancelled') return;
 
-            // Join with Vehicle Entry (Gate status)
             const entryVNo = trip.vehicleNumber?.toUpperCase().replace(/\s/g, '');
             const entry = vehicleEntries.find(e => 
                 e.vehicleNumber?.toUpperCase().replace(/\s/g, '') === entryVNo && 
@@ -200,9 +178,7 @@ export default function SupervisorTaskPage() {
                 !e.isTaskCompleted
             );
 
-            // Task is visible if trip is active, but only actionable if vehicle is physically IN the yard
             const isReadyForTask = !!entry;
-
             const lr = lrs.find(l => (l.tripDocId === trip.id || l.tripId === trip.tripId || l.lrNumber === trip.lrNumber) && normalizePlantId(l.originPlantId).toLowerCase() === tripPlantId);
             const plantNode = allPlants?.find((p: any) => normalizePlantId(p.id).toLowerCase() === tripPlantId);
             const pName = plantNode?.name || trip.originPlantId;
@@ -524,5 +500,13 @@ export default function SupervisorTaskPage() {
                 />
             )}
         </main>
+    );
+}
+
+export default function SupervisorTaskPage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-[#f8fafc]"><Loader2 className="h-10 w-10 animate-spin text-blue-900" /></div>}>
+            <SupervisorTaskContent />
+        </Suspense>
     );
 }
