@@ -27,7 +27,8 @@ import {
     Wifi,
     Smartphone,
     FileText,
-    Weight
+    Weight,
+    User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
@@ -228,7 +229,7 @@ function TrackConsignmentContent() {
                             )}
 
                             <div className="flex items-center justify-center gap-3 py-2">
-                                <div className={cn("h-2 w-2 rounded-full transition-colors", dbReady ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-slate-200")}/>
+                                <div className={cn("h-2 w-2 rounded-full transition-colors", dbReady ? "bg-emerald-50 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-slate-200")}/>
                                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
                                     {dbReady ? "Registry Handshake Active" : "Establishing Cloud Pulse..."}
                                 </span>
