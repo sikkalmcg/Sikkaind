@@ -1,14 +1,12 @@
+
+'use client';
+
 import { LRPrintClient } from './LRPrintClient';
 
 /**
- * @fileOverview LR Print Page Node (Server Component).
- * Manages static parameter generation for the mission registry.
+ * @fileOverview LR Print Page Node (Client Component).
+ * Standardized as a Client Component to resolve useContext errors during mission manifest extraction.
  */
-
-export function generateStaticParams() {
-  return [{ lrId: 'default' }];
-}
-
 export default function Page({ params }: { params: { lrId: string } }) {
   const { lrId } = params;
   return <LRPrintClient lrId={lrId} />;

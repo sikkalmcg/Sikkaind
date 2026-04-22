@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, Suspense, useRef } from 'react';
@@ -140,28 +141,6 @@ function TrackConsignmentContent() {
         }, STEP_DURATION);
     }, []);
 
-    const refreshTelemetry = useCallback(async (vNo: string) => {
-        if (!vNo || !apiKey) return;
-        try {
-            const response = await fetch('/api/track', {
-              method: 'POST',
-              headers: { 'Content-Type': 'text/plain' },
-              body: apiKey,
-            }); 
-            const result = await response.json();
-    
-            if (Array.isArray(result) && result.length > 0) {
-                const vehicleData = result.find(v => v.vehicleNumber === vNo);
-                if (vehicleData) {
-                    setLivePos(vehicleData);
-                    setIsGpsEnabled(true);
-                }
-            }
-        } catch (e) {
-            console.warn("Telemetry pulse delayed.");
-        }
-    }, [apiKey]);
-
     // REAL-TIME REGISTRY LISTENER node
     useEffect(() => {
         if (!consignment?.id || !firestore) return;
@@ -194,6 +173,28 @@ function TrackConsignmentContent() {
         }, 30000);
         return () => clearInterval(interval);
     }, [consignment?.vehicleNumber, refreshTelemetry]);
+
+    const refreshTelemetry = useCallback(async (vNo: string) => {
+        if (!vNo || !apiKey) return;
+        try {
+            const response = await fetch('/api/track', {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain' },
+              body: apiKey,
+            }); 
+            const result = await response.json();
+    
+            if (Array.isArray(result) && result.length > 0) {
+                const vehicleData = result.find(v => v.vehicleNumber === vNo);
+                if (vehicleData) {
+                    setLivePos(vehicleData);
+                    setIsGpsEnabled(true);
+                }
+            }
+        } catch (e) {
+            console.warn("Telemetry pulse delayed.");
+        }
+    }, [apiKey]);
 
     const handleSearch = useCallback(async (overriddenQuery?: string) => {
         const term = (overriddenQuery || searchQuery).trim().toUpperCase();
