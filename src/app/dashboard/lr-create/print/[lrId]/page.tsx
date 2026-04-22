@@ -9,7 +9,7 @@ export function generateStaticParams() {
   return [{ lrId: 'default' }];
 }
 
-export default async function Page({ params }: { params: Promise<{ lrId: string }> }) {
-  const { lrId } = await params;
+export default function Page({ params }: { params: { lrId: string } }) {
+  const { lrId } = params;
   return <LRPrintClient lrId={lrId} />;
 }
