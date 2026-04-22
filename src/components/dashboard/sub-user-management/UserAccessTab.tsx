@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Loader2, 
   ShieldCheck, 
@@ -19,7 +21,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import type { SubUser, Plant } from '@/types';
-import { SikkaLogisticsPagePermissions, AdminPagePermissionsList } from '@/lib/constants';
+import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
@@ -145,12 +147,12 @@ export default function UserAccessTab({ onUserCreated, logisticsPlants, isAdmin 
               </section>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="border-2 border-blue-200 bg-white shadow-2xl rounded-[2.5rem] overflow-hidden">
+                <Card className="border-2 border-blue-200 bg-white shadow-2xl rounded-[2.5rem] overflow-hidden flex flex-col">
                   <CardHeader className="p-6 border-b bg-slate-50/50 flex flex-row items-center gap-4">
                     <div className="p-2 bg-blue-900 text-white rounded-xl shadow-lg"><Truck className="h-5 w-5" /></div>
                     <CardTitle className="text-md font-black uppercase italic tracking-tight">Access & Permission Manifest</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-6 space-y-8">
+                  <CardContent className="p-6 space-y-8 flex-1 flex flex-col overflow-hidden">
                     <div className="space-y-3">
                       <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Factory className="h-3 w-3" /> Plant Node Authorization</p>
                       <div className="flex flex-wrap gap-2">
@@ -169,21 +171,23 @@ export default function UserAccessTab({ onUserCreated, logisticsPlants, isAdmin 
                         ))}
                       </div>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-3 flex-1 flex flex-col overflow-hidden">
                       <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest px-1">Permissions Registry</p>
-                      <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                        {[...SikkaLogisticsPagePermissions, ...AdminPagePermissionsList].map(p => (
-                          <div key={p.id} onClick={() => togglePermission(p.id)} className={cn(
-                            "flex items-center gap-2.5 p-2 rounded-xl border transition-all cursor-pointer group",
-                            selectedPermissions.includes(p.id) ? "bg-white border-blue-900 shadow-sm" : "border-slate-50 hover:border-slate-200"
-                          )}>
-                            <div className={cn("h-3.5 w-3.5 rounded-sm border flex items-center justify-center transition-colors", selectedPermissions.includes(p.id) ? "bg-blue-900 border-blue-900" : "bg-white border-slate-200")}>
-                              {selectedPermissions.includes(p.id) && <CheckCircle2 className="h-2.5 w-2.5 text-white" />}
+                      <ScrollArea className="flex-1 pr-4">
+                        <div className="grid grid-cols-1 gap-2">
+                          {[...SikkaLogisticsPagePermissions, ...AdminPagePermissionsList, ...SikkaAccountsPagePermissions].map(p => (
+                            <div key={p.id} onClick={() => togglePermission(p.id)} className={cn(
+                              "flex items-center gap-2.5 p-2 rounded-xl border transition-all cursor-pointer group",
+                              selectedPermissions.includes(p.id) ? "bg-white border-blue-900 shadow-sm" : "border-slate-50 hover:border-slate-200"
+                            )}>
+                              <div className={cn("h-3.5 w-3.5 rounded-sm border flex items-center justify-center transition-colors", selectedPermissions.includes(p.id) ? "bg-blue-900 border-blue-900" : "bg-white border-slate-200")}>
+                                {selectedPermissions.includes(p.id) && <CheckCircle2 className="h-2.5 w-2.5 text-white" />}
+                              </div>
+                              <span className={cn("text-[10px] font-black uppercase tracking-tight", selectedPermissions.includes(p.id) ? "text-blue-900" : "text-slate-400")}>{p.name}</span>
                             </div>
-                            <span className={cn("text-[10px] font-black uppercase tracking-tight", selectedPermissions.includes(p.id) ? "text-blue-900" : "text-slate-400")}>{p.name}</span>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
                     </div>
                   </CardContent>
                 </Card>
