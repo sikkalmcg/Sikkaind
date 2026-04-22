@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
@@ -66,13 +67,13 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
         
         let authorizedPlantIds: string[] = [];
         const activePlants = allMasterPlants && allMasterPlants.length > 0 ? allMasterPlants : initialPlants;
-        const isAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com' || userDocSnap?.data()?.username === 'sikkaind';
+        const isRootAdmin = user.email === 'sikkaind.admin@sikka.com' || user.email === 'sikkalmcg@gmail.com';
 
         if (userDocSnap) {
             const userData = userDocSnap.data() as SubUser;
-            const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdmin;
+            const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isRootAdmin;
             authorizedPlantIds = isRoot ? activePlants.map(p => p.id) : (userData.plantIds || []);
-        } else if (isAdmin) {
+        } else if (isRootAdmin) {
             authorizedPlantIds = activePlants.map(p => p.id);
         }
 
@@ -83,33 +84,39 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
 
         const allEnriched: EnrichedFreight[] = [];
 
+        // Registry Extraction Handshake
         const plantFetchPromises = authorizedPlantIds.map(async (pId) => {
             const [tripSnap, shipSnap, freightSnap] = await Promise.all([
                 getDocs(collection(firestore, `plants/${pId}/trips`)),
                 getDocs(collection(firestore, `plants/${pId}/shipments`)),
-                getDocs(query(collection(firestore, `plants/${pId}/freights`), orderBy("lastUpdated", "desc")))
+                getDocs(collection(firestore, `plants/${pId}/freights`))
             ]);
 
-            const tripsMap = new Map(tripSnap.docs.map(d => [d.id, { id: d.id, ...d.data() }]));
             const shipsMap = new Map(shipSnap.docs.map(d => [d.id, { id: d.id, ...d.data() }]));
+            const freightsMap = new Map(freightSnap.docs.map(d => [d.data().tripId, { id: d.id, ...d.data() }]));
+            
             const resolvedPlantId = normalizePlantId(pId);
-            const plant = activePlants.find(p => normalizePlantId(p.id) === resolvedPlantId) || { id: pId, name: pId };
+            const plantNode = activePlants.find(p => normalizePlantId(p.id) === resolvedPlantId) || { id: pId, name: pId };
 
-            freightSnap.forEach(docSnap => {
-                const fData = docSnap.data();
-                const trip: any = tripsMap.get(fData.tripId);
-                if (!trip) return;
-
-                // Restrict Freight Payment Ledger to Market Vehicles only
+            tripSnap.forEach(tripDoc => {
+                const trip: any = { id: tripDoc.id, ...tripDoc.data() };
+                
+                // MISSION FILTER: Focus on Market Vehicle nodes for the Settlement Ledger
                 if (trip.vehicleType !== 'Market Vehicle') return;
 
-                const shipment = shipsMap.get(trip.shipmentIds[0]);
-                const addChargeAmount = (fData.charges || []).reduce((acc: number, c: any) => acc + (c.amount || 0), 0);
+                const shipment = shipsMap.get(trip.shipmentIds?.[0]);
+                const fData: any = freightsMap.get(trip.id) || {};
                 
+                const addChargeAmount = (fData.charges || []).reduce((acc: number, c: any) => acc + (Number(c.amount) || 0), 0);
                 const startTime = parseSafeDate(trip.startDate) || new Date();
+                
+                // Financial Node Handshake: Resolve base freight from trip if doc missing
+                const baseFreightAmount = Number(fData.baseFreightAmount) || (Number(trip.freightRate || 0) * Number(trip.assignedQtyInTrip || 0));
+                const totalPaid = Number(fData.paidAmount) || 0;
+                const grandTotal = fData.totalFreightAmount || (baseFreightAmount + addChargeAmount);
 
                 allEnriched.push({
-                    id: docSnap.id,
+                    id: fData.id || `f-${trip.id}`,
                     originPlantId: pId,
                     ...fData,
                     payments: (fData.payments || []).map((p: any) => ({
@@ -121,9 +128,14 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
                         startDate: startTime
                     },
                     shipment,
-                    plant: plant as any,
+                    plant: plantNode as any,
                     addChargeAmount,
-                    plantName: (plant as any).name || resolvedPlantId,
+                    baseFreightAmount,
+                    totalFreightAmount: grandTotal,
+                    paidAmount: totalPaid,
+                    balanceAmount: grandTotal - totalPaid,
+                    paymentStatus: fData.paymentStatus || 'Awaiting Post',
+                    plantName: (plantNode as any).name || resolvedPlantId,
                     startDate: startTime
                 } as EnrichedFreight);
             });
@@ -132,7 +144,7 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
         await Promise.all(plantFetchPromises);
         setData(allEnriched.sort((a, b) => (b.startDate?.getTime() || 0) - (a.startDate?.getTime() || 0)));
     } catch (error) {
-        console.error("Error fetching freight report:", error);
+        console.error("Freight Ledger Error:", error);
         setDbError(true);
         setData([]);
     } finally {
@@ -147,13 +159,8 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
   const filteredData = useMemo(() => {
     let filtered = data;
     
-    if (fromDate) {
-        filtered = filtered.filter(item => item.startDate && item.startDate >= startOfDay(fromDate));
-    }
-    if (toDate) {
-        const to = endOfDay(toDate);
-        filtered = filtered.filter(item => item.startDate && item.startDate <= to);
-    }
+    if (fromDate) filtered = filtered.filter(item => item.startDate && item.startDate >= startOfDay(fromDate));
+    if (toDate) filtered = filtered.filter(item => item.startDate && item.startDate <= endOfDay(toDate));
 
     if (searchTerm) {
         const lowerSearch = searchTerm.toLowerCase();
@@ -167,7 +174,7 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
     return filtered;
   }, [data, fromDate, toDate, searchTerm]);
   
- const sortedData = useMemo(() => {
+  const sortedData = useMemo(() => {
     let sortableItems = [...filteredData];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
@@ -184,23 +191,19 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
   const totalPages = Math.ceil(sortedData.length / ITEMS_PER_PAGE);
   const paginatedData = sortedData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  const headers = ['plantName', 'tripId', 'lrNumber', 'startDate', 'vehicleNumber', 'transporterName', 'loadingPoint', 'shipToParty', 'unloadingPoint', 'assignedQtyInTrip', 'freightRate', 'baseFreightAmount', 'addChargeAmount', 'totalFreightAmount', 'paidAmount', 'bankingRef', 'paymentDate', 'paymentStatus', 'podReceived'];
+  const headersMap = ['plantName', 'tripId', 'lrNumber', 'startDate', 'vehicleNumber', 'transporterName', 'loadingPoint', 'shipToParty', 'unloadingPoint', 'assignedQtyInTrip', 'freightRate', 'baseFreightAmount', 'addChargeAmount', 'totalFreightAmount', 'paidAmount', 'paymentStatus'];
   const headerLabels: { [key: string]: string } = {
-    plantName: 'Plant', tripId: 'Trip ID', lrNumber: 'LR Number', startDate: 'Date', vehicleNumber: 'Vehicle No', transporterName: 'Transporter', loadingPoint: 'FROM', shipToParty: 'Ship To Party', unloadingPoint: 'Destination', assignedQtyInTrip: 'Assigned Qty', freightRate: 'Freight Rate', baseFreightAmount: 'Freight Amount', addChargeAmount: 'Add Charge', totalFreightAmount: 'Total Freight', paidAmount: 'Paid Amount', bankingRef: 'Bank Ref', paymentDate: 'Pay Date', paymentStatus: 'Status', podReceived: 'POD Status'
+    plantName: 'Plant', tripId: 'Trip ID', lrNumber: 'LR Number', startDate: 'Date', vehicleNumber: 'Vehicle No', transporterName: 'Transporter', loadingPoint: 'FROM', shipToParty: 'Ship To Party', unloadingPoint: 'Destination', assignedQtyInTrip: 'Assigned Qty', freightRate: 'Rate', baseFreightAmount: 'Base Amt', addChargeAmount: 'Charges', totalFreightAmount: 'Total Freight', paidAmount: 'Paid', paymentStatus: 'Status'
   };
   
   const handleExport = () => {
     const dataToExport = sortedData.map(item => {
-      const lastPayment = item.payments?.[item.payments.length - 1];
       const row: {[key: string]: any} = {};
-      headers.forEach(key => {
+      headersMap.forEach(key => {
         let val = (item as any)[key] ?? (item.trip as any)?.[key] ?? 'N/A';
-        if (key.includes('Date') && val !== 'N/A') {
-           val = format(new Date(val), 'dd-MM-yyyy');
+        if (key.includes('Date') || key === 'startDate') {
+           val = val && val !== 'N/A' ? format(new Date(val), 'dd-MM-yyyy') : 'N/A';
         }
-        if(key === 'paymentDate') val = lastPayment && isValid(new Date(lastPayment.paymentDate)) ? format(new Date(lastPayment.paymentDate), 'dd-MM-yyyy') : 'N/A';
-        if(key === 'bankingRef') val = lastPayment?.referenceNo || 'N/A';
-        if(key === 'podReceived') val = item.trip?.podReceived ? 'Received' : 'Pending';
         row[headerLabels[key]] = val;
       });
       return row;
@@ -208,49 +211,45 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Freight Report");
-    XLSX.writeFile(workbook, "FreightReport.xlsx");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Freight Settlement");
+    XLSX.writeFile(workbook, "FreightSettlementLedger.xlsx");
   };
 
   const requestSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
     setSortConfig({ key, direction });
   };
   
   const getSortIcon = (key: string) => {
-    if (!sortConfig || sortConfig.key !== key) {
-      return <ArrowUpDown className="ml-2 h-4 w-4 text-slate-400" />;
-    }
+    if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-slate-400" />;
     return sortConfig.direction === 'asc' ? '🔼' : '🔽';
   };
 
   return (
     <Card className="border-none shadow-none bg-transparent">
       <CardHeader className="pb-4">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-                <CardTitle className="text-xl font-black uppercase text-blue-900 flex items-center gap-2">
+                <CardTitle className="text-xl font-black uppercase text-blue-900 flex items-center gap-2 italic">
                     Freight Settlement Ledger
                     {dbError && <WifiOff className="h-4 w-4 text-orange-500" />}
                 </CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Registry audit of mission financial liquidation</CardDescription>
+                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">Authorized audit registry of Market Fleet liquidation</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={handleExport} className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-slate-200 text-blue-900 bg-white shadow-sm hover:bg-slate-50 transition-all">
+            <Button variant="outline" size="sm" onClick={handleExport} className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-slate-200 text-blue-900 bg-white shadow-sm hover:bg-slate-50">
                 <FileDown className="h-4 w-4" /> Export Ledger
             </Button>
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="overflow-x-auto rounded-xl border border-slate-100 bg-white">
-          <Table>
-            <TableHeader className="bg-slate-50">
-              <TableRow className="h-12 hover:bg-transparent">
-                 {headers.map(key => (
-                     <TableHead key={key} className="px-4 py-3">
-                        <Button variant="ghost" onClick={() => requestSort(key)} className="h-auto p-0 font-black text-[10px] uppercase tracking-widest text-slate-500 hover:text-blue-900 transition-colors">
+        <div className="overflow-x-auto rounded-[2rem] border border-slate-100 bg-white shadow-xl">
+          <Table className="min-w-[2400px]">
+            <TableHeader className="bg-slate-900 text-white h-14">
+              <TableRow className="hover:bg-transparent">
+                 {headersMap.map(key => (
+                     <TableHead key={key} className="px-4">
+                        <Button variant="ghost" onClick={() => requestSort(key)} className="h-auto p-0 font-black text-[10px] uppercase tracking-widest text-blue-200 hover:text-white transition-colors">
                             {headerLabels[key]}
                             {getSortIcon(key)}
                         </Button>
@@ -261,45 +260,39 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
             <TableBody>
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i} className="h-16"><TableCell colSpan={headers.length} className="px-4"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                  <TableRow key={i} className="h-16"><TableCell colSpan={headersMap.length} className="px-4"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                 ))
               ) : paginatedData.length === 0 ? (
-                <TableRow><TableCell colSpan={headers.length} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No records found matching criteria.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={headersMap.length} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No Market Vehicle assignments detected in registry.</TableCell></TableRow>
               ) : (
-                paginatedData.map(item => {
-                    const lastPayment = item.payments?.[item.payments.length - 1];
-                    return (
-                        <TableRow key={item.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
-                            <TableCell className="px-4 font-bold text-slate-600 uppercase text-[11px]">{item.plantName || 'N/A'}</TableCell>
-                            <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter uppercase">{item.trip?.tripId || 'N/A'}</TableCell>
-                            <TableCell className="px-4 font-bold text-slate-800 text-[11px]">{item.trip?.lrNumber || 'N/A'}</TableCell>
-                            <TableCell className="px-4 text-center text-xs font-bold text-slate-500 whitespace-nowrap">{item.trip ? format(new Date(item.trip.startDate), 'dd.MM.yy') : 'N/A'}</TableCell>
-                            <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{item.trip?.vehicleNumber || 'N/A'}</TableCell>
-                            <TableCell className="px-4 text-[10px] font-black uppercase text-slate-400 truncate max-w-[120px]">{item.trip?.transporterName || 'N/A'}</TableCell>
-                            <TableCell className="px-4 text-[10px] font-black uppercase text-slate-400 truncate max-w-[120px]">{item.trip?.loadingPoint || 'N/A'}</TableCell>
-                            <TableCell className="px-4 text-[10px] font-black uppercase text-slate-400 truncate max-w-[120px]">{item.trip?.shipToParty || 'N/A'}</TableCell>
-                            <TableCell className="px-4 text-[10px] font-black uppercase text-slate-400 truncate max-w-[120px]">{item.trip?.unloadingPoint || 'N/A'}</TableCell>
-                            <TableCell className="px-4 text-right font-bold text-blue-900">{(item.trip?.assignedQtyInTrip || 0).toFixed(3)} MT</TableCell>
-                            <TableCell className="px-4 text-right text-[11px] font-bold text-slate-500">₹ {item.trip?.freightRate?.toLocaleString() || 'N/A'}</TableCell>
-                            <TableCell className="px-4 text-right font-black text-slate-700">₹ {Number(item.baseFreightAmount).toLocaleString()}</TableCell>
-                            <TableCell className="px-4 text-right font-bold text-orange-600">₹ {Number(item.addChargeAmount).toLocaleString()}</TableCell>
-                            <TableCell className="px-4 text-right font-black text-slate-900">₹ {Number(item.totalFreightAmount).toLocaleString()}</TableCell>
-                            <TableCell className="px-4 text-right font-black text-emerald-700 bg-emerald-50/10">₹ {Number(item.paidAmount).toLocaleString()}</TableCell>
-                            <TableCell className="px-4 font-mono text-[10px] font-bold text-slate-400">{lastPayment?.referenceNo || 'N/A'}</TableCell>
-                            <TableCell className="px-4 text-center text-[10px] font-bold text-slate-500 whitespace-nowrap">{lastPayment && isValid(new Date(lastPayment.paymentDate)) ? format(new Date(lastPayment.paymentDate), 'dd.MM.yy') : 'N/A'}</TableCell>
-                            <TableCell className="px-4 text-center">
-                                <Badge variant="outline" className={cn("text-[9px] font-black uppercase px-2 h-6 border-slate-200", item.paymentStatus === 'Paid' ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-700')}>
-                                    {item.paymentStatus}
-                                </Badge>
-                            </TableCell>
-                            <TableCell className="px-6 text-center">
-                                <Badge variant={item.trip?.podReceived ? "default" : "destructive"} className="text-[9px] h-6 px-2.5 uppercase font-black border-none shadow-sm">
-                                    {item.trip?.podReceived ? 'Received' : 'Pending'}
-                                </Badge>
-                            </TableCell>
-                        </TableRow>
-                    );
-                })
+                paginatedData.map(item => (
+                    <TableRow key={item.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
+                        <TableCell className="px-4 font-bold text-slate-600 uppercase text-[11px]">{item.plantName}</TableCell>
+                        <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter uppercase">{item.trip?.tripId}</TableCell>
+                        <TableCell className="px-4 font-black text-slate-900 uppercase text-[11px]">{item.trip?.lrNumber || '--'}</TableCell>
+                        <TableCell className="px-4 text-center text-xs font-bold text-slate-500 whitespace-nowrap">{item.startDate ? format(item.startDate, 'dd.MM.yy') : '--'}</TableCell>
+                        <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{item.trip?.vehicleNumber}</TableCell>
+                        <TableCell className="px-4 text-[10px] font-black uppercase text-slate-400 truncate max-w-[150px]">{item.trip?.transporterName || '--'}</TableCell>
+                        <TableCell className="px-4 text-[11px] font-bold text-slate-600 uppercase italic truncate max-w-[120px]">{item.trip?.loadingPoint}</TableCell>
+                        <TableCell className="px-4 text-[11px] font-bold text-slate-800 uppercase truncate max-w-[150px]">{item.trip?.shipToParty}</TableCell>
+                        <TableCell className="px-4 text-[11px] font-medium text-slate-500 uppercase truncate max-w-[150px]">{item.trip?.unloadingPoint}</TableCell>
+                        <TableCell className="px-4 text-right font-black text-blue-900">{(Number(item.trip?.assignedQtyInTrip) || 0).toFixed(3)}</TableCell>
+                        <TableCell className="px-4 text-right font-bold text-slate-500">₹ {Number(item.trip?.freightRate || 0).toLocaleString()}</TableCell>
+                        <TableCell className="px-4 text-right font-black text-slate-700">₹ {Number(item.baseFreightAmount).toLocaleString()}</TableCell>
+                        <TableCell className="px-4 text-right font-bold text-orange-600">₹ {Number(item.addChargeAmount).toLocaleString()}</TableCell>
+                        <TableCell className="px-4 text-right font-black text-slate-900">₹ {Number(item.totalFreightAmount).toLocaleString()}</TableCell>
+                        <TableCell className="px-4 text-right font-black text-emerald-700 bg-emerald-50/10">₹ {Number(item.paidAmount).toLocaleString()}</TableCell>
+                        <TableCell className="px-4">
+                            <Badge variant="outline" className={cn(
+                                "text-[9px] font-black uppercase px-2.5 h-6 border shadow-sm",
+                                item.paymentStatus === 'Paid' ? 'bg-emerald-600 text-white border-emerald-600' : 
+                                item.paymentStatus === 'Awaiting Post' ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-amber-100 text-amber-700 border-amber-200'
+                            )}>
+                                {item.paymentStatus}
+                            </Badge>
+                        </TableCell>
+                    </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
