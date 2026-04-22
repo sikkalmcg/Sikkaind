@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/date-picker';
 import { Label } from '@/components/ui/label';
-import type { Plant, Shipment, WithId, Party, Carrier } from '@/types';
+import type { Plant, Shipment, WithId, Party, Carrier, SubUser } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { 
   ShieldCheck, 
@@ -46,7 +46,7 @@ import {
   Weight, 
   ClipboardList 
 } from 'lucide-react';
-import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
+import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDocs, limit } from "firebase/firestore";
 import { cn, normalizePlantId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
@@ -219,6 +219,10 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   const { user } = useUser();
   const { showLoader, hideLoader } = useLoading();
   
+  // Registry Handshake: Resolve operator profile for name recording
+  const profileRef = useMemo(() => (firestore && user) ? doc(firestore, "users", user.email || user.uid) : null, [firestore, user]);
+  const { data: operatorProfile } = useDoc<SubUser>(profileRef);
+
   const [currentTime, setCurrentTime] = useState(new Date());
   const [helpModal, setHelpModal] = useState<{ type: string; title: string; data: any[] } | null>(null);
   const [isBulkUploading, setIsBulkUploading] = useState(false);
@@ -366,6 +370,8 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 ? values.items.filter(i => i.itemDescription || i.invoiceNumber) 
                 : [];
 
+            const currentOperator = operatorProfile?.fullName || operatorProfile?.username || user.displayName || user.email?.split('@')[0] || 'System';
+
             const dataToSave = {
                 ...values,
                 items: manifestItems,
@@ -374,7 +380,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 assignedQty: 0,
                 balanceQty: values.quantity,
                 userId: user.uid,
-                userName: user.displayName || user.email,
+                userName: currentOperator,
                 materialTypeId: 'MT'
             };
 
@@ -438,6 +444,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
             const orderGroups: Record<string, any> = {};
             const normUiPlantId = normalizePlantId(uiPlantId);
+            const currentOperator = operatorProfile?.fullName || operatorProfile?.username || user.displayName || user.email?.split('@')[0] || 'System';
 
             jsonData.forEach(row => {
                 const salesOrderNo = getVal(row, ["SALES ORDER NO", "Sales Order", "SO No", "Order ID"]);
@@ -488,7 +495,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     delete g.rawItems;
                     g.items = finalItems;
                     const shipRef = doc(collection(firestore, `plants/${g.originPlantId}/shipments`));
-                    tx.set(shipRef, { ...g, assignedQty: 0, balanceQty: g.quantity, currentStatusId: 'pending', creationDate: serverTimestamp(), userId: user.uid, userName: user.displayName || user.email });
+                    tx.set(shipRef, { ...g, assignedQty: 0, balanceQty: g.quantity, currentStatusId: 'pending', creationDate: serverTimestamp(), userId: user.uid, userName: currentOperator });
                     successCount++;
                 }
             });

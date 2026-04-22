@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -228,15 +229,14 @@ function MissionRegistryCard({
         return type?.toUpperCase() || 'UNASSIGNED';
     };
 
-    /**
-     * MISSION REGISTRY: Item Description Node
-     * If more than 2 unique items, use "VARIOUS ITEMS AS PER INVOICE"
-     */
     const resolvedItemsDescription = useMemo(() => {
         const uniqueDescs = Array.from(new Set((row.items || []).map((i: any) => (i.itemDescription || i.description || '').toUpperCase().trim()).filter(Boolean)));
         if (uniqueDescs.length > 2) return "VARIOUS ITEMS AS PER INVOICE";
         return uniqueDescs.join(', ') || row.itemDescription || '--';
     }, [row.items, row.itemDescription]);
+
+    const operatorId = (row.assignedUsername || row.orderCreatedUser || 'System');
+    const displayOperator = operatorId !== '--' ? operatorId : 'System';
 
     return (
         <div className={cn(
@@ -383,7 +383,7 @@ function MissionRegistryCard({
                         <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none">Registry operator</span>
                         <div className="flex items-center gap-1.5 mt-1">
                             <User size={10} className="text-slate-300" />
-                            <span className="text-[10px] font-black text-slate-600 uppercase">@{ (row.assignedUsername || row.orderCreatedUser || 'System')?.split('@')[0]}</span>
+                            <span className="text-[10px] font-black text-slate-600 uppercase">@{ displayOperator?.split('@')[0]}</span>
                         </div>
                     </div>
                 </div>
