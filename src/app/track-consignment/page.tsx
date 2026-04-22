@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
-import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp, onSnapshot } from 'firebase/firestore';
 import { format, isValid } from 'date-fns';
 import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -77,21 +77,20 @@ function TrackConsignmentContent() {
         { id: 'final', label: 'DELIVERED', icon: CheckCircle2 }
     ];
 
-    const getTargetIndex = (status: string) => {
-        const s = status?.toLowerCase().replace(/[\s/_-]+/g, '-') || '';
+    const getTargetIndex = useCallback((status: string) => {
+        const s = status?.toLowerCase().trim().replace(/[\s/_-]+/g, '-') || '';
         if (['delivered', 'closed'].includes(s)) return 4;
         if (['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'rejected'].includes(s)) return 3;
-        if (['in-transit', 'out-for-delivery'].includes(s)) return 2;
-        if (['yard', 'loading', 'loaded', 'loading-complete'].includes(s)) return 1;
+        if (['in-transit', 'out-for-delivery', 'dispatched'].includes(s)) return 2;
+        if (['yard', 'loading', 'loaded', 'loading-complete', 'yard-loading'].includes(s)) return 1;
         return 0;
-    };
+    }, []);
 
     const runAnimation = useCallback((targetIndex: number, rejected: boolean) => {
         setAnimIndex(-1);
         setIsReversed(false);
         let current = -1;
         
-        // Mission Sync Node: Step duration set to 1.5 seconds for professional feel
         const STEP_DURATION = 1500;
 
         const interval = setInterval(() => {
@@ -101,11 +100,9 @@ function TrackConsignmentContent() {
             } else {
                 clearInterval(interval);
                 
-                // MISSION REJECTION SEQUENCE node: Forward then Reverse
                 if (rejected) {
                     setTimeout(() => {
-                        setAnimIndex(4); // Move forward to trigger rejection state
-                        
+                        setAnimIndex(4);
                         setTimeout(() => {
                             setIsReversed(true);
                             let rev = 4;
@@ -123,6 +120,26 @@ function TrackConsignmentContent() {
             }
         }, STEP_DURATION);
     }, []);
+
+    // REAL-TIME PULSE node for public tracking
+    useEffect(() => {
+        if (!result?.id || !firestore) return;
+
+        const tripRef = doc(firestore, "trips", result.id);
+        const unsubscribe = onSnapshot(tripRef, (snap) => {
+            if (snap.exists()) {
+                const updatedTrip = snap.data();
+                const newStatus = (updatedTrip.tripStatus || updatedTrip.currentStatusId || 'assigned').toLowerCase();
+                const targetIdx = getTargetIndex(newStatus);
+                
+                if (targetIdx !== animIndex) {
+                    runAnimation(targetIdx, newStatus === 'rejected');
+                }
+            }
+        });
+
+        return () => unsubscribe();
+    }, [result?.id, firestore, getTargetIndex, runAnimation, animIndex]);
 
     const handleTrack = async () => {
         if (!tripIdInput.trim()) {
@@ -146,14 +163,12 @@ function TrackConsignmentContent() {
 
         try {
             const term = tripIdInput.trim().toUpperCase();
-            // Registry Handshake Node: Search Global Registry
             const tripsRef = collection(firestore, "trips");
             const q = query(tripsRef, where("tripId", "==", term), limit(1));
             const snap = await getDocs(q);
 
             let tripDoc = !snap.empty ? snap.docs[0] : null;
 
-            // Fallback: Search by LR Number in global node
             if (!tripDoc) {
                 const qLr = query(tripsRef, where("lrNumber", "==", term), limit(1));
                 const snapLr = await getDocs(qLr);
@@ -280,13 +295,12 @@ function TrackConsignmentContent() {
                     </Card>
                 ) : (
                     <div className="space-y-16 animate-in fade-in slide-in-from-bottom-10 duration-1000 pb-20">
-                        <Button 
-                            variant="ghost" 
+                        <button 
                             onClick={() => {setResult(null); refreshCaptcha();}} 
-                            className="font-black text-slate-400 hover:text-blue-900 uppercase text-[11px] tracking-widest gap-2"
+                            className="font-black text-slate-400 hover:text-blue-900 uppercase text-[11px] tracking-widest gap-2 flex items-center"
                         >
                             <ArrowLeft size={16}/> Back to Registry Search
-                        </Button>
+                        </button>
                         
                         <Card className="border-none shadow-3xl rounded-[3.5rem] bg-slate-900 text-white p-10 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 transition-transform duration-1000 group-hover:scale-110"><Box size={240} /></div>

@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
-import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp, onSnapshot } from 'firebase/firestore';
 import { format, isValid } from 'date-fns';
 import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -45,6 +45,10 @@ const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracki
     loading: () => <div className="w-full h-[500px] bg-slate-100 animate-pulse rounded-[3rem] border-4 border-white shadow-inner" />
 });
 
+/**
+ * @fileOverview Consignment Terminal - Tracking Hub.
+ * Hardened: Robust status normalization and real-time animation pulse.
+ */
 function TrackConsignmentContent() {
     const { toast } = useToast();
     const firestore = useFirestore();
@@ -84,14 +88,14 @@ function TrackConsignmentContent() {
         { id: 'delivered', label: 'DELIVERED', icon: CheckCircle2 }
     ];
 
-    const getTargetIndex = (status: string) => {
-        const s = status?.toLowerCase().replace(/[\s_-]+/g, '-') || '';
+    const getTargetIndex = useCallback((status: string) => {
+        const s = status?.toLowerCase().trim().replace(/[\s/_-]+/g, '-') || '';
         if (['delivered', 'closed'].includes(s)) return 4;
         if (['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'rejected'].includes(s)) return 3;
-        if (['in-transit', 'out-for-delivery'].includes(s)) return 2;
-        if (['yard', 'loading', 'loaded', 'loading-complete'].includes(s)) return 1;
+        if (['in-transit', 'out-for-delivery', 'dispatched'].includes(s)) return 2;
+        if (['yard', 'loading', 'loaded', 'loading-complete', 'yard-loading'].includes(s)) return 1;
         return 0;
-    };
+    }, []);
 
     const runAnimation = useCallback((targetIndex: number, rejected: boolean) => {
         setAnimIndex(-1);
@@ -149,6 +153,27 @@ function TrackConsignmentContent() {
             console.warn("Telemetry pulse delayed.");
         }
     }, [apiKey]);
+
+    // REAL-TIME REGISTRY LISTENER node
+    useEffect(() => {
+        if (!consignment?.id || !firestore) return;
+
+        const tripRef = doc(firestore, "trips", consignment.id);
+        const unsubscribe = onSnapshot(tripRef, (snap) => {
+            if (snap.exists()) {
+                const updatedTrip = snap.data();
+                const newStatus = (updatedTrip.tripStatus || updatedTrip.currentStatusId || 'assigned').toLowerCase();
+                const targetIdx = getTargetIndex(newStatus);
+                
+                // Only trigger animation if status has progressed
+                if (targetIdx !== animIndex) {
+                    runAnimation(targetIdx, newStatus === 'rejected');
+                }
+            }
+        });
+
+        return () => unsubscribe();
+    }, [consignment?.id, firestore, getTargetIndex, runAnimation, animIndex]);
 
     useEffect(() => {
         if (!consignment?.vehicleNumber) return;
@@ -224,7 +249,7 @@ function TrackConsignmentContent() {
         } finally {
             setIsSearching(false);
         }
-    }, [firestore, searchQuery, toast, apiKey, runAnimation]);
+    }, [firestore, searchQuery, toast, apiKey, runAnimation, getTargetIndex]);
 
     useEffect(() => {
         if (urlSearch && firestore && apiKey) {
@@ -394,7 +419,7 @@ function TrackConsignmentContent() {
                                     {isGpsEnabled ? (
                                         <Badge className="bg-emerald-600 font-black text-[8px] uppercase px-4 h-6 border-none shadow-md animate-pulse">GPS ACTIVE</Badge>
                                     ) : (
-                                        <Badge variant="outline" className="border-slate-500 text-slate-500 font-black text-[8px] uppercase px-4 h-6">AWAITING HANDSHAKE</Badge>
+                                        <Badge variant="outline" className="border-slate-50 text-slate-500 font-black text-[8px] uppercase px-4 h-6">AWAITING HANDSHAKE</Badge>
                                     )}
                                 </CardHeader>
                                 <CardContent className="p-0 h-[550px] relative">
