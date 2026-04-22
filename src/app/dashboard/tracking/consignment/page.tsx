@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, Suspense } from 'react';
@@ -27,7 +26,8 @@ import {
     Box,
     ArrowLeft,
     FileText,
-    Weight
+    Weight,
+    XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
@@ -41,7 +41,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useSearchParams } from 'next/navigation';
 
 const MAPS_JS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
-const DEFAULT_TRUCK_ICON = "https://png.pngtree.com/png-vector/20250122/ourlarge/pngtree-colorful-delivery-truck-icon-png-image_15301010.png";
 
 function TrackConsignmentContent() {
     const { toast } = useToast();
@@ -55,9 +54,6 @@ function TrackConsignmentContent() {
     const [consignment, setConsignment] = useState<any>(null);
     const [livePos, setLivePos] = useState<any>(null);
     const [isGpsEnabled, setIsGpsEnabled] = useState(false);
-    const [isMapModalOpen, setIsMapModalOpen] = useState(false);
-    const [eta, setEta] = useState<Date | null>(null);
-    
     const [animIndex, setAnimIndex] = useState(-1);
     const [isReversed, setIsReversed] = useState(false);
 
@@ -337,7 +333,7 @@ function TrackConsignmentContent() {
                                                         }} 
                                                         transition={{ repeat: Infinity, duration: 0.6 }}
                                                     >
-                                                        {(isFinal && consignment.isRejected) ? <XCircle size={40} /> : (i === 2 ? <Truck size={40} /> : <stage.icon size={40} />)}
+                                                        {(isFinal && consignment.isRejected) ? <XCircle size={40} /> : <Truck size={40} />}
                                                     </motion.div>
                                                 ) : (
                                                     (isFinal && consignment.isRejected) ? <XCircle size={36} className="opacity-20" /> : <stage.icon size={36} className={cn(isReversed && i < animIndex && "scale-x-[-1] opacity-50")} />

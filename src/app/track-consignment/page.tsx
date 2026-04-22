@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
@@ -20,7 +19,6 @@ import {
     Factory,
     ClipboardList,
     Box,
-    User,
     ArrowRight,
     CircleDot,
     RefreshCcw,
@@ -362,7 +360,7 @@ function TrackConsignmentContent() {
                                                         }} 
                                                         transition={{ repeat: Infinity, duration: 0.6 }}
                                                     >
-                                                        {(isFinal && result.isRejected) ? <XCircle size={32} /> : (i === 2 ? <Truck size={32} /> : <stage.icon size={32} />)}
+                                                        {(isFinal && result.isRejected) ? <XCircle size={32} /> : <Truck size={40} />}
                                                     </motion.div>
                                                 ) : (
                                                     (isFinal && result.isRejected) ? <XCircle size={28} className="opacity-20" /> : <stage.icon size={28} className={cn(isReversed && i < animIndex && "scale-x-[-1] opacity-50")} />
