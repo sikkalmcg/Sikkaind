@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,20 +28,22 @@ import {
     ArrowLeft,
     FileText,
     Weight,
-    XCircle
+    XCircle,
+    Navigation
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
 import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { format, isValid } from 'date-fns';
 import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
-import { useJsApiLoader, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useSearchParams } from 'next/navigation';
 
-const MAPS_JS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
+const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracking/TrackingMap'), { 
+    ssr: false,
+    loading: () => <div className="w-full h-[500px] bg-slate-100 animate-pulse rounded-[3rem] border-4 border-white shadow-inner" />
+});
 
 function TrackConsignmentContent() {
     const { toast } = useToast();
@@ -230,7 +233,7 @@ function TrackConsignmentContent() {
     }, [urlSearch, firestore, apiKey, handleSearch]);
 
     return (
-        <main className="flex flex-1 flex-col h-full bg-white animate-in fade-in duration-500 overflow-y-auto">
+        <main className="flex flex-1 flex-col h-full bg-[#f8fafc] animate-in fade-in duration-500 overflow-y-auto custom-scrollbar">
             <div className="p-8 space-y-10 max-w-7xl mx-auto w-full">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-b pb-8">
                     <div className="flex items-center gap-4">
@@ -258,7 +261,7 @@ function TrackConsignmentContent() {
                         <Button 
                             disabled={isSearching || !apiKey}
                             onClick={() => handleSearch()}
-                            className="bg-blue-900 hover:bg-slate-900 text-white h-12 px-12 rounded-xl font-black uppercase text-[11px] tracking-widest shadow-xl"
+                            className="bg-blue-900 hover:bg-slate-900 text-white h-12 px-12 rounded-xl font-black uppercase text-[11px] tracking-widest shadow-xl transition-all active:scale-95 border-none"
                         >
                             {isSearching ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="mr-2 h-4 w-4" />}
                             Resolve
@@ -276,7 +279,7 @@ function TrackConsignmentContent() {
                                 { label: 'LR Number', value: consignment.lrNumber || '--', bold: true, icon: FileText },
                                 { label: 'Mission Route', value: `${consignment.fromCity} → ${consignment.toCity}`, color: 'text-emerald-400', bold: true, icon: MapPin },
                                 { label: 'Ship To', value: consignment.shipToParty || '--', truncate: true, icon: User },
-                                { label: 'Weight', value: `${consignment.assignedQtyInTrip} MT`, color: 'text-emerald-400', bold: true, icon: Weight },
+                                { label: 'Weight', value: `${consignment.assignedQtyInTrip || consignment.quantity} MT`, color: 'text-emerald-400', bold: true, icon: Weight },
                             ].map((item, i) => (
                                 <div key={i} className="space-y-1 relative z-10">
                                     <p className="text-[8px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-1.5">
@@ -378,6 +381,42 @@ function TrackConsignmentContent() {
                                     </motion.div>
                                 )}
                             </AnimatePresence>
+                        </div>
+
+                        {/* LIVE MAP NODE */}
+                        <div className="pt-8">
+                            <Card className="border-none shadow-3xl rounded-[3rem] overflow-hidden bg-white">
+                                <CardHeader className="bg-slate-900 text-white p-6 border-b border-white/5 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-blue-600 rounded-lg shadow-lg"><Navigation className="h-4 w-4 text-white" /></div>
+                                        <CardTitle className="text-sm font-black uppercase tracking-widest">Live Satellite Telemetry Registry</CardTitle>
+                                    </div>
+                                    {isGpsEnabled ? (
+                                        <Badge className="bg-emerald-600 font-black text-[8px] uppercase px-4 h-6 border-none shadow-md animate-pulse">GPS ACTIVE</Badge>
+                                    ) : (
+                                        <Badge variant="outline" className="border-slate-500 text-slate-500 font-black text-[8px] uppercase px-4 h-6">AWAITING HANDSHAKE</Badge>
+                                    )}
+                                </CardHeader>
+                                <CardContent className="p-0 h-[550px] relative">
+                                    <TrackingMap 
+                                        livePos={livePos}
+                                        origin={consignment.loadingPoint || consignment.fromCity}
+                                        destination={consignment.unloadingPoint || consignment.toCity}
+                                        height="100%"
+                                    />
+                                    {/* MAP OVERLAY LEGEND */}
+                                    <div className="absolute bottom-6 right-6 bg-slate-900/80 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-3xl space-y-3 z-10 pointer-events-none">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
+                                            <span className="text-[8px] font-black text-white uppercase tracking-widest">Lifting node</span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                                            <span className="text-[8px] font-black text-white uppercase tracking-widest">Drop node</span>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
                     </div>
                 )}
