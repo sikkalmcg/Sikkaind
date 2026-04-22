@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { format, isValid } from 'date-fns';
 import { cn, parseSafeDate } from '@/lib/utils';
 import type { LR, Trip, Shipment, Carrier, Plant } from '@/types';
@@ -31,42 +31,66 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
   const allItems = lr.items || [];
   
-  const groupedByDesc = allItems.reduce((acc, item) => {
-    const desc = (item.itemDescription || item.description || 'GENERAL CARGO').toUpperCase().trim();
-    if (!acc[desc]) {
-        acc[desc] = { 
-            itemDescription: desc, 
-            units: 0, 
-            weight: 0, 
-            invoices: new Set<string>(), 
-            ewaybills: new Set<string>() 
-        };
-    }
-    acc[desc].units += Number(item.units) || 0;
-    acc[desc].weight += Number(item.weight) || 0;
-    
-    if (item.invoiceNumber) {
-        item.invoiceNumber.split(',').forEach((inv: string) => {
-            const trimmed = inv.trim();
-            if (trimmed && trimmed !== '--') acc[desc].invoices.add(trimmed);
+  /**
+   * REGISTRY LOGIC NODE: Grouping and Summarization
+   * If an invoice has > 2 unique items, summarize as "VARIOUS ITEMS AS PER INVOICE".
+   * If all items in an invoice have the same name, use that unique name.
+   */
+  const displayItems = useMemo(() => {
+    // 1. Group by Invoice Number
+    const invGroups = allItems.reduce((acc, item) => {
+        const inv = (item.invoiceNumber || 'NA').trim();
+        if (!acc[inv]) acc[inv] = [];
+        acc[inv].push(item);
+        return acc;
+    }, {} as Record<string, any[]>);
+
+    let rows: any[] = [];
+
+    Object.entries(invGroups).forEach(([inv, invItems]) => {
+        // 2. Count unique descriptions in this invoice
+        const uniqueDescs = Array.from(new Set(invItems.map(i => (i.itemDescription || i.description || 'GENERAL CARGO').toUpperCase().trim())));
+        
+        // 3. Summarization Trigger: If items in this invoice > 2
+        if (invItems.length > 2) {
+            const totalUnits = invItems.reduce((s, i) => s + (Number(i.units) || 0), 0);
+            const ewaybills = Array.from(new Set(invItems.map(i => i.ewaybillNumber).filter(Boolean))).join(', ');
+            
+            rows.push({
+                invoiceNumber: inv === 'NA' ? '--' : inv,
+                ewaybillNumber: ewaybills || '--',
+                // Mission Logic: Pick unique name if only 1 desc exists, else use Various
+                itemDescription: uniqueDescs.length === 1 ? uniqueDescs[0] : `VARIOUS ITEMS AS PER INVOICE`,
+                units: totalUnits,
+                weight: 0 // Displayed in footer or separately
+            });
+        } else {
+            // 4. Show individually if 2 or fewer items
+            invItems.forEach(i => {
+                rows.push({
+                    invoiceNumber: inv === 'NA' ? '--' : inv,
+                    ewaybillNumber: i.ewaybillNumber || '--',
+                    itemDescription: (i.itemDescription || i.description || 'GENERAL CARGO').toUpperCase(),
+                    units: Number(i.units) || 0,
+                    weight: 0
+                });
+            });
+        }
+    });
+
+    // Fallback if registry is empty
+    if (rows.length === 0) {
+        rows.push({
+            invoiceNumber: '--',
+            ewaybillNumber: '--',
+            itemDescription: 'GENERAL CARGO',
+            units: 0,
+            weight: 0
         });
     }
 
-    if (item.ewaybillNumber) {
-        item.ewaybillNumber.split(',').forEach((ewb: string) => {
-            const trimmed = ewb.trim();
-            if (trimmed && trimmed !== '--') acc[desc].ewaybills.add(trimmed);
-        });
-    }
-    return acc;
-  }, {} as Record<string, any>);
-
-  const uniqueDescArray = Object.values(groupedByDesc);
-  let displayItems = uniqueDescArray.map(group => ({
-      ...group,
-      invoiceNumber: Array.from(group.invoices).join(', '),
-      ewaybillNumber: Array.from(group.ewaybills).join(', ')
-  }));
+    return rows;
+  }, [allItems]);
 
   const totalUnitsFinal = allItems.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
   const totalWeightFinal = Number(lr.assignedTripWeight) || 0;
@@ -87,10 +111,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const paymentTerm = lr.paymentTerm || lr.trip?.paymentTerm || 'PAID';
   const tripIdDisplay = lr.tripId || lr.trip?.tripId || '--';
 
-  // CARRIER PROFILE HANDSHAKE node: Resolve from provided carrier object
   const carrier = lr.carrier || {};
-  
-  // Mission Logic Node: Resolve dynamic terms from carrier registry
   const registryTerms = (carrier.terms && Array.isArray(carrier.terms) && carrier.terms.length > 0) 
     ? carrier.terms 
     : [
@@ -102,7 +123,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
   return (
     <div className="A4-page p-[12mm] bg-white text-black font-sans text-[8.5pt] leading-tight flex flex-col relative box-border h-[297mm] w-[210mm] overflow-hidden select-text border-none mx-auto">
-      {/* 1. TOP HEADER Terminal */}
       <div className="flex justify-end mb-4 shrink-0">
         <div className="border-2 border-black px-4 py-1 bg-slate-50 shadow-sm">
             <span className="text-[9pt] font-black uppercase tracking-widest text-slate-900 leading-none">{copyType}</span>
@@ -123,8 +143,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
               <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">PAN:</span> <span className="font-mono text-slate-900">{carrier.pan || '--'}</span></p>
               <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">STATE:</span> <span className="text-slate-900">{carrier.stateName || '--'}</span></p>
               <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">CODE:</span> <span className="text-slate-900">{carrier.stateCode || '--'}</span></p>
-              {carrier.email && <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">E-MAIL:</span> <span className="text-slate-900 lowercase font-bold">{carrier.email}</span></p>}
-              {carrier.website && <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[7pt]">WEB:</span> <span className="text-slate-900 lowercase font-bold">{carrier.website}</span></p>}
             </div>
           </div>
         </div>
@@ -141,7 +159,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* CORE MISSION PARTICULARS: Updated to 4 columns */}
       <div className="grid grid-cols-4 border-2 border-black rounded-xl overflow-hidden mb-6 bg-white divide-x-2 divide-black shadow-sm shrink-0">
         {[
           { label: 'TRIP ID NODE', value: tripIdDisplay, mono: true, bold: true, color: 'text-blue-900' },

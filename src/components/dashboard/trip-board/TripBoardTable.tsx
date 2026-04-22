@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -229,6 +228,16 @@ function MissionRegistryCard({
         return type?.toUpperCase() || 'UNASSIGNED';
     };
 
+    /**
+     * MISSION REGISTRY: Item Description Node
+     * If more than 2 unique items, use "VARIOUS ITEMS AS PER INVOICE"
+     */
+    const resolvedItemsDescription = useMemo(() => {
+        const uniqueDescs = Array.from(new Set((row.items || []).map((i: any) => (i.itemDescription || i.description || '').toUpperCase().trim()).filter(Boolean)));
+        if (uniqueDescs.length > 2) return "VARIOUS ITEMS AS PER INVOICE";
+        return uniqueDescs.join(', ') || row.itemDescription || '--';
+    }, [row.items, row.itemDescription]);
+
     return (
         <div className={cn(
             "bg-white border-2 rounded-[1.5rem] mb-6 overflow-hidden transition-all duration-300 group relative",
@@ -363,12 +372,10 @@ function MissionRegistryCard({
                         <span className="text-slate-900 font-bold uppercase truncate max-w-[250px]">{row.consignee || '--'}</span>
                     </div>
                     
-                    {showLrAndInvoices && (
-                        <div className="flex flex-col min-w-[120px]">
-                            <span className="text-[7px] font-black uppercase text-blue-900 tracking-widest leading-none mb-1">Invoice Numbers</span>
-                            <span className="text-blue-700 font-black font-mono tracking-tighter truncate max-w-[180px]">{row.invoiceNumbers || row.summarizedInvoices || '--'}</span>
-                        </div>
-                    )}
+                    <div className="flex flex-col min-w-[150px]">
+                        <span className="text-[7px] font-black uppercase text-slate-900 tracking-widest leading-none mb-1">Item Description</span>
+                        <span className="text-slate-900 font-bold uppercase truncate max-w-[300px]" title={resolvedItemsDescription}>{resolvedItemsDescription}</span>
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-6 border-l pl-6">

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -132,15 +131,21 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
     return shipments.map(shipment => {
         const trip = trips.find(t => t.shipmentIds && t.shipmentIds.includes(shipment.id));
         const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(shipment.originPlantId));
-        
-        // REGISTRY HANDSHAKE: Strictly resolve Carrier from Added Carriers registry (carrier-management node)
         const carrier = (allCarriers || []).find(c => c.id === trip?.carrierId || c.id === shipment.carrierId);
 
         const itemsManifest = shipment.items || [];
         const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
-        const summarizedItems = Array.from(new Set(itemsManifest.map(i => i.itemDescription || i.description).filter(Boolean))).join(', ') || shipment.itemDescription || shipment.material || '--';
-        const totalUnitsCount = itemsManifest.reduce((sum, i) => sum + (Number(i.units) || 0), 0) || shipment.totalUnits || 0;
+        
+        /**
+         * MISSION REGISTRY: Intelligent Description node
+         * If more than 2 unique items, use VARIOUS ITEMS AS PER INVOICE
+         */
+        const uniqueDescs = Array.from(new Set(itemsManifest.map(i => (i.itemDescription || i.description || '').toUpperCase().trim()).filter(Boolean)));
+        const summarizedItems = uniqueDescs.length > 2 
+            ? "VARIOUS ITEMS AS PER INVOICE" 
+            : (uniqueDescs.join(', ') || shipment.itemDescription || shipment.material || '--');
 
+        const totalUnitsCount = itemsManifest.reduce((sum, i) => sum + (Number(i.units) || 0), 0) || shipment.totalUnits || 0;
         const resolvedLrDate = parseSafeDate(trip?.lrDate || shipment.lrDate);
 
         return {
@@ -261,9 +266,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
-        // REGISTRY HANDSHAKE: Strictly resolve Carrier from DB list
         const finalCarrier = (allCarriers || []).find(c => c.id === row.carrierId || c.id === row.carrierObj?.id) || row.carrierObj;
-
         const shipmentObj = row as any;
 
         const manifestItems = row.items && row.items.length > 0 ? row.items : [{

@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -238,7 +237,15 @@ function OpenOrdersContent() {
         const getInvoice = (i: any) => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo;
         const summarizedInvoices = Array.from(new Set(itemsManifest.map(getInvoice).filter(Boolean))).join(', ') || s.invoiceNumber || '--';
         
-        const summarizedItems = Array.from(new Set(itemsManifest.map(i => i.itemDescription || i.description).filter(Boolean))).join(', ') || s.itemDescription || s.material || '--';
+        /**
+         * MISSION REGISTRY: Item Description Node
+         * Summarize description if more than 2 unique items exist.
+         */
+        const uniqueDescs = Array.from(new Set(itemsManifest.map(i => (i.itemDescription || i.description || '').toUpperCase().trim()).filter(Boolean)));
+        const summarizedItems = uniqueDescs.length > 2 
+            ? "VARIOUS ITEMS AS PER INVOICE" 
+            : (uniqueDescs.join(', ') || s.itemDescription || s.material || '--');
+
         const totalUnitsCount = itemsManifest.reduce((sum, i) => sum + (Number(i.units) || 0), 0) || s.totalUnits || 0;
 
         const dispatchQty = linkedTrips.reduce((sum, t) => sum + (t.entry?.status === 'OUT' ? (t.assignedQtyInTrip || 0) : 0), 0);
@@ -589,7 +596,7 @@ function OpenOrdersContent() {
         <VehicleAssignModal 
             isOpen={isAssignModalOpen}
             onClose={() => { setAssignModalOpen(false); setEditingTrip(null); }}
-            shipment={selectedShipment}
+            shipments={selectedShipment}
             trip={editingTrip}
             carriers={dbCarriers || []}
             onAssignmentComplete={() => { setAssignModalOpen(false); setEditingTrip(null); }}
