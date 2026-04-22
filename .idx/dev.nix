@@ -10,6 +10,7 @@
     pkgs.pnpm
     pkgs.git-lfs
     pkgs.sudo
+    pkgs.openssh
   ];
 
   # Sets environment variables in the workspace

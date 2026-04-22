@@ -27,3 +27,5 @@ Thumbs.db
 *.pdf
 src/serviceAccountKey.json
 .env.local
+src/service-key.json
+src/service-key.json

@@ -24,6 +24,7 @@ const LIVE_TASKS_PER_PAGE = 10;
 /**
  * @fileOverview Supervisor Task Hub.
  * Optimized for high-density manifest verification and audit trails.
+ * Updated: History manifest now consolidates tasks into single rows with intelligent summarization.
  */
 function SupervisorTaskContent() {
     const { toast } = useToast();
@@ -136,7 +137,7 @@ function SupervisorTaskContent() {
                 });
             }));
 
-            const historyRef = query(collection(firestore, `plants/${pId}/supervisor_tasks`), orderBy("timestamp", "desc"), limit(50));
+            const historyRef = query(collection(firestore, `plants/${pId}/supervisor_tasks`), orderBy("timestamp", "desc"), limit(100));
             unsubscribers.push(onSnapshot(historyRef, (snap) => {
                 const list = snap.docs.map(d => ({ ...d.data(), id: d.id, originPlantId: pId, timestamp: parseSafeDate(d.data().timestamp) }));
                 setHistory(prev => {
@@ -233,8 +234,12 @@ function SupervisorTaskContent() {
         return filteredTasks.slice(start, start + LIVE_TASKS_PER_PAGE);
     }, [filteredTasks, livePage]);
 
+    /**
+     * MISSION REGISTRY SUMMARIZATION NODE
+     * Consolidates multiple items into single task rows for historical reporting.
+     */
     const flattenedHistory = useMemo(() => {
-        const flattened: any[] = [];
+        const summarized: any[] = [];
         let sorted = [...history];
         
         if (selectedPlant !== 'all-plants') {
@@ -255,21 +260,33 @@ function SupervisorTaskContent() {
 
         sorted.forEach(taskDoc => {
             const items = taskDoc.items || [];
-            if (items.length === 0) {
-                flattened.push({ ...taskDoc, taskItem: null, taskId: taskDoc.id });
-            } else {
-                items.forEach((item: any, idx: number) => {
-                    flattened.push({
-                        ...taskDoc,
-                        taskItem: item,
-                        taskId: taskDoc.id,
-                        isFirstOfTask: idx === 0,
-                        originPlantId: taskDoc.originPlantId
-                    });
-                });
-            }
+            
+            // 1. Resolve Summarized Items Node
+            const uniqueDescs = Array.from(new Set(items.map((i: any) => (i.itemDescription || '').toUpperCase().trim()).filter(Boolean)));
+            const finalDesc = items.length > 3 ? "VARIOUS ITEMS AS PER INVOICE" : uniqueDescs.join(', ');
+
+            // 2. Resolve Delivery/Invoice Manifest
+            const deliveryNos = Array.from(new Set(items.map((i: any) => i.deliveryNo).filter(Boolean))).join(', ');
+            const invoiceNos = Array.from(new Set(items.map((i: any) => i.invoiceNo).filter(Boolean))).join(', ');
+
+            // 3. Resolve Aggregated Units
+            const totalPlanned = items.reduce((sum: number, i: any) => sum + (Number(i.plannedUnit) || 0), 0);
+            const totalLoad = items.reduce((sum, i) => sum + (Number(i.loadUnit) || 0), 0);
+            const uom = items[0]?.uom || '--';
+
+            summarized.push({
+                ...taskDoc,
+                taskId: taskDoc.id,
+                summarizedDescription: finalDesc || '--',
+                summarizedDeliveryNo: deliveryNos || '--',
+                summarizedInvoiceNo: invoiceNos || '--',
+                totalPlanned,
+                totalLoad,
+                uom,
+                isFirstOfTask: true 
+            });
         });
-        return flattened;
+        return summarized;
     }, [history, selectedPlant, historySearchTerm]);
 
     const totalHistoryPages = Math.ceil(flattenedHistory.length / historyItemsPerPage);

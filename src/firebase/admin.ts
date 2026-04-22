@@ -3,27 +3,40 @@ import * as admin from 'firebase-admin';
 /**
  * @fileOverview Hardened Firebase Admin SDK Node.
  * Re-engineered for high-reliability cloud handshake in Studio environments.
- * Strictly utilizes modular-safe initialization with explicit Project ID fallback.
+ * Updated: Now utilizes explicit Service Account credentials to bypass metadata errors.
  */
 
 function getAdminApp() {
-  // Return existing instance if pulse is already active
+  // Agar app pehle se initialized hai, toh wahi return karo
   if (admin.apps.length > 0) return admin.apps[0];
 
   const projectId = "studio-2134942499-abd6c";
 
   try {
-    // Attempt standard ADC initialization
-    return admin.initializeApp();
+    /**
+     * IMPORTANT: 'service-key.json' wahi file hai jo aapne Google Cloud se download ki hai.
+     * Ensure karein ki ye file 'admin.ts' ke saath same directory mein ho.
+     */
+    const serviceAccount = require("./service-key.json");
+
+    return admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      projectId: projectId,
+    });
   } catch (e) {
+    /**
+     * Handshake failure backup: 
+     * Agar JSON file nahi milti toh ye fallback try karega, 
+     * lekin best results ke liye JSON file zaroori hai.
+     */
     try {
-        // Fallback: Explicitly map Project ID to resolve metadata handshake issues
-        return admin.initializeApp({
-            projectId: projectId,
-        });
+      console.warn("Service Account file not found, attempting ADC fallback...");
+      return admin.initializeApp({
+        projectId: projectId,
+      });
     } catch (e2) {
-        console.error("FATAL: Identity Registry Handshake Failure", e2);
-        return null;
+      console.error("FATAL: Identity Registry Handshake Failure", e2);
+      return null;
     }
   }
 }
