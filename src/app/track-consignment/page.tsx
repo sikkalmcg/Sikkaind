@@ -41,7 +41,8 @@ import { Badge } from '@/components/ui/badge';
 /**
  * @fileOverview Track Consignment Terminal.
  * Implementation of advanced mission progress animation.
- * Authorized Node: Publicly accessible tracking pulse.
+ * Features: Sequential truck movement every 1.5-2 seconds until current status is reached.
+ * Rejection Node: Intelligent path reversal for rejected missions.
  */
 
 function TrackConsignmentContent() {
@@ -91,7 +92,8 @@ function TrackConsignmentContent() {
         setIsReversed(false);
         let current = -1;
         
-        const STEP_DURATION = 1200;
+        // Mission Sync Node: Step duration set to 1.5 seconds for professional feel
+        const STEP_DURATION = 1500;
 
         const interval = setInterval(() => {
             current++;
@@ -100,10 +102,11 @@ function TrackConsignmentContent() {
             } else {
                 clearInterval(interval);
                 
-                // MISSION REJECTION SEQUENCE node
+                // MISSION REJECTION SEQUENCE node: Forward then Reverse
                 if (rejected) {
                     setTimeout(() => {
-                        setAnimIndex(4);
+                        setAnimIndex(4); // Move forward to trigger rejection state
+                        
                         setTimeout(() => {
                             setIsReversed(true);
                             let rev = 4;
@@ -115,7 +118,7 @@ function TrackConsignmentContent() {
                                     clearInterval(revInterval);
                                 }
                             }, 1000);
-                        }, 1500);
+                        }, 2000);
                     }, STEP_DURATION);
                 }
             }
@@ -192,7 +195,7 @@ function TrackConsignmentContent() {
             }
         } catch (e: any) {
             console.error("Tracking registry error:", e);
-            setError("Registry Link Failure: " + (e.message?.includes('permission') ? 'Authorized Access Only' : 'Sync Error'));
+            setError("Registry Link Failure.");
         } finally {
             setIsSearching(false);
         }
@@ -313,14 +316,14 @@ function TrackConsignmentContent() {
                             </div>
                         </Card>
 
-                        {/* ADVANCED ANIMATION NODE */}
+                        {/* ADVANCED TRUCK ANIMATION TERMINAL */}
                         <div className="relative p-12 md:p-20 bg-white border border-slate-100 rounded-[4rem] shadow-2xl overflow-hidden min-h-[500px] flex flex-col justify-center">
                             {/* PROGRESS LINE BACKGROUND */}
                             <div className="absolute top-1/2 left-24 right-24 h-2 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden shadow-inner">
                                 <motion.div 
                                     className={cn(
                                         "h-full transition-colors duration-700", 
-                                        (result.isRejected && isReversed) ? "bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]" : "bg-blue-600"
+                                        (result.isRejected && isReversed) ? "bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]" : "bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.5)]"
                                     )}
                                     initial={{ width: 0 }}
                                     animate={{ width: `${(animIndex / 4) * 100}%` }}

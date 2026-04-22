@@ -108,11 +108,9 @@ function TrackConsignmentContent() {
             } else {
                 clearInterval(interval);
                 
-                // MISSION REJECTION SEQUENCE node
                 if (rejected) {
                     setTimeout(() => {
-                        setAnimIndex(4); // Reach Rejection status
-                        
+                        setAnimIndex(4);
                         setTimeout(() => {
                             setIsReversed(true);
                             let rev = 4;
@@ -149,7 +147,7 @@ function TrackConsignmentContent() {
                 }
             }
         } catch (e) {
-            console.warn("Telemetry refresh failure.");
+            console.warn("Telemetry pulse delayed.");
         }
     }, [apiKey]);
 
@@ -251,7 +249,7 @@ function TrackConsignmentContent() {
 
                     <div className="flex items-end gap-4 bg-white p-6 rounded-3xl border shadow-lg border-slate-100">
                         <div className="grid gap-2 min-w-[300px]">
-                            <Label htmlFor="registry-id" className="text-[10px] font-black uppercase text-slate-400 px-1">Registry ID (Trip ID / LR #)</Label>
+                            <Label htmlFor="registry-id" className="text-[10px] font-black uppercase text-slate-400 px-1">Registry ID (SO / Trip / LR)</Label>
                             <Input 
                                 id="registry-id"
                                 placeholder="Resolve Registry..." 
@@ -293,14 +291,14 @@ function TrackConsignmentContent() {
                             ))}
                         </div>
 
-                        {/* PROGRESS ANIMATION TERMINAL */}
+                        {/* ADVANCED PROGRESS ANIMATION NODE */}
                         <div className="relative p-12 md:p-20 bg-white border border-slate-100 rounded-[4rem] shadow-3xl overflow-hidden min-h-[450px] flex flex-col justify-center">
                             {/* PROGRESS LINE BACKGROUND */}
                             <div className="absolute top-1/2 left-24 right-24 h-2 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden shadow-inner">
                                 <motion.div 
                                     className={cn(
                                         "h-full transition-colors duration-700", 
-                                        (consignment.isRejected && isReversed) ? "bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]" : "bg-blue-600"
+                                        (consignment.isRejected && isReversed) ? "bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]" : "bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.5)]"
                                     )}
                                     initial={{ width: 0 }}
                                     animate={{ width: `${(animIndex / 4) * 100}%` }}
@@ -339,10 +337,10 @@ function TrackConsignmentContent() {
                                                         }} 
                                                         transition={{ repeat: Infinity, duration: 0.6 }}
                                                     >
-                                                        {i === 2 ? <Truck size={40} /> : <stage.icon size={40} />}
+                                                        {(isFinal && consignment.isRejected) ? <XCircle size={40} /> : (i === 2 ? <Truck size={40} /> : <stage.icon size={40} />)}
                                                     </motion.div>
                                                 ) : (
-                                                    <stage.icon size={36} className={cn(isReversed && i < animIndex && "scale-x-[-1] opacity-50")} />
+                                                    (isFinal && consignment.isRejected) ? <XCircle size={36} className="opacity-20" /> : <stage.icon size={36} className={cn(isReversed && i < animIndex && "scale-x-[-1] opacity-50")} />
                                                 )}
                                             </motion.div>
                                             <div className="text-center space-y-2">
@@ -352,10 +350,10 @@ function TrackConsignmentContent() {
                                                 )}>{label}</p>
                                                 {active && (
                                                     <div className="flex flex-col items-center gap-1.5 mt-2 animate-in fade-in duration-700">
-                                                        <p className="text-[10px] font-black font-mono text-red-600 leading-none tracking-tighter">
+                                                        <p className="text-[10px] font-black font-mono text-blue-600 leading-none tracking-tighter">
                                                             {format(timestamp, 'dd MMM yyyy')}
                                                         </p>
-                                                        <p className="text-[10px] font-black font-mono text-red-600 leading-none">
+                                                        <p className="text-[10px] font-black font-mono text-slate-400 leading-none">
                                                             {format(timestamp, 'HH:mm')}
                                                         </p>
                                                     </div>
@@ -385,135 +383,10 @@ function TrackConsignmentContent() {
                                 )}
                             </AnimatePresence>
                         </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
-                            <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden flex flex-col">
-                                <CardHeader className="bg-slate-50 border-b p-8"><CardTitle className="text-sm font-black uppercase tracking-widest text-slate-700">Fleet Authorization</CardTitle></CardHeader>
-                                <CardContent className="p-8 flex-1 flex flex-col md:flex-row justify-between items-center gap-10">
-                                    <div className="flex-1 space-y-6">
-                                        <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border">
-                                            <div className={cn("p-3 rounded-full border-4", isGpsEnabled ? "bg-emerald-100 border-emerald-200 text-emerald-600" : "bg-slate-100 border-slate-200 text-slate-400")}>
-                                                <Smartphone className="h-8 w-8" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <h4 className="font-black uppercase text-slate-900">{isGpsEnabled ? 'Satellite Link Active' : 'GPS Signal Offline'}</h4>
-                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-1">{isGpsEnabled ? 'Live telemetry signal active.' : 'Vehicle signal inactive.'}</p>
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                            <InfoRow icon={Truck} label="Vehicle Number" value={consignment.vehicleNumber} />
-                                            <InfoRow icon={User} label="Driver" value={livePos?.driverName || consignment.driverName || 'N/A'} />
-                                            <InfoRow icon={MapPin} label="Live Location" value={livePos?.location || 'Syncing...'} isLocation={true} />
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col w-full md:w-64 gap-3">
-                                        <Button onClick={() => setIsMapModalOpen(true)} disabled={!isGpsEnabled} className="w-full h-12 rounded-xl font-black uppercase text-xs shadow-lg">Track Mission</Button>
-                                        <Button variant="outline" onClick={() => refreshTelemetry(consignment.vehicleNumber)} disabled={isSearching} className="w-full h-10 rounded-xl font-black uppercase text-[9px] tracking-widest gap-2">
-                                            <RefreshCcw className={cn("h-3 w-3", isSearching && "animate-spin")} /> Force Sync
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
                     </div>
                 )}
             </div>
-
-            {isMapModalOpen && consignment && (
-                <TrackingPopup 
-                    isOpen={isMapModalOpen}
-                    onClose={() => setIsMapModalOpen(false)}
-                    consignment={consignment}
-                    livePos={livePos}
-                    onEtaResolved={setEta}
-                />
-            )}
         </main>
-    );
-}
-
-const InfoRow = ({ icon: Icon, label, value, isLocation = false }: { icon: any, label: string, value: string, isLocation?: boolean }) => (
-    <div className="flex items-start gap-3">
-        <Icon className="h-4 w-4 text-slate-400 mt-1" />
-        <div className="flex-1">
-            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">{label}</p>
-            <p className={cn("text-sm font-bold uppercase", isLocation ? "text-blue-600 animate-pulse" : "text-slate-800")}>{value || '--'}</p>
-        </div>
-    </div>
-);
-
-function TrackingPopup({ isOpen, onClose, consignment, livePos, onEtaResolved }: { isOpen: boolean; onClose: () => void; consignment: any; livePos: any; onEtaResolved: (date: Date) => void; }) {
-    const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: MAPS_JS_KEY, libraries: ['places'] });
-    const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
-
-    const onMapLoad = useCallback((map: google.maps.Map) => {
-        if (!window.google || !consignment.unloadingPoint) return;
-        const directionsService = new google.maps.DirectionsService();
-        const origin = { lat: livePos.latitude, lng: livePos.longitude };
-        directionsService.route(
-            { origin, destination: consignment.unloadingPoint, travelMode: google.maps.TravelMode.DRIVING },
-            (result, status) => {
-                if (status === "OK" && result) {
-                    setDirections(result);
-                    const duration = result.routes[0].legs[0].duration?.value || 0;
-                    onEtaResolved(new Date(Date.now() + duration * 1000));
-                }
-            }
-        );
-    }, [livePos, consignment.unloadingPoint, onEtaResolved]);
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 border-none shadow-3xl overflow-hidden bg-slate-900 rounded-[3rem] flex flex-col">
-                <DialogHeader className="p-6 bg-slate-950 border-b border-white/5 flex flex-row items-center justify-between space-y-0 pr-12">
-                    <div className="flex items-center gap-4">
-                        <div className="p-2.5 bg-blue-600 rounded-2xl shadow-lg"><Radar className="h-6 w-6 text-white" /></div>
-                        <div>
-                            <DialogTitle className="text-xl font-black uppercase tracking-tight italic text-white leading-none">Live Mission Telemetry</DialogTitle>
-                            <DialogDescription className="text-blue-400 font-bold uppercase text-[9px] tracking-widest mt-2">Vehicle: {consignment.vehicleNumber} | Registry ID: {consignment.tripId}</DialogDescription>
-                        </div>
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="h-10 w-10 text-white/40 hover:text-white hover:bg-white/10 rounded-xl"><XIcon className="h-6 w-6" /></Button>
-                </DialogHeader>
-                <div className="flex-1 relative bg-slate-800">
-                    {isLoaded ? (
-                        <GoogleMap
-                            mapContainerStyle={{ width: '100%', height: '100%' }}
-                            center={{ lat: livePos.latitude, lng: livePos.longitude }}
-                            zoom={12}
-                            onLoad={onMapLoad}
-                            options={{ 
-                                disableDefaultUI: true, 
-                                styles: [
-                                    { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-                                    { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-                                    { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-                                    { 
-                                        featureType: "road", 
-                                        elementType: "geometry", 
-                                        stylers: [{ color: "#485a71" }] 
-                                    },
-                                    { 
-                                        featureType: "road", 
-                                        elementType: "geometry.stroke", 
-                                        stylers: [{ color: "#212a37" }] 
-                                    },
-                                    { 
-                                        featureType: "road.highway", 
-                                        elementType: "geometry", 
-                                        stylers: [{ color: "#746855" }] 
-                                    },
-                                    { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] }
-                                ]
-                            }}
-                        >
-                            <Marker position={{ lat: livePos.latitude, lng: livePos.longitude }} icon={{ url: DEFAULT_TRUCK_ICON, scaledSize: new google.maps.Size(45, 45) }} />
-                            {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: true }} />}
-                        </GoogleMap>
-                    ) : <div className="absolute inset-0 flex items-center justify-center text-white"><Loader2 className="animate-spin" /></div>}
-                </div>
-            </DialogContent>
-        </Dialog>
     );
 }
 
