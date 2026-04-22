@@ -368,6 +368,10 @@ function MissionRegistryCard({
                         <span className="text-slate-900 font-black uppercase truncate max-w-[250px]">{row.shipToParty || '--'}</span>
                     </div>
                     <div className="flex flex-col min-w-[150px]">
+                        <span className="text-[7px] font-black uppercase text-orange-600 tracking-widest leading-none mb-1">Invoice Number</span>
+                        <span className="text-slate-900 font-black uppercase truncate max-w-[200px]" title={row.invoiceNumbers}>{row.invoiceNumbers || '--'}</span>
+                    </div>
+                    <div className="flex flex-col min-w-[150px]">
                         <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">Consignee Name</span>
                         <span className="text-slate-900 font-bold uppercase truncate max-w-[250px]">{row.consignee || '--'}</span>
                     </div>

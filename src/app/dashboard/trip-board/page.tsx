@@ -70,7 +70,6 @@ function TripBoardContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
-  const [isClientReadOnly, setIsClientReadOnly] = useState(false);
   
   const isInitialized = useRef(false);
 
@@ -126,7 +125,6 @@ function TripBoardContent() {
                 const userData = qSnap.docs[0].data() as SubUser;
                 const isRoot = userData.username?.toLowerCase() === 'sikkaind' || isAdminSession;
                 authIds = isRoot ? baseList.map(p => p.id) : (userData.plantIds || []);
-                if (userData.jobRole === 'Client') setIsClientReadOnly(true);
             } else if (isAdminSession) {
                 authIds = baseList.map(p => p.id);
             }
@@ -254,7 +252,6 @@ function TripBoardContent() {
         const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
         const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
 
-        // Registry Fix: Handle slashes and whitespace in status strings to prevent categorization overlap
         const s = (t.tripStatus || t.currentStatusId || 'assigned').toLowerCase().trim().replace(/[\s/_-]+/g, '-');
 
         return {
@@ -265,7 +262,7 @@ function TripBoardContent() {
             orderCreatedUser: shipment?.userName || '--',
             consignor: t.consignor || shipment?.consignor || '--',
             consignorAddress: shipment?.consignorAddress || shipment?.loadingPoint || '--',
-            consignee: t.billToParty || shipment?.billToParty || '--', // MISSION FIX: Match Consignee to Bill To Node
+            consignee: t.billToParty || shipment?.billToParty || '--',
             deliveryAddress: shipment?.deliveryAddress || shipment?.unloadingPoint || '--',
             billToParty: t.billToParty || shipment?.billToParty || '--',
             shipToParty: t.shipToParty || shipment?.shipToParty || '--',
@@ -323,6 +320,10 @@ function TripBoardContent() {
             })
             .map(s => {
                 const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(s.originPlantId));
+                
+                const items = s.items || [];
+                const invs = Array.from(new Set(items.map((i: any) => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo).filter(Boolean))).join(', ') || s.invoiceNumber || '--';
+
                 return {
                     ...s,
                     plantName: plant?.name || s.originPlantId,
@@ -330,13 +331,14 @@ function TripBoardContent() {
                     orderNo: s.shipmentId,
                     qtyUom: `${s.quantity} MT`,
                     balanceUom: `${s.balanceQty} MT`,
-                    carrierObj: (dbCarriers || []).find(c => c.id === s.carrierId)
+                    carrierObj: (dbCarriers || []).find(c => c.id === s.carrierId),
+                    invoiceNumbers: invs
                 };
             })
             .filter(s => {
                 if (!searchTerm) return true;
                 const searchLower = searchTerm.toLowerCase();
-                return (s.shipmentId?.toLowerCase().includes(searchLower) || s.consignor?.toLowerCase().includes(searchLower) || s.billToParty?.toLowerCase().includes(searchLower));
+                return (s.shipmentId?.toLowerCase().includes(searchLower) || s.consignor?.toLowerCase().includes(searchLower) || s.billToParty?.toLowerCase().includes(searchLower) || s.invoiceNumbers?.toLowerCase().includes(searchLower));
             });
 
         if (sortAlphabetical) {
@@ -364,7 +366,7 @@ function TripBoardContent() {
     }).filter(t => {
       if (!searchTerm) return true;
       const s = searchTerm.toLowerCase();
-      return (t.tripId?.toLowerCase().includes(s) || t.vehicleNumber?.toLowerCase().includes(s) || t.lrNumber?.toLowerCase().includes(s) || t.consignor?.toLowerCase().includes(s) || t.consignee?.toLowerCase().includes(s));
+      return (t.tripId?.toLowerCase().includes(s) || t.vehicleNumber?.toLowerCase().includes(s) || t.lrNumber?.toLowerCase().includes(s) || t.consignor?.toLowerCase().includes(s) || t.consignee?.toLowerCase().includes(s) || t.invoiceNumbers?.toLowerCase().includes(s));
     });
   }, [joinedData, shipments, activeTab, fromDate, toDate, searchTerm, selectedPlants, plants, sortAlphabetical, dbCarriers]);
 
@@ -424,7 +426,7 @@ function TripBoardContent() {
 
   const handleDownloadExcel = () => {
     const exportData = processedData.map(t => ({
-        'Plant': t.plantName, 'ID': t.tripId || t.shipmentId, 'Vehicle Number': t.vehicleNumber || '--', 'LR Number': t.lrNumber || '--', 'Consignor': t.consignor, 'Consignee': t.consignee || t.billToParty, 'Destination': t.unloadingPoint, 'Weight (MT)': t.dispatchedQty || t.quantity, 'Status': t.tripStatus || t.currentStatusId, 'Date': t.startDate ? format(t.startDate, 'dd-MM-yy HH:mm') : (t.creationDate ? format(t.creationDate, 'dd-MM-yy HH:mm') : '--')
+        'Plant': t.plantName, 'ID': t.tripId || t.shipmentId, 'Invoice Number': t.invoiceNumbers || '--', 'Vehicle Number': t.vehicleNumber || '--', 'LR Number': t.lrNumber || '--', 'Consignor': t.consignor, 'Consignee': t.consignee || t.billToParty, 'Destination': t.unloadingPoint, 'Weight (MT)': t.dispatchedQty || t.quantity, 'Status': t.tripStatus || t.currentStatusId, 'Date': t.startDate ? format(t.startDate, 'dd-MM-yy HH:mm') : (t.creationDate ? format(t.creationDate, 'dd-MM-yy HH:mm') : '--')
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
@@ -904,12 +906,10 @@ function TripBoardContent() {
   const handleCancelConfirm = async () => {
     if (!firestore || !user || !cancelTripData) return;
     
-    // MISSION FIX Node: Robust ID Resolution
     let plantId = normalizePlantId(cancelTripData.originPlantId);
     let shipIds = cancelTripData.shipmentIds || cancelTripData.shipmentId || [];
     if (!Array.isArray(shipIds)) shipIds = [shipIds];
     
-    // Attempt recovery from parent node if missing
     if (!plantId) {
         const foundTrip = trips.find(t => t.id === cancelTripData.id);
         plantId = normalizePlantId(foundTrip?.originPlantId || '');
@@ -932,7 +932,6 @@ function TripBoardContent() {
             const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
             const globalTripRef = doc(firestore, 'trips', tripId);
             
-            // Loop through associated orders to restore balances
             for (const shipId of shipIds) {
                 if (!shipId) continue;
                 const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, shipId);
@@ -985,12 +984,6 @@ function TripBoardContent() {
             </div>
 
             <div className="flex items-center gap-3">
-                {isClientReadOnly && (
-                    <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-4 py-1.5 rounded-full text-blue-900 font-black text-[10px] uppercase shadow-sm animate-in fade-in zoom-in duration-500">
-                        <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
-                        READ-ONLY ACCESS
-                    </div>
-                )}
                 <div className="relative flex-1 max-w-[140px] md:max-w-[200px]">
                     <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
                     <Input 
@@ -1078,7 +1071,6 @@ function TripBoardContent() {
                     data={paginatedData} 
                     activeTab={activeTab} 
                     isAdmin={isAdminSession} 
-                    isReadOnly={isClientReadOnly}
                     onAction={handleAction} 
                     selectedIds={selectedPendingIds}
                     onSelectRow={handleSelectPendingRow}
@@ -1094,7 +1086,7 @@ function TripBoardContent() {
             </div>
         )}
 
-        {activeTab === 'pending-assignment' && selectedPendingIds.length > 0 && !isClientReadOnly && (
+        {activeTab === 'pending-assignment' && selectedPendingIds.length > 0 && (
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95vw] max-w-4xl animate-in slide-in-from-bottom-10 duration-500">
                 <div className="bg-slate-900 text-white rounded-[1.5rem] md:rounded-[2rem] shadow-3xl p-3 md:p-6 flex items-center justify-between gap-3 md:gap-10 border border-white/10 backdrop-blur-xl">
                     <div className="flex items-center gap-2 md:gap-4 border-r border-white/10 pr-3 md:pr-10 shrink-0">

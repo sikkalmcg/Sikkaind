@@ -132,11 +132,16 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
     return shipments.map(shipment => {
         const trip = trips.find(t => t.shipmentIds && t.shipmentIds.includes(shipment.id));
         const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(shipment.originPlantId));
-        const carrier = allCarriers.find(c => c.id === trip?.carrierId || c.id === shipment.carrierId);
+        const carrier = (allCarriers || []).find(c => c.id === trip?.carrierId || c.id === shipment.carrierId);
 
         const itemsManifest = shipment.items || [];
-        const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
-        const summarizedItems = Array.from(new Set(itemsManifest.map(i => i.itemDescription || i.description).filter(Boolean))).join(', ') || shipment.itemDescription || shipment.material || '--';
+        const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
+        
+        const uniqueDescs = Array.from(new Set(itemsManifest.map(i => (i.itemDescription || i.description || '').toUpperCase().trim()).filter(Boolean)));
+        const summarizedItems = uniqueDescs.length > 2 
+            ? "VARIOUS ITEMS AS PER INVOICE" 
+            : (uniqueDescs.join(', ') || shipment.itemDescription || shipment.material || '--');
+
         const totalUnitsCount = itemsManifest.reduce((sum, i) => sum + (Number(i.units) || 0), 0) || shipment.totalUnits || 0;
 
         const resolvedLrDate = parseSafeDate(trip?.lrDate || shipment.lrDate);
@@ -450,6 +455,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                         )}
                         <TableHead className="text-[10px] font-black uppercase px-6 w-32 bg-slate-100 align-middle">Plant</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 w-36 bg-slate-100 align-middle">Sales Order No</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 w-36 text-center bg-slate-100 align-middle">Invoice No</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40 bg-slate-100 align-middle">Order Date</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 w-36 text-center bg-slate-100 align-middle">Vehicle No</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100 align-middle">Pilot Mobile</TableHead>
@@ -465,10 +471,10 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                     <TableBody>
                     {loading ? (
                         Array.from({ length: 5 }).map((_, i) => (
-                        <TableRow key={i} className="h-12 md:h-14"><TableCell colSpan={isAdmin ? 12 : 11} className="px-6 py-2"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                        <TableRow key={i} className="h-12 md:h-14"><TableCell colSpan={isAdmin ? 13 : 12} className="px-6 py-2"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                         ))
                     ) : paginatedShipments.length === 0 ? (
-                        <TableRow><TableCell colSpan={isAdmin ? 12 : 11} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={isAdmin ? 13 : 12} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
                     ) : (
                         paginatedShipments.map(s => {
                         const isChecked = selectedIds.includes(s.id);
@@ -493,6 +499,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                             )}
                             <TableCell className="px-6 font-bold text-slate-600 uppercase truncate align-middle">{s.plantName}</TableCell>
                             <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-[10px] align-middle">{s.shipmentId}</TableCell>
+                            <TableCell className="px-4 text-center font-bold text-slate-900 uppercase text-[10px] align-middle" title={s.summarizedInvoices}>{s.summarizedInvoices}</TableCell>
                             <TableCell className="px-4 text-center whitespace-nowrap text-slate-500 font-bold align-middle">{formatSafeDateString(s.creationDate, 'dd/MM/yy HH:mm')}</TableCell>
                             <TableCell className="px-4 text-center font-black text-slate-900 uppercase tracking-tighter align-middle">{s.vehicleNumber || '--'}</TableCell>
                             <TableCell className="px-4 text-center font-mono font-bold text-slate-400 align-middle">{s.driverMobile || '--'}</TableCell>
@@ -584,7 +591,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             onClose={() => { setAssignModalOpen(false); setSelectedShipment(null); }}
             shipments={[selectedShipment]}
             onAssignmentComplete={() => { setAssignModalOpen(false); setSelectedShipment(null); }}
-            carriers={plantCarriers}
+            carriers={allCarriers || []}
         />
       )}
     </Card>
