@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, Suspense, useRef } from 'react';
@@ -50,6 +49,7 @@ const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracki
  * @fileOverview Consignment Terminal - Tracking Hub.
  * Hardened: Robust status normalization and real-time animation pulse.
  * Optimized: Uses ref lock to prevent infinite re-loads of truck animation.
+ * Fixed: Telemetry sync node ordering resolved.
  */
 function TrackConsignmentContent() {
     const { toast } = useToast();
@@ -141,39 +141,6 @@ function TrackConsignmentContent() {
         }, STEP_DURATION);
     }, []);
 
-    // REAL-TIME REGISTRY LISTENER node
-    useEffect(() => {
-        if (!consignment?.id || !firestore) return;
-
-        const tripRef = doc(firestore, "trips", consignment.id);
-        const unsubscribe = onSnapshot(tripRef, (snap) => {
-            if (snap.exists()) {
-                const updatedTrip = snap.data();
-                const newStatus = (updatedTrip.tripStatus || updatedTrip.currentStatusId || 'assigned').toLowerCase();
-                const targetIdx = getTargetIndex(newStatus);
-                
-                // MISSION FIX: Only run animation if target index has changed to prevent infinite re-loads
-                if (targetIdx !== lastTargetIndexRef.current) {
-                    lastTargetIndexRef.current = targetIdx;
-                    runAnimation(targetIdx, newStatus === 'rejected');
-                }
-            }
-        });
-
-        return () => {
-            unsubscribe();
-            if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
-        };
-    }, [consignment?.id, firestore, getTargetIndex, runAnimation]);
-
-    useEffect(() => {
-        if (!consignment?.vehicleNumber) return;
-        const interval = setInterval(() => {
-            refreshTelemetry(consignment.vehicleNumber);
-        }, 30000);
-        return () => clearInterval(interval);
-    }, [consignment?.vehicleNumber, refreshTelemetry]);
-
     const refreshTelemetry = useCallback(async (vNo: string) => {
         if (!vNo || !apiKey) return;
         try {
@@ -195,6 +162,38 @@ function TrackConsignmentContent() {
             console.warn("Telemetry pulse delayed.");
         }
     }, [apiKey]);
+
+    // REAL-TIME REGISTRY LISTENER node
+    useEffect(() => {
+        if (!consignment?.id || !firestore) return;
+
+        const tripRef = doc(firestore, "trips", consignment.id);
+        const unsubscribe = onSnapshot(tripRef, (snap) => {
+            if (snap.exists()) {
+                const updatedTrip = snap.data();
+                const newStatus = (updatedTrip.tripStatus || updatedTrip.currentStatusId || 'assigned').toLowerCase();
+                const targetIdx = getTargetIndex(newStatus);
+                
+                if (targetIdx !== lastTargetIndexRef.current) {
+                    lastTargetIndexRef.current = targetIdx;
+                    runAnimation(targetIdx, newStatus === 'rejected');
+                }
+            }
+        });
+
+        return () => {
+            unsubscribe();
+            if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
+        };
+    }, [consignment?.id, firestore, getTargetIndex, runAnimation]);
+
+    useEffect(() => {
+        if (!consignment?.vehicleNumber) return;
+        const interval = setInterval(() => {
+            refreshTelemetry(consignment.vehicleNumber);
+        }, 30000);
+        return () => clearInterval(interval);
+    }, [consignment?.vehicleNumber, refreshTelemetry]);
 
     const handleSearch = useCallback(async (overriddenQuery?: string) => {
         const term = (overriddenQuery || searchQuery).trim().toUpperCase();
@@ -415,7 +414,7 @@ function TrackConsignmentContent() {
                                         <div className="p-2 bg-red-600 rounded-full animate-pulse shadow-lg text-white">
                                             <AlertCircle size={24} />
                                         </div>
-                                        <div className="flex flex-col">
+                                        <div className="flex col flex-col">
                                             <span className="text-xs font-black uppercase text-red-900 tracking-[0.2em]">CRITICAL MISSION REJECTION</span>
                                             <span className="text-[9px] font-bold text-red-600 uppercase tracking-widest mt-1">RETURNING ASSETS TO ORIGINAL LIFTING NODE REGISTRY</span>
                                         </div>
