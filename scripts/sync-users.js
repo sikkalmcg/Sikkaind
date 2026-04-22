@@ -1,8 +1,11 @@
 
 const admin = require('firebase-admin');
 
-// Initialize Firebase Admin SDK using Application Default Credentials
-// This bypasses the need for a local JSON file which might be invalid/deleted
+/**
+ * @fileOverview User Registry Synchronization Script.
+ * Hardened to match v2.5 server-side handshake nodes.
+ */
+
 if (!admin.apps.length) {
     admin.initializeApp({
         projectId: "studio-2134942499-abd6c"
@@ -13,54 +16,61 @@ const db = admin.firestore();
 const auth = admin.auth();
 
 async function syncUsers() {
-  console.log('Starting user synchronization...');
+  console.log('--- STARTING MISSION REGISTRY SYNC ---');
 
   try {
     const usersSnapshot = await db.collection('users').get();
     
     if (usersSnapshot.empty) {
-      console.log('No users found in the Firestore database.');
+      console.log('Registry Node Empty: No users found in database.');
       return;
     }
 
-    console.log(`Found ${usersSnapshot.docs.length} users in Firestore.`);
+    console.log(`Pulse Active: Processing ${usersSnapshot.docs.length} identity nodes.`);
 
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data();
-      const { email, password, fullName } = userData;
+      const { email, password, fullName, uid: storedUid } = userData;
 
       if (!email || !password) {
-        console.warn(`Skipping user ${userDoc.id} due to missing email or password.`);
+        console.warn(`Registry Skip: Node ${userDoc.id} missing mandatory particulars.`);
         continue;
       }
 
       try {
-        // Check if user already exists in Firebase Authentication
-        await auth.getUserByEmail(email);
-        console.log(`User with email ${email} already exists in Firebase Authentication. Skipping.`);
+        // Handshake: Verify Identity Platform link
+        const authUser = await auth.getUserByEmail(email);
+        console.log(`Identity Confirmed: ${email} active at ${authUser.uid}`);
+        
+        // Ensure UID synchronization in Database
+        if (storedUid !== authUser.uid) {
+            await userDoc.ref.update({ uid: authUser.uid });
+            console.log(`Registry Handshake: Synchronized UID for ${email}`);
+        }
       } catch (error) {
         if (error.code === 'auth/user-not-found') {
-          // User does not exist, so create them
+          // Provision missing identity node
           try {
             const userRecord = await auth.createUser({
               email: email,
               password: password,
               displayName: fullName,
+              emailVerified: true
             });
-            console.log(`Successfully created new user: ${userRecord.uid} (${email})`);
+            await userDoc.ref.update({ uid: userRecord.uid });
+            console.log(`Node Established: Successfully provisioned ${userRecord.uid} (${email})`);
           } catch (createError) {
-            console.error(`Error creating user ${email}:`, createError);
+            console.error(`Provisioning Failure for ${email}:`, createError.message);
           }
         } else {
-          // Some other error occurred
-          console.error(`Error checking user ${email}:`, error);
+          console.error(`Sync Conflict for ${email}:`, error.message);
         }
       }
     }
 
-    console.log('User synchronization completed.');
+    console.log('--- MISSION REGISTRY SYNC COMPLETE ---');
   } catch (error) {
-    console.error('Error fetching users from Firestore:', error);
+    console.error("FATAL: Registry Extraction Failure", error);
   }
 }
 

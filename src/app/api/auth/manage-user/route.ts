@@ -1,34 +1,35 @@
-
 import { adminAuth as auth, adminDb as db, FieldValue } from "@/firebase/admin";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
  * @fileOverview Atomic Identity Provisioning API.
- * Ensures consistent JSON responses to prevent browser-side "Unexpected token <" errors.
+ * Hardened for Sikka LMC v2.5 Registry standards.
  */
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         const { action, email, password, userData, username, mobile } = body;
 
-        // REGISTRY HANDSHAKE Node: Verify SDK initialization
+        // REGISTRY HANDSHAKE Node: Verify SDK authorization pulse
         if (!auth || !db) {
             return NextResponse.json({ 
-                error: "Security Node Offline: Admin SDK failed to initialize. Please check environment credentials." 
+                error: "Security Node Offline: Cloud Admin handshake failed. Please ensure the project ID is correctly mapped." 
             }, { status: 503 });
         }
 
         // AUTH NODE: PROVISION NEW USER + SYNC REGISTRY
         if (action === 'createUser') {
-            if (!email || !password) return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
+            if (!email || !password) return NextResponse.json({ error: "Missing required fields: Email and Password mandatory." }, { status: 400 });
             
             let uid;
             try {
+                // Attempt to resolve existing identity node
                 const existing = await auth.getUserByEmail(email);
                 await auth.updateUser(existing.uid, { password });
                 uid = existing.uid;
             } catch (e: any) {
                 if (e.code === 'auth/user-not-found') {
+                    // Initialize new identity node
                     const created = await auth.createUser({ 
                         email, 
                         password, 
@@ -36,9 +37,13 @@ export async function POST(req: NextRequest) {
                         displayName: userData?.fullName || email.split('@')[0]
                     });
                     uid = created.uid;
-                } else throw e;
+                } else {
+                    console.error("Auth Handshake Error:", e);
+                    throw e;
+                }
             }
 
+            // Sync with Firestore User Registry
             const userRef = db.collection("users").doc(email);
             const finalUserData = {
                 ...userData,
@@ -50,12 +55,13 @@ export async function POST(req: NextRequest) {
             };
             await userRef.set(finalUserData, { merge: true });
 
+            // Admin Role Synchronization node
             if (userData?.jobRole === 'Admin' || userData?.jobRole === 'Manager' || userData?.username === 'sikkaind') {
                 await db.collection("roles_admin").doc(uid).set({
                     email,
                     role: userData.jobRole || 'Admin',
                     authorizedAt: FieldValue.serverTimestamp()
-                });
+                }, { merge: true });
             }
 
             return NextResponse.json({ success: true, uid });
@@ -63,6 +69,8 @@ export async function POST(req: NextRequest) {
 
         // AUTH NODE: IDENTIFY OPERATOR FOR RECOVERY
         if (action === 'verifyUser') {
+            if (!username || !mobile) return NextResponse.json({ error: "Identification nodes missing." }, { status: 400 });
+            
             const q = await db.collection("users")
                 .where("username", "==", String(username).toLowerCase())
                 .where("mobile", "==", mobile)
@@ -70,7 +78,7 @@ export async function POST(req: NextRequest) {
                 .get();
 
             if (q.empty) {
-                return NextResponse.json({ error: "Operator identity not recognized." }, { status: 404 });
+                return NextResponse.json({ error: "Operator identity not recognized in registry." }, { status: 404 });
             }
 
             return NextResponse.json({ success: true, email: q.docs[0].data().email });
@@ -78,8 +86,10 @@ export async function POST(req: NextRequest) {
 
         // AUTH NODE: AUTHORIZED PASSWORD RESET
         if (action === 'resetPassword') {
+            if (!email || !password) return NextResponse.json({ error: "Registry context missing." }, { status: 400 });
+            
             const q = await db.collection("users").where("email", "==", email).limit(1).get();
-            if (q.empty) return NextResponse.json({ error: "Registry node missing." }, { status: 404 });
+            if (q.empty) return NextResponse.json({ error: "Identity node not found in registry." }, { status: 404 });
 
             const userDoc = q.docs[0];
             const uid = userDoc.data().uid;
@@ -93,7 +103,7 @@ export async function POST(req: NextRequest) {
                 });
                 return NextResponse.json({ success: true });
             }
-            throw new Error("UID handshake failed.");
+            throw new Error("UID handshake failed. Identity context corrupted.");
         }
 
         // AUTH NODE: BOOTSTRAP ROOT ADMIN
@@ -131,14 +141,18 @@ export async function POST(req: NextRequest) {
                 email: adminEmail,
                 role: 'Admin',
                 authorizedAt: FieldValue.serverTimestamp()
-            });
+            }, { merge: true });
 
             return NextResponse.json({ success: true });
         }
 
-        return NextResponse.json({ error: "Invalid action node." }, { status: 400 });
+        return NextResponse.json({ error: "Invalid mission action node." }, { status: 400 });
     } catch (error: any) {
-        console.error("Provisioning failure:", error);
-        return NextResponse.json({ error: `Identity Registry Error: ${error.message}` }, { status: 500 });
+        console.error("Identity Registry Failure:", error);
+        const description = error.message || "Unknown error node.";
+        return NextResponse.json({ 
+            error: `Identity Registry Error: ${description}`,
+            code: error.code
+        }, { status: 500 });
     }
 }
