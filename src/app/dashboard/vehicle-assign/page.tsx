@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -237,10 +238,6 @@ function OpenOrdersContent() {
         const getInvoice = (i: any) => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo;
         const summarizedInvoices = Array.from(new Set(itemsManifest.map(getInvoice).filter(Boolean))).join(', ') || s.invoiceNumber || '--';
         
-        /**
-         * MISSION REGISTRY: Item Description Node
-         * Summarize description if more than 2 unique items exist.
-         */
         const uniqueDescs = Array.from(new Set(itemsManifest.map(i => (i.itemDescription || i.description || '').toUpperCase().trim()).filter(Boolean)));
         const summarizedItems = uniqueDescs.length > 2 
             ? "VARIOUS ITEMS AS PER INVOICE" 
@@ -271,7 +268,9 @@ function OpenOrdersContent() {
           summarizedInvoices,
           summarizedItems,
           totalUnitsCount,
-          paymentTerm: linkedTrips[0]?.paymentTerm || s.paymentTerm
+          paymentTerm: linkedTrips[0]?.paymentTerm || s.paymentTerm,
+          consignee: s.billToParty || '--', // MISSION FIX: Explicit mapping to Bill To Party
+          shipToParty: s.shipToParty || '--' // MISSION FIX: Correctly map Ship To
         };
       });
   }, [allData, dbCarriers, plants, selectedPlants]);

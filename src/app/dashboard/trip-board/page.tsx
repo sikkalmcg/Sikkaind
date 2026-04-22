@@ -265,7 +265,7 @@ function TripBoardContent() {
             orderCreatedUser: shipment?.userName || '--',
             consignor: t.consignor || shipment?.consignor || '--',
             consignorAddress: shipment?.consignorAddress || shipment?.loadingPoint || '--',
-            consignee: t.shipToParty || shipment?.shipToParty || shipment?.billToParty || '--',
+            consignee: t.billToParty || shipment?.billToParty || '--', // MISSION FIX: Match Consignee to Bill To Node
             deliveryAddress: shipment?.deliveryAddress || shipment?.unloadingPoint || '--',
             billToParty: t.billToParty || shipment?.billToParty || '--',
             shipToParty: t.shipToParty || shipment?.shipToParty || '--',
@@ -1139,8 +1139,7 @@ function TripBoardContent() {
             shipments={selectedShipmentsForAssign}
             trip={editingTrip}
             carriers={dbCarriers || []}
-            onAssignmentComplete={() => { 
-                setAssignModalOpen(false); 
+            onAssignmentComplete={() => { setAssignModalOpen(false); 
                 setEditingTrip(null); 
                 setSelectedShipmentsForAssign([]);
                 setSelectedPendingIds([]);
