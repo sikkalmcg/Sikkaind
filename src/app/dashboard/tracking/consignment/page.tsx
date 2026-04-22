@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback, Suspense } from 'react';
+import { useState, useMemo, useEffect, useCallback, Suspense, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,7 @@ const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracki
 /**
  * @fileOverview Consignment Terminal - Tracking Hub.
  * Hardened: Robust status normalization and real-time animation pulse.
+ * Optimized: Uses ref lock to prevent infinite re-loads of truck animation.
  */
 function TrackConsignmentContent() {
     const { toast } = useToast();
@@ -63,6 +64,10 @@ function TrackConsignmentContent() {
     const [isGpsEnabled, setIsGpsEnabled] = useState(false);
     const [animIndex, setAnimIndex] = useState(-1);
     const [isReversed, setIsReversed] = useState(false);
+
+    // Registry Guard Nodes
+    const animationIntervalRef = useRef<any>(null);
+    const lastTargetIndexRef = useRef<number>(-1);
 
     useEffect(() => {
         const fetchApiKey = async () => {
@@ -98,18 +103,21 @@ function TrackConsignmentContent() {
     }, []);
 
     const runAnimation = useCallback((targetIndex: number, rejected: boolean) => {
+        // Clear existing pulse to prevent collision
+        if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
+        
         setAnimIndex(-1);
         setIsReversed(false);
         let current = -1;
         
         const STEP_DURATION = 1500;
 
-        const interval = setInterval(() => {
+        animationIntervalRef.current = setInterval(() => {
             current++;
             if (current <= targetIndex) {
                 setAnimIndex(current);
             } else {
-                clearInterval(interval);
+                if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
                 
                 if (rejected) {
                     setTimeout(() => {
@@ -165,15 +173,19 @@ function TrackConsignmentContent() {
                 const newStatus = (updatedTrip.tripStatus || updatedTrip.currentStatusId || 'assigned').toLowerCase();
                 const targetIdx = getTargetIndex(newStatus);
                 
-                // Only trigger animation if status has progressed
-                if (targetIdx !== animIndex) {
+                // MISSION FIX: Only run animation if target index has changed to prevent infinite re-loads
+                if (targetIdx !== lastTargetIndexRef.current) {
+                    lastTargetIndexRef.current = targetIdx;
                     runAnimation(targetIdx, newStatus === 'rejected');
                 }
             }
         });
 
-        return () => unsubscribe();
-    }, [consignment?.id, firestore, getTargetIndex, runAnimation, animIndex]);
+        return () => {
+            unsubscribe();
+            if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
+        };
+    }, [consignment?.id, firestore, getTargetIndex, runAnimation]);
 
     useEffect(() => {
         if (!consignment?.vehicleNumber) return;
@@ -193,6 +205,7 @@ function TrackConsignmentContent() {
         setLivePos(null);
         setIsGpsEnabled(false);
         setAnimIndex(-1);
+        lastTargetIndexRef.current = -1; // Reset lock for new search
 
         try {
             const tripsRef = collection(firestore, "trips");
@@ -242,7 +255,9 @@ function TrackConsignmentContent() {
                 isRejected
             });
 
-            runAnimation(getTargetIndex(status), isRejected);
+            const targetIdx = getTargetIndex(status);
+            lastTargetIndexRef.current = targetIdx;
+            runAnimation(targetIdx, isRejected);
 
         } catch (e) {
             toast({ variant: 'destructive', title: "Sync Error", description: "Registry handshake failed." });

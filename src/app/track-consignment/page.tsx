@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,8 +40,8 @@ import { Badge } from '@/components/ui/badge';
 /**
  * @fileOverview Track Consignment Terminal.
  * Implementation of advanced mission progress animation.
- * Features: Sequential truck movement every 1.5-2 seconds until current status is reached.
- * Rejection Node: Intelligent path reversal for rejected missions.
+ * Features: Sequential truck movement every 1.5-2 second until current status is reached.
+ * Hardened: Uses refs to prevent infinite animation re-loads during registry sync.
  */
 
 function TrackConsignmentContent() {
@@ -55,6 +55,10 @@ function TrackConsignmentContent() {
     const [animIndex, setAnimIndex] = useState(-1);
     const [isReversed, setIsReversed] = useState(false);
     const [dbReady, setDbReady] = useState(false);
+
+    // Registry Guard Nodes
+    const animationIntervalRef = useRef<any>(null);
+    const lastTargetIndexRef = useRef<number>(-1);
 
     useEffect(() => {
         if (firestore) setDbReady(true);
@@ -87,18 +91,21 @@ function TrackConsignmentContent() {
     }, []);
 
     const runAnimation = useCallback((targetIndex: number, rejected: boolean) => {
+        // Clear existing pulse to prevent collision
+        if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
+        
         setAnimIndex(-1);
         setIsReversed(false);
         let current = -1;
         
         const STEP_DURATION = 1500;
 
-        const interval = setInterval(() => {
+        animationIntervalRef.current = setInterval(() => {
             current++;
             if (current <= targetIndex) {
                 setAnimIndex(current);
             } else {
-                clearInterval(interval);
+                if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
                 
                 if (rejected) {
                     setTimeout(() => {
@@ -132,14 +139,19 @@ function TrackConsignmentContent() {
                 const newStatus = (updatedTrip.tripStatus || updatedTrip.currentStatusId || 'assigned').toLowerCase();
                 const targetIdx = getTargetIndex(newStatus);
                 
-                if (targetIdx !== animIndex) {
+                // MISSION FIX: Only run animation if target index has changed to prevent infinite re-loads
+                if (targetIdx !== lastTargetIndexRef.current) {
+                    lastTargetIndexRef.current = targetIdx;
                     runAnimation(targetIdx, newStatus === 'rejected');
                 }
             }
         });
 
-        return () => unsubscribe();
-    }, [result?.id, firestore, getTargetIndex, runAnimation, animIndex]);
+        return () => {
+            unsubscribe();
+            if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
+        };
+    }, [result?.id, firestore, getTargetIndex, runAnimation]);
 
     const handleTrack = async () => {
         if (!tripIdInput.trim()) {
@@ -160,6 +172,7 @@ function TrackConsignmentContent() {
         setIsSearching(true);
         setError(null);
         setResult(null);
+        lastTargetIndexRef.current = -1; // Reset lock for new search
 
         try {
             const term = tripIdInput.trim().toUpperCase();
@@ -205,7 +218,10 @@ function TrackConsignmentContent() {
                 };
 
                 setResult(resObj);
-                runAnimation(getTargetIndex(status), isRejected);
+                // Initial animation node handshake
+                const targetIdx = getTargetIndex(status);
+                lastTargetIndexRef.current = targetIdx;
+                runAnimation(targetIdx, isRejected);
             }
         } catch (e: any) {
             console.error("Tracking registry error:", e);
