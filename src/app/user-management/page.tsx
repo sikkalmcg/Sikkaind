@@ -95,7 +95,6 @@ export default function UserManagementPage() {
             const cleanUsername = data.username.toLowerCase().replace(/\s+/g, '');
             const systemEmail = `${cleanUsername}@sikka.com`;
 
-            // Mission Node: Perform atomic handshake on the server
             const authResponse = await fetch('/api/auth/manage-user', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -132,14 +131,36 @@ export default function UserManagementPage() {
         if (!firestore) return;
         showLoader();
         try {
-            // Registry Correction node: updateDoc and serverTimestamp now properly imported
+            // MISSION CRITICAL: If password is provided, we must update the Identity Platform (Auth)
+            if (data.password) {
+                const email = data.email || userId; // Document ID is the email registry
+                const authRes = await fetch('/api/auth/manage-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'resetPassword',
+                        email: email,
+                        password: data.password
+                    })
+                });
+                
+                if (!authRes.ok) {
+                    const errorData = await authRes.json();
+                    throw new Error(errorData.error || "Identity node update failed.");
+                }
+            }
+
+            // Synchronize the rest of the profile manifest in Firestore
+            const { password, ...otherData } = data;
             await updateDoc(doc(firestore, "users", userId), { 
-                ...data, 
+                ...otherData, 
                 lastUpdated: serverTimestamp() 
             });
-            toast({ title: 'Registry Updated', description: 'Identity node modified.' });
+
+            toast({ title: 'Registry Updated', description: 'Identity node successfully modified.' });
             setEditingUser(null);
         } catch (error: any) {
+            console.error("Update failure:", error);
             toast({ variant: 'destructive', title: 'Update Failed', description: error.message });
         } finally {
             hideLoader();
@@ -150,7 +171,6 @@ export default function UserManagementPage() {
         if (!firestore) return;
         showLoader();
         try {
-            // Logical removal node for audit purposes
             await updateDoc(doc(firestore, "users", userId), { status: 'Inactive', isDeleted: true });
             toast({ title: 'Identity Revoked', description: `User node marked as Inactive.` });
         } catch (error: any) {

@@ -100,7 +100,7 @@ function AutocompleteInput({ value, onChange, onSearchClick, suggestions, placeh
             if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) setIsOpen(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeResponder('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     return (
@@ -271,7 +271,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     return authorizedPlants.find(p => p.id === originPlantId)?.name || '';
   }, [originPlantId, authorizedPlants]);
 
-  // CARRIER HANDSHAKE node: Strictly resolve from Added Carriers master registry
   useEffect(() => {
     if (carriers && carriers.length > 0) {
         setValue('carrierId', carriers[0].id);
@@ -293,7 +292,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     }
   }, [originPlantId, authorizedPlants, setValue]);
 
-  // UX Fix node: Automatically append first item row to guide user input
   useEffect(() => {
     if (fields.length === 0) {
         append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '' });
@@ -364,7 +362,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         await runTransaction(firestore, async (tx) => {
             const shipRef = doc(collection(firestore, `plants/${plantId}/shipments`));
 
-            // Mission Logic Node: Ensure manifest is correctly captured
             const manifestItems = values.items && values.items.length > 0 
                 ? values.items.filter(i => i.itemDescription || i.invoiceNumber) 
                 : [];
