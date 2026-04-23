@@ -13,7 +13,7 @@ import placeholderData from '@/app/lib/placeholder-images.json';
 /**
  * @fileOverview Website Header Handbook.
  * Features: Direct Portal Login and responsive registry navigation.
- * Removed: Client Portal selection dropdown as requested.
+ * Updated: Integrated Enterprise Name node next to logo with optimized typography.
  */
 export default function Header() {
   const pathname = usePathname();
@@ -36,20 +36,22 @@ export default function Header() {
     <header className="bg-white sticky top-0 z-[100] border-b border-slate-200 shadow-sm w-full">
       <nav className="mx-auto flex max-w-7xl items-center justify-between p-4 lg:px-8" aria-label="Global">
         <div className="flex lg:flex-1">
-          <Link href="/" className="flex items-center group">
-            {logoAsset?.url ? (
+          <Link href="/" className="flex items-center gap-1 group">
+            {logoAsset?.url && (
               <Image 
                 src={logoAsset.url}
                 alt="Sikka LMC Logo"
-                width={140}
-                height={40}
+                width={70}
+                height={45}
                 className="object-contain"
                 priority
                 unoptimized={true}
               />
-            ) : (
-              <span className="text-xl font-bold text-blue-900 italic">SIKKA LMC</span>
             )}
+            <div className="flex flex-col justify-center border-l-2 border-slate-100 pl-3 ml-2">
+              <span className="text-[11px] md:text-[15px] font-black text-blue-900 uppercase italic tracking-tighter leading-none">SIKKA INDUSTRIES</span>
+              <span className="text-[7px] md:text-[9px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-0.5">& LOGISTICS</span>
+            </div>
           </Link>
         </div>
         
@@ -110,19 +112,17 @@ export default function Header() {
         mobileMenuOpen ? "translate-x-0" : "translate-x-full"
       )}>
         <div className="flex items-center justify-between p-6 border-b bg-slate-50">
-          <Link href="/" className="flex items-center" onClick={() => setMobileMenuOpen(false)}>
-            {logoAsset?.url ? (
+          <Link href="/" className="flex items-center gap-2" onClick={() => setMobileMenuOpen(false)}>
+            {logoAsset?.url && (
               <Image 
                 src={logoAsset.url}
                 alt="Sikka LMC Logo"
-                width={140}
-                height={40}
+                width={100}
+                height={35}
                 className="object-contain"
                 priority
                 unoptimized={true}
               />
-            ) : (
-              <span className="text-xl font-bold text-blue-900 italic">SIKKA LMC</span>
             )}
           </Link>
           <button
@@ -174,7 +174,7 @@ export default function Header() {
             <Link href="/track-consignment" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center gap-3 w-full h-12 bg-white border border-slate-200 rounded-xl font-black uppercase text-[10px] tracking-widest text-blue-600 shadow-sm">
               <Radar className="h-4 w-4" /> Track Mission
             </Link>
-          <p className="text-[8px] font-black uppercase text-slate-400 tracking-[0.3em] pt-2">© Sikka Industries & Logistics Registry</p>
+          <p className="text-[8px] font-black uppercase text-slate-400 tracking-[0.4em] pt-2">© Sikka Industries & Logistics Registry</p>
         </div>
       </div>
     </header>

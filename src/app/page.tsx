@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -12,9 +13,7 @@ import { Button } from '@/components/ui/button';
 /**
  * @fileOverview Sikka LMC Landing Page.
  * Streamlined Typography-Led Node. 
- * Carousel and image assets purged for a clean registry aesthetic.
- * Badge node removed as per latest mission requirement.
- * Hero content section removed as per user request.
+ * Updated: Purged redundant brand banner to optimize spatial flow.
  */
 
 export default function HomePage() {
@@ -38,15 +37,8 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white font-body">
-      {/* Brand Strip */}
-      <section className="bg-slate-900 py-12 border-b border-white/5 shadow-inner text-center">
-          <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter text-white uppercase italic leading-none">
-            SIKKA INDUSTRIES & LOGISTICS
-          </h1>
-      </section>
-        
       {/* LOGISTICS SOLUTIONS */}
-      <section className="py-24 bg-slate-50">
+      <section className="py-24 bg-white">
         <div className="max-w-[1200px] mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tighter uppercase italic">
@@ -79,12 +71,12 @@ export default function HomePage() {
       </section>
 
       {/* WHY CHOOSE US */}
-      <section className="py-16 bg-white border-y border-slate-100">
+      <section className="py-16 bg-slate-50 border-y border-slate-100">
         <div className="max-w-[1100px] mx-auto px-4">
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             {whyChooseUs.map((item, idx) => (
-              <div key={idx} className="flex items-center gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100 group">
-                <div className="p-2 bg-white rounded-lg shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-colors">
+              <div key={idx} className="flex items-center gap-3 p-4 rounded-xl bg-white border border-slate-100 group shadow-sm">
+                <div className="p-2 bg-slate-50 rounded-lg shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-colors">
                   <item.icon className="h-4 w-4" />
                 </div>
                 <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">{item.title}</span>
