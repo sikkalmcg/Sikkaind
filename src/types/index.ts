@@ -105,6 +105,7 @@ export interface Shipment {
   shortClosedBy?: string;
   carrierName?: string;
   carrierId?: string;
+  delayRemark?: string;
 }
 
 export interface Trip {
@@ -298,22 +299,19 @@ export interface VehicleEntryExit {
 export interface FuelPump {
   id: string;
   name: string;
-  ownerName?: string;
   mobile: string;
   phone?: string;
-  pan?: string;
-  gstin?: string;
   address?: string;
   route?: string;
   category?: string;
+  gstin?: string;
+  pan?: string;
   receiverName?: string;
   bankName?: string;
   accountNumber?: string;
   ifsc?: string;
   upiId?: string;
   qrCodeUrl?: string;
-  defaultRate?: number;
-  isFixRate?: boolean;
 }
 
 export interface FuelEntry {

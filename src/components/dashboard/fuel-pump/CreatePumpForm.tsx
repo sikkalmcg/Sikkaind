@@ -6,11 +6,10 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Loader2, Save, MapPin, ShieldCheck, IndianRupee } from 'lucide-react';
+import { Loader2, Save, MapPin, ShieldCheck } from 'lucide-react';
 import type { FuelPump } from '@/types';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { FuelPumpPaymentMethods } from '@/lib/constants';
 import { cn, sanitizeRegistryNode } from '@/lib/utils';
 
@@ -23,8 +22,6 @@ const formSchema = z.object({
   gstin: z.string().optional().or(z.literal('')),
   pan: z.string().optional().or(z.literal('')).transform(v => v ? v.toUpperCase() : ''),
   category: z.enum(FuelPumpPaymentMethods, { required_error: 'Category is required' }),
-  defaultRate: z.coerce.number().optional().default(0),
-  isFixRate: z.boolean().default(false),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -45,13 +42,10 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
       gstin: '',
       pan: '',
       category: 'All Type',
-      defaultRate: 0,
-      isFixRate: false,
     },
   });
 
-  const { handleSubmit, formState: { isSubmitting }, watch } = form;
-  const isFixRate = watch('isFixRate');
+  const { handleSubmit, formState: { isSubmitting } } = form;
 
   const onSubmit = async (values: FormValues) => {
     const dataToSave = sanitizeRegistryNode(values);
@@ -62,7 +56,6 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-        {/* TOP MANIFEST GRID */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <FormField control={form.control} name="name" render={({ field }) => (
             <FormItem>
@@ -108,7 +101,6 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
         
         <Separator className="my-6" />
 
-        {/* REGISTRY PARTICULARS SECTION */}
         <div className="space-y-6">
             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-blue-600" /> Registry Particulars
@@ -133,33 +125,6 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
                         <FormMessage />
                     </FormItem>
                 )} />
-
-                <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-8 items-end border-t pt-8 mt-2">
-                    <FormField control={form.control} name="isFixRate" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-4 border rounded-xl bg-white shadow-sm">
-                            <FormControl>
-                                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                            </FormControl>
-                            <div className="space-y-1 leading-none">
-                                <FormLabel className="text-[10px] font-black uppercase text-blue-600">Fixed Rate Vendor</FormLabel>
-                            </div>
-                        </FormItem>
-                    )} />
-
-                    <FormField control={form.control} name="defaultRate" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase text-slate-500">
-                                {isFixRate ? 'Default Fixed Amount (₹)' : 'Default Rate (Per MT)'}
-                            </FormLabel>
-                            <FormControl>
-                                <div className="relative">
-                                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                    <Input type="number" step="0.01" {...field} className="h-12 pl-10 rounded-xl font-black text-blue-900" />
-                                </div>
-                            </FormControl>
-                        </FormItem>
-                    )} />
-                </div>
             </div>
         </div>
 
