@@ -48,7 +48,7 @@ import {
 } from 'lucide-react';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDocs, limit } from "firebase/firestore";
-import { cn, normalizePlantId } from '@/lib/utils';
+import { cn, normalizePlantId, generateRandomTripId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import { PaymentTerms, LRUnitTypes } from '@/lib/constants';
 
@@ -62,9 +62,11 @@ const formSchema = z.object({
   loadingPoint: z.string().min(1, 'Lifting city is required.'),
   billToParty: z.string().min(1, 'Consignee is mandatory.'),
   billToGtin: z.string().optional(),
+  billToCode: z.string().optional(),
   isSameAsBillTo: z.boolean().default(false),
   shipToParty: z.string().min(1, 'Ship To Plant is mandatory.'),
   shipToGtin: z.string().optional(),
+  shipToCode: z.string().optional(),
   unloadingPoint: z.string().min(1, 'Destination city is mandatory.'),
   quantity: z.coerce.number().positive('Total quantity must be a positive value.'),
   materialTypeId: z.string().default('MT'),
@@ -178,7 +180,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, Code, or City..." 
                             value={search} 
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
@@ -219,7 +221,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   const { user } = useUser();
   const { showLoader, hideLoader } = useLoading();
   
-  // Registry Handshake: Resolve operator profile for name recording
   const profileRef = useMemo(() => (firestore && user) ? doc(firestore, "users", user.email || user.uid) : null, [firestore, user]);
   const { data: operatorProfile } = useDoc<SubUser>(profileRef);
 
@@ -308,7 +309,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
         const match = consigneeRegistry.find(p => p.name === billToParty);
         if (match) {
             setValue('shipToGtin', match.gstin || '', { shouldValidate: true });
-            const city = match.city && match.city !== 'N/A' ? match.city : (match.address && match.address !== 'N/A' ? party.address : 'N/A');
+            const city = match.city && match.city !== 'N/A' ? match.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
             if (city) setValue('unloadingPoint', city, { shouldValidate: true });
             if (match.address) setValue('deliveryAddress', match.address, { shouldValidate: true });
         }
@@ -396,13 +397,22 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
   const handleExportTemplate = () => {
     const headers = [
-        "Plant ID", "SALES ORDER NO", "Consignor Name", "Consignor GSTIN", "From (City)", "Consignee Name", "Consignee GSTIN", "Ship To Name", "Ship To Party Code", "Ship To GSTIN", 
-        "Destination Point", "Quantity (MT)", "Invoice Number", "E-Waybill Number", "LR Number", "LR Date", "Payment Term", "Delivery Address", "Item Description", "Units", "Unit Type", "Carrier Name"
+        "Plant ID", "SALES ORDER NO", "Consignor Name", "Consignor GSTIN", "From (City)", "Consignee Name", "Consignee GSTIN", "Ship To Name", "Ship To GSTIN", 
+        "Destination Point", "Quantity (MT)", "Invoice Number", "E-Waybill Number", "LR Number", "LR Date", "Payment Term", "Delivery Address", "Item Description", "Units", "Unit Type", 
+        "Vehicle Number", "Pilot Name", "Pilot Mobile", "Transporter Name", "Carrier Name"
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Order Plan Template");
     XLSX.writeFile(wb, "Order_Plan_Bulk_Template.xlsx");
+  };
+
+  const excelDateToJSDate = (serial: number) => {
+    if (!serial) return null;
+    const utc_days  = Math.floor(serial - 25569);
+    const utc_value = utc_days * 86400;
+    const date_info = new Date(utc_value * 1000);
+    return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate());
   };
 
   const handleBulkUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -428,15 +438,16 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
             const jsonData = XLSX.utils.sheet_to_json(sheet) as any[];
 
             const getVal = (row: any, keys: string[]) => {
-                const foundKey = Object.keys(row).find(k => keys.some(search => k.toLowerCase().replace(/\s+/g, '') === search.toLowerCase().replace(/\s+/g, '')));
+                const foundKey = Object.keys(row).find(k => keys.some(search => k.toLowerCase().replace(/[\s/_-]+/g, '') === search.toLowerCase().replace(/[\s/_-]+/g, '')));
                 return foundKey ? row[foundKey]?.toString().trim() : '';
             };
 
             const getDateVal = (row: any, keys: string[]) => {
-                const foundKey = Object.keys(row).find(k => keys.some(search => k.toLowerCase().replace(/\s+/g, '') === search.toLowerCase().replace(/\s+/g, '')));
+                const foundKey = Object.keys(row).find(k => keys.some(search => k.toLowerCase().replace(/[\s/_-]+/g, '') === search.toLowerCase().replace(/[\s/_-]+/g, '')));
                 if (!foundKey) return null;
                 const raw = row[foundKey];
                 if (!raw) return null;
+                if (typeof raw === 'number') return excelDateToJSDate(raw);
                 if (raw instanceof Date) return raw;
                 const d = new Date(raw);
                 return isValid(d) ? d : null;
@@ -471,6 +482,10 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         lrDate: getDateVal(row, ["LR Date", "Date"]),
                         paymentTerm: getVal(row, ["Payment Term", "Term"]) || 'Paid',
                         deliveryAddress: getVal(row, ["Delivery Address", "Address"]),
+                        vehicleNumber: getVal(row, ["Vehicle Number", "Vehicle Registry"]),
+                        driverName: getVal(row, ["Pilot Name", "Driver Name"]),
+                        driverMobile: getVal(row, ["Pilot Mobile", "Mobile"]),
+                        transporterName: getVal(row, ["Transporter Name", "Transporter"]),
                         rawItems: []
                     };
                 }
@@ -494,13 +509,50 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     const finalItems = g.rawItems;
                     delete g.rawItems;
                     g.items = finalItems;
-                    const shipRef = doc(collection(firestore, `plants/${g.originPlantId}/shipments`));
-                    tx.set(shipRef, { ...g, assignedQty: 0, balanceQty: g.quantity, currentStatusId: 'pending', creationDate: serverTimestamp(), userId: user.uid, userName: currentOperator });
+                    
+                    const shipId = doc(collection(firestore, 'shipments')).id;
+                    const shipRef = doc(firestore, `plants/${g.originPlantId}/shipments`, shipId);
+                    
+                    const hasVehicle = !!g.vehicleNumber;
+                    const status = hasVehicle ? 'Assigned' : 'pending';
+                    const assignedQty = hasVehicle ? g.quantity : 0;
+                    
+                    tx.set(shipRef, { 
+                        ...g, 
+                        assignedQty: assignedQty, 
+                        balanceQty: g.quantity - assignedQty, 
+                        currentStatusId: status, 
+                        creationDate: serverTimestamp(), 
+                        userId: user.uid, 
+                        userName: currentOperator 
+                    });
+
+                    if (hasVehicle) {
+                        const tripId = doc(collection(firestore, 'trips')).id;
+                        const tripHumanId = generateRandomTripId();
+                        const tripData = {
+                            ...g,
+                            id: tripId,
+                            tripId: tripHumanId,
+                            shipmentIds: [shipId],
+                            assignedQtyInTrip: g.quantity,
+                            tripStatus: 'Assigned',
+                            currentStatusId: 'assigned',
+                            startDate: serverTimestamp(),
+                            lastUpdated: serverTimestamp(),
+                            userName: currentOperator,
+                            userId: user.uid,
+                            vehicleType: 'Market Vehicle'
+                        };
+                        tx.set(doc(firestore, `plants/${g.originPlantId}/trips`, tripId), tripData);
+                        tx.set(doc(firestore, 'trips', tripId), tripData);
+                    }
+                    
                     successCount++;
                 }
             });
 
-            toast({ title: 'Bulk Sync Complete', description: `Established ${successCount} mission plants.` });
+            toast({ title: 'Bulk Sync Complete', description: `Established ${successCount} mission nodes.` });
             onShipmentCreated({ id: 'bulk' } as any);
         } catch (err: any) {
             toast({ variant: 'destructive', title: 'Upload Failed', description: err.message });

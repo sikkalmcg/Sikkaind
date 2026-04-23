@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -136,10 +137,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         const itemsManifest = shipment.items || [];
         const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
         
-        /**
-         * MISSION REGISTRY: Intelligent Description node
-         * If more than 2 unique items, use VARIOUS ITEMS AS PER INVOICE
-         */
         const uniqueDescs = Array.from(new Set(itemsManifest.map(i => (i.itemDescription || i.description || '').toUpperCase().trim()).filter(Boolean)));
         const summarizedItems = uniqueDescs.length > 2 
             ? "VARIOUS ITEMS AS PER INVOICE" 
@@ -266,7 +263,50 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
-        const finalCarrier = (allCarriers || []).find(c => c.id === row.carrierId || c.id === row.carrierObj?.id) || row.carrierObj;
+        const pIdStr = normalizePlantId(row.originPlantId);
+        const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
+        let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId);
+
+        if (!finalCarrier && (pIdStr === '1426' || pIdStr === 'ID20')) {
+            finalCarrier = {
+                id: 'ID20',
+                name: 'SIKKA LMC',
+                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
+                mobile: '9136688004',
+                gstin: '07AYQPS6936B1ZZ',
+                stateCode: '07',
+                stateName: 'DELHI',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com'
+            };
+        } else if (!finalCarrier && (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmcShorthand)) {
+            finalCarrier = {
+                id: 'ID21',
+                name: 'SIKKA LMC',
+                address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
+                mobile: '9136688004',
+                gstin: '09AYQPS6936B1ZV',
+                stateCode: '09',
+                stateName: 'UTTAR PRADESH',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com'
+            };
+        }
+
+        if (!finalCarrier) {
+            finalCarrier = {
+                id: 'ID20',
+                name: 'SIKKA LMC',
+                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
+                mobile: '9136688004',
+                gstin: '07AYQPS6936B1ZZ',
+                stateCode: '07',
+                stateName: 'DELHI',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com'
+            };
+        }
+
         const shipmentObj = row as any;
 
         const manifestItems = row.items && row.items.length > 0 ? row.items : [{
@@ -321,13 +361,13 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 plant: row.plant || { id: row.originPlantId, name: row.plantName },
                 consignorName: lrDoc.consignorName || row.consignor || '',
                 consignorAddress: lrDoc.consignorAddress || row.consignorAddress || '',
-                consignorGtin: lrDoc.consignorGtin || row.consignorGtin || '',
+                consignorGtin: lrDoc.consignorGtin || row.consignorGtin || shipmentObj.consignorGtin || '',
                 buyerName: lrDoc.buyerName || row.billToParty || '',
                 buyerAddress: lrDoc.buyerAddress || row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
-                buyerGtin: lrDoc.buyerGtin || row.billToGtin || '',
+                buyerGtin: lrDoc.buyerGtin || row.billToGtin || shipmentObj.billToGtin || '',
                 buyerCode: lrDoc.buyerCode || row.billToCode || '',
                 shipToParty: lrDoc.shipToParty || row.shipToParty || row.billToParty || '',
-                shipToGtin: lrDoc.shipToGtin || row.shipToGtin || '',
+                shipToGtin: lrDoc.shipToGtin || row.shipToGtin || shipmentObj.shipToGtin || '',
                 shipToCode: lrDoc.shipToCode || row.shipToCode || '',
                 deliveryAddress: lrDoc.deliveryAddress || row.deliveryAddress || row.unloadingPoint || '',
                 vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
