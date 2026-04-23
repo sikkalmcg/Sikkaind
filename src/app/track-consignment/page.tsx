@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef } from 'react';
@@ -324,7 +323,7 @@ function TrackConsignmentContent() {
                                         <SelectTrigger className="h-14 rounded-xl font-black text-blue-900 uppercase border-2 border-slate-100 bg-slate-50/30">
                                             <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent className="rounded-2xl">
+                                        <SelectContent className="rounded-xl">
                                             <SelectItem value="TRIP" className="font-black py-3 uppercase text-xs">TRIP ID</SelectItem>
                                             <SelectItem value="SO" className="font-black py-3 uppercase text-xs">SALES ORDER NO</SelectItem>
                                         </SelectContent>
@@ -346,7 +345,7 @@ function TrackConsignmentContent() {
                                 </div>
 
                                 <Button onClick={() => handleSearch()} disabled={isSearching || !dbReady} className="w-full h-16 rounded-2xl bg-blue-900 text-white font-black uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 border-none">
-                                    {isSearching ? <Loader2 className="animate-spin mr-3" /> : <Search className="mr-3" />} RESOLVE MISSION
+                                    {isSearching ? <Loader2 className="animate-spin mr-3" /> : <Search className="mr-3" />} TRACK NOW
                                 </Button>
                             </div>
                         </div>
