@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo } from 'react';
@@ -242,7 +243,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* FOOTER NOTE & PAGING NODE */}
       <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col items-center gap-2 shrink-0">
           <p className="text-[7.5pt] font-black text-slate-400 uppercase tracking-tighter text-center max-w-[500px]">
               Note: This Lorry Receipt was generated digitally and is to be considered as original
@@ -251,8 +251,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
               <span className="text-[9pt] font-black text-slate-900 tracking-widest">
                   PAGE {pageNumber} OF {totalInSeries}
               </span>
-              <div className="flex items-center gap-2 opacity-30 grayscale mt-1">
-              </div>
           </div>
       </div>
     </div>

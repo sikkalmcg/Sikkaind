@@ -61,6 +61,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { fetchWheelseyeLocation } from '@/app/actions/wheelseye';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 
 interface TripBoardTableProps {
   data: any[];
@@ -95,6 +97,13 @@ const getStatusColor = (status: string) => {
         default: return 'bg-gray-500/10 text-gray-700 border-gray-200';
     }
 }
+
+const DEFAULT_LMC_TERMS = [
+    "AGENCY NOT RESPONSIBLE FOR RAIN OR CALAMITY.",
+    "DISCREPANCIES MUST BE INTIMATED WITHIN 24 HOURS.",
+    "VEHICLE OWNER RESPONSIBLE AFTER YARD DEPARTURE.",
+    "ALL DISPUTES SUBJECT TO GHAZIABAD JURISDICTION."
+];
 
 function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: string, vehicleType: string, onClick: () => void }) {
     const [location, setLocation] = useState<{ city: string; full: string } | null>(null);
@@ -202,7 +211,9 @@ function MissionRegistryCard({
     isReadOnly,
     onAction,
     isSelected,
-    onSelect
+    onSelect,
+    allCarriers,
+    parties
 }: { 
     row: any, 
     activeTab: string, 
@@ -210,7 +221,9 @@ function MissionRegistryCard({
     isReadOnly?: boolean,
     onAction: (type: string, trip: any) => void,
     isSelected?: boolean,
-    onSelect?: (checked: boolean) => void
+    onSelect?: (checked: boolean) => void,
+    allCarriers: Carrier[],
+    parties: Party[]
 }) {
     const isPending = activeTab === 'pending-assignment';
     const showLrAndInvoices = ['loading', 'transit', 'arrived', 'pod-status', 'rejection', 'closed'].includes(activeTab);
@@ -244,6 +257,123 @@ function MissionRegistryCard({
 
     const operatorId = (row.assignedUsername || row.orderCreatedUser || 'System');
     const displayOperator = operatorId !== '--' ? operatorId : 'System';
+
+    const handleLRViewClick = async () => {
+        if (!row.lrNumber) return;
+        const firestore = doc(collection(row.plant?.firestore || row.shipmentObj?.firestore || {} as any)).firestore;
+        if (!firestore) {
+            onAction('view-lr', row);
+            return;
+        }
+
+        const plantId = normalizePlantId(row.originPlantId);
+        const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
+        const q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
+        const snap = await getDocs(q);
+
+        const pIdStr = normalizePlantId(row.originPlantId);
+        const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
+        let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId);
+
+        if (!finalCarrier && (pIdStr === '1426' || pIdStr === 'ID20')) {
+            finalCarrier = {
+                id: 'ID20',
+                name: 'SIKKA LMC',
+                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
+                mobile: '9136688004',
+                gstin: '07AYQPS6936B1ZZ',
+                stateCode: '07',
+                stateName: 'DELHI',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com',
+                terms: DEFAULT_LMC_TERMS
+            };
+        } else if (!finalCarrier && (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmcShorthand)) {
+            finalCarrier = {
+                id: 'ID21',
+                name: 'SIKKA LMC',
+                address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
+                mobile: '9136688004',
+                gstin: '09AYQPS6936B1ZV',
+                stateCode: '09',
+                stateName: 'UTTAR PRADESH',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com',
+                terms: DEFAULT_LMC_TERMS
+            };
+        }
+
+        const resolveGtin = (name: string, code: string, current: string) => {
+            if (current && current !== 'N/A' && current !== '') return current;
+            const match = (parties || []).find(p => 
+                (code && p.customerCode?.toUpperCase() === code.toUpperCase()) || 
+                (p.name?.toUpperCase() === name?.toUpperCase())
+            );
+            return match?.gstin || '';
+        };
+
+        const consignorGtin = resolveGtin(row.consignor, row.customerCode || '', row.consignorGtin || '');
+        const buyerGtin = resolveGtin(row.billToParty, row.billToCode || '', row.billToGtin || '');
+        const shipToGtin = resolveGtin(row.shipToParty || '', row.shipToCode || '', row.shipToGtin || '');
+
+        const manifestItems = row.items && row.items.length > 0 ? row.items : [{
+            invoiceNumber: row.summarizedInvoices || row.invoiceNumbers || 'NA',
+            ewaybillNumber: row.ewaybillNumber || '',
+            units: row.totalUnitsCount || 1,
+            unitType: 'Package',
+            itemDescription: row.summarizedItems || row.itemDescription || 'GENERAL CARGO',
+            weight: row.dispatchedQty || row.assignedQtyInTrip || row.quantity
+        }];
+
+        let enrichedLR: EnrichedLR;
+        if (snap.empty) {
+            enrichedLR = {
+                lrNumber: row.lrNumber,
+                date: row.lrDate || new Date(),
+                trip: row as any,
+                carrier: finalCarrier,
+                shipment: row.shipmentObj || row,
+                plant: row.plant || { id: row.originPlantId, name: row.plantName },
+                items: manifestItems,
+                weightSelection: 'Assigned Weight',
+                assignedTripWeight: row.dispatchedQty || row.assignedQtyInTrip || row.quantity,
+                from: row.from || row.shipmentObj?.loadingPoint || '',
+                to: row.unloadingPoint || row.shipmentObj?.unloadingPoint || '',
+                consignorName: row.consignor || '',
+                consignorGtin: consignorGtin,
+                consignorAddress: row.consignorAddress || '',
+                consignorCode: row.customerCode || '',
+                buyerName: row.billToParty || '',
+                buyerAddress: row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
+                buyerGtin: buyerGtin,
+                buyerCode: row.billToCode || '',
+                shipToParty: row.shipToParty || row.billToParty || '',
+                shipToGtin: shipToGtin,
+                shipToCode: row.shipToCode || '',
+                deliveryAddress: row.deliveryAddress || row.unloadingPoint || '',
+                vehicleNumber: row.vehicleNumber || '--',
+                driverName: row.driverName || '--',
+                driverMobile: row.driverMobile || '--',
+                paymentTerm: row.paymentTerm || '--',
+                id: row.id
+            } as any;
+        } else {
+            const lrDoc = snap.docs[0].data() as LR;
+            enrichedLR = {
+                ...lrDoc,
+                id: snap.docs[0].id,
+                date: parseSafeDate(lrDoc.date),
+                trip: row as any,
+                carrier: finalCarrier,
+                shipment: row.shipmentObj || row,
+                plant: row.plant || { id: row.originPlantId, name: row.plantName },
+                consignorGtin: lrDoc.consignorGtin || consignorGtin,
+                buyerGtin: lrDoc.buyerGtin || buyerGtin,
+                shipToGtin: lrDoc.shipToGtin || shipToGtin
+            } as any;
+        }
+        onAction('view-lr-direct', enrichedLR);
+    };
 
     return (
         <div className={cn(
@@ -333,7 +463,7 @@ function MissionRegistryCard({
                                 <>
                                     <FileText className="h-3.5 w-3.5 text-orange-500 shrink-0" />
                                     <button 
-                                        onClick={() => onAction('view-lr', row)} 
+                                        onClick={handleLRViewClick} 
                                         className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter text-left"
                                     >
                                         {row.lrNumber}
@@ -407,7 +537,7 @@ function MissionRegistryCard({
                     <div className="flex flex-col items-end">
                         <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest leading-none">Registry operator</span>
                         <div className="flex items-center gap-1.5 mt-1">
-                            <User size={10} className="text-slate-300" />
+                            <UserCircle size={10} className="text-slate-300" />
                             <span className="text-[10px] font-black text-slate-600 uppercase">@{ displayOperator?.split('@')[0]}</span>
                         </div>
                     </div>
@@ -564,6 +694,11 @@ export default function TripBoardTable({
     onSelectRow,
     onSelectAll
 }: TripBoardTableProps) {
+  const firestore = useFirestore();
+  const allCarriersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "carriers")) : null, [firestore]);
+  const { data: allCarriers } = useCollection<Carrier>(allCarriersQuery);
+  const partiesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_parties"), where("isDeleted", "==", false)) : null, [firestore]);
+  const { data: parties } = useCollection<Party>(partiesQuery);
 
   return (
     <div className="flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-700">
@@ -589,6 +724,8 @@ export default function TripBoardTable({
                             onAction={onAction} 
                             isSelected={selectedIds.includes(row.id)}
                             onSelect={(checked) => onSelectRow?.(row.id, checked)}
+                            allCarriers={allCarriers || []}
+                            parties={parties || []}
                         />
                     ))}
                 </div>

@@ -89,6 +89,13 @@ const formatSafeDateString = (date: any, formatStr: string = 'dd/MM/yy') => {
     return format(d, formatStr);
 }
 
+const DEFAULT_LMC_TERMS = [
+    "AGENCY NOT RESPONSIBLE FOR RAIN OR CALAMITY.",
+    "DISCREPANCIES MUST BE INTIMATED WITHIN 24 HOURS.",
+    "VEHICLE OWNER RESPONSIBLE AFTER YARD DEPARTURE.",
+    "ALL DISPUTES SUBJECT TO GHAZIABAD JURISDICTION."
+];
+
 export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBulkDelete }: ShipmentDataProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -284,7 +291,8 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 stateCode: '07',
                 stateName: 'DELHI',
                 pan: 'AYQPS6936B',
-                email: 'sil@sikkaenterprises.com'
+                email: 'sil@sikkaenterprises.com',
+                terms: DEFAULT_LMC_TERMS
             };
         } else if (!finalCarrier && (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmcShorthand)) {
             finalCarrier = {
@@ -296,7 +304,8 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 stateCode: '09',
                 stateName: 'UTTAR PRADESH',
                 pan: 'AYQPS6936B',
-                email: 'sil@sikkaenterprises.com'
+                email: 'sil@sikkaenterprises.com',
+                terms: DEFAULT_LMC_TERMS
             };
         }
 
@@ -310,13 +319,13 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 stateCode: '07',
                 stateName: 'DELHI',
                 pan: 'AYQPS6936B',
-                email: 'sil@sikkaenterprises.com'
+                email: 'sil@sikkaenterprises.com',
+                terms: DEFAULT_LMC_TERMS
             };
         }
 
         const shipmentObj = row as any;
 
-        // Registry Deep Handshake Node: Ensure GSTINs are resolved from Master Party Registry if missing
         const resolveGtin = (name: string, code: string, current: string) => {
             if (current && current !== 'N/A' && current !== '') return current;
             const match = (parties || []).find(p => 
@@ -482,7 +491,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                         <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100 align-middle">Consignee</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 w-40 bg-slate-100 align-middle">Destination</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-4 text-right w-32 bg-slate-100 align-middle">Order Qty</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40 bg-slate-100 align-middle">Status</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase px-4 text-center bg-slate-100 align-middle">Status</TableHead>
                         <TableHead className="text-[10px] font-black uppercase px-8 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-24 align-middle">Action</TableHead>
                     </TableRow>
                     </TableHeader>
