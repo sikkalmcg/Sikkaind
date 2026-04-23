@@ -258,10 +258,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             const plantId = normalizePlantId(primaryShipment.originPlantId);
             const timestamp = serverTimestamp();
             const currentName = userProfile?.fullName || user.displayName || user.email?.split('@')[0] || 'System Operator';
-            const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, primaryShipment.id);
-            const shipmentSnap = await transaction.get(shipmentRef);
-            if (!shipmentSnap.exists()) throw new Error("Order registry node error.");
-            const sData = shipmentSnap.data() as Shipment;
             const docId = trip?.id || doc(collection(firestore, 'trips')).id;
             const tripId = trip?.tripId || generateRandomTripId();
             
@@ -334,7 +330,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
       <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-2xl bg-slate-50 rounded-[2rem] md:rounded-[3rem]">
         <DialogHeader className="bg-slate-900 text-white p-4 md:p-6 shrink-0 flex flex-row items-center justify-between pr-10 md:pr-12">
           <div className="flex items-center gap-3 md:gap-4">
-            <div className="p-2 md:p-3 bg-blue-600 rounded-xl shadow-lg rotate-3"><Truck className="h-5 w-5 md:h-7 md:w-7 text-white" /></div>
+            <div className="p-2 md:p-3 bg-blue-600 rounded-xl shadow-lg rotate-3"><Truck className="h-5 w-5 md:h-7 md:w-7" /></div>
             <div>
                 <DialogTitle className="text-lg md:text-2xl font-black uppercase tracking-tight italic leading-none text-white">SIKKA LMC | ALLOCATION BOARD</DialogTitle>
                 <DialogDescription className="text-blue-300 font-bold uppercase text-[8px] md:text-[9px] tracking-widest mt-1 md:mt-2">Registry Terminal Node | {shipments.length > 1 ? 'BULK CONSOLIDATION' : 'SINGLE MISSION'}</DialogDescription>
@@ -348,51 +344,51 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 md:space-y-12">
-          <Card className="p-6 md:p-10 border-2 border-slate-100 shadow-xl rounded-[2.5rem] bg-white relative overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 md:space-y-8">
+          <Card className="p-4 md:p-6 border-2 border-slate-100 shadow-xl rounded-[2.5rem] bg-white relative overflow-hidden">
             <div className="absolute top-0 left-0 w-2 h-full bg-blue-900" />
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100 shadow-sm"><ShieldCheck className="h-7 w-7 text-blue-600" /></div>
                     <div>
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 leading-none">Mission Summary</h3>
-                        <p className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase mt-2">
+                        <p className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase mt-1">
                             {shipments.length > 1 ? `CONSOLIDATED MANIFEST (${shipments.length})` : primaryShipment.shipmentId}
                         </p>
                     </div>
                 </div>
-                <div className="text-right flex flex-col items-end bg-slate-50 p-4 rounded-2xl border shadow-inner">
-                    <span className="text-[10px] font-black uppercase text-slate-500">Aggregate Registry Weight</span>
+                <div className="text-right flex flex-col items-end bg-slate-50 p-3 rounded-2xl border shadow-inner min-w-[200px]">
+                    <span className="text-[9px] font-black uppercase text-slate-500">Aggregate Registry Weight</span>
                     <p className="text-2xl md:text-4xl font-black text-blue-900 tracking-tighter">{totalBalanceQty.toFixed(3)} <span className="text-sm font-bold text-slate-400 ml-1">MT</span></p>
                 </div>
             </div>
 
-            <Separator className="my-8 opacity-50" />
+            <Separator className="my-4 opacity-50" />
 
-            <div className="space-y-8">
-                <h3 className="text-[11px] font-black uppercase text-blue-900 tracking-[0.3em] flex items-center gap-3">
+            <div className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase text-blue-900 tracking-[0.3em] flex items-center gap-3">
                     <Package className="h-4 w-4" /> Order Registry Details
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {shipments.map((s) => {
                         const sPlant = plants?.find(p => p.id === s.originPlantId || normalizePlantId(p.id).toLowerCase() === normalizePlantId(s.originPlantId).toLowerCase());
                         const sPlantName = sPlant?.name || s.originPlantId;
                         const sPlantAddr = sPlant?.address || s.loadingPoint;
                         
                         return (
-                            <Card key={s.id} className="border border-slate-100 bg-slate-50/50 rounded-[2rem] p-6 hover:border-blue-200 transition-all shadow-sm hover:shadow-lg relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-6 opacity-[0.03] rotate-12 transition-transform duration-700 group-hover:scale-110">
-                                    <ClipboardList size={120} />
+                            <Card key={s.id} className="border border-slate-100 bg-slate-50/50 rounded-[1.5rem] p-4 hover:border-blue-200 transition-all shadow-sm hover:shadow-lg relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-[0.03] rotate-12 transition-transform duration-700 group-hover:scale-110">
+                                    <ClipboardList size={100} />
                                 </div>
-                                <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-3">
-                                        <Badge className="bg-blue-900 text-white font-black uppercase text-[10px] px-3 h-6 border-none shadow-md">{s.shipmentId}</Badge>
+                                        <Badge className="bg-blue-900 text-white font-black uppercase text-[9px] px-3 h-5 border-none shadow-md">{s.shipmentId}</Badge>
                                     </div>
-                                    <Badge variant="outline" className="bg-white border-blue-200 text-blue-900 font-black uppercase text-[10px] px-3 h-6">
+                                    <Badge variant="outline" className="bg-white border-blue-200 text-blue-900 font-black uppercase text-[9px] px-3 h-5">
                                         {s.balanceQty.toFixed(3)} MT
                                     </Badge>
                                 </div>
-                                <div className="grid grid-cols-2 gap-y-6 gap-x-4 relative z-10">
+                                <div className="grid grid-cols-2 gap-y-4 gap-x-4 relative z-10">
                                     <ContextNode label="Lifting Plant" value={sPlantName} icon={Factory} />
                                     <ContextNode label="Consignor" value={s.consignor} icon={UserCircle} />
                                     <ContextNode label="Site Point" value={sPlantAddr} icon={MapPin} className="col-span-2" />
@@ -407,21 +403,21 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
           </Card>
 
           <Form {...form}>
-            <form className="space-y-10" onSubmit={handleSubmit(onSubmit)}>
+            <form className="space-y-6 md:space-y-8" onSubmit={handleSubmit(onSubmit)}>
                 <Card className="border-none shadow-2xl rounded-[2rem] md:rounded-[2.5rem] bg-white overflow-hidden">
-                    <div className="p-6 md:p-8 bg-slate-50 border-b flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="p-4 md:p-6 bg-slate-50 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <h3 className="font-black text-xs uppercase tracking-[0.3em] text-slate-500 flex items-center gap-3"><Truck className="h-5 w-5 text-blue-600"/> Fleet Entry Control</h3>
                         <div className="bg-white p-1 rounded-xl border-2 border-slate-200 shadow-inner flex items-center gap-1">
-                            <button type="button" onClick={() => setValue('isNewVehicle', false)} className={cn("px-4 md:px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all", !isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>At Gate Registry</button>
+                            <button type="button" onClick={() => setValue('isNewVehicle', false)} className={cn("px-4 md:px-6 py-2 rounded-lg text-[9px] md:text-[10px] font-black uppercase transition-all", !isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>At Gate Registry</button>
                             <button type="button" onClick={() => setValue('isNewVehicle', true)} className={cn("px-4 md:px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all", isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>Direct Manual Entry</button>
                         </div>
                     </div>
-                    <div className="p-8 md:p-10 space-y-8">
+                    <div className="p-6 md:p-8 space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Vehicle Number *</label>
                                 {isNewVehicle ? (
-                                    <FormField name="vehicleNumber" control={control} render={({field}) => <FormItem><FormControl><div className="relative"><Input placeholder="XX00XX0000" className="h-12 rounded-xl font-black text-blue-900 uppercase text-lg shadow-inner border-slate-200 focus-visible:ring-blue-900" {...field} /></div></FormControl><FormMessage /></FormItem>} />
+                                    <FormField name="vehicleNumber" control={control} render={({field}) => <FormItem><FormControl><div className="relative"><Input placeholder="XX00XX0000" className="h-12 rounded-xl font-black text-blue-900 uppercase text-lg shadow-inner border-blue-200 focus-visible:ring-blue-900" {...field} /></div></FormControl><FormMessage /></FormItem>} />
                                 ) : (
                                     <FormField name="vehicleId" control={control} render={({field}) => (
                                         <FormItem>
@@ -492,13 +488,13 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                     </div>
                 </Card>
 
-                <div className="grid grid-cols-1 gap-10">
-                    <Card className={cn("p-8 md:p-10 transition-all duration-500 rounded-[2.5rem] shadow-xl", vehicleType === 'Market Vehicle' ? "bg-blue-50/30 border-2 border-blue-100 opacity-100" : "opacity-40 grayscale pointer-events-none border-slate-100")}>
-                        <div className="flex items-center gap-3 mb-8 px-2">
+                <div className="grid grid-cols-1 gap-8">
+                    <Card className={cn("p-6 md:p-8 transition-all duration-500 rounded-[2.5rem] shadow-xl", vehicleType === 'Market Vehicle' ? "bg-blue-50/30 border-2 border-blue-100 opacity-100" : "opacity-40 grayscale pointer-events-none border-slate-100")}>
+                        <div className="flex items-center gap-3 mb-6 px-2">
                             <IndianRupee className="h-5 w-5 text-blue-600" />
                             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Financial Particulars (Market Node)</h3>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-end">
                             <FormField name="transporterName" control={control} render={({field}) => (
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-black uppercase text-slate-400">Transporter Name *</FormLabel>
@@ -591,12 +587,12 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                     </Card>
                 </div>
 
-                <div className="flex flex-col md:flex-row justify-end pt-10 border-t border-white/5 gap-6">
+                <div className="flex flex-col md:flex-row justify-end pt-6 border-t border-white/5 gap-6">
                     <button type="button" onClick={onClose} className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-blue-900 transition-all py-2">ABORT ALLOCATION</button>
                     <Button 
                         type="submit" 
                         disabled={isSubmitting} 
-                        className="h-16 px-16 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none p-0 flex items-center justify-center"
+                        className="h-14 px-16 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none p-0 flex items-center justify-center"
                     >
                         {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} {isEditing ? 'Update Registry' : 'Establish Mission Node'}
                     </Button>
@@ -626,11 +622,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
 function ContextNode({ label, value, icon: Icon, className, bold }: any) {
     return (
-        <div className={cn("space-y-1.5", className)}>
-            <span className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 tracking-widest leading-none">
-                {Icon && <Icon className="h-2.5 w-2.5 md:h-3 md:w-3" />} {label}
+        <div className={cn("space-y-1", className)}>
+            <span className="text-[8px] font-black uppercase text-slate-400 flex items-center gap-1.5 tracking-widest leading-none">
+                {Icon && <Icon className="h-2.5 w-2.5" />} {label}
             </span>
-            <p className={cn("text-xs leading-tight wrap", bold ? "font-black" : "font-bold text-slate-700")}>{value || '--'}</p>
+            <p className={cn("text-[10px] md:text-xs leading-tight wrap", bold ? "font-black" : "font-bold text-slate-700")}>{value || '--'}</p>
         </div>
     );
 }
