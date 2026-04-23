@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
-import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp, onSnapshot, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp, onSnapshot } from 'firebase/firestore';
 import { format, isValid } from 'date-fns';
 import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +44,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 /**
  * @fileOverview Public Track Consignment Terminal v2.5.
  * Features: Dual Search (SO/Trip ID), Scenario Handling (A/B/C), and Progress Animation.
+ * Corrected: Replaced collectionGroup with iterative plant search to bypass indexing failures.
  */
 
 function TrackConsignmentContent() {
@@ -52,6 +53,7 @@ function TrackConsignmentContent() {
     const [captchaInput, setCaptchaInput] = useState('');
     const [generatedCaptcha, setGeneratedCaptcha] = useState('');
     const [isSearching, setIsSearching] = useState(false);
+    const [apiKey, setApiKey] = useState<string | null>(null);
     
     // Result States
     const [shipmentResult, setShipmentResult] = useState<any>(null);
@@ -68,7 +70,15 @@ function TrackConsignmentContent() {
     const lastTargetIndexRef = useRef<number>(-1);
 
     useEffect(() => {
-        if (firestore) setDbReady(true);
+        if (firestore) {
+            setDbReady(true);
+            // Fetch API Key for potential telemetry use
+            const fetchConfig = async () => {
+                const configSnap = await getDoc(doc(firestore, "gps_settings", "api_config"));
+                if (configSnap.exists()) setApiKey(configSnap.data().apiKey);
+            };
+            fetchConfig();
+        }
         refreshCaptcha();
     }, [firestore]);
 
@@ -154,7 +164,8 @@ function TrackConsignmentContent() {
     }, [activeTrip?.id, firestore, getTargetIndex, runAnimation]);
 
     const handleTrack = async () => {
-        if (!registryInput.trim()) {
+        const inputRaw = registryInput.trim();
+        if (!inputRaw) {
             setError("Registry Node ID Required.");
             return;
         }
@@ -177,9 +188,9 @@ function TrackConsignmentContent() {
         lastTargetIndexRef.current = -1;
 
         try {
-            const term = registryInput.trim().toUpperCase();
+            const term = inputRaw.toUpperCase();
             
-            // 1. Resolve as Trip ID / LR First
+            // 1. Resolve as Trip ID / LR First (Root Collection Lookup)
             const tripsRef = collection(firestore, "trips");
             let tripQuery = query(tripsRef, where("tripId", "==", term), limit(1));
             let tripSnap = await getDocs(tripQuery);
@@ -211,18 +222,31 @@ function TrackConsignmentContent() {
                 return;
             }
 
-            // 2. Resolve as Sale Order (Assign Fleet Pending Node)
-            const shipmentGroup = collectionGroup(firestore, "shipments");
-            const shipQuery = query(shipmentGroup, where("shipmentId", "==", term), limit(1));
-            const shipSnap = await getDocs(shipQuery);
+            // 2. Resolve as Sale Order Number (Iterative Plant search node)
+            // We iterate through plants to find the SO because collectionGroup indexing is often unstable
+            const plantsSnap = await getDocs(collection(firestore, "logistics_plants"));
+            const plantIds = plantsSnap.docs.map(d => d.id);
+            
+            let foundShipment: any = null;
+            let shipDocId: string | null = null;
+            let originPlantId: string | null = null;
 
-            if (!shipSnap.empty) {
-                const shipDoc = shipSnap.docs[0];
-                const shipData = { id: shipDoc.id, ...shipDoc.data() } as any;
-                setShipmentResult(shipData);
+            for (const pId of plantIds) {
+                const sQ = query(collection(firestore, `plants/${pId}/shipments`), where("shipmentId", "==", term), limit(1));
+                const sSnap = await getDocs(sQ);
+                if (!sSnap.empty) {
+                    foundShipment = sSnap.docs[0].data();
+                    shipDocId = sSnap.docs[0].id;
+                    originPlantId = pId;
+                    break;
+                }
+            }
+
+            if (foundShipment && shipDocId) {
+                setShipmentResult(foundShipment);
 
                 // Check for linked trips (Scenario B or C)
-                const linkedTripsQuery = query(tripsRef, where("shipmentIds", "array-contains", shipDoc.id));
+                const linkedTripsQuery = query(collection(firestore, "trips"), where("shipmentIds", "array-contains", shipDocId));
                 const lTripsSnap = await getDocs(linkedTripsQuery);
                 
                 if (!lTripsSnap.empty) {
@@ -234,7 +258,6 @@ function TrackConsignmentContent() {
                     setLinkedTrips(tripsList);
                     
                     if (tripsList.length === 1) {
-                        // Scenario B: Single Assignment
                         const trip = tripsList[0];
                         setActiveTrip(trip);
                         const status = (trip.tripStatus || trip.currentStatusId || 'assigned').toLowerCase();
@@ -242,15 +265,14 @@ function TrackConsignmentContent() {
                         lastTargetIndexRef.current = targetIdx;
                         runAnimation(targetIdx, status === 'rejected');
                     }
-                    // Else Scenario C will render the table
                 }
-                // Else Scenario A (No trips found) will render the booked message
             } else {
                 setError("Mission Node not found in registry.");
                 refreshCaptcha();
             }
         } catch (e: any) {
-            setError("Registry Link Failure.");
+            console.error("Registry resolving error:", e);
+            setError("Registry Handshake Failure.");
         } finally {
             setIsSearching(false);
         }
@@ -325,7 +347,6 @@ function TrackConsignmentContent() {
                             <ArrowLeft size={16}/> Back to Registry Search
                         </button>
                         
-                        {/* 1. MANIFEST HEADER (Requirement A/B) */}
                         <Card className="border-none shadow-3xl rounded-[3.5rem] bg-slate-900 text-white p-10 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 transition-transform duration-1000 group-hover:scale-110"><Box size={240} /></div>
                             <div className="grid grid-cols-2 md:grid-cols-5 gap-8 relative z-10">
@@ -346,7 +367,6 @@ function TrackConsignmentContent() {
                             </div>
                         </Card>
 
-                        {/* 2. SCENARIO C: MULTIPLE TRIPS TABLE */}
                         {!activeTrip && linkedTrips.length > 1 && (
                             <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden animate-in zoom-in-95 duration-500">
                                 <div className="p-8 bg-slate-50 border-b flex items-center gap-4">
@@ -378,7 +398,6 @@ function TrackConsignmentContent() {
                             </Card>
                         )}
 
-                        {/* 3. SCENARIO A/B MESSAGING NODE */}
                         {linkedTrips.length <= 1 && (
                             <div className="max-w-4xl mx-auto text-center space-y-10 animate-in fade-in duration-700">
                                 <div className="p-10 bg-blue-50 border-2 border-blue-100 rounded-[3rem] shadow-xl relative overflow-hidden group">
@@ -398,7 +417,6 @@ function TrackConsignmentContent() {
                                     </p>
                                 </div>
 
-                                {/* 4. TRACKING ANIMATION (Requirement B) */}
                                 {activeTrip && (
                                     <div className="relative p-12 md:p-20 bg-white border border-slate-100 rounded-[4rem] shadow-2xl overflow-hidden min-h-[450px] flex flex-col justify-center">
                                         <div className="absolute top-1/2 left-24 right-24 h-2 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden shadow-inner">
