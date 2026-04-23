@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef } from 'react';
@@ -45,9 +46,9 @@ import {
 } from "@/components/ui/select";
 
 /**
- * @fileOverview Public Track Consignment Terminal v2.7.
+ * @fileOverview Public Track Consignment Terminal v2.8.
  * Hardened: Robust status normalization and real-time animation pulse.
- * Streamlined: Security Code (Captcha) node purged as per user request.
+ * Transition: Interactive Trip ID links allow instant mode-switch from SO to Trip tracking.
  * Manifest: Dynamic header display based on TRIP vs SO mode.
  */
 
@@ -126,41 +127,10 @@ function TrackConsignmentContent() {
         }, STEP_DURATION);
     }, []);
 
-    // REAL-TIME TRIP Pulse node (Only active in TRIP Mode)
-    useEffect(() => {
-        if (searchType !== 'TRIP' || !activeTrip?.id || !firestore) return;
-
-        const tripRef = doc(firestore, "trips", activeTrip.id);
-        const unsubscribe = onSnapshot(tripRef, (snap) => {
-            if (snap.exists()) {
-                const updatedTrip = snap.data();
-                const newStatus = (updatedTrip.tripStatus || updatedTrip.currentStatusId || 'assigned').toLowerCase();
-                const targetIdx = getTargetIndex(newStatus);
-                
-                if (targetIdx !== lastTargetIndexRef.current) {
-                    lastTargetIndexRef.current = targetIdx;
-                    runAnimation(targetIdx, newStatus === 'rejected');
-                }
-            }
-        });
-
-        return () => {
-            unsubscribe();
-            if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
-        };
-    }, [activeTrip?.id, firestore, getTargetIndex, runAnimation, searchType]);
-
-    const handleTrack = async () => {
-        const inputRaw = registryInput.trim();
-        if (!inputRaw) {
-            setError("Registry Node ID Required.");
-            return;
-        }
-
-        if (!firestore) {
-            setError("Database Node Offline.");
-            return;
-        }
+    const handleSearch = useCallback(async (overriddenQuery?: string) => {
+        const term = (overriddenQuery || registryInput).trim().toUpperCase();
+        if (!term) return;
+        if (!firestore) return;
 
         setIsSearching(true);
         setError(null);
@@ -170,8 +140,6 @@ function TrackConsignmentContent() {
         lastTargetIndexRef.current = -1;
 
         try {
-            const term = inputRaw.toUpperCase();
-            
             if (searchType === 'TRIP') {
                 const tripsRef = collection(firestore, "trips");
                 let tripQuery = query(tripsRef, where("tripId", "==", term), limit(1));
@@ -188,7 +156,6 @@ function TrackConsignmentContent() {
                         if (sSnap.exists()) shipmentData = sSnap.data();
                     }
 
-                    // Resolve cities for TRIP mode route node
                     const fromLoc = tripData.loadingPoint || shipmentData?.loadingPoint || '';
                     tripData.fromCity = fromLoc.split(',')[0].trim();
                     const toLoc = tripData.unloadingPoint || tripData.destination || shipmentData?.unloadingPoint || '';
@@ -200,13 +167,10 @@ function TrackConsignmentContent() {
                     const targetIdx = getTargetIndex(status);
                     lastTargetIndexRef.current = targetIdx;
                     runAnimation(targetIdx, status === 'rejected');
-                    setIsSearching(false);
-                    return;
                 } else {
                     setError("Trip ID not recognized in mission registry.");
                 }
             } else {
-                // SALES ORDER Mode
                 const plantsSnap = await getDocs(collection(firestore, "logistics_plants"));
                 const plantIds = plantsSnap.docs.map(d => d.id);
                 
@@ -224,7 +188,6 @@ function TrackConsignmentContent() {
                 }
 
                 if (foundShipment && shipDocId) {
-                    // Resolve cities for SO mode route node
                     const fromLoc = foundShipment.loadingPoint || '';
                     foundShipment.fromCity = fromLoc.split(',')[0].trim();
                     const toLoc = foundShipment.unloadingPoint || foundShipment.destination || '';
@@ -253,7 +216,41 @@ function TrackConsignmentContent() {
         } finally {
             setIsSearching(false);
         }
-    };
+    }, [firestore, registryInput, searchType, getTargetIndex, runAnimation]);
+
+    // Transition Node: Switch from SO to TRIP mode on click
+    const handleDirectTripClick = useCallback((tId: string) => {
+        setSearchType('TRIP');
+        setRegistryInput(tId);
+        // We use a small timeout to ensure state update before execution
+        setTimeout(() => {
+            handleSearch(tId);
+        }, 10);
+    }, [handleSearch]);
+
+    // REAL-TIME TRIP Pulse node (Only active in TRIP Mode)
+    useEffect(() => {
+        if (searchType !== 'TRIP' || !activeTrip?.id || !firestore) return;
+
+        const tripRef = doc(firestore, "trips", activeTrip.id);
+        const unsubscribe = onSnapshot(tripRef, (snap) => {
+            if (snap.exists()) {
+                const updatedTrip = snap.data();
+                const newStatus = (updatedTrip.tripStatus || updatedTrip.currentStatusId || 'assigned').toLowerCase();
+                const targetIdx = getTargetIndex(newStatus);
+                
+                if (targetIdx !== lastTargetIndexRef.current) {
+                    lastTargetIndexRef.current = targetIdx;
+                    runAnimation(targetIdx, newStatus === 'rejected');
+                }
+            }
+        });
+
+        return () => {
+            unsubscribe();
+            if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
+        };
+    }, [activeTrip?.id, firestore, getTargetIndex, runAnimation, searchType]);
 
     const formattedOrderTime = useMemo(() => {
         if (!shipmentResult?.creationDate) return '--';
@@ -261,7 +258,6 @@ function TrackConsignmentContent() {
         return d ? format(d, 'dd-MMM-yyyy HH:mm') : '--';
     }, [shipmentResult]);
 
-    // UI HELPER: Conditional Manifest Handshake
     const displayFields = useMemo(() => {
         if (!shipmentResult && !activeTrip) return [];
 
@@ -273,7 +269,6 @@ function TrackConsignmentContent() {
         const toCity = shipNode?.toCity || activeTrip?.toCity || '--';
         const route = `${fromCity} → ${toCity}`;
 
-        // SHARED PARTICULARS
         const baseFields = [
             { label: 'Sale Order', value: shipNode?.shipmentId || activeTrip?.shipmentId, bold: true, icon: FileText, color: 'text-blue-400' },
             { label: 'Consignor', value: shipNode?.consignor || activeTrip?.consignor, icon: User },
@@ -283,7 +278,6 @@ function TrackConsignmentContent() {
             { label: 'Route', value: route, icon: Navigation, bold: true, color: 'text-blue-300' },
         ];
 
-        // TRIP-ONLY PARTICULARS (Placed at the end)
         if (isTripMode) {
             return [
                 ...baseFields,
@@ -346,12 +340,12 @@ function TrackConsignmentContent() {
                                         placeholder={searchType === 'TRIP' ? "e.g. T1000789" : "e.g. S0000456"} 
                                         value={registryInput} 
                                         onChange={e => setRegistryInput(e.target.value)} 
-                                        onKeyDown={e => e.key === 'Enter' && handleTrack()}
+                                        onKeyDown={e => e.key === 'Enter' && handleSearch()}
                                         className="h-16 rounded-2xl font-black text-blue-900 uppercase text-2xl text-center border-2 border-slate-100 shadow-inner" 
                                     />
                                 </div>
 
-                                <Button onClick={handleTrack} disabled={isSearching || !dbReady} className="w-full h-16 rounded-2xl bg-blue-900 text-white font-black uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 border-none">
+                                <Button onClick={() => handleSearch()} disabled={isSearching || !dbReady} className="w-full h-16 rounded-2xl bg-blue-900 text-white font-black uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 border-none">
                                     {isSearching ? <Loader2 className="animate-spin mr-3" /> : <Search className="mr-3" />} RESOLVE MISSION
                                 </Button>
                             </div>
@@ -359,7 +353,6 @@ function TrackConsignmentContent() {
                     </Card>
                 )}
 
-                {/* SEARCH RESULTS NODE */}
                 {(shipmentResult || activeTrip) && (
                     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-10 duration-1000 pb-20">
                         <button onClick={() => {setShipmentResult(null); setActiveTrip(null); setLinkedTrips([]);}} className="font-black text-slate-400 hover:text-blue-900 uppercase text-[11px] tracking-widest gap-2 flex items-center">
@@ -390,7 +383,6 @@ function TrackConsignmentContent() {
                             </div>
                         </Card>
 
-                        {/* CASE: Multiple Trips for SO (Scenario C) */}
                         {searchType === 'SO' && !activeTrip && linkedTrips.length > 1 && (
                             <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden animate-in zoom-in-95 duration-500">
                                 <div className="p-8 bg-slate-50 border-b flex items-center gap-4">
@@ -411,7 +403,14 @@ function TrackConsignmentContent() {
                                             {linkedTrips.map((trip) => (
                                                 <TableRow key={trip.id} className="h-16 border-b last:border-0 group transition-all">
                                                     <TableCell className="px-8 font-black text-slate-400 text-xs">{shipmentResult?.shipmentId}</TableCell>
-                                                    <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter uppercase">{trip.tripId}</TableCell>
+                                                    <TableCell className="px-4">
+                                                        <button 
+                                                            onClick={() => handleDirectTripClick(trip.tripId)}
+                                                            className="font-black text-blue-700 font-mono tracking-tighter uppercase hover:underline"
+                                                        >
+                                                            {trip.tripId}
+                                                        </button>
+                                                    </TableCell>
                                                     <TableCell className="px-4 text-center font-bold text-slate-500 uppercase text-[10px]">{trip.startDate ? format(trip.startDate, 'dd-MMM-yyyy HH:mm') : '--'}</TableCell>
                                                     <TableCell className="px-8 text-right font-black text-blue-900">{trip.assignedQtyInTrip} MT</TableCell>
                                                 </TableRow>
@@ -422,7 +421,6 @@ function TrackConsignmentContent() {
                             </Card>
                         )}
 
-                        {/* CASE: Single Trip or Awaiting Allocation (Scenario A/B) */}
                         {searchType === 'SO' && linkedTrips.length <= 1 && (
                             <div className="max-w-4xl mx-auto text-center space-y-10 animate-in fade-in duration-700">
                                 <div className="p-10 bg-blue-50 border-2 border-blue-100 rounded-[3rem] shadow-xl relative overflow-hidden group flex flex-col items-center">
@@ -436,12 +434,11 @@ function TrackConsignmentContent() {
                                         ) : (
                                             <>
                                                 Sale Order <span className="text-blue-900 font-black">{shipmentResult?.shipmentId}</span> has been assigned to a vehicle. 
-                                                You can track your shipment using Trip ID <span className="text-blue-600 font-black tracking-tighter">{linkedTrips[0]?.tripId}</span>.
+                                                You can track your shipment using Trip ID <button onClick={() => handleDirectTripClick(linkedTrips[0].tripId)} className="text-blue-700 font-black tracking-tighter hover:underline">{linkedTrips[0]?.tripId}</button>.
                                             </>
                                         )}
                                     </p>
 
-                                    {/* DELAY REMARK NODE */}
                                     {shipmentResult?.delayRemark && (
                                         <div className="mt-8 p-6 bg-amber-600 rounded-3xl text-white shadow-2xl animate-in zoom-in-95 duration-500 max-w-2xl border-4 border-amber-400">
                                             <div className="flex items-center gap-3 mb-3 border-b border-white/20 pb-3">
@@ -458,7 +455,6 @@ function TrackConsignmentContent() {
                             </div>
                         )}
 
-                        {/* CASE: FULL Tracking Animation (Only in TRIP Mode) */}
                         {searchType === 'TRIP' && activeTrip && (
                             <div className="relative p-12 md:p-20 bg-white border border-slate-100 rounded-[4rem] shadow-2xl overflow-hidden min-h-[450px] flex flex-col justify-center">
                                 <div className="absolute top-1/2 left-24 right-24 h-2 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden shadow-inner">
