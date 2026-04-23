@@ -40,7 +40,7 @@ export default function ContactPage() {
                                 <div className="space-y-4 text-gray-700">
                                     <div className="flex items-center gap-4">
                                         <Mail className="h-6 w-6 text-blue-600" />
-                                        <a href="mailto:queries@sikka.com" className="hover:text-blue-600">queries@sikka.com</a>
+                                        <a href="mailto:queries@sikkaenterprises.com" className="hover:text-blue-600">queries@sikkaenterprises.com</a>
                                     </div>
                                     <div className="flex items-center gap-4">
                                         <Phone className="h-6 w-6 text-blue-600" />
