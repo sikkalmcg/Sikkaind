@@ -94,14 +94,10 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="pt-12 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-8">
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500">
+        <div className="pt-12 border-t border-white/5 flex flex-col items-center justify-center">
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500 text-center">
             © {new Date().getFullYear()} Sikka Industries & Logistics. Registry v2.5
           </p>
-          <div className="flex items-center gap-8">
-            <Link href="/privacy" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors">Privacy Node</Link>
-            <Link href="/terms" className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors">Registry Terms</Link>
-          </div>
         </div>
       </div>
     </footer>
