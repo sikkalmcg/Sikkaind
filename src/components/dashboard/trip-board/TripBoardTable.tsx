@@ -219,7 +219,8 @@ function MissionRegistryCard({
     const dateNode = isPending ? row.creationDate : row.startDate;
     const formattedDate = dateNode ? format(new Date(dateNode), 'dd MMM') : '--';
     const statusTime = row.lastUpdated ? format(new Date(row.lastUpdated), 'dd MMM, hh:mm aa') : (row.creationDate ? format(new Date(row.creationDate), 'dd MMM, hh:mm aa') : '--');
-    
+    const unloadTime = row.unloadDateTime ? format(new Date(row.unloadDateTime), 'dd MMM, hh:mm aa') : null;
+
     const fromCity = (row.loadingPoint || row.from || row.plantName || '').split(',')[0].trim();
     const toCity = (row.unloadingPoint || row.destination || '').split(',')[0].trim();
 
@@ -422,6 +423,15 @@ function MissionRegistryCard({
                             <span className="text-[8px] font-black uppercase text-slate-400 leading-none">Registry Update</span>
                             <span className="text-[10px] font-bold text-slate-500">{statusTime}</span>
                         </div>
+                        {unloadTime && (
+                            <div className="flex items-center">
+                                <div className="h-6 w-px bg-slate-100 mx-4" />
+                                <div className="flex flex-col">
+                                    <span className="text-[8px] font-black uppercase text-emerald-600 leading-none">Unload Time</span>
+                                    <span className="text-[10px] font-black text-slate-900">{unloadTime}</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                     {isDelayed && (
                         <div className="flex items-center gap-2 px-4 py-1.5 bg-red-50 border border-red-100 rounded-full animate-pulse shadow-sm">
