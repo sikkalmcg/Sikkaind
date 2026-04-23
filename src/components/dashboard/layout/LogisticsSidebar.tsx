@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -52,7 +51,7 @@ const navigationGroups = [
   { group: 'Administration', admin: true, items: [
     { name: 'Vehicles', href: '/dashboard/vehicle-management', icon: Truck, permission: 'vehicle-management' },
     { name: 'Carriers', href: '/dashboard/carrier-management', icon: ShieldCheck, permission: 'carrier-management' },
-    { name: 'Vendors', href: '/dashboard/vendor-management', icon: Truck, permission: 'carrier-management' },
+    { name: 'Vendors', href: '/dashboard/vendor-management', icon: Truck, permission: 'vendor-management' },
     { name: 'Plants', href: '/dashboard/plant-management', icon: Building2, permission: 'plant-management' },
     { name: 'GPS Registry', href: '/dashboard/tracking/registry', icon: Smartphone, permission: 'admin-only' },
     { name: 'GPS Setting', href: '/dashboard/tracking/settings', icon: Settings2, permission: 'admin-only' },

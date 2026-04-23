@@ -15,6 +15,7 @@ export const SikkaLogisticsPagePermissions = [
   { id: 'freight-management', name: 'Freight Management' },
   { id: 'fuel-payment', name: 'Fuel Payment' },
   { id: 'fuel-management', name: 'Fuel Management' },
+  { id: 'vendor-management', name: 'Vendor Management' },
   { id: 'employee-management', name: 'Employee Management' },
   { id: 'report-analysis', name: 'Report Analysis' },
 ];
