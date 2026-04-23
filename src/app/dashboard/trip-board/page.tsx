@@ -262,10 +262,13 @@ function TripBoardContent() {
             orderCreatedUser: shipment?.userName || '--',
             consignor: t.consignor || shipment?.consignor || '--',
             consignorAddress: shipment?.consignorAddress || shipment?.loadingPoint || '--',
+            consignorGtin: t.consignorGtin || shipment?.consignorGtin || '',
+            billToParty: t.billToParty || shipment?.billToParty || '--',
+            billToGtin: t.billToGtin || shipment?.billToGtin || '',
+            shipToParty: t.shipToParty || shipment?.shipToParty || '--',
+            shipToGtin: t.shipToGtin || shipment?.shipToGtin || '',
             consignee: t.billToParty || shipment?.billToParty || '--',
             deliveryAddress: shipment?.deliveryAddress || shipment?.unloadingPoint || '--',
-            billToParty: t.billToParty || shipment?.billToParty || '--',
-            shipToParty: t.shipToParty || shipment?.shipToParty || '--',
             from: t.loadingPoint || shipment?.loadingPoint || '--',
             unloadingPoint: t.unloadingPoint || shipment?.unloadingPoint || t.destination || '--',
             assignedUsername: t.userName || '--',
@@ -332,7 +335,8 @@ function TripBoardContent() {
                     qtyUom: `${s.quantity} MT`,
                     balanceUom: `${s.balanceQty} MT`,
                     carrierObj: (dbCarriers || []).find(c => c.id === s.carrierId),
-                    invoiceNumbers: invs
+                    invoiceNumbers: invs,
+                    consignee: s.billToParty || '--'
                 };
             })
             .filter(s => {
@@ -547,7 +551,7 @@ function TripBoardContent() {
                 };
             }
 
-            const shipmentObj = row as any;
+            const shipmentObj = row.shipmentObj || {};
 
             const manifestItems = row.items && row.items.length > 0 ? row.items : [{
                 invoiceNumber: row.summarizedInvoices || row.invoiceNumbers || 'NA',
@@ -598,12 +602,12 @@ function TripBoardContent() {
                     plant: row.plant || { id: row.originPlantId, name: row.plantName },
                     consignorName: lrDoc.consignorName || shipmentObj.consignor || row.consignor || '',
                     consignorAddress: lrDoc.consignorAddress || shipmentObj.consignorAddress || '',
-                    consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || '',
+                    consignorGtin: lrDoc.consignorGtin || row.consignorGtin || shipmentObj.consignorGtin || '',
                     buyerName: lrDoc.buyerName || shipmentObj.billToParty || row.billToParty || '',
                     buyerAddress: lrDoc.buyerAddress || shipmentObj.buyerAddress || shipmentObj.billToAddress || shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
-                    buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || '',
+                    buyerGtin: lrDoc.buyerGtin || row.billToGtin || shipmentObj.billToGtin || '',
                     shipToParty: lrDoc.shipToParty || row.shipToParty || row.billToParty || '',
-                    shipToGtin: lrDoc.shipToGtin || row.shipToGtin || '',
+                    shipToGtin: lrDoc.shipToGtin || row.shipToGtin || shipmentObj.shipToGtin || '',
                     deliveryAddress: lrDoc.deliveryAddress || row.deliveryAddress || row.unloadingPoint || '',
                     vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
                     driverName: row.driverName || lrDoc.driverName,
@@ -715,8 +719,8 @@ function TripBoardContent() {
         await addDoc(historyRef, {
             tripId: arrivedTrip.tripId,
             vehicleNumber: arrivedTrip.vehicleNumber || 'N/A',
-            shipToParty: arrivedTrip.shipToParty || 'N/A',
-            unloadingPoint: arrivedTrip.unloadingPoint || 'N/A',
+            shipToParty: arrivedTrip.shipToParty || arrivedTrip.shipment?.shipToParty || 'N/A',
+            unloadingPoint: arrivedTrip.unloadingPoint || arrivedTrip.shipment?.unloadingPoint || 'N/A',
             previousStatus: arrivedTrip.tripStatus || arrivedTrip.currentStatusId,
             previousStatusTimestamp: arrivedTrip.lastUpdated || arrivedTrip.startDate,
             newStatus: 'Arrival for Delivery',
@@ -764,8 +768,8 @@ function TripBoardContent() {
         await addDoc(historyRef, {
             tripId: unloadedTrip.tripId,
             vehicleNumber: unloadedTrip.vehicleNumber || 'N/A',
-            shipToParty: unloadedTrip.shipToParty || 'N/A',
-            unloadingPoint: unloadedTrip.unloadingPoint || 'N/A',
+            shipToParty: unloadedTrip.shipToParty || unloadedTrip.shipment?.shipToParty || 'N/A',
+            unloadingPoint: unloadedTrip.unloadingPoint || unloadedTrip.shipment?.unloadingPoint || 'N/A',
             previousStatus: unloadedTrip.tripStatus || unloadedTrip.currentStatusId,
             previousStatusTimestamp: unloadedTrip.lastUpdated || unloadedTrip.startDate,
             newStatus: 'Delivered',
@@ -812,8 +816,8 @@ function TripBoardContent() {
         await addDoc(historyRef, {
             tripId: rejectTrip.tripId,
             vehicleNumber: rejectTrip.vehicleNumber || 'N/A',
-            shipToParty: rejectTrip.shipToParty || 'N/A',
-            unloadingPoint: rejectTrip.unloadingPoint || 'N/A',
+            shipToParty: rejectTrip.shipToParty || rejectTrip.shipment?.shipToParty || 'N/A',
+            unloadingPoint: rejectTrip.unloadingPoint || rejectTrip.shipment?.unloadingPoint || 'N/A',
             previousStatus: rejectTrip.tripStatus || rejectTrip.currentStatusId,
             previousStatusTimestamp: rejectTrip.lastUpdated || rejectTrip.startDate,
             newStatus: 'Rejected',
@@ -886,8 +890,8 @@ function TripBoardContent() {
         await addDoc(historyRef, {
             tripId: srnTrip.tripId,
             vehicleNumber: srnTrip.vehicleNumber || 'N/A',
-            shipToParty: srnTrip.shipToParty || 'N/A',
-            unloadingPoint: srnTrip.unloadingPoint || 'N/A',
+            shipToParty: srnTrip.shipToParty || srnTrip.shipment?.shipToParty || 'N/A',
+            unloadingPoint: srnTrip.unloadingPoint || srnTrip.shipment?.unloadingPoint || 'N/A',
             previousStatus: srnTrip.tripStatus || srnTrip.currentStatusId,
             previousStatusTimestamp: srnTrip.lastUpdated || srnTrip.startDate,
             newStatus: 'Closed (SRN)',

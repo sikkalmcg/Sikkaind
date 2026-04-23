@@ -159,11 +159,9 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
   useEffect(() => {
     if (isOpen && primaryShipment) {
-        // REGISTRY HANDSHAKE: Resolve Carrier from Shipment manifest (Source of Truth)
         let carrierId = trip?.carrierId || primaryShipment.carrierId || '';
         let carrierName = trip?.carrierName || primaryShipment.carrierName || '';
 
-        // If no carrier is assigned to shipment, attempt to resolve from registry using origin plant
         if (!carrierId && carriers.length > 0) {
             const plantCarrier = carriers.find(c => normalizePlantId(c.plantId) === normalizePlantId(primaryShipment.originPlantId));
             if (plantCarrier) {
@@ -263,7 +261,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             const shipmentRef = doc(firestore, `plants/${plantId}/shipments`, primaryShipment.id);
             const shipmentSnap = await transaction.get(shipmentRef);
             if (!shipmentSnap.exists()) throw new Error("Order registry node error.");
-            
+            const sData = shipmentSnap.data() as Shipment;
             const docId = trip?.id || doc(collection(firestore, 'trips')).id;
             const tripId = trip?.tripId || generateRandomTripId();
             
@@ -296,8 +294,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                 shipmentIds,
                 assignedQtyInTrip: values.assignQty, 
                 consignor: primaryShipment.consignor, 
+                consignorGtin: primaryShipment.consignorGtin || '',
                 billToParty: primaryShipment.billToParty,
+                billToGtin: primaryShipment.billToGtin || '',
                 shipToParty: primaryShipment.shipToParty || primaryShipment.billToParty, 
+                shipToGtin: primaryShipment.shipToGtin || primaryShipment.billToGtin || '',
                 loadingPoint: primaryShipment.loadingPoint,
                 unloadingPoint: primaryShipment.unloadingPoint, 
                 deliveryAddress: primaryShipment.deliveryAddress || primaryShipment.unloadingPoint,
