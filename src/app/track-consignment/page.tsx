@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef } from 'react';
@@ -13,25 +12,20 @@ import {
     ShieldCheck, 
     Radar, 
     Loader2, 
-    Calendar,
     CheckCircle2,
     AlertCircle,
     ArrowLeft,
     Factory,
     ClipboardList,
     Box,
-    ArrowRight,
-    CircleDot,
     RefreshCcw,
-    X,
     XCircle,
-    Wifi,
-    Smartphone,
-    FileText,
-    Weight,
     User,
     ChevronRight,
-    ListTree
+    ListTree,
+    FileText,
+    Weight,
+    Smartphone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
@@ -40,20 +34,27 @@ import { format, isValid } from 'date-fns';
 import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /**
- * @fileOverview Public Track Consignment Terminal v2.5.
- * Features: Dual Search (SO/Trip ID), Scenario Handling (A/B/C), and Progress Animation.
- * Corrected: Replaced collectionGroup with iterative plant search to bypass indexing failures.
+ * @fileOverview Public Track Consignment Terminal v2.6.
+ * Features: Mandatory Mode Selection (TRIP vs SO), Multi-Trip Scenario Handling.
+ * Logic: TRIP mode shows full animation/telemetry. SO mode shows simplified concept manifest.
  */
 
 function TrackConsignmentContent() {
     const firestore = useFirestore();
+    const [searchType, setSearchType] = useState<'TRIP' | 'SO'>('TRIP');
     const [registryInput, setRegistryInput] = useState('');
     const [captchaInput, setCaptchaInput] = useState('');
     const [generatedCaptcha, setGeneratedCaptcha] = useState('');
     const [isSearching, setIsSearching] = useState(false);
-    const [apiKey, setApiKey] = useState<string | null>(null);
     
     // Result States
     const [shipmentResult, setShipmentResult] = useState<any>(null);
@@ -72,12 +73,6 @@ function TrackConsignmentContent() {
     useEffect(() => {
         if (firestore) {
             setDbReady(true);
-            // Fetch API Key for potential telemetry use
-            const fetchConfig = async () => {
-                const configSnap = await getDoc(doc(firestore, "gps_settings", "api_config"));
-                if (configSnap.exists()) setApiKey(configSnap.data().apiKey);
-            };
-            fetchConfig();
         }
         refreshCaptcha();
     }, [firestore]);
@@ -139,9 +134,9 @@ function TrackConsignmentContent() {
         }, STEP_DURATION);
     }, []);
 
-    // REAL-TIME TRIP Pulse node
+    // REAL-TIME TRIP Pulse node (Only active in TRIP Mode)
     useEffect(() => {
-        if (!activeTrip?.id || !firestore) return;
+        if (searchType !== 'TRIP' || !activeTrip?.id || !firestore) return;
 
         const tripRef = doc(firestore, "trips", activeTrip.id);
         const unsubscribe = onSnapshot(tripRef, (snap) => {
@@ -161,7 +156,7 @@ function TrackConsignmentContent() {
             unsubscribe();
             if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
         };
-    }, [activeTrip?.id, firestore, getTargetIndex, runAnimation]);
+    }, [activeTrip?.id, firestore, getTargetIndex, runAnimation, searchType]);
 
     const handleTrack = async () => {
         const inputRaw = registryInput.trim();
@@ -190,91 +185,82 @@ function TrackConsignmentContent() {
         try {
             const term = inputRaw.toUpperCase();
             
-            // 1. Resolve as Trip ID / LR First (Root Collection Lookup)
-            const tripsRef = collection(firestore, "trips");
-            let tripQuery = query(tripsRef, where("tripId", "==", term), limit(1));
-            let tripSnap = await getDocs(tripQuery);
-            
-            if (tripSnap.empty) {
-                tripQuery = query(tripsRef, where("lrNumber", "==", term), limit(1));
-                tripSnap = await getDocs(tripQuery);
-            }
-
-            if (!tripSnap.empty) {
-                const tripData = { id: tripSnap.docs[0].id, ...tripSnap.docs[0].data() } as any;
-                const plantId = normalizePlantId(tripData.originPlantId);
-                const shipId = Array.isArray(tripData.shipmentIds) ? tripData.shipmentIds[0] : tripData.shipmentId;
+            if (searchType === 'TRIP') {
+                // TRIP ID Handshake (Full Detail Mode)
+                const tripsRef = collection(firestore, "trips");
+                let tripQuery = query(tripsRef, where("tripId", "==", term), limit(1));
+                let tripSnap = await getDocs(tripQuery);
                 
-                let shipmentData = null;
-                if (shipId) {
-                    const sSnap = await getDoc(doc(firestore, `plants/${plantId}/shipments`, shipId));
-                    if (sSnap.exists()) shipmentData = sSnap.data();
+                if (tripSnap.empty) {
+                    tripQuery = query(tripsRef, where("lrNumber", "==", term), limit(1));
+                    tripSnap = await getDocs(tripQuery);
                 }
 
-                setActiveTrip({ ...tripData, shipment: shipmentData });
-                setShipmentResult(shipmentData);
-                
-                const status = (tripData.tripStatus || tripData.currentStatusId || 'assigned').toLowerCase();
-                const targetIdx = getTargetIndex(status);
-                lastTargetIndexRef.current = targetIdx;
-                runAnimation(targetIdx, status === 'rejected');
-                setIsSearching(false);
-                return;
-            }
-
-            // 2. Resolve as Sale Order Number (Iterative Plant search node)
-            // We iterate through plants to find the SO because collectionGroup indexing is often unstable
-            const plantsSnap = await getDocs(collection(firestore, "logistics_plants"));
-            const plantIds = plantsSnap.docs.map(d => d.id);
-            
-            let foundShipment: any = null;
-            let shipDocId: string | null = null;
-            let originPlantId: string | null = null;
-
-            for (const pId of plantIds) {
-                const sQ = query(collection(firestore, `plants/${pId}/shipments`), where("shipmentId", "==", term), limit(1));
-                const sSnap = await getDocs(sQ);
-                if (!sSnap.empty) {
-                    foundShipment = sSnap.docs[0].data();
-                    shipDocId = sSnap.docs[0].id;
-                    originPlantId = pId;
-                    break;
-                }
-            }
-
-            if (foundShipment && shipDocId) {
-                setShipmentResult(foundShipment);
-
-                // Check for linked trips (Scenario B or C)
-                const linkedTripsQuery = query(collection(firestore, "trips"), where("shipmentIds", "array-contains", shipDocId));
-                const lTripsSnap = await getDocs(linkedTripsQuery);
-                
-                if (!lTripsSnap.empty) {
-                    const tripsList = lTripsSnap.docs.map(d => ({ 
-                        id: d.id, 
-                        ...d.data(),
-                        startDate: parseSafeDate(d.data().startDate)
-                    }));
-                    setLinkedTrips(tripsList);
+                if (!tripSnap.empty) {
+                    const tripData = { id: tripSnap.docs[0].id, ...tripSnap.docs[0].data() } as any;
+                    const plantId = normalizePlantId(tripData.originPlantId);
+                    const shipId = Array.isArray(tripData.shipmentIds) ? tripData.shipmentIds[0] : tripData.shipmentId;
                     
-                    if (tripsList.length === 1) {
-                        const trip = tripsList[0];
-                        setActiveTrip(trip);
-                        const status = (trip.tripStatus || trip.currentStatusId || 'assigned').toLowerCase();
-                        const targetIdx = getTargetIndex(status);
-                        lastTargetIndexRef.current = targetIdx;
-                        runAnimation(targetIdx, status === 'rejected');
+                    let shipmentData = null;
+                    if (shipId) {
+                        const sSnap = await getDoc(doc(firestore, `plants/${plantId}/shipments`, shipId));
+                        if (sSnap.exists()) shipmentData = sSnap.data();
                     }
+
+                    setActiveTrip({ ...tripData, shipment: shipmentData });
+                    
+                    const status = (tripData.tripStatus || tripData.currentStatusId || 'assigned').toLowerCase();
+                    const targetIdx = getTargetIndex(status);
+                    lastTargetIndexRef.current = targetIdx;
+                    runAnimation(targetIdx, status === 'rejected');
+                    setIsSearching(false);
+                    return;
+                } else {
+                    setError("Trip ID not recognized in mission registry.");
                 }
             } else {
-                setError("Mission Node not found in registry.");
-                refreshCaptcha();
+                // SALES ORDER Mode (Simplified Manifest Mode)
+                const plantsSnap = await getDocs(collection(firestore, "logistics_plants"));
+                const plantIds = plantsSnap.docs.map(d => d.id);
+                
+                let foundShipment: any = null;
+                let shipDocId: string | null = null;
+
+                for (const pId of plantIds) {
+                    const sQ = query(collection(firestore, `plants/${pId}/shipments`), where("shipmentId", "==", term), limit(1));
+                    const sSnap = await getDocs(sQ);
+                    if (!sSnap.empty) {
+                        foundShipment = sSnap.docs[0].data();
+                        shipDocId = sSnap.docs[0].id;
+                        break;
+                    }
+                }
+
+                if (foundShipment && shipDocId) {
+                    setShipmentResult(foundShipment);
+
+                    // Check for linked trips (Scenario B or C)
+                    const linkedTripsQuery = query(collection(firestore, "trips"), where("shipmentIds", "array-contains", shipDocId));
+                    const lTripsSnap = await getDocs(linkedTripsQuery);
+                    
+                    if (!lTripsSnap.empty) {
+                        const tripsList = lTripsSnap.docs.map(d => ({ 
+                            id: d.id, 
+                            ...d.data(),
+                            startDate: parseSafeDate(d.data().startDate)
+                        }));
+                        setLinkedTrips(tripsList);
+                    }
+                } else {
+                    setError("Sale Order node not found in registry.");
+                }
             }
         } catch (e: any) {
             console.error("Registry resolving error:", e);
             setError("Registry Handshake Failure.");
         } finally {
             setIsSearching(false);
+            if (error) refreshCaptcha();
         }
     };
 
@@ -315,16 +301,32 @@ function TrackConsignmentContent() {
 
                             <div className="space-y-8">
                                 <div className="space-y-3">
-                                    <Label htmlFor="registry-id" className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Sale Order / Trip ID Node *</Label>
+                                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Registry Node Type *</Label>
+                                    <Select value={searchType} onValueChange={(v: any) => setSearchType(v)}>
+                                        <SelectTrigger className="h-14 rounded-xl font-black text-blue-900 uppercase border-2 border-slate-100 bg-slate-50/30">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-2xl">
+                                            <SelectItem value="TRIP" className="font-black py-3 uppercase text-xs">TRIP ID / LR NUMBER</SelectItem>
+                                            <SelectItem value="SO" className="font-black py-3 uppercase text-xs">SALES ORDER NO</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <Label htmlFor="registry-id" className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">
+                                        {searchType === 'TRIP' ? 'Enter Trip ID / LR No. *' : 'Enter Sales Order No. *'}
+                                    </Label>
                                     <Input 
                                         id="registry-id"
-                                        placeholder="e.g. S0000456 / T1000789" 
+                                        placeholder={searchType === 'TRIP' ? "e.g. T1000789" : "e.g. S0000456"} 
                                         value={registryInput} 
                                         onChange={e => setRegistryInput(e.target.value)} 
                                         onKeyDown={e => e.key === 'Enter' && handleTrack()}
                                         className="h-16 rounded-2xl font-black text-blue-900 uppercase text-2xl text-center border-2 border-slate-100 shadow-inner" 
                                     />
                                 </div>
+
                                 <div className="space-y-3">
                                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Security Code *</Label>
                                     <div className="flex gap-4">
@@ -341,6 +343,7 @@ function TrackConsignmentContent() {
                     </Card>
                 )}
 
+                {/* SEARCH RESULTS NODE */}
                 {(shipmentResult || activeTrip) && (
                     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-10 duration-1000 pb-20">
                         <button onClick={() => {setShipmentResult(null); setActiveTrip(null); setLinkedTrips([]); refreshCaptcha();}} className="font-black text-slate-400 hover:text-blue-900 uppercase text-[11px] tracking-widest gap-2 flex items-center">
@@ -367,7 +370,8 @@ function TrackConsignmentContent() {
                             </div>
                         </Card>
 
-                        {!activeTrip && linkedTrips.length > 1 && (
+                        {/* CASE: Multiple Trips for SO (Scenario C) */}
+                        {searchType === 'SO' && !activeTrip && linkedTrips.length > 1 && (
                             <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden animate-in zoom-in-95 duration-500">
                                 <div className="p-8 bg-slate-50 border-b flex items-center gap-4">
                                     <div className="p-2 bg-blue-900 text-white rounded-lg shadow-md"><ListTree size={16}/></div>
@@ -379,17 +383,17 @@ function TrackConsignmentContent() {
                                             <TableRow className="h-12 hover:bg-transparent border-b">
                                                 <TableHead className="text-[10px] font-black uppercase px-8">Sale Order</TableHead>
                                                 <TableHead className="text-[10px] font-black uppercase px-4">Trip ID Node</TableHead>
-                                                <TableHead className="text-[10px] font-black uppercase px-4">Assigned Date & Time</TableHead>
+                                                <TableHead className="text-[10px] font-black uppercase px-4 text-center">Assigned Date & Time</TableHead>
                                                 <TableHead className="text-[10px] font-black uppercase px-8 text-right">Assigned Quantity</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {linkedTrips.map((trip) => (
-                                                <TableRow key={trip.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b last:border-0 group cursor-pointer" onClick={() => { setActiveTrip(trip); const targetIdx = getTargetIndex(trip.currentStatusId); lastTargetIndexRef.current = targetIdx; runAnimation(targetIdx, trip.currentStatusId === 'rejected'); }}>
+                                                <TableRow key={trip.id} className="h-16 border-b last:border-0 group transition-all">
                                                     <TableCell className="px-8 font-black text-slate-400 text-xs">{shipmentResult?.shipmentId}</TableCell>
-                                                    <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter">{trip.tripId}</TableCell>
-                                                    <TableCell className="px-4 font-bold text-slate-500 uppercase text-[10px]">{trip.startDate ? format(trip.startDate, 'dd-MMM-yyyy HH:mm') : '--'}</TableCell>
-                                                    <TableCell className="px-8 text-right font-black text-blue-900">{trip.assignedQtyInTrip} MT <ChevronRight className="inline-block ml-4 h-4 w-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all"/></TableCell>
+                                                    <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter uppercase">{trip.tripId}</TableCell>
+                                                    <TableCell className="px-4 text-center font-bold text-slate-500 uppercase text-[10px]">{trip.startDate ? format(trip.startDate, 'dd-MMM-yyyy HH:mm') : '--'}</TableCell>
+                                                    <TableCell className="px-8 text-right font-black text-blue-900">{trip.assignedQtyInTrip} MT</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -398,7 +402,8 @@ function TrackConsignmentContent() {
                             </Card>
                         )}
 
-                        {linkedTrips.length <= 1 && (
+                        {/* CASE: Single Trip or Awaiting Allocation (Scenario A/B) */}
+                        {searchType === 'SO' && linkedTrips.length <= 1 && (
                             <div className="max-w-4xl mx-auto text-center space-y-10 animate-in fade-in duration-700">
                                 <div className="p-10 bg-blue-50 border-2 border-blue-100 rounded-[3rem] shadow-xl relative overflow-hidden group">
                                     <div className="absolute top-0 left-0 w-2 h-full bg-blue-600" />
@@ -411,52 +416,53 @@ function TrackConsignmentContent() {
                                         ) : (
                                             <>
                                                 Sale Order <span className="text-blue-900 font-black">{shipmentResult?.shipmentId}</span> has been assigned to a vehicle. 
-                                                You can track your shipment using Trip ID <span className="text-blue-600 font-black tracking-tighter">{activeTrip?.tripId}</span>.
+                                                You can track your shipment using Trip ID <span className="text-blue-600 font-black tracking-tighter">{linkedTrips[0]?.tripId}</span>.
                                             </>
                                         )}
                                     </p>
                                 </div>
+                            </div>
+                        )}
 
-                                {activeTrip && (
-                                    <div className="relative p-12 md:p-20 bg-white border border-slate-100 rounded-[4rem] shadow-2xl overflow-hidden min-h-[450px] flex flex-col justify-center">
-                                        <div className="absolute top-1/2 left-24 right-24 h-2 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden shadow-inner">
-                                            <motion.div 
-                                                className={cn("h-full transition-colors duration-700", (activeTrip.isRejected && isReversed) ? "bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]" : "bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.5)]")}
-                                                initial={{ width: 0 }}
-                                                animate={{ width: `${(animIndex / 4) * 100}%` }}
-                                                transition={{ duration: 0.8, ease: "easeInOut" }}
-                                            />
-                                        </div>
+                        {/* CASE: FULL Tracking Animation (Only in TRIP Mode) */}
+                        {searchType === 'TRIP' && activeTrip && (
+                            <div className="relative p-12 md:p-20 bg-white border border-slate-100 rounded-[4rem] shadow-2xl overflow-hidden min-h-[450px] flex flex-col justify-center">
+                                <div className="absolute top-1/2 left-24 right-24 h-2 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden shadow-inner">
+                                    <motion.div 
+                                        className={cn("h-full transition-colors duration-700", (activeTrip.isRejected && isReversed) ? "bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]" : "bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.5)]")}
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${(animIndex / 4) * 100}%` }}
+                                        transition={{ duration: 0.8, ease: "easeInOut" }}
+                                    />
+                                </div>
 
-                                        <div className="relative flex justify-between items-center h-full">
-                                            {stages.map((stage, i) => {
-                                                const active = i <= animIndex;
-                                                const isTarget = i === animIndex;
-                                                const isFinal = i === 4;
-                                                const activeColor = (activeTrip.isRejected && isReversed) ? "bg-red-600 border-red-400" : "bg-blue-600 border-blue-400";
-                                                const label = (isFinal && activeTrip.isRejected) ? 'MISSION REJECTED' : stage.label;
-                                                
-                                                return (
-                                                    <div key={i} className="flex flex-col items-center gap-6 md:gap-10 relative z-10 w-48">
-                                                        <motion.div 
-                                                            animate={active ? { scale: isTarget ? [1, 1.2, 1.1] : 1, boxShadow: isTarget ? "0 20px 40px rgba(0,0,0,0.15)" : "none" } : {}}
-                                                            className={cn("h-16 w-16 md:h-24 md:w-24 rounded-[2rem] md:rounded-[2.5rem] flex items-center justify-center transition-all duration-700 border-4", active ? `${activeColor} text-white` : "bg-white border-slate-100 text-slate-200")}
-                                                        >
-                                                            {isTarget ? (
-                                                                <motion.div animate={{ x: isReversed ? [-2, 2, -2] : [2, -2, 2], scaleX: isReversed ? -1 : 1 }} transition={{ repeat: Infinity, duration: 0.6 }}>
-                                                                    {(isFinal && activeTrip.isRejected) ? <XCircle size={32} /> : <Truck size={40} />}
-                                                                </motion.div>
-                                                            ) : (
-                                                                (isFinal && activeTrip.isRejected) ? <XCircle size={28} className="opacity-20" /> : <stage.icon size={28} className={cn(isReversed && i < animIndex && "scale-x-[-1] opacity-50")} />
-                                                            )}
+                                <div className="relative flex justify-between items-center h-full">
+                                    {stages.map((stage, i) => {
+                                        const active = i <= animIndex;
+                                        const isTarget = i === animIndex;
+                                        const isFinal = i === 4;
+                                        const activeColor = (activeTrip.isRejected && isReversed) ? "bg-red-600 border-red-400" : "bg-blue-600 border-blue-400";
+                                        const label = (isFinal && activeTrip.isRejected) ? 'MISSION REJECTED' : stage.label;
+                                        
+                                        return (
+                                            <div key={i} className="flex flex-col items-center gap-6 md:gap-10 relative z-10 w-48">
+                                                <motion.div 
+                                                    animate={active ? { scale: isTarget ? [1, 1.2, 1.1] : 1, boxShadow: isTarget ? "0 20px 40px rgba(0,0,0,0.15)" : "none" } : {}}
+                                                    className={cn("h-16 w-16 md:h-24 md:w-24 rounded-[2rem] md:rounded-[2.5rem] flex items-center justify-center transition-all duration-700 border-4", active ? `${activeColor} text-white` : "bg-white border-slate-100 text-slate-200")}
+                                                >
+                                                    {isTarget ? (
+                                                        <motion.div animate={{ x: isReversed ? [-2, 2, -2] : [2, -2, 2], scaleX: isReversed ? -1 : 1 }} transition={{ repeat: Infinity, duration: 0.6 }}>
+                                                            {(isFinal && activeTrip.isRejected) ? <XCircle size={32} /> : <Truck size={40} />}
                                                         </motion.div>
-                                                        <p className={cn("text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-colors duration-500", active ? ((activeTrip.isRejected && isReversed) ? "text-red-700" : "text-blue-900") : "text-slate-200")}>{label}</p>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
+                                                    ) : (
+                                                        (isFinal && activeTrip.isRejected) ? <XCircle size={28} className="opacity-20" /> : <stage.icon size={28} className={cn(isReversed && i < animIndex && "scale-x-[-1] opacity-50")} />
+                                                    )}
+                                                </motion.div>
+                                                <p className={cn("text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-colors duration-500", active ? ((activeTrip.isRejected && isReversed) ? "text-red-700" : "text-blue-900") : "text-slate-200")}>{label}</p>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
                     </div>
