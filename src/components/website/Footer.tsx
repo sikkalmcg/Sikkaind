@@ -24,9 +24,9 @@ export default function Footer() {
                   <Image 
                     src={logoImg.url} 
                     alt="Sikka LMC Logo" 
-                    width={160} 
-                    height={45} 
-                    className="object-contain brightness-0 invert" 
+                    width={180} 
+                    height={60} 
+                    className="object-contain" 
                     unoptimized={true}
                   />
                 )}
