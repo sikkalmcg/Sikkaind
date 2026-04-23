@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -404,7 +403,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
     const ws = XLSX.utils.aoa_to_sheet([headers]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Order Plan Template");
-    XLSX.writeFile(workbook, "Order_Plan_Bulk_Template.xlsx");
+    XLSX.writeFile(wb, "Order_Plan_Bulk_Template.xlsx");
   };
 
   const excelDateToJSDate = (serial: number) => {
