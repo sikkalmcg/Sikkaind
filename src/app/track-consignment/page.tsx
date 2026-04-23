@@ -50,7 +50,7 @@ import {
  * @fileOverview Public Track Consignment Terminal v2.6.
  * Features: Mandatory Mode Selection (TRIP vs SO), Multi-Trip Scenario Handling.
  * Logic: TRIP mode shows full animation/telemetry. SO mode shows simplified concept manifest.
- * Updated: Implement Delay Remark display node for Pending Assignments.
+ * Updated: Restricted TRIP mode to Trip ID only (LR search purged).
  */
 
 function TrackConsignmentContent() {
@@ -196,10 +196,7 @@ function TrackConsignmentContent() {
                 let tripQuery = query(tripsRef, where("tripId", "==", term), limit(1));
                 let tripSnap = await getDocs(tripQuery);
                 
-                if (tripSnap.empty) {
-                    tripQuery = query(tripsRef, where("lrNumber", "==", term), limit(1));
-                    tripSnap = await getDocs(tripQuery);
-                }
+                // MISSION FIX: Strictly search by Trip ID only (Removed LR Number fallback)
 
                 if (!tripSnap.empty) {
                     const tripData = { id: tripSnap.docs[0].id, ...tripSnap.docs[0].data() } as any;
@@ -335,7 +332,7 @@ function TrackConsignmentContent() {
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-2xl">
-                                            <SelectItem value="TRIP" className="font-black py-3 uppercase text-xs">TRIP ID / LR NUMBER</SelectItem>
+                                            <SelectItem value="TRIP" className="font-black py-3 uppercase text-xs">TRIP ID</SelectItem>
                                             <SelectItem value="SO" className="font-black py-3 uppercase text-xs">SALES ORDER NO</SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -343,7 +340,7 @@ function TrackConsignmentContent() {
 
                                 <div className="space-y-3">
                                     <Label htmlFor="registry-id" className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">
-                                        {searchType === 'TRIP' ? 'Enter Trip ID / LR No. *' : 'Enter Sales Order No. *'}
+                                        {searchType === 'TRIP' ? 'Enter Trip ID *' : 'Enter Sales Order No. *'}
                                     </Label>
                                     <Input 
                                         id="registry-id"
@@ -522,4 +519,3 @@ export default function TrackConsignmentPage() {
         </Suspense>
     );
 }
-
