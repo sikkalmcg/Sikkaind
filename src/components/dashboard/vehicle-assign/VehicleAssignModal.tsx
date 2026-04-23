@@ -34,6 +34,7 @@ import {
     UserCircle,
     X,
     IndianRupee,
+    Weight,
     Smartphone,
     User,
     Package,
@@ -73,6 +74,8 @@ interface VehicleAssignModalProps {
 }
 
 const VEHICLE_REGEX = /^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/;
+const MAPS_JS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
+const MAP_LIBRARIES: ("places")[] = ['places'];
 
 const formSchema = z.object({
     isNewVehicle: z.boolean().default(false),
@@ -119,9 +122,12 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
   const userProfileRef = useMemo(() => (firestore && user) ? doc(firestore, "users", user.uid) : null, [firestore, user]);
   const { data: userProfile } = useDoc<SubUser>(userProfileRef);
   
+  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: MAPS_JS_KEY, libraries: MAP_LIBRARIES });
+
   const [vehiclesAtGate, setVehiclesAtGate] = useState<any[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [calculatingDistance, setCalculatingDistance] = useState(false);
   const isEditing = !!trip;
 
   const totalBalanceQty = useMemo(() => {
@@ -142,7 +148,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
   });
   const { watch, setValue, handleSubmit, reset, control, formState: { isSubmitting } } = form;
 
-  const { isNewVehicle, vehicleId, assignQty, vehicleType, freightRate, isFixRate, fixedAmount } = watch();
+  const { isNewVehicle, vehicleId, assignQty, vehicleType, freightRate, isFixRate, fixedAmount, distance: currentDistance } = watch();
 
   const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
   const { data: plants } = useCollection<Plant>(plantsQuery);
@@ -156,6 +162,19 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
     return (vendors || [])
       .map(v => ({ value: v.id, label: v.name }));
   }, [vendors]);
+
+  const carrierOptions = useMemo(() => {
+    return (carriers || [])
+      .map(c => ({ value: c.id, label: c.name }));
+  }, [carriers]);
+
+  const selectedPlant = useMemo(() => {
+    if (!plants || !primaryShipment) return null;
+    return plants.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(primaryShipment.originPlantId).toLowerCase());
+  }, [plants, primaryShipment]);
+
+  const plantNameDisplay = selectedPlant?.name || primaryShipment?.originPlantId;
+  const plantAddressDisplay = selectedPlant?.address || primaryShipment?.loadingPoint;
 
   useEffect(() => {
     if (isOpen && primaryShipment) {
@@ -221,6 +240,26 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
     };
     fetchRegistryData();
   }, [isOpen, firestore, primaryShipment?.originPlantId]);
+
+  useEffect(() => {
+    if (!isLoaded || !isOpen || !primaryShipment?.loadingPoint || !primaryShipment?.unloadingPoint || isEditing) return;
+    const calculate = () => {
+      setCalculatingDistance(true);
+      const service = new google.maps.DirectionsService();
+      service.route({
+          origin: primaryShipment.loadingPoint!,
+          destination: primaryShipment.unloadingPoint!,
+          travelMode: google.maps.TravelMode.DRIVING,
+      }, (response, status) => {
+          setCalculatingDistance(false);
+          if (status === 'OK' && response) {
+              const distKm = (response.routes[0].legs[0].distance?.value || 0) / 1000;
+              setValue('distance', Number(distKm.toFixed(2)));
+          }
+      });
+    };
+    calculate();
+  }, [isLoaded, isOpen, primaryShipment?.loadingPoint, primaryShipment?.unloadingPoint, setValue, isEditing]);
 
   const balanceQty = useMemo(() => {
     const currentPool = isEditing ? (totalBalanceQty + (trip?.assignedQtyInTrip || 0)) : totalBalanceQty;
@@ -325,6 +364,8 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
   const calculatedFreight = isFixRate ? (Number(fixedAmount) || 0) : ((Number(assignQty) || 0) * (Number(freightRate) || 0));
 
+  if (!primaryShipment) return null;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-2xl bg-slate-50 rounded-[2rem] md:rounded-[3rem]">
@@ -344,72 +385,72 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 md:space-y-8">
-          <Card className="p-4 md:p-6 border-2 border-slate-100 shadow-xl rounded-[2.5rem] bg-white relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-2 h-full bg-blue-900" />
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100 shadow-sm"><ShieldCheck className="h-7 w-7 text-blue-600" /></div>
-                    <div>
-                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 leading-none">Mission Summary</h3>
-                        <p className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase mt-1">
-                            {shipments.length > 1 ? `CONSOLIDATED MANIFEST (${shipments.length})` : primaryShipment.shipmentId}
-                        </p>
+        <Form {...form}>
+            <form id="vehicle-assign-form" className="flex-1 flex flex-col overflow-hidden" onSubmit={handleSubmit(onSubmit)}>
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 md:space-y-8">
+                <Card className="p-4 md:p-6 border-2 border-slate-100 shadow-xl rounded-[2.5rem] bg-white relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-2 h-full bg-blue-900" />
+                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100 shadow-sm"><ShieldCheck className="h-7 w-7 text-blue-600" /></div>
+                            <div>
+                                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 leading-none">Mission Summary</h3>
+                                <p className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase mt-1">
+                                    {shipments.length > 1 ? `CONSOLIDATED MANIFEST (${shipments.length})` : primaryShipment.shipmentId}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="text-right flex flex-col items-end bg-slate-50 p-3 rounded-2xl border shadow-inner min-w-[200px]">
+                            <span className="text-[9px] font-black uppercase text-slate-500">Aggregate Registry Weight</span>
+                            <p className="text-2xl md:text-4xl font-black text-blue-900 tracking-tighter">{totalBalanceQty.toFixed(3)} <span className="text-sm font-bold text-slate-400 ml-1">MT</span></p>
+                        </div>
                     </div>
-                </div>
-                <div className="text-right flex flex-col items-end bg-slate-50 p-3 rounded-2xl border shadow-inner min-w-[200px]">
-                    <span className="text-[9px] font-black uppercase text-slate-500">Aggregate Registry Weight</span>
-                    <p className="text-2xl md:text-4xl font-black text-blue-900 tracking-tighter">{totalBalanceQty.toFixed(3)} <span className="text-sm font-bold text-slate-400 ml-1">MT</span></p>
-                </div>
-            </div>
 
-            <Separator className="my-4 opacity-50" />
+                    <Separator className="my-4 opacity-50" />
 
-            <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase text-blue-900 tracking-[0.3em] flex items-center gap-3">
-                    <Package className="h-4 w-4" /> Order Registry Details
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {shipments.map((s) => {
-                        const sPlant = plants?.find(p => p.id === s.originPlantId || normalizePlantId(p.id).toLowerCase() === normalizePlantId(s.originPlantId).toLowerCase());
-                        const sPlantName = sPlant?.name || s.originPlantId;
-                        const sPlantAddr = sPlant?.address || s.loadingPoint;
-                        
-                        return (
-                            <Card key={s.id} className="border border-slate-100 bg-slate-50/50 rounded-[1.5rem] p-4 hover:border-blue-200 transition-all shadow-sm hover:shadow-lg relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-4 opacity-[0.03] rotate-12 transition-transform duration-700 group-hover:scale-110">
-                                    <ClipboardList size={100} />
-                                </div>
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-3">
-                                        <Badge className="bg-blue-900 text-white font-black uppercase text-[9px] px-3 h-5 border-none shadow-md">{s.shipmentId}</Badge>
-                                    </div>
-                                    <Badge variant="outline" className="bg-white border-blue-200 text-blue-900 font-black uppercase text-[9px] px-3 h-5">
-                                        {s.balanceQty.toFixed(3)} MT
-                                    </Badge>
-                                </div>
-                                <div className="grid grid-cols-2 gap-y-4 gap-x-4 relative z-10">
-                                    <ContextNode label="Lifting Plant" value={sPlantName} icon={Factory} />
-                                    <ContextNode label="Consignor" value={s.consignor} icon={UserCircle} />
-                                    <ContextNode label="Site Point" value={sPlantAddr} icon={MapPin} className="col-span-2" />
-                                    <ContextNode label="Consignee" value={s.billToParty} icon={UserCircle} />
-                                    <ContextNode label="Drop Plant" value={s.deliveryAddress || s.unloadingPoint} icon={MapPin} bold className="text-blue-900" />
-                                </div>
-                            </Card>
-                        );
-                    })}
-                </div>
-            </div>
-          </Card>
+                    <div className="space-y-4">
+                        <h3 className="text-[10px] font-black uppercase text-blue-900 tracking-[0.3em] flex items-center gap-3">
+                            <Package className="h-4 w-4" /> Order Registry Details
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {shipments.map((s) => {
+                                const sPlant = plants?.find(p => p.id === s.originPlantId || normalizePlantId(p.id).toLowerCase() === normalizePlantId(s.originPlantId).toLowerCase());
+                                const sPlantName = sPlant?.name || s.originPlantId;
+                                const sPlantAddr = sPlant?.address || s.loadingPoint;
+                                
+                                return (
+                                    <Card key={s.id} className="border border-slate-100 bg-slate-50/50 rounded-[1.5rem] p-4 hover:border-blue-200 transition-all shadow-sm hover:shadow-lg relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 p-4 opacity-[0.03] rotate-12 transition-transform duration-700 group-hover:scale-110">
+                                            <ClipboardList size={100} />
+                                        </div>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-3">
+                                                <Badge className="bg-blue-900 text-white font-black uppercase text-[9px] px-3 h-5 border-none shadow-md">{s.shipmentId}</Badge>
+                                            </div>
+                                            <Badge variant="outline" className="bg-white border-blue-200 text-blue-900 font-black uppercase text-[9px] px-3 h-5">
+                                                {s.balanceQty.toFixed(3)} MT
+                                            </Badge>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-y-4 gap-x-4 relative z-10">
+                                            <ContextNode label="Lifting Plant" value={sPlantName} icon={Factory} />
+                                            <ContextNode label="Consignor" value={s.consignor} icon={UserCircle} />
+                                            <ContextNode label="Site Point" value={sPlantAddr} icon={MapPin} className="col-span-2" />
+                                            <ContextNode label="Consignee" value={s.billToParty} icon={UserCircle} />
+                                            <ContextNode label="Drop Plant" value={s.deliveryAddress || s.unloadingPoint} icon={MapPin} bold className="text-blue-900" />
+                                        </div>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </Card>
 
-          <Form {...form}>
-            <form className="space-y-6 md:space-y-8" onSubmit={handleSubmit(onSubmit)}>
                 <Card className="border-none shadow-2xl rounded-[2rem] md:rounded-[2.5rem] bg-white overflow-hidden">
                     <div className="p-4 md:p-6 bg-slate-50 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <h3 className="font-black text-xs uppercase tracking-[0.3em] text-slate-500 flex items-center gap-3"><Truck className="h-5 w-5 text-blue-600"/> Fleet Entry Control</h3>
                         <div className="bg-white p-1 rounded-xl border-2 border-slate-200 shadow-inner flex items-center gap-1">
                             <button type="button" onClick={() => setValue('isNewVehicle', false)} className={cn("px-4 md:px-6 py-2 rounded-lg text-[9px] md:text-[10px] font-black uppercase transition-all", !isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>At Gate Registry</button>
-                            <button type="button" onClick={() => setValue('isNewVehicle', true)} className={cn("px-4 md:px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all", isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>Direct Manual Entry</button>
+                            <button type="button" onClick={() => setValue('isNewVehicle', true)} className={cn("px-4 md:px-6 py-2 rounded-lg text-[9px] md:text-[10px] font-black uppercase transition-all", isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>Direct Manual Entry</button>
                         </div>
                     </div>
                     <div className="p-6 md:p-8 space-y-6">
@@ -586,35 +627,37 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                         </div>
                     </Card>
                 </div>
+              </div>
 
-                <div className="flex flex-col md:flex-row justify-end pt-6 border-t border-white/5 gap-6">
-                    <button type="button" onClick={onClose} className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-blue-900 transition-all py-2">ABORT ALLOCATION</button>
-                    <Button 
-                        type="submit" 
-                        disabled={isSubmitting} 
-                        className="h-14 px-16 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none p-0 flex items-center justify-center"
-                    >
-                        {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} {isEditing ? 'Update Registry' : 'Establish Mission Node'}
-                    </Button>
-                </div>
+                <DialogFooter className="p-6 md:p-8 bg-slate-900 flex flex-row justify-between items-center shrink-0 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2 leading-none"><Calculator className="h-3 w-3" /> Balance remaining</span>
+                        <span className={cn("text-2xl md:text-4xl font-black tracking-tighter transition-all duration-500 leading-none", balanceQty > 0.001 ? "text-orange-400" : "text-emerald-400")}>
+                            {balanceQty.toFixed(3)} MT
+                        </span>
+                    </div>
+
+                    <div className="flex items-center gap-4 md:gap-8">
+                        <button 
+                            type="button" 
+                            onClick={onClose} 
+                            className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all py-2"
+                        >
+                            ABORT ALLOCATION
+                        </button>
+                        <Button 
+                            type="submit" 
+                            form="vehicle-assign-form"
+                            disabled={isSubmitting || calculatingDistance} 
+                            className="h-14 px-12 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none p-0 flex items-center justify-center min-w-[280px]"
+                        >
+                            {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} 
+                            {isEditing ? 'UPDATE REGISTRY' : 'ESTABLISH MISSION NODE'}
+                        </Button>
+                    </div>
+                </DialogFooter>
             </form>
           </Form>
-        </div>
-
-        <DialogFooter className="p-4 md:p-6 bg-slate-900 flex flex-col md:flex-row justify-between items-center shrink-0 gap-4 md:gap-8">
-            <div className="flex items-center gap-6">
-                <div className="flex flex-col gap-0.5">
-                    <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-1.5 md:gap-2 leading-none"><Calculator className="h-3 md:h-3.5 w-3 md:h-3.5" /> Balance remaining</span>
-                    <span className={cn("text-xl md:text-2xl font-black tracking-tighter transition-all duration-500 leading-none", balanceQty > 0.001 ? "text-orange-400" : "text-emerald-400")}>
-                        {balanceQty.toFixed(3)} MT
-                    </span>
-                </div>
-            </div>
-            <div className="flex items-center gap-4">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest italic hidden sm:inline">Authorized Registry Handshake Node</span>
-            </div>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -630,3 +673,4 @@ function ContextNode({ label, value, icon: Icon, className, bold }: any) {
         </div>
     );
 }
+
