@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -96,7 +95,7 @@ export default function Footer() {
 
         <div className="pt-12 border-t border-white/5 flex flex-col items-center justify-center">
           <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500 text-center">
-            © {new Date().getFullYear()} Sikka Industries & Logistics. Registry v2.5
+            Copyright © {new Date().getFullYear()} Sikka Industries & Logistics.
           </p>
         </div>
       </div>
