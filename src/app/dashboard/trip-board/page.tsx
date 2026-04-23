@@ -20,6 +20,7 @@ import LRGenerationModal from '@/components/dashboard/lr-create/LRGenerationModa
 import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAssignModal';
 import TripTrackingModal from '@/components/dashboard/trip-board/TripTrackingModal';
 import SimTrackModal from '@/components/dashboard/trip-board/SimTrackModal';
+import DelayRemarkModal from '@/components/dashboard/trip-board/DelayRemarkModal';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId, cn } from '@/lib/utils';
@@ -92,6 +93,7 @@ function TripBoardContent() {
   const [editingTrip, setEditingTrip] = useState<WithId<Trip> | null>(null);
   const [trackingTrip, setTrackingTrip] = useState<any | null>(null);
   const [simTrackTrip, setSimTrackTrip] = useState<any | null>(null);
+  const [delayRemarkShipment, setDelayRemarkShipment] = useState<any | null>(null);
 
   const isAdminSession = useMemo(() => {
     return user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
@@ -485,6 +487,9 @@ function TripBoardContent() {
         setSelectedShipmentsForAssign([row]);
         setAssignModalOpen(true);
     }
+    if (type === 'delay-remark') {
+        setDelayRemarkShipment(row);
+    }
     if (type === 'toggle-sort') {
         setSortAlphabetical(!sortAlphabetical);
         return;
@@ -608,7 +613,7 @@ function TripBoardContent() {
                     buyerGtin: lrDoc.buyerGtin || row.billToGtin || shipmentObj.billToGtin || '',
                     shipToParty: lrDoc.shipToParty || row.shipToParty || row.billToParty || '',
                     shipToGtin: lrDoc.shipToGtin || row.shipToGtin || shipmentObj.shipToGtin || '',
-                    deliveryAddress: lrDoc.deliveryAddress || row.deliveryAddress || row.unloadingPoint || '',
+                    deliveryAddress: lrDoc.deliveryAddress || shipmentObj.deliveryAddress || row.unloadingPoint || '',
                     vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
                     driverName: row.driverName || lrDoc.driverName,
                     driverMobile: row.driverMobile || lrDoc.driverMobile,
@@ -969,6 +974,25 @@ function TripBoardContent() {
     } finally { hideLoader(); }
   };
 
+  const handleDelayRemarkSuccess = async (remark: string) => {
+    if (!firestore || !delayRemarkShipment) return;
+    showLoader();
+    try {
+        const plantId = normalizePlantId(delayRemarkShipment.originPlantId);
+        const shipRef = doc(firestore, `plants/${plantId}/shipments`, delayRemarkShipment.id);
+        await updateDoc(shipRef, {
+            delayRemark: remark,
+            lastUpdateDate: serverTimestamp()
+        });
+        toast({ title: 'Remark Committed', description: 'Justification node added to mission registry.' });
+        setDelayRemarkShipment(null);
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Sync Failed', description: e.message });
+    } finally {
+        hideLoader();
+    }
+  };
+
   return (
     <div className="flex flex-1 flex-col h-full overflow-hidden bg-white">
       <div className="sticky top-0 z-30 bg-white border-b px-4 py-1 md:px-8 md:py-2 shadow-sm shrink-0">
@@ -1175,6 +1199,14 @@ function TripBoardContent() {
             isOpen={!!simTrackTrip}
             onClose={() => setSimTrackTrip(null)}
             trip={simTrackTrip}
+        />
+      )}
+      {delayRemarkShipment && (
+        <DelayRemarkModal 
+            isOpen={!!delayRemarkShipment}
+            onClose={() => setDelayRemarkShipment(null)}
+            shipment={delayRemarkShipment}
+            onSuccess={handleDelayRemarkSuccess}
         />
       )}
     </div>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -41,10 +42,12 @@ import {
     XCircle,
     Signal,
     Loader2,
-    Plus
+    Plus,
+    AlertTriangle,
+    MessageSquare
 } from 'lucide-react';
 import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
-import { format, isValid } from 'date-fns';
+import { format, isValid, differenceInHours } from 'date-fns';
 import { 
     DropdownMenu, 
     DropdownMenuContent, 
@@ -81,7 +84,7 @@ const getStatusColor = (status: string) => {
         case 'loading':
         case 'yard-loading':
         case 'loaded':
-        case 'loading-complete': return 'bg-orange-500/10 text-orange-700 border-orange-200';
+        case 'loading-complete': return 'bg-orange-50/10 text-orange-700 border-orange-200';
         case 'in-transit': return 'bg-purple-500/10 text-purple-700 border-indigo-200';
         case 'arrived': 
         case 'arrival-for-delivery':
@@ -220,6 +223,11 @@ function MissionRegistryCard({
     const fromCity = (row.loadingPoint || row.from || row.plantName || '').split(',')[0].trim();
     const toCity = (row.unloadingPoint || row.destination || '').split(',')[0].trim();
 
+    // DELAY HANDSHAKE Node: Calculate age for alert trigger
+    const creationTime = parseSafeDate(row.creationDate);
+    const ageInHours = creationTime ? differenceInHours(new Date(), creationTime) : 0;
+    const isDelayed = isPending && ageInHours >= 12;
+
     const getFleetLabel = (type: string) => {
         const t = type?.toLowerCase() || '';
         if (t.includes('own')) return 'OWN FLEET';
@@ -257,7 +265,6 @@ function MissionRegistryCard({
                     <p className="text-xs font-black text-blue-700 uppercase tracking-tighter">
                         {isPending ? `SO: ${row.shipmentId || 'N/A'}` : `#${row.tripId || 'N/A'}`}
                     </p>
-                    {/* MISSION FIX: Displays Sales Order Number below Trip ID per requirement */}
                     <p className="text-[9px] font-bold text-slate-400 uppercase">
                         {isPending ? formattedDate : (row.orderNo || '--')}
                     </p>
@@ -395,6 +402,16 @@ function MissionRegistryCard({
                 </div>
             </div>
 
+            {/* DELAY REMARK NODE */}
+            {row.delayRemark && (
+                <div className="px-5 py-2.5 bg-amber-50/50 border-b border-amber-100 flex items-center gap-3">
+                    <MessageSquare size={12} className="text-amber-600 shrink-0" />
+                    <p className="text-[10px] font-bold text-amber-800 uppercase leading-none">
+                        Delay Remark: <span className="italic font-medium text-slate-600 capitalize">"{row.delayRemark}"</span>
+                    </p>
+                </div>
+            )}
+
             <div className="p-3 px-5 flex items-center justify-between bg-white">
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-3">
@@ -406,7 +423,12 @@ function MissionRegistryCard({
                             <span className="text-[10px] font-bold text-slate-500">{statusTime}</span>
                         </div>
                     </div>
-                    <Separator orientation="vertical" className="h-5 bg-slate-100" />
+                    {isDelayed && (
+                        <div className="flex items-center gap-2 px-4 py-1.5 bg-red-50 border border-red-100 rounded-full animate-pulse shadow-sm">
+                            <AlertTriangle size={12} className="text-red-600" />
+                            <span className="text-[8px] font-black uppercase text-red-700 tracking-widest">ALLOCATION DELAY: {ageInHours} HR</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-6">
@@ -419,6 +441,17 @@ function MissionRegistryCard({
                     )}
 
                     <div className="flex items-center gap-3">
+                        {isDelayed && !isReadOnly && (
+                            <Button 
+                                variant="outline"
+                                size="sm" 
+                                onClick={() => onAction('delay-remark', row)} 
+                                className="h-9 px-6 border-amber-200 text-amber-700 font-black uppercase text-[10px] tracking-widest rounded-xl hover:bg-amber-50 shadow-sm transition-all"
+                            >
+                                <MessageSquare size={14} className="mr-1.5" /> Delay Remark
+                            </Button>
+                        )}
+
                         {isPending && !isReadOnly && (
                             <Button 
                                 size="sm" 
@@ -538,3 +571,4 @@ export default function TripBoardTable({
     </div>
   );
 }
+

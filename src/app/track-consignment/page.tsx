@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef } from 'react';
@@ -26,7 +27,9 @@ import {
     FileText,
     Weight,
     Smartphone,
-    UserCircle
+    UserCircle,
+    MessageSquare,
+    AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
@@ -47,7 +50,7 @@ import {
  * @fileOverview Public Track Consignment Terminal v2.6.
  * Features: Mandatory Mode Selection (TRIP vs SO), Multi-Trip Scenario Handling.
  * Logic: TRIP mode shows full animation/telemetry. SO mode shows simplified concept manifest.
- * Updated: Expanded Manifest Header with Driver, Mobile, and LR Registry.
+ * Updated: Implement Delay Remark display node for Pending Assignments.
  */
 
 function TrackConsignmentContent() {
@@ -431,7 +434,7 @@ function TrackConsignmentContent() {
                         {/* CASE: Single Trip or Awaiting Allocation (Scenario A/B) */}
                         {searchType === 'SO' && linkedTrips.length <= 1 && (
                             <div className="max-w-4xl mx-auto text-center space-y-10 animate-in fade-in duration-700">
-                                <div className="p-10 bg-blue-50 border-2 border-blue-100 rounded-[3rem] shadow-xl relative overflow-hidden group">
+                                <div className="p-10 bg-blue-50 border-2 border-blue-100 rounded-[3rem] shadow-xl relative overflow-hidden group flex flex-col items-center">
                                     <div className="absolute top-0 left-0 w-2 h-full bg-blue-600" />
                                     <p className="text-lg md:text-xl font-bold text-slate-700 leading-relaxed uppercase tracking-tight italic">
                                         {linkedTrips.length === 0 ? (
@@ -446,6 +449,20 @@ function TrackConsignmentContent() {
                                             </>
                                         )}
                                     </p>
+
+                                    {/* DELAY REMARK NODE */}
+                                    {shipmentResult?.delayRemark && (
+                                        <div className="mt-8 p-6 bg-amber-600 rounded-3xl text-white shadow-2xl animate-in zoom-in-95 duration-500 max-w-2xl border-4 border-amber-400">
+                                            <div className="flex items-center gap-3 mb-3 border-b border-white/20 pb-3">
+                                                <AlertTriangle size={24} className="animate-pulse" />
+                                                <h4 className="font-black uppercase tracking-widest text-sm">Official Delay Registry Node</h4>
+                                            </div>
+                                            <p className="text-sm font-black italic tracking-tight leading-relaxed">
+                                                "{shipmentResult.delayRemark}"
+                                            </p>
+                                            <p className="text-[9px] font-bold uppercase opacity-60 mt-4 text-right">COMMITTED BY LIFTING PLANT REGISTRY</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -505,3 +522,4 @@ export default function TrackConsignmentPage() {
         </Suspense>
     );
 }
+
