@@ -7,7 +7,7 @@ import { Truck, Mail, Phone, MapPin, Globe, ShieldCheck } from 'lucide-react';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
 export default function Footer() {
-  const logoImg = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
+  const logoImg = placeholderData.placeholderImages.find(p => p.id === 'QRlogo');
 
   return (
     <footer className="bg-slate-900 text-white pt-24 pb-12 overflow-hidden relative">
@@ -72,7 +72,7 @@ export default function Footer() {
                 <div className="p-2 bg-white/5 rounded-lg"><Mail className="h-4 w-4 text-blue-400" /></div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black uppercase text-slate-500">Registry Support</p>
-                  <p className="text-sm font-bold">queries@sikka.com</p>
+                  <p className="text-sm font-bold">queries@sikkaenterprises.com</p>
                 </div>
               </li>
             </ul>
