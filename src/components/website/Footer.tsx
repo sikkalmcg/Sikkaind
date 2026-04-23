@@ -8,28 +8,28 @@ import placeholderData from '@/app/lib/placeholder-images.json';
 /**
  * @fileOverview Website Footer Handbook.
  * Features: High-density contact nodes and centralized copyright registry.
- * Hardened: Registry image fetch synchronized with verified logo-old node.
+ * Optimized: Extra vertical spacing removed for compact ERP-style finish.
  */
 export default function Footer() {
   const logoImg = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
 
   return (
-    <footer className="bg-slate-900 text-white pt-24 pb-12 overflow-hidden relative">
+    <footer className="bg-slate-900 text-white pt-12 pb-8 overflow-hidden relative">
       <div className="absolute top-0 right-0 p-24 opacity-[0.03] rotate-12">
         <Truck className="h-96 w-96" />
       </div>
       
       <div className="container mx-auto px-6 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 mb-20">
-          <div className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-10">
+          <div className="space-y-6">
             <div className="flex items-center gap-4">
               <Link href="/">
                 {logoImg?.url && (
                   <Image 
                     src={logoImg.url} 
                     alt="Sikka LMC Logo" 
-                    width={180} 
-                    height={60} 
+                    width={160} 
+                    height={50} 
                     className="object-contain" 
                     unoptimized={true}
                   />
@@ -39,15 +39,15 @@ export default function Footer() {
             <p className="text-slate-400 text-sm leading-relaxed font-medium">
               A premier logistics and supply chain enterprise delivering excellence across India through intelligence-driven movement and modern infrastructure.
             </p>
-            <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
-              <ShieldCheck className="h-5 w-5 text-blue-400" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-blue-100">ISO 9001:2015 CERTIFIED</span>
+            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/5 w-fit">
+              <ShieldCheck className="h-4 w-4 text-blue-400" />
+              <span className="text-[9px] font-black uppercase tracking-widest text-blue-100">ISO 9001:2015 CERTIFIED</span>
             </div>
           </div>
 
           <div>
-            <h4 className="text-xs font-black uppercase tracking-[0.3em] text-blue-400 mb-8">Registry Links</h4>
-            <ul className="space-y-4">
+            <h4 className="text-xs font-black uppercase tracking-[0.3em] text-blue-400 mb-6">Registry Links</h4>
+            <ul className="space-y-3">
               {['Home', 'Services', 'About Us', 'Contact', 'Track Consignment', 'Portal Login'].map((item) => (
                 <li key={item}>
                   <Link 
@@ -63,19 +63,19 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-xs font-black uppercase tracking-[0.3em] text-blue-400 mb-8">Contact Node</h4>
-            <ul className="space-y-6">
+            <h4 className="text-xs font-black uppercase tracking-[0.3em] text-blue-400 mb-6">Contact Node</h4>
+            <ul className="space-y-5">
               <li className="flex items-start gap-4">
                 <div className="p-2 bg-white/5 rounded-lg"><Phone className="h-4 w-4 text-blue-400" /></div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase text-slate-500">Call Center</p>
+                <div className="space-y-0.5">
+                  <p className="text-[9px] font-black uppercase text-slate-500">Call Center</p>
                   <p className="text-sm font-bold">+91 120 4290010</p>
                 </div>
               </li>
               <li className="flex items-start gap-4">
                 <div className="p-2 bg-white/5 rounded-lg"><Mail className="h-4 w-4 text-blue-400" /></div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase text-slate-500">Registry Support</p>
+                <div className="space-y-0.5">
+                  <p className="text-[9px] font-black uppercase text-slate-500">Registry Support</p>
                   <p className="text-sm font-bold">queries@sikkaenterprises.com</p>
                 </div>
               </li>
@@ -83,12 +83,12 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-xs font-black uppercase tracking-[0.3em] text-blue-400 mb-8">Corporate HUB</h4>
+            <h4 className="text-xs font-black uppercase tracking-[0.3em] text-blue-400 mb-6">Corporate HUB</h4>
             <li className="flex items-start gap-4 list-none">
               <div className="p-2 bg-white/5 rounded-lg"><MapPin className="h-4 w-4 text-blue-400" /></div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-black uppercase text-slate-500">Headquarters</p>
-                <p className="text-sm font-bold leading-relaxed text-slate-300">
+              <div className="space-y-0.5">
+                <p className="text-[9px] font-black uppercase text-slate-500">Headquarters</p>
+                <p className="text-sm font-bold leading-relaxed text-slate-300 uppercase">
                   Sikka Industries & Logistics<br />
                   Ghaziabad – 201009,<br />
                   Uttar Pradesh, India
@@ -98,8 +98,8 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="pt-12 border-t border-white/5 flex flex-col items-center justify-center">
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500 text-center">
+        <div className="pt-8 border-t border-white/5 flex flex-col items-center justify-center">
+          <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-500 text-center">
             Copyright © {new Date().getFullYear()} Sikka Industries & Logistics.
           </p>
         </div>
