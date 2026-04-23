@@ -466,7 +466,7 @@ function MissionRegistryCard({
                             <Button size="sm" onClick={() => onAction('vehicle-in', row)} className="h-9 px-6 bg-blue-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Vehicle IN</Button>
                         )}
                         {activeTab === 'loading' && !isReadOnly && (
-                            <Button size="sm" onClick={() => onAction('vehicle-out', row)} className="h-9 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Vehicle OUT</Button>
+                            <Button size="sm" onClick={() => onAction('vehicle-out', row)} className="h-9 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">Vehicle OUT</Button>
                         )}
                         {activeTab === 'transit' && !isReadOnly && (
                             <Button size="sm" onClick={() => onAction('arrived', row)} className="h-9 px-10 bg-blue-900 hover:bg-black text-white rounded-xl font-black uppercase text-[10px] tracking-[0.2em] shadow-lg shadow-blue-900/10">Arrived In</Button>
@@ -504,9 +504,15 @@ function MissionRegistryCard({
                                         </DropdownMenuItem>
                                     )}
                                     
-                                    {!isPending && !isReadOnly && (
+                                    {!isPending && !isReadOnly && activeTab !== 'closed' && (
                                         <DropdownMenuItem onClick={() => onAction('edit-vehicle', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
                                             <Edit2 className="h-4 w-4 text-blue-400" /> Correct Vehicle
+                                        </DropdownMenuItem>
+                                    )}
+
+                                    {activeTab === 'closed' && !isReadOnly && (
+                                        <DropdownMenuItem onClick={() => onAction('pod-upload', row)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50">
+                                            <Upload className="h-4 w-4 text-emerald-600" /> Edit POD manifest
                                         </DropdownMenuItem>
                                     )}
 
@@ -571,4 +577,3 @@ export default function TripBoardTable({
     </div>
   );
 }
-
