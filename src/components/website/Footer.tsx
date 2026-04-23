@@ -5,8 +5,13 @@ import Image from 'next/image';
 import { Truck, Mail, Phone, MapPin, Globe, ShieldCheck } from 'lucide-react';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
+/**
+ * @fileOverview Website Footer Handbook.
+ * Features: High-density contact nodes and centralized copyright registry.
+ * Hardened: Registry image fetch synchronized with verified logo-old node.
+ */
 export default function Footer() {
-  const logoImg = placeholderData.placeholderImages.find(p => p.id === 'QRlogo');
+  const logoImg = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
 
   return (
     <footer className="bg-slate-900 text-white pt-24 pb-12 overflow-hidden relative">
