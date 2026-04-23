@@ -25,7 +25,8 @@ import {
     ListTree,
     FileText,
     Weight,
-    Smartphone
+    Smartphone,
+    UserCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
@@ -46,6 +47,7 @@ import {
  * @fileOverview Public Track Consignment Terminal v2.6.
  * Features: Mandatory Mode Selection (TRIP vs SO), Multi-Trip Scenario Handling.
  * Logic: TRIP mode shows full animation/telemetry. SO mode shows simplified concept manifest.
+ * Updated: Expanded Manifest Header with Driver, Mobile, and LR Registry.
  */
 
 function TrackConsignmentContent() {
@@ -270,6 +272,29 @@ function TrackConsignmentContent() {
         return d ? format(d, 'dd-MMM-yyyy HH:mm') : '--';
     }, [shipmentResult]);
 
+    // UI HELPER: Consolidated Display Logic for Header Manifest
+    const displayFields = useMemo(() => {
+        if (!shipmentResult && !activeTrip) return [];
+
+        const isSoMode = searchType === 'SO';
+        const tripNode = activeTrip || (linkedTrips.length > 0 ? linkedTrips[0] : null);
+        const shipNode = shipmentResult || activeTrip?.shipment;
+
+        // AWAITING logic node for Scenario A
+        const awaitingLabel = (isSoMode && !tripNode) ? "AWAITING" : "--";
+
+        return [
+            { label: 'Sale Order', value: shipNode?.shipmentId || activeTrip?.shipmentId, bold: true, icon: FileText, color: 'text-blue-400' },
+            { label: 'Consignor', value: shipNode?.consignor || activeTrip?.consignor, icon: User },
+            { label: 'Consignee', value: shipNode?.billToParty || activeTrip?.billToParty, icon: User },
+            { label: 'Ship To Party', value: shipNode?.shipToParty || activeTrip?.shipToParty, icon: MapPin },
+            { label: 'Order Quantity', value: `${shipNode?.quantity || activeTrip?.quantity || 0} MT`, bold: true, color: 'text-emerald-400', icon: Weight },
+            { label: 'Driver Name', value: tripNode?.driverName || awaitingLabel, icon: UserCircle },
+            { label: 'Mobile No.', value: tripNode?.driverMobile || awaitingLabel, icon: Smartphone, mono: true, color: 'text-blue-200' },
+            { label: 'LR No.', value: activeTrip?.lrNumber || shipNode?.lrNumber || tripNode?.lrNumber || awaitingLabel, icon: FileText, bold: true, color: 'text-blue-300' },
+        ];
+    }, [shipmentResult, activeTrip, linkedTrips, searchType]);
+
     return (
         <div className="min-h-screen bg-white flex flex-col items-center py-12 px-4 md:py-20 font-body">
             <div className="max-w-7xl w-full space-y-12">
@@ -352,19 +377,20 @@ function TrackConsignmentContent() {
                         
                         <Card className="border-none shadow-3xl rounded-[3.5rem] bg-slate-900 text-white p-10 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 transition-transform duration-1000 group-hover:scale-110"><Box size={240} /></div>
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-8 relative z-10">
-                                {[
-                                    { label: 'Sale Order', value: shipmentResult?.shipmentId || activeTrip?.shipmentId, bold: true, icon: FileText, color: 'text-blue-400' },
-                                    { label: 'Consignor', value: shipmentResult?.consignor || activeTrip?.consignor, icon: User },
-                                    { label: 'Consignee', value: shipmentResult?.billToParty || activeTrip?.billToParty, icon: User },
-                                    { label: 'Ship To Party', value: shipmentResult?.shipToParty || activeTrip?.shipToParty, icon: MapPin },
-                                    { label: 'Order Quantity', value: `${shipmentResult?.quantity || activeTrip?.quantity || 0} MT`, bold: true, color: 'text-emerald-400', icon: Weight },
-                                ].map((item, i) => (
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-8 relative z-10">
+                                {displayFields.map((item, i) => (
                                     <div key={i} className="space-y-1">
                                         <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest leading-none flex items-center gap-1.5">
                                             {item.icon && <item.icon size={10} />} {item.label}
                                         </span>
-                                        <p className={cn("text-[11px] font-bold uppercase leading-tight", item.bold && "font-black text-xs", item.color || "text-white")}>{item.value || '--'}</p>
+                                        <p className={cn(
+                                            "text-[10px] font-bold uppercase leading-tight", 
+                                            item.bold && "font-black text-[11px]", 
+                                            item.mono && "font-mono tracking-tighter",
+                                            item.color || "text-white"
+                                        )}>
+                                            {item.value || '--'}
+                                        </p>
                                     </div>
                                 ))}
                             </div>
