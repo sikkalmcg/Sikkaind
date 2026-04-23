@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef } from 'react';
@@ -45,10 +46,10 @@ import {
 } from "@/components/ui/select";
 
 /**
- * @fileOverview Public Track Consignment Terminal v2.8.
+ * @fileOverview Public Track Consignment Terminal v2.9.
  * Hardened: Robust status normalization and real-time animation pulse.
  * Transition: Interactive Trip ID links allow instant mode-switch from SO to Trip tracking.
- * Manifest: Dynamic header display based on TRIP vs SO mode.
+ * UI Refinement: Vehicle Number node added to Trip Tracking results manifest.
  */
 
 function TrackConsignmentContent() {
@@ -280,6 +281,7 @@ function TrackConsignmentContent() {
         if (isTripMode) {
             return [
                 ...baseFields,
+                { label: 'Vehicle Number', value: tripNode?.vehicleNumber || '--', bold: true, icon: Truck, color: 'text-white' },
                 { label: 'Mobile No.', value: tripNode?.driverMobile || '--', icon: Smartphone, mono: true, color: 'text-blue-200' },
             ];
         }
@@ -362,7 +364,7 @@ function TrackConsignmentContent() {
                             <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 transition-transform duration-1000 group-hover:scale-110"><Box size={240} /></div>
                             <div className={cn(
                                 "grid grid-cols-2 md:grid-cols-3 gap-8 relative z-10",
-                                searchType === 'TRIP' ? "lg:grid-cols-7" : "lg:grid-cols-6"
+                                searchType === 'TRIP' ? "lg:grid-cols-8" : "lg:grid-cols-6"
                             )}>
                                 {displayFields.map((item, i) => (
                                     <div key={i} className="space-y-1">
