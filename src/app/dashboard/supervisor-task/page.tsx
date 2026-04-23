@@ -24,7 +24,7 @@ const LIVE_TASKS_PER_PAGE = 10;
 /**
  * @fileOverview Supervisor Task Hub.
  * Optimized for high-density manifest verification and audit trails.
- * Updated: History manifest now consolidates tasks into single rows with intelligent summarization.
+ * Updated: Reverted to item-level ledger to ensure individual invoice visibility.
  */
 function SupervisorTaskContent() {
     const { toast } = useToast();
@@ -235,11 +235,11 @@ function SupervisorTaskContent() {
     }, [filteredTasks, livePage]);
 
     /**
-     * MISSION REGISTRY SUMMARIZATION NODE
-     * Consolidates multiple items into single task rows for historical reporting.
+     * MISSION REGISTRY ITEM LEDGER
+     * Flattens history to show every individual line item for maximum visibility.
      */
     const flattenedHistory = useMemo(() => {
-        const summarized: any[] = [];
+        const itemsList: any[] = [];
         let sorted = [...history];
         
         if (selectedPlant !== 'all-plants') {
@@ -254,39 +254,23 @@ function SupervisorTaskContent() {
                 h.vehicleNumber?.toLowerCase().includes(s) ||
                 h.lrNumber?.toLowerCase().includes(s) ||
                 h.consignor?.toLowerCase().includes(s) ||
-                h.shipTo?.toLowerCase().includes(s)
+                h.shipTo?.toLowerCase().includes(s) ||
+                (h.items && h.items.some((i: any) => i.invoiceNo?.toLowerCase().includes(s) || i.itemDescription?.toLowerCase().includes(s)))
             );
         }
 
         sorted.forEach(taskDoc => {
             const items = taskDoc.items || [];
-            
-            // 1. Resolve Summarized Items Node
-            const uniqueDescs = Array.from(new Set(items.map((i: any) => (i.itemDescription || '').toUpperCase().trim()).filter(Boolean)));
-            const finalDesc = items.length > 3 ? "VARIOUS ITEMS AS PER INVOICE" : uniqueDescs.join(', ');
-
-            // 2. Resolve Delivery/Invoice Manifest
-            const deliveryNos = Array.from(new Set(items.map((i: any) => i.deliveryNo).filter(Boolean))).join(', ');
-            const invoiceNos = Array.from(new Set(items.map((i: any) => i.invoiceNo).filter(Boolean))).join(', ');
-
-            // 3. Resolve Aggregated Units
-            const totalPlanned = items.reduce((sum: number, i: any) => sum + (Number(i.plannedUnit) || 0), 0);
-            const totalLoad = items.reduce((sum, i) => sum + (Number(i.loadUnit) || 0), 0);
-            const uom = items[0]?.uom || '--';
-
-            summarized.push({
-                ...taskDoc,
-                taskId: taskDoc.id,
-                summarizedDescription: finalDesc || '--',
-                summarizedDeliveryNo: deliveryNos || '--',
-                summarizedInvoiceNo: invoiceNos || '--',
-                totalPlanned,
-                totalLoad,
-                uom,
-                isFirstOfTask: true 
+            items.forEach((item: any, idx: number) => {
+                itemsList.push({
+                    ...taskDoc,
+                    ...item, // Individual item fields: deliveryNo, invoiceNo, itemDescription, loadUnit, uom, plannedUnit
+                    taskId: taskDoc.id,
+                    isFirstOfTask: idx === 0 
+                });
             });
         });
-        return summarized;
+        return itemsList;
     }, [history, selectedPlant, historySearchTerm]);
 
     const totalHistoryPages = Math.ceil(flattenedHistory.length / historyItemsPerPage);
