@@ -21,7 +21,7 @@ const formSchema = z.object({
   address: z.string().min(1, 'Physical Address is mandatory'),
   route: z.string().min(1, 'Operational Route is mandatory'),
   gstin: z.string().optional().or(z.literal('')),
-  pan: z.string().min(1, 'PAN Number is mandatory').transform(v => v.toUpperCase()),
+  pan: z.string().optional().or(z.literal('')).transform(v => v ? v.toUpperCase() : ''),
   category: z.enum(FuelPumpPaymentMethods, { required_error: 'Category is required' }),
   defaultRate: z.coerce.number().optional().default(0),
   isFixRate: z.boolean().default(false),
@@ -128,7 +128,7 @@ export default function CreatePumpForm({ onSave }: CreatePumpFormProps) {
                 )} />
                 <FormField control={form.control} name="pan" render={({ field }) => (
                     <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-slate-500">PAN Registry Number *</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase text-slate-500">PAN Registry Number</FormLabel>
                         <FormControl><Input placeholder="ABCDE1234F" {...field} className="h-12 rounded-xl uppercase font-black tracking-widest bg-white border-slate-200" /></FormControl>
                         <FormMessage />
                     </FormItem>
