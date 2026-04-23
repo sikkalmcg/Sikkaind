@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 /**
  * @fileOverview Sikka LMC Landing Page.
  * Streamlined Typography-Led Node. 
- * Updated: Purged redundant brand banner to optimize spatial flow.
+ * Updated: Removed CTA section as requested.
  */
 
 export default function HomePage() {
@@ -84,29 +84,6 @@ export default function HomePage() {
             ))}
           </div>
         </div>
-      </section>
-
-      {/* CTA SECTION */}
-      <section className="py-24 bg-white">
-          <div className="max-w-4xl mx-auto px-6">
-              <div className="bg-blue-900 rounded-[3rem] p-12 md:p-20 text-white relative overflow-hidden group shadow-2xl">
-                  <div className="absolute top-0 right-0 p-12 opacity-10 group-hover:rotate-12 transition-transform duration-1000">
-                      <BarChart3 className="h-48 w-48 md:h-64 md:w-64" />
-                  </div>
-                  <div className="relative z-10 space-y-8">
-                      <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter leading-none italic">Ready to optimize <br/> your supply chain?</h2>
-                      <p className="text-lg text-blue-100 font-medium opacity-90 max-w-xl">
-                          Contact our mission control today to discuss verified logistics solutions 
-                          tailored to your industry node.
-                      </p>
-                      <Button asChild variant="secondary" className="h-14 px-10 rounded-2xl font-black uppercase text-xs tracking-widest bg-white text-blue-900 hover:bg-blue-50 transition-all active:scale-95 border-none">
-                          <Link href="/contact" className="flex items-center gap-2">
-                              Contact Node <ArrowRight className="h-4 w-4" />
-                          </Link>
-                      </Button>
-                  </div>
-              </div>
-          </div>
       </section>
     </div>
   );
