@@ -10,7 +10,6 @@ import {
     Search, 
     Truck, 
     MapPin, 
-    ShieldCheck, 
     Radar, 
     Loader2, 
     CheckCircle2,
@@ -22,14 +21,14 @@ import {
     RefreshCcw,
     XCircle,
     User,
-    ChevronRight,
     ListTree,
     FileText,
     Weight,
     Smartphone,
     UserCircle,
-    MessageSquare,
-    AlertTriangle
+    AlertTriangle,
+    Navigation,
+    ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
@@ -49,8 +48,8 @@ import {
 /**
  * @fileOverview Public Track Consignment Terminal v2.6.
  * Features: Mandatory Mode Selection (TRIP vs SO), Multi-Trip Scenario Handling.
- * Logic: TRIP mode shows full animation/telemetry. SO mode shows simplified concept manifest.
- * Updated: Restricted TRIP mode to Trip ID only (LR search purged).
+ * Updated: Conditional Manifest Header (TRIP Mode vs SO Mode).
+ * Refinement: Removed LR No. and Driver Name from header. Added Route.
  */
 
 function TrackConsignmentContent() {
@@ -191,13 +190,10 @@ function TrackConsignmentContent() {
             const term = inputRaw.toUpperCase();
             
             if (searchType === 'TRIP') {
-                // TRIP ID Handshake (Full Detail Mode)
                 const tripsRef = collection(firestore, "trips");
                 let tripQuery = query(tripsRef, where("tripId", "==", term), limit(1));
                 let tripSnap = await getDocs(tripQuery);
                 
-                // MISSION FIX: Strictly search by Trip ID only (Removed LR Number fallback)
-
                 if (!tripSnap.empty) {
                     const tripData = { id: tripSnap.docs[0].id, ...tripSnap.docs[0].data() } as any;
                     const plantId = normalizePlantId(tripData.originPlantId);
@@ -208,6 +204,12 @@ function TrackConsignmentContent() {
                         const sSnap = await getDoc(doc(firestore, `plants/${plantId}/shipments`, shipId));
                         if (sSnap.exists()) shipmentData = sSnap.data();
                     }
+
+                    // Resolve cities for TRIP mode route node
+                    const fromLoc = tripData.loadingPoint || shipmentData?.loadingPoint || '';
+                    tripData.fromCity = fromLoc.split(',')[0].trim();
+                    const toLoc = tripData.unloadingPoint || tripData.destination || shipmentData?.unloadingPoint || '';
+                    tripData.toCity = toLoc.split(',')[0].trim();
 
                     setActiveTrip({ ...tripData, shipment: shipmentData });
                     
@@ -221,7 +223,7 @@ function TrackConsignmentContent() {
                     setError("Trip ID not recognized in mission registry.");
                 }
             } else {
-                // SALES ORDER Mode (Simplified Manifest Mode)
+                // SALES ORDER Mode
                 const plantsSnap = await getDocs(collection(firestore, "logistics_plants"));
                 const plantIds = plantsSnap.docs.map(d => d.id);
                 
@@ -239,9 +241,14 @@ function TrackConsignmentContent() {
                 }
 
                 if (foundShipment && shipDocId) {
+                    // Resolve cities for SO mode route node
+                    const fromLoc = foundShipment.loadingPoint || '';
+                    foundShipment.fromCity = fromLoc.split(',')[0].trim();
+                    const toLoc = foundShipment.unloadingPoint || foundShipment.destination || '';
+                    foundShipment.toCity = toLoc.split(',')[0].trim();
+
                     setShipmentResult(foundShipment);
 
-                    // Check for linked trips (Scenario B or C)
                     const linkedTripsQuery = query(collection(firestore, "trips"), where("shipmentIds", "array-contains", shipDocId));
                     const lTripsSnap = await getDocs(linkedTripsQuery);
                     
@@ -272,27 +279,37 @@ function TrackConsignmentContent() {
         return d ? format(d, 'dd-MMM-yyyy HH:mm') : '--';
     }, [shipmentResult]);
 
-    // UI HELPER: Consolidated Display Logic for Header Manifest
+    // UI HELPER: Conditional Manifest Handshake
     const displayFields = useMemo(() => {
         if (!shipmentResult && !activeTrip) return [];
 
-        const isSoMode = searchType === 'SO';
+        const isTripMode = searchType === 'TRIP';
         const tripNode = activeTrip || (linkedTrips.length > 0 ? linkedTrips[0] : null);
         const shipNode = shipmentResult || activeTrip?.shipment;
+        
+        const fromCity = shipNode?.fromCity || activeTrip?.fromCity || '--';
+        const toCity = shipNode?.toCity || activeTrip?.toCity || '--';
+        const route = `${fromCity} → ${toCity}`;
 
-        // AWAITING logic node for Scenario A
-        const awaitingLabel = (isSoMode && !tripNode) ? "AWAITING" : "--";
-
-        return [
+        // SHARED PARTICULARS
+        const baseFields = [
             { label: 'Sale Order', value: shipNode?.shipmentId || activeTrip?.shipmentId, bold: true, icon: FileText, color: 'text-blue-400' },
             { label: 'Consignor', value: shipNode?.consignor || activeTrip?.consignor, icon: User },
             { label: 'Consignee', value: shipNode?.billToParty || activeTrip?.billToParty, icon: User },
             { label: 'Ship To Party', value: shipNode?.shipToParty || activeTrip?.shipToParty, icon: MapPin },
             { label: 'Order Quantity', value: `${shipNode?.quantity || activeTrip?.quantity || 0} MT`, bold: true, color: 'text-emerald-400', icon: Weight },
-            { label: 'Driver Name', value: tripNode?.driverName || awaitingLabel, icon: UserCircle },
-            { label: 'Mobile No.', value: tripNode?.driverMobile || awaitingLabel, icon: Smartphone, mono: true, color: 'text-blue-200' },
-            { label: 'LR No.', value: activeTrip?.lrNumber || shipNode?.lrNumber || tripNode?.lrNumber || awaitingLabel, icon: FileText, bold: true, color: 'text-blue-300' },
+            { label: 'Route', value: route, icon: Navigation, bold: true, color: 'text-blue-300' },
         ];
+
+        // TRIP-ONLY PARTICULARS (Placed at the end)
+        if (isTripMode) {
+            return [
+                ...baseFields,
+                { label: 'Mobile No.', value: tripNode?.driverMobile || '--', icon: Smartphone, mono: true, color: 'text-blue-200' },
+            ];
+        }
+
+        return baseFields;
     }, [shipmentResult, activeTrip, linkedTrips, searchType]);
 
     return (
@@ -377,7 +394,10 @@ function TrackConsignmentContent() {
                         
                         <Card className="border-none shadow-3xl rounded-[3.5rem] bg-slate-900 text-white p-10 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 transition-transform duration-1000 group-hover:scale-110"><Box size={240} /></div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-8 relative z-10">
+                            <div className={cn(
+                                "grid grid-cols-2 md:grid-cols-3 gap-8 relative z-10",
+                                searchType === 'TRIP' ? "lg:grid-cols-7" : "lg:grid-cols-6"
+                            )}>
                                 {displayFields.map((item, i) => (
                                     <div key={i} className="space-y-1">
                                         <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest leading-none flex items-center gap-1.5">
@@ -433,7 +453,7 @@ function TrackConsignmentContent() {
                             <div className="max-w-4xl mx-auto text-center space-y-10 animate-in fade-in duration-700">
                                 <div className="p-10 bg-blue-50 border-2 border-blue-100 rounded-[3rem] shadow-xl relative overflow-hidden group flex flex-col items-center">
                                     <div className="absolute top-0 left-0 w-2 h-full bg-blue-600" />
-                                    <p className="text-lg md:text-xl font-bold text-slate-700 leading-relaxed uppercase tracking-tight italic">
+                                    <p className="text-lg md:text-xl font-bold text-slate-700 leading-relaxed uppercase tracking-tight italic text-center">
                                         {linkedTrips.length === 0 ? (
                                             <>
                                                 Sale Order <span className="text-blue-900 font-black">{shipmentResult?.shipmentId}</span> is booked for dispatch on <span className="text-blue-600 font-black">{formattedOrderTime}</span>. 
