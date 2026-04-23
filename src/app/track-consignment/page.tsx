@@ -50,6 +50,7 @@ import {
  * Hardened: Robust status normalization and real-time animation pulse.
  * Transition: Interactive Trip ID links allow instant mode-switch from SO to Trip tracking.
  * UI Refinement: Vehicle Number node added to Trip Tracking results manifest.
+ * Optimization: Reduced typography scale and vertical spacing for high-density layout.
  */
 
 function TrackConsignmentContent() {
@@ -218,17 +219,14 @@ function TrackConsignmentContent() {
         }
     }, [firestore, registryInput, searchType, getTargetIndex, runAnimation]);
 
-    // Transition Node: Switch from SO to TRIP mode on click
     const handleDirectTripClick = useCallback((tId: string) => {
         setSearchType('TRIP');
         setRegistryInput(tId);
-        // We use a small timeout to ensure state update before execution
         setTimeout(() => {
             handleSearch(tId);
         }, 10);
     }, [handleSearch]);
 
-    // REAL-TIME TRIP Pulse node (Only active in TRIP Mode)
     useEffect(() => {
         if (searchType !== 'TRIP' || !activeTrip?.id || !firestore) return;
 
@@ -290,39 +288,33 @@ function TrackConsignmentContent() {
     }, [shipmentResult, activeTrip, linkedTrips, searchType]);
 
     return (
-        <div className="min-h-screen bg-white flex flex-col items-center py-12 px-4 md:py-20 font-body">
-            <div className="max-w-7xl w-full space-y-12">
+        <div className="min-h-screen bg-white flex flex-col items-center py-6 px-4 md:py-10 font-body">
+            <div className="max-w-7xl w-full space-y-8">
                 <div className="text-center">
                     <motion.div 
                         initial={{ scale: 0.8, opacity: 0 }} 
                         animate={{ scale: 1, opacity: 1 }} 
-                        className="inline-block p-5 bg-blue-900 text-white rounded-[2.5rem] shadow-3xl rotate-3 mb-8"
+                        className="inline-block p-4 bg-blue-900 text-white rounded-2xl shadow-xl rotate-3 mb-4"
                     >
-                        <Radar className="h-12 w-12" />
+                        <Radar className="h-10 w-10" />
                     </motion.div>
-                    <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter uppercase italic leading-none">Track Consignment</h1>
-                    <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-[0.4em] mt-4">Authorized Mission Registry Hub</p>
+                    <h1 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tighter uppercase italic leading-none">Track Consignment</h1>
                 </div>
 
                 {!shipmentResult && !activeTrip && (
-                    <Card className="max-w-2xl mx-auto border-none shadow-3xl rounded-[3rem] overflow-hidden bg-white">
-                        <div className="p-10 md:p-14 space-y-10">
+                    <Card className="max-w-2xl mx-auto border-none shadow-3xl rounded-[2.5rem] overflow-hidden bg-white">
+                        <div className="p-8 md:p-12 space-y-8">
                             {error && (
                                 <motion.div initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="p-4 bg-red-50 text-red-700 rounded-2xl flex items-center gap-3 font-black uppercase text-[10px] border border-red-100">
                                     <AlertCircle size={16}/> {error}
                                 </motion.div>
                             )}
 
-                            <div className="flex items-center justify-center gap-3 py-2">
-                                <div className={cn("h-2 w-2 rounded-full transition-colors", dbReady ? "bg-emerald-50 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-slate-200")}/>
-                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{dbReady ? "Registry Handshake Active" : "Establishing Pulse..."}</span>
-                            </div>
-
-                            <div className="space-y-8">
-                                <div className="space-y-3">
-                                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Registry Node Type *</Label>
+                            <div className="space-y-6">
+                                <div className="space-y-2">
+                                    <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest px-1">Registry Node Type *</Label>
                                     <Select value={searchType} onValueChange={(v: any) => setSearchType(v)}>
-                                        <SelectTrigger className="h-14 rounded-xl font-black text-blue-900 uppercase border-2 border-slate-100 bg-slate-50/30">
+                                        <SelectTrigger className="h-12 rounded-xl font-black text-blue-900 uppercase border-2 border-slate-100 bg-slate-50/30">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-xl">
@@ -332,8 +324,8 @@ function TrackConsignmentContent() {
                                     </Select>
                                 </div>
 
-                                <div className="space-y-3">
-                                    <Label htmlFor="registry-id" className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">
+                                <div className="space-y-2">
+                                    <Label htmlFor="registry-id" className="text-[9px] font-black uppercase text-slate-400 tracking-widest px-1">
                                         {searchType === 'TRIP' ? 'Enter Trip ID *' : 'Enter Sales Order No. *'}
                                     </Label>
                                     <Input 
@@ -342,12 +334,12 @@ function TrackConsignmentContent() {
                                         value={registryInput} 
                                         onChange={e => setRegistryInput(e.target.value)} 
                                         onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                                        className="h-16 rounded-2xl font-black text-blue-900 uppercase text-2xl text-center border-2 border-slate-100 shadow-inner" 
+                                        className="h-14 rounded-2xl font-black text-blue-900 uppercase text-xl text-center border-2 border-slate-100 shadow-inner" 
                                     />
                                 </div>
 
-                                <Button onClick={() => handleSearch()} disabled={isSearching || !dbReady} className="w-full h-16 rounded-2xl bg-blue-900 text-white font-black uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 border-none">
-                                    {isSearching ? <Loader2 className="animate-spin mr-3" /> : <Search className="mr-3" />} TRACK NOW
+                                <Button onClick={() => handleSearch()} disabled={isSearching || !dbReady} className="w-full h-14 rounded-2xl bg-blue-900 text-white font-black uppercase tracking-[0.3em] shadow-xl hover:bg-black transition-all active:scale-95 border-none">
+                                    {isSearching ? <Loader2 className="animate-spin mr-3 h-4 w-4" /> : <Search className="mr-3 h-4 w-4" />} TRACK NOW
                                 </Button>
                             </div>
                         </div>
@@ -355,25 +347,25 @@ function TrackConsignmentContent() {
                 )}
 
                 {(shipmentResult || activeTrip) && (
-                    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-10 duration-1000 pb-20">
-                        <button onClick={() => {setShipmentResult(null); setActiveTrip(null); setLinkedTrips([]);}} className="font-black text-slate-400 hover:text-blue-900 uppercase text-[11px] tracking-widest gap-2 flex items-center">
-                            <ArrowLeft size={16}/> Back to Registry Search
+                    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-700 pb-20">
+                        <button onClick={() => {setShipmentResult(null); setActiveTrip(null); setLinkedTrips([]);}} className="font-black text-slate-400 hover:text-blue-900 uppercase text-[10px] tracking-widest gap-2 flex items-center">
+                            <ArrowLeft size={14}/> Back to Search
                         </button>
                         
-                        <Card className="border-none shadow-3xl rounded-[3.5rem] bg-slate-900 text-white p-10 relative overflow-hidden group">
+                        <Card className="border-none shadow-3xl rounded-[2.5rem] bg-slate-900 text-white p-8 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 transition-transform duration-1000 group-hover:scale-110"><Box size={240} /></div>
                             <div className={cn(
-                                "grid grid-cols-2 md:grid-cols-3 gap-8 relative z-10",
+                                "grid grid-cols-2 md:grid-cols-3 gap-6 relative z-10",
                                 searchType === 'TRIP' ? "lg:grid-cols-8" : "lg:grid-cols-6"
                             )}>
                                 {displayFields.map((item, i) => (
                                     <div key={i} className="space-y-1">
-                                        <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest leading-none flex items-center gap-1.5">
-                                            {item.icon && <item.icon size={10} />} {item.label}
+                                        <span className="text-[7px] font-black uppercase text-slate-500 tracking-widest leading-none flex items-center gap-1.5">
+                                            {item.icon && <item.icon size={8} />} {item.label}
                                         </span>
                                         <p className={cn(
-                                            "text-[10px] font-bold uppercase leading-tight", 
-                                            item.bold && "font-black text-[11px]", 
+                                            "text-[9px] font-bold uppercase leading-tight", 
+                                            item.bold && "font-black text-[10px]", 
                                             item.mono && "font-mono tracking-tighter",
                                             item.color || "text-white"
                                         )}>
@@ -386,24 +378,24 @@ function TrackConsignmentContent() {
 
                         {searchType === 'SO' && !activeTrip && linkedTrips.length > 1 && (
                             <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden animate-in zoom-in-95 duration-500">
-                                <div className="p-8 bg-slate-50 border-b flex items-center gap-4">
-                                    <div className="p-2 bg-blue-900 text-white rounded-lg shadow-md"><ListTree size={16}/></div>
-                                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">Consolidated Mission Registry</h3>
+                                <div className="p-6 bg-slate-50 border-b flex items-center gap-4">
+                                    <div className="p-2 bg-blue-900 text-white rounded-lg shadow-md"><ListTree size={14}/></div>
+                                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-700">Consolidated Mission Registry</h3>
                                 </div>
                                 <div className="overflow-x-auto">
                                     <Table>
                                         <TableHeader className="bg-slate-50/50">
-                                            <TableRow className="h-12 hover:bg-transparent border-b">
-                                                <TableHead className="text-[10px] font-black uppercase px-8">Sale Order</TableHead>
-                                                <TableHead className="text-[10px] font-black uppercase px-4">Trip ID Node</TableHead>
-                                                <TableHead className="text-[10px] font-black uppercase px-4 text-center">Assigned Date & Time</TableHead>
-                                                <TableHead className="text-[10px] font-black uppercase px-8 text-right">Assigned Quantity</TableHead>
+                                            <TableRow className="h-10 hover:bg-transparent border-b">
+                                                <TableHead className="text-[9px] font-black uppercase px-6">Sale Order</TableHead>
+                                                <TableHead className="text-[9px] font-black uppercase px-4">Trip ID Node</TableHead>
+                                                <TableHead className="text-[9px] font-black uppercase px-4 text-center">Assigned Date & Time</TableHead>
+                                                <TableHead className="text-[9px] font-black uppercase px-6 text-right">Assigned Quantity</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {linkedTrips.map((trip) => (
-                                                <TableRow key={trip.id} className="h-16 border-b last:border-0 group transition-all">
-                                                    <TableCell className="px-8 font-black text-slate-400 text-xs">{shipmentResult?.shipmentId}</TableCell>
+                                                <TableRow key={trip.id} className="h-14 border-b last:border-0 group transition-all">
+                                                    <TableCell className="px-6 font-black text-slate-400 text-xs">{shipmentResult?.shipmentId}</TableCell>
                                                     <TableCell className="px-4">
                                                         <button 
                                                             onClick={() => handleDirectTripClick(trip.tripId)}
@@ -412,8 +404,8 @@ function TrackConsignmentContent() {
                                                             {trip.tripId}
                                                         </button>
                                                     </TableCell>
-                                                    <TableCell className="px-4 text-center font-bold text-slate-500 uppercase text-[10px]">{trip.startDate ? format(trip.startDate, 'dd-MMM-yyyy HH:mm') : '--'}</TableCell>
-                                                    <TableCell className="px-8 text-right font-black text-blue-900">{trip.assignedQtyInTrip} MT</TableCell>
+                                                    <TableCell className="px-4 text-center font-bold text-slate-500 uppercase text-[9px]">{trip.startDate ? format(trip.startDate, 'dd-MMM-yyyy HH:mm') : '--'}</TableCell>
+                                                    <TableCell className="px-6 text-right font-black text-blue-900">{trip.assignedQtyInTrip} MT</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -423,33 +415,32 @@ function TrackConsignmentContent() {
                         )}
 
                         {searchType === 'SO' && linkedTrips.length <= 1 && (
-                            <div className="max-w-4xl mx-auto text-center space-y-10 animate-in fade-in duration-700">
-                                <div className="p-10 bg-blue-50 border-2 border-blue-100 rounded-[3rem] shadow-xl relative overflow-hidden group flex flex-col items-center">
+                            <div className="max-w-4xl mx-auto text-center space-y-8 animate-in fade-in duration-700">
+                                <div className="p-8 bg-blue-50 border-2 border-blue-100 rounded-[2.5rem] shadow-xl relative overflow-hidden group flex flex-col items-center">
                                     <div className="absolute top-0 left-0 w-2 h-full bg-blue-600" />
-                                    <p className="text-lg md:text-xl font-bold text-slate-700 leading-relaxed uppercase tracking-tight italic text-center">
+                                    <p className="text-md md:text-lg font-bold text-slate-700 leading-relaxed uppercase tracking-tight italic text-center">
                                         {linkedTrips.length === 0 ? (
                                             <>
                                                 Sale Order <span className="text-blue-900 font-black">{shipmentResult?.shipmentId}</span> is booked for dispatch on <span className="text-blue-600 font-black">{formattedOrderTime}</span>. 
-                                                Vehicle will be assigned shortly. Please wait. Once assigned, the Trip ID will be shared to track your shipment.
+                                                Vehicle will be assigned shortly.
                                             </>
                                         ) : (
                                             <>
-                                                Sale Order <span className="text-blue-900 font-black">{shipmentResult?.shipmentId}</span> has been assigned to a vehicle. 
-                                                You can track your shipment using Trip ID <button onClick={() => handleDirectTripClick(linkedTrips[0].tripId)} className="text-blue-700 font-black tracking-tighter hover:underline">{linkedTrips[0]?.tripId}</button>.
+                                                Sale Order <span className="text-blue-900 font-black">{shipmentResult?.shipmentId}</span> has been assigned. 
+                                                Track using Trip ID <button onClick={() => handleDirectTripClick(linkedTrips[0].tripId)} className="text-blue-700 font-black tracking-tighter hover:underline">{linkedTrips[0]?.tripId}</button>.
                                             </>
                                         )}
                                     </p>
 
                                     {shipmentResult?.delayRemark && (
-                                        <div className="mt-8 p-6 bg-amber-600 rounded-3xl text-white shadow-2xl animate-in zoom-in-95 duration-500 max-w-2xl border-4 border-amber-400">
-                                            <div className="flex items-center gap-3 mb-3 border-b border-white/20 pb-3">
-                                                <AlertTriangle size={24} className="animate-pulse" />
-                                                <h4 className="font-black uppercase tracking-widest text-sm">Official Delay Registry Node</h4>
+                                        <div className="mt-6 p-4 bg-amber-600 rounded-2xl text-white shadow-xl animate-in zoom-in-95 duration-500 max-w-2xl border-2 border-amber-400">
+                                            <div className="flex items-center gap-2 mb-2 border-b border-white/20 pb-2">
+                                                <AlertTriangle size={16} className="animate-pulse" />
+                                                <h4 className="font-black uppercase tracking-widest text-[10px]">Official Delay Registry Node</h4>
                                             </div>
-                                            <p className="text-sm font-black italic tracking-tight leading-relaxed">
+                                            <p className="text-[11px] font-black italic tracking-tight leading-relaxed">
                                                 "{shipmentResult.delayRemark}"
                                             </p>
-                                            <p className="text-[9px] font-bold uppercase opacity-60 mt-4 text-right">COMMITTED BY LIFTING PLANT REGISTRY</p>
                                         </div>
                                     )}
                                 </div>
@@ -457,8 +448,8 @@ function TrackConsignmentContent() {
                         )}
 
                         {searchType === 'TRIP' && activeTrip && (
-                            <div className="relative p-12 md:p-20 bg-white border border-slate-100 rounded-[4rem] shadow-2xl overflow-hidden min-h-[450px] flex flex-col justify-center">
-                                <div className="absolute top-1/2 left-24 right-24 h-2 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden shadow-inner">
+                            <div className="relative p-10 md:p-14 bg-white border border-slate-100 rounded-[3rem] shadow-2xl overflow-hidden min-h-[350px] flex flex-col justify-center">
+                                <div className="absolute top-1/2 left-16 right-16 h-1.5 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden shadow-inner">
                                     <motion.div 
                                         className={cn("h-full transition-colors duration-700", (activeTrip.isRejected && isReversed) ? "bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]" : "bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.5)]")}
                                         initial={{ width: 0 }}
@@ -476,20 +467,20 @@ function TrackConsignmentContent() {
                                         const label = (isFinal && activeTrip.isRejected) ? 'MISSION REJECTED' : stage.label;
                                         
                                         return (
-                                            <div key={i} className="flex flex-col items-center gap-6 md:gap-10 relative z-10 w-48">
+                                            <div key={i} className="flex flex-col items-center gap-4 md:gap-6 relative z-10 w-40">
                                                 <motion.div 
-                                                    animate={active ? { scale: isTarget ? [1, 1.2, 1.1] : 1, boxShadow: isTarget ? "0 20px 40px rgba(0,0,0,0.15)" : "none" } : {}}
-                                                    className={cn("h-16 w-16 md:h-24 md:w-24 rounded-[2rem] md:rounded-[2.5rem] flex items-center justify-center transition-all duration-700 border-4", active ? `${activeColor} text-white` : "bg-white border-slate-100 text-slate-200")}
+                                                    animate={active ? { scale: isTarget ? [1, 1.2, 1.1] : 1, boxShadow: isTarget ? "0 15px 30px rgba(0,0,0,0.15)" : "none" } : {}}
+                                                    className={cn("h-12 w-12 md:h-20 md:w-20 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center transition-all duration-700 border-2 md:border-4", active ? `${activeColor} text-white` : "bg-white border-slate-100 text-slate-200")}
                                                 >
                                                     {isTarget ? (
                                                         <motion.div animate={{ x: isReversed ? [-2, 2, -2] : [2, -2, 2], scaleX: isReversed ? -1 : 1 }} transition={{ repeat: Infinity, duration: 0.6 }}>
-                                                            {(isFinal && activeTrip.isRejected) ? <XCircle size={32} /> : <Truck size={40} />}
+                                                            {(isFinal && activeTrip.isRejected) ? <XCircle size={24} className="md:h-8 md:w-8" /> : <Truck size={24} className="md:h-8 md:w-8" />}
                                                         </motion.div>
                                                     ) : (
-                                                        (isFinal && activeTrip.isRejected) ? <XCircle size={28} className="opacity-20" /> : <stage.icon size={28} className={cn(isReversed && i < animIndex && "scale-x-[-1] opacity-50")} />
+                                                        (isFinal && activeTrip.isRejected) ? <XCircle size={20} className="md:h-6 md:w-6 opacity-20" /> : <stage.icon size={20} className={cn("md:h-6 md:w-6", isReversed && i < animIndex && "scale-x-[-1] opacity-50")} />
                                                     )}
                                                 </motion.div>
-                                                <p className={cn("text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-colors duration-500", active ? ((activeTrip.isRejected && isReversed) ? "text-red-700" : "text-blue-900") : "text-slate-200")}>{label}</p>
+                                                <p className={cn("text-[7px] md:text-[9px] font-black uppercase tracking-widest transition-colors duration-500", active ? ((activeTrip.isRejected && isReversed) ? "text-red-700" : "text-blue-900") : "text-slate-200")}>{label}</p>
                                             </div>
                                         );
                                     })}
