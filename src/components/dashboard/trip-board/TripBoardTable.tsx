@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -258,7 +257,10 @@ function MissionRegistryCard({
                     <p className="text-xs font-black text-blue-700 uppercase tracking-tighter">
                         {isPending ? `SO: ${row.shipmentId || 'N/A'}` : `#${row.tripId || 'N/A'}`}
                     </p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase">{formattedDate}</p>
+                    {/* MISSION FIX: Displays Sales Order Number below Trip ID per requirement */}
+                    <p className="text-[9px] font-bold text-slate-400 uppercase">
+                        {isPending ? formattedDate : (row.orderNo || '--')}
+                    </p>
                 </div>
                 
                 <div className={cn("space-y-1 pr-4", showLrAndInvoices ? "col-span-3" : (isPending ? "col-span-4" : "col-span-4"))}>
