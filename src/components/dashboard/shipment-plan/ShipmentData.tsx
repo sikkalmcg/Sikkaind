@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -73,7 +72,7 @@ const getStatusColor = (status: string) => {
         case 'pending': return 'bg-yellow-500/10 text-yellow-700 border-yellow-200';
         case 'partly vehicle assigned': return 'bg-orange-500/10 text-orange-700 border-orange-200';
         case 'assigned': 
-        case 'vehicle assigned': return 'bg-blue-500/10 text-blue-700 border-blue-200';
+        case 'vehicle assigned': return 'bg-blue-50/10 text-blue-700 border-blue-200';
         case 'in-transit': return 'bg-indigo-500/10 text-indigo-700 border-indigo-200';
         case 'arrival-for-delivery': return 'bg-purple-500/10 text-purple-700 border-purple-200';
         case 'delivered': return 'bg-green-500/10 text-green-700 border-green-200';
@@ -318,7 +317,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
 
         // Registry Deep Handshake Node: Ensure GSTINs are resolved from Master Party Registry if missing
         const resolveGtin = (name: string, code: string, current: string) => {
-            if (current && current !== 'N/A') return current;
+            if (current && current !== 'N/A' && current !== '') return current;
             const match = (parties || []).find(p => 
                 (code && p.customerCode?.toUpperCase() === code.toUpperCase()) || 
                 (p.name?.toUpperCase() === name?.toUpperCase())
@@ -386,7 +385,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 buyerName: lrDoc.buyerName || row.billToParty || '',
                 buyerAddress: lrDoc.buyerAddress || row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
                 buyerGtin: lrDoc.buyerGtin || buyerGtin,
-                buyerCode: lrDoc.buyerCode || row.billToCode || '',
                 shipToParty: lrDoc.shipToParty || row.shipToParty || row.billToParty || '',
                 shipToGtin: lrDoc.shipToGtin || shipToGtin,
                 shipToCode: lrDoc.shipToCode || row.shipToCode || '',

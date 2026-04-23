@@ -488,18 +488,18 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         originPlantId: uiPlantId,
                         shipmentId: salesOrderNo.toUpperCase(),
                         consignor: cName || matchedConsignor?.name || '',
-                        consignorGtin: getVal(row, ["Consignor GSTIN", "Consignor Gst"]) || matchedConsignor?.gstin || '',
-                        consignorAddress: getVal(row, ["Consignor Address", "Consignor Site"]) || matchedConsignor?.address || '',
+                        consignorGtin: matchedConsignor?.gstin || getVal(row, ["Consignor GSTIN", "Consignor Gst"]) || '',
+                        consignorAddress: matchedConsignor?.address || getVal(row, ["Consignor Address", "Consignor Site"]) || '',
                         customerCode: cCode || matchedConsignor?.customerCode || '',
-                        loadingPoint: getVal(row, ["From", "From (City)"]) || matchedConsignor?.city || '',
+                        loadingPoint: matchedConsignor?.city || getVal(row, ["From", "From (City)"]) || '',
                         billToParty: bName || matchedConsignee?.name || '',
-                        billToGtin: getVal(row, ["Consignee Gst", "Bill To Gst"]) || matchedConsignee?.gstin || '',
+                        billToGtin: matchedConsignee?.gstin || getVal(row, ["Consignee Gst", "Bill To Gst"]) || '',
                         billToCode: bCode || matchedConsignee?.customerCode || '',
                         shipToParty: sName || matchedShipTo?.name || bName || matchedConsignee?.name || '',
-                        shipToGtin: getVal(row, ["Ship To Gst"]) || matchedShipTo?.gstin || matchedConsignee?.gstin || '',
+                        shipToGtin: matchedShipTo?.gstin || matchedConsignee?.gstin || getVal(row, ["Ship To Gst"]) || '',
                         shipToCode: sCode || matchedShipTo?.customerCode || bCode || matchedConsignee?.customerCode || '',
-                        unloadingPoint: getVal(row, ["Destination Point", "To"]) || matchedShipTo?.city || matchedConsignee?.city || '',
-                        deliveryAddress: getVal(row, ["Delivery Address", "Address"]) || matchedShipTo?.address || matchedConsignee?.address || '',
+                        unloadingPoint: matchedShipTo?.city || matchedConsignee?.city || getVal(row, ["Destination Point", "To"]) || '',
+                        deliveryAddress: matchedShipTo?.address || matchedConsignee?.address || getVal(row, ["Delivery Address", "Address"]) || '',
                         materialTypeId: 'MT',
                         quantity: 0,
                         lrNumber: getVal(row, ["LR Number", "LR No"]),
@@ -734,7 +734,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                           <div className="overflow-x-auto">
                               <Table className="min-w-[1200px]">
                                 <TableHeader className="bg-slate-900">
-                                    <TableRow className="hover:bg-transparent border-none h-14">
+                                    <TableRow className="hover:bg-transparent border-none h-12">
                                         <TableHead className="text-white text-[10px] font-black uppercase px-8 w-48">Invoice</TableHead>
                                         <TableHead className="text-white text-[10px] font-black uppercase px-4 w-48">E-Waybill No.</TableHead>
                                         <TableHead className="text-white text-[10px] font-black uppercase px-4">Item description</TableHead>
