@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo } from 'react';
@@ -64,7 +63,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 // Mission Logic: Pick unique name if only 1 desc exists, else use Various
                 itemDescription: uniqueDescs.length === 1 ? uniqueDescs[0] : `VARIOUS ITEMS AS PER INVOICE`,
                 units: totalUnits,
-                weight: 0 // Displayed in footer or separately
+                weight: 0 
             });
         } else {
             // 4. Show individually if 2 or fewer items
@@ -195,12 +194,12 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       <div className="flex-1 flex flex-col mb-10 min-h-0">
         <div className="border-2 border-black rounded-[1.5rem] overflow-hidden flex flex-col shadow-lg bg-white">
             <table className="w-full border-collapse table-fixed">
-            <thead className="bg-[#0a0c10] text-white text-[8pt] font-black uppercase tracking-[0.1em]">
+            <thead className="bg-white text-black border-b-2 border-black text-[8pt] font-black uppercase tracking-[0.1em]">
                 <tr className="h-12">
-                <th className="border-r border-white/10 px-2 text-center w-28 leading-tight">Invoice No.</th>
-                <th className="border-r border-white/10 px-2 text-center w-32 leading-tight">E-Waybill No.</th>
-                <th className="border-r border-white/10 px-4 text-center leading-tight">DESCRIPTION OF GOODS</th>
-                <th className="border-r border-white/10 px-1 text-center w-20 leading-tight">NO. OF PKGS</th>
+                <th className="border-r-2 border-black/10 px-2 text-center w-28 leading-tight">Invoice No.</th>
+                <th className="border-r-2 border-black/10 px-2 text-center w-32 leading-tight">E-Waybill No.</th>
+                <th className="border-r-2 border-black/10 px-4 text-center leading-tight">DESCRIPTION OF GOODS</th>
+                <th className="border-r-2 border-black/10 px-1 text-center w-20 leading-tight">NO. OF PKGS</th>
                 <th className="px-4 text-center w-32 leading-tight">WEIGHT (MT)</th>
                 </tr>
             </thead>
@@ -215,11 +214,11 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 </tr>
                 ))}
             </tbody>
-            <tfoot className="bg-[#1a1d24] font-black h-12 border-t-2 border-black text-[10pt] text-white">
+            <tfoot className="bg-slate-50 font-black h-12 border-t-2 border-black text-[10pt] text-black">
                 <tr>
-                <td colSpan={3} className="px-8 uppercase border-r border-white/10 tracking-[0.8em]">MANIFEST TOTALS:</td>
-                <td className="border-r border-white/10 text-center font-black">{totalUnitsFinal}</td>
-                <td className="text-center px-4 font-black text-slate-400 tracking-tighter text-[13pt]">{totalWeightFinal.toFixed(3)} MT</td>
+                <td colSpan={3} className="px-8 uppercase border-r-2 border-black/10 tracking-[0.8em]">MANIFEST TOTALS:</td>
+                <td className="border-r-2 border-black/10 text-center font-black">{totalUnitsFinal}</td>
+                <td className="text-center px-4 font-black text-slate-900 tracking-tighter text-[13pt]">{totalWeightFinal.toFixed(3)} MT</td>
                 </tr>
             </tfoot>
             </table>
