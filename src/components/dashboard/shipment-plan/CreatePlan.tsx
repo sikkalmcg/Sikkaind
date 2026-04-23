@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -479,7 +480,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     const sName = getVal(row, ["Ship To Name", "Ship To"]);
                     const sCode = getVal(row, ["Ship To Code", "Ship To ID"])?.toUpperCase();
 
-                    // Registry Resolve: Try matching by code then by name
+                    // Registry Resolve Node: Strictly use Codes to fetch GSTIN/Address from HANDBOOK
                     const matchedConsignor = partyRegistryMap.get(cCode) || partyRegistryMap.get(cName?.toUpperCase());
                     const matchedConsignee = partyRegistryMap.get(bCode) || partyRegistryMap.get(bName?.toUpperCase());
                     const matchedShipTo = partyRegistryMap.get(sCode) || partyRegistryMap.get(sName?.toUpperCase());
@@ -487,19 +488,19 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     orderGroups[groupKey] = {
                         originPlantId: uiPlantId,
                         shipmentId: salesOrderNo.toUpperCase(),
-                        consignor: cName || matchedConsignor?.name || '',
-                        consignorGtin: matchedConsignor?.gstin || getVal(row, ["Consignor GSTIN", "Consignor Gst"]) || '',
-                        consignorAddress: matchedConsignor?.address || getVal(row, ["Consignor Address", "Consignor Site"]) || '',
-                        customerCode: cCode || matchedConsignor?.customerCode || '',
-                        loadingPoint: matchedConsignor?.city || getVal(row, ["From", "From (City)"]) || '',
-                        billToParty: bName || matchedConsignee?.name || '',
-                        billToGtin: matchedConsignee?.gstin || getVal(row, ["Consignee Gst", "Bill To Gst"]) || '',
+                        consignor: matchedConsignor?.name || cName || '',
+                        consignorGtin: matchedConsignor?.gstin || '',
+                        consignorAddress: matchedConsignor?.address || '',
+                        consignorCode: cCode || matchedConsignor?.customerCode || '',
+                        loadingPoint: (matchedConsignor?.city || getVal(row, ["From", "From (City)"]) || '').toUpperCase(),
+                        billToParty: matchedConsignee?.name || bName || '',
+                        billToGtin: matchedConsignee?.gstin || '',
                         billToCode: bCode || matchedConsignee?.customerCode || '',
-                        shipToParty: sName || matchedShipTo?.name || bName || matchedConsignee?.name || '',
-                        shipToGtin: matchedShipTo?.gstin || matchedConsignee?.gstin || getVal(row, ["Ship To Gst"]) || '',
+                        shipToParty: matchedShipTo?.name || sName || matchedConsignee?.name || bName || '',
+                        shipToGtin: matchedShipTo?.gstin || matchedConsignee?.gstin || '',
                         shipToCode: sCode || matchedShipTo?.customerCode || bCode || matchedConsignee?.customerCode || '',
-                        unloadingPoint: matchedShipTo?.city || matchedConsignee?.city || getVal(row, ["Destination Point", "To"]) || '',
-                        deliveryAddress: matchedShipTo?.address || matchedConsignee?.address || getVal(row, ["Delivery Address", "Address"]) || '',
+                        unloadingPoint: (matchedShipTo?.city || matchedConsignee?.city || getVal(row, ["Destination Point", "To"]) || '').toUpperCase(),
+                        deliveryAddress: matchedShipTo?.address || matchedConsignee?.address || '',
                         materialTypeId: 'MT',
                         quantity: 0,
                         lrNumber: getVal(row, ["LR Number", "LR No"]),
