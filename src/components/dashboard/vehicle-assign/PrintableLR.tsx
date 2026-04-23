@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo } from 'react';
@@ -5,6 +6,7 @@ import { format, isValid } from 'date-fns';
 import { cn, parseSafeDate } from '@/lib/utils';
 import type { LR, Trip, Shipment, Carrier, Plant } from '@/types';
 import { Timestamp } from 'firebase/firestore';
+import { ShieldCheck } from 'lucide-react';
 
 export type EnrichedLR = LR & {
   trip: Trip;
@@ -224,7 +226,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-12 mb-8 shrink-0 px-4 mt-auto border-t-2 border-slate-100 pt-8">
+      <div className="grid grid-cols-2 gap-12 mb-4 shrink-0 px-4 mt-auto border-t-2 border-slate-100 pt-8">
         <div className="space-y-4">
             <span className="text-[9pt] font-bold uppercase text-slate-900 border-b border-black inline-block pb-1 tracking-widest italic">TERMS & CONDITIONS</span>
             <div className="space-y-1.5 pt-1">
@@ -239,6 +241,22 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <div className="w-full border-t-2 border-black border-dashed mb-3 opacity-40" />
             <span className="text-[12pt] font-black uppercase tracking-[0.4em] text-slate-900 italic leading-none">AUTHORIZED SIGNATURE</span>
         </div>
+      </div>
+
+      {/* FOOTER NOTE & PAGING NODE */}
+      <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col items-center gap-2 shrink-0">
+          <p className="text-[7.5pt] font-black text-slate-400 uppercase tracking-tighter text-center max-w-[500px]">
+              Note: This Lorry Receipt was generated digitally and is to be considered as original
+          </p>
+          <div className="flex flex-col items-center gap-1">
+              <span className="text-[9pt] font-black text-slate-900 tracking-widest">
+                  PAGE {pageNumber} OF {totalInSeries}
+              </span>
+              <div className="flex items-center gap-2 opacity-30 grayscale mt-1">
+                  <ShieldCheck className="h-3 w-3 text-slate-400" />
+                  <span className="text-[6.5pt] font-black uppercase tracking-[0.4em] text-slate-500">VERIFIED SIKKA LMC REGISTRY DOCUMENT</span>
+              </div>
+          </div>
       </div>
     </div>
   );
