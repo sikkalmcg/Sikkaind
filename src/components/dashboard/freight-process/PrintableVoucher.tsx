@@ -234,8 +234,6 @@ export default function PrintableVoucher({ trip }: { trip: any }) {
             {/* FOOTER NODE */}
             <div className="mt-8 pt-4 border-t border-slate-200 flex flex-col items-center gap-1.5 shrink-0">
                 <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
-                    <span className="text-[7.5pt] font-black uppercase tracking-[0.5em] text-slate-500">VERIFIED SIKKA LMC REGISTRY DOCUMENT</span>
                 </div>
             </div>
         </div>

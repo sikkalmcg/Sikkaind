@@ -252,8 +252,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                   PAGE {pageNumber} OF {totalInSeries}
               </span>
               <div className="flex items-center gap-2 opacity-30 grayscale mt-1">
-                  <ShieldCheck className="h-3 w-3 text-slate-400" />
-                  <span className="text-[6.5pt] font-black uppercase tracking-[0.4em] text-slate-500">VERIFIED SIKKA LMC REGISTRY DOCUMENT</span>
               </div>
           </div>
       </div>
