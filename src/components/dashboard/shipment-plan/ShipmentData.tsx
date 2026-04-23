@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { FileDown, Search, Ban, Edit2, FileText, PlusCircle, Trash2, CheckCircle2, X } from 'lucide-react';
 import { format } from 'date-fns';
-import type { Shipment, Plant, Trip, WithId, Carrier, LR } from '@/types';
+import type { Shipment, Plant, Trip, WithId, Carrier, LR, Party } from '@/types';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc, limit } from 'firebase/firestore';
 import DeleteShipmentConfirmationDialog from './DeleteShipmentConfirmationDialog';
@@ -116,6 +116,12 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
   );
   const { data: allCarriers } = useCollection<Carrier>(allCarriersQuery);
 
+  const partiesQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, "logistics_parties")) : null, 
+    [firestore]
+  );
+  const { data: parties } = useCollection<Party>(partiesQuery);
+
   useEffect(() => {
     if (!firestore) return;
     setLoading(true);
@@ -135,7 +141,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         const carrier = (allCarriers || []).find(c => c.id === trip?.carrierId || c.id === shipment.carrierId);
 
         const itemsManifest = shipment.items || [];
-        const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
+        const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
         
         const uniqueDescs = Array.from(new Set(itemsManifest.map(i => (i.itemDescription || i.description || '').toUpperCase().trim()).filter(Boolean)));
         const summarizedItems = uniqueDescs.length > 2 
@@ -143,6 +149,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             : (uniqueDescs.join(', ') || shipment.itemDescription || shipment.material || '--');
 
         const totalUnitsCount = itemsManifest.reduce((sum, i) => sum + (Number(i.units) || 0), 0) || shipment.totalUnits || 0;
+
         const resolvedLrDate = parseSafeDate(trip?.lrDate || shipment.lrDate);
 
         return {
@@ -309,6 +316,20 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
 
         const shipmentObj = row as any;
 
+        // Registry Deep Handshake Node: Ensure GSTINs are resolved from Master Party Registry if missing
+        const resolveGtin = (name: string, code: string, current: string) => {
+            if (current && current !== 'N/A') return current;
+            const match = (parties || []).find(p => 
+                (code && p.customerCode?.toUpperCase() === code.toUpperCase()) || 
+                (p.name?.toUpperCase() === name?.toUpperCase())
+            );
+            return match?.gstin || '';
+        };
+
+        const consignorGtin = resolveGtin(row.consignor, row.customerCode || '', row.consignorGtin || '');
+        const buyerGtin = resolveGtin(row.billToParty, row.billToCode || '', row.billToGtin || '');
+        const shipToGtin = resolveGtin(row.shipToParty || '', row.shipToCode || '', row.shipToGtin || '');
+
         const manifestItems = row.items && row.items.length > 0 ? row.items : [{
             invoiceNumber: row.summarizedInvoices || 'NA',
             ewaybillNumber: row.ewaybillNumber || '',
@@ -332,15 +353,15 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 from: row.loadingPoint || row.plantName || '',
                 to: row.unloadingPoint || '',
                 consignorName: row.consignor || '',
-                consignorGtin: row.consignorGtin || '',
+                consignorGtin: consignorGtin,
                 consignorAddress: row.consignorAddress || '',
                 consignorCode: row.customerCode || '',
                 buyerName: row.billToParty || '',
                 buyerAddress: row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
-                buyerGtin: row.billToGtin || '',
+                buyerGtin: buyerGtin,
                 buyerCode: row.billToCode || '',
                 shipToParty: row.shipToParty || row.billToParty || '',
-                shipToGtin: row.shipToGtin || '',
+                shipToGtin: shipToGtin,
                 shipToCode: row.shipToCode || '',
                 deliveryAddress: row.deliveryAddress || row.unloadingPoint || '',
                 vehicleNumber: row.vehicleNumber || '--',
@@ -361,13 +382,13 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 plant: row.plant || { id: row.originPlantId, name: row.plantName },
                 consignorName: lrDoc.consignorName || row.consignor || '',
                 consignorAddress: lrDoc.consignorAddress || row.consignorAddress || '',
-                consignorGtin: lrDoc.consignorGtin || row.consignorGtin || shipmentObj.consignorGtin || '',
+                consignorGtin: lrDoc.consignorGtin || consignorGtin,
                 buyerName: lrDoc.buyerName || row.billToParty || '',
                 buyerAddress: lrDoc.buyerAddress || row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
-                buyerGtin: lrDoc.buyerGtin || row.billToGtin || shipmentObj.billToGtin || '',
+                buyerGtin: lrDoc.buyerGtin || buyerGtin,
                 buyerCode: lrDoc.buyerCode || row.billToCode || '',
                 shipToParty: lrDoc.shipToParty || row.shipToParty || row.billToParty || '',
-                shipToGtin: lrDoc.shipToGtin || row.shipToGtin || shipmentObj.shipToGtin || '',
+                shipToGtin: lrDoc.shipToGtin || shipToGtin,
                 shipToCode: lrDoc.shipToCode || row.shipToCode || '',
                 deliveryAddress: lrDoc.deliveryAddress || row.deliveryAddress || row.unloadingPoint || '',
                 vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
@@ -469,10 +490,10 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                     <TableBody>
                     {loading ? (
                         Array.from({ length: 5 }).map((_, i) => (
-                        <TableRow key={i} className="h-12 md:h-14"><TableCell colSpan={isAdmin ? 12 : 11} className="px-6 py-2"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                        <TableRow key={i} className="h-12 md:h-14"><TableCell colSpan={isAdmin ? 13 : 12} className="px-6 py-2"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                         ))
                     ) : paginatedShipments.length === 0 ? (
-                        <TableRow><TableCell colSpan={isAdmin ? 12 : 11} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={isAdmin ? 13 : 12} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
                     ) : (
                         paginatedShipments.map(s => {
                         const isChecked = selectedIds.includes(s.id);

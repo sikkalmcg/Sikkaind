@@ -48,7 +48,7 @@ import {
 } from 'lucide-react';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
 import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDocs, limit } from "firebase/firestore";
-import { cn, normalizePlantId, generateRandomTripId } from '@/lib/utils';
+import { cn, normalizePlantId, generateRandomTripId, parseSafeDate } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import { PaymentTerms, LRUnitTypes } from '@/lib/constants';
 
@@ -180,7 +180,7 @@ function SearchRegistryModal({
                         <Input 
                             placeholder="Search by Name, Code, or City..." 
                             value={search} 
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => setSearch(e.target.value)}
                             className="pl-10 h-12 rounded-xl bg-slate-50 border-slate-200 font-bold shadow-inner"
                             autoFocus
                         />
@@ -397,14 +397,14 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
   const handleExportTemplate = () => {
     const headers = [
-        "Plant ID", "SALES ORDER NO", "Consignor Name", "Consignor GSTIN", "From (City)", "Consignee Name", "Consignee GSTIN", "Ship To Name", "Ship To GSTIN", 
+        "Plant ID", "SALES ORDER NO", "Consignor Name", "Consignor Code", "Consignor GSTIN", "From (City)", "Consignee Name", "Consignee Code", "Consignee GSTIN", "Ship To Name", "Ship To Code", "Ship To GSTIN", 
         "Destination Point", "Quantity (MT)", "Invoice Number", "E-Waybill Number", "LR Number", "LR Date", "Payment Term", "Delivery Address", "Item Description", "Units", "Unit Type", 
         "Vehicle Number", "Pilot Name", "Pilot Mobile", "Transporter Name", "Carrier Name"
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Order Plan Template");
-    XLSX.writeFile(wb, "Order_Plan_Bulk_Template.xlsx");
+    XLSX.writeFile(workbook, "Order_Plan_Bulk_Template.xlsx");
   };
 
   const excelDateToJSDate = (serial: number) => {
@@ -453,6 +453,15 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 return isValid(d) ? d : null;
             };
 
+            // MISSION REGISTRY PRE-FETCH node: Load all parties to auto-resolve codes
+            const partiesSnap = await getDocs(collection(firestore, "logistics_parties"));
+            const partyRegistryMap = new Map();
+            partiesSnap.forEach(d => {
+                const p = d.data();
+                if (p.customerCode) partyRegistryMap.set(String(p.customerCode).toUpperCase().trim(), p);
+                if (p.name) partyRegistryMap.set(String(p.name).toUpperCase().trim(), p);
+            });
+
             const orderGroups: Record<string, any> = {};
             const normUiPlantId = normalizePlantId(uiPlantId);
             const currentOperator = operatorProfile?.fullName || operatorProfile?.username || user.displayName || user.email?.split('@')[0] || 'System';
@@ -464,24 +473,39 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 const groupKey = `${normUiPlantId}_${salesOrderNo}`;
                 
                 if (!orderGroups[groupKey]) {
+                    const cName = getVal(row, ["Consignor Name", "Consignor"]);
+                    const cCode = getVal(row, ["Consignor Code", "Consignor ID"])?.toUpperCase();
+                    const bName = getVal(row, ["Consignee Name", "Consignee", "Bill To Name"]);
+                    const bCode = getVal(row, ["Consignee Code", "Bill To Code"])?.toUpperCase();
+                    const sName = getVal(row, ["Ship To Name", "Ship To"]);
+                    const sCode = getVal(row, ["Ship To Code", "Ship To ID"])?.toUpperCase();
+
+                    // Registry Resolve: Try matching by code then by name
+                    const matchedConsignor = partyRegistryMap.get(cCode) || partyRegistryMap.get(cName?.toUpperCase());
+                    const matchedConsignee = partyRegistryMap.get(bCode) || partyRegistryMap.get(bName?.toUpperCase());
+                    const matchedShipTo = partyRegistryMap.get(sCode) || partyRegistryMap.get(sName?.toUpperCase());
+
                     orderGroups[groupKey] = {
                         originPlantId: uiPlantId,
                         shipmentId: salesOrderNo.toUpperCase(),
-                        consignor: getVal(row, ["Consignor Name", "Consignor"]),
-                        consignorGtin: getVal(row, ["Consignor GSTIN", "Consignor Gst"]),
-                        consignorAddress: getVal(row, ["Consignor Address", "Consignor Site"]),
-                        loadingPoint: getVal(row, ["From", "From (City)"]),
-                        billToParty: getVal(row, ["Consignee Name", "Consignee"]),
-                        billToGtin: getVal(row, ["Consignee Gst"]),
-                        shipToParty: getVal(row, ["Ship To Name", "Ship To"]),
-                        shipToGtin: getVal(row, ["Ship To Gst"]),
-                        unloadingPoint: getVal(row, ["Destination Point", "To"]),
+                        consignor: cName || matchedConsignor?.name || '',
+                        consignorGtin: getVal(row, ["Consignor GSTIN", "Consignor Gst"]) || matchedConsignor?.gstin || '',
+                        consignorAddress: getVal(row, ["Consignor Address", "Consignor Site"]) || matchedConsignor?.address || '',
+                        customerCode: cCode || matchedConsignor?.customerCode || '',
+                        loadingPoint: getVal(row, ["From", "From (City)"]) || matchedConsignor?.city || '',
+                        billToParty: bName || matchedConsignee?.name || '',
+                        billToGtin: getVal(row, ["Consignee Gst", "Bill To Gst"]) || matchedConsignee?.gstin || '',
+                        billToCode: bCode || matchedConsignee?.customerCode || '',
+                        shipToParty: sName || matchedShipTo?.name || bName || matchedConsignee?.name || '',
+                        shipToGtin: getVal(row, ["Ship To Gst"]) || matchedShipTo?.gstin || matchedConsignee?.gstin || '',
+                        shipToCode: sCode || matchedShipTo?.customerCode || bCode || matchedConsignee?.customerCode || '',
+                        unloadingPoint: getVal(row, ["Destination Point", "To"]) || matchedShipTo?.city || matchedConsignee?.city || '',
+                        deliveryAddress: getVal(row, ["Delivery Address", "Address"]) || matchedShipTo?.address || matchedConsignee?.address || '',
                         materialTypeId: 'MT',
                         quantity: 0,
                         lrNumber: getVal(row, ["LR Number", "LR No"]),
                         lrDate: getDateVal(row, ["LR Date", "Date"]),
                         paymentTerm: getVal(row, ["Payment Term", "Term"]) || 'Paid',
-                        deliveryAddress: getVal(row, ["Delivery Address", "Address"]),
                         vehicleNumber: getVal(row, ["Vehicle Number", "Vehicle Registry"]),
                         driverName: getVal(row, ["Pilot Name", "Driver Name"]),
                         driverMobile: getVal(row, ["Pilot Mobile", "Mobile"]),
