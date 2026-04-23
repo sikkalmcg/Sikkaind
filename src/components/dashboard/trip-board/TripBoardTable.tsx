@@ -224,7 +224,6 @@ function MissionRegistryCard({
     const fromCity = (row.loadingPoint || row.from || row.plantName || '').split(',')[0].trim();
     const toCity = (row.unloadingPoint || row.destination || '').split(',')[0].trim();
 
-    // DELAY HANDSHAKE Node: Calculate age for alert trigger
     const creationTime = parseSafeDate(row.creationDate);
     const ageInHours = creationTime ? differenceInHours(new Date(), creationTime) : 0;
     const isDelayed = isPending && ageInHours >= 12;
@@ -286,12 +285,24 @@ function MissionRegistryCard({
                 <div className={cn("space-y-1", showLrAndInvoices ? "col-span-2" : (isPending ? "col-span-3" : "col-span-3"))}>
                     <div className="flex items-center gap-2">
                         <Factory className="h-3 w-3 text-slate-400 shrink-0" />
-                        <span className="text-[9px] font-black text-slate-500 uppercase truncate leading-tight">{row.plantName || row.originPlantId || 'N/A'}</span>
+                        <span className="text-[10px] font-black text-slate-900 uppercase tracking-tighter truncate leading-tight">
+                            {row.originPlantId || 'N/A'} <span className="text-slate-400 font-bold ml-1">{row.plantName}</span>
+                        </span>
                     </div>
-                    <div className="mt-1 flex items-center gap-2">
-                        <UserCircle className="h-3 w-3 text-slate-300 shrink-0" />
-                        <span className="text-[9px] font-bold text-slate-400 uppercase truncate">{row.carrier || row.transporterName || 'AWAITING ALLOCATION'}</span>
-                    </div>
+                    {!isPending ? (
+                        <div className="flex flex-col gap-0.5 mt-1 border-l-2 border-slate-100 pl-3">
+                            <span className="text-[9px] font-black text-blue-900 uppercase truncate" title={row.carrierName}>{row.carrierName || '--'}</span>
+                            <div className="flex items-center gap-1.5">
+                                <UserCircle className="h-2.5 w-2.5 text-slate-300 shrink-0" />
+                                <span className="text-[9px] font-bold text-slate-400 uppercase truncate" title={row.transporterName}>{row.transporterName || 'SELF REGISTRY'}</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="mt-1 flex items-center gap-2">
+                            <UserCircle className="h-3 w-3 text-slate-300 shrink-0" />
+                            <span className="text-[9px] font-bold text-slate-400 uppercase truncate">AWAITING ALLOCATION</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="col-span-2 flex flex-col justify-center">
@@ -403,7 +414,6 @@ function MissionRegistryCard({
                 </div>
             </div>
 
-            {/* DELAY REMARK NODE */}
             {row.delayRemark && (
                 <div className="px-5 py-2.5 bg-amber-50/50 border-b border-amber-100 flex items-center gap-3">
                     <MessageSquare size={12} className="text-amber-600 shrink-0" />
