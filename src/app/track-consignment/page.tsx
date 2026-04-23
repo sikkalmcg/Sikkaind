@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef } from 'react';
@@ -46,18 +45,16 @@ import {
 } from "@/components/ui/select";
 
 /**
- * @fileOverview Public Track Consignment Terminal v2.6.
- * Features: Mandatory Mode Selection (TRIP vs SO), Multi-Trip Scenario Handling.
- * Updated: Conditional Manifest Header (TRIP Mode vs SO Mode).
- * Refinement: Removed LR No. and Driver Name from header. Added Route.
+ * @fileOverview Public Track Consignment Terminal v2.7.
+ * Hardened: Robust status normalization and real-time animation pulse.
+ * Streamlined: Security Code (Captcha) node purged as per user request.
+ * Manifest: Dynamic header display based on TRIP vs SO mode.
  */
 
 function TrackConsignmentContent() {
     const firestore = useFirestore();
     const [searchType, setSearchType] = useState<'TRIP' | 'SO'>('TRIP');
     const [registryInput, setRegistryInput] = useState('');
-    const [captchaInput, setCaptchaInput] = useState('');
-    const [generatedCaptcha, setGeneratedCaptcha] = useState('');
     const [isSearching, setIsSearching] = useState(false);
     
     // Result States
@@ -78,16 +75,7 @@ function TrackConsignmentContent() {
         if (firestore) {
             setDbReady(true);
         }
-        refreshCaptcha();
     }, [firestore]);
-
-    const refreshCaptcha = () => {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let res = '';
-        for (let i = 0; i < 5; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
-        setGeneratedCaptcha(res);
-        setCaptchaInput('');
-    };
 
     const stages = [
         { id: 'assign', label: 'ASSIGN', icon: ClipboardList },
@@ -166,11 +154,6 @@ function TrackConsignmentContent() {
         const inputRaw = registryInput.trim();
         if (!inputRaw) {
             setError("Registry Node ID Required.");
-            return;
-        }
-        if (captchaInput.toUpperCase() !== generatedCaptcha) {
-            setError("Security Code Mismatch.");
-            refreshCaptcha();
             return;
         }
 
@@ -269,7 +252,6 @@ function TrackConsignmentContent() {
             setError("Registry Handshake Failure.");
         } finally {
             setIsSearching(false);
-            if (error) refreshCaptcha();
         }
     };
 
@@ -369,14 +351,6 @@ function TrackConsignmentContent() {
                                     />
                                 </div>
 
-                                <div className="space-y-3">
-                                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Security Code *</Label>
-                                    <div className="flex gap-4">
-                                        <div className="flex-1 h-16 bg-slate-900 rounded-2xl flex items-center justify-center font-black tracking-[0.6em] text-white text-2xl italic shadow-inner select-none">{generatedCaptcha}</div>
-                                        <Input value={captchaInput} onChange={e => setCaptchaInput(e.target.value)} className="w-40 h-16 rounded-2xl font-black text-center text-xl border-2 border-slate-200" />
-                                        <Button variant="ghost" size="icon" onClick={refreshCaptcha} className="h-16 w-16 rounded-2xl hover:bg-blue-50 text-blue-900"><RefreshCcw size={24} /></Button>
-                                    </div>
-                                </div>
                                 <Button onClick={handleTrack} disabled={isSearching || !dbReady} className="w-full h-16 rounded-2xl bg-blue-900 text-white font-black uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-95 border-none">
                                     {isSearching ? <Loader2 className="animate-spin mr-3" /> : <Search className="mr-3" />} RESOLVE MISSION
                                 </Button>
@@ -388,7 +362,7 @@ function TrackConsignmentContent() {
                 {/* SEARCH RESULTS NODE */}
                 {(shipmentResult || activeTrip) && (
                     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-10 duration-1000 pb-20">
-                        <button onClick={() => {setShipmentResult(null); setActiveTrip(null); setLinkedTrips([]); refreshCaptcha();}} className="font-black text-slate-400 hover:text-blue-900 uppercase text-[11px] tracking-widest gap-2 flex items-center">
+                        <button onClick={() => {setShipmentResult(null); setActiveTrip(null); setLinkedTrips([]);}} className="font-black text-slate-400 hover:text-blue-900 uppercase text-[11px] tracking-widest gap-2 flex items-center">
                             <ArrowLeft size={16}/> Back to Registry Search
                         </button>
                         
