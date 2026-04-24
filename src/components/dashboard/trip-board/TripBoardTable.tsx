@@ -62,7 +62,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { fetchWheelseyeLocation } from '@/app/actions/wheelseye';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, doc } from 'firebase/firestore';
 
 interface TripBoardTableProps {
   data: any[];
@@ -213,7 +213,8 @@ function MissionRegistryCard({
     isSelected,
     onSelect,
     allCarriers,
-    parties
+    parties,
+    firestore
 }: { 
     row: any, 
     activeTab: string, 
@@ -223,7 +224,8 @@ function MissionRegistryCard({
     isSelected?: boolean,
     onSelect?: (checked: boolean) => void,
     allCarriers: Carrier[],
-    parties: Party[]
+    parties: Party[],
+    firestore: any
 }) {
     const isPending = activeTab === 'pending-assignment';
     const showLrAndInvoices = ['loading', 'transit', 'arrived', 'pod-status', 'rejection', 'closed'].includes(activeTab);
@@ -260,7 +262,6 @@ function MissionRegistryCard({
 
     const handleLRViewClick = async () => {
         if (!row.lrNumber) return;
-        const firestore = doc(collection(row.plant?.firestore || row.shipmentObj?.firestore || {} as any)).firestore;
         if (!firestore) {
             onAction('view-lr', row);
             return;
@@ -325,7 +326,7 @@ function MissionRegistryCard({
             weight: row.dispatchedQty || row.assignedQtyInTrip || row.quantity
         }];
 
-        let enrichedLR: EnrichedLR;
+        let enrichedLR: any;
         if (snap.empty) {
             enrichedLR = {
                 lrNumber: row.lrNumber,
@@ -358,7 +359,7 @@ function MissionRegistryCard({
                 id: row.id
             } as any;
         } else {
-            const lrDoc = snap.docs[0].data() as LR;
+            const lrDoc = snap.docs[0].data() as any;
             enrichedLR = {
                 ...lrDoc,
                 id: snap.docs[0].id,
@@ -696,9 +697,9 @@ export default function TripBoardTable({
 }: TripBoardTableProps) {
   const firestore = useFirestore();
   const allCarriersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "carriers")) : null, [firestore]);
-  const { data: allCarriers } = useCollection<Carrier>(allCarriersQuery);
+  const { data: allCarriers } = useCollection<any>(allCarriersQuery);
   const partiesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_parties"), where("isDeleted", "==", false)) : null, [firestore]);
-  const { data: parties } = useCollection<Party>(partiesQuery);
+  const { data: parties } = useCollection<any>(partiesQuery);
 
   return (
     <div className="flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-700">
@@ -726,6 +727,7 @@ export default function TripBoardTable({
                             onSelect={(checked) => onSelectRow?.(row.id, checked)}
                             allCarriers={allCarriers || []}
                             parties={parties || []}
+                            firestore={firestore}
                         />
                     ))}
                 </div>

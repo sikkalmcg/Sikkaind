@@ -21,6 +21,7 @@ import VehicleAssignModal from '@/components/dashboard/vehicle-assign/VehicleAss
 import TripTrackingModal from '@/components/dashboard/trip-board/TripTrackingModal';
 import SimTrackModal from '@/components/dashboard/trip-board/SimTrackModal';
 import DelayRemarkModal from '@/components/dashboard/trip-board/DelayRemarkModal';
+import OrderDetailsDrawer from '@/components/dashboard/vehicle-assign/OrderDetailsDrawer';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId, cn } from '@/lib/utils';
@@ -40,6 +41,10 @@ import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 
 export type TripBoardTab = 'pending-assignment' | 'open-order' | 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
+/**
+ * @fileOverview Trip Board Control Center.
+ * Handles the central mission registry monitoring and status transitions.
+ */
 function TripBoardContent() {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -77,6 +82,7 @@ function TripBoardContent() {
   const [selectedPendingIds, setSelectedPendingIds] = useState<string[]>([]);
 
   const [viewTripData, setViewTripData] = useState<any | null>(null);
+  const [drawerOrder, setDrawerOrder] = useState<any | null>(null);
   const [cancelTripData, setCancelTripData] = useState<any | null>(null);
   const [editVehicleTrip, setEditVehicleTrip] = useState<any | null>(null);
   const [arrivedTrip, setArrivedTrip] = useState<any | null>(null);
@@ -495,12 +501,16 @@ function TripBoardContent() {
         return;
     }
     if (type === 'view') setViewTripData(row);
+    if (type === 'view-order') setDrawerOrder(row);
     if (type === 'track') {
         if (row.vehicleType === 'Market Vehicle' || row.vehicleType === 'Contract Vehicle') {
             setSimTrackTrip(row);
         } else {
             setTrackingTrip(row);
         }
+    }
+    if (type === 'view-lr-direct') {
+        setLrPreviewData(row);
     }
     if (type === 'view-lr') {
         if (!row.lrNumber || !firestore) return;
@@ -526,7 +536,8 @@ function TripBoardContent() {
                     stateCode: '07',
                     stateName: 'DELHI',
                     pan: 'AYQPS6936B',
-                    email: 'sil@sikkaenterprises.com'
+                    email: 'sil@sikkaenterprises.com',
+                    terms: DEFAULT_LMC_TERMS
                 };
             } else if (!finalCarrier && (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmcShorthand)) {
                 finalCarrier = {
@@ -538,7 +549,8 @@ function TripBoardContent() {
                     stateCode: '09',
                     stateName: 'UTTAR PRADESH',
                     pan: 'AYQPS6936B',
-                    email: 'sil@sikkaenterprises.com'
+                    email: 'sil@sikkaenterprises.com',
+                    terms: DEFAULT_LMC_TERMS
                 };
             }
 
@@ -552,7 +564,8 @@ function TripBoardContent() {
                     stateCode: '07',
                     stateName: 'DELHI',
                     pan: 'AYQPS6936B',
-                    email: 'sil@sikkaenterprises.com'
+                    email: 'sil@sikkaenterprises.com',
+                    terms: DEFAULT_LMC_TERMS
                 };
             }
 
@@ -583,7 +596,7 @@ function TripBoardContent() {
                     consignorName: row.consignor || shipmentObj.consignor || '',
                     consignorGtin: row.consignorGtin || shipmentObj.consignorGtin || '',
                     consignorAddress: row.consignorAddress || shipmentObj.consignorAddress || '',
-                    buyerName: row.billToParty || shipmentObj.billToParty || '',
+                    buyerName: row.billToParty || shipmentObj.billToParty || row.billToParty || '',
                     buyerAddress: row.billToAddress || shipmentObj.billToAddress || shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
                     buyerGtin: row.billToGtin || shipmentObj.billToGtin || '',
                     shipToParty: row.shipToParty || shipmentObj.shipToParty || shipmentObj.billToParty || row.billToParty || '',
@@ -1168,6 +1181,7 @@ function TripBoardContent() {
       )}
 
       {viewTripData && <TripViewModal isOpen={!!viewTripData} onClose={() => setViewTripData(null)} trip={viewTripData} />}
+      {drawerOrder && <OrderDetailsDrawer isOpen={!!drawerOrder} onClose={() => setDrawerOrder(null)} shipment={drawerOrder} />}
       {cancelTripData && <CancelTripModal isOpen={!!cancelTripData} onClose={() => setCancelTripData(null)} trip={cancelTripData} onConfirm={handleCancelConfirm} />}
       {editVehicleTrip && <EditVehicleModal isOpen={!!editVehicleTrip} onClose={() => setEditVehicleTrip(null)} trip={editVehicleTrip} onSave={handleEditVehicleSave} />}
       {arrivedTrip && <ArrivedModal isOpen={!!arrivedTrip} onClose={() => setArrivedTrip(null)} trip={arrivedTrip} onPost={handleArrivedPost} />}
