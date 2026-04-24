@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -14,10 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import type { SubUser } from '@/types';
+import Cookies from 'js-cookie';
 
 /**
  * @fileOverview Hardened Sikka Industries Login Terminal.
- * Performs client-side profile verification to bypass Admin SDK metadata errors.
+ * Performs client-side profile verification and establishes persistent session cookies.
  */
 export default function LoginPage() {
     const auth = useAuth();
@@ -64,7 +64,7 @@ export default function LoginPage() {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            // 2. Client-Side Registry Lookup (Bypassing potentially unstable Admin SDK)
+            // 2. Client-Side Registry Lookup
             let userSnap = await getDoc(doc(firestore, "users", email));
             if (!userSnap.exists()) {
                 userSnap = await getDoc(doc(firestore, "users", user.uid));
@@ -78,14 +78,19 @@ export default function LoginPage() {
 
             const profile = userSnap.data() as SubUser;
 
-            // 3. Audit Pulse (Non-blocking background call)
+            // 3. PERSISTENT SESSION HANDSHAKE
+            // Establish a long-lived session cookie (30 days) to prevent logout on refresh
+            Cookies.set('slmc_session_active', 'true', { expires: 30, sameSite: 'strict' });
+            Cookies.set('slmc_user_role', profile.jobRole || 'Operator', { expires: 30 });
+
+            // 4. Audit Pulse (Non-blocking background call)
             fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ uid: user.uid, email: user.email, profile })
             }).catch(() => console.warn("Audit pulse offline."));
 
-            // 4. Resolve Terminal Redirect
+            // 5. Resolve Terminal Redirect
             const accessible = [];
             if (profile.access_logistics) accessible.push('/dashboard');
             

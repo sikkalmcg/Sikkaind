@@ -2,7 +2,7 @@
 
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
@@ -25,7 +25,14 @@ export function initializeFirebase() {
       firebaseApp = initializeApp(firebaseConfig);
     }
 
-    return getSdks(firebaseApp);
+    const sdks = getSdks(firebaseApp);
+    
+    // Hardened Registry Persistence: Ensure user stays logged in across sessions
+    setPersistence(sdks.auth, browserLocalPersistence).catch((err) => {
+        console.error("Registry Persistence Pulse Failure:", err);
+    });
+
+    return sdks;
   }
 
   // If already initialized, return the SDKs with the already initialized App
