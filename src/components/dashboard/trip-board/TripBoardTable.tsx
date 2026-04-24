@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -267,7 +268,9 @@ function MissionRegistryCard({
 
         const pIdStr = normalizePlantId(row.originPlantId);
         const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
-        let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId);
+        
+        // REGISTRY SYNC node: Correct Carrier Resolution to respect terms and ID
+        let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId || c.name === row.carrierName);
 
         if (!finalCarrier && (pIdStr === '1426' || pIdStr === 'ID20')) {
             finalCarrier = {
@@ -333,16 +336,15 @@ function MissionRegistryCard({
                 assignedTripWeight: row.dispatchedQty || row.assignedQtyInTrip || row.quantity,
                 from: row.from || row.shipmentObj?.loadingPoint || '',
                 to: row.unloadingPoint || row.shipmentObj?.unloadingPoint || '',
-                consignorName: row.consignor || shipmentObj.consignor || '',
-                consignorGtin: consignorGtin,
-                consignorAddress: row.consignorAddress || '',
-                buyerName: row.billToParty || '',
-                buyerAddress: row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
-                buyerGtin: buyerGtin,
-                shipToParty: row.shipToParty || row.billToParty || '',
-                shipToGtin: shipToGtin,
-                shipToCode: row.shipToCode || '',
-                deliveryAddress: row.deliveryAddress || row.unloadingPoint || '',
+                consignorName: row.consignor || row.shipmentObj?.consignor || '',
+                consignorGtin: row.shipmentObj?.consignorGtin || consignorGtin,
+                consignorAddress: row.consignorAddress || row.shipmentObj?.consignorAddress || '',
+                buyerName: row.billToParty || row.shipmentObj?.billToParty || '',
+                buyerAddress: row.billToAddress || row.shipmentObj?.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
+                buyerGtin: row.shipmentObj?.billToGtin || buyerGtin,
+                shipToParty: row.shipToParty || row.shipmentObj?.shipToParty || row.shipmentObj?.billToParty || '',
+                shipToGtin: row.shipmentObj?.shipToGtin || shipToGtin,
+                deliveryAddress: row.deliveryAddress || row.shipmentObj?.deliveryAddress || row.unloadingPoint || '',
                 vehicleNumber: row.vehicleNumber || '--',
                 driverName: row.driverName || '--',
                 driverMobile: row.driverMobile || '--',
@@ -359,9 +361,9 @@ function MissionRegistryCard({
                 carrier: finalCarrier,
                 shipment: row.shipmentObj || row,
                 plant: row.plant || { id: row.originPlantId, name: row.plantName },
-                consignorGtin: lrDoc.consignorGtin || consignorGtin,
-                buyerGtin: lrDoc.buyerGtin || buyerGtin,
-                shipToGtin: lrDoc.shipToGtin || shipToGtin
+                consignorGtin: lrDoc.consignorGtin || row.shipmentObj?.consignorGtin || consignorGtin,
+                buyerGtin: lrDoc.buyerGtin || row.shipmentObj?.billToGtin || buyerGtin,
+                shipToGtin: lrDoc.shipToGtin || row.shipmentObj?.shipToGtin || shipToGtin
             } as any;
         }
         onAction('view-lr-direct', enrichedLR);

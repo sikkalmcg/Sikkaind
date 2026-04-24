@@ -42,6 +42,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { DEFAULT_LMC_TERMS } from '@/lib/constants';
 
 interface ShipmentDataProps {
   shipments: WithId<Shipment>[];
@@ -88,13 +89,6 @@ const formatSafeDateString = (date: any, formatStr: string = 'dd/MM/yy') => {
     if (!d) return '--';
     return format(d, formatStr);
 }
-
-const DEFAULT_LMC_TERMS = [
-    "AGENCY NOT RESPONSIBLE FOR RAIN OR CALAMITY.",
-    "DISCREPANCIES MUST BE INTIMATED WITHIN 24 HOURS.",
-    "VEHICLE OWNER RESPONSIBLE AFTER YARD DEPARTURE.",
-    "ALL DISPUTES SUBJECT TO GHAZIABAD JURISDICTION."
-];
 
 export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBulkDelete }: ShipmentDataProps) {
   const { toast } = useToast();
@@ -145,7 +139,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
     return shipments.map(shipment => {
         const trip = trips.find(t => t.shipmentIds && t.shipmentIds.includes(shipment.id));
         const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(shipment.originPlantId));
-        const carrier = (allCarriers || []).find(c => c.id === trip?.carrierId || c.id === shipment.carrierId);
+        const carrier = (allCarriers || []).find(c => c.id === trip?.carrierId || c.id === shipment.carrierId || c.name === shipment.carrierName);
 
         const itemsManifest = shipment.items || [];
         const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
@@ -279,7 +273,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         
         const pIdStr = normalizePlantId(row.originPlantId);
         const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
-        let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId);
+        
+        // REGISTRY SYNC node: Priority Carrier Resolution
+        let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId || c.name === row.carrierName);
 
         if (!finalCarrier && (pIdStr === '1426' || pIdStr === 'ID20')) {
             finalCarrier = {
@@ -391,12 +387,12 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 plant: row.plant || { id: row.originPlantId, name: row.plantName },
                 consignorName: lrDoc.consignorName || row.consignor || '',
                 consignorAddress: lrDoc.consignorAddress || row.consignorAddress || '',
-                consignorGtin: lrDoc.consignorGtin || consignorGtin,
+                consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || consignorGtin,
                 buyerName: lrDoc.buyerName || row.billToParty || '',
                 buyerAddress: lrDoc.buyerAddress || row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
-                buyerGtin: lrDoc.buyerGtin || buyerGtin,
+                buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || buyerGtin,
                 shipToParty: lrDoc.shipToParty || row.shipToParty || row.billToParty || '',
-                shipToGtin: lrDoc.shipToGtin || shipToGtin,
+                shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || shipToGtin,
                 shipToCode: lrDoc.shipToCode || row.shipToCode || '',
                 deliveryAddress: lrDoc.deliveryAddress || row.deliveryAddress || row.unloadingPoint || '',
                 vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
@@ -471,7 +467,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             <div className="overflow-auto max-h-[600px] custom-scrollbar border-t">
                 <Table className="border-collapse w-full min-w-[1400px]">
                     <TableHeader className="bg-slate-100 sticky top-0 z-50 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
-                    <TableRow className="h-16 hover:bg-transparent border-b-2 border-slate-200">
+                    <TableRow className="h-14 hover:bg-transparent border-b-2 border-slate-200">
                         {isAdmin && (
                             <TableHead className="w-16 px-6 bg-slate-100 align-middle">
                                 <Checkbox 

@@ -47,8 +47,8 @@ import {
   ClipboardList 
 } from 'lucide-react';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
-import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDocs, limit } from "firebase/firestore";
-import { cn, normalizePlantId, generateRandomTripId, parseSafeDate } from '@/lib/utils';
+import { collection, query, doc, runTransaction, where, serverTimestamp, orderBy, getDocs, limit, getDoc } from "firebase/firestore";
+import { cn, normalizePlantId, generateRandomTripId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import { PaymentTerms, LRUnitTypes } from '@/lib/constants';
 
@@ -462,6 +462,14 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 if (p.name) partyRegistryMap.set(String(p.name).toUpperCase().trim(), p);
             });
 
+            // CARRIER SYNC node: Match carrier names to ensure terms and ID handshake
+            const carriersSnap = await getDocs(collection(firestore, "carriers"));
+            const carrierRegistryMap = new Map();
+            carriersSnap.forEach(d => {
+                const c = d.data();
+                carrierRegistryMap.set(String(c.name).toUpperCase().trim(), { id: d.id, ...c });
+            });
+
             const orderGroups: Record<string, any> = {};
             const normUiPlantId = normalizePlantId(uiPlantId);
             const currentOperator = operatorProfile?.fullName || operatorProfile?.username || user.displayName || user.email?.split('@')[0] || 'System';
@@ -479,11 +487,15 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     const bCode = getVal(row, ["Consignee Code", "Bill To Code"])?.toUpperCase();
                     const sName = getVal(row, ["Ship To Name", "Ship To"]);
                     const sCode = getVal(row, ["Ship To Code", "Ship To ID"])?.toUpperCase();
+                    const cAgentName = getVal(row, ["Carrier Name", "Carrier"]);
 
                     // Registry Resolve Node: Strictly use Codes to fetch GSTIN/Address from HANDBOOK
                     const matchedConsignor = partyRegistryMap.get(cCode) || partyRegistryMap.get(cName?.toUpperCase());
                     const matchedConsignee = partyRegistryMap.get(bCode) || partyRegistryMap.get(bName?.toUpperCase());
                     const matchedShipTo = partyRegistryMap.get(sCode) || partyRegistryMap.get(sName?.toUpperCase());
+                    
+                    // CARRIER HANDSHAKE: Ensure terms and ID are pulled from registry
+                    const matchedCarrier = carrierRegistryMap.get(cAgentName?.toUpperCase());
 
                     orderGroups[groupKey] = {
                         originPlantId: uiPlantId,
@@ -510,6 +522,8 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                         driverName: getVal(row, ["Pilot Name", "Driver Name"]),
                         driverMobile: getVal(row, ["Pilot Mobile", "Mobile"]),
                         transporterName: getVal(row, ["Transporter Name", "Transporter"]),
+                        carrierId: matchedCarrier?.id || '',
+                        carrierName: matchedCarrier?.name || cAgentName || 'UNASSIGNED',
                         rawItems: []
                     };
                 }
