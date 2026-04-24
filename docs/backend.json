@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "Plant": {
+      "title": "Plant",
+      "description": "Lifting node master registry.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "city": { "type": "string" }
+      }
+    },
+    "Shipment": {
+      "title": "Shipment",
+      "description": "Sales Order manifest.",
+      "type": "object",
+      "properties": {
+        "shipmentId": { "type": "string" },
+        "consignor": { "type": "string" },
+        "quantity": { "type": "number" },
+        "balanceQty": { "type": "number" }
+      }
+    },
+    "Trip": {
+      "title": "Trip",
+      "description": "Mission allocation registry.",
+      "type": "object",
+      "properties": {
+        "tripId": { "type": "string" },
+        "vehicleNumber": { "type": "string" },
+        "currentStatusId": { "type": "string" }
+      }
+    }
+  },
+  "auth": {
+    "providers": [
+      "password"
+    ]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "SubUser",
+      "description": "Authorized operator profiles."
+    },
+    "/plants/{plantId}/shipments/{shipmentId}": {
+      "schema": "Shipment",
+      "description": "Lifting node shipments."
+    },
+    "/plants/{plantId}/trips/{tripId}": {
+      "schema": "Trip",
+      "description": "Lifting node mission records."
+    }
+  }
+}

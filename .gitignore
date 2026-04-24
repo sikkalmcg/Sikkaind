@@ -1,0 +1,35 @@
+# Next.js Build Artifacts
+.next/
+out/
+build/
+
+# Firebase Studio & Hosting
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+
+# Node Modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment & OS
+.env*
+.DS_Store
+Thumbs.db
+
+# Large Binary Artifacts (Git LFS recommended for these if needed)
+*.zip
+*.tar.gz
+*.mp4
+*.pdf
+src/serviceAccountKey.json
+.env.local
+src/service-key.json
+src/service-key.json
+src/service-key.json
+src/service-key.json
+src/service-key.json.json
+src/service-key.json.json

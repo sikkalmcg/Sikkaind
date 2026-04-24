@@ -1,0 +1,93 @@
+ ⚠ Port 3000 is in use, trying 3001 instead.
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ ⨯ ./src/app/dashboard/carrier-management/page.tsx
+Error: 
+  [31mx[0m Merge conflict marker encountered.
+    ,-[[36;1;4mE:\Sikkaind-main (2)\Sikkaind-main\src\app\dashboard\carrier-management\page.tsx[0m:10:1]
+ [2m10[0m | import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+ [2m11[0m | import { collection, query, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
+ [2m12[0m | import { Loader2, WifiOff } from 'lucide-react';
+ [2m13[0m | <<<<<<< HEAD
+    : [31;1m^^^^^^^[0m
+ [2m14[0m | import { matchesPlantReference } from '@/lib/utils';
+ [2m15[0m | =======
+ [2m15[0m | >>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
+    `----
+
+  [31mx[0m Merge conflict marker encountered.
+    ,-[[36;1;4mE:\Sikkaind-main (2)\Sikkaind-main\src\app\dashboard\carrier-management\page.tsx[0m:12:1]
+ [2m12[0m | import { Loader2, WifiOff } from 'lucide-react';
+ [2m13[0m | <<<<<<< HEAD
+ [2m14[0m | import { matchesPlantReference } from '@/lib/utils';
+ [2m15[0m | =======
+    : [31;1m^^^^^^^[0m
+ [2m16[0m | >>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
+ [2m17[0m | 
+ [2m17[0m | export default function CarrierManagementPage() {
+    `----
+
+  [31mx[0m Merge conflict marker encountered.
+    ,-[[36;1;4mE:\Sikkaind-main (2)\Sikkaind-main\src\app\dashboard\carrier-management\page.tsx[0m:13:1]
+ [2m13[0m | <<<<<<< HEAD
+ [2m14[0m | import { matchesPlantReference } from '@/lib/utils';
+ [2m15[0m | =======
+ [2m16[0m | >>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
+    : [31;1m^^^^^^^[0m
+ [2m17[0m | 
+ [2m18[0m | export default function CarrierManagementPage() {
+ [2m18[0m |   const { toast } = useToast();
+    `----
+
+  [31mx[0m Merge conflict marker encountered.
+    ,-[[36;1;4mE:\Sikkaind-main (2)\Sikkaind-main\src\app\dashboard\carrier-management\page.tsx[0m:48:1]
+ [2m48[0m |   const sanitizedCarriers = useMemo(() => {
+ [2m49[0m |     let filteredCarriers = carriers || [];
+ [2m50[0m |     if (plantFilter !== 'all') {
+ [2m51[0m | <<<<<<< HEAD
+    : [31;1m^^^^^^^[0m
+ [2m52[0m |       const matchedPlant = (plants || []).find(plant => matchesPlantReference(plant.id, plantFilter) || matchesPlantReference(plant.name, plantFilter));
+ [2m53[0m |       filteredCarriers = filteredCarriers.filter(carrier => matchesPlantReference(carrier.plantId, plantFilter, matchedPlant?.id, matchedPlant?.name));
+ [2m53[0m |     }
+    `----
+
+  [31mx[0m Merge conflict marker encountered.
+    ,-[[36;1;4mE:\Sikkaind-main (2)\Sikkaind-main\src\app\dashboard\carrier-management\page.tsx[0m:54:1]
+ [2m54[0m |     }
+ [2m55[0m |     return filteredCarriers.map(carrier => ({ name: '', gstin: '', pan: '', plantId: '', logoUrl: '', stateName: '', ...carrier }));
+ [2m56[0m |   }, [carriers, plantFilter, plants]);
+ [2m57[0m | =======
+    : [31;1m^^^^^^^[0m
+ [2m58[0m |       filteredCarriers = filteredCarriers.filter(carrier => carrier.plantId === plantFilter);
+ [2m59[0m |     }
+ [2m59[0m |     return filteredCarriers.map(carrier => ({ name: '', gstin: '', pan: '', plantId: '', logoUrl: '', stateName: '', ...carrier }));
+    `----
+
+  [31mx[0m Return statement is not allowed here
+    ,-[[36;1;4mE:\Sikkaind-main (2)\Sikkaind-main\src\app\dashboard\carrier-management\page.tsx[0m:57:1]
+ [2m57[0m | =======
+ [2m58[0m |       filteredCarriers = filteredCarriers.filter(carrier => carrier.plantId === plantFilter);
+ [2m59[0m |     }
+ [2m60[0m |     return filteredCarriers.map(carrier => ({ name: '', gstin: '', pan: '', plantId: '', logoUrl: '', stateName: '', ...carrier }));
+    : [31;1m    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+ [2m61[0m |   }, [carriers, plantFilter]);
+ [2m62[0m | >>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
+ [2m62[0m | 
+    `----
+
+  [31mx[0m Expression expected
+    ,-[[36;1;4mE:\Sikkaind-main (2)\Sikkaind-main\src\app\dashboard\carrier-management\page.tsx[0m:58:1]
+ [2m58[0m |       filteredCarriers = filteredCarriers.filter(carrier => carrier.plantId === plantFilter);
+ [2m59[0m |     }
+ [2m60[0m |     return filteredCarriers.map(carrier => ({ name: '', gstin: '', pan: '', plantId: '', logoUrl: '', stateName: '', ...carrier }));
+ [2m61[0m |   }, [carriers, plantFilter]);
+    : [31;1m  ^[0m
+ [2m62[0m | >>>>>>> b03da71b02804bd380f8967e7bc8966de6ba53b8
+ [2m63[0m | 
+ [2m63[0m |   const handleCarrierCreated = async (carrierData: Omit<Carrier, 'id'>) => {
+    `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/dashboard/carrier-management/page.tsx
