@@ -74,3 +74,10 @@ export const FuelPumpPaymentMethods = [
 export const FuelPaymentTransactionMethods = ['Cash', 'Banking', 'Cheque'] as const;
 export const LRUnitTypes = ['Package', 'Packet', 'Carton', 'Bag', 'Metric Ton', 'Box', 'Drum', 'Pallet', 'Others'] as const;
 export const PartyTypes = ['Consignor', 'Consignee & Ship to party'] as const;
+
+export const DEFAULT_LMC_TERMS = [
+    "AGENCY NOT RESPONSIBLE FOR RAIN OR CALAMITY.",
+    "DISCREPANCIES MUST BE INTIMATED WITHIN 24 HOURS.",
+    "VEHICLE OWNER RESPONSIBLE AFTER YARD DEPARTURE.",
+    "ALL DISPUTES SUBJECT TO GHAZIABAD JURISDICTION."
+];

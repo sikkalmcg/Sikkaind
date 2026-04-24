@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -8,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Package, ShieldCheck, Factory, UserCircle, MapPin, Calculator, Calendar, FileText, Clock, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, parseSafeDate } from '@/lib/utils';
 
 interface OrderDetailsDrawerProps {
   isOpen: boolean;
@@ -19,12 +18,12 @@ interface OrderDetailsDrawerProps {
 export default function OrderDetailsDrawer({ isOpen, onClose, shipment }: OrderDetailsDrawerProps) {
   if (!shipment) return null;
 
-  const creationDate = shipment.creationDate?.toDate ? shipment.creationDate.toDate() : new Date(shipment.creationDate);
+  const creationDate = parseSafeDate(shipment.creationDate);
 
   const detailNodes = [
     { label: 'Plant Node', value: shipment.plantName || shipment.originPlantId, icon: Factory },
     { label: 'Sales Order No', value: shipment.shipmentId, icon: FileText, bold: true, color: 'text-blue-700' },
-    { label: 'Creation Pulse', value: format(creationDate, 'dd MMM yyyy | HH:mm'), icon: Clock },
+    { label: 'Creation Pulse', value: creationDate ? format(creationDate, 'dd MMM yyyy | HH:mm') : '--', icon: Clock },
     { label: 'Aggregate Weight', value: `${shipment.quantity} MT`, icon: Calculator, bold: true },
     { label: 'Assigned Weight', value: `${shipment.assignedQty || 0} MT`, icon: ShieldCheck, color: 'text-emerald-600' },
     { label: 'Registry Balance', value: `${shipment.balanceQty || 0} MT`, icon: TrendingUp, color: 'text-orange-600' },
@@ -33,7 +32,7 @@ export default function OrderDetailsDrawer({ isOpen, onClose, shipment }: OrderD
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl border-none shadow-3xl p-0 overflow-hidden bg-white rounded-[2.5rem]">
-        <DialogHeader className="p-8 bg-slate-900 text-white shrink-0">
+        <DialogHeader className="p-8 bg-slate-900 text-white shrink-0 pr-12">
           <div className="flex justify-between items-center pr-12">
             <div className="flex items-center gap-5">
                 <div className="p-3 bg-blue-600 rounded-2xl shadow-xl rotate-3">
@@ -103,7 +102,7 @@ export default function OrderDetailsDrawer({ isOpen, onClose, shipment }: OrderD
                                                     <span className="text-[9px] font-mono text-slate-400 font-bold">Node: {trip.tripId}</span>
                                                 </div>
                                             </div>
-                                            <span className="text-sm font-black text-blue-900 tracking-tighter">{trip.assignedQtyInTrip} MT</span>
+                                            <span className="text-sm font-black text-blue-900 tracking-tighter">{(trip.assignedQtyInTrip || 0).toFixed(3)} MT</span>
                                         </div>
                                     ))}
                                 </div>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -63,6 +62,7 @@ import { fetchWheelseyeLocation } from '@/app/actions/wheelseye';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, limit, doc } from 'firebase/firestore';
+import { DEFAULT_LMC_TERMS } from '@/lib/constants';
 
 interface TripBoardTableProps {
   data: any[];
@@ -97,13 +97,6 @@ const getStatusColor = (status: string) => {
         default: return 'bg-gray-500/10 text-gray-700 border-gray-200';
     }
 }
-
-const DEFAULT_LMC_TERMS = [
-    "AGENCY NOT RESPONSIBLE FOR RAIN OR CALAMITY.",
-    "DISCREPANCIES MUST BE INTIMATED WITHIN 24 HOURS.",
-    "VEHICLE OWNER RESPONSIBLE AFTER YARD DEPARTURE.",
-    "ALL DISPUTES SUBJECT TO GHAZIABAD JURISDICTION."
-];
 
 function LiveLocationNode({ vehicleNo, vehicleType, onClick }: { vehicleNo: string, vehicleType: string, onClick: () => void }) {
     const [location, setLocation] = useState<{ city: string; full: string } | null>(null);
@@ -223,8 +216,8 @@ function MissionRegistryCard({
     onAction: (type: string, trip: any) => void,
     isSelected?: boolean,
     onSelect?: (checked: boolean) => void,
-    allCarriers: Carrier[],
-    parties: Party[],
+    allCarriers: any[],
+    parties: any[],
     firestore: any
 }) {
     const isPending = activeTab === 'pending-assignment';
@@ -340,14 +333,12 @@ function MissionRegistryCard({
                 assignedTripWeight: row.dispatchedQty || row.assignedQtyInTrip || row.quantity,
                 from: row.from || row.shipmentObj?.loadingPoint || '',
                 to: row.unloadingPoint || row.shipmentObj?.unloadingPoint || '',
-                consignorName: row.consignor || '',
+                consignorName: row.consignor || shipmentObj.consignor || '',
                 consignorGtin: consignorGtin,
                 consignorAddress: row.consignorAddress || '',
-                consignorCode: row.customerCode || '',
                 buyerName: row.billToParty || '',
                 buyerAddress: row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
                 buyerGtin: buyerGtin,
-                buyerCode: row.billToCode || '',
                 shipToParty: row.shipToParty || row.billToParty || '',
                 shipToGtin: shipToGtin,
                 shipToCode: row.shipToCode || '',

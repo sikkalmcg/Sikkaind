@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -22,7 +21,7 @@ import TripTrackingModal from '@/components/dashboard/trip-board/TripTrackingMod
 import SimTrackModal from '@/components/dashboard/trip-board/SimTrackModal';
 import DelayRemarkModal from '@/components/dashboard/trip-board/DelayRemarkModal';
 import OrderDetailsDrawer from '@/components/dashboard/vehicle-assign/OrderDetailsDrawer';
-import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit } from '@/types';
+import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit, Party } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId, cn } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
@@ -38,6 +37,7 @@ import { DatePicker } from '@/components/date-picker';
 import { startOfDay, endOfDay, subDays, format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
+import { DEFAULT_LMC_TERMS } from '@/lib/constants';
 
 export type TripBoardTab = 'pending-assignment' | 'open-order' | 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
@@ -109,6 +109,8 @@ function TripBoardContent() {
   const { data: allMasterPlants } = useCollection<Plant>(masterPlantsQuery);
   const carriersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "carriers")) : null, [firestore]);
   const { data: dbCarriers } = useCollection<Carrier>(carriersQuery);
+  const partiesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_parties"), where("isDeleted", "==", false)) : null, [firestore]);
+  const { data: parties } = useCollection<Party>(partiesQuery);
 
   const updateURL = useCallback((plantIds: string[], tabVal?: string) => {
     const params = new URLSearchParams();
@@ -493,6 +495,9 @@ function TripBoardContent() {
         setSelectedShipmentsForAssign([row]);
         setAssignModalOpen(true);
     }
+    if (type === 'view-order') {
+        setDrawerOrder(row);
+    }
     if (type === 'delay-remark') {
         setDelayRemarkShipment(row);
     }
@@ -501,7 +506,6 @@ function TripBoardContent() {
         return;
     }
     if (type === 'view') setViewTripData(row);
-    if (type === 'view-order') setDrawerOrder(row);
     if (type === 'track') {
         if (row.vehicleType === 'Market Vehicle' || row.vehicleType === 'Contract Vehicle') {
             setSimTrackTrip(row);
@@ -571,6 +575,19 @@ function TripBoardContent() {
 
             const shipmentObj = row.shipmentObj || {};
 
+            const resolveGtin = (name: string, code: string, current: string) => {
+                if (current && current !== 'N/A' && current !== '') return current;
+                const match = (parties || []).find(p => 
+                    (code && p.customerCode?.toUpperCase() === code.toUpperCase()) || 
+                    (p.name?.toUpperCase() === name?.toUpperCase())
+                );
+                return match?.gstin || '';
+            };
+
+            const consignorGtin = resolveGtin(row.consignor, row.customerCode || '', row.consignorGtin || '');
+            const buyerGtin = resolveGtin(row.billToParty, row.billToCode || '', row.billToGtin || '');
+            const shipToGtin = resolveGtin(row.shipToParty || '', row.shipToCode || '', row.shipToGtin || '');
+
             const manifestItems = row.items && row.items.length > 0 ? row.items : [{
                 invoiceNumber: row.summarizedInvoices || row.invoiceNumbers || 'NA',
                 ewaybillNumber: row.ewaybillNumber || '',
@@ -594,14 +611,14 @@ function TripBoardContent() {
                     from: row.from || shipmentObj.loadingPoint || '',
                     to: row.unloadingPoint || shipmentObj.unloadingPoint || '',
                     consignorName: row.consignor || shipmentObj.consignor || '',
-                    consignorGtin: row.consignorGtin || shipmentObj.consignorGtin || '',
+                    consignorGtin: consignorGtin,
                     consignorAddress: row.consignorAddress || shipmentObj.consignorAddress || '',
                     buyerName: row.billToParty || shipmentObj.billToParty || row.billToParty || '',
                     buyerAddress: row.billToAddress || shipmentObj.billToAddress || shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
-                    buyerGtin: row.billToGtin || shipmentObj.billToGtin || '',
+                    buyerGtin: buyerGtin,
                     shipToParty: row.shipToParty || shipmentObj.shipToParty || shipmentObj.billToParty || row.billToParty || '',
-                    shipToGtin: row.shipToGtin || shipmentObj.shipToGtin || '',
-                    deliveryAddress: row.deliveryAddress || shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
+                    shipToGtin: shipToGtin,
+                    deliveryAddress: row.deliveryAddress || shipmentObj.deliveryAddress || row.unloadingPoint || '',
                     vehicleNumber: row.vehicleNumber || '--',
                     driverName: row.driverName || '--',
                     driverMobile: row.driverMobile || '--',
@@ -618,19 +635,9 @@ function TripBoardContent() {
                     carrier: finalCarrier,
                     shipment: shipmentObj,
                     plant: row.plant || { id: row.originPlantId, name: row.plantName },
-                    consignorName: lrDoc.consignorName || shipmentObj.consignor || row.consignor || '',
-                    consignorAddress: lrDoc.consignorAddress || shipmentObj.consignorAddress || '',
-                    consignorGtin: lrDoc.consignorGtin || row.consignorGtin || shipmentObj.consignorGtin || '',
-                    buyerName: lrDoc.buyerName || shipmentObj.billToParty || row.billToParty || '',
-                    buyerAddress: lrDoc.buyerAddress || shipmentObj.buyerAddress || shipmentObj.billToAddress || shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
-                    buyerGtin: lrDoc.buyerGtin || row.billToGtin || shipmentObj.billToGtin || '',
-                    shipToParty: lrDoc.shipToParty || row.shipToParty || row.billToParty || '',
-                    shipToGtin: lrDoc.shipToGtin || row.shipToGtin || shipmentObj.shipToGtin || '',
-                    deliveryAddress: lrDoc.deliveryAddress || shipmentObj.deliveryAddress || row.unloadingPoint || '',
-                    vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
-                    driverName: row.driverName || lrDoc.driverName,
-                    driverMobile: row.driverMobile || lrDoc.driverMobile,
-                    paymentTerm: row.paymentTerm || lrDoc.paymentTerm
+                    consignorGtin: lrDoc.consignorGtin || consignorGtin,
+                    buyerGtin: lrDoc.buyerGtin || buyerGtin,
+                    shipToGtin: lrDoc.shipToGtin || shipToGtin
                 } as any);
             }
         } catch (e) {
