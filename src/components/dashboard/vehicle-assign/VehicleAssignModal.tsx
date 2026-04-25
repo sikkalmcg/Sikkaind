@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
@@ -307,16 +308,24 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             const docId = trip?.id || doc(collection(firestore, 'trips')).id;
             const tripId = trip?.tripId || generateRandomTripId();
             
-            let aggregateItems: any[] = [];
-            const shipmentIds: string[] = [];
-
+            // 1. REGISTRY READ PHASE: Perform all reads first to satisfy Firestore constraints
+            const shipmentSnapshots = [];
             for (const s of shipments) {
                 const sRef = doc(firestore, `plants/${plantId}/shipments`, s.id);
                 const sSnap = await transaction.get(sRef);
-                if (!sSnap.exists()) continue;
-                
+                if (sSnap.exists()) {
+                    shipmentSnapshots.push({ ref: sRef, snap: sSnap });
+                }
+            }
+
+            // 2. COMMIT PHASE: Perform all writes after reads are finalized
+            let aggregateItems: any[] = [];
+            const shipmentIds: string[] = [];
+
+            for (const item of shipmentSnapshots) {
+                const { ref: sRef, snap: sSnap } = item;
                 const sData = sSnap.data() as Shipment;
-                shipmentIds.push(s.id);
+                shipmentIds.push(sSnap.id);
                 aggregateItems = [...aggregateItems, ...(sData.items || [])];
 
                 // For bulk, we assume full balance allocation per shipment to keep it consistent
