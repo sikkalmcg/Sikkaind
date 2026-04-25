@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -131,9 +130,9 @@ export default function UserManagementPage() {
         if (!firestore) return;
         showLoader();
         try {
-            // MISSION CRITICAL: If password is provided, we must update the Identity Platform (Auth)
-            if (data.password) {
-                const email = data.email || userId; // Document ID is the email registry
+            // MISSION CRITICAL: If a non-empty password is provided, synchronize with Identity Platform
+            if (data.password && data.password.trim().length > 0) {
+                const email = data.email || userId; 
                 const authRes = await fetch('/api/auth/manage-user', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

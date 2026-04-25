@@ -7,6 +7,7 @@ import * as admin from 'firebase-admin';
  */
 
 function getAdminApp() {
+  // Registry Pulse: Ensure singleton app instance
   if (admin.apps.length > 0) return admin.apps[0];
 
   const projectId = "studio-2134942499-abd6c";
@@ -14,15 +15,19 @@ function getAdminApp() {
   try {
     /**
      * REGISTRY HANDSHAKE:
-     * In this environment, we initialize without explicit certs to allow
-     * the Google Auth library to resolve the workstation pulse automatically.
+     * Explicitly invoke applicationDefault() to ensure the SDK handshakes 
+     * correctly with the workstation's identity node.
      */
     return admin.initializeApp({
+      credential: admin.credential.applicationDefault(),
       projectId: projectId,
     });
   } catch (e) {
-    console.error("FATAL: Identity Registry Handshake Failure", e);
-    return null;
+    // Fallback: Attempt basic init if metadata pulse is unstable
+    console.warn("Registry Handshake Fallback Triggered.");
+    return admin.initializeApp({
+      projectId: projectId,
+    });
   }
 }
 

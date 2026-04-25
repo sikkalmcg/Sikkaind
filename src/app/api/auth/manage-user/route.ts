@@ -4,11 +4,12 @@ import { NextRequest, NextResponse } from "next/server";
 /**
  * @fileOverview Atomic Identity Provisioning API.
  * Hardened for Sikka LMC v2.5 Registry standards.
+ * Added: Robust error trapping for metadata refresh failures.
  */
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { action, email, password, userData, username, mobile } = body;
+        const { action, email, password, userData } = body;
 
         // REGISTRY HANDSHAKE Node: Verify SDK authorization pulse
         if (!auth || !db) {
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
                     uid = created.uid;
                 } else {
                     console.error("Auth Handshake Error:", e);
-                    throw e;
+                    throw new Error(`Auth Node Error: ${e.message}`);
                 }
             }
 
@@ -69,13 +70,17 @@ export async function POST(req: NextRequest) {
             const uid = userDoc.data().uid;
 
             if (uid) {
-                await auth.updateUser(uid, { password });
-                await userDoc.ref.update({ 
-                    password, 
-                    lastPasswordChange: new Date().toISOString(),
-                    lastUpdated: FieldValue.serverTimestamp()
-                });
-                return NextResponse.json({ success: true });
+                try {
+                    await auth.updateUser(uid, { password });
+                    await userDoc.ref.update({ 
+                        password, 
+                        lastPasswordChange: new Date().toISOString(),
+                        lastUpdated: FieldValue.serverTimestamp()
+                    });
+                    return NextResponse.json({ success: true });
+                } catch (authErr: any) {
+                    throw new Error(`Identity Platform Update Failed: ${authErr.message}`);
+                }
             }
             throw new Error("UID handshake failed. Identity context corrupted.");
         }
@@ -122,7 +127,7 @@ export async function POST(req: NextRequest) {
         console.error("Identity Registry Failure:", error);
         return NextResponse.json({ 
             error: `Identity Registry Error: ${error.message}`,
-            code: error.code
+            code: error.code || 'UNKNOWN'
         }, { status: 500 });
     }
 }
