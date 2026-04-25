@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -19,10 +20,15 @@ import {
     Save,
     User,
     Layers,
-    X
+    X,
+    Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VehicleTypes } from '@/lib/constants';
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query } from "firebase/firestore";
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import type { FuelPump } from '@/types';
 
 const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/;
 
@@ -41,6 +47,16 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { isOpen: boolean; onClose: () => void; trip: any; onSave: (tripId: string, values: FormValues) => Promise<void> }) {
   const { toast } = useToast();
+  const firestore = useFirestore();
+
+  // Registry Handshake: Fetch Transporters from Master Vendor Registry
+  const vendorQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "fuel_pumps")) : null, [firestore]);
+  const { data: vendors } = useCollection<FuelPump>(vendorQuery);
+
+  const vendorOptions = useMemo(() => {
+    return (vendors || [])
+      .map(v => ({ value: v.id, label: v.name }));
+  }, [vendors]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -52,8 +68,29 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
     }
   });
 
-  const { isSubmitting, watch } = form;
-  const watchedVehicleType = form.watch('vehicleType');
+  const { isSubmitting, watch, reset, setValue } = form;
+  const watchedVehicleType = watch('vehicleType');
+  const currentTransporterName = watch('transporterName');
+
+  // MISSION PULSE: Reset form nodes when trip identity changes
+  useEffect(() => {
+    if (isOpen && trip) {
+      reset({
+        vehicleNumber: trip.vehicleNumber || '',
+        driverMobile: trip.driverMobile || '',
+        vehicleType: (trip.vehicleType as any) || 'Own Vehicle',
+        transporterName: trip.transporterName || ''
+      });
+    }
+  }, [trip, isOpen, reset]);
+
+  const handleTransporterSelect = (vendorId: string) => {
+    const vendor = vendors?.find(v => v.id === vendorId);
+    if (vendor) {
+        setValue('transporterName', vendor.name, { shouldValidate: true });
+        // Optional: Sync transporter mobile if needed in registry
+    }
+  };
 
   const onSubmit = async (values: FormValues) => {
     try {
@@ -126,18 +163,17 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
                     )} />
 
                     {watchedVehicleType === 'Market Vehicle' && (
-                        <FormField name="transporterName" control={form.control} render={({ field }) => (
-                            <FormItem className="animate-in slide-in-from-top-2 duration-300">
-                                <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Transporter Name *</FormLabel>
-                                <FormControl>
-                                    <div className="relative group">
-                                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
-                                        <Input placeholder="Enter Transporter" {...field} className="pl-12 h-12 rounded-xl font-black text-slate-800 uppercase shadow-inner border-slate-200 focus-visible:ring-blue-900" />
-                                    </div>
-                                </FormControl>
-                                <FormMessage className="text-[9px] font-black uppercase" />
-                            </FormItem>
-                        )} />
+                        <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Transporter Name *</label>
+                            <SearchableSelect 
+                                options={vendorOptions} 
+                                onChange={(vId) => handleTransporterSelect(vId)} 
+                                value={vendors?.find(v => v.name === currentTransporterName)?.id || ''} 
+                                placeholder="Resolve from Registry"
+                                className="h-12"
+                            />
+                            <FormMessage className="text-[9px] font-black uppercase" />
+                        </div>
                     )}
 
                     <FormField name="driverMobile" control={form.control} render={({ field }) => (
@@ -145,8 +181,8 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
                             <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Correct Pilot Mobile</FormLabel>
                             <FormControl>
                                 <div className="relative group">
-                                    <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
-                                    <Input placeholder="Optional" {...field} maxLength={10} className="pl-12 h-12 rounded-xl font-black text-slate-900 text-lg font-mono shadow-inner border-slate-200 focus-visible:ring-blue-900" />
+                                    <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+                                    <Input placeholder="Optional" {...field} maxLength={10} className="pl-12 h-12 rounded-xl font-black text-blue-900 text-lg font-mono shadow-inner border-slate-200 focus-visible:ring-blue-900" />
                                 </div>
                             </FormControl>
                             <FormMessage className="text-[9px] font-black uppercase" />
