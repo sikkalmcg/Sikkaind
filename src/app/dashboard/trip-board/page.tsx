@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -238,7 +239,7 @@ function TripBoardContent() {
     });
 
     return () => unsubscribers.forEach(u => u());
-  }, [firestore, JSON.stringify(selectedPlants)]);
+  }, [firestore, user, JSON.stringify(selectedPlants)]);
 
   const joinedData = useMemo(() => {
     const normalizedSelected = selectedPlants.map(normalizePlantId);
@@ -252,7 +253,14 @@ function TripBoardContent() {
         const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId || (l.lrNumber === t.lrNumber && l.originPlantId === t.originPlantId));
         const entry = entries.find(e => (e.tripId === t.id || (e.vehicleNumber === t.vehicleNumber && e.status === 'OUT')) && normalizePlantId(e.plantId) === tPlantId);
         
-        const carrier = (dbCarriers || []).find(c => c.id === t.carrierId || c.id === shipment?.carrierId);
+        // MISSION FIX: Robust Carrier Resolution (ID + Name Handshake)
+        const carrier = (dbCarriers || []).find(c => 
+            c.id === t.carrierId || 
+            c.id === shipment?.carrierId || 
+            (t.carrierName && c.name === t.carrierName) ||
+            (shipment?.carrierName && c.name === shipment.carrierName)
+        );
+
         const plant = plants.find(p => normalizePlantId(p.id) === tPlantId);
 
         const items = lr?.items || t.items || shipment?.items || [];
@@ -312,7 +320,7 @@ function TripBoardContent() {
             shipmentObj: shipment,
             lrData: lr,
             carrierObj: carrier,
-            carrierName: carrier?.name || '--',
+            carrierName: carrier?.name || t.carrierName || shipment?.carrierName || '--',
             paymentTerm: t.paymentTerm || shipment?.paymentTerm || 'Paid',
             normalizedStatus: s
         };
@@ -348,7 +356,7 @@ function TripBoardContent() {
                     orderNo: s.shipmentId,
                     qtyUom: `${s.quantity} MT`,
                     balanceUom: `${s.balanceQty} MT`,
-                    carrierObj: (dbCarriers || []).find(c => c.id === s.carrierId),
+                    carrierObj: (dbCarriers || []).find(c => c.id === s.carrierId || c.name === s.carrierName),
                     invoiceNumbers: invs,
                     consignee: s.billToParty || '--'
                 };
@@ -543,7 +551,13 @@ function TripBoardContent() {
             
             const pIdStr = normalizePlantId(row.originPlantId);
             const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
-            let finalCarrier: any = row.carrierObj || (dbCarriers || []).find(c => c.id === row.carrierId || c.id === row.shipmentObj?.carrierId);
+            
+            // MISSION FIX: Improved Carrier Resolution (Respecting assignments)
+            let finalCarrier: any = row.carrierObj || (dbCarriers || []).find(c => 
+                c.id === row.carrierId || 
+                c.id === row.shipmentObj?.carrierId || 
+                c.name === row.carrierName
+            );
 
             if (!finalCarrier && (pIdStr === '1426' || pIdStr === 'ID20')) {
                 finalCarrier = {
@@ -677,7 +691,11 @@ function TripBoardContent() {
         }
     }
     if (type === 'edit-lr') {
-        let finalCarrier = (dbCarriers || []).find(c => c.id === row.carrierId || c.id === row.shipmentObj?.carrierId || c.name === row.carrierName) || row.carrierObj;
+        let finalCarrier = (dbCarriers || []).find(c => 
+            c.id === row.carrierId || 
+            c.id === row.shipmentObj?.carrierId || 
+            c.name === row.carrierName
+        ) || row.carrierObj;
         
         if (!finalCarrier) {
             const pIdStr = normalizePlantId(row.originPlantId);
