@@ -36,6 +36,23 @@ const formSchema = z.object({
   invoiceNumber: z.string().optional().or(z.literal('')),
   exitWeight: z.coerce.number().optional(),
   weightUnit: z.string().optional().default('MT'),
+}).superRefine((data, ctx) => {
+    if (data.exitStatus === 'Loaded') {
+        if (!data.lrNumber?.trim()) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "LR Number is mandatory for loaded dispatch.",
+                path: ["lrNumber"],
+            });
+        }
+        if (!data.invoiceNumber?.trim()) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Invoice Number is mandatory for loaded dispatch.",
+                path: ["invoiceNumber"],
+            });
+        }
+    }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -273,10 +290,23 @@ export default function VehicleOut() {
                             <div className="flex items-center gap-3 border-b border-blue-100 pb-4"><FileText className="h-5 w-5 text-blue-600" /><h3 className="text-xs font-black uppercase tracking-[0.2em] text-blue-900">Mission Manifest Data</h3></div>
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-end">
                                 <FormField name="lrNumber" control={form.control} render={({ field }) => (
-                                    <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">LR REGISTRY NUMBER</FormLabel><FormControl><div className="relative group"><Input {...field} placeholder="Auto-populated" className="h-12 bg-white rounded-xl font-black uppercase border-blue-200 shadow-inner group-focus-within:ring-2 ring-blue-900" />{!field.value && <Sparkles className="absolute right-3 top-3 h-4 w-4 text-blue-300 animate-pulse" />}</div></FormControl></FormItem>
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">LR REGISTRY NUMBER *</FormLabel>
+                                        <FormControl>
+                                            <div className="relative group">
+                                                <Input {...field} placeholder="Auto-populated or manual" className="h-12 bg-white rounded-xl font-black uppercase border-blue-200 shadow-inner group-focus-within:ring-2 ring-blue-900" />
+                                                {!field.value && <Sparkles className="absolute right-3 top-3 h-4 w-4 text-blue-300 animate-pulse" />}
+                                            </div>
+                                        </FormControl>
+                                        <FormMessage className="text-[9px] font-black uppercase" />
+                                    </FormItem>
                                 )} />
                                 <FormField name="invoiceNumber" control={form.control} render={({ field }) => (
-                                    <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">OUTBOUND INVOICE NO</FormLabel><FormControl><Input {...field} placeholder="Auto-populated" className="h-12 bg-white rounded-xl font-black uppercase border-blue-200 shadow-inner" /></FormControl></FormItem>
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">OUTBOUND INVOICE NO *</FormLabel>
+                                        <FormControl><Input {...field} placeholder="Auto-populated or manual" className="h-12 bg-white rounded-xl font-black uppercase border-blue-200 shadow-inner" /></FormControl>
+                                        <FormMessage className="text-[9px] font-black uppercase" />
+                                    </FormItem>
                                 )} />
                                 <FormField name="exitWeight" control={form.control} render={({ field }) => (
                                     <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest px-1">EXIT WEIGHT</FormLabel><FormControl><div className="relative group"><Weight className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-400" /><Input type="number" step="0.001" {...field} className="h-12 pl-10 bg-white rounded-xl font-black text-blue-900 border-blue-200 shadow-inner" /></div></FormControl></FormItem>
