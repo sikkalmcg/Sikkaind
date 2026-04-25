@@ -8,7 +8,7 @@ import EditShipmentModal from '@/components/dashboard/shipment-plan/EditShipment
 import type { WithId, Shipment, Plant, SubUser } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, doc, getDoc, updateDoc, serverTimestamp, runTransaction, getDocs, where, limit, onSnapshot, writeBatch, orderBy, deleteDoc } from "firebase/firestore";
+import { collection, query, doc, updateDoc, serverTimestamp, runTransaction, getDocs, where, limit, onSnapshot, writeBatch, orderBy, deleteDoc } from "firebase/firestore";
 import { Loader2, WifiOff, Package, ListTree, Factory, ShieldCheck, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
  * @fileOverview Order Plan Control (Master Hub).
  * UI REFINEMENT: Unified navigation tabs into the primary header for high-density ERP layout.
  * Hardened: Robust path resolution for mission revocation and bulk purge nodes.
- * Fixed: Navigation now resets scroll to top on tab changes.
+ * Fixed: Robust scroll-to-top logic node using RAF and timeout to prevent auto-scrolling to bottom.
  */
 function ShipmentPlanContent() {
   const { toast } = useToast();
@@ -46,17 +46,32 @@ function ShipmentPlanContent() {
   const [dbError, setDbError] = useState<boolean>(false);
   const [editingShipment, setEditingShipment] = useState<WithId<Shipment> | null>(null);
 
-  // Registry Pulse: Reset scroll to top on tab change
+  // Registry Pulse: Reset scroll to top on tab change or mount
   useEffect(() => {
-    if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop = 0;
-    }
-  }, [activeTab]);
+    const forceScrollTop = () => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = 0;
+        }
+    };
+
+    // Immediate execution
+    forceScrollTop();
+
+    // Secondary Pulse: Overrides browser auto-focus scrolling that jumps to bottom inputs
+    const timer = setTimeout(forceScrollTop, 100);
+    const raf = requestAnimationFrame(forceScrollTop);
+
+    return () => {
+        clearTimeout(timer);
+        cancelAnimationFrame(raf);
+    };
+  }, [activeTab, pathname]);
 
   const handleTabChange = (val: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', val);
-    router.replace(`${pathname}?${params.toString()}`);
+    // MISSION FIX: Enable scroll reset during router transition
+    router.replace(`${pathname}?${params.toString()}`, { scroll: true });
   };
 
   const isAdminSession = useMemo(() => {
@@ -270,7 +285,7 @@ function ShipmentPlanContent() {
                         <div className="p-1.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3 shrink-0">
                             <Package className="h-5 w-5" />
                         </div>
-                        <h1 className="text-sm md:text-xl font-black text-blue-900 uppercase tracking-tight italic leading-none">Order Plan Control</h1>
+                        <h1 className="text-sm md:text-xl font-black text-blue-900 uppercase tracking-tight italic leading-none truncate">Order Plan Control</h1>
                     </div>
 
                     {/* NAVIGATION TABS NODE */}
@@ -280,7 +295,7 @@ function ShipmentPlanContent() {
                         </TabsTrigger>
                         <TabsTrigger value="history" className="data-[state=active]:border-b-4 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 pb-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-1.5 md:gap-2 whitespace-nowrap">
                             <ListTree className="h-3.5 w-3.5" /> Order Ledger 
-                            <Badge className="ml-1 md:ml-2 bg-slate-100 text-slate-500 border-none font-black text-[8px] md:text-[9px] px-1.5 h-4 md:h-5">{filteredShipments.length}</Badge>
+                            <Badge className="ml-1 md:ml-2 bg-slate-100 text-slate-500 border-none font-black text-[7px] md:text-[8px] px-1.5 h-4 md:h-5">{filteredShipments.length}</Badge>
                         </TabsTrigger>
                     </TabsList>
                 </div>

@@ -273,8 +273,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         
         const pIdStr = normalizePlantId(row.originPlantId);
         const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
-        
-        // REGISTRY SYNC node: Priority Carrier Resolution
         let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId || c.name === row.carrierName);
 
         if (!finalCarrier && (pIdStr === '1426' || pIdStr === 'ID20')) {
