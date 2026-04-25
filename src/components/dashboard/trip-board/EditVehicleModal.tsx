@@ -15,15 +15,13 @@ import {
     ShieldCheck, 
     Loader2, 
     Smartphone, 
-    CheckCircle2, 
     AlertCircle,
     Save,
-    History,
-    Smartphone as MobileIcon,
-    Layers
+    User,
+    Layers,
+    X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import { VehicleTypes } from '@/lib/constants';
 
 const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/;
@@ -36,6 +34,7 @@ const formSchema = z.object({
     message: 'Mobile must be 10 digits if provided.'
   }),
   vehicleType: z.enum(VehicleTypes, { required_error: 'Vehicle type is required' }),
+  transporterName: z.string().optional().default(''),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -48,11 +47,13 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
     defaultValues: {
       vehicleNumber: trip?.vehicleNumber || '',
       driverMobile: trip?.driverMobile || '',
-      vehicleType: (trip?.vehicleType as any) || 'Own Vehicle'
+      vehicleType: (trip?.vehicleType as any) || 'Own Vehicle',
+      transporterName: trip?.transporterName || ''
     }
   });
 
-  const { isSubmitting } = form.formState;
+  const { isSubmitting, watch } = form;
+  const watchedVehicleType = form.watch('vehicleType');
 
   const onSubmit = async (values: FormValues) => {
     try {
@@ -67,14 +68,17 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md p-0 border-none shadow-3xl overflow-hidden bg-white rounded-3xl">
         <DialogHeader className="p-8 bg-slate-900 text-white shrink-0">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-600 rounded-2xl shadow-xl">
-                <Truck className="h-7 w-7 text-white" />
+          <div className="flex justify-between items-center pr-12">
+            <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-600 rounded-2xl shadow-xl">
+                    <Truck className="h-7 w-7 text-white" />
+                </div>
+                <div>
+                    <DialogTitle className="text-xl font-black uppercase tracking-tight italic">Vehicle Correction Node</DialogTitle>
+                    <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-1">Registry Sync Node: {trip.tripId}</DialogDescription>
+                </div>
             </div>
-            <div>
-                <DialogTitle className="text-xl font-black uppercase tracking-tight italic">Vehicle Correction Node</DialogTitle>
-                <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-1">Registry Sync Node: {trip.tripId}</DialogDescription>
-            </div>
+            <button onClick={onClose} className="h-8 w-8 text-white/40 hover:text-white transition-all"><X size={20} /></button>
           </div>
         </DialogHeader>
 
@@ -106,7 +110,7 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
                             <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Fleet Category *</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
-                                    <SelectTrigger className="h-12 rounded-xl font-black text-blue-900 shadow-inner border-slate-200">
+                                    <SelectTrigger className="h-12 rounded-xl font-black text-blue-900 shadow-sm border-slate-200">
                                         <div className="flex items-center gap-2">
                                             <Layers className="h-4 w-4 text-slate-300" />
                                             <SelectValue placeholder="Select Category" />
@@ -121,12 +125,27 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
                         </FormItem>
                     )} />
 
+                    {watchedVehicleType === 'Market Vehicle' && (
+                        <FormField name="transporterName" control={form.control} render={({ field }) => (
+                            <FormItem className="animate-in slide-in-from-top-2 duration-300">
+                                <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Transporter Name *</FormLabel>
+                                <FormControl>
+                                    <div className="relative group">
+                                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+                                        <Input placeholder="Enter Transporter" {...field} className="pl-12 h-12 rounded-xl font-black text-slate-800 uppercase shadow-inner border-slate-200 focus-visible:ring-blue-900" />
+                                    </div>
+                                </FormControl>
+                                <FormMessage className="text-[9px] font-black uppercase" />
+                            </FormItem>
+                        )} />
+                    )}
+
                     <FormField name="driverMobile" control={form.control} render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Correct Pilot Mobile</FormLabel>
                             <FormControl>
                                 <div className="relative group">
-                                    <MobileIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+                                    <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
                                     <Input placeholder="Optional" {...field} maxLength={10} className="pl-12 h-12 rounded-xl font-black text-slate-900 text-lg font-mono shadow-inner border-slate-200 focus-visible:ring-blue-900" />
                                 </div>
                             </FormControl>
@@ -135,9 +154,9 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
                     )} />
 
                     <DialogFooter className="pt-8 border-t flex-row justify-end gap-3 bg-slate-50 -mx-10 -mb-10 p-8">
-                        <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting} className="font-black text-slate-400 uppercase text-[10px] tracking-widest px-8">Discard</Button>
-                        <Button type="submit" disabled={isSubmitting} className="bg-blue-900 hover:bg-black text-white px-10 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 border-none">
-                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        <Button type="button" variant="ghost" onClick={onClose} disabled={form.formState.isSubmitting} className="font-black text-slate-400 uppercase text-[10px] tracking-widest px-8">Discard</Button>
+                        <Button type="submit" disabled={form.formState.isSubmitting} className="bg-blue-900 hover:bg-black text-white px-10 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 border-none">
+                            {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                             Commit Corrected Node
                         </Button>
                     </DialogFooter>

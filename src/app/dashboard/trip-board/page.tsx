@@ -47,6 +47,7 @@ type TripBoardTab = 'pending-assignment' | 'open-order' | 'loading' | 'transit' 
  * @fileOverview Trip Board Control Center.
  * Handles the central mission registry monitoring and status transitions.
  * Updated: Integrated "Change to Contract" logic node with LR purge capability.
+ * Hardened: Vehicle correction node now supports Transporter Name synchronization.
  */
 function TripBoardContent() {
   const { toast } = useToast();
@@ -464,12 +465,16 @@ function TripBoardContent() {
             const tripRef = doc(firestore, `plants/${plantId}/trips`, tripId);
             const globalTripRef = doc(firestore, 'trips', tripId);
             
-            const updateData = {
+            const updateData: any = {
                 vehicleNumber: values.vehicleNumber,
                 driverMobile: values.driverMobile || '',
                 vehicleType: values.vehicleType,
                 lastUpdated: ts
             };
+
+            if (values.transporterName) {
+                updateData.transporterName = values.transporterName;
+            }
 
             transaction.update(tripRef, updateData);
             transaction.update(globalTripRef, updateData);
