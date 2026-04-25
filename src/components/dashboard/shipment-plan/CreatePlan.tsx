@@ -299,7 +299,8 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
   useEffect(() => {
     if (fields.length === 0) {
-        append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '' });
+        // MISSION FIX: explicitly disable focus on initial append to prevent browser scroll jump to bottom
+        append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '' }, { shouldFocus: false });
     }
   }, [fields.length, append]);
 
@@ -727,7 +728,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
                     <div className="space-y-8 p-6 md:p-10 rounded-[3rem] border-2 border-slate-100 bg-white shadow-xl relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-600" />
-                        <AutocompleteInput label="Consignee / Bill To *" placeholder="Search registry..." value={billToParty} onChange={v => setValue('billToParty', v)} suggestions={consigneeRegistry} onSearchClick={() => setHelpModal({type: 'billToParty', title: 'Buyer Registry', data: consigneeRegistry})} onSelect={(p) => selectPartyNode(p, 'billToParty')} />
+                        <AutocompleteInput label="Consignee / Bill To *" placeholder="Search registry..." value={watchedBillTo} onChange={v => setValue('billToParty', v)} suggestions={consigneeRegistry} onSearchClick={() => setHelpModal({type: 'billToParty', title: 'Buyer Registry', data: consigneeRegistry})} onSelect={(p) => selectPartyNode(p, 'billToParty')} />
                         <FormField control={control} name="isSameAsBillTo" render={({ field }) => (
                             <div className="flex items-center gap-3 px-2"><Checkbox checked={field.value} onCheckedChange={field.onChange} id="sameAs" className="h-6 w-6 rounded-lg data-[state=checked]:bg-emerald-600 shadow-md" /><label htmlFor="sameAs" className="text-[11px] font-black uppercase text-slate-400 cursor-pointer tracking-widest">Ship to is same as Consignee</label></div>
                         )} />

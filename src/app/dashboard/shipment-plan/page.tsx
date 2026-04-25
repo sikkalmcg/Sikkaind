@@ -7,7 +7,7 @@ import ShipmentData from '@/components/dashboard/shipment-plan/ShipmentData';
 import EditShipmentModal from '@/components/dashboard/shipment-plan/EditShipmentModal';
 import type { WithId, Shipment, Plant, SubUser } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { collection, query, doc, updateDoc, serverTimestamp, runTransaction, getDocs, where, limit, onSnapshot, writeBatch, orderBy, deleteDoc } from "firebase/firestore";
 import { Loader2, WifiOff, Package, ListTree, Factory, ShieldCheck, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
  * @fileOverview Order Plan Control (Master Hub).
  * UI REFINEMENT: Unified navigation tabs into the primary header for high-density ERP layout.
  * Hardened: Robust path resolution for mission revocation and bulk purge nodes.
- * Fixed: Robust scroll-to-top logic node using RAF and timeout to prevent auto-scrolling to bottom.
+ * Fixed: Robust scroll-to-top logic node using RAF and multi-stage timeout to block auto-scroll jump.
  */
 function ShipmentPlanContent() {
   const { toast } = useToast();
@@ -47,22 +47,31 @@ function ShipmentPlanContent() {
   const [editingShipment, setEditingShipment] = useState<WithId<Shipment> | null>(null);
 
   // Registry Pulse: Reset scroll to top on tab change or mount
+  // Hardened to prevent jump to "Invoice Number" section
   useEffect(() => {
     const forceScrollTop = () => {
         if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollTop = 0;
+            // Also reset window scroll to be safe
+            window.scrollTo(0, 0);
         }
     };
 
-    // Immediate execution
+    // Stage 1: Immediate Reset
     forceScrollTop();
 
-    // Secondary Pulse: Overrides browser auto-focus scrolling that jumps to bottom inputs
-    const timer = setTimeout(forceScrollTop, 100);
+    // Stage 2: Animation Frame Sync
     const raf = requestAnimationFrame(forceScrollTop);
 
+    // Stage 3: Delayed Pulse (Overrides browser autofocus on lower inputs)
+    const timer1 = setTimeout(forceScrollTop, 50);
+    const timer2 = setTimeout(forceScrollTop, 150);
+    const timer3 = setTimeout(forceScrollTop, 300);
+
     return () => {
-        clearTimeout(timer);
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+        clearTimeout(timer3);
         cancelAnimationFrame(raf);
     };
   }, [activeTab, pathname]);
