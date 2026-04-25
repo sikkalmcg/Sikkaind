@@ -26,7 +26,8 @@ import {
   Truck,
   LayoutGrid,
   Briefcase,
-  CheckCircle2
+  CheckCircle2,
+  Fingerprint
 } from 'lucide-react';
 import type { SubUser, Plant, WithId } from '@/types';
 import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions } from '@/lib/constants';
@@ -34,6 +35,7 @@ import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
   fullName: z.string().min(2, 'Full name required.'),
+  username: z.string().min(3, 'Username required (min 3 chars).').toLowerCase().transform(v => v.replace(/\s+/g, '')),
   mobile: z.string().regex(/^\d{10}$/, '10 digit mobile required.'),
   password: z.string().optional().or(z.literal('')),
   jobRole: z.string().min(1, 'Role required.'),
@@ -62,6 +64,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
     resolver: zodResolver(formSchema),
     defaultValues: {
       fullName: '',
+      username: '',
       mobile: '',
       password: '',
       jobRole: 'Operator',
@@ -86,6 +89,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
     if (isOpen && user) {
       reset({
         fullName: user.fullName || '',
+        username: user.username || '',
         mobile: user.mobile || '',
         password: '', 
         jobRole: user.jobRole || 'Operator',
@@ -117,6 +121,10 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
   const onSubmit = async (values: FormValues) => {
     const updateData: any = { ...values };
     if (!values.password) delete updateData.password;
+    
+    // Mission Registry Logic: Sync email with username
+    updateData.email = `${values.username}@sikka.com`;
+    
     await onUserUpdated(user.id, updateData);
     onClose();
   };
@@ -154,6 +162,13 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-black uppercase text-slate-500">Staff Full Name *</FormLabel>
                                     <FormControl><Input {...field} className="h-12 rounded-xl font-bold bg-slate-50/50 shadow-inner" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField name="username" control={form.control} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-2">Username Node * <Fingerprint size={12} className="opacity-40" /></FormLabel>
+                                    <FormControl><Input {...field} className="h-12 rounded-xl font-black text-blue-900 shadow-inner uppercase" /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />
@@ -210,7 +225,6 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                     </section>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* LOGISTICS CARD */}
                         <Card className={cn("border-2 transition-all rounded-[3rem] overflow-hidden flex flex-col", watchedAccessLogistics ? "border-blue-200 bg-white shadow-2xl" : "border-slate-100 opacity-40 grayscale")}>
                             <CardHeader className="p-6 border-b bg-slate-50/50 flex flex-row items-center justify-between">
                                 <div className="flex items-center gap-4">
@@ -254,7 +268,6 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                             </CardContent>
                         </Card>
 
-                        {/* ACCOUNTS & ADMIN CARD */}
                         <Card className={cn("border-2 transition-all rounded-[3rem] overflow-hidden flex flex-col", watchedAccessAccounts ? "border-emerald-200 bg-white shadow-2xl" : "border-slate-100 opacity-40 grayscale")}>
                             <CardHeader className="p-6 border-b bg-slate-50/50 flex flex-row items-center justify-between">
                                 <div className="flex items-center gap-4">
