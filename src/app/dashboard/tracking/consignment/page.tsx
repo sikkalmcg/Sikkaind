@@ -49,7 +49,7 @@ const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracki
  * @fileOverview Consignment Terminal - Tracking Hub.
  * Hardened: Robust status normalization and real-time animation pulse.
  * Optimized: Uses ref lock to prevent infinite re-loads of truck animation.
- * Fixed: Telemetry sync node ordering resolved.
+ * Fixed: Telemetry sync node ordering resolved. Fallback timestamp node for specific plants.
  */
 function TrackConsignmentContent() {
     const { toast } = useToast();
@@ -106,8 +106,8 @@ function TrackConsignmentContent() {
     const getStageTimestamp = useCallback((index: number) => {
         if (!consignment) return null;
         switch (index) {
-            case 0: return consignment.startDate || consignment.creationDate;
-            case 1: return consignment.entryTime || consignment.startDate;
+            case 0: return consignment.startDate || consignment.shipment?.creationDate || consignment.creationDate;
+            case 1: return consignment.entryTime || consignment.startDate || consignment.shipment?.creationDate;
             case 2: return consignment.outDate || consignment.lastUpdated || consignment.startDate;
             case 3: return consignment.arrivalDate || consignment.lastUpdated;
             case 4: return consignment.actualCompletionDate || consignment.lastUpdated;
@@ -261,8 +261,18 @@ function TrackConsignmentContent() {
             const status = (trip.tripStatus || trip.currentStatusId || 'assigned').toLowerCase();
             const isRejected = status === 'rejected';
 
+            // Resolve shipment context for fallback dates
+            const plantId = normalizePlantId(trip.originPlantId);
+            const shipId = Array.isArray(trip.shipmentIds) ? trip.shipmentIds[0] : trip.shipmentId;
+            let shipmentData = null;
+            if (shipId) {
+                const sSnap = await getDoc(doc(firestore, `plants/${plantId}/shipments`, shipId));
+                if (sSnap.exists()) shipmentData = sSnap.data();
+            }
+
             setConsignment({ 
                 ...trip, 
+                shipment: shipmentData,
                 assignedAt: parseSafeDate(trip.startDate) || new Date(),
                 isRejected
             });

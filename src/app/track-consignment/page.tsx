@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef } from 'react';
@@ -51,6 +50,7 @@ import {
  * Transition: Interactive Trip ID links allow instant mode-switch from SO to Trip tracking.
  * UI Refinement: Vehicle Number node added to Trip Tracking results manifest.
  * Registry Fix: Integrated explicit "Cancelled" status node for revoked missions.
+ * Fixed: Assign date fallback resolved for specific plant IDs.
  */
 
 function TrackConsignmentContent() {
@@ -99,8 +99,8 @@ function TrackConsignmentContent() {
     const getStageTimestamp = useCallback((index: number) => {
         if (!activeTrip) return null;
         switch (index) {
-            case 0: return activeTrip.startDate || activeTrip.creationDate;
-            case 1: return activeTrip.entryTime || activeTrip.startDate;
+            case 0: return activeTrip.startDate || activeTrip.shipment?.creationDate || activeTrip.creationDate;
+            case 1: return activeTrip.entryTime || activeTrip.startDate || activeTrip.shipment?.creationDate;
             case 2: return activeTrip.outDate || activeTrip.lastUpdated || activeTrip.startDate;
             case 3: return activeTrip.arrivalDate || activeTrip.lastUpdated;
             case 4: return activeTrip.actualCompletionDate || activeTrip.lastUpdated;
