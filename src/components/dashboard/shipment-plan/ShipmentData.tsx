@@ -555,11 +555,13 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                                     <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50" disabled={!canEdit} onClick={() => onEdit(s)}>
                                         <Edit2 className="h-3.5 w-3.5" />
                                     </Button>
-                                    <DeleteShipmentConfirmationDialog onConfirm={() => onDelete(s.id)} shipment={s} disabled={!isAdmin}>
-                                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50" disabled={!isAdmin}>
-                                            <Ban className="h-3.5 w-3.5" />
-                                        </Button>
-                                    </DeleteShipmentConfirmationDialog>
+                                    {isAdmin && (
+                                        <DeleteShipmentConfirmationDialog onConfirm={() => onDelete(s.id)} shipment={s}>
+                                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50">
+                                                <Ban className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </DeleteShipmentConfirmationDialog>
+                                    )}
                                 </div>
                             </TableCell>
                             </TableRow>

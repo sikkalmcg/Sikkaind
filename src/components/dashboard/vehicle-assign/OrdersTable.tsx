@@ -145,7 +145,17 @@ export default function OrdersTable({
                                 <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Mission Control</DropdownMenuLabel>
                                 <DropdownMenuItem onClick={() => onViewOrder(order)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-xl hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Payload</DropdownMenuItem>
                                 {tab === 'pending' && !isCancelled && (<DropdownMenuItem onClick={() => onAssign(order)} className="gap-3 font-black py-2.5 cursor-pointer rounded-xl bg-blue-900 text-white hover:bg-slate-900 focus:bg-slate-900 focus:text-white"><PlusCircle className="h-4 w-4" /> Assign Fleet</DropdownMenuItem>)}
-                                {!isCancelled && (<><DropdownMenuSeparator className="bg-slate-100" /><DropdownMenuItem onClick={() => onShortClose(order.id)} className="gap-3 font-bold py-2.5 text-orange-600 cursor-pointer rounded-xl hover:bg-orange-50"><ArrowRightLeft className="h-4 w-4" /> Short Close</DropdownMenuItem><DropdownMenuItem onClick={() => onCancelOrder(order.id)} className="gap-3 font-bold py-2.5 text-red-600 cursor-pointer rounded-xl hover:bg-red-50"><Ban className="h-4 w-4" /> Cancel Registry</DropdownMenuItem></>)}
+                                {isAdmin && !isCancelled && (
+                                  <>
+                                    <DropdownMenuSeparator className="bg-slate-100" />
+                                    <DropdownMenuItem onClick={() => onShortClose(order.id)} className="gap-3 font-bold py-2.5 text-orange-600 cursor-pointer rounded-xl hover:bg-orange-50">
+                                      <ArrowRightLeft className="h-4 w-4" /> Short Close
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onCancelOrder(order.id)} className="gap-3 font-bold py-2.5 text-red-600 cursor-pointer rounded-xl hover:bg-red-50">
+                                      <Ban className="h-4 w-4" /> Cancel Registry
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
                             </DropdownMenuContent>
                           </DropdownMenuPortal>
                         </DropdownMenu>

@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import CreatePlan from '@/components/dashboard/shipment-plan/CreatePlan';
 import ShipmentData from '@/components/dashboard/shipment-plan/ShipmentData';
@@ -25,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
  * @fileOverview Order Plan Control (Master Hub).
  * UI REFINEMENT: Unified navigation tabs into the primary header for high-density ERP layout.
  * Hardened: Robust path resolution for mission revocation and bulk purge nodes.
+ * Fixed: Navigation now resets scroll to top on tab changes.
  */
 function ShipmentPlanContent() {
   const { toast } = useToast();
@@ -34,6 +35,7 @@ function ShipmentPlanContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   const activeTab = (searchParams.get('tab') || 'create');
   const [selectedPlant, setSelectedPlant] = useState<string>('all-plants');
@@ -44,10 +46,17 @@ function ShipmentPlanContent() {
   const [dbError, setDbError] = useState<boolean>(false);
   const [editingShipment, setEditingShipment] = useState<WithId<Shipment> | null>(null);
 
+  // Registry Pulse: Reset scroll to top on tab change
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [activeTab]);
+
   const handleTabChange = (val: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', val);
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    router.replace(`${pathname}?${params.toString()}`);
   };
 
   const isAdminSession = useMemo(() => {
@@ -261,7 +270,7 @@ function ShipmentPlanContent() {
                         <div className="p-1.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3 shrink-0">
                             <Package className="h-5 w-5" />
                         </div>
-                        <h1 className="text-sm md:text-xl font-black text-blue-900 uppercase tracking-tight italic">Order Plan Control</h1>
+                        <h1 className="text-sm md:text-xl font-black text-blue-900 uppercase tracking-tight italic leading-none">Order Plan Control</h1>
                     </div>
 
                     {/* NAVIGATION TABS NODE */}
@@ -302,7 +311,7 @@ function ShipmentPlanContent() {
             </div>
 
             {/* CONTENT NODE */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6">
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6">
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                     <TabsContent value="create" className="focus-visible:ring-0 m-0">
                         <CreatePlan onShipmentCreated={() => handleTabChange('history')} authorizedPlants={plants} />
