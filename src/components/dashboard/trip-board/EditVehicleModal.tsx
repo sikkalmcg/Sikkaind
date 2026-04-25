@@ -32,6 +32,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import type { FuelPump } from '@/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 
 const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/;
 
