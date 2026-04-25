@@ -52,6 +52,15 @@ import { cn, normalizePlantId, generateRandomTripId } from '@/lib/utils';
 import { useLoading } from '@/context/LoadingContext';
 import { PaymentTerms, LRUnitTypes } from '@/lib/constants';
 
+const itemSchema = z.object({
+  invoiceNumber: z.string().optional().or(z.literal('')),
+  ewaybillNumber: z.string().optional().or(z.literal('')),
+  units: z.coerce.number().min(1, "Units required"),
+  unitType: z.string().default('Package'),
+  itemDescription: z.string().min(1, "Item desc required"),
+  hsnSac: z.string().optional(),
+});
+
 const formSchema = z.object({
   originPlantId: z.string().min(1, 'Plant selection is required.'),
   shipmentId: z.string().min(1, 'Sales Order No. is mandatory.').toUpperCase().transform(v => v.trim()),
@@ -76,14 +85,7 @@ const formSchema = z.object({
   carrierName: z.string().optional().or(z.literal('')),
   paymentTerm: z.enum(PaymentTerms).optional(),
   deliveryAddress: z.string().optional().or(z.literal('')),
-  items: z.array(z.object({
-    invoiceNumber: z.string().optional().or(z.literal('')),
-    ewaybillNumber: z.string().optional(),
-    units: z.coerce.number().min(1, "Units required"),
-    unitType: z.string().default('Package'),
-    itemDescription: z.string().min(1, "Item desc required"),
-    hsnSac: z.string().optional(),
-  })).optional().default([]),
+  items: z.array(itemSchema).min(1, "At least one row is required."),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -171,7 +173,7 @@ function SearchRegistryModal({
                         <Search className="h-5 w-5 text-blue-400" /> {title}
                     </DialogTitle>
                     <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-1">
-                        Select a verified Plant from the mission registry
+                        Select a verified entity from the mission registry
                     </DialogDescription>
                 </DialogHeader>
                 <div className="p-6 space-y-4">
@@ -190,7 +192,7 @@ function SearchRegistryModal({
                             <Table>
                                 <TableBody>
                                     {filtered.length === 0 ? (
-                                        <TableRow><TableCell colSpan={3} className="h-32 text-center text-slate-400 italic">No Plants matching search.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={3} className="h-32 text-center text-slate-400 italic">No nodes matching search.</TableCell></TableRow>
                                     ) : (
                                         filtered.map(item => (
                                             <TableRow key={item.id} className="cursor-pointer h-12 transition-all group hover:bg-blue-50" onClick={() => onSelect(item)}>
@@ -247,7 +249,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
   
   const originPlantId = useWatch({ control, name: 'originPlantId' });
   const isSameAsBillTo = useWatch({ control, name: 'isSameAsBillTo' });
-  const billToParty = useWatch({ control, name: 'billToParty' });
+  const watchedBillTo = useWatch({ control, name: 'billToParty' });
   const watchedConsignor = useWatch({ control, name: 'consignor' });
   const watchedShipTo = useWatch({ control, name: 'shipToParty' });
   const watchedItems = useWatch({ control, name: "items" }) || [];
@@ -299,15 +301,15 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
 
   useEffect(() => {
     if (fields.length === 0) {
-        // MISSION FIX: explicitly disable focus on initial append to prevent browser scroll jump to bottom
+        // MISSION FIX: explicitly disable focus on initial manifestation to stop browser jumping
         append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: '' }, { shouldFocus: false });
     }
   }, [fields.length, append]);
 
   useEffect(() => {
-    if (isSameAsBillTo && billToParty) {
-        setValue('shipToParty', billToParty, { shouldValidate: true });
-        const match = consigneeRegistry.find(p => p.name === billToParty);
+    if (isSameAsBillTo && watchedBillTo) {
+        setValue('shipToParty', watchedBillTo, { shouldValidate: true });
+        const match = consigneeRegistry.find(p => p.name === watchedBillTo);
         if (match) {
             setValue('shipToGtin', match.gstin || '', { shouldValidate: true });
             const city = match.city && match.city !== 'N/A' ? match.city : (match.address && match.address !== 'N/A' ? match.address : 'N/A');
@@ -315,7 +317,7 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
             if (match.address) setValue('deliveryAddress', match.address, { shouldValidate: true });
         }
     }
-  }, [isSameAsBillTo, billToParty, setValue, consigneeRegistry]);
+  }, [isSameAsBillTo, watchedBillTo, setValue, consigneeRegistry]);
 
   const selectPartyNode = useCallback((party: Party, type: string) => {
     setValue(type as any, party.name, { shouldValidate: true });
@@ -454,7 +456,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 return isValid(d) ? d : null;
             };
 
-            // MISSION REGISTRY PRE-FETCH node: Load all parties to auto-resolve codes
             const partiesSnap = await getDocs(collection(firestore, "logistics_parties"));
             const partyRegistryMap = new Map();
             partiesSnap.forEach(d => {
@@ -463,7 +464,6 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                 if (p.name) partyRegistryMap.set(String(p.name).toUpperCase().trim(), p);
             });
 
-            // CARRIER SYNC node: Match carrier names to ensure terms and ID handshake
             const carriersSnap = await getDocs(collection(firestore, "carriers"));
             const carrierRegistryMap = new Map();
             carriersSnap.forEach(d => {
@@ -490,12 +490,10 @@ export default function CreatePlan({ onShipmentCreated, authorizedPlants }: { on
                     const sCode = getVal(row, ["Ship To Code", "Ship To ID"])?.toUpperCase();
                     const cAgentName = getVal(row, ["Carrier Name", "Carrier"]);
 
-                    // Registry Resolve Node: Strictly use Codes to fetch GSTIN/Address from HANDBOOK
                     const matchedConsignor = partyRegistryMap.get(cCode) || partyRegistryMap.get(cName?.toUpperCase());
                     const matchedConsignee = partyRegistryMap.get(bCode) || partyRegistryMap.get(bName?.toUpperCase());
                     const matchedShipTo = partyRegistryMap.get(sCode) || partyRegistryMap.get(sName?.toUpperCase());
                     
-                    // CARRIER HANDSHAKE: Ensure terms and ID are pulled from registry
                     const matchedCarrier = carrierRegistryMap.get(cAgentName?.toUpperCase());
 
                     orderGroups[groupKey] = {
