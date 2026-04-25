@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -47,7 +46,7 @@ type TripBoardTab = 'pending-assignment' | 'open-order' | 'loading' | 'transit' 
  * @fileOverview Trip Board Control Center.
  * Handles the central mission registry monitoring and status transitions.
  * Updated: Integrated "Change to Contract" logic node with LR purge capability.
- * Hardened: Vehicle correction node now supports Transporter Name synchronization.
+ * Hardened: Vehicle correction node now supports Transporter Name and Freight Rate synchronization.
  */
 function TripBoardContent() {
   const { toast } = useToast();
@@ -321,8 +320,8 @@ function TripBoardContent() {
 }, [trips, shipments, lrs, entries, plants, dbCarriers, selectedPlants]);
 
   const processedData = useMemo(() => {
-    const dayStart = fromDate ? startOfDay(fromDate) : null;
-    const dayEnd = toDate ? endOfDay(toDate) : null;
+    const dayStart = fromDate ? startOfDay(fromDate) : startOfDay(subDays(new Date(), 7));
+    const dayEnd = toDate ? endOfDay(toDate) : endOfDay(new Date());
     const normalizedSelected = selectedPlants.map(normalizePlantId);
 
     if (activeTab === 'pending-assignment') {
@@ -469,6 +468,9 @@ function TripBoardContent() {
                 vehicleNumber: values.vehicleNumber,
                 driverMobile: values.driverMobile || '',
                 vehicleType: values.vehicleType,
+                freightRate: values.freightRate || 0,
+                isFixRate: !!values.isFixRate,
+                fixedAmount: values.fixedAmount || 0,
                 lastUpdated: ts
             };
 

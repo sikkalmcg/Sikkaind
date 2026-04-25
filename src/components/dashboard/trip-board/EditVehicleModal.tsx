@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useMemo } from 'react';
@@ -21,7 +20,9 @@ import {
     User,
     Layers,
     X,
-    Search
+    Search,
+    IndianRupee,
+    Calculator
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VehicleTypes } from '@/lib/constants';
@@ -29,6 +30,8 @@ import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query } from "firebase/firestore";
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import type { FuelPump } from '@/types';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 
 const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/;
 
@@ -41,6 +44,9 @@ const formSchema = z.object({
   }),
   vehicleType: z.enum(VehicleTypes, { required_error: 'Vehicle type is required' }),
   transporterName: z.string().optional().default(''),
+  freightRate: z.coerce.number().optional().default(0),
+  isFixRate: z.boolean().default(false),
+  fixedAmount: z.coerce.number().optional().default(0),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -64,13 +70,19 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
       vehicleNumber: trip?.vehicleNumber || '',
       driverMobile: trip?.driverMobile || '',
       vehicleType: (trip?.vehicleType as any) || 'Own Vehicle',
-      transporterName: trip?.transporterName || ''
+      transporterName: trip?.transporterName || '',
+      freightRate: trip?.freightRate || 0,
+      isFixRate: trip?.isFixRate || false,
+      fixedAmount: trip?.fixedAmount || 0,
     }
   });
 
   const { isSubmitting, watch, reset, setValue } = form;
   const watchedVehicleType = watch('vehicleType');
   const currentTransporterName = watch('transporterName');
+  const isFixRate = watch('isFixRate');
+  const freightRate = watch('freightRate');
+  const fixedAmount = watch('fixedAmount');
 
   // MISSION PULSE: Reset form nodes when trip identity changes
   useEffect(() => {
@@ -79,7 +91,10 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
         vehicleNumber: trip.vehicleNumber || '',
         driverMobile: trip.driverMobile || '',
         vehicleType: (trip.vehicleType as any) || 'Own Vehicle',
-        transporterName: trip.transporterName || ''
+        transporterName: trip.transporterName || '',
+        freightRate: trip.freightRate || 0,
+        isFixRate: !!trip.isFixRate,
+        fixedAmount: trip.fixedAmount || 0,
       });
     }
   }, [trip, isOpen, reset]);
@@ -88,9 +103,14 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
     const vendor = vendors?.find(v => v.id === vendorId);
     if (vendor) {
         setValue('transporterName', vendor.name, { shouldValidate: true });
-        // Optional: Sync transporter mobile if needed in registry
     }
   };
+
+  const calculatedFreight = useMemo(() => {
+    if (isFixRate) return Number(fixedAmount) || 0;
+    const qty = Number(trip?.assignedQtyInTrip) || 0;
+    return (Number(freightRate) || 0) * qty;
+  }, [isFixRate, fixedAmount, freightRate, trip]);
 
   const onSubmit = async (values: FormValues) => {
     try {
@@ -101,9 +121,11 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
     }
   };
 
+  const showFinancials = watchedVehicleType === 'Market Vehicle' || watchedVehicleType === 'Contract Vehicle';
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md p-0 border-none shadow-3xl overflow-hidden bg-white rounded-3xl">
+      <DialogContent className="max-w-xl p-0 border-none shadow-3xl overflow-hidden bg-white rounded-3xl">
         <DialogHeader className="p-8 bg-slate-900 text-white shrink-0">
           <div className="flex justify-between items-center pr-12">
             <div className="flex items-center gap-4">
@@ -119,7 +141,7 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
           </div>
         </DialogHeader>
 
-        <div className="p-10 space-y-8">
+        <div className="p-10 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-start gap-4 p-5 bg-blue-50 rounded-2xl border border-blue-100">
                 <AlertCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
                 <p className="text-[10px] font-bold text-blue-700 leading-normal uppercase">
@@ -128,7 +150,7 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
             </div>
 
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                     <FormField name="vehicleNumber" control={form.control} render={({ field }) => (
                         <FormItem>
                             <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">New Vehicle Number *</FormLabel>
@@ -172,7 +194,6 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
                                 placeholder="Resolve from Registry"
                                 className="h-12"
                             />
-                            <FormMessage className="text-[9px] font-black uppercase" />
                         </div>
                     )}
 
@@ -189,16 +210,71 @@ export default function EditVehicleModal({ isOpen, onClose, trip, onSave }: { is
                         </FormItem>
                     )} />
 
-                    <DialogFooter className="pt-8 border-t flex-row justify-end gap-3 bg-slate-50 -mx-10 -mb-10 p-8">
-                        <Button type="button" variant="ghost" onClick={onClose} disabled={form.formState.isSubmitting} className="font-black text-slate-400 uppercase text-[10px] tracking-widest px-8">Discard</Button>
-                        <Button type="submit" disabled={form.formState.isSubmitting} className="bg-blue-900 hover:bg-black text-white px-10 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 border-none">
-                            {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                            Commit Corrected Node
-                        </Button>
-                    </DialogFooter>
+                    {showFinancials && (
+                        <div className="p-8 bg-blue-50/50 rounded-[2rem] border-2 border-blue-100 shadow-sm space-y-8 animate-in slide-in-from-top-4 duration-500">
+                            <div className="flex items-center gap-3 border-b border-blue-100 pb-4">
+                                <IndianRupee className="h-5 w-5 text-blue-600" />
+                                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Financial Correction Node</h3>
+                            </div>
+
+                            <div className="space-y-6">
+                                <FormField name="isFixRate" control={form.control} render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-4 border rounded-xl bg-white shadow-sm">
+                                        <FormControl>
+                                            <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-6 w-6 rounded-lg data-[state=checked]:bg-blue-900 shadow-md" />
+                                        </FormControl>
+                                        <div className="space-y-1 leading-none">
+                                            <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest cursor-pointer">Manual Fix Rate Node</FormLabel>
+                                        </div>
+                                    </FormItem>
+                                )} />
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <FormField name="freightRate" control={form.control} render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className={cn("text-[10px] font-black uppercase", isFixRate ? "text-slate-300" : "text-slate-500")}>Freight Rate (MT) *</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" step="0.01" {...field} disabled={isFixRate} className="h-12 rounded-xl bg-white font-black text-blue-900 text-lg shadow-inner disabled:bg-slate-50 disabled:text-slate-300" />
+                                            </FormControl>
+                                        </FormItem>
+                                    )} />
+
+                                    <FormField name="fixedAmount" control={form.control} render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className={cn("text-[10px] font-black uppercase", !isFixRate ? "text-slate-300" : "text-emerald-600")}>Fixed Amount *</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" step="0.01" {...field} disabled={!isFixRate} className="h-12 rounded-xl bg-white font-black text-emerald-900 text-lg shadow-inner disabled:bg-slate-50 disabled:text-slate-300" />
+                                            </FormControl>
+                                        </FormItem>
+                                    )} />
+                                </div>
+
+                                <div className="p-4 bg-slate-900 text-white rounded-2xl flex items-center justify-between shadow-2xl relative overflow-hidden group">
+                                    <div className="absolute right-0 p-4 opacity-5 transition-transform duration-700 group-hover:scale-110"><Calculator size={60} /></div>
+                                    <div className="flex flex-col relative z-10">
+                                        <span className="text-[8px] font-black uppercase text-blue-300 tracking-widest">Adjusted Mission Total</span>
+                                        <span className="text-2xl font-black tracking-tighter">₹ {calculatedFreight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <Badge className="bg-emerald-600/20 text-emerald-400 border-emerald-500/20 text-[8px] font-black uppercase relative z-10 h-6">Live Pulse</Badge>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </form>
             </Form>
         </div>
+
+        <DialogFooter className="pt-8 border-t flex-row justify-end gap-3 bg-slate-50 p-8 shrink-0">
+            <Button variant="ghost" type="button" onClick={onClose} disabled={form.formState.isSubmitting} className="font-black text-slate-400 uppercase text-[10px] tracking-widest px-8">Discard</Button>
+            <Button 
+                onClick={form.handleSubmit(onSubmit)}
+                disabled={form.formState.isSubmitting} 
+                className="bg-blue-900 hover:bg-black text-white px-10 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all active:scale-95 border-none"
+            >
+                {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Commit Corrected Node
+            </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
