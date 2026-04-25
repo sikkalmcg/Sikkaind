@@ -2,8 +2,8 @@ import * as admin from 'firebase-admin';
 
 /**
  * @fileOverview Hardened Firebase Admin SDK Node.
- * Re-engineered for high-reliability cloud handshake in Studio environments.
- * Optimized to use environment-level credentials to resolve token payload errors.
+ * Re-engineered to resolve identity pulse issues in Studio/Local environments.
+ * Optimized to utilize explicit service account credentials from environment variables.
  */
 
 function getAdminApp() {
@@ -12,19 +12,34 @@ function getAdminApp() {
 
   const projectId = "studio-2134942499-abd6c";
 
+  // Registry Sync: Prioritize explicit Service Account if provided as stringified JSON in .env
+  const saJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  
+  if (saJson) {
+    try {
+      const sa = JSON.parse(saJson);
+      return admin.initializeApp({
+        credential: admin.credential.cert(sa),
+        projectId: sa.project_id || projectId
+      });
+    } catch (e) {
+      console.warn("Manual Service Account Node Handshake Failed. Checking ADC...");
+    }
+  }
+
   try {
     /**
      * REGISTRY HANDSHAKE:
-     * Explicitly invoke applicationDefault() to ensure the SDK handshakes 
-     * correctly with the workstation's identity node.
+     * Attempt to resolve identity via Application Default Credentials (ADC).
+     * This handshakes with GOOGLE_APPLICATION_CREDENTIALS file path if set in .env.
      */
     return admin.initializeApp({
       credential: admin.credential.applicationDefault(),
       projectId: projectId,
     });
   } catch (e) {
-    // Fallback: Attempt basic init if metadata pulse is unstable
-    console.warn("Registry Handshake Fallback Triggered.");
+    console.warn("ADC Handshake Failure. Falling back to Project ID node.");
+    // Fallback node: Initialize with Project ID only (may restrict certain Auth operations)
     return admin.initializeApp({
       projectId: projectId,
     });
@@ -34,6 +49,6 @@ function getAdminApp() {
 const app = getAdminApp();
 
 // Explicitly bind services to the app instance to ensure authorized handshake
-export const adminAuth = app ? admin.auth(app) : null;
-export const adminDb = app ? admin.firestore(app) : null;
+export const adminAuth = admin.auth(app);
+export const adminDb = admin.firestore(app);
 export const FieldValue = admin.firestore.FieldValue;

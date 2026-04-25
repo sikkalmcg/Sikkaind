@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 /**
  * @fileOverview Atomic Identity Provisioning API.
  * Hardened for Sikka LMC v2.5 Registry standards.
- * Added: Robust error trapping for metadata refresh failures.
+ * Optimized for high-reliability creation and update pulses.
  */
 export async function POST(req: NextRequest) {
     try {
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
         // REGISTRY HANDSHAKE Node: Verify SDK authorization pulse
         if (!auth || !db) {
             return NextResponse.json({ 
-                error: "Security Node Offline: Cloud Admin handshake failed. Please ensure the project ID is correctly mapped." 
+                error: "Security Node Offline: Admin handshake failed. Verify Service Account and .env.local configuration." 
             }, { status: 503 });
         }
 
@@ -24,8 +24,9 @@ export async function POST(req: NextRequest) {
             
             let uid;
             try {
-                // Attempt to resolve existing identity node
+                // Attempt to resolve existing identity node (Idempotent check)
                 const existing = await auth.getUserByEmail(email);
+                // Update password if it already exists to ensure registry sync
                 await auth.updateUser(existing.uid, { password });
                 uid = existing.uid;
             } catch (e: any) {
@@ -63,26 +64,26 @@ export async function POST(req: NextRequest) {
         if (action === 'resetPassword') {
             if (!email || !password) return NextResponse.json({ error: "Registry context missing." }, { status: 400 });
             
-            const q = await db.collection("users").where("email", "==", email).limit(1).get();
-            if (q.empty) return NextResponse.json({ error: "Identity node not found in registry." }, { status: 404 });
-
-            const userDoc = q.docs[0];
-            const uid = userDoc.data().uid;
-
-            if (uid) {
-                try {
-                    await auth.updateUser(uid, { password });
+            // Resolve UID from email registry
+            try {
+                const authUser = await auth.getUserByEmail(email);
+                await auth.updateUser(authUser.uid, { password });
+                
+                // Update Firestore password record for offline/fallback access
+                const userDoc = await db.collection("users").doc(email).get();
+                if (userDoc.exists) {
                     await userDoc.ref.update({ 
                         password, 
                         lastPasswordChange: new Date().toISOString(),
                         lastUpdated: FieldValue.serverTimestamp()
                     });
-                    return NextResponse.json({ success: true });
-                } catch (authErr: any) {
-                    throw new Error(`Identity Platform Update Failed: ${authErr.message}`);
                 }
+                
+                return NextResponse.json({ success: true });
+            } catch (authErr: any) {
+                console.error("Password Update Error:", authErr);
+                throw new Error(`Identity Platform Update Failed: ${authErr.message}`);
             }
-            throw new Error("UID handshake failed. Identity context corrupted.");
         }
 
         // AUTH NODE: BOOTSTRAP ROOT ADMIN
@@ -126,7 +127,7 @@ export async function POST(req: NextRequest) {
     } catch (error: any) {
         console.error("Identity Registry Failure:", error);
         return NextResponse.json({ 
-            error: `Identity Registry Error: ${error.message}`,
+            error: error.message || "Identity Registry Pulse Failure.",
             code: error.code || 'UNKNOWN'
         }, { status: 500 });
     }
