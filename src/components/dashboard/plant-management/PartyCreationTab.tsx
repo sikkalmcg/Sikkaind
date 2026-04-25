@@ -181,7 +181,8 @@ export default function PartyCreationTab() {
           const rowNum = i + 2; 
           try {
             const name = getVal(row, ["Party Name", "Name", "Client Name"]);
-            const customerCode = getVal(row, ["Customer Code", "Code", "Party Code"])?.toUpperCase() || '';
+            // REGISTRY FIX: Include 'Customer' in code lookup to match user template node
+            const customerCode = getVal(row, ["Customer Code", "Code", "Party Code", "Customer"])?.toUpperCase() || '';
             const type = getVal(row, ["Type", "Party Type", "Client Type"]);
             const gstin = getVal(row, ["GSTIN", "Gst No", "Gst", "GST Number"])?.toUpperCase() || '';
             const address = getVal(row, ["Address", "Location", "Full Address"]);
@@ -191,6 +192,7 @@ export default function PartyCreationTab() {
             if (!name || !type || !address || !city || !customerCode) throw new Error("Missing Mandatory Field (Name, Code, Type, Address, or City)");
             
             let matchedType = PartyTypes.find(t => t.toLowerCase() === type.toLowerCase());
+            // MISSION FIX: Normalize common Consignee variations
             if (!matchedType && (type.toLowerCase() === 'consignee' || type.toLowerCase() === 'consignee & ship to')) {
                 matchedType = 'Consignee & Ship to party';
             }
@@ -216,7 +218,8 @@ export default function PartyCreationTab() {
                 type: matchedType as PartyType, 
                 gstin: gstin || '', 
                 pan: getVal(row, ["PAN Number", "Pan No", "PAN"])?.toUpperCase() || (gstin?.length === 15 ? gstin.substring(2, 12) : ''),
-                mobile: getVal(row, ["Contact Number", "Mobile", "Phone"]) || '',
+                // REGISTRY FIX: Include 'Contact N' in mobile lookup
+                mobile: getVal(row, ["Contact Number", "Mobile", "Phone", "Contact N", "Contact"]) || '',
                 address,
                 city,
                 state,
@@ -403,7 +406,7 @@ export default function PartyCreationTab() {
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500">
-      <Card className="border-none shadow-md overflow-hidden bg-white">
+      <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
         <CardHeader className="bg-slate-50 border-b p-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -423,7 +426,7 @@ export default function PartyCreationTab() {
                 <label className="cursor-pointer">
                   {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                   Bulk Upload
-                  <input type="file" className="hidden" accept=".xls,.xlsx,.csv" onChange={handleBulkUpload} disabled={isUploading} />
+                  <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleBulkUpload} disabled={isUploading} />
                 </label>
               </Button>
             </div>
@@ -494,7 +497,7 @@ export default function PartyCreationTab() {
                 <FormField control={form.control} name="mobile" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Contact Number</FormLabel>
-                    <FormControl><Input placeholder="10-digit mobile" {...field} value={field.value ?? ''} className="h-11 font-mono" /></FormControl>
+                    <FormControl><Input placeholder="10 digit mobile" {...field} value={field.value ?? ''} className="h-11 font-mono" /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -530,7 +533,7 @@ export default function PartyCreationTab() {
                 )} />
               </div>
               <div className="flex gap-3 justify-end border-t pt-8">
-                <Button type="button" variant="ghost" onClick={() => { form.reset(); setIsPanAutoFilled(false); }} className="px-10 h-12 font-black uppercase text-[11px] tracking-widest text-slate-400">Discard</Button>
+                <button type="button" onClick={() => { form.reset(); setIsPanAutoFilled(false); }} className="px-10 h-12 font-black uppercase text-[11px] tracking-widest text-slate-400">Discard</button>
                 <Button type="submit" disabled={isSubmitting} className="bg-blue-900 hover:bg-slate-900 text-white px-16 h-12 rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-xl shadow-blue-100 border-none transition-all active:scale-95 border-none">
                   {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} Commit Registry
                 </Button>
@@ -558,7 +561,7 @@ export default function PartyCreationTab() {
                                 <Trash2 className="h-4 w-4" /> Purge Selected ({selectedIds.length})
                             </Button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent className="rounded-3xl border-none p-0 overflow-hidden">
+                        <AlertDialogContent className="rounded-3xl border-none p-0 overflow-hidden bg-white">
                             <div className="p-8 bg-red-50 border-b border-red-100 flex items-center gap-5">
                                 <div className="p-3 bg-red-600 text-white rounded-2xl shadow-xl"><Ban className="h-6 w-6" /></div>
                                 <div>
@@ -725,3 +728,4 @@ export default function PartyCreationTab() {
     </div>
   );
 }
+
