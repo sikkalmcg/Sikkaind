@@ -470,7 +470,7 @@ function TrackConsignmentContent() {
                                                     <div className="mt-6 p-4 bg-amber-600 rounded-2xl text-white shadow-xl animate-in zoom-in-95 duration-500 max-w-2xl border-2 border-amber-400">
                                                         <div className="flex items-center gap-2 mb-2 border-b border-white/20 pb-2">
                                                             <AlertTriangle size={16} className="animate-pulse" />
-                                                            <h4 className="font-black uppercase tracking-widest text-[10px]">Official Delay Registry Node</h4>
+                                                            <h4 className="font-black uppercase tracking-widest text-[10px]">Official Delay Reason Remark</h4>
                                                         </div>
                                                         <p className="text-[11px] font-black italic tracking-tight leading-relaxed">
                                                             "{shipmentResult.delayRemark}"
