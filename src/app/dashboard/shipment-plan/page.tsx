@@ -7,7 +7,7 @@ import ShipmentData from '@/components/dashboard/shipment-plan/ShipmentData';
 import EditShipmentModal from '@/components/dashboard/shipment-plan/EditShipmentModal';
 import type { WithId, Shipment, Plant, SubUser } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
-import { useFirestore, useUser, useMemoFirebase } from "@/firebase";
+import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, query, doc, updateDoc, serverTimestamp, runTransaction, getDocs, where, limit, onSnapshot, writeBatch, orderBy, deleteDoc } from "firebase/firestore";
 import { Loader2, WifiOff, Package, ListTree, Factory, ShieldCheck, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
  * UI REFINEMENT: Unified navigation tabs into the primary header for high-density ERP layout.
  * Hardened: Robust path resolution for mission revocation and bulk purge nodes.
  * Fixed: Robust scroll-to-top logic node using RAF and multi-stage timeout to block auto-scroll jump.
+ * IMPORT FIX: Added useCollection to resolve runtime reference error.
  */
 function ShipmentPlanContent() {
   const { toast } = useToast();
