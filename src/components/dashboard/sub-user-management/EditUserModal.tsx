@@ -4,11 +4,32 @@ import { useEffect, useMemo } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription, 
+  DialogFooter 
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { 
+  Form, 
+  FormControl, 
+  FormField, 
+  FormItem, 
+  FormLabel, 
+  FormMessage, 
+  FormDescription 
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +44,6 @@ import {
   X, 
   Activity, 
   Truck,
-  LayoutGrid,
   Briefcase,
   CheckCircle2,
   Fingerprint,
@@ -32,7 +52,7 @@ import {
 } from 'lucide-react';
 import type { SubUser, Plant, WithId } from '@/types';
 import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions, Designations } from '@/lib/constants';
-import { cn } from '@/lib/utils';
+import { cn, normalizePlantId } from '@/lib/utils';
 
 const formSchema = z.object({
   fullName: z.string().min(2, 'Full name required.'),
@@ -79,13 +99,15 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
     },
   });
 
-  const { setValue, control, handleSubmit, reset, watch } = form;
+  const { setValue, control, handleSubmit, reset } = form;
+
+  // Real-time Registry Observation Node
   const watchedAccessLogistics = useWatch({ control, name: 'access_logistics' });
   const watchedAccessAccounts = useWatch({ control, name: 'access_accounts' });
   const watchedPermissions = useWatch({ control, name: 'permissions' }) || [];
   const watchedLogisticsPlants = useWatch({ control, name: 'plantIds' }) || [];
   const watchedAccountsPlants = useWatch({ control, name: 'accounts_plant_ids' }) || [];
-  const watchedJobRole = watch('jobRole');
+  const watchedJobRole = useWatch({ control, name: 'jobRole' });
 
   useEffect(() => {
     if (isOpen && user) {
@@ -372,7 +394,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                         </div>
                     </div>
                     <div className="flex gap-4">
-                        <Button variant="ghost" onClick={onClose} className="font-black text-slate-400 uppercase text-[11px] tracking-widest px-10 h-12">Discard Changes</Button>
+                        <Button type="button" variant="ghost" onClick={onClose} className="font-black text-slate-400 uppercase text-[11px] tracking-widest px-10 h-12">Discard Changes</Button>
                         <Button onClick={handleSubmit(onSubmit)} disabled={form.formState.isSubmitting} className="bg-blue-900 hover:bg-black text-white px-16 h-12 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl shadow-blue-900/30 transition-all active:scale-95 border-none">
                             {form.formState.isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />}
                             SYNC IDENTITY NODE
