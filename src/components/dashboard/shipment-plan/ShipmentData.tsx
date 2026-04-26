@@ -511,7 +511,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                         const isChecked = selectedIds.includes(s.id);
                         const isCancelled = s.currentStatusId?.toLowerCase() === 'cancelled';
                         const isShortClosed = s.currentStatusId?.toLowerCase() === 'short closed';
-                        const canAssign = !isCancelled && !isShortClosed && (s.materialTypeId === 'FTL' ? s.assignedQty < 1 : s.balanceQty > 0);
+                        
+                        // MISSION FIX: Enable actions for Admins always, or for specific statuses for operators
+                        const canAssign = isAdmin || (!isCancelled && !isShortClosed && (s.materialTypeId === 'FTL' ? s.assignedQty < 1 : s.balanceQty > 0.001));
                         const canEdit = isAdmin || (!isCancelled && !isShortClosed && (s.currentStatusId === 'pending' || s.currentStatusId === 'partly vehicle assigned'));
                         
                         return (
@@ -551,12 +553,12 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                                 {`${s.quantity.toFixed(3)} MT`}
                             </TableCell>
                             <TableCell className="px-4 text-center align-middle">
-                                <Badge variant="outline" className={cn("text-[8px] font-black uppercase px-2.5 h-5 md:h-6 border shadow-sm", getStatusColor(s.currentStatusId))}>
+                                <Badge variant="outline" className={cn("text-[8px] font-black uppercase px-2.5 h-6 border shadow-sm", getStatusColor(s.currentStatusId))}>
                                     {s.currentStatusId}
                                 </Badge>
                             </TableCell>
-                            <TableCell className="px-8 text-right sticky right-0 bg-white group-hover:bg-blue-50/20 transition-all shadow-[-4px_0_10px_rgba(0,0,0,0.02)] align-middle">
-                                <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <TableCell className="px-8 text-right sticky right-0 bg-white shadow-[-4px_0_10px_rgba(0,0,0,0.02)] align-middle">
+                                <div className="flex justify-end gap-1.5 transition-opacity">
                                     <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-green-600 hover:bg-green-50" disabled={!canAssign} onClick={() => handleOpenAssignModal(s)}>
                                         <PlusCircle className="h-3.5 w-3.5" />
                                     </Button>
