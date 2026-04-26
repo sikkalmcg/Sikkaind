@@ -383,26 +383,26 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                             </CardContent>
                         </Card>
                     </div>
-                </div>
 
-                <DialogFooter className="p-8 bg-white border-t shrink-0 flex-row items-center justify-between sm:justify-between shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
-                    <div className="flex items-center gap-4 px-6 py-2 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner">
-                        <ShieldCheck className="h-5 w-5 text-blue-600" />
-                        <div className="flex flex-col">
-                            <span className="text-[8px] font-black uppercase text-slate-400 leading-none mb-1">Commit Status</span>
-                            <span className="text-[10px] font-black text-blue-900 uppercase">Profile Synced with Service Account</span>
+                    <DialogFooter className="p-8 bg-white border-t shrink-0 flex-row items-center justify-between sm:justify-between shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
+                        <div className="flex items-center gap-4 px-6 py-2 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner">
+                            <ShieldCheck className="h-5 w-5 text-blue-600" />
+                            <div className="flex flex-col">
+                                <span className="text-[8px] font-black uppercase text-slate-400 leading-none mb-1">Commit Status</span>
+                                <span className="text-[10px] font-black text-blue-900 uppercase">Profile Synced with Service Account</span>
+                            </div>
                         </div>
-                    </div>
-                    <div className="flex gap-4">
-                        <Button type="button" variant="ghost" onClick={onClose} className="font-black text-slate-400 uppercase text-[11px] tracking-widest px-10 h-12">Discard Changes</Button>
-                        <Button onClick={handleSubmit(onSubmit)} disabled={form.formState.isSubmitting} className="bg-blue-900 hover:bg-black text-white px-16 h-12 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl shadow-blue-900/30 transition-all active:scale-95 border-none">
-                            {form.formState.isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />}
-                            SYNC IDENTITY NODE
-                        </Button>
-                    </div>
-                </DialogFooter>
-            </form>
-        </Form>
+                        <div className="flex gap-4">
+                            <Button type="button" variant="ghost" onClick={onClose} className="font-black text-slate-400 uppercase text-[11px] tracking-widest px-10 h-12">Discard Changes</Button>
+                            <Button onClick={handleSubmit(onSubmit)} disabled={form.formState.isSubmitting} className="bg-blue-900 hover:bg-black text-white px-16 h-12 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl shadow-blue-900/30 transition-all active:scale-95 border-none">
+                                {form.formState.isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />}
+                                SYNC IDENTITY NODE
+                            </Button>
+                        </div>
+                    </DialogFooter>
+                </form>
+            </Form>
+        </div>
       </DialogContent>
     </Dialog>
   );
