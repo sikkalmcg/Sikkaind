@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -27,10 +26,12 @@ import {
   LayoutGrid,
   Briefcase,
   CheckCircle2,
-  Fingerprint
+  Fingerprint,
+  ShieldAlert,
+  Sparkles
 } from 'lucide-react';
 import type { SubUser, Plant, WithId } from '@/types';
-import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions } from '@/lib/constants';
+import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions, Designations } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
@@ -43,9 +44,9 @@ const formSchema = z.object({
   defaultModule: z.enum(['Logistics', 'Accounts', 'Administration']).default('Logistics'),
   access_logistics: z.boolean().default(true),
   access_accounts: z.boolean().default(false),
-  plantIds: z.array(z.string()).default([]),
-  accounts_plant_ids: z.array(z.string()).default([]),
-  permissions: z.array(z.string()).default([]),
+  plantIds: z.array(z.string()).optional().default([]),
+  accounts_plant_ids: z.array(z.string()).optional().default([]),
+  permissions: z.array(z.string()).optional().default([]),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -84,6 +85,7 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
   const watchedPermissions = useWatch({ control, name: 'permissions' }) || [];
   const watchedLogisticsPlants = useWatch({ control, name: 'plantIds' }) || [];
   const watchedAccountsPlants = useWatch({ control, name: 'accounts_plant_ids' }) || [];
+  const watchedJobRole = watch('jobRole');
 
   useEffect(() => {
     if (isOpen && user) {
@@ -129,6 +131,8 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
     onClose();
   };
 
+  const isFullAccessRole = watchedJobRole === 'Admin' || watchedJobRole === 'Manager';
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[90vw] w-[1400px] h-[95vh] md:h-[90vh] flex flex-col p-0 border-none shadow-3xl overflow-hidden bg-[#f8fafc] rounded-[3rem]">
@@ -145,7 +149,9 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
             </div>
             <div className="flex items-center gap-4">
                 <Badge variant="outline" className="bg-white/5 border-white/10 text-emerald-400 font-black uppercase text-[10px] px-6 h-10 border-none">Authorized Admin Control</Badge>
-                <Button variant="ghost" size="icon" onClick={onClose} className="h-10 w-10 text-white/40 hover:text-white hover:bg-white/10 rounded-xl"><X className="h-6 w-6" /></Button>
+                <button onClick={onClose} className="h-10 w-10 bg-white p-0 text-red-600 hover:bg-red-50 transition-all rounded-xl shadow-lg flex items-center justify-center border-none">
+                    <X className="h-6 w-6 stroke-[3]" />
+                </button>
             </div>
           </div>
         </DialogHeader>
@@ -175,7 +181,12 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                             <FormField name="jobRole" control={form.control} render={({ field }) => (
                                 <FormItem>
                                     <FormLabel className="text-[10px] font-black uppercase text-slate-500">System Role Node *</FormLabel>
-                                    <FormControl><Input {...field} className="h-12 rounded-xl font-bold bg-slate-50/50 shadow-inner" /></FormControl>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue /></SelectTrigger></FormControl>
+                                        <SelectContent className="rounded-xl">
+                                            {Designations.map(role => <SelectItem key={role} value={role} className="font-bold py-2.5">{role.toUpperCase()}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
                                     <FormMessage />
                                 </FormItem>
                             )} />
@@ -225,89 +236,128 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
                     </section>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <Card className={cn("border-2 transition-all rounded-[3rem] overflow-hidden flex flex-col", watchedAccessLogistics ? "border-blue-200 bg-white shadow-2xl" : "border-slate-100 opacity-40 grayscale")}>
+                        <Card className={cn(
+                            "border-2 transition-all rounded-[3rem] overflow-hidden flex flex-col",
+                            watchedAccessLogistics ? "border-blue-200 bg-white shadow-2xl" : "border-slate-100 opacity-40 grayscale",
+                            isFullAccessRole && "border-emerald-200 bg-emerald-50/10"
+                        )}>
                             <CardHeader className="p-6 border-b bg-slate-50/50 flex flex-row items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                    <div className={cn("p-3 rounded-2xl shadow-lg", watchedAccessLogistics ? "bg-blue-900 text-white" : "bg-slate-200 text-slate-400")}><Truck className="h-6 w-6" /></div>
-                                    <CardTitle className="text-md font-black uppercase italic tracking-tight">Logistics Hub</CardTitle>
+                                    <div className={cn("p-3 rounded-2xl shadow-lg", watchedAccessLogistics ? (isFullAccessRole ? "bg-emerald-600" : "bg-blue-900") : "bg-slate-200", "text-white")}>
+                                        {isFullAccessRole ? <ShieldAlert className="h-5 w-5" /> : <Truck className="h-6 w-6" />}
+                                    </div>
+                                    <CardTitle className="text-md font-black uppercase italic tracking-tight">
+                                        {isFullAccessRole ? "Full Authorization Node" : "Logistics Hub"}
+                                    </CardTitle>
                                 </div>
-                                <FormField name="access_logistics" control={form.control} render={({ field }) => (
-                                    <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md data-[state=checked]:bg-blue-900 shadow-sm" />
-                                )} />
+                                {!isFullAccessRole && (
+                                    <FormField name="access_logistics" control={form.control} render={({ field }) => (
+                                        <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md data-[state=checked]:bg-blue-900 shadow-sm" />
+                                    )} />
+                                )}
                             </CardHeader>
                             <CardContent className="p-8 space-y-10 flex-1 overflow-hidden flex flex-col">
-                                <div className="space-y-4">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Factory className="h-3 w-3" /> Lifting Node Authorization</p>
-                                    <div className="flex flex-wrap gap-2.5">
-                                        {logisticsPlants.map(p => (
-                                            <Badge key={p.id} onClick={() => watchedAccessLogistics && togglePlant(p.id, 'logistics')}
-                                                variant={watchedLogisticsPlants.includes(p.id) ? 'default' : 'outline'}
-                                                className={cn("cursor-pointer font-black uppercase text-[9px] px-4 py-1.5 rounded-xl transition-all border-2",
-                                                    watchedLogisticsPlants.includes(p.id) ? "bg-blue-900 border-blue-900 shadow-lg" : "hover:bg-blue-50 border-slate-100"
-                                                )}>{p.id}</Badge>
-                                        ))}
+                                {isFullAccessRole ? (
+                                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+                                        <div className="p-5 bg-emerald-100 rounded-full text-emerald-600 animate-pulse"><Sparkles size={48} /></div>
+                                        <h4 className="text-xl font-black text-emerald-900 uppercase">Super Admin Access</h4>
+                                        <p className="text-[10px] font-bold text-emerald-700 leading-relaxed max-w-xs uppercase tracking-widest">
+                                            Role-based bypass active. This node has full manifest visibility across all plants and modules.
+                                        </p>
                                     </div>
-                                </div>
-                                <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">Permissions Manifest</p>
-                                    <ScrollArea className="flex-1 pr-4">
-                                        <div className="grid grid-cols-1 gap-2">
-                                            {SikkaLogisticsPagePermissions.map(p => (
-                                                <div key={p.id} onClick={() => watchedAccessLogistics && togglePermission(p.id)} className={cn("flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group",
-                                                    watchedPermissions.includes(p.id) ? "bg-white border-blue-900 shadow-md" : "border-slate-50 hover:border-slate-200"
-                                                )}>
-                                                    <div className={cn("h-4 w-4 rounded-md border flex items-center justify-center transition-all", watchedPermissions.includes(p.id) ? "bg-blue-900 border-blue-900" : "bg-white border-slate-200")}>
-                                                        {watchedPermissions.includes(p.id) && <CheckCircle2 className="h-2.5 w-2.5 text-white" />}
-                                                    </div>
-                                                    <span className={cn("text-[10px] font-black uppercase tracking-tight", watchedPermissions.includes(p.id) ? "text-blue-900" : "text-slate-400")}>{p.name}</span>
-                                                </div>
-                                            ))}
+                                ) : (
+                                    <>
+                                        <div className="space-y-4">
+                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Factory className="h-3 w-3" /> Lifting Node Authorization</p>
+                                            <div className="flex flex-wrap gap-2.5">
+                                                {logisticsPlants.map(p => (
+                                                    <Badge key={p.id} onClick={() => watchedAccessLogistics && togglePlant(p.id, 'logistics')}
+                                                        variant={watchedLogisticsPlants.includes(p.id) ? 'default' : 'outline'}
+                                                        className={cn("cursor-pointer font-black uppercase text-[9px] px-4 py-1.5 rounded-xl transition-all border-2",
+                                                            watchedLogisticsPlants.includes(p.id) ? "bg-blue-900 border-blue-900 shadow-lg" : "hover:bg-blue-50 border-slate-100"
+                                                        )}>{p.id}</Badge>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </ScrollArea>
-                                </div>
+                                        <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
+                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">Permissions Manifest</p>
+                                            <ScrollArea className="flex-1 pr-4">
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    {SikkaLogisticsPagePermissions.map(p => (
+                                                        <div key={p.id} onClick={() => watchedAccessLogistics && togglePermission(p.id)} className={cn("flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group",
+                                                            watchedPermissions.includes(p.id) ? "bg-white border-blue-900 shadow-md" : "border-slate-50 hover:border-slate-200"
+                                                        )}>
+                                                            <div className={cn("h-4 w-4 rounded-md border flex items-center justify-center transition-all", watchedPermissions.includes(p.id) ? "bg-blue-900 border-blue-900" : "bg-white border-slate-200")}>
+                                                                {watchedPermissions.includes(p.id) && <CheckCircle2 className="h-2.5 w-2.5 text-white" />}
+                                                            </div>
+                                                            <span className={cn("text-[10px] font-black uppercase tracking-tight", watchedPermissions.includes(p.id) ? "text-blue-900" : "text-slate-400")}>{p.name}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </ScrollArea>
+                                        </div>
+                                    </>
+                                )}
                             </CardContent>
                         </Card>
 
-                        <Card className={cn("border-2 transition-all rounded-[3rem] overflow-hidden flex flex-col", watchedAccessAccounts ? "border-emerald-200 bg-white shadow-2xl" : "border-slate-100 opacity-40 grayscale")}>
+                        <Card className={cn(
+                            "border-2 transition-all rounded-[3rem] overflow-hidden flex flex-col", 
+                            watchedAccessAccounts ? "border-emerald-200 bg-white shadow-2xl" : "border-slate-100 opacity-40 grayscale",
+                            isFullAccessRole && "border-slate-800 bg-slate-900 text-white"
+                        )}>
                             <CardHeader className="p-6 border-b bg-slate-50/50 flex flex-row items-center justify-between">
                                 <div className="flex items-center gap-4">
                                     <div className={cn("p-3 rounded-2xl shadow-lg", watchedAccessAccounts ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-400")}><Briefcase className="h-6 w-6" /></div>
                                     <CardTitle className="text-md font-black uppercase italic text-slate-800">Accounts & Admin</CardTitle>
                                 </div>
-                                <FormField name="access_accounts" control={form.control} render={({ field }) => (
-                                    <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md data-[state=checked]:bg-emerald-600 shadow-sm" />
-                                )} />
+                                {!isFullAccessRole && (
+                                    <FormField name="access_accounts" control={form.control} render={({ field }) => (
+                                        <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-5 w-5 rounded-md data-[state=checked]:bg-emerald-600 shadow-sm" />
+                                    )} />
+                                )}
                             </CardHeader>
                             <CardContent className="p-8 space-y-8 flex-1 overflow-hidden flex flex-col">
-                                <div className="space-y-4">
-                                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">Lifting Node Authorization</p>
-                                    <div className="flex flex-wrap gap-2.5">
-                                        {accountsPlants.map(p => (
-                                            <Badge key={p.id} onClick={() => watchedAccessAccounts && togglePlant(p.id, 'accounts')}
-                                                variant={watchedAccountsPlants.includes(p.id) ? 'default' : 'outline'}
-                                                className={cn("cursor-pointer font-black uppercase text-[9px] px-4 py-1.5 rounded-xl transition-all border-2",
-                                                    watchedAccountsPlants.includes(p.id) ? "bg-emerald-600 border-emerald-600 shadow-lg" : "hover:bg-emerald-50 border-slate-100"
-                                                )}>{p.id}</Badge>
-                                        ))}
+                                {isFullAccessRole ? (
+                                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6">
+                                        <Badge className="bg-emerald-600 font-black uppercase text-[10px] px-8 py-2">Master Administrator Node</Badge>
+                                        <p className="text-xs font-bold text-slate-500 leading-relaxed uppercase tracking-widest max-w-[280px]">
+                                            Full administrative privileges established for all management and financial modules.
+                                        </p>
                                     </div>
-                                </div>
-                                <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
-                                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">Administrative Permissions</p>
-                                    <ScrollArea className="flex-1 pr-4">
-                                        <div className="grid grid-cols-1 gap-2">
-                                            {[...SikkaAccountsPagePermissions, ...AdminPagePermissionsList].map(p => (
-                                                <div key={p.id} onClick={() => watchedAccessAccounts && togglePermission(p.id)} className={cn("flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group",
-                                                    watchedPermissions.includes(p.id) ? "bg-white border-emerald-600 shadow-sm" : "border-slate-50 hover:border-slate-200"
-                                                )}>
-                                                    <div className={cn("h-4 w-4 rounded-md border flex items-center justify-center transition-all", watchedPermissions.includes(p.id) ? "bg-emerald-600 border-emerald-600" : "bg-white border-slate-200")}>
-                                                        {watchedPermissions.includes(p.id) && <CheckCircle2 className="h-3 w-3 text-white" />}
-                                                    </div>
-                                                    <span className={cn("text-[10px] font-black uppercase tracking-tight", watchedPermissions.includes(p.id) ? "text-emerald-700" : "text-slate-400")}>{p.name}</span>
-                                                </div>
-                                            ))}
+                                ) : (
+                                    <>
+                                        <div className="space-y-4">
+                                            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">Lifting Node Authorization</p>
+                                            <div className="flex flex-wrap gap-2.5">
+                                                {accountsPlants.map(p => (
+                                                    <Badge key={p.id} onClick={() => watchedAccessAccounts && togglePlant(p.id, 'accounts')}
+                                                        variant={watchedAccountsPlants.includes(p.id) ? 'default' : 'outline'}
+                                                        className={cn("cursor-pointer font-black uppercase text-[9px] px-4 py-1.5 rounded-xl transition-all border-2",
+                                                            watchedAccountsPlants.includes(p.id) ? "bg-emerald-600 border-emerald-600 shadow-lg" : "hover:bg-emerald-50 border-slate-100"
+                                                        )}>{p.id}</Badge>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </ScrollArea>
-                                </div>
+                                        <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
+                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1">Administrative Permissions</p>
+                                            <ScrollArea className="flex-1 pr-4">
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    {[...SikkaAccountsPagePermissions, ...AdminPagePermissionsList].map(p => (
+                                                        <div key={p.id} onClick={() => watchedAccessAccounts && togglePermission(p.id)} className={cn("flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group",
+                                                            watchedPermissions.includes(p.id) ? "bg-white border-emerald-600 shadow-sm" : "border-slate-50 hover:border-slate-200"
+                                                        )}>
+                                                            <div className={cn("h-4 w-4 rounded-md border flex items-center justify-center transition-all", watchedPermissions.includes(p.id) ? "bg-emerald-600 border-emerald-600" : "bg-white border-slate-200")}>
+                                                                {watchedPermissions.includes(p.id) && <CheckCircle2 className="h-3 w-3 text-white" />}
+                                                            </div>
+                                                            <span className={cn("text-[10px] font-black uppercase tracking-tight", watchedPermissions.includes(p.id) ? "text-emerald-700" : "text-slate-400")}>{p.name}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </ScrollArea>
+                                        </div>
+                                    </>
+                                )}
                             </CardContent>
                         </Card>
                     </div>
@@ -319,8 +369,8 @@ export default function EditUserModal({ isOpen, onClose, user, onUserUpdated, lo
             <div className="flex items-center gap-4 px-6 py-2 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner">
                 <ShieldCheck className="h-5 w-5 text-blue-600" />
                 <div className="flex flex-col">
-                    <span className="text-[8px] font-black uppercase text-slate-400">Commit Status</span>
-                    <span className="text-[10px] font-black text-blue-900 uppercase">Profile Ready for Sync</span>
+                    <span className="text-[8px] font-black uppercase text-slate-400 leading-none mb-1">Commit Status</span>
+                    <span className="text-[10px] font-black text-blue-900 uppercase">Profile Synced with Service Account</span>
                 </div>
             </div>
             <div className="flex gap-4">

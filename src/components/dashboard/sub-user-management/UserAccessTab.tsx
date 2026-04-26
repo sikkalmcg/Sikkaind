@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -18,12 +17,15 @@ import {
   CheckCircle2, 
   Truck, 
   Save,
-  ShieldAlert
+  ShieldAlert,
+  Sparkles,
+  Lock
 } from 'lucide-react';
 import type { SubUser, Plant } from '@/types';
-import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions } from '@/lib/constants';
+import { SikkaLogisticsPagePermissions, AdminPagePermissionsList, SikkaAccountsPagePermissions, Designations } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { useEffect } from 'react';
 
 const formSchema = z.object({
   fullName: z.string().min(2, 'Full name required.'),
@@ -32,8 +34,8 @@ const formSchema = z.object({
   password: z.string().min(6, 'Password required (min 6 chars).'),
   jobRole: z.string().min(1, 'Role required.'),
   defaultModule: z.enum(['Logistics', 'Administration']).default('Logistics'),
-  plantIds: z.array(z.string()).default([]),
-  permissions: z.array(z.string()).default([]),
+  plantIds: z.array(z.string()).optional().default([]),
+  permissions: z.array(z.string()).optional().default([]),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -45,6 +47,11 @@ interface UserAccessTabProps {
   isAdmin: boolean;
 }
 
+/**
+ * @fileOverview User Access Terminal.
+ * Simplified for easy creation. Roles like 'Admin' or 'Manager' 
+ * automatically imply full access, making specific permissions optional.
+ */
 export default function UserAccessTab({ onUserCreated, logisticsPlants, isAdmin }: UserAccessTabProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -63,6 +70,17 @@ export default function UserAccessTab({ onUserCreated, logisticsPlants, isAdmin 
   const { watch, setValue, handleSubmit, formState: { isSubmitting } } = form;
   const selectedPermissions = watch('permissions') || [];
   const selectedLogisticsPlants = watch('plantIds') || [];
+  const watchedJobRole = watch('jobRole');
+
+  // Auto-sync node for Admins
+  useEffect(() => {
+    if (watchedJobRole === 'Admin' || watchedJobRole === 'Manager') {
+        setValue('defaultModule', 'Administration');
+        // Optional: Auto-select all plants if needed, but keeping it flexible
+    } else {
+        setValue('defaultModule', 'Logistics');
+    }
+  }, [watchedJobRole, setValue]);
 
   const togglePermission = (id: string) => {
     const next = selectedPermissions.includes(id) ? selectedPermissions.filter(p => p !== id) : [...selectedPermissions, id];
@@ -73,6 +91,8 @@ export default function UserAccessTab({ onUserCreated, logisticsPlants, isAdmin 
     const next = selectedLogisticsPlants.includes(id) ? selectedLogisticsPlants.filter(p => p !== id) : [...selectedLogisticsPlants, id];
     setValue('plantIds', next, { shouldValidate: true });
   };
+
+  const isFullAccessRole = watchedJobRole === 'Admin' || watchedJobRole === 'Manager';
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500">
@@ -127,7 +147,12 @@ export default function UserAccessTab({ onUserCreated, logisticsPlants, isAdmin 
                   <FormField name="jobRole" control={form.control} render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-[10px] font-black uppercase text-slate-500">System Role Node *</FormLabel>
-                      <FormControl><Input placeholder="Operator, Manager, etc." {...field} className="h-12 rounded-xl font-bold bg-white" /></FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger className="h-12 rounded-xl font-bold bg-white"><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent className="rounded-xl">
+                            {Designations.map(role => <SelectItem key={role} value={role} className="font-bold py-2.5">{role.toUpperCase()}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -147,57 +172,76 @@ export default function UserAccessTab({ onUserCreated, logisticsPlants, isAdmin 
               </section>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="border-2 border-blue-200 bg-white shadow-2xl rounded-[2.5rem] overflow-hidden flex flex-col">
+                <Card className={cn(
+                    "border-2 transition-all rounded-[2.5rem] overflow-hidden flex flex-col",
+                    isFullAccessRole ? "border-emerald-200 bg-emerald-50/10 shadow-lg" : "border-blue-200 bg-white shadow-2xl"
+                )}>
                   <CardHeader className="p-6 border-b bg-slate-50/50 flex flex-row items-center gap-4">
-                    <div className="p-2 bg-blue-900 text-white rounded-xl shadow-lg"><Truck className="h-5 w-5" /></div>
-                    <CardTitle className="text-md font-black uppercase italic tracking-tight">Access & Permission Manifest</CardTitle>
+                    <div className={cn("p-2 rounded-xl shadow-lg", isFullAccessRole ? "bg-emerald-600" : "bg-blue-900", "text-white")}>
+                        {isFullAccessRole ? <ShieldAlert className="h-5 w-5" /> : <Truck className="h-5 w-5" />}
+                    </div>
+                    <CardTitle className="text-md font-black uppercase italic tracking-tight">
+                        {isFullAccessRole ? "Full Spectrum Authorization" : "Restricted Manifest"}
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="p-6 space-y-8 flex-1 flex flex-col overflow-hidden">
-                    <div className="space-y-3">
-                      <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Factory className="h-3 w-3" /> Plant Node Authorization</p>
-                      <div className="flex flex-wrap gap-2">
-                        {logisticsPlants.map(p => (
-                          <Badge 
-                            key={p.id} 
-                            onClick={() => togglePlant(p.id)}
-                            variant={selectedLogisticsPlants.includes(p.id) ? 'default' : 'outline'}
-                            className={cn(
-                              "cursor-pointer font-black uppercase text-[8px] px-3 py-1 rounded-lg transition-all border-2",
-                              selectedLogisticsPlants.includes(p.id) ? "bg-blue-900 border-blue-900 shadow-md" : "hover:bg-blue-50 border-slate-100"
-                            )}
-                          >
-                            {p.id}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-3 flex-1 flex flex-col overflow-hidden">
-                      <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest px-1">Permissions Registry</p>
-                      <ScrollArea className="flex-1 pr-4">
-                        <div className="grid grid-cols-1 gap-2">
-                          {[...SikkaLogisticsPagePermissions, ...AdminPagePermissionsList, ...SikkaAccountsPagePermissions].map(p => (
-                            <div key={p.id} onClick={() => togglePermission(p.id)} className={cn(
-                              "flex items-center gap-2.5 p-2 rounded-xl border transition-all cursor-pointer group",
-                              selectedPermissions.includes(p.id) ? "bg-white border-blue-900 shadow-sm" : "border-slate-50 hover:border-slate-200"
-                            )}>
-                              <div className={cn("h-3.5 w-3.5 rounded-sm border flex items-center justify-center transition-colors", selectedPermissions.includes(p.id) ? "bg-blue-900 border-blue-900" : "bg-white border-slate-200")}>
-                                {selectedPermissions.includes(p.id) && <CheckCircle2 className="h-2.5 w-2.5 text-white" />}
-                              </div>
-                              <span className={cn("text-[10px] font-black uppercase tracking-tight", selectedPermissions.includes(p.id) ? "text-blue-900" : "text-slate-400")}>{p.name}</span>
-                            </div>
-                          ))}
+                    {isFullAccessRole ? (
+                        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+                            <div className="p-4 bg-emerald-100 rounded-full text-emerald-600 animate-pulse"><Sparkles size={40} /></div>
+                            <h4 className="text-lg font-black text-emerald-900 uppercase">Super User Node Active</h4>
+                            <p className="text-xs font-bold text-emerald-700 leading-relaxed max-w-xs uppercase">
+                                Selecting "Admin" or "Manager" automatically establishes full registry access. Manual permission mapping is not required.
+                            </p>
                         </div>
-                      </ScrollArea>
-                    </div>
+                    ) : (
+                        <>
+                            <div className="space-y-3">
+                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 px-1"><Factory className="h-3 w-3" /> Plant Node Authorization</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {logisticsPlants.map(p => (
+                                    <Badge 
+                                        key={p.id} 
+                                        onClick={() => togglePlant(p.id)}
+                                        variant={selectedLogisticsPlants.includes(p.id) ? 'default' : 'outline'}
+                                        className={cn(
+                                        "cursor-pointer font-black uppercase text-[8px] px-3 py-1 rounded-lg transition-all border-2",
+                                        selectedLogisticsPlants.includes(p.id) ? "bg-blue-900 border-blue-900 shadow-md" : "hover:bg-blue-50 border-slate-100"
+                                        )}
+                                    >
+                                        {p.id}
+                                    </Badge>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="space-y-3 flex-1 flex flex-col overflow-hidden">
+                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest px-1">Permissions Registry</p>
+                                <ScrollArea className="flex-1 pr-4">
+                                    <div className="grid grid-cols-1 gap-2">
+                                    {[...SikkaLogisticsPagePermissions, ...AdminPagePermissionsList, ...SikkaAccountsPagePermissions].map(p => (
+                                        <div key={p.id} onClick={() => togglePermission(p.id)} className={cn(
+                                        "flex items-center gap-2.5 p-2 rounded-xl border transition-all cursor-pointer group",
+                                        selectedPermissions.includes(p.id) ? "bg-white border-blue-900 shadow-sm" : "border-slate-50 hover:border-slate-200"
+                                        )}>
+                                        <div className={cn("h-3.5 w-3.5 rounded-sm border flex items-center justify-center transition-colors", selectedPermissions.includes(p.id) ? "bg-blue-900 border-blue-900" : "bg-white border-slate-200")}>
+                                            {selectedPermissions.includes(p.id) && <CheckCircle2 className="h-2.5 w-2.5 text-white" />}
+                                        </div>
+                                        <span className={cn("text-[10px] font-black uppercase tracking-tight", selectedPermissions.includes(p.id) ? "text-blue-900" : "text-slate-400")}>{p.name}</span>
+                                        </div>
+                                    ))}
+                                    </div>
+                                </ScrollArea>
+                            </div>
+                        </>
+                    )}
                   </CardContent>
                 </Card>
                 
                 <div className="flex flex-col justify-center gap-8">
                     <div className="p-8 bg-blue-900 rounded-[3rem] text-white shadow-2xl relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-8 opacity-5 rotate-12 group-hover:scale-110 transition-transform duration-1000"><ShieldAlert size={120}/></div>
+                        <div className="absolute top-0 right-0 p-8 opacity-5 rotate-12 group-hover:scale-110 transition-transform duration-1000"><ShieldCheck size={120}/></div>
                         <div className="relative z-10 space-y-4">
                             <h4 className="text-xl font-black uppercase italic leading-tight">Security Handshake</h4>
-                            <p className="text-sm font-medium text-blue-100 leading-relaxed uppercase opacity-80">Establishing a new identity will synchronize the operator with both Authentication and Database nodes in a single authorized pulse.</p>
+                            <p className="text-sm font-medium text-blue-100 leading-relaxed uppercase opacity-80">Establishing a new identity will synchronize the operator with both Authentication and Database nodes in a single authorized pulse using the Master Service Account.</p>
                         </div>
                     </div>
                 </div>
