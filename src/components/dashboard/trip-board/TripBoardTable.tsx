@@ -260,20 +260,20 @@ function MissionRegistryCard({
     const handleLRViewClick = async () => {
         if (!row.lrNumber || isArrangeByParty) return;
         
-        // MISSION FIX: Prioritize already resolved carrierObj
-        let finalCarrier: any = row.carrierObj;
+        const pIdStr = normalizePlantId(row.originPlantId);
+        const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
         
-        if (!finalCarrier && firestore) {
-            const pIdStr = normalizePlantId(row.originPlantId);
-            const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
-            
-            // Re-resolve if missing in memory
-            finalCarrier = (allCarriers || []).find(c => 
-                c.id === row.carrierId || 
-                c.name === row.carrierName
-            );
+        // MISSION FIX: Prioritize already resolved carrierObj
+        let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => 
+            c.id === row.carrierId || 
+            c.name === row.carrierName
+        );
 
-            if (!finalCarrier && (pIdStr === '1426' || pIdStr === 'ID20')) {
+        const isSikkaLmc = finalCarrier?.name?.toUpperCase() === 'SIKKA LMC' || isSikkaLmcShorthand;
+
+        // REGISTRY HANDSHAKE: Force address mapping based on plant ID for Sikka LMC nodes
+        if (!finalCarrier || isSikkaLmc) {
+            if (pIdStr === '1426' || pIdStr === 'ID20') {
                 finalCarrier = {
                     id: 'ID20',
                     name: 'SIKKA LMC',
@@ -286,7 +286,7 @@ function MissionRegistryCard({
                     email: 'sil@sikkaenterprises.com',
                     terms: DEFAULT_LMC_TERMS
                 };
-            } else if (!finalCarrier && (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmcShorthand)) {
+            } else if (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmc) {
                 finalCarrier = {
                     id: 'ID21',
                     name: 'SIKKA LMC',

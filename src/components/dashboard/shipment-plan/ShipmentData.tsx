@@ -273,34 +273,44 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         
         const pIdStr = normalizePlantId(row.originPlantId);
         const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
-        let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => c.id === row.carrierId || c.name === row.carrierName);
+        
+        // MISSION FIX: Improved Carrier Resolution (Respecting assignments)
+        let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => 
+            c.id === row.carrierId || 
+            c.name === row.carrierName
+        );
 
-        if (!finalCarrier && (pIdStr === '1426' || pIdStr === 'ID20')) {
-            finalCarrier = {
-                id: 'ID20',
-                name: 'SIKKA LMC',
-                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
-                mobile: '9136688004',
-                gstin: '07AYQPS6936B1ZZ',
-                stateCode: '07',
-                stateName: 'DELHI',
-                pan: 'AYQPS6936B',
-                email: 'sil@sikkaenterprises.com',
-                terms: DEFAULT_LMC_TERMS
-            };
-        } else if (!finalCarrier && (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmcShorthand)) {
-            finalCarrier = {
-                id: 'ID21',
-                name: 'SIKKA LMC',
-                address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
-                mobile: '9136688004',
-                gstin: '09AYQPS6936B1ZV',
-                stateCode: '09',
-                stateName: 'UTTAR PRADESH',
-                pan: 'AYQPS6936B',
-                email: 'sil@sikkaenterprises.com',
-                terms: DEFAULT_LMC_TERMS
-            };
+        const isSikkaLmc = finalCarrier?.name?.toUpperCase() === 'SIKKA LMC' || isSikkaLmcShorthand;
+
+        // REGISTRY HANDSHAKE: Force address mapping based on plant ID for Sikka LMC nodes
+        if (!finalCarrier || isSikkaLmc) {
+            if (pIdStr === '1426' || pIdStr === 'ID20') {
+                finalCarrier = {
+                    id: 'ID20',
+                    name: 'SIKKA LMC',
+                    address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
+                    mobile: '9136688004',
+                    gstin: '07AYQPS6936B1ZZ',
+                    stateCode: '07',
+                    stateName: 'DELHI',
+                    pan: 'AYQPS6936B',
+                    email: 'sil@sikkaenterprises.com',
+                    terms: DEFAULT_LMC_TERMS
+                };
+            } else if (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmc) {
+                finalCarrier = {
+                    id: 'ID21',
+                    name: 'SIKKA LMC',
+                    address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
+                    mobile: '9136688004',
+                    gstin: '09AYQPS6936B1ZV',
+                    stateCode: '09',
+                    stateName: 'UTTAR PRADESH',
+                    pan: 'AYQPS6936B',
+                    email: 'sil@sikkaenterprises.com',
+                    terms: DEFAULT_LMC_TERMS
+                };
+            }
         }
 
         if (!finalCarrier) {
