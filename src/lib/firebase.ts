@@ -11,7 +11,7 @@ const firebaseConfig = {
   databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
 };
 
-// Yeh check zaroori hai: Agar variables missing hain toh build crash na ho
-const app = getApps().length > 0 ? getApp() : (firebaseConfig.apiKey ? initializeApp(firebaseConfig) : null);
+// Standard Firebase client initialization
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 export { app };
