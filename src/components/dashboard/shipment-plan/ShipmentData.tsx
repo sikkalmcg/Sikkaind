@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -249,7 +248,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
 
         const isSikkaLmc = finalCarrier?.name?.toUpperCase().includes('SIKKA') || isSikkaLmcShorthand;
 
-        // MISSION FIX: Hardened Registry Handbook for Ghaziabad Node (ID23 / 1214)
+        // MISSION FIX: Hardened Registry Handbook for Ghaziabad Node (1214) vs Delhi Node (1426)
         if (!finalCarrier || isSikkaLmc) {
             if (pIdStr === '1426' || pIdStr === 'ID20') {
                 finalCarrier = {
@@ -265,7 +264,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                     website: 'www.sikkaind.com',
                     terms: DEFAULT_LMC_TERMS
                 };
-            } else if (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmc) {
+            } else if (pIdStr === '1214' || pIdStr === 'ID23') {
                 finalCarrier = {
                     id: 'ID21',
                     name: 'SIKKA INDUSTRIES AND LOGISTICS',
@@ -326,17 +325,17 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             assignedTripWeight: row.quantity,
             from: lrDocData?.from || row.loadingPoint || row.plantName || '',
             to: lrDocData?.to || row.unloadingPoint || '',
-            consignorName: lrDocData?.consignorName || row.consignor || '',
-            consignorGtin: lrDocData?.consignorGtin || row.consignorGtin || consignorGtin,
-            consignorAddress: lrDocData?.consignorAddress || row.consignorAddress || '',
+            consignorName: lrDocData?.consignorName || row.consignor || row.shipmentObj?.consignor || '',
+            consignorGtin: lrDocData?.consignorGtin || row.shipmentObj?.consignorGtin || consignorGtin,
+            consignorAddress: lrDocData?.consignorAddress || row.consignorAddress || row.shipmentObj?.consignorAddress || '',
             consignorCode: lrDocData?.consignorCode || row.customerCode || '',
-            buyerName: lrDocData?.buyerName || row.billToParty || '',
-            buyerAddress: lrDocData?.buyerAddress || row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
+            buyerName: lrDocData?.buyerName || row.billToParty || row.shipmentObj?.billToParty || row.billToParty || '',
+            buyerAddress: lrDocData?.buyerAddress || row.billToAddress || row.shipmentObj?.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
             buyerGtin: lrDocData?.buyerGtin || row.billToGtin || buyerGtin,
-            shipToParty: lrDocData?.shipToParty || row.shipToParty || row.billToParty || '',
+            shipToParty: lrDocData?.shipToParty || row.shipToParty || row.shipmentObj?.shipToParty || row.shipmentObj?.billToParty || row.billToParty || '',
             shipToGtin: lrDocData?.shipToGtin || row.shipToGtin || shipToGtin,
             shipToCode: lrDocData?.shipToCode || row.shipToCode || '',
-            deliveryAddress: lrDocData?.deliveryAddress || row.deliveryAddress || row.unloadingPoint || '',
+            deliveryAddress: lrDocData?.deliveryAddress || row.deliveryAddress || row.shipmentObj?.deliveryAddress || row.unloadingPoint || '',
             vehicleNumber: row.vehicleNumber || '--',
             driverName: row.driverName || '--',
             driverMobile: row.driverMobile || '--',

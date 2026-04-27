@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
@@ -7,16 +6,15 @@ import type { WithId, LR, Trip, Shipment, Plant, Carrier } from '@/types';
 import PrintableLR, { type EnrichedLR } from '@/components/dashboard/vehicle-assign/PrintableLR';
 import { Button } from '@/components/ui/button';
 import { useFirestore } from "@/firebase";
-import { doc, getDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, Timestamp, collection, query, where, getDocs, limit } from "firebase/firestore";
 import React from 'react';
 import { Loader2, Printer, FileDown, ShieldCheck } from 'lucide-react';
 import { normalizePlantId } from '@/lib/utils';
 import { DEFAULT_LMC_TERMS } from '@/lib/constants';
 
 /**
- * @fileOverview LR Print Client Handbook.
- * Handshakes with Firestore to fetch the complete mission manifest for a specific LR ID.
- * Updated: Hardened carrier address node for plant ID23.
+ * @fileOverview LR Print Client Terminal.
+ * Hardened: Force-maps plant 1214 to Ghaziabad Sikka LMC node with correct address particulars.
  */
 
 function LRPrintContent({ lrId }: { lrId: string }) {
@@ -77,7 +75,7 @@ function LRPrintContent({ lrId }: { lrId: string }) {
             
             let carrier = carrierSnap.exists() ? { id: carrierSnap.id, ...carrierSnap.data() } : null;
 
-            // REGISTRY OVERRIDE NODE: Hardened resolution for Sikka LMC nodes
+            // REGISTRY OVERRIDE NODE: Hardened resolution for Sikka LMC nodes - Specifically mapping 1214 to Ghaziabad
             const pIdStr = normalizePlantId(currentPlantId);
             const carrierNameRaw = (carrier?.name || lr.carrierName || '').toUpperCase();
             const isSikkaLmc = carrierNameRaw.includes('SIKKA');

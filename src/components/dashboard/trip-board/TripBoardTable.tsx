@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -230,7 +229,6 @@ function MissionRegistryCard({
     const dateNode = isPending ? row.creationDate : row.startDate;
     const formattedDate = dateNode ? format(new Date(dateNode), 'dd MMM') : '--';
     const statusTime = row.lastUpdated ? format(new Date(row.lastUpdated), 'dd MMM, hh:mm aa') : (row.creationDate ? format(new Date(row.creationDate), 'dd MMM, hh:mm aa') : '--');
-    const unloadTime = row.unloadDateTime ? format(new Date(row.unloadDateTime), 'dd MMM, hh:mm aa') : null;
 
     const fromCity = (row.loadingPoint || row.from || row.plantName || '').split(',')[0].trim();
     const toCity = (row.unloadingPoint || row.destination || '').split(',')[0].trim();
@@ -270,7 +268,7 @@ function MissionRegistryCard({
 
         const isSikkaLmc = finalCarrier?.name?.toUpperCase().includes('SIKKA') || isSikkaLmcShorthand;
 
-        // MISSION FIX: Professional Registry address for Ghaziabad Node (ID23 / 1214)
+        // MISSION FIX: Hardened Registry Handbook for Ghaziabad Node (1214) vs Delhi Node (1426)
         if (!finalCarrier || isSikkaLmc) {
             if (pIdStr === '1426' || pIdStr === 'ID20') {
                 finalCarrier = {
@@ -286,7 +284,7 @@ function MissionRegistryCard({
                     website: 'www.sikkaind.com',
                     terms: DEFAULT_LMC_TERMS
                 };
-            } else if (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmc) {
+            } else if (pIdStr === '1214' || pIdStr === 'ID23') {
                 finalCarrier = {
                     id: 'ID21',
                     name: 'SIKKA INDUSTRIES AND LOGISTICS',
@@ -301,22 +299,6 @@ function MissionRegistryCard({
                     terms: DEFAULT_LMC_TERMS
                 };
             }
-        }
-
-        if (!finalCarrier) {
-            finalCarrier = {
-                id: 'ID21',
-                name: 'SIKKA INDUSTRIES AND LOGISTICS',
-                address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD 201009',
-                mobile: '9136688004',
-                gstin: '09AYQPS6936B1ZV',
-                stateCode: '09',
-                stateName: 'UTTAR PRADESH',
-                pan: 'AYQPS6936B',
-                email: 'sil@sikkaenterprises.com',
-                website: 'www.sikkaind.com',
-                terms: DEFAULT_LMC_TERMS
-            };
         }
 
         const resolveGtin = (name: string, code: string, current: string) => {
@@ -369,9 +351,9 @@ function MissionRegistryCard({
             consignorCode: lrDocData?.consignorCode || row.customerCode || '',
             buyerName: lrDocData?.buyerName || row.billToParty || row.shipmentObj?.billToParty || row.billToParty || '',
             buyerAddress: lrDocData?.buyerAddress || row.billToAddress || row.shipmentObj?.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
-            buyerGtin: lrDocData?.buyerGtin || row.shipmentObj?.billToGtin || buyerGtin,
+            buyerGtin: lrDocData?.buyerGtin || row.billToGtin || buyerGtin,
             shipToParty: lrDocData?.shipToParty || row.shipToParty || row.shipmentObj?.shipToParty || row.shipmentObj?.billToParty || row.billToParty || '',
-            shipToGtin: lrDocData?.shipToGtin || row.shipmentObj?.shipToGtin || shipToGtin,
+            shipToGtin: lrDocData?.shipToGtin || row.shipToGtin || shipToGtin,
             shipToCode: lrDocData?.shipToCode || row.shipToCode || '',
             deliveryAddress: lrDocData?.deliveryAddress || row.deliveryAddress || row.shipmentObj?.deliveryAddress || row.unloadingPoint || '',
             vehicleNumber: row.vehicleNumber || '--',
@@ -576,15 +558,6 @@ function MissionRegistryCard({
                             <span className="text-[8px] font-black uppercase text-slate-400 leading-none">Registry Update</span>
                             <span className="text-[10px] font-bold text-slate-500">{statusTime}</span>
                         </div>
-                        {unloadTime && (
-                            <div className="flex items-center">
-                                <div className="h-6 w-px bg-slate-100 mx-4" />
-                                <div className="flex flex-col">
-                                    <span className="text-[8px] font-black uppercase text-emerald-600 leading-none">Unload Time</span>
-                                    <span className="text-[10px] font-black text-slate-900">{unloadTime}</span>
-                                </div>
-                            </div>
-                        )}
                     </div>
                     {isDelayed && (
                         <div className="flex items-center gap-2 px-4 py-1.5 bg-red-50 border border-red-100 rounded-full animate-pulse shadow-sm">
