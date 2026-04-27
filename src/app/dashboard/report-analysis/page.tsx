@@ -1,7 +1,7 @@
 'use client';
 import { useState, useMemo } from 'react';
 import { subDays } from 'date-fns';
-import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DatePicker } from "@/components/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,44 +16,42 @@ import {
     Search, 
     ChevronRight,
     Filter,
-    LayoutDashboard
+    LayoutDashboard,
+    ClipboardCheck,
+    Navigation,
+    ShieldCheck
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
+/**
+ * @fileOverview Registry Analytics Control Node.
+ * UI OVERHAUL: Navigation moved to TOP CENTER for maximized ledger visibility.
+ * Hardened: Strict plant isolation pulses active across all sub-terminals.
+ */
 export default function ReportAnalysisPage() {
-  const [activeTab, setActiveTab] = useState('vehicle-entry');
+  const [activeTab, setActiveTab] = useState('freight');
   const [fromDate, setFromDate] = useState<Date | undefined>(subDays(new Date(), 30));
   const [toDate, setToDate] = useState<Date | undefined>(new Date());
   const [searchTerm, setSearchTerm] = useState('');
 
   const reportCategories = [
-    { 
-        group: 'Financial Analysis',
-        items: [
-            { id: 'freight', label: 'Freight Payment Ledger', icon: IndianRupee, component: FreightReport },
-        ]
-    },
-    {
-        group: 'Fleet & Gate Operations',
-        items: [
-            { id: 'vehicle-entry', label: 'Gate Movement Registry', icon: Truck, component: VehicleEntryReport },
-            { id: 'trips', label: 'Mission Performance Log', icon: FileText, component: TripsReport },
-        ]
-    }
+    { id: 'freight', label: 'Freight Payment Ledger', icon: IndianRupee },
+    { id: 'vehicle-entry', label: 'Gate Movement Registry', icon: Truck },
+    { id: 'trips', label: 'Mission Performance Log', icon: FileText },
   ];
 
   return (
-    <main className="flex flex-1 flex-col h-full bg-[#f8fafc] animate-in fade-in duration-500">
+    <main className="flex flex-1 flex-col h-full bg-[#f8fafc] animate-in fade-in duration-500 overflow-hidden">
       {/* ERP HEADER */}
-      <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="sticky top-0 z-30 bg-white border-b px-4 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-4">
-            <div className="p-2 bg-primary text-white rounded-lg shadow-lg rotate-3">
+            <div className="p-2 bg-blue-900 text-white rounded-lg shadow-lg rotate-3">
                 <BarChart3 className="h-6 w-6" />
             </div>
             <div>
-                <h1 className="text-2xl md:text-3xl font-black text-primary tracking-tight uppercase">Registry Analytics</h1>
+                <h1 className="text-2xl md:text-3xl font-black text-blue-900 tracking-tight uppercase">Registry Analytics</h1>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Analytics {'&'} Performance {'&'} Audit</p>
             </div>
         </div>
@@ -68,11 +66,11 @@ export default function ReportAnalysisPage() {
                 <DatePicker date={toDate} setDate={setToDate} className="h-9 rounded-xl border-slate-200 shadow-sm" />
             </div>
             <div className="grid gap-1.5">
-                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Registry Search</Label>
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Global Search</Label>
                 <div className="relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-primary" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
                     <Input 
-                        placeholder="Filter results..." 
+                        placeholder="ID, Vehicle, Party..." 
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         className="pl-9 h-9 w-[200px] rounded-xl border-slate-200 shadow-inner text-xs font-bold"
@@ -82,75 +80,59 @@ export default function ReportAnalysisPage() {
         </div>
       </div>
 
-      <div className="flex-1 p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-hidden h-[calc(100vh-140px)]">
-        {/* LEFT: REPORT CATEGORIES */}
-        <aside className="lg:col-span-3 space-y-6 overflow-y-auto pr-2 custom-scrollbar">
-            {reportCategories.map((group, idx) => (
-                <div key={idx} className="space-y-3">
-                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-4">{group.group}</h4>
-                    <div className="space-y-1">
-                        {group.items.map((report) => {
-                            const isActive = activeTab === report.id;
-                            return (
-                                <button
-                                    key={report.id}
-                                    onClick={() => setActiveTab(report.id)}
-                                    className={cn(
-                                        "w-full flex items-center justify-between p-4 rounded-2xl transition-all duration-200 group border text-left",
-                                        isActive 
-                                            ? "bg-white border-primary shadow-lg shadow-primary/5 text-primary" 
-                                            : "bg-transparent border-transparent text-slate-500 hover:bg-white hover:border-slate-200"
-                                    )}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={cn(
-                                            "p-2 rounded-lg transition-colors",
-                                            isActive ? "bg-primary text-white" : "bg-white border text-slate-400 group-hover:text-primary"
-                                        )}>
-                                            <report.icon className="h-4 w-4" />
-                                        </div>
-                                        <span className="text-xs font-black uppercase tracking-tight">{report.label}</span>
-                                    </div>
-                                    <ChevronRight className={cn("h-4 w-4 transition-transform", isActive ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2")} />
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            ))}
-        </aside>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* TOP CENTER NAVIGATION TERMINAL */}
+        <div className="bg-slate-50 border-b p-4 flex justify-center shrink-0">
+            <div className="bg-white p-1 rounded-2xl border-2 border-slate-200 shadow-inner flex items-center gap-2">
+                {reportCategories.map((item) => {
+                    const isActive = activeTab === item.id;
+                    return (
+                        <button
+                            key={item.id}
+                            onClick={() => setActiveTab(item.id)}
+                            className={cn(
+                                "flex items-center gap-3 px-6 py-2.5 rounded-xl transition-all duration-300 font-black uppercase text-[10px] tracking-widest",
+                                isActive 
+                                    ? "bg-blue-900 text-white shadow-xl scale-105" 
+                                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                            )}
+                        >
+                            <item.icon className={cn("h-4 w-4", isActive ? "text-blue-400" : "text-slate-300")} />
+                            {item.label}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
 
-        {/* RIGHT: REPORT VIEWER */}
-        <div className="lg:col-span-9 overflow-hidden flex flex-col gap-6">
-            <Card className="border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden flex-1 flex flex-col">
-                <CardHeader className="bg-slate-50 border-b px-8 py-6">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary/10 rounded-lg"><LayoutDashboard className="h-4 w-4 text-primary" /></div>
-                            <div>
-                                <CardTitle className="text-sm font-black uppercase tracking-widest">Active Report Viewer</CardTitle>
-                                <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Real-time Data Extraction: {activeTab.toUpperCase()}</CardDescription>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-100 font-black uppercase text-[9px] px-3">Sync Status: Optimal</Badge>
+        {/* REPORT VIEWER CONTENT */}
+        <div className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar">
+            <div className="max-w-[1600px] mx-auto space-y-6">
+                <div className="flex items-center justify-between px-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-50 rounded-lg"><LayoutDashboard className="h-4 w-4 text-blue-900" /></div>
+                        <div>
+                            <h2 className="text-xs font-black uppercase tracking-widest text-slate-700">Active Node extraction</h2>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Handshake Status: Optimal Pulse</p>
                         </div>
                     </div>
-                </CardHeader>
-                <CardContent className="p-0 flex-1 overflow-auto">
-                    <Tabs value={activeTab} className="w-full h-full">
-                        <TabsContent value="vehicle-entry" className="m-0 border-none p-0 focus-visible:ring-0">
-                            <VehicleEntryReport fromDate={fromDate} toDate={toDate} searchTerm={searchTerm} />
-                        </TabsContent>
-                        <TabsContent value="trips" className="m-0 border-none p-0 focus-visible:ring-0">
-                            <TripsReport fromDate={fromDate} toDate={toDate} searchTerm={searchTerm} />
-                        </TabsContent>
-                        <TabsContent value="freight" className="m-0 border-none p-0 focus-visible:ring-0">
-                            <FreightReport fromDate={fromDate} toDate={toDate} searchTerm={searchTerm} />
-                        </TabsContent>
-                    </Tabs>
-                </CardContent>
-            </Card>
+                    <Badge className="bg-emerald-600 text-white font-black uppercase text-[9px] px-4 py-1 border-none shadow-md">
+                        <ShieldCheck className="h-3 w-3 mr-2" /> Authorized Data Scope
+                    </Badge>
+                </div>
+
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    {activeTab === 'freight' && (
+                        <FreightReport fromDate={fromDate} toDate={toDate} searchTerm={searchTerm} />
+                    )}
+                    {activeTab === 'vehicle-entry' && (
+                        <VehicleEntryReport fromDate={fromDate} toDate={toDate} searchTerm={searchTerm} />
+                    )}
+                    {activeTab === 'trips' && (
+                        <TripsReport fromDate={fromDate} toDate={toDate} searchTerm={searchTerm} />
+                    )}
+                </div>
+            </div>
         </div>
       </div>
     </main>

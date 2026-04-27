@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
@@ -9,12 +8,27 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { mockPlants as initialPlants } from '@/lib/mock-data';
 import type { WithId, Freight, Trip, Plant, Shipment, SubUser } from '@/types';
 import ReportPagination from './ReportPagination';
-import { ArrowUpDown, FileDown, WifiOff, Loader2 } from 'lucide-react';
+import { 
+    ArrowUpDown, 
+    FileDown, 
+    WifiOff, 
+    Loader2, 
+    Eye, 
+    Filter, 
+    IndianRupee, 
+    Calculator,
+    CheckCircle2,
+    Clock,
+    AlertCircle,
+    Truck
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, getDocs, doc, getDoc, Timestamp, query, orderBy, where, limit } from "firebase/firestore";
 import { Badge } from '@/components/ui/badge';
 import { cn, normalizePlantId, parseSafeDate } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import ViewFreightModal from '../freight-management/ViewFreightModal';
 
 interface ReportProps {
   fromDate?: Date;
@@ -27,19 +41,27 @@ type EnrichedFreight = WithId<Freight> & {
     plant?: WithId<Plant>;
     shipment?: WithId<Shipment>;
     addChargeAmount: number;
+    detentionAmount: number;
     plantName?: string;
     startDate?: Date;
     originPlantId?: string;
 };
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 15;
 
+/**
+ * @fileOverview Freight Settlement Registry Report.
+ * Rule Node: Total Freight = Base Amt - Charges.
+ * Optimization: Includes detention mapping and status filtration.
+ */
 export default function FreightReport({ fromDate, toDate, searchTerm }: ReportProps) {
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
   const [data, setData] = useState<EnrichedFreight[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [viewingFreight, setViewingFreight] = useState<EnrichedFreight | null>(null);
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -84,7 +106,6 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
 
         const allEnriched: EnrichedFreight[] = [];
 
-        // Registry Extraction Handshake
         const plantFetchPromises = authorizedPlantIds.map(async (pId) => {
             const [tripSnap, shipSnap, freightSnap] = await Promise.all([
                 getDocs(collection(firestore, `plants/${pId}/trips`)),
@@ -101,39 +122,44 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
             tripSnap.forEach(tripDoc => {
                 const trip: any = { id: tripDoc.id, ...tripDoc.data() };
                 
-                // MISSION FILTER: Focus on Market Vehicle nodes for the Settlement Ledger
-                if (trip.vehicleType !== 'Market Vehicle') return;
+                // Mission Scope Node: Focus on liquidated categories
+                if (trip.vehicleType !== 'Market Vehicle' && trip.vehicleType !== 'Contract Vehicle') return;
 
                 const shipment = shipsMap.get(trip.shipmentIds?.[0]);
                 const fData: any = freightsMap.get(trip.id) || {};
                 
-                const addChargeAmount = (fData.charges || []).reduce((acc: number, c: any) => acc + (Number(c.amount) || 0), 0);
+                // FINANCIAL HANDSHAKE: Resolution of Base Amt nodes
+                // Rule: If fix rate is ticked, use fixedAmount as Base Amt
+                let baseFreightAmount = Number(fData.baseFreightAmount);
+                if (!baseFreightAmount) {
+                    baseFreightAmount = trip.isFixRate 
+                        ? Number(trip.fixedAmount || 0) 
+                        : (Number(trip.freightRate || 0) * Number(trip.assignedQtyInTrip || 0));
+                }
+
+                const totalCharges = (fData.charges || []).reduce((acc: number, c: any) => acc + (Number(c.amount) || 0), 0);
+                const detentionAmount = (fData.charges || []).filter((c: any) => c.type === 'Detention').reduce((acc: number, c: any) => acc + (Number(c.amount) || 0), 0);
+                const otherCharges = totalCharges - detentionAmount;
+
                 const startTime = parseSafeDate(trip.startDate) || new Date();
                 
-                // Financial Node Handshake: Resolve base freight from trip if doc missing
-                const baseFreightAmount = Number(fData.baseFreightAmount) || (Number(trip.freightRate || 0) * Number(trip.assignedQtyInTrip || 0));
+                // MISSION RULE: Total Freight = Base Amt - Charges
+                const netFreightAmount = baseFreightAmount - totalCharges;
                 const totalPaid = Number(fData.paidAmount) || 0;
-                const grandTotal = fData.totalFreightAmount || (baseFreightAmount + addChargeAmount);
 
                 allEnriched.push({
                     id: fData.id || `f-${trip.id}`,
                     originPlantId: pId,
                     ...fData,
-                    payments: (fData.payments || []).map((p: any) => ({
-                        ...p,
-                        paymentDate: parseSafeDate(p.paymentDate)
-                    })),
-                    trip: {
-                        ...trip,
-                        startDate: startTime
-                    },
+                    trip: { ...trip, startDate: startTime },
                     shipment,
                     plant: plantNode as any,
-                    addChargeAmount,
+                    addChargeAmount: otherCharges,
+                    detentionAmount: detentionAmount,
                     baseFreightAmount,
-                    totalFreightAmount: grandTotal,
+                    totalFreightAmount: netFreightAmount,
                     paidAmount: totalPaid,
-                    balanceAmount: grandTotal - totalPaid,
+                    balanceAmount: netFreightAmount - totalPaid,
                     paymentStatus: fData.paymentStatus || 'Awaiting Post',
                     plantName: (plantNode as any).name || resolvedPlantId,
                     startDate: startTime
@@ -144,7 +170,7 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
         await Promise.all(plantFetchPromises);
         setData(allEnriched.sort((a, b) => (b.startDate?.getTime() || 0) - (a.startDate?.getTime() || 0)));
     } catch (error) {
-        console.error("Freight Ledger Error:", error);
+        console.error("Freight Registry Sync Failure:", error);
         setDbError(true);
         setData([]);
     } finally {
@@ -162,17 +188,26 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
     if (fromDate) filtered = filtered.filter(item => item.startDate && item.startDate >= startOfDay(fromDate));
     if (toDate) filtered = filtered.filter(item => item.startDate && item.startDate <= endOfDay(toDate));
 
+    if (statusFilter !== 'all') {
+        const s = statusFilter.toLowerCase();
+        if (s === 'paid') filtered = filtered.filter(item => item.paymentStatus?.toLowerCase() === 'paid');
+        if (s === 'unpaid') filtered = filtered.filter(item => item.paymentStatus?.toLowerCase() === 'unpaid' || item.paymentStatus?.toLowerCase() === 'pending' || item.paymentStatus?.toLowerCase() === 'awaiting post');
+        if (s === 'partial') filtered = filtered.filter(item => item.paymentStatus?.toLowerCase().includes('partial'));
+    }
+
     if (searchTerm) {
         const lowerSearch = searchTerm.toLowerCase();
         filtered = filtered.filter(item =>
-            Object.values(item).some(val => val?.toString().toLowerCase().includes(lowerSearch)) ||
-            (item.trip && Object.values(item.trip).some(val => val?.toString().toLowerCase().includes(lowerSearch))) ||
-            (item.shipment && Object.values(item.shipment).some(val => val?.toString().toLowerCase().includes(lowerSearch)))
+            item.trip?.tripId?.toLowerCase().includes(lowerSearch) ||
+            item.trip?.vehicleNumber?.toLowerCase().includes(lowerSearch) ||
+            item.trip?.lrNumber?.toLowerCase().includes(lowerSearch) ||
+            item.trip?.transporterName?.toLowerCase().includes(lowerSearch) ||
+            item.plantName?.toLowerCase().includes(lowerSearch)
         );
     }
 
     return filtered;
-  }, [data, fromDate, toDate, searchTerm]);
+  }, [data, fromDate, toDate, searchTerm, statusFilter]);
   
   const sortedData = useMemo(() => {
     let sortableItems = [...filteredData];
@@ -191,105 +226,127 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
   const totalPages = Math.ceil(sortedData.length / ITEMS_PER_PAGE);
   const paginatedData = sortedData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  const headersMap = ['plantName', 'tripId', 'lrNumber', 'startDate', 'vehicleNumber', 'transporterName', 'loadingPoint', 'shipToParty', 'unloadingPoint', 'assignedQtyInTrip', 'freightRate', 'baseFreightAmount', 'addChargeAmount', 'totalFreightAmount', 'paidAmount', 'paymentStatus'];
-  const headerLabels: { [key: string]: string } = {
-    plantName: 'Plant', tripId: 'Trip ID', lrNumber: 'LR Number', startDate: 'Date', vehicleNumber: 'Vehicle No', transporterName: 'Transporter', loadingPoint: 'FROM', shipToParty: 'Ship To Party', unloadingPoint: 'Destination', assignedQtyInTrip: 'Assigned Qty', freightRate: 'Rate', baseFreightAmount: 'Base Amt', addChargeAmount: 'Charges', totalFreightAmount: 'Total Freight', paidAmount: 'Paid', paymentStatus: 'Status'
+  const headerLabels: Record<string, string> = {
+    plantName: 'Plant', tripId: 'Trip ID', lrNumber: 'LR Number', startDate: 'Date', vehicleNumber: 'Vehicle No', transporterName: 'Transporter', baseFreightAmount: 'Base Amt', detentionAmount: 'Detention', addChargeAmount: 'Other Charge', totalFreightAmount: 'Net Freight', paidAmount: 'Paid', paymentStatus: 'Status'
   };
   
   const handleExport = () => {
-    const dataToExport = sortedData.map(item => {
-      const row: {[key: string]: any} = {};
-      headersMap.forEach(key => {
-        let val = (item as any)[key] ?? (item.trip as any)?.[key] ?? 'N/A';
-        if (key.includes('Date') || key === 'startDate') {
-           val = val && val !== 'N/A' ? format(new Date(val), 'dd-MM-yyyy') : 'N/A';
-        }
-        row[headerLabels[key]] = val;
-      });
-      return row;
-    });
-
+    const dataToExport = sortedData.map(item => ({
+        'Lifting Plant': item.plantName,
+        'Trip ID Registry': item.trip?.tripId,
+        'LR Number': item.trip?.lrNumber,
+        'Mission Date': item.startDate ? format(item.startDate, 'dd-MM-yyyy') : '--',
+        'Vehicle Number': item.trip?.vehicleNumber,
+        'Transporter node': item.trip?.transporterName || 'Self',
+        'Base Amount (F)': item.baseFreightAmount,
+        'Detention Registry': item.detentionAmount,
+        'Additional Charges': item.addChargeAmount,
+        'Net Settlement Freight': item.totalFreightAmount,
+        'Paid Registry': item.paidAmount,
+        'Payment Status': item.paymentStatus
+    }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Freight Settlement");
-    XLSX.writeFile(workbook, "FreightSettlementLedger.xlsx");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Freight Analytics");
+    XLSX.writeFile(workbook, "Freight_Settlement_Analytics.xlsx");
   };
 
-  const requestSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
-    setSortConfig({ key, direction });
-  };
-  
   const getSortIcon = (key: string) => {
-    if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-slate-400" />;
+    if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="ml-2 h-3 w-3 text-slate-400" />;
     return sortConfig.direction === 'asc' ? '🔼' : '🔽';
   };
 
   return (
-    <Card className="border-none shadow-none bg-transparent">
-      <CardHeader className="pb-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-                <CardTitle className="text-xl font-black uppercase text-blue-900 flex items-center gap-2 italic">
-                    Freight Settlement Ledger
-                    {dbError && <WifiOff className="h-4 w-4 text-orange-500" />}
-                </CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">Authorized audit registry of Market Fleet liquidation</CardDescription>
-            </div>
-            <Button variant="outline" size="sm" onClick={handleExport} className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-slate-200 text-blue-900 bg-white shadow-sm hover:bg-slate-50">
-                <FileDown className="h-4 w-4" /> Export Ledger
-            </Button>
-        </div>
+    <Card className="border-none shadow-2xl rounded-[3rem] bg-white overflow-hidden">
+      <CardHeader className="p-8 border-b bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+              <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3"><IndianRupee className="h-6 w-6" /></div>
+              <div>
+                  <CardTitle className="text-xl font-black uppercase text-blue-900 italic leading-none">Freight Settlement Ledger</CardTitle>
+                  <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-2">Rule: Net Freight = Base - (Deductions/Charges)</CardDescription>
+              </div>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-inner">
+                  <span className="text-[9px] font-black uppercase text-slate-400 pl-2">Status Node:</span>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="h-8 w-[140px] border-none shadow-none font-black text-xs uppercase bg-transparent text-blue-900">
+                          <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                          <SelectItem value="all" className="font-bold py-2">ALL RECORDS</SelectItem>
+                          <SelectItem value="paid" className="font-bold py-2 text-emerald-600">FULLY PAID</SelectItem>
+                          <SelectItem value="unpaid" className="font-bold py-2 text-red-600">UNPAID NODE</SelectItem>
+                          <SelectItem value="partial" className="font-bold py-2 text-amber-600">PARTIAL SYNC</SelectItem>
+                      </SelectContent>
+                  </Select>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleExport} className="h-11 px-8 rounded-2xl font-black text-[11px] uppercase border-slate-200 text-blue-900 bg-white shadow-xl hover:bg-slate-50 transition-all">
+                  <FileDown className="h-4 w-4 mr-2" /> Export
+              </Button>
+          </div>
       </CardHeader>
+      
       <CardContent className="p-0">
-        <div className="overflow-x-auto rounded-[2rem] border border-slate-100 bg-white shadow-xl">
-          <Table className="min-w-[2400px]">
+        <div className="overflow-x-auto">
+          <Table className="min-w-[2600px]">
             <TableHeader className="bg-slate-900 text-white h-14">
-              <TableRow className="hover:bg-transparent">
-                 {headersMap.map(key => (
+              <TableRow className="hover:bg-transparent border-none">
+                 {Object.keys(headerLabels).map(key => (
                      <TableHead key={key} className="px-4">
-                        <Button variant="ghost" onClick={() => requestSort(key)} className="h-auto p-0 font-black text-[10px] uppercase tracking-widest text-blue-200 hover:text-white transition-colors">
-                            {headerLabels[key]}
-                            {getSortIcon(key)}
+                        <Button 
+                            variant="ghost" 
+                            onClick={() => {
+                                let direction: 'asc' | 'desc' = 'asc';
+                                if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
+                                setSortConfig({ key, direction });
+                            }} 
+                            className="h-auto p-0 font-black text-[10px] uppercase tracking-widest text-blue-200 hover:text-white transition-colors"
+                        >
+                            {headerLabels[key]}{getSortIcon(key)}
                         </Button>
                     </TableHead>
                 ))}
+                <TableHead className="w-16 sticky right-0 bg-slate-900"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i} className="h-16"><TableCell colSpan={headersMap.length} className="px-4"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                Array.from({ length: 10 }).map((_, i) => (
+                  <TableRow key={i} className="h-16"><TableCell colSpan={13} className="px-4"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                 ))
               ) : paginatedData.length === 0 ? (
-                <TableRow><TableCell colSpan={headersMap.length} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No Market Vehicle assignments detected in registry.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={13} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No authorized mission nodes detected in registry.</TableCell></TableRow>
               ) : (
                 paginatedData.map(item => (
-                    <TableRow key={item.id} className="h-16 hover:bg-blue-50/20 transition-colors border-b border-slate-50 last:border-0 group">
+                    <TableRow 
+                        key={item.id} 
+                        className="h-16 hover:bg-blue-50/20 transition-all border-b border-slate-50 last:border-0 group cursor-pointer"
+                        onClick={() => setViewingFreight(item)}
+                    >
                         <TableCell className="px-4 font-bold text-slate-600 uppercase text-[11px]">{item.plantName}</TableCell>
                         <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter uppercase">{item.trip?.tripId}</TableCell>
                         <TableCell className="px-4 font-black text-slate-900 uppercase text-[11px]">{item.trip?.lrNumber || '--'}</TableCell>
-                        <TableCell className="px-4 text-center text-xs font-bold text-slate-500 whitespace-nowrap">{item.startDate ? format(item.startDate, 'dd.MM.yy') : '--'}</TableCell>
+                        <TableCell className="px-4 text-center text-[10px] font-bold text-slate-400 whitespace-nowrap">{item.startDate ? format(item.startDate, 'dd.MM.yy') : '--'}</TableCell>
                         <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{item.trip?.vehicleNumber}</TableCell>
-                        <TableCell className="px-4 text-[10px] font-black uppercase text-slate-400 truncate max-w-[150px]">{item.trip?.transporterName || '--'}</TableCell>
-                        <TableCell className="px-4 text-[11px] font-bold text-slate-600 uppercase italic truncate max-w-[120px]">{item.trip?.loadingPoint}</TableCell>
-                        <TableCell className="px-4 text-[11px] font-bold text-slate-800 uppercase truncate max-w-[150px]">{item.trip?.shipToParty}</TableCell>
-                        <TableCell className="px-4 text-[11px] font-medium text-slate-500 uppercase truncate max-w-[150px]">{item.trip?.unloadingPoint}</TableCell>
-                        <TableCell className="px-4 text-right font-black text-blue-900">{(Number(item.trip?.assignedQtyInTrip) || 0).toFixed(3)}</TableCell>
-                        <TableCell className="px-4 text-right font-bold text-slate-500">₹ {Number(item.trip?.freightRate || 0).toLocaleString()}</TableCell>
-                        <TableCell className="px-4 text-right font-black text-slate-700">₹ {Number(item.baseFreightAmount).toLocaleString()}</TableCell>
+                        <TableCell className="px-4 text-[10px] font-black uppercase text-slate-400 truncate max-w-[150px]">{item.trip?.transporterName || 'SELF'}</TableCell>
+                        <TableCell className="px-4 text-right font-black text-slate-900">₹ {Number(item.baseFreightAmount).toLocaleString()}</TableCell>
+                        <TableCell className="px-4 text-right font-black text-amber-600 bg-amber-50/5">₹ {Number(item.detentionAmount).toLocaleString()}</TableCell>
                         <TableCell className="px-4 text-right font-bold text-orange-600">₹ {Number(item.addChargeAmount).toLocaleString()}</TableCell>
-                        <TableCell className="px-4 text-right font-black text-slate-900">₹ {Number(item.totalFreightAmount).toLocaleString()}</TableCell>
-                        <TableCell className="px-4 text-right font-black text-emerald-700 bg-emerald-50/10">₹ {Number(item.paidAmount).toLocaleString()}</TableCell>
-                        <TableCell className="px-4">
+                        <TableCell className="px-4 text-right font-black text-blue-900 bg-blue-50/10">₹ {Number(item.totalFreightAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</TableCell>
+                        <TableCell className="px-4 text-right font-black text-emerald-700">₹ {Number(item.paidAmount).toLocaleString()}</TableCell>
+                        <TableCell className="px-4 text-center">
                             <Badge variant="outline" className={cn(
                                 "text-[9px] font-black uppercase px-2.5 h-6 border shadow-sm",
                                 item.paymentStatus === 'Paid' ? 'bg-emerald-600 text-white border-emerald-600' : 
-                                item.paymentStatus === 'Awaiting Post' ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-amber-100 text-amber-700 border-amber-200'
+                                ['unpaid', 'pending', 'awaiting post'].includes(item.paymentStatus?.toLowerCase()) ? 'bg-red-600 text-white border-red-600' : 'bg-amber-100 text-amber-700 border-amber-200'
                             )}>
                                 {item.paymentStatus}
                             </Badge>
+                        </TableCell>
+                        <TableCell className="px-6 text-right sticky right-0 bg-white group-hover:bg-blue-50/50 transition-colors shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-100 rounded-xl opacity-0 group-hover:opacity-100 transition-all"><Eye size={16}/></Button>
                         </TableCell>
                     </TableRow>
                 ))
@@ -297,15 +354,37 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
             </TableBody>
           </Table>
         </div>
-        <ReportPagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          itemCount={filteredData.length}
-          canPreviousPage={currentPage > 1}
-          canNextPage={currentPage < totalPages}
-        />
+        <div className="p-6 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-6">
+                <div className="flex flex-col gap-0.5">
+                    <span className="text-[8px] font-black uppercase text-slate-400 leading-none">Net Freight Aggregate</span>
+                    <p className="text-xl font-black text-blue-900 tracking-tighter">₹ {filteredData.reduce((s, i) => s + (Number(i.totalFreightAmount) || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div className="w-px h-8 bg-slate-200" />
+                <div className="flex flex-col gap-0.5">
+                    <span className="text-[8px] font-black uppercase text-slate-400 leading-none">Unpaid Balance Node</span>
+                    <p className="text-xl font-black text-red-600 tracking-tighter">₹ {filteredData.reduce((s, i) => s + (Number(i.balanceAmount) || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                </div>
+            </div>
+            <ReportPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                itemCount={filteredData.length}
+                canPreviousPage={currentPage > 1}
+                canNextPage={currentPage < totalPages}
+            />
+        </div>
       </CardContent>
+
+      {viewingFreight && (
+          <ViewFreightModal 
+            isOpen={!!viewingFreight} 
+            onClose={() => setViewingFreight(null)} 
+            freight={viewingFreight} 
+          />
+      )}
     </Card>
   );
 }
+

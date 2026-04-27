@@ -120,8 +120,13 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
     setLoading(true);
     const unsubscribers: (() => void)[] = [];
 
+    const normalizedAuthIds = authorizedPlantIds.map(normalizePlantId).map(id => id.toLowerCase());
+    const isSystemAdmin = user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
+
     unsubscribers.push(onSnapshot(collection(firestore, "trips"), (snap) => {
-        setTrips(snap.docs.map(d => ({ id: d.id, ...d.data(), startDate: parseSafeDate(d.data().startDate) } as any)));
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data(), startDate: parseSafeDate(d.data().startDate) } as any));
+        // MISSION CRITICAL: Enforce strict plant-based filtering for non-root sessions
+        setTrips(list.filter(t => isSystemAdmin || normalizedAuthIds.includes(normalizePlantId(t.originPlantId).toLowerCase())));
         setLoading(false);
     }));
 
@@ -141,7 +146,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
     });
 
     return () => unsubscribers.forEach(u => u());
-  }, [firestore, authorizedPlantIds]);
+  }, [firestore, authorizedPlantIds, user]);
 
   const enrichedData = useMemo((): EnrichedTrip[] => {
     const plantsMap = new Map((allMasterPlants || initialPlants).map(p => [normalizePlantId(p.id), p.name]));
@@ -149,19 +154,17 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
 
     return trips.map(t => {
         const shipment = shipments.find(s => s.id === t.shipmentIds?.[0]);
-        // DEEP SYNC: Link by ID or Number
         const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId || (l.lrNumber === t.lrNumber && l.originPlantId === t.originPlantId));
         
         let lrPackageName = '--';
         let invoiceNumbers = shipment?.invoiceNumber || t.invoiceNumbers || '--';
         
-        // MANIFEST RECOVERY NODE
         const itemsManifest = lr?.items || t.items || shipment?.items || [];
         if (itemsManifest.length > 0) {
             const totalUnits = itemsManifest.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
             const firstDesc = itemsManifest[0].itemDescription || itemsManifest[0].description || 'GENERAL CARGO';
             lrPackageName = `${totalUnits} U (${firstDesc})`;
-            invoiceNumbers = Array.from(new Set(itemsManifest.map((i: any) => i.invoiceNumber).filter(Boolean))).join(', ');
+            invoiceNumbers = Array.from(new Set(itemsManifest.map((i: any) => i.invoiceNumber || i.invoiceNo).filter(Boolean))).join(', ');
         }
 
         return {
@@ -170,8 +173,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
             shipment,
             lrPackageName,
             invoiceNumbers: invoiceNumbers || '--',
-            carrierName: carriersMap.get(t.carrierId || '') || 'N/A',
-            // Deep Resolution for LR specifics
+            carrierName: carriersMap.get(t.carrierId || '') || t.carrierName || 'N/A',
             lrNumber: lr?.lrNumber || t.lrNumber || shipment?.lrNumber || '--',
             lrDate: parseSafeDate(lr?.date || t.lrDate || shipment?.lrDate),
             loadingPoint: t.loadingPoint || shipment?.loadingPoint || '--',
@@ -195,8 +197,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
         const s = searchTerm.toLowerCase();
         filtered = filtered.filter(item =>
             Object.values(item).some(val => val?.toString().toLowerCase().includes(s)) ||
-            (item.shipment && Object.values(item.shipment).some(val => val?.toString().toLowerCase().includes(s))) ||
-            (item.invoiceNumbers && item.invoiceNumbers.toLowerCase().includes(s))
+            (item.shipment && Object.values(item.shipment).some(val => val?.toString().toLowerCase().includes(s)))
         );
     }
     return filtered;
@@ -235,59 +236,41 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, ws, "Trips Report");
-    XLSX.writeFile(workbook, `Trips_Performance_Log_${format(new Date(), 'yyyyMMdd')}.xlsx`);
-  };
-
-  const requestSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
-    setSortConfig({ key, direction });
-  };
-
-  const getSortIcon = (key: string) => {
-    if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="ml-2 h-3 w-3 text-slate-400" />;
-    return sortConfig.direction === 'asc' ? '🔼' : '🔽';
-  };
-
-  const getStatusBadgeColor = (status: string) => {
-    if (!status) return 'border-slate-200';
-    switch(status.toLowerCase().replace(/[\s_-]+/g, '-')) {
-        case 'assigned':
-        case 'vehicle-assigned': return 'bg-blue-50 text-blue-700 border-blue-200';
-        case 'loaded':
-        case 'loading-complete': return 'bg-orange-50 text-orange-700 border-orange-200';
-        case 'in-transit': return 'bg-purple-50 text-purple-700 border-purple-200';
-        case 'delivered': return 'bg-green-50 text-green-700 border-green-200';
-        case 'closed': return 'bg-slate-900 text-white border-none';
-        default: return 'border-slate-200';
-    }
+    XLSX.writeFile(workbook, `Trips_Audit_Registry_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
   return (
-    <Card className="border-none shadow-none bg-transparent">
-        <CardHeader className="pb-4">
-            <div className="flex justify-between items-center">
-                <div>
-                    <CardTitle className="text-xl font-black uppercase text-blue-900 flex items-center gap-2">
-                        Mission Performance Log
-                        {dbError && <WifiOff className="h-4 w-4 text-orange-500" />}
-                    </CardTitle>
-                    <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Deep-registry audit of trip nodes</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" onClick={handleExport} className="h-10 px-6 gap-2 font-black text-[11px] uppercase border-slate-200 text-blue-900 bg-white shadow-sm hover:bg-slate-50 transition-all">
-                    <FileDown className="h-4 w-4" /> Export Ledger
-                </Button>
+    <Card className="border-none shadow-2xl rounded-[3rem] bg-white overflow-hidden">
+        <CardHeader className="p-8 border-b bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <CardTitle className="text-xl font-black uppercase text-blue-900 flex items-center gap-2 italic">
+                    Mission Performance Log
+                    {dbError && <WifiOff className="h-4 w-4 text-orange-500" />}
+                </CardTitle>
+                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">Registry audit across authorized plants</CardDescription>
             </div>
+            <Button variant="outline" size="sm" onClick={handleExport} className="h-11 px-8 rounded-2xl font-black text-[11px] uppercase border-slate-200 text-blue-900 bg-white shadow-xl hover:bg-slate-50 transition-all">
+                <FileDown className="h-4 w-4 mr-2" /> Export
+            </Button>
         </CardHeader>
       <CardContent className="p-0">
-        <div className="overflow-x-auto rounded-xl border border-slate-100 bg-white">
-          <Table>
-            <TableHeader className="bg-slate-50">
-              <TableRow className="h-12 hover:bg-transparent">
+        <div className="overflow-x-auto">
+          <Table className="min-w-[2800px]">
+            <TableHeader className="bg-slate-900 text-white h-14">
+              <TableRow className="hover:bg-transparent border-none">
                 {headers.map(key => (
                      <TableHead key={key} className="px-4 py-3">
-                        <Button variant="ghost" onClick={() => requestSort(key)} className="h-auto p-0 font-black text-[10px] uppercase tracking-widest text-slate-500 hover:text-blue-900 transition-colors">
-                            {headerLabels[key]}{getSortIcon(key)}
+                        <Button 
+                            variant="ghost" 
+                            onClick={() => {
+                                let direction: 'asc' | 'desc' = 'asc';
+                                if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
+                                setSortConfig({ key, direction });
+                            }} 
+                            className="h-auto p-0 font-black text-[10px] uppercase tracking-widest text-blue-200 hover:text-white transition-colors"
+                        >
+                            {headerLabels[key]}
+                            {sortConfig?.key === key ? (sortConfig.direction === 'asc' ? '🔼' : '🔽') : <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-slate-400" />}
                         </Button>
                     </TableHead>
                 ))}
@@ -299,7 +282,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
                   <TableRow key={i} className="h-16"><TableCell colSpan={headers.length} className="px-4"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                 ))
               ) : paginatedData.length === 0 ? (
-                <TableRow><TableCell colSpan={headers.length} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No records found matching criteria.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={headers.length} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No records matching scope registry.</TableCell></TableRow>
               ) : (
                 paginatedData.map(item => (
                   <TableRow key={item.id} className="h-16 hover:bg-blue-50/20 transition-all border-b border-slate-50 last:border-0 group text-[11px] font-medium text-slate-600">
@@ -320,7 +303,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
                     <TableCell className="px-4 font-black text-slate-900 tracking-tighter uppercase">{item.vehicleNumber}</TableCell>
                     <TableCell className="px-4 text-right font-black text-blue-900">{item.assignedQtyInTrip} MT</TableCell>
                     <TableCell className="px-4">
-                        <Badge variant="outline" className={cn("text-[9px] h-6 font-black uppercase tracking-tighter whitespace-nowrap", getStatusBadgeColor(item.tripStatus))}>
+                        <Badge variant="outline" className="text-[9px] h-6 font-black uppercase bg-blue-50 text-blue-700 border-blue-200">
                             {item.tripStatus}
                         </Badge>
                     </TableCell>
@@ -340,3 +323,4 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
     </Card>
   );
 }
+
