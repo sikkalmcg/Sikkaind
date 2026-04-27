@@ -182,7 +182,8 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
                         <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-1"><p className="text-[8px] font-black uppercase text-slate-400">Vehicle No</p><p className="text-sm font-black text-slate-900 uppercase">{trip.vehicleNumber}</p></div>
                             <div className="space-y-1"><p className="text-[8px] font-black uppercase text-slate-400">Assigned Weight</p><p className="text-sm font-bold text-blue-700">{trip.assignedQtyInTrip} MT</p></div>
-                            <div className="space-y-1 col-span-2"><p className="text-[8px] font-black uppercase text-slate-400">Destination</p><p className="text-sm font-medium text-slate-600 uppercase truncate">{trip.unloadingPoint}</p></div>
+                            <div className="space-y-1"><p className="text-[8px] font-black uppercase text-slate-400">LR Number</p><p className="text-sm font-black text-slate-900 uppercase">{trip.lrNumber || '--'}</p></div>
+                            <div className="space-y-1"><p className="text-[8px] font-black uppercase text-slate-400">Destination</p><p className="text-sm font-medium text-slate-600 uppercase truncate">{trip.unloadingPoint}</p></div>
                         </div>
                     </div>
 

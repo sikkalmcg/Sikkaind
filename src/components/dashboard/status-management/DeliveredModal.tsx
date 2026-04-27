@@ -138,7 +138,8 @@ export default function DeliveredModal({ isOpen, onClose, trip, onSave }: { isOp
                         <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-1"><p className="text-[8px] font-black uppercase text-slate-400">Vehicle No</p><p className="text-sm font-black text-slate-900 uppercase">{trip?.vehicleNumber}</p></div>
                             <div className="space-y-1"><p className="text-[8px] font-black uppercase text-slate-400">Assigned Weight</p><p className="text-sm font-bold text-blue-700">{trip?.assignedQtyInTrip} MT</p></div>
-                            <div className="space-y-1 col-span-2"><p className="text-[8px] font-black uppercase text-slate-400">Destination Hub</p><p className="text-sm font-medium text-slate-600 uppercase truncate">{trip?.unloadingPoint}</p></div>
+                            <div className="space-y-1"><p className="text-[8px] font-black uppercase text-slate-400">LR Number</p><p className="text-sm font-black text-slate-900 uppercase">{trip?.lrNumber || '--'}</p></div>
+                            <div className="space-y-1"><p className="text-[8px] font-black uppercase text-slate-400">Destination Hub</p><p className="text-sm font-medium text-slate-600 uppercase truncate">{trip?.unloadingPoint}</p></div>
                         </div>
                     </div>
 
@@ -227,7 +228,7 @@ export default function DeliveredModal({ isOpen, onClose, trip, onSave }: { isOp
             <Button 
                 onClick={form.handleSubmit(onSubmit)} 
                 disabled={isSubmitting} 
-                className="bg-blue-900 hover:bg-black text-white px-16 h-12 rounded-xl font-black uppercase text-[11px] tracking-widest shadow-xl border-none transition-all active:scale-95"
+                className="bg-blue-900 hover:bg-black text-white px-16 h-12 rounded-xl font-black uppercase text-[11px] tracking-widest shadow-xl border-none transition-all active:scale-95 border-none"
             >
                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "COMPLETE DELIVERY"}
             </Button>
