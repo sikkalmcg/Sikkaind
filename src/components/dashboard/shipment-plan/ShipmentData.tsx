@@ -145,7 +145,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
     if (!allCarriers) return [];
     return shipments.map(shipment => {
         const trip = trips.find(t => t.shipmentIds && t.shipmentIds.includes(shipment.id));
-        const plant = plants.find(p => normalizePlantId(p.id) === normalizePlantId(shipment.originPlantId));
+        const plant = plants.find(p => normalizePlantId(p.id).toLowerCase() === normalizePlantId(shipment.originPlantId).toLowerCase());
         const carrier = (allCarriers || []).find(c => c.id === trip?.carrierId || c.id === shipment.carrierId || c.name === shipment.carrierName);
 
         const itemsManifest = shipment.items || [];
@@ -224,6 +224,27 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
     setAssignModalOpen(true);
   };
 
+  const handleExport = () => {
+    const dataToExport = filteredShipments.map(item => ({
+        'Plant Node': item.plantName,
+        'Sales Order No': item.shipmentId,
+        'Order Date': item.creationDate ? format(new Date(item.creationDate), 'dd-MM-yyyy HH:mm') : '--',
+        'Vehicle Number': item.vehicleNumber || '--',
+        'LR Number': item.lrNumber || '--',
+        'Consignor Registry': item.consignor,
+        'Consignee Registry': item.billToParty,
+        'Ship To Party': item.shipToParty,
+        'Lifting City': item.loadingPoint,
+        'Destination City': item.unloadingPoint,
+        'Order Quantity (MT)': item.quantity,
+        'Status Node': item.currentStatusId
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Order Ledger");
+    XLSX.writeFile(workbook, `Order_Ledger_Registry_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+  };
+
   const openLRPrint = async (e: React.MouseEvent, row: EnrichedShipment) => {
     e.preventDefault();
     e.stopPropagation();
@@ -237,7 +258,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         let q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
         let snap = await getDocs(q);
         
-        const pIdStr = normalizePlantId(row.originPlantId);
+        const pIdStr = normalizePlantId(row.originPlantId).toUpperCase();
         const carrierNameRaw = (row.carrierName || '').toUpperCase().trim();
         const isSikkaLmcShorthand = carrierNameRaw.includes('SIKKA');
         
@@ -248,7 +269,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
 
         const isSikkaLmc = finalCarrier?.name?.toUpperCase().includes('SIKKA') || isSikkaLmcShorthand;
 
-        // MISSION FIX: Hardened Registry Handbook for Ghaziabad Node (1214) vs Delhi Node (1426)
         if (!finalCarrier || isSikkaLmc) {
             if (pIdStr === '1426' || pIdStr === 'ID20') {
                 finalCarrier = {
@@ -325,17 +345,17 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             assignedTripWeight: row.quantity,
             from: lrDocData?.from || row.loadingPoint || row.plantName || '',
             to: lrDocData?.to || row.unloadingPoint || '',
-            consignorName: lrDocData?.consignorName || row.consignor || row.shipmentObj?.consignor || '',
-            consignorGtin: lrDocData?.consignorGtin || row.shipmentObj?.consignorGtin || consignorGtin,
-            consignorAddress: lrDocData?.consignorAddress || row.consignorAddress || row.shipmentObj?.consignorAddress || '',
+            consignorName: lrDocData?.consignorName || row.consignor || '',
+            consignorGtin: lrDocData?.consignorGtin || row.consignorGtin || consignorGtin,
+            consignorAddress: lrDocData?.consignorAddress || row.consignorAddress || '',
             consignorCode: lrDocData?.consignorCode || row.customerCode || '',
-            buyerName: lrDocData?.buyerName || row.billToParty || row.shipmentObj?.billToParty || row.billToParty || '',
-            buyerAddress: lrDocData?.buyerAddress || row.billToAddress || row.shipmentObj?.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
+            buyerName: lrDocData?.buyerName || row.billToParty || '',
+            buyerAddress: lrDocData?.buyerAddress || row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
             buyerGtin: lrDocData?.buyerGtin || row.billToGtin || buyerGtin,
-            shipToParty: lrDocData?.shipToParty || row.shipToParty || row.shipmentObj?.shipToParty || row.shipmentObj?.billToParty || row.billToParty || '',
+            shipToParty: lrDocData?.shipToParty || row.shipToParty || row.billToParty || '',
             shipToGtin: lrDocData?.shipToGtin || row.shipToGtin || shipToGtin,
             shipToCode: lrDocData?.shipToCode || row.shipToCode || '',
-            deliveryAddress: lrDocData?.deliveryAddress || row.deliveryAddress || row.shipmentObj?.deliveryAddress || row.unloadingPoint || '',
+            deliveryAddress: lrDocData?.deliveryAddress || row.deliveryAddress || row.unloadingPoint || '',
             vehicleNumber: row.vehicleNumber || '--',
             driverName: row.driverName || '--',
             driverMobile: row.driverMobile || '--',
@@ -521,9 +541,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
       {isAssignModalOpen && selectedShipment && (
         <VehicleAssignModal 
             isOpen={isAssignModalOpen}
-            onClose={() => { setAssignModalOpen(false); setSelectedShipment(null); }}
+            onClose={() => { setAssignModalOpen(false) }}
             shipments={[selectedShipment]}
-            onAssignmentComplete={() => { setAssignModalOpen(false); setSelectedShipment(null); }}
+            onAssignmentComplete={() => { setAssignModalOpen(false) }}
             carriers={allCarriers || []}
         />
       )}
