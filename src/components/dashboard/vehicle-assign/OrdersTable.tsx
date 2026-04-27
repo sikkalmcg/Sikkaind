@@ -32,7 +32,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, doc } from 'firebase/firestore';
 import { DEFAULT_LMC_TERMS } from '@/lib/constants';
 
 interface OrdersTableProps {
@@ -89,6 +89,7 @@ export default function OrdersTable({
     isAdmin 
 }: OrdersTableProps) {
   const firestore = useFirestore();
+  const { showLoader, hideLoader } = useLoading();
   const allCarriersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "carriers")) : null, [firestore]);
   const { data: allCarriers } = useCollection<any>(allCarriersQuery);
   const partiesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_parties"), where("isDeleted", "==", false)) : null, [firestore]);
@@ -103,24 +104,49 @@ export default function OrdersTable({
   const handleLRViewClick = async (row: any) => {
     if (!row.lrNumber || !firestore) return;
     
-    const pIdStr = normalizePlantId(row.originPlantId);
+    const pIdStr = normalizePlantId(row.originPlantId).toUpperCase();
     const carrierNameRaw = (row.carrierName || '').toUpperCase().trim();
-    const isSikkaLmcShorthand = carrierNameRaw.includes('SIKKA');
+    const isSikkaLmc = carrierNameRaw.includes('SIKKA');
     
-    // MISSION FIX: Improved Carrier Resolution (Strict Handshake)
     let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => 
         c.id === row.carrierId || 
         c.name === row.carrierName
     );
 
-    const isSikkaLmc = finalCarrier?.name?.toUpperCase().includes('SIKKA') || isSikkaLmcShorthand;
-
-    // REGISTRY HANDSHAKE: Force address mapping based on plant ID for Sikka LMC nodes
+    // REGISTRY HANDSHAKE: Strict address and name mapping per plant node requirements
     if (!finalCarrier || isSikkaLmc) {
-        if (pIdStr === '1426' || pIdStr === 'ID20') {
+        if (pIdStr === 'ID20') {
             finalCarrier = {
                 id: 'ID20',
                 name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, Uttar Pradesh, 201009',
+                mobile: '9136688004',
+                gstin: '09AYQPS6936B1ZV',
+                stateCode: '09',
+                stateName: 'UTTAR PRADESH',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com',
+                website: 'www.sikkaind.com',
+                terms: DEFAULT_LMC_TERMS
+            };
+        } else if (pIdStr === 'ID23') {
+            finalCarrier = {
+                id: 'ID23',
+                name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD 201009',
+                mobile: '9136688004',
+                gstin: '09AYQPS6936B1ZV',
+                stateCode: '09',
+                stateName: 'UTTAR PRADESH',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com',
+                website: 'www.sikkaind.com',
+                terms: DEFAULT_LMC_TERMS
+            };
+        } else if (pIdStr === '1426') {
+            finalCarrier = {
+                id: '1426',
+                name: 'SIKKA LMC',
                 address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
                 mobile: '9136688004',
                 gstin: '07AYQPS6936B1ZZ',
@@ -131,11 +157,11 @@ export default function OrdersTable({
                 website: 'www.sikkaind.com',
                 terms: DEFAULT_LMC_TERMS
             };
-        } else if (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmc) {
+        } else if (pIdStr === '1214') {
             finalCarrier = {
-                id: 'ID21',
-                name: 'SIKKA INDUSTRIES AND LOGISTICS',
-                address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD 201009',
+                id: '1214',
+                name: 'SIKKA LMC',
+                address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
                 mobile: '9136688004',
                 gstin: '09AYQPS6936B1ZV',
                 stateCode: '09',
@@ -293,3 +319,4 @@ export default function OrdersTable({
     </div>
   );
 }
+import { useLoading } from '@/context/LoadingContext';

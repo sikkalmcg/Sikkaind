@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo } from 'react';
@@ -24,7 +25,7 @@ interface PrintableLRProps {
 /**
  * @fileOverview SIKKA LMC - Printable Lorry Receipt Node.
  * Optimized Header: Carrier info moved higher, left-aligned, with Email and Website pulse.
- * Hardened: Plant-specific identity resolution.
+ * Hardened: Plant-specific identity resolution for 1214, 1426, ID20, ID23.
  */
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
@@ -126,7 +127,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
           <div className="h-16 w-18 bg-white border border-black rounded-lg flex items-center justify-center p-1 shrink-0 overflow-hidden shadow-sm">
             <img src="https://image2url.com/r2/default/images/1774853131451-83a2a90c-6707-43fc-9b92-c364ad369d96.jpeg" alt="Registry Logo" className="max-h-full max-w-full object-contain" />
           </div>
-          <div className="space-y-0.5">
+          <div className="space-y-0.5 text-left">
             <h1 className="text-[16pt] font-black uppercase tracking-tight leading-none text-slate-900">{carrier.name || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
             <p className="text-[7.5pt] font-bold text-slate-600 uppercase max-w-[500px] leading-tight">{carrier.address || 'GHAZIABAD, UTTAR PRADESH'}</p>
             

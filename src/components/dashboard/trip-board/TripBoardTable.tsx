@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -63,6 +64,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, limit, doc } from 'firebase/firestore';
 import { DEFAULT_LMC_TERMS } from '@/lib/constants';
+import { useLoading } from '@/context/LoadingContext';
 
 interface TripBoardTableProps {
   data: any[];
@@ -220,6 +222,7 @@ function MissionRegistryCard({
     parties: any[],
     firestore: any
 }) {
+    const { showLoader, hideLoader } = useLoading();
     const isPending = activeTab === 'pending-assignment';
     const showLrAndInvoices = ['open-order', 'loading', 'transit', 'arrived', 'pod-status', 'rejection', 'closed'].includes(activeTab);
     const canEditLRNode = ['open-order', 'loading', 'transit'].includes(activeTab) && !isReadOnly;
@@ -255,115 +258,147 @@ function MissionRegistryCard({
     const displayOperator = operatorId !== '--' ? operatorId : 'System';
 
     const handleLRViewClick = async () => {
-        if (!row.lrNumber || isArrangeByParty) return;
-        
-        const pIdStr = normalizePlantId(row.originPlantId);
-        const carrierNameRaw = (row.carrierName || '').toUpperCase().trim();
-        const isSikkaLmcShorthand = carrierNameRaw.includes('SIKKA');
-        
-        let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => 
-            c.id === row.carrierId || 
-            c.name === row.carrierName
-        );
-
-        const isSikkaLmc = finalCarrier?.name?.toUpperCase().includes('SIKKA') || isSikkaLmcShorthand;
-
-        // MISSION FIX: Hardened Registry Handbook for Ghaziabad Node (1214) vs Delhi Node (1426)
-        if (!finalCarrier || isSikkaLmc) {
-            if (pIdStr === '1426' || pIdStr === 'ID20') {
-                finalCarrier = {
-                    id: 'ID20',
-                    name: 'SIKKA INDUSTRIES AND LOGISTICS',
-                    address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
-                    mobile: '9136688004',
-                    gstin: '07AYQPS6936B1ZZ',
-                    stateCode: '07',
-                    stateName: 'DELHI',
-                    pan: 'AYQPS6936B',
-                    email: 'sil@sikkaenterprises.com',
-                    website: 'www.sikkaind.com',
-                    terms: DEFAULT_LMC_TERMS
-                };
-            } else if (pIdStr === '1214' || pIdStr === 'ID23') {
-                finalCarrier = {
-                    id: 'ID21',
-                    name: 'SIKKA INDUSTRIES AND LOGISTICS',
-                    address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD 201009',
-                    mobile: '9136688004',
-                    gstin: '09AYQPS6936B1ZV',
-                    stateCode: '09',
-                    stateName: 'UTTAR PRADESH',
-                    pan: 'AYQPS6936B',
-                    email: 'sil@sikkaenterprises.com',
-                    website: 'www.sikkaind.com',
-                    terms: DEFAULT_LMC_TERMS
-                };
-            }
-        }
-
-        const resolveGtin = (name: string, code: string, current: string) => {
-            if (current && current !== 'N/A' && current !== '') return current;
-            const match = (parties || []).find(p => 
-                (code && p.customerCode?.toUpperCase() === code.toUpperCase()) || 
-                (p.name?.toUpperCase() === name?.toUpperCase())
+        if (!row.lrNumber || isArrangeByParty || !firestore) return;
+        showLoader();
+        try {
+            const pIdStr = normalizePlantId(row.originPlantId).toUpperCase();
+            const carrierNameRaw = (row.carrierName || '').toUpperCase().trim();
+            const isSikkaLmc = carrierNameRaw.includes('SIKKA');
+            
+            let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => 
+                c.id === row.carrierId || 
+                c.name === row.carrierName
             );
-            return match?.gstin || '';
-        };
 
-        const consignorGtin = resolveGtin(row.consignor, row.customerCode || '', row.consignorGtin || '');
-        const buyerGtin = resolveGtin(row.billToParty, row.billToCode || '', row.billToGtin || '');
-        const shipToGtin = resolveGtin(row.shipToParty || '', row.shipToCode || '', row.shipToGtin || '');
+            // REGISTRY HANDSHAKE: Strict address and name mapping per plant node requirements
+            if (!finalCarrier || isSikkaLmc) {
+                if (pIdStr === 'ID20') {
+                    finalCarrier = {
+                        id: 'ID20',
+                        name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                        address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, Uttar Pradesh, 201009',
+                        mobile: '9136688004',
+                        gstin: '09AYQPS6936B1ZV',
+                        stateCode: '09',
+                        stateName: 'UTTAR PRADESH',
+                        pan: 'AYQPS6936B',
+                        email: 'sil@sikkaenterprises.com',
+                        website: 'www.sikkaind.com',
+                        terms: DEFAULT_LMC_TERMS
+                    };
+                } else if (pIdStr === 'ID23') {
+                    finalCarrier = {
+                        id: 'ID23',
+                        name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                        address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD 201009',
+                        mobile: '9136688004',
+                        gstin: '09AYQPS6936B1ZV',
+                        stateCode: '09',
+                        stateName: 'UTTAR PRADESH',
+                        pan: 'AYQPS6936B',
+                        email: 'sil@sikkaenterprises.com',
+                        website: 'www.sikkaind.com',
+                        terms: DEFAULT_LMC_TERMS
+                    };
+                } else if (pIdStr === '1426') {
+                    finalCarrier = {
+                        id: '1426',
+                        name: 'SIKKA LMC',
+                        address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
+                        mobile: '9136688004',
+                        gstin: '07AYQPS6936B1ZZ',
+                        stateCode: '07',
+                        stateName: 'DELHI',
+                        pan: 'AYQPS6936B',
+                        email: 'sil@sikkaenterprises.com',
+                        website: 'www.sikkaind.com',
+                        terms: DEFAULT_LMC_TERMS
+                    };
+                } else if (pIdStr === '1214') {
+                    finalCarrier = {
+                        id: '1214',
+                        name: 'SIKKA LMC',
+                        address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
+                        mobile: '9136688004',
+                        gstin: '09AYQPS6936B1ZV',
+                        stateCode: '09',
+                        stateName: 'UTTAR PRADESH',
+                        pan: 'AYQPS6936B',
+                        email: 'sil@sikkaenterprises.com',
+                        website: 'www.sikkaind.com',
+                        terms: DEFAULT_LMC_TERMS
+                    };
+                }
+            }
 
-        const manifestItems = row.items && row.items.length > 0 ? row.items : [{
-            invoiceNumber: row.summarizedInvoices || row.invoiceNumbers || 'NA',
-            ewaybillNumber: row.ewaybillNumber || '',
-            units: row.totalUnitsCount || 1,
-            unitType: 'Package',
-            itemDescription: row.summarizedItems || row.itemDescription || 'GENERAL CARGO',
-            weight: row.dispatchedQty || row.assignedQtyInTrip || row.quantity
-        }];
+            const resolveGtin = (name: string, code: string, current: string) => {
+                if (current && current !== 'N/A' && current !== '') return current;
+                const match = (parties || []).find(p => 
+                    (code && p.customerCode?.toUpperCase() === code.toUpperCase()) || 
+                    (p.name?.toUpperCase() === name?.toUpperCase())
+                );
+                return match?.gstin || '';
+            };
 
-        let lrDocData = row.lrData;
-        if (!lrDocData && firestore && row.lrNumber) {
-            const plantId = normalizePlantId(row.originPlantId);
-            const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
-            const q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
-            const snap = await getDocs(q);
-            if(!snap.empty) lrDocData = snap.docs[0].data();
+            const consignorGtin = resolveGtin(row.consignor, row.customerCode || '', row.consignorGtin || '');
+            const buyerGtin = resolveGtin(row.billToParty, row.billToCode || '', row.billToGtin || '');
+            const shipToGtin = resolveGtin(row.shipToParty || '', row.shipToCode || '', row.shipToGtin || '');
+
+            const manifestItems = row.items && row.items.length > 0 ? row.items : [{
+                invoiceNumber: row.summarizedInvoices || row.invoiceNumbers || 'NA',
+                ewaybillNumber: row.ewaybillNumber || '',
+                units: row.totalUnitsCount || 1,
+                unitType: 'Package',
+                itemDescription: row.summarizedItems || row.itemDescription || 'GENERAL CARGO',
+                weight: row.dispatchedQty || row.assignedQtyInTrip || row.quantity
+            }];
+
+            let lrDocData = row.lrData;
+            if (!lrDocData && firestore && row.lrNumber) {
+                const plantId = normalizePlantId(row.originPlantId);
+                const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
+                const q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
+                const snap = await getDocs(q);
+                if(!snap.empty) lrDocData = snap.docs[0].data();
+            }
+
+            const enrichedLR: any = {
+                ...lrDocData,
+                lrNumber: row.lrNumber,
+                date: parseSafeDate(lrDocData?.date || row.lrDate) || new Date(),
+                trip: row as any,
+                carrier: finalCarrier,
+                shipment: row.shipmentObj || row,
+                plant: row.plant || { id: row.originPlantId, name: row.plantName },
+                items: lrDocData?.items || manifestItems,
+                weightSelection: lrDocData?.weightSelection || 'Assigned Weight',
+                assignedTripWeight: row.quantity,
+                from: lrDocData?.from || row.from || row.shipmentObj?.loadingPoint || '',
+                to: lrDocData?.to || row.unloadingPoint || row.shipmentObj?.unloadingPoint || '',
+                consignorName: lrDocData?.consignorName || row.consignor || row.shipmentObj?.consignor || '',
+                consignorGtin: lrDocData?.consignorGtin || row.shipmentObj?.consignorGtin || consignorGtin,
+                consignorAddress: lrDocData?.consignorAddress || row.consignorAddress || row.shipmentObj?.consignorAddress || '',
+                consignorCode: lrDocData?.consignorCode || row.customerCode || '',
+                buyerName: lrDocData?.buyerName || row.billToParty || row.shipmentObj?.billToParty || row.billToParty || '',
+                buyerAddress: lrDocData?.buyerAddress || row.billToAddress || row.shipmentObj?.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
+                buyerGtin: lrDocData?.buyerGtin || row.billToGtin || buyerGtin,
+                shipToParty: lrDocData?.shipToParty || row.shipToParty || row.shipmentObj?.shipToParty || row.shipmentObj?.billToParty || row.billToParty || '',
+                shipToGtin: lrDocData?.shipToGtin || row.shipToGtin || shipToGtin,
+                shipToCode: lrDocData?.shipToCode || row.shipToCode || '',
+                deliveryAddress: lrDocData?.deliveryAddress || row.deliveryAddress || row.shipmentObj?.deliveryAddress || row.unloadingPoint || '',
+                vehicleNumber: row.vehicleNumber || '--',
+                driverName: row.driverName || '--',
+                driverMobile: row.driverMobile || '--',
+                paymentTerm: row.paymentTerm || '--',
+                id: row.id
+            };
+
+            onAction('view-lr-direct', enrichedLR);
+        } catch (e) {
+            console.error("LR Extraction Error:", e);
+        } finally {
+            hideLoader();
         }
-
-        const enrichedLR: any = {
-            ...lrDocData,
-            lrNumber: row.lrNumber,
-            date: parseSafeDate(lrDocData?.date || row.lrDate) || new Date(),
-            trip: row as any,
-            carrier: finalCarrier,
-            shipment: row.shipmentObj || row,
-            plant: row.plant || { id: row.originPlantId, name: row.plantName },
-            items: lrDocData?.items || manifestItems,
-            weightSelection: lrDocData?.weightSelection || 'Assigned Weight',
-            assignedTripWeight: row.dispatchedQty || row.assignedQtyInTrip || row.quantity,
-            from: lrDocData?.from || row.from || row.shipmentObj?.loadingPoint || '',
-            to: lrDocData?.to || row.unloadingPoint || row.shipmentObj?.unloadingPoint || '',
-            consignorName: lrDocData?.consignorName || row.consignor || row.shipmentObj?.consignor || '',
-            consignorGtin: lrDocData?.consignorGtin || row.shipmentObj?.consignorGtin || consignorGtin,
-            consignorAddress: lrDocData?.consignorAddress || row.consignorAddress || row.shipmentObj?.consignorAddress || '',
-            consignorCode: lrDocData?.consignorCode || row.customerCode || '',
-            buyerName: lrDocData?.buyerName || row.billToParty || row.shipmentObj?.billToParty || row.billToParty || '',
-            buyerAddress: lrDocData?.buyerAddress || row.billToAddress || row.shipmentObj?.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
-            buyerGtin: lrDocData?.buyerGtin || row.billToGtin || buyerGtin,
-            shipToParty: lrDocData?.shipToParty || row.shipToParty || row.shipmentObj?.shipToParty || row.shipmentObj?.billToParty || row.billToParty || '',
-            shipToGtin: lrDocData?.shipToGtin || row.shipToGtin || shipToGtin,
-            shipToCode: lrDocData?.shipToCode || row.shipToCode || '',
-            deliveryAddress: lrDocData?.deliveryAddress || row.deliveryAddress || row.shipmentObj?.deliveryAddress || row.unloadingPoint || '',
-            vehicleNumber: row.vehicleNumber || '--',
-            driverName: row.driverName || '--',
-            driverMobile: row.driverMobile || '--',
-            paymentTerm: row.paymentTerm || '--',
-            id: row.id
-        };
-
-        onAction('view-lr-direct', enrichedLR);
     };
 
     return (
