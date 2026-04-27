@@ -14,12 +14,8 @@ import {
     WifiOff, 
     Loader2, 
     Eye, 
-    Filter, 
     IndianRupee, 
-    Calculator,
-    CheckCircle2,
     Clock,
-    AlertCircle,
     Truck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -45,14 +41,18 @@ type EnrichedFreight = WithId<Freight> & {
     plantName?: string;
     startDate?: Date;
     originPlantId?: string;
+    entryTime?: Date;
+    outDate?: Date;
+    arrivalDate?: Date;
+    unloadTime?: Date;
 };
 
 const ITEMS_PER_PAGE = 15;
 
 /**
- * @fileOverview Freight Settlement Registry Report.
+ * @fileOverview Freight Settlement Ledger Report.
  * Rule Node: Total Freight = Base Amt - Charges.
- * Optimization: Includes detention mapping and status filtration.
+ * Integration: Added Vehicle IN/OUT, Arrived, and Unload timestamps.
  */
 export default function FreightReport({ fromDate, toDate, searchTerm }: ReportProps) {
   const [loading, setLoading] = useState(true);
@@ -122,14 +122,11 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
             tripSnap.forEach(tripDoc => {
                 const trip: any = { id: tripDoc.id, ...tripDoc.data() };
                 
-                // Mission Scope Node: Focus on liquidated categories
                 if (trip.vehicleType !== 'Market Vehicle' && trip.vehicleType !== 'Contract Vehicle') return;
 
                 const shipment = shipsMap.get(trip.shipmentIds?.[0]);
                 const fData: any = freightsMap.get(trip.id) || {};
                 
-                // FINANCIAL HANDSHAKE: Resolution of Base Amt nodes
-                // Rule: If fix rate is ticked, use fixedAmount as Base Amt
                 let baseFreightAmount = Number(fData.baseFreightAmount);
                 if (!baseFreightAmount) {
                     baseFreightAmount = trip.isFixRate 
@@ -142,8 +139,6 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
                 const otherCharges = totalCharges - detentionAmount;
 
                 const startTime = parseSafeDate(trip.startDate) || new Date();
-                
-                // MISSION RULE: Total Freight = Base Amt - Charges
                 const netFreightAmount = baseFreightAmount - totalCharges;
                 const totalPaid = Number(fData.paidAmount) || 0;
 
@@ -162,7 +157,11 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
                     balanceAmount: netFreightAmount - totalPaid,
                     paymentStatus: fData.paymentStatus || 'Awaiting Post',
                     plantName: (plantNode as any).name || resolvedPlantId,
-                    startDate: startTime
+                    startDate: startTime,
+                    entryTime: parseSafeDate(trip.entryTime),
+                    outDate: parseSafeDate(trip.outDate),
+                    arrivalDate: parseSafeDate(trip.arrivalDate),
+                    unloadTime: parseSafeDate(trip.actualCompletionDate)
                 } as EnrichedFreight);
             });
         });
@@ -227,7 +226,11 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
   const paginatedData = sortedData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const headerLabels: Record<string, string> = {
-    plantName: 'Plant', tripId: 'Trip ID', lrNumber: 'LR Number', startDate: 'Date', vehicleNumber: 'Vehicle No', transporterName: 'Transporter', baseFreightAmount: 'Base Amt', detentionAmount: 'Detention', addChargeAmount: 'Other Charge', totalFreightAmount: 'Net Freight', paidAmount: 'Paid', paymentStatus: 'Status'
+    plantName: 'Plant', tripId: 'Trip ID', lrNumber: 'LR Number', startDate: 'Date', 
+    entryTime: 'Veh IN', outDate: 'Veh OUT', arrivalDate: 'Arrived', unloadTime: 'Unload',
+    vehicleNumber: 'Vehicle No', transporterName: 'Transporter', baseFreightAmount: 'Base Amt', 
+    detentionAmount: 'Detention', addChargeAmount: 'Other Charge', totalFreightAmount: 'Net Freight', 
+    paidAmount: 'Paid', paymentStatus: 'Status'
   };
   
   const handleExport = () => {
@@ -236,6 +239,10 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
         'Trip ID Registry': item.trip?.tripId,
         'LR Number': item.trip?.lrNumber,
         'Mission Date': item.startDate ? format(item.startDate, 'dd-MM-yyyy') : '--',
+        'Vehicle IN': item.entryTime ? format(item.entryTime, 'dd-MM HH:mm') : '--',
+        'Vehicle OUT': item.outDate ? format(item.outDate, 'dd-MM HH:mm') : '--',
+        'Arrived At Destination': item.arrivalDate ? format(item.arrivalDate, 'dd-MM HH:mm') : '--',
+        'Unloaded Timestamp': item.unloadTime ? format(item.unloadTime, 'dd-MM HH:mm') : '--',
         'Vehicle Number': item.trip?.vehicleNumber,
         'Transporter node': item.trip?.transporterName || 'Self',
         'Base Amount (F)': item.baseFreightAmount,
@@ -254,6 +261,11 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
   const getSortIcon = (key: string) => {
     if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="ml-2 h-3 w-3 text-slate-400" />;
     return sortConfig.direction === 'asc' ? '🔼' : '🔽';
+  };
+
+  const formatSafeTime = (date?: Date) => {
+      if (!date || !isValid(date)) return '--:--';
+      return format(date, 'dd/MM HH:mm');
   };
 
   return (
@@ -290,7 +302,7 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
       
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <Table className="min-w-[2600px]">
+          <Table className="min-w-[3400px]">
             <TableHeader className="bg-slate-900 text-white h-14">
               <TableRow className="hover:bg-transparent border-none">
                  {Object.keys(headerLabels).map(key => (
@@ -314,10 +326,10 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
             <TableBody>
               {loading ? (
                 Array.from({ length: 10 }).map((_, i) => (
-                  <TableRow key={i} className="h-16"><TableCell colSpan={13} className="px-4"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                  <TableRow key={i} className="h-16"><TableCell colSpan={17} className="px-4"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                 ))
               ) : paginatedData.length === 0 ? (
-                <TableRow><TableCell colSpan={13} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No authorized mission nodes detected in registry.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={17} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No authorized mission nodes detected in registry.</TableCell></TableRow>
               ) : (
                 paginatedData.map(item => (
                     <TableRow 
@@ -329,6 +341,12 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
                         <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter uppercase">{item.trip?.tripId}</TableCell>
                         <TableCell className="px-4 font-black text-slate-900 uppercase text-[11px]">{item.trip?.lrNumber || '--'}</TableCell>
                         <TableCell className="px-4 text-center text-[10px] font-bold text-slate-400 whitespace-nowrap">{item.startDate ? format(item.startDate, 'dd.MM.yy') : '--'}</TableCell>
+                        
+                        <TableCell className="px-4 text-center text-[10px] font-black text-slate-400 font-mono">{formatSafeTime(item.entryTime)}</TableCell>
+                        <TableCell className="px-4 text-center text-[10px] font-black text-blue-600 font-mono">{formatSafeTime(item.outDate)}</TableCell>
+                        <TableCell className="px-4 text-center text-[10px] font-black text-indigo-600 font-mono">{formatSafeTime(item.arrivalDate)}</TableCell>
+                        <TableCell className="px-4 text-center text-[10px] font-black text-emerald-600 font-mono">{formatSafeTime(item.unloadTime)}</TableCell>
+
                         <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{item.trip?.vehicleNumber}</TableCell>
                         <TableCell className="px-4 text-[10px] font-black uppercase text-slate-400 truncate max-w-[150px]">{item.trip?.transporterName || 'SELF'}</TableCell>
                         <TableCell className="px-4 text-right font-black text-slate-900">₹ {Number(item.baseFreightAmount).toLocaleString()}</TableCell>
@@ -381,10 +399,9 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
           <ViewFreightModal 
             isOpen={!!viewingFreight} 
             onClose={() => setViewingFreight(null)} 
-            freight={viewingFreight} 
+            freight={viewingFreight as any} 
           />
       )}
     </Card>
   );
 }
-

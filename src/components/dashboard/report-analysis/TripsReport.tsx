@@ -8,12 +8,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { mockPlants as initialPlants } from '@/lib/mock-data';
 import type { WithId, Trip, Shipment, SubUser, Plant, Carrier, LR } from '@/types';
 import ReportPagination from './ReportPagination';
-import { ArrowUpDown, FileDown, WifiOff, Loader2 } from 'lucide-react';
+import { ArrowUpDown, FileDown, WifiOff, Loader2, Eye, LayoutDashboard, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy, onSnapshot, where, getDocs, limit, Timestamp } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, where, getDocs, limit, Timestamp, doc } from "firebase/firestore";
 import { cn, normalizePlantId, parseSafeDate } from '@/lib/utils';
+import TripViewModal from '../trip-board/TripViewModal';
 
 interface ReportProps {
   fromDate?: Date;
@@ -35,15 +36,15 @@ const headers = [
     'plantName', 
     'shipmentId', 
     'tripId', 
-    'startDate', 
+    'entryTime', 
+    'outDate', 
+    'arrivalDate', 
+    'actualCompletionDate',
     'lrNumber', 
     'lrDate', 
     'invoiceNumbers',
-    'lrPackageName', 
     'carrierName', 
     'loadingPoint', 
-    'consignor', 
-    'billToParty', 
     'shipToParty', 
     'unloadingPoint', 
     'vehicleNumber', 
@@ -56,23 +57,27 @@ const headerLabels: Record<string, string> = {
     plantName: 'Plant', 
     shipmentId: 'Shipment ID', 
     tripId: 'Trip ID', 
-    startDate: 'Time & Date', 
+    entryTime: 'Veh IN', 
+    outDate: 'Veh OUT', 
+    arrivalDate: 'Arrived', 
+    actualCompletionDate: 'Unload',
     lrNumber: 'LR No.', 
     lrDate: 'LR Date', 
     invoiceNumbers: 'Invoice No.',
-    lrPackageName: 'LR Package', 
     carrierName: 'Carrier Name', 
     loadingPoint: 'FROM', 
-    consignor: 'Consignor', 
-    billToParty: 'Bill To Party', 
     shipToParty: 'Ship To Party', 
     unloadingPoint: 'Destination', 
-    vehicleNumber: 'Vehicle Number', 
+    vehicleNumber: 'Vehicle No', 
     assignedQtyInTrip: 'Assigned Qty', 
-    currentStatusId: 'Assigned Status',
-    podReceived: 'POD Status'
+    currentStatusId: 'Status',
+    podReceived: 'POD'
 };
 
+/**
+ * @fileOverview Mission Performance Log Report.
+ * Integration: Added detailed gate/arrival timestamps.
+ */
 export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProps) {
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(false);
@@ -83,6 +88,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
   const [authorizedPlantIds, setAuthorizedPlantIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [viewingTrip, setViewingTrip] = useState<any>(null);
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -124,8 +130,15 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
     const isSystemAdmin = user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
 
     unsubscribers.push(onSnapshot(collection(firestore, "trips"), (snap) => {
-        const list = snap.docs.map(d => ({ id: d.id, ...d.data(), startDate: parseSafeDate(d.data().startDate) } as any));
-        // MISSION CRITICAL: Enforce strict plant-based filtering for non-root sessions
+        const list = snap.docs.map(d => ({ 
+            id: d.id, 
+            ...d.data(), 
+            startDate: parseSafeDate(d.data().startDate),
+            entryTime: parseSafeDate(d.data().entryTime),
+            outDate: parseSafeDate(d.data().outDate),
+            arrivalDate: parseSafeDate(d.data().arrivalDate),
+            actualCompletionDate: parseSafeDate(d.data().actualCompletionDate)
+        } as any));
         setTrips(list.filter(t => isSystemAdmin || normalizedAuthIds.includes(normalizePlantId(t.originPlantId).toLowerCase())));
         setLoading(false);
     }));
@@ -226,7 +239,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
         headers.forEach(key => {
             let value = (item as any)[key];
             if (key === 'shipmentId') value = item.shipment?.shipmentId;
-            if (key === 'startDate' || key === 'lrDate') {
+            if (['startDate', 'lrDate', 'entryTime', 'outDate', 'arrivalDate', 'actualCompletionDate'].includes(key)) {
                 value = value ? format(new Date(value), 'dd-MM-yyyy HH:mm') : 'N/A';
             }
             row[headerLabels[key]] = value ?? 'N/A';
@@ -239,6 +252,12 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
     XLSX.writeFile(workbook, `Trips_Audit_Registry_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
+  const formatSafeTime = (date?: any) => {
+    const d = parseSafeDate(date);
+    if (!d || !isValid(d)) return '--:--';
+    return format(d, 'dd/MM HH:mm');
+  };
+
   return (
     <Card className="border-none shadow-2xl rounded-[3rem] bg-white overflow-hidden">
         <CardHeader className="p-8 border-b bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -247,7 +266,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
                     Mission Performance Log
                     {dbError && <WifiOff className="h-4 w-4 text-orange-500" />}
                 </CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">Registry audit across authorized plants</CardDescription>
+                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">LMC Registry extraction with gate particulars</CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={handleExport} className="h-11 px-8 rounded-2xl font-black text-[11px] uppercase border-slate-200 text-blue-900 bg-white shadow-xl hover:bg-slate-50 transition-all">
                 <FileDown className="h-4 w-4 mr-2" /> Export
@@ -255,7 +274,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
         </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <Table className="min-w-[2800px]">
+          <Table className="min-w-[3200px]">
             <TableHeader className="bg-slate-900 text-white h-14">
               <TableRow className="hover:bg-transparent border-none">
                 {headers.map(key => (
@@ -274,30 +293,37 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
                         </Button>
                     </TableHead>
                 ))}
+                <TableHead className="sticky right-0 bg-slate-900 w-16"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 Array.from({ length: 10 }).map((_, i) => (
-                  <TableRow key={i} className="h-16"><TableCell colSpan={headers.length} className="px-4"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                  <TableRow key={i} className="h-16"><TableCell colSpan={headers.length + 1} className="px-4"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                 ))
               ) : paginatedData.length === 0 ? (
-                <TableRow><TableCell colSpan={headers.length} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No records matching scope registry.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={headers.length + 1} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No records matching scope registry.</TableCell></TableRow>
               ) : (
                 paginatedData.map(item => (
-                  <TableRow key={item.id} className="h-16 hover:bg-blue-50/20 transition-all border-b border-slate-50 last:border-0 group text-[11px] font-medium text-slate-600">
+                  <TableRow 
+                    key={item.id} 
+                    className="h-16 hover:bg-blue-50/20 transition-all border-b border-slate-50 last:border-0 group text-[11px] font-medium text-slate-600 cursor-pointer"
+                    onClick={() => setViewingTrip(item)}
+                  >
                     <TableCell className="px-4 font-bold text-slate-600 uppercase whitespace-nowrap">{item.plantName}</TableCell>
                     <TableCell className="px-4 text-blue-700 font-black font-mono">{item.shipment?.shipmentId || '--'}</TableCell>
                     <TableCell className="px-4 font-mono text-blue-600 font-bold uppercase">{item.tripId}</TableCell>
-                    <TableCell className="px-4 text-slate-500 whitespace-nowrap">{item.startDate ? format(item.startDate, 'dd/MM/yy HH:mm') : '--'}</TableCell>
+                    
+                    <TableCell className="px-4 text-center text-[10px] font-black text-slate-400 font-mono">{formatSafeTime(item.entryTime)}</TableCell>
+                    <TableCell className="px-4 text-center text-[10px] font-black text-blue-600 font-mono">{formatSafeTime(item.outDate)}</TableCell>
+                    <TableCell className="px-4 text-center text-[10px] font-black text-indigo-600 font-mono">{formatSafeTime(item.arrivalDate)}</TableCell>
+                    <TableCell className="px-4 text-center text-[10px] font-black text-emerald-600 font-mono">{formatSafeTime(item.actualCompletionDate)}</TableCell>
+
                     <TableCell className="px-4 text-slate-900 font-black">{item.lrNumber || '--'}</TableCell>
-                    <TableCell className="px-4 text-slate-500 whitespace-nowrap">{item.lrDate ? format(item.lrDate, 'dd/MM/yy') : '--'}</TableCell>
+                    <TableCell className="px-4 text-slate-500 whitespace-nowrap">{item.lrDate ? format(new Date(item.lrDate), 'dd/MM/yy') : '--'}</TableCell>
                     <TableCell className="px-4 truncate max-w-[120px]" title={item.invoiceNumbers}>{item.invoiceNumbers}</TableCell>
-                    <TableCell className="px-4 truncate max-w-[150px]" title={item.lrPackageName}>{item.lrPackageName}</TableCell>
                     <TableCell className="px-4 truncate max-w-[150px]" title={item.carrierName}>{item.carrierName}</TableCell>
                     <TableCell className="px-4 truncate max-w-[100px]">{item.loadingPoint}</TableCell>
-                    <TableCell className="px-4 truncate max-w-[100px] font-bold">{item.consignor}</TableCell>
-                    <TableCell className="px-4 truncate max-w-[100px] font-bold">{item.billToParty}</TableCell>
                     <TableCell className="px-4 truncate max-w-[100px] font-bold">{item.shipToParty}</TableCell>
                     <TableCell className="px-4 truncate max-w-[100px]">{item.unloadingPoint}</TableCell>
                     <TableCell className="px-4 font-black text-slate-900 tracking-tighter uppercase">{item.vehicleNumber}</TableCell>
@@ -312,6 +338,9 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
                             {item.podReceived ? 'Received' : 'Pending'}
                         </Badge>
                     </TableCell>
+                    <TableCell className="px-6 text-right sticky right-0 bg-white group-hover:bg-blue-50/50 transition-colors shadow-[-4px_0_10px_rgba(0,0,0,0.02)]">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-100 rounded-xl opacity-0 group-hover:opacity-100 transition-all"><Eye size={16}/></Button>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -320,7 +349,14 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
         </div>
         <ReportPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemCount={filteredData.length} canPreviousPage={currentPage > 1} canNextPage={currentPage < totalPages} />
       </CardContent>
+
+      {viewingTrip && (
+          <TripViewModal 
+            isOpen={!!viewingTrip} 
+            onClose={() => setViewingTrip(null)} 
+            trip={viewingTrip} 
+          />
+      )}
     </Card>
   );
 }
-

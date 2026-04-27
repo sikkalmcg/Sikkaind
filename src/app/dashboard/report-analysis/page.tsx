@@ -5,30 +5,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DatePicker } from "@/components/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import VehicleEntryReport from '@/components/dashboard/report-analysis/VehicleEntryReport';
 import TripsReport from '@/components/dashboard/report-analysis/TripsReport';
 import FreightReport from '@/components/dashboard/report-analysis/FreightReport';
 import { 
     BarChart3, 
     FileText, 
     IndianRupee, 
-    Truck, 
     Search, 
-    ChevronRight,
-    Filter,
     LayoutDashboard,
-    ClipboardCheck,
-    Navigation,
     ShieldCheck
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
 /**
  * @fileOverview Registry Analytics Control Node.
  * UI OVERHAUL: Navigation moved to TOP CENTER for maximized ledger visibility.
- * Hardened: Strict plant isolation pulses active across all sub-terminals.
+ * Hardened: Gate movement registry removed as a category (integrated into Mission performance).
  */
 export default function ReportAnalysisPage() {
   const [activeTab, setActiveTab] = useState('freight');
@@ -37,8 +31,7 @@ export default function ReportAnalysisPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const reportCategories = [
-    { id: 'freight', label: 'Freight Payment Ledger', icon: IndianRupee },
-    { id: 'vehicle-entry', label: 'Gate Movement Registry', icon: Truck },
+    { id: 'freight', label: 'Freight Settlement Ledger', icon: IndianRupee },
     { id: 'trips', label: 'Mission Performance Log', icon: FileText },
   ];
 
@@ -52,7 +45,7 @@ export default function ReportAnalysisPage() {
             </div>
             <div>
                 <h1 className="text-2xl md:text-3xl font-black text-blue-900 tracking-tight uppercase">Registry Analytics</h1>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Analytics {'&'} Performance {'&'} Audit</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">LMC Analytics {'&'} Performance Hub</p>
             </div>
         </div>
         
@@ -71,7 +64,7 @@ export default function ReportAnalysisPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
                     <Input 
                         placeholder="ID, Vehicle, Party..." 
-                        value={searchTerm}
+                        value={searchTerm} 
                         onChange={e => setSearchTerm(e.target.value)}
                         className="pl-9 h-9 w-[200px] rounded-xl border-slate-200 shadow-inner text-xs font-bold"
                     />
@@ -124,9 +117,6 @@ export default function ReportAnalysisPage() {
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                     {activeTab === 'freight' && (
                         <FreightReport fromDate={fromDate} toDate={toDate} searchTerm={searchTerm} />
-                    )}
-                    {activeTab === 'vehicle-entry' && (
-                        <VehicleEntryReport fromDate={fromDate} toDate={toDate} searchTerm={searchTerm} />
                     )}
                     {activeTab === 'trips' && (
                         <TripsReport fromDate={fromDate} toDate={toDate} searchTerm={searchTerm} />

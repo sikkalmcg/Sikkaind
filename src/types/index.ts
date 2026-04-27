@@ -128,14 +128,15 @@ export interface Trip {
   vehicleStatus: string;
   currentStatusId: string;
   startDate: any;
+  entryTime?: any;
+  outDate?: any;
+  arrivalDate?: any;
+  actualCompletionDate?: any;
   lastUpdated: any;
   userName?: string;
   userId?: string;
   lrNumber?: string;
   lrDate?: any;
-  outDate?: any;
-  arrivalDate?: any;
-  actualCompletionDate?: any;
   unloadQty?: number;
   podReceived?: boolean;
   podUrl?: string;
