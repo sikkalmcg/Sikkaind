@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
-import { format, isValid, startOfDay, endOfDay } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay, differenceInHours } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -45,6 +45,7 @@ type EnrichedFreight = WithId<Freight> & {
     outDate?: Date;
     arrivalDate?: Date;
     unloadTime?: Date;
+    stayHours?: number | string;
 };
 
 const ITEMS_PER_PAGE = 15;
@@ -52,7 +53,7 @@ const ITEMS_PER_PAGE = 15;
 /**
  * @fileOverview Freight Settlement Ledger Report.
  * Rule Node: Total Freight = Base Amt - Charges.
- * Integration: Added Vehicle IN/OUT, Arrived, and Unload timestamps.
+ * Integration: Added Vehicle IN/OUT, Arrived, Unload timestamps, and Stay Hour calculation.
  */
 export default function FreightReport({ fromDate, toDate, searchTerm }: ReportProps) {
   const [loading, setLoading] = useState(true);
@@ -142,6 +143,14 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
                 const netFreightAmount = baseFreightAmount - totalCharges;
                 const totalPaid = Number(fData.paidAmount) || 0;
 
+                const arrivalTime = parseSafeDate(trip.arrivalDate);
+                const unloadTime = parseSafeDate(trip.actualCompletionDate);
+                let stayHours: number | string = '--';
+
+                if (arrivalTime) {
+                    stayHours = differenceInHours(unloadTime || new Date(), arrivalTime);
+                }
+
                 allEnriched.push({
                     id: fData.id || `f-${trip.id}`,
                     originPlantId: pId,
@@ -160,8 +169,9 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
                     startDate: startTime,
                     entryTime: parseSafeDate(trip.entryTime),
                     outDate: parseSafeDate(trip.outDate),
-                    arrivalDate: parseSafeDate(trip.arrivalDate),
-                    unloadTime: parseSafeDate(trip.actualCompletionDate)
+                    arrivalDate: arrivalTime,
+                    unloadTime: unloadTime,
+                    stayHours
                 } as EnrichedFreight);
             });
         });
@@ -228,6 +238,7 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
   const headerLabels: Record<string, string> = {
     plantName: 'Plant', tripId: 'Trip ID', lrNumber: 'LR Number', startDate: 'Date', 
     entryTime: 'Veh IN', outDate: 'Veh OUT', arrivalDate: 'Arrived', unloadTime: 'Unload',
+    stayHours: 'Stay Hour',
     vehicleNumber: 'Vehicle No', transporterName: 'Transporter', baseFreightAmount: 'Base Amt', 
     detentionAmount: 'Detention', addChargeAmount: 'Other Charge', totalFreightAmount: 'Net Freight', 
     paidAmount: 'Paid', paymentStatus: 'Status'
@@ -243,6 +254,7 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
         'Vehicle OUT': item.outDate ? format(item.outDate, 'dd-MM HH:mm') : '--',
         'Arrived At Destination': item.arrivalDate ? format(item.arrivalDate, 'dd-MM HH:mm') : '--',
         'Unloaded Timestamp': item.unloadTime ? format(item.unloadTime, 'dd-MM HH:mm') : '--',
+        'Stay Hours': item.stayHours,
         'Vehicle Number': item.trip?.vehicleNumber,
         'Transporter node': item.trip?.transporterName || 'Self',
         'Base Amount (F)': item.baseFreightAmount,
@@ -302,7 +314,7 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
       
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <Table className="min-w-[3400px]">
+          <Table className="min-w-[3600px]">
             <TableHeader className="bg-slate-900 text-white h-14">
               <TableRow className="hover:bg-transparent border-none">
                  {Object.keys(headerLabels).map(key => (
@@ -326,10 +338,10 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
             <TableBody>
               {loading ? (
                 Array.from({ length: 10 }).map((_, i) => (
-                  <TableRow key={i} className="h-16"><TableCell colSpan={17} className="px-4"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                  <TableRow key={i} className="h-16"><TableCell colSpan={18} className="px-4"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                 ))
               ) : paginatedData.length === 0 ? (
-                <TableRow><TableCell colSpan={17} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No authorized mission nodes detected in registry.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={18} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No authorized mission nodes detected in registry.</TableCell></TableRow>
               ) : (
                 paginatedData.map(item => (
                     <TableRow 
@@ -346,6 +358,17 @@ export default function FreightReport({ fromDate, toDate, searchTerm }: ReportPr
                         <TableCell className="px-4 text-center text-[10px] font-black text-blue-600 font-mono">{formatSafeTime(item.outDate)}</TableCell>
                         <TableCell className="px-4 text-center text-[10px] font-black text-indigo-600 font-mono">{formatSafeTime(item.arrivalDate)}</TableCell>
                         <TableCell className="px-4 text-center text-[10px] font-black text-emerald-600 font-mono">{formatSafeTime(item.unloadTime)}</TableCell>
+
+                        <TableCell className="px-4 text-center">
+                            {item.stayHours !== '--' ? (
+                                <Badge className={cn(
+                                    "font-black uppercase text-[9px] px-3 h-6 border-none shadow-sm",
+                                    Number(item.stayHours) > 24 ? "bg-red-600 text-white animate-pulse" : "bg-blue-900 text-white"
+                                )}>
+                                    {item.stayHours} HRS
+                                </Badge>
+                            ) : '--'}
+                        </TableCell>
 
                         <TableCell className="px-4 font-black text-slate-900 uppercase tracking-tighter">{item.trip?.vehicleNumber}</TableCell>
                         <TableCell className="px-4 text-[10px] font-black uppercase text-slate-400 truncate max-w-[150px]">{item.trip?.transporterName || 'SELF'}</TableCell>

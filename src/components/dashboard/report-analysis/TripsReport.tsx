@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
-import { format, isValid } from 'date-fns';
+import { format, isValid, differenceInHours } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { mockPlants as initialPlants } from '@/lib/mock-data';
 import type { WithId, Trip, Shipment, SubUser, Plant, Carrier, LR } from '@/types';
 import ReportPagination from './ReportPagination';
-import { ArrowUpDown, FileDown, WifiOff, Loader2, Eye, LayoutDashboard, ShieldCheck } from 'lucide-react';
+import { ArrowUpDown, FileDown, WifiOff, Loader2, Eye, LayoutDashboard, ShieldCheck, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
@@ -28,6 +28,7 @@ type EnrichedTrip = WithId<Trip> & {
     lrPackageName?: string;
     carrierName?: string;
     invoiceNumbers?: string;
+    stayHours?: number | string;
 };
 
 const ITEMS_PER_PAGE = 15;
@@ -40,6 +41,7 @@ const headers = [
     'outDate', 
     'arrivalDate', 
     'actualCompletionDate',
+    'stayHours',
     'lrNumber', 
     'lrDate', 
     'invoiceNumbers',
@@ -61,6 +63,7 @@ const headerLabels: Record<string, string> = {
     outDate: 'Veh OUT', 
     arrivalDate: 'Arrived', 
     actualCompletionDate: 'Unload',
+    stayHours: 'Stay Hour',
     lrNumber: 'LR No.', 
     lrDate: 'LR Date', 
     invoiceNumbers: 'Invoice No.',
@@ -76,7 +79,7 @@ const headerLabels: Record<string, string> = {
 
 /**
  * @fileOverview Mission Performance Log Report.
- * Integration: Added detailed gate/arrival timestamps.
+ * Integration: Added detailed gate/arrival timestamps and Stay Hour calculation.
  */
 export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProps) {
   const [loading, setLoading] = useState(true);
@@ -148,13 +151,14 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
     }));
 
     authorizedPlantIds.forEach(pId => {
-        unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/shipments`), (snap) => {
-            const list = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data() } as any));
-            setShipments(prev => [...prev.filter(s => s.originPlantId !== pId), ...list]);
+        const pIdStr = normalizePlantId(pId);
+        unsubscribers.push(onSnapshot(collection(firestore, `plants/${pIdStr}/shipments`), (snap) => {
+            const list = snap.docs.map(d => ({ id: d.id, originPlantId: pIdStr, ...d.data() } as any));
+            setShipments(prev => [...prev.filter(s => s.originPlantId !== pIdStr), ...list]);
         }));
-        unsubscribers.push(onSnapshot(collection(firestore, `plants/${pId}/lrs`), (snap) => {
-            const list = snap.docs.map(d => ({ id: d.id, originPlantId: pId, ...d.data(), date: parseSafeDate(d.data().date) } as any));
-            setLrs(prev => [...prev.filter(l => l.originPlantId !== pId), ...list]);
+        unsubscribers.push(onSnapshot(collection(firestore, `plants/${pIdStr}/lrs`), (snap) => {
+            const list = snap.docs.map(d => ({ id: d.id, originPlantId: pIdStr, ...d.data(), date: parseSafeDate(d.data().date) } as any));
+            setLrs(prev => [...prev.filter(l => l.originPlantId !== pIdStr), ...list]);
         }));
     });
 
@@ -180,6 +184,14 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
             invoiceNumbers = Array.from(new Set(itemsManifest.map((i: any) => i.invoiceNumber || i.invoiceNo).filter(Boolean))).join(', ');
         }
 
+        const arrivalTime = parseSafeDate(t.arrivalDate);
+        const unloadTime = parseSafeDate(t.actualCompletionDate);
+        let stayHours: number | string = '--';
+
+        if (arrivalTime) {
+            stayHours = differenceInHours(unloadTime || new Date(), arrivalTime);
+        }
+
         return {
             ...t,
             plantName: plantsMap.get(normalizePlantId(t.originPlantId)) || t.originPlantId,
@@ -194,6 +206,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
             billToParty: t.billToParty || shipment?.billToParty || '--',
             shipToParty: t.shipToParty || shipment?.shipToParty || '--',
             unloadingPoint: t.unloadingPoint || shipment?.unloadingPoint || t.destination || '--',
+            stayHours
         };
     }).sort((a, b) => (b.startDate?.getTime() || 0) - (a.startDate?.getTime() || 0));
   }, [trips, shipments, lrs, carriers, allMasterPlants]);
@@ -246,9 +259,9 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
         });
         return row;
     });
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, ws, "Trips Report");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Trips Report");
     XLSX.writeFile(workbook, `Trips_Audit_Registry_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
@@ -274,7 +287,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
         </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <Table className="min-w-[3200px]">
+          <Table className="min-w-[3400px]">
             <TableHeader className="bg-slate-900 text-white h-14">
               <TableRow className="hover:bg-transparent border-none">
                 {headers.map(key => (
@@ -302,7 +315,7 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
                   <TableRow key={i} className="h-16"><TableCell colSpan={headers.length + 1} className="px-4"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                 ))
               ) : paginatedData.length === 0 ? (
-                <TableRow><TableCell colSpan={headers.length + 1} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] opacity-40">No records matching scope registry.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={headers.length + 1} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No records matching scope registry.</TableCell></TableRow>
               ) : (
                 paginatedData.map(item => (
                   <TableRow 
@@ -318,6 +331,17 @@ export default function TripsReport({ fromDate, toDate, searchTerm }: ReportProp
                     <TableCell className="px-4 text-center text-[10px] font-black text-blue-600 font-mono">{formatSafeTime(item.outDate)}</TableCell>
                     <TableCell className="px-4 text-center text-[10px] font-black text-indigo-600 font-mono">{formatSafeTime(item.arrivalDate)}</TableCell>
                     <TableCell className="px-4 text-center text-[10px] font-black text-emerald-600 font-mono">{formatSafeTime(item.actualCompletionDate)}</TableCell>
+
+                    <TableCell className="px-4 text-center">
+                        {item.stayHours !== '--' ? (
+                            <Badge className={cn(
+                                "font-black uppercase text-[10px] px-3 h-6 border-none shadow-sm",
+                                Number(item.stayHours) > 24 ? "bg-red-600 text-white animate-pulse" : "bg-blue-900 text-white"
+                            )}>
+                                {item.stayHours} HRS
+                            </Badge>
+                        ) : '--'}
+                    </TableCell>
 
                     <TableCell className="px-4 text-slate-900 font-black">{item.lrNumber || '--'}</TableCell>
                     <TableCell className="px-4 text-slate-500 whitespace-nowrap">{item.lrDate ? format(new Date(item.lrDate), 'dd/MM/yy') : '--'}</TableCell>
