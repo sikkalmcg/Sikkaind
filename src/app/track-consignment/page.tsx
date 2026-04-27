@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +28,9 @@ import {
     UserCircle,
     AlertTriangle,
     Navigation,
-    ArrowRight
+    ArrowRight,
+    ShieldCheck,
+    Activity
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
@@ -43,26 +46,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from '@/hooks/use-toast';
+
+// Dynamic Import for GIS Node to optimize initial pulse
+const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracking/TrackingMap'), { 
+    ssr: false,
+    loading: () => <div className="w-full h-[500px] bg-slate-100 animate-pulse rounded-[3rem] border-4 border-white shadow-inner" />
+});
 
 /**
- * @fileOverview Public Track Consignment Terminal v2.9.
- * Hardened: Robust status normalization and real-time animation pulse.
- * Transition: Interactive Trip ID links allow instant mode-switch from SO to Trip tracking.
- * UI Refinement: Vehicle Number node added to Trip Tracking results manifest.
- * Registry Fix: Integrated explicit "Cancelled" status node for revoked missions.
- * Fixed: Assign date fallback resolved for specific plant IDs.
+ * @fileOverview Public Track Consignment Terminal v3.0.
+ * Hardened: Live map trigger node restricted to Transit/Arrival states.
+ * Sync: Handshakes with Wheelseye satellite registry for real-time telemetry.
+ * UI: High-density layout for mission manifest and route visualization.
  */
 
 function TrackConsignmentContent() {
+    const { toast } = useToast();
     const firestore = useFirestore();
     const [searchType, setSearchType] = useState<'TRIP' | 'SO'>('TRIP');
     const [registryInput, setRegistryInput] = useState('');
     const [isSearching, setIsSearching] = useState(false);
+    const [apiKey, setApiKey] = useState<string | null>(null);
     
     // Result States
     const [shipmentResult, setShipmentResult] = useState<any>(null);
     const [linkedTrips, setLinkedTrips] = useState<any[]>([]);
     const [activeTrip, setActiveTrip] = useState<any>(null);
+    const [livePos, setLivePos] = useState<any>(null);
     
     const [error, setError] = useState<string | null>(null);
     const [animIndex, setAnimIndex] = useState(-1);
@@ -73,10 +84,22 @@ function TrackConsignmentContent() {
     const animationIntervalRef = useRef<any>(null);
     const lastTargetIndexRef = useRef<number>(-1);
 
+    // Fetch API Registry Node
     useEffect(() => {
-        if (firestore) {
-            setDbReady(true);
-        }
+        const fetchApiKey = async () => {
+            if (!firestore) return;
+            const settingsDoc = doc(firestore, 'gps_settings', 'api_config');
+            try {
+                const docSnap = await getDoc(settingsDoc);
+                if (docSnap.exists() && docSnap.data().apiKey) {
+                    setApiKey(docSnap.data().apiKey);
+                    setDbReady(true);
+                }
+            } catch (error) {
+                console.error("Registry config error");
+            }
+        };
+        fetchApiKey();
     }, [firestore]);
 
     const stages = [
@@ -140,6 +163,27 @@ function TrackConsignmentContent() {
         }, STEP_DURATION);
     }, []);
 
+    const refreshTelemetry = useCallback(async (vNo: string) => {
+        if (!vNo || !apiKey) return;
+        try {
+            const response = await fetch('/api/track', {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain' },
+              body: apiKey,
+            }); 
+            const result = await response.json();
+    
+            if (Array.isArray(result) && result.length > 0) {
+                const vehicleData = result.find((v: any) => v.vehicleNumber === vNo);
+                if (vehicleData) {
+                    setLivePos(vehicleData);
+                }
+            }
+        } catch (e) {
+            console.warn("Telemetry pulse delayed.");
+        }
+    }, [apiKey]);
+
     const handleSearch = useCallback(async (overriddenQuery?: string) => {
         const term = (overriddenQuery || registryInput).trim().toUpperCase();
         if (!term) return;
@@ -150,6 +194,7 @@ function TrackConsignmentContent() {
         setShipmentResult(null);
         setLinkedTrips([]);
         setActiveTrip(null);
+        setLivePos(null);
         lastTargetIndexRef.current = -1;
 
         try {
@@ -180,6 +225,11 @@ function TrackConsignmentContent() {
                     const targetIdx = getTargetIndex(status);
                     lastTargetIndexRef.current = targetIdx;
                     runAnimation(targetIdx, status === 'rejected');
+
+                    // Immediate Telemetry Handshake
+                    if (tripData.vehicleNumber) {
+                        refreshTelemetry(tripData.vehicleNumber);
+                    }
                 } else {
                     setError("Trip ID not recognized in mission registry.");
                 }
@@ -229,7 +279,7 @@ function TrackConsignmentContent() {
         } finally {
             setIsSearching(false);
         }
-    }, [firestore, registryInput, searchType, getTargetIndex, runAnimation]);
+    }, [firestore, registryInput, searchType, getTargetIndex, runAnimation, refreshTelemetry]);
 
     const handleDirectTripClick = useCallback((tId: string) => {
         setSearchType('TRIP');
@@ -239,34 +289,21 @@ function TrackConsignmentContent() {
         }, 10);
     }, [handleSearch]);
 
+    // Live Telemetry Sync Loop
     useEffect(() => {
-        if (searchType !== 'TRIP' || !activeTrip?.id || !firestore) return;
+        if (searchType !== 'TRIP' || !activeTrip?.vehicleNumber) return;
+        const interval = setInterval(() => {
+            refreshTelemetry(activeTrip.vehicleNumber);
+        }, 30000);
+        return () => clearInterval(interval);
+    }, [activeTrip?.vehicleNumber, searchType, refreshTelemetry]);
 
-        const tripRef = doc(firestore, "trips", activeTrip.id);
-        const unsubscribe = onSnapshot(tripRef, (snap) => {
-            if (snap.exists()) {
-                const updatedTrip = snap.data();
-                const newStatus = (updatedTrip.tripStatus || updatedTrip.currentStatusId || 'assigned').toLowerCase();
-                const targetIdx = getTargetIndex(newStatus);
-                
-                if (targetIdx !== lastTargetIndexRef.current) {
-                    lastTargetIndexRef.current = targetIdx;
-                    runAnimation(targetIdx, newStatus === 'rejected');
-                }
-            }
-        });
-
-        return () => {
-            unsubscribe();
-            if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
-        };
-    }, [activeTrip?.id, firestore, getTargetIndex, runAnimation, searchType]);
-
-    const formattedOrderTime = useMemo(() => {
-        if (!shipmentResult?.creationDate) return '--';
-        const d = parseSafeDate(shipmentResult.creationDate);
-        return d ? format(d, 'dd-MMM-yyyy HH:mm') : '--';
-    }, [shipmentResult]);
+    // Conditional Map Trigger Node
+    const showLiveMap = useMemo(() => {
+        if (searchType !== 'TRIP' || !activeTrip) return false;
+        const s = (activeTrip.tripStatus || activeTrip.currentStatusId || '').toLowerCase().trim().replace(/[\s/_-]+/g, '-');
+        return ['in-transit', 'arrived', 'arrival-for-delivery', 'arrive-for-deliver'].includes(s);
+    }, [searchType, activeTrip]);
 
     const displayFields = useMemo(() => {
         if (!shipmentResult && !activeTrip) return [];
@@ -360,7 +397,7 @@ function TrackConsignmentContent() {
 
                 {(shipmentResult || activeTrip) && (
                     <div className="space-y-10 animate-in fade-in duration-700 pb-20">
-                        <button onClick={() => {setShipmentResult(null); setActiveTrip(null); setLinkedTrips([]);}} className="font-black text-slate-400 hover:text-blue-900 uppercase text-[10px] tracking-widest gap-2 flex items-center">
+                        <button onClick={() => {setShipmentResult(null); setActiveTrip(null); setLinkedTrips([]); setLivePos(null);}} className="font-black text-slate-400 hover:text-blue-900 uppercase text-[10px] tracking-widest gap-2 flex items-center">
                             <ArrowLeft size={14}/> Back to Search
                         </button>
                         
@@ -485,61 +522,135 @@ function TrackConsignmentContent() {
                         )}
 
                         {searchType === 'TRIP' && activeTrip && (
-                            <div className="relative p-10 md:p-14 bg-white border border-slate-100 rounded-[3rem] shadow-2xl overflow-hidden min-h-[350px] flex flex-col justify-center">
-                                <div className="absolute top-1/2 left-16 right-16 h-1.5 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden shadow-inner">
-                                    <motion.div 
-                                        className={cn("h-full transition-colors duration-700", (activeTrip.isRejected && isReversed) ? "bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]" : "bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.5)]")}
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${(animIndex / 4) * 100}%` }}
-                                        transition={{ duration: 0.8, ease: "easeInOut" }}
-                                    />
+                            <div className="space-y-10">
+                                {/* PROGRESS ANIMATION NODE */}
+                                <div className="relative p-10 md:p-14 bg-white border border-slate-100 rounded-[3rem] shadow-2xl overflow-hidden min-h-[350px] flex flex-col justify-center">
+                                    <div className="absolute top-1/2 left-16 right-16 h-1.5 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden shadow-inner">
+                                        <motion.div 
+                                            className={cn("h-full transition-colors duration-700", (activeTrip.isRejected && isReversed) ? "bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]" : "bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.5)]")}
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${(animIndex / 4) * 100}%` }}
+                                            transition={{ duration: 0.8, ease: "easeInOut" }}
+                                        />
+                                    </div>
+
+                                    <div className="relative flex justify-between items-center h-full">
+                                        {stages.map((stage, i) => {
+                                            const active = i <= animIndex;
+                                            const isTarget = i === animIndex;
+                                            const isFinal = i === 4;
+                                            const activeColor = (activeTrip.isRejected && isReversed) ? "bg-red-600 border-red-400" : "bg-blue-600 border-blue-400";
+                                            const label = (isFinal && activeTrip.isRejected) ? 'MISSION REJECTED' : stage.label;
+                                            
+                                            return (
+                                                <div key={i} className="flex flex-col items-center gap-4 md:gap-6 relative z-10 w-40">
+                                                    <motion.div 
+                                                        animate={active ? { scale: isTarget ? [1, 1.2, 1.1] : 1, boxShadow: isTarget ? "0 15px 30px rgba(0,0,0,0.15)" : "none" } : {}}
+                                                        className={cn("h-12 w-12 md:h-20 md:w-20 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center transition-all duration-700 border-2 md:border-4", active ? `${activeColor} text-white` : "bg-white border-slate-100 text-slate-200")}
+                                                    >
+                                                        {isTarget ? (
+                                                            <motion.div animate={{ x: isReversed ? [-2, 2, -2] : [2, -2, 2], scaleX: isReversed ? -1 : 1 }} transition={{ repeat: Infinity, duration: 0.6 }}>
+                                                                {(isFinal && activeTrip.isRejected) ? <XCircle size={24} className="md:h-8 md:w-8" /> : <Truck size={24} className="md:h-8 md:w-8" />}
+                                                            </motion.div>
+                                                        ) : (
+                                                            (isFinal && activeTrip.isRejected) ? <XCircle size={20} className="md:h-6 md:w-6 opacity-20" /> : <stage.icon size={20} className={cn("md:h-6 md:w-6", isReversed && i < animIndex && "scale-x-[-1] opacity-50")} />
+                                                        )}
+                                                    </motion.div>
+                                                    <div className="text-center space-y-1">
+                                                        <p className={cn("text-[7px] md:text-[9px] font-black uppercase tracking-widest transition-colors duration-500", active ? ((activeTrip.isRejected && isReversed) ? "text-red-700" : "text-blue-900") : "text-slate-200")}>{label}</p>
+                                                        {active && (
+                                                            <div className="flex flex-col items-center gap-0.5 mt-1 animate-in fade-in duration-1000">
+                                                                <p className="text-[8px] md:text-[10px] font-black font-mono text-blue-600 leading-none tracking-tighter">
+                                                                    {(() => {
+                                                                        const d = parseSafeDate(getStageTimestamp(i));
+                                                                        return d ? format(d, 'dd MMM yyyy') : '--';
+                                                                    })()}
+                                                                </p>
+                                                                <p className="text-[8px] md:text-[10px] font-black font-mono text-slate-400 leading-none mt-1">
+                                                                    {(() => {
+                                                                        const d = parseSafeDate(getStageTimestamp(i));
+                                                                        return d ? format(d, 'HH:mm') : '--:--';
+                                                                    })()}
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
 
-                                <div className="relative flex justify-between items-center h-full">
-                                    {stages.map((stage, i) => {
-                                        const active = i <= animIndex;
-                                        const isTarget = i === animIndex;
-                                        const isFinal = i === 4;
-                                        const activeColor = (activeTrip.isRejected && isReversed) ? "bg-red-600 border-red-400" : "bg-blue-600 border-blue-400";
-                                        const label = (isFinal && activeTrip.isRejected) ? 'MISSION REJECTED' : stage.label;
-                                        
-                                        return (
-                                            <div key={i} className="flex flex-col items-center gap-4 md:gap-6 relative z-10 w-40">
-                                                <motion.div 
-                                                    animate={active ? { scale: isTarget ? [1, 1.2, 1.1] : 1, boxShadow: isTarget ? "0 15px 30px rgba(0,0,0,0.15)" : "none" } : {}}
-                                                    className={cn("h-12 w-12 md:h-20 md:w-20 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center transition-all duration-700 border-2 md:border-4", active ? `${activeColor} text-white` : "bg-white border-slate-100 text-slate-200")}
-                                                >
-                                                    {isTarget ? (
-                                                        <motion.div animate={{ x: isReversed ? [-2, 2, -2] : [2, -2, 2], scaleX: isReversed ? -1 : 1 }} transition={{ repeat: Infinity, duration: 0.6 }}>
-                                                            {(isFinal && activeTrip.isRejected) ? <XCircle size={24} className="md:h-8 md:w-8" /> : <Truck size={24} className="md:h-8 md:w-8" />}
-                                                        </motion.div>
-                                                    ) : (
-                                                        (isFinal && activeTrip.isRejected) ? <XCircle size={20} className="md:h-6 md:w-6 opacity-20" /> : <stage.icon size={20} className={cn("md:h-6 md:w-6", isReversed && i < animIndex && "scale-x-[-1] opacity-50")} />
-                                                    )}
-                                                </motion.div>
-                                                <div className="text-center space-y-1">
-                                                    <p className={cn("text-[7px] md:text-[9px] font-black uppercase tracking-widest transition-colors duration-500", active ? ((activeTrip.isRejected && isReversed) ? "text-red-700" : "text-blue-900") : "text-slate-200")}>{label}</p>
-                                                    {active && (
-                                                        <div className="flex flex-col items-center gap-0.5 mt-1 animate-in fade-in duration-1000">
-                                                            <p className="text-[8px] md:text-[10px] font-black font-mono text-blue-600 leading-none tracking-tighter">
-                                                                {(() => {
-                                                                    const d = parseSafeDate(getStageTimestamp(i));
-                                                                    return d ? format(d, 'dd MMM yyyy') : '--';
-                                                                })()}
-                                                            </p>
-                                                            <p className="text-[8px] md:text-[10px] font-black font-mono text-slate-400 leading-none mt-1">
-                                                                {(() => {
-                                                                    const d = parseSafeDate(getStageTimestamp(i));
-                                                                    return d ? format(d, 'HH:mm') : '--:--';
-                                                                })()}
-                                                            </p>
+                                {/* LIVE MAP TRIGGER NODE - CONDITIONAL VISIBILITY */}
+                                <AnimatePresence>
+                                    {showLiveMap && (
+                                        <motion.div 
+                                            initial={{ opacity: 0, y: 40 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: 40 }}
+                                            transition={{ duration: 0.6, ease: "easeOut" }}
+                                            className="pt-8"
+                                        >
+                                            <Card className="border-none shadow-3xl rounded-[3rem] overflow-hidden bg-white">
+                                                <CardHeader className="bg-slate-900 text-white p-6 border-b border-white/5 flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 bg-blue-600 rounded-lg shadow-lg"><Navigation className="h-4 w-4 text-white" /></div>
+                                                        <CardTitle className="text-sm font-black uppercase tracking-widest">Live Mission Telemetry</CardTitle>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <Badge className="bg-emerald-600 font-black text-[8px] uppercase px-4 h-6 border-none shadow-md animate-pulse">GPS ACTIVE</Badge>
+                                                        {livePos && (
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter font-mono">
+                                                                Speed: <span className="text-emerald-400">{livePos.speed} KM/H</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </CardHeader>
+                                                <CardContent className="p-0 h-[550px] relative">
+                                                    <TrackingMap 
+                                                        livePos={livePos}
+                                                        origin={activeTrip.consignorAddress || activeTrip.loadingPoint || activeTrip.fromCity}
+                                                        destination={activeTrip.deliveryAddress || activeTrip.unloadingPoint || activeTrip.toCity}
+                                                        height="100%"
+                                                    />
+                                                    
+                                                    {/* SATELLITE INFO OVERLAY */}
+                                                    <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-xl border border-slate-200 p-5 rounded-2xl shadow-3xl max-w-sm space-y-4">
+                                                        <div className="flex items-start gap-3">
+                                                            <div className="p-2 bg-blue-50 rounded-xl text-blue-600"><MapPin size={18} /></div>
+                                                            <div className="space-y-1">
+                                                                <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Current Location Registry</p>
+                                                                <p className="text-xs font-bold text-slate-800 leading-snug uppercase">
+                                                                    {livePos?.location || 'Resolving Satellite Pulse...'}
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                                        <Separator className="bg-slate-100" />
+                                                        <div className="flex justify-between items-center">
+                                                            <div className="flex items-center gap-2">
+                                                                <Activity size={12} className="text-emerald-500" />
+                                                                <span className="text-[9px] font-black uppercase text-slate-400">Registry Pulse:</span>
+                                                                <span className="text-[10px] font-black text-emerald-600 uppercase">Synchronized</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* MAP LEGEND */}
+                                                    <div className="absolute bottom-6 right-6 bg-slate-900/80 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-3xl space-y-3 pointer-events-none">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
+                                                            <span className="text-[8px] font-black text-white uppercase tracking-widest">Lifting node</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                                                            <span className="text-[8px] font-black text-white uppercase tracking-widest">Drop node</span>
+                                                        </div>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         )}
                     </div>
