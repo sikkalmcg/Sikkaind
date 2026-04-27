@@ -18,7 +18,7 @@ import {
     ArrowRightLeft,
     MoreHorizontal
 } from 'lucide-react';
-import { cn, parseSafeDate } from '@/lib/utils';
+import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
 import { format } from 'date-fns';
 import { 
     DropdownMenu, 
@@ -31,6 +31,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { DEFAULT_LMC_TERMS } from '@/lib/constants';
 
 interface OrdersTableProps {
   data: any[];
@@ -85,11 +88,120 @@ export default function OrdersTable({
     onCancelAssignment,
     isAdmin 
 }: OrdersTableProps) {
+  const firestore = useFirestore();
+  const allCarriersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "carriers")) : null, [firestore]);
+  const { data: allCarriers } = useCollection<any>(allCarriersQuery);
+  const partiesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_parties"), where("isDeleted", "==", false)) : null, [firestore]);
+  const { data: parties } = useCollection<any>(partiesQuery);
   
   const getCity = (str: string) => {
     if (!str || str === 'N/A' || str === '--') return '--';
     const parts = str.split(',').map(p => p.trim()).filter(Boolean);
     return parts.length > 1 ? parts[parts.length - 2].toUpperCase() : str.toUpperCase();
+  };
+
+  const handleLRViewClick = async (row: any) => {
+    if (!row.lrNumber || !firestore) return;
+    
+    const pIdStr = normalizePlantId(row.originPlantId);
+    const carrierNameRaw = (row.carrierName || '').toUpperCase().trim();
+    const isSikkaLmcShorthand = carrierNameRaw.includes('SIKKA');
+    
+    // MISSION FIX: Improved Carrier Resolution (Strict Handshake)
+    let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => 
+        c.id === row.carrierId || 
+        c.name === row.carrierName
+    );
+
+    const isSikkaLmc = finalCarrier?.name?.toUpperCase().includes('SIKKA') || isSikkaLmcShorthand;
+
+    // REGISTRY HANDSHAKE: Force address mapping based on plant ID for Sikka LMC nodes
+    if (!finalCarrier || isSikkaLmc) {
+        if (pIdStr === '1426' || pIdStr === 'ID20') {
+            finalCarrier = {
+                id: 'ID20',
+                name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
+                mobile: '9136688004',
+                gstin: '07AYQPS6936B1ZZ',
+                stateCode: '07',
+                stateName: 'DELHI',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com',
+                website: 'www.sikkaind.com',
+                terms: DEFAULT_LMC_TERMS
+            };
+        } else if (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmc) {
+            finalCarrier = {
+                id: 'ID21',
+                name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD 201009',
+                mobile: '9136688004',
+                gstin: '09AYQPS6936B1ZV',
+                stateCode: '09',
+                stateName: 'UTTAR PRADESH',
+                pan: 'AYQPS6936B',
+                email: 'sil@sikkaenterprises.com',
+                website: 'www.sikkaind.com',
+                terms: DEFAULT_LMC_TERMS
+            };
+        }
+    }
+
+    const resolveGtin = (name: string, code: string, current: string) => {
+        if (current && current !== 'N/A' && current !== '') return current;
+        const match = (parties || []).find(p => 
+            (code && p.customerCode?.toUpperCase() === code.toUpperCase()) || 
+            (p.name?.toUpperCase() === name?.toUpperCase())
+        );
+        return match?.gstin || '';
+    };
+
+    const consignorGtin = resolveGtin(row.consignor, row.customerCode || '', row.consignorGtin || '');
+    const buyerGtin = resolveGtin(row.billToParty, row.billToCode || '', row.billToGtin || '');
+    const shipToGtin = resolveGtin(row.shipToParty || '', row.shipToCode || '', row.shipToGtin || '');
+
+    const manifestItems = row.items && row.items.length > 0 ? row.items : [{
+        invoiceNumber: row.summarizedInvoices || 'NA',
+        ewaybillNumber: row.ewaybillNumber || '',
+        units: row.totalUnitsCount || 1,
+        unitType: 'Package',
+        itemDescription: row.summarizedItems || 'GENERAL CARGO',
+        weight: row.quantity
+    }];
+
+    const enrichedLR: any = {
+        ...row.lrData,
+        lrNumber: row.lrNumber,
+        date: parseSafeDate(row.lrData?.date || row.lrDate) || new Date(),
+        trip: row as any,
+        carrier: finalCarrier,
+        shipment: row,
+        plant: row.plant || { id: row.originPlantId, name: row.plantName },
+        items: row.lrData?.items || manifestItems,
+        weightSelection: row.lrData?.weightSelection || 'Assigned Weight',
+        assignedTripWeight: row.quantity,
+        from: row.lrData?.from || row.loadingPoint || row.plantName || '',
+        to: row.lrData?.to || row.unloadingPoint || '',
+        consignorName: row.lrData?.consignorName || row.consignor || '',
+        consignorGtin: row.lrData?.consignorGtin || row.consignorGtin || consignorGtin,
+        consignorAddress: row.lrData?.consignorAddress || row.consignorAddress || '',
+        consignorCode: row.lrData?.consignorCode || row.customerCode || '',
+        buyerName: row.lrData?.buyerName || row.billToParty || '',
+        buyerAddress: row.lrData?.buyerAddress || row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
+        buyerGtin: row.lrData?.buyerGtin || row.billToGtin || buyerGtin,
+        shipToParty: row.lrData?.shipToParty || row.shipToParty || row.billToParty || '',
+        shipToGtin: row.lrData?.shipToGtin || row.shipToGtin || shipToGtin,
+        shipToCode: row.lrData?.shipToCode || row.shipToCode || '',
+        deliveryAddress: row.lrData?.deliveryAddress || row.deliveryAddress || row.unloadingPoint || '',
+        vehicleNumber: row.vehicleNumber || '--',
+        driverName: row.driverName || '--',
+        driverMobile: row.driverMobile || '--',
+        paymentTerm: row.paymentTerm || '--',
+        id: row.id
+    };
+
+    onViewLR(enrichedLR);
   };
 
   return (
@@ -126,7 +238,7 @@ export default function OrdersTable({
                     <TableRow className="h-16 border-b border-slate-100 last:border-0 hover:bg-blue-50/20 even:bg-slate-50/30 transition-all group text-[11px] font-medium text-slate-600">
                       <TableCell className="px-6 font-bold text-slate-600 uppercase truncate">{order.plantName}</TableCell>
                       <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-xs">{order.shipmentId}</TableCell>
-                      <TableCell className="px-4 text-center">{order.lrNumber ? (<button onClick={() => onViewLR(order)} className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter">{order.lrNumber}</button>) : '--'}</TableCell>
+                      <TableCell className="px-4 text-center">{order.lrNumber ? (<button onClick={() => handleLRViewClick(order)} className="font-black text-blue-700 hover:underline text-[11px] uppercase tracking-tighter">{order.lrNumber}</button>) : '--'}</TableCell>
                       <TableCell className="px-4 text-center text-[11px] font-bold text-slate-500">{formatSafeDateString(order.lrDate)}</TableCell>
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={order.consignor}>{order.consignor}</TableCell>
                       <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-xs" title={order.billToParty}>{order.billToParty}</TableCell>
@@ -143,8 +255,8 @@ export default function OrdersTable({
                           <DropdownMenuPortal>
                             <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-slate-200 shadow-2xl z-[100] bg-white">
                                 <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Mission Control</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => onViewOrder(order)} className="gap-3 font-bold py-2.5 cursor-pointer rounded-xl hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Payload</DropdownMenuItem>
-                                {tab === 'pending' && !isCancelled && (<DropdownMenuItem onClick={() => onAssign(order)} className="gap-3 font-black py-2.5 cursor-pointer rounded-xl bg-blue-900 text-white hover:bg-slate-900 focus:bg-slate-900 focus:text-white"><PlusCircle className="h-4 w-4" /> Assign Fleet</DropdownMenuItem>)}
+                                <DropdownMenuItem onClick={() => onViewOrder(order)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50"><Eye className="h-4 w-4 text-blue-600" /> View Payload</DropdownMenuItem>
+                                {tab === 'pending' && !isCancelled && (<DropdownMenuItem onClick={() => onAssign(order)} className="gap-3 font-black py-2.5 cursor-pointer rounded-xl bg-blue-900 text-white hover:bg-black focus:bg-black"><PlusCircle className="h-4 w-4" /> Assign Fleet</DropdownMenuItem>)}
                                 {isAdmin && !isCancelled && (
                                   <>
                                     <DropdownMenuSeparator className="bg-slate-100" />

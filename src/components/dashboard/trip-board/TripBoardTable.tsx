@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -259,22 +260,22 @@ function MissionRegistryCard({
         if (!row.lrNumber || isArrangeByParty) return;
         
         const pIdStr = normalizePlantId(row.originPlantId);
-        const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
+        const carrierNameRaw = (row.carrierName || '').toUpperCase().trim();
+        const isSikkaLmcShorthand = carrierNameRaw.includes('SIKKA');
         
-        // MISSION FIX: Improved Carrier Resolution (Strict Handshake)
         let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => 
             c.id === row.carrierId || 
             c.name === row.carrierName
         );
 
-        const isSikkaLmc = finalCarrier?.name?.toUpperCase() === 'SIKKA LMC' || isSikkaLmcShorthand;
+        const isSikkaLmc = finalCarrier?.name?.toUpperCase().includes('SIKKA') || isSikkaLmcShorthand;
 
-        // REGISTRY HANDSHAKE: Force address mapping based on plant ID for Sikka LMC nodes
+        // MISSION FIX: Professional Registry address for Ghaziabad Node (ID23 / 1214)
         if (!finalCarrier || isSikkaLmc) {
             if (pIdStr === '1426' || pIdStr === 'ID20') {
                 finalCarrier = {
                     id: 'ID20',
-                    name: 'SIKKA LMC',
+                    name: 'SIKKA INDUSTRIES AND LOGISTICS',
                     address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
                     mobile: '9136688004',
                     gstin: '07AYQPS6936B1ZZ',
@@ -288,8 +289,8 @@ function MissionRegistryCard({
             } else if (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmc) {
                 finalCarrier = {
                     id: 'ID21',
-                    name: 'SIKKA LMC',
-                    address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
+                    name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                    address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD 201009',
                     mobile: '9136688004',
                     gstin: '09AYQPS6936B1ZV',
                     stateCode: '09',
@@ -304,13 +305,13 @@ function MissionRegistryCard({
 
         if (!finalCarrier) {
             finalCarrier = {
-                id: 'ID20',
-                name: 'SIKKA LMC',
-                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
+                id: 'ID21',
+                name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD 201009',
                 mobile: '9136688004',
-                gstin: '07AYQPS6936B1ZZ',
-                stateCode: '07',
-                stateName: 'DELHI',
+                gstin: '09AYQPS6936B1ZV',
+                stateCode: '09',
+                stateName: 'UTTAR PRADESH',
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com',
                 website: 'www.sikkaind.com',
@@ -369,7 +370,6 @@ function MissionRegistryCard({
             buyerName: lrDocData?.buyerName || row.billToParty || row.shipmentObj?.billToParty || row.billToParty || '',
             buyerAddress: lrDocData?.buyerAddress || row.billToAddress || row.shipmentObj?.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
             buyerGtin: lrDocData?.buyerGtin || row.shipmentObj?.billToGtin || buyerGtin,
-            buyerCode: lrDocData?.buyerCode || row.billToCode || '',
             shipToParty: lrDocData?.shipToParty || row.shipToParty || row.shipmentObj?.shipToParty || row.shipmentObj?.billToParty || row.billToParty || '',
             shipToGtin: lrDocData?.shipToGtin || row.shipmentObj?.shipToGtin || shipToGtin,
             shipToCode: lrDocData?.shipToCode || row.shipToCode || '',

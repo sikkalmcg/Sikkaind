@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -8,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { FileDown, Search, Ban, Edit2, FileText, PlusCircle, Trash2, CheckCircle2, X } from 'lucide-react';
+import { FileDown, Search, Ban, Edit2, FileText, PlusCircle, Trash2, CheckCircle2, X, MoreHorizontal, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Shipment, Plant, Trip, WithId, Carrier, LR, Party } from '@/types';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -41,6 +42,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { 
+    DropdownMenu, 
+    DropdownMenuContent, 
+    DropdownMenuItem, 
+    DropdownMenuTrigger,
+    DropdownMenuSeparator,
+    DropdownMenuLabel,
+    DropdownMenuPortal
+} from '@/components/ui/dropdown-menu';
 import { DEFAULT_LMC_TERMS } from '@/lib/constants';
 
 interface ShipmentDataProps {
@@ -106,7 +116,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
   const [plantCarriers, setPlantCarriers] = useState<WithId<Carrier>[]>([]);
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   
   const isAdmin = user?.email === 'sikkaind.admin@sikka.com' || user?.email === 'sikkalmcg@gmail.com';
 
@@ -208,53 +217,12 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
   const isAllOnPageSelected = paginatedShipments.length > 0 && 
     paginatedShipments.every(s => selectedIds.includes(s.id));
 
-  const handleBulkDeleteAction = async () => {
-    if (!onBulkDelete || selectedIds.length === 0) return;
-    setIsBulkDeleting(true);
-    try {
-        await onBulkDelete(selectedIds);
-        setSelectedIds([]);
-    } finally {
-        setIsBulkDeleting(false);
-    }
-  };
-
   const handleOpenAssignModal = (shipment: WithId<Shipment>) => {
     if (!allCarriers) return;
     const carriersForPlant = allCarriers.filter(c => normalizePlantId(c.plantId) === normalizePlantId(shipment.originPlantId));
     setPlantCarriers(carriersForPlant);
     setSelectedShipment(shipment);
     setAssignModalOpen(true);
-  };
-
-  const handleExport = () => {
-    const dataToExport = filteredShipments.map(s => ({
-        'Plant': s.plantName,
-        'Sales Order No': s.shipmentId,
-        'Order Date': formatSafeDateString(s.creationDate, 'dd/MM/yy HH:mm'),
-        'Vehicle Number': s.vehicleNumber || '--',
-        'Pilot Mobile': s.driverMobile || '--',
-        'Invoice Number': s.summarizedInvoices || '--',
-        'E-Waybill Number': s.ewaybillNumber || '--',
-        'LR Number': s.lrNumber || '--',
-        'LR Date': formatSafeDateString(s.lrDate, 'dd-MM-yyyy'),
-        'Item Description': s.summarizedItems || '--',
-        'Total Units': s.totalUnitsCount || '--',
-        'FROM': s.loadingPoint || s.plantName,
-        'Consignor': s.consignor || 'N/A',
-        'Consignor Code': s.customerCode || '--',
-        'Bill to Party': s.billToParty || 'N/A',
-        'Bill to Code': s.billToCode || '--',
-        'Ship to Party': s.shipToParty || 'N/A',
-        'Ship to Code': s.shipToCode || '--',
-        'Destination': s.unloadingPoint || 'N/A',
-        'Order Qty': `${s.quantity.toFixed(3)} MT`,
-        'Status': s.currentStatusId,
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Order Ledger Registry");
-    XLSX.writeFile(workbook, `Order_Ledger_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
   const openLRPrint = async (e: React.MouseEvent, row: EnrichedShipment) => {
@@ -271,22 +239,22 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         let snap = await getDocs(q);
         
         const pIdStr = normalizePlantId(row.originPlantId);
-        const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
+        const carrierNameRaw = (row.carrierName || '').toUpperCase().trim();
+        const isSikkaLmcShorthand = carrierNameRaw.includes('SIKKA');
         
-        // MISSION FIX: Improved Carrier Resolution (Respecting Ghaziabad Node)
         let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => 
             c.id === row.carrierId || 
             c.name === row.carrierName
         );
 
-        const isSikkaLmc = finalCarrier?.name?.toUpperCase() === 'SIKKA LMC' || isSikkaLmcShorthand;
+        const isSikkaLmc = finalCarrier?.name?.toUpperCase().includes('SIKKA') || isSikkaLmcShorthand;
 
-        // REGISTRY HANDSHAKE: Force correct address node based on plant ID for LMC identity
+        // MISSION FIX: Hardened Registry Handbook for Ghaziabad Node (ID23 / 1214)
         if (!finalCarrier || isSikkaLmc) {
             if (pIdStr === '1426' || pIdStr === 'ID20') {
                 finalCarrier = {
                     id: 'ID20',
-                    name: 'SIKKA LMC',
+                    name: 'SIKKA INDUSTRIES AND LOGISTICS',
                     address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
                     mobile: '9136688004',
                     gstin: '07AYQPS6936B1ZZ',
@@ -300,8 +268,8 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             } else if (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmc) {
                 finalCarrier = {
                     id: 'ID21',
-                    name: 'SIKKA LMC',
-                    address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
+                    name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                    address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD 201009',
                     mobile: '9136688004',
                     gstin: '09AYQPS6936B1ZV',
                     stateCode: '09',
@@ -313,24 +281,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 };
             }
         }
-
-        if (!finalCarrier) {
-            finalCarrier = {
-                id: 'ID20',
-                name: 'SIKKA LMC',
-                address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
-                mobile: '9136688004',
-                gstin: '07AYQPS6936B1ZZ',
-                stateCode: '07',
-                stateName: 'DELHI',
-                pan: 'AYQPS6936B',
-                email: 'sil@sikkaenterprises.com',
-                website: 'www.sikkaind.com',
-                terms: DEFAULT_LMC_TERMS
-            };
-        }
-
-        const shipmentObj = row as any;
 
         const resolveGtin = (name: string, code: string, current: string) => {
             if (current && current !== 'N/A' && current !== '') return current;
@@ -369,7 +319,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             date: parseSafeDate(lrDocData?.date || row.lrDate) || new Date(),
             trip: row as any,
             carrier: finalCarrier,
-            shipment: shipmentObj,
+            shipment: row,
             plant: row.plant || { id: row.originPlantId, name: row.plantName },
             items: lrDocData?.items || manifestItems,
             weightSelection: lrDocData?.weightSelection || 'Assigned Weight',
@@ -377,14 +327,14 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             from: lrDocData?.from || row.loadingPoint || row.plantName || '',
             to: lrDocData?.to || row.unloadingPoint || '',
             consignorName: lrDocData?.consignorName || row.consignor || '',
-            consignorGtin: lrDocData?.consignorGtin || shipmentObj.consignorGtin || consignorGtin,
+            consignorGtin: lrDocData?.consignorGtin || row.consignorGtin || consignorGtin,
             consignorAddress: lrDocData?.consignorAddress || row.consignorAddress || '',
             consignorCode: lrDocData?.consignorCode || row.customerCode || '',
             buyerName: lrDocData?.buyerName || row.billToParty || '',
             buyerAddress: lrDocData?.buyerAddress || row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
-            buyerGtin: lrDocData?.buyerGtin || shipmentObj.billToGtin || buyerGtin,
+            buyerGtin: lrDocData?.buyerGtin || row.billToGtin || buyerGtin,
             shipToParty: lrDocData?.shipToParty || row.shipToParty || row.billToParty || '',
-            shipToGtin: lrDocData?.shipToGtin || shipmentObj.shipToGtin || shipToGtin,
+            shipToGtin: lrDocData?.shipToGtin || row.shipToGtin || shipToGtin,
             shipToCode: lrDocData?.shipToCode || row.shipToCode || '',
             deliveryAddress: lrDocData?.deliveryAddress || row.deliveryAddress || row.unloadingPoint || '',
             vehicleNumber: row.vehicleNumber || '--',
@@ -414,33 +364,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 </div>
             </div>
             <div className="flex items-center gap-3">
-                {selectedIds.length > 0 && isAdmin && (
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive" className="h-9 px-4 rounded-xl font-black uppercase text-[9px] tracking-widest gap-2 shadow-lg border-none active:scale-95">
-                                <Trash2 className="h-3.5 w-3.5" /> Purge ({selectedIds.length})
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent className="border-none shadow-3xl rounded-[2rem] p-0 overflow-hidden bg-white">
-                            <div className="p-8 bg-red-50 border-b border-red-100 flex items-center gap-5">
-                                <div className="p-3 bg-red-600 text-white rounded-2xl shadow-xl"><Ban className="h-8 w-8" /></div>
-                                <div>
-                                    <AlertDialogTitle className="text-xl font-black uppercase tracking-tight italic text-red-900 leading-none">Bulk Mission Revocation?</AlertDialogTitle>
-                                    <p className="text-red-700 font-bold uppercase text-[9px] tracking-widest mt-2">Authorized Admin Override node</p>
-                                </div>
-                            </div>
-                            <div className="p-10">
-                                <p className="text-sm font-medium text-slate-600 leading-relaxed italic border-l-4 border-red-100 pl-4">
-                                    "You are about to permanently erase <span className="font-black text-slate-900">{selectedIds.length} mission nodes</span> from the active registry. This action is irreversible."
-                                </p>
-                            </div>
-                            <AlertDialogFooter className="bg-slate-50 p-6 flex-row justify-end gap-3 border-t">
-                                <AlertDialogCancel className="font-bold border-slate-200 h-11 px-8 rounded-xl m-0">Abort</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleBulkDeleteAction} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest px-10 h-11 rounded-xl shadow-lg border-none">Confirm Bulk Purge</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                )}
                 <div className="relative group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
                     <Input
@@ -486,11 +409,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                     </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {loading ? (
-                        Array.from({ length: 5 }).map((_, i) => (
-                        <TableRow key={i} className="h-12 md:h-14"><TableCell colSpan={isAdmin ? 13 : 12} className="px-6 py-2"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                        ))
-                    ) : paginatedShipments.length === 0 ? (
+                    {paginatedShipments.length === 0 ? (
                         <TableRow><TableCell colSpan={isAdmin ? 13 : 12} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
                     ) : (
                         paginatedShipments.map(s => {
@@ -543,21 +462,24 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                                 </Badge>
                             </TableCell>
                             <TableCell className="px-8 text-right sticky right-0 bg-white shadow-[-4px_0_10px_rgba(0,0,0,0.02)] align-middle">
-                                <div className="flex justify-end gap-1.5 transition-opacity">
-                                    <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-green-600 hover:bg-green-50" disabled={!canAssign} onClick={() => handleOpenAssignModal(s)}>
-                                        <PlusCircle className="h-3.5 w-3.5" />
-                                    </Button>
-                                    <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50" disabled={!canEdit} onClick={() => onEdit(s)}>
-                                        <Edit2 className="h-3.5 w-3.5" />
-                                    </Button>
-                                    {isAdmin && (
-                                        <DeleteShipmentConfirmationDialog onConfirm={() => onDelete(s.id)} shipment={s}>
-                                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50">
-                                                <Ban className="h-3.5 w-3.5" />
-                                            </Button>
-                                        </DeleteShipmentConfirmationDialog>
-                                    )}
-                                </div>
+                                <DropdownMenu modal={false}>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-900 transition-all"><MoreHorizontal size={18} /></Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuPortal>
+                                        <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-slate-200 shadow-3xl bg-white z-[100]">
+                                            <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Manifest Actions</DropdownMenuLabel>
+                                            <DropdownMenuItem onClick={() => onEdit(s)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50" disabled={!canEdit}><Edit2 className="h-4 w-4 text-blue-600" /> Correct Plan</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleOpenAssignModal(s)} className="gap-3 font-black py-2.5 rounded-xl cursor-pointer bg-blue-900 text-white hover:bg-black focus:bg-black" disabled={!canAssign}><PlusCircle className="h-4 w-4" /> Assign fleet</DropdownMenuItem>
+                                            <DropdownMenuSeparator className="bg-slate-100" />
+                                            {isAdmin && (
+                                                <DropdownMenuItem onClick={() => onDelete(s.id)} className="gap-3 font-bold py-2.5 text-red-600 rounded-xl cursor-pointer hover:bg-red-50">
+                                                    <Ban className="h-4 w-4" /> Revoke Order
+                                                </DropdownMenuItem>
+                                            )}
+                                        </DropdownMenuContent>
+                                    </DropdownMenuPortal>
+                                </DropdownMenu>
                             </TableCell>
                             </TableRow>
                         )
@@ -584,13 +506,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                         </SelectContent>
                     </Select>
                 </div>
-                {selectedIds.length > 0 && (
-                    <div className="flex items-center gap-2 animate-in slide-in-from-left-2">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-blue-600" />
-                        <span className="text-[9px] font-black uppercase text-blue-900">{selectedIds.length} Nodes Selected</span>
-                        <button onClick={() => setSelectedIds([])} className="text-[9px] font-bold text-slate-400 hover:text-red-600 underline ml-1">Clear</button>
-                    </div>
-                )}
             </div>
 
             <Pagination 
