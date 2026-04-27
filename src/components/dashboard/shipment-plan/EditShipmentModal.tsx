@@ -143,15 +143,13 @@ interface EditShipmentModalProps {
   onClose: () => void;
   shipment: WithId<Shipment>;
   onShipmentUpdated: (userId: string, data: Partial<Omit<Shipment, 'id'>>) => Promise<void>;
+  plants: WithId<Plant>[];
 }
 
-export default function EditShipmentModal({ isOpen, onClose, shipment, onShipmentUpdated }: EditShipmentModalProps) {
+export default function EditShipmentModal({ isOpen, onClose, shipment, onShipmentUpdated, plants }: EditShipmentModalProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const [helpModal, setHelpModal] = useState<{ type: string; title: string; data: any[] } | null>(null);
-
-  const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
-  const { data: plants } = useCollection<Plant>(plantsQuery);
 
   const partiesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_parties"), where("isDeleted", "==", false)) : null, [firestore]);
   const { data: parties } = useCollection<Party>(partiesQuery);

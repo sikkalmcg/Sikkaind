@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -292,9 +291,7 @@ function ShipmentPlanContent() {
                 <div className="flex flex-wrap items-center gap-8 md:gap-12">
                     {/* TITLE NODE */}
                     <div className="flex items-center gap-3">
-                        <div className="p-1.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3 shrink-0">
-                            <Package className="h-5 w-5" />
-                        </div>
+                        <div className="p-1.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3 shrink-0"><Package className="h-5 w-5" /></div>
                         <h1 className="text-sm md:text-xl font-black text-blue-900 uppercase tracking-tight italic leading-none truncate">Order Plan Control</h1>
                     </div>
 
@@ -361,6 +358,7 @@ function ShipmentPlanContent() {
                 onClose={() => setEditingShipment(null)} 
                 shipment={editingShipment} 
                 onShipmentUpdated={handleShipmentUpdated} 
+                plants={plants}
             />
         )}
     </div>
