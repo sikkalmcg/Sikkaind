@@ -12,7 +12,7 @@ import {
     MapPin, 
     Radar, 
     Loader2, 
-    CheckCircle2,
+    CheckCircle2, 
     AlertCircle,
     ArrowLeft,
     Factory,
@@ -30,11 +30,12 @@ import {
     Navigation,
     ArrowRight,
     ShieldCheck,
-    Activity
+    Activity,
+    X as XIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
-import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { format, isValid } from 'date-fns';
 import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -47,6 +48,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
 
 // Dynamic Import for GIS Node to optimize initial pulse
 const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracking/TrackingMap'), { 
@@ -336,6 +338,11 @@ function TrackConsignmentContent() {
         return baseFields;
     }, [shipmentResult, activeTrip, linkedTrips, searchType]);
 
+    const formattedOrderTime = useMemo(() => {
+        const d = parseSafeDate(shipmentResult?.creationDate || activeTrip?.shipment?.creationDate);
+        return d ? format(d, 'dd MMM yyyy') : '--';
+    }, [shipmentResult?.creationDate, activeTrip?.shipment?.creationDate]);
+
     return (
         <div className="min-h-screen bg-white flex flex-col items-center py-6 px-4 md:py-10 font-body">
             <div className="max-w-7xl w-full space-y-8">
@@ -459,7 +466,7 @@ function TrackConsignmentContent() {
                                                         <TableHeader className="bg-slate-50/50">
                                                             <TableRow className="h-10 hover:bg-transparent border-b">
                                                                 <TableHead className="text-[9px] font-black uppercase px-6">Sale Order</TableHead>
-                                                                <TableHead className="text-[9px] font-black uppercase px-4">Trip ID Node</TableHead>
+                                                                <TableHead className="text-[9px] font-black uppercase px-4 text-slate-400">Trip ID Node</TableHead>
                                                                 <TableHead className="text-[9px] font-black uppercase px-4 text-center">Assigned Date & Time</TableHead>
                                                                 <TableHead className="text-[9px] font-black uppercase px-6 text-right">Assigned Quantity</TableHead>
                                                             </TableRow>
