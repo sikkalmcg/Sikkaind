@@ -30,7 +30,7 @@ const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracki
 /**
  * @fileOverview Fleet Live Map Terminal.
  * Optimized GIS interface for real-time fleet visibility.
- * CSS Refinement: Implements deep glassmorphism and high-density typography.
+ * CSS Refinement: Fixed h-screen overflow by switching to h-full.
  * Registry Node: Plant selector removed to prioritize global visibility.
  */
 export default function FleetLiveMapPage() {
@@ -111,7 +111,7 @@ export default function FleetLiveMapPage() {
     };
 
     return (
-        <main className="flex flex-col h-screen bg-slate-950 text-white overflow-hidden relative">
+        <main className="flex flex-col h-full bg-slate-950 text-white overflow-hidden relative">
             {/* 1. TOP OVERLAY CONTROLS */}
             <div className="absolute top-6 left-6 right-6 z-40 flex justify-between items-start pointer-events-none">
                 <div className="flex items-center gap-4 pointer-events-auto">
@@ -133,7 +133,7 @@ export default function FleetLiveMapPage() {
                                 <p className="text-lg font-black text-emerald-400 leading-none">{stats.moving}</p>
                             </div>
                         </div>
-                        <Separator orientation="vertical" className="h-8 bg-white/10" />
+                        <div className="h-8 w-px bg-white/10 mx-2" />
                         <div className="flex items-center gap-3">
                             <div className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
                             <div>
@@ -157,7 +157,7 @@ export default function FleetLiveMapPage() {
             </div>
 
             {/* 2. MAIN MAP NODE */}
-            <div className="flex-1">
+            <div className="flex-1 h-full">
                 <TrackingMap 
                     vehicles={fleet} 
                     height="100%" 
@@ -266,7 +266,7 @@ export default function FleetLiveMapPage() {
                             <p className="text-sm font-bold text-slate-700 leading-relaxed uppercase relative z-10">
                                 {selectedVehicle.location || 'Resolving Registry Node...'}
                             </p>
-                            <Separator className="bg-blue-100" />
+                            <div className="h-px w-full bg-blue-100 my-1" />
                             <div className="flex justify-between items-center relative z-10">
                                 <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Last registry update</span>
                                 <span className="text-[10px] font-black text-blue-600 font-mono">{selectedVehicle.lastUpdate || '--:--:--'}</span>
@@ -293,15 +293,5 @@ export default function FleetLiveMapPage() {
                 </div>
             )}
         </main>
-    );
-}
-
-function Separator({ className, orientation = 'horizontal' }: { className?: string, orientation?: 'horizontal' | 'vertical' }) {
-    return (
-        <div className={cn(
-            "bg-slate-200 shrink-0",
-            orientation === 'horizontal' ? "h-[1px] w-full" : "h-full w-[1px]",
-            className
-        )} />
     );
 }
