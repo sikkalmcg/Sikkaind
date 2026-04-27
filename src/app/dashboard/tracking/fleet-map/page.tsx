@@ -73,7 +73,7 @@ export default function FleetLiveMapPage() {
             const response = await fetch('/api/track', {
               method: 'POST',
               headers: { 'Content-Type': 'text/plain' },
-              body: apiKey, // Send raw API key string as expected by API
+              body: apiKey, 
             }); 
             const result = await response.json();
     
@@ -168,7 +168,7 @@ export default function FleetLiveMapPage() {
 
             {/* 3. BOTTOM LEFT REGISTRY LIST */}
             <div className="absolute bottom-8 left-8 w-80 max-h-[45vh] z-40 bg-slate-900/70 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] shadow-3xl flex flex-col overflow-hidden pointer-events-auto">
-                <div className="p-6 bg-slate-950/30 border-b border-white/5 flex items-center justify-between">
+                <div className="p-5 md:p-6 bg-slate-950/30 border-b border-white/5 flex items-center justify-between">
                     <div>
                         <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Fleet Registry</span>
                         <p className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">{stats.total} Nodes Syncing</p>
@@ -190,16 +190,16 @@ export default function FleetLiveMapPage() {
                                     key={i} 
                                     onClick={() => handleVehicleSelect(v)} 
                                     className={cn(
-                                        "w-full flex items-center justify-between p-4 rounded-2xl transition-all mb-1 border-2 text-left group",
+                                        "w-full flex items-center justify-between p-3.5 rounded-xl transition-all mb-1 border-2 text-left group",
                                         isActive 
-                                            ? "bg-blue-600 border-blue-400 text-white shadow-xl" 
+                                            ? "bg-blue-600 border-blue-400 text-white shadow-xl translate-x-1" 
                                             : "hover:bg-white/10 border-transparent text-slate-400"
                                     )}
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className={cn(
-                                            "h-2 w-2 rounded-full", 
-                                            isMoving ? "bg-emerald-400 animate-pulse" : "bg-red-50"
+                                            "h-1.5 w-1.5 rounded-full", 
+                                            isMoving ? "bg-emerald-400 animate-pulse" : "bg-red-400"
                                         )} />
                                         <span className={cn("text-[13px] font-black uppercase tracking-tighter", isActive ? "text-white" : "text-slate-200 group-hover:text-white")}>
                                             {v.vehicleNumber}
