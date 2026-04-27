@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -274,7 +273,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         const pIdStr = normalizePlantId(row.originPlantId);
         const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
         
-        // MISSION FIX: Improved Carrier Resolution (Respecting assignments)
+        // MISSION FIX: Improved Carrier Resolution (Respecting Ghaziabad Node)
         let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => 
             c.id === row.carrierId || 
             c.name === row.carrierName
@@ -282,7 +281,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
 
         const isSikkaLmc = finalCarrier?.name?.toUpperCase() === 'SIKKA LMC' || isSikkaLmcShorthand;
 
-        // REGISTRY HANDSHAKE: Force address mapping based on plant ID for Sikka LMC nodes
+        // REGISTRY HANDSHAKE: Force correct address node based on plant ID for LMC identity
         if (!finalCarrier || isSikkaLmc) {
             if (pIdStr === '1426' || pIdStr === 'ID20') {
                 finalCarrier = {
@@ -295,6 +294,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                     stateName: 'DELHI',
                     pan: 'AYQPS6936B',
                     email: 'sil@sikkaenterprises.com',
+                    website: 'www.sikkaind.com',
                     terms: DEFAULT_LMC_TERMS
                 };
             } else if (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmc) {
@@ -308,6 +308,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                     stateName: 'UTTAR PRADESH',
                     pan: 'AYQPS6936B',
                     email: 'sil@sikkaenterprises.com',
+                    website: 'www.sikkaind.com',
                     terms: DEFAULT_LMC_TERMS
                 };
             }
@@ -324,6 +325,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                 stateName: 'DELHI',
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com',
+                website: 'www.sikkaind.com',
                 terms: DEFAULT_LMC_TERMS
             };
         }
@@ -352,63 +354,47 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             weight: row.quantity
         }];
 
-        if (snap.empty) {
-            setPreviewLr({
-                lrNumber: row.lrNumber,
-                date: row.lrDate || new Date(),
-                trip: row as any,
-                carrier: finalCarrier,
-                shipment: shipmentObj,
-                plant: row.plant || { id: row.originPlantId, name: row.plantName },
-                items: manifestItems,
-                weightSelection: 'Assigned Weight',
-                assignedTripWeight: row.quantity,
-                from: row.loadingPoint || row.plantName || '',
-                to: row.unloadingPoint || '',
-                consignorName: row.consignor || '',
-                consignorGtin: consignorGtin,
-                consignorAddress: row.consignorAddress || '',
-                consignorCode: row.customerCode || '',
-                buyerName: row.billToParty || '',
-                buyerAddress: row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
-                buyerGtin: buyerGtin,
-                buyerCode: row.billToCode || '',
-                shipToParty: row.shipToParty || row.billToParty || '',
-                shipToGtin: shipToGtin,
-                shipToCode: row.shipToCode || '',
-                deliveryAddress: row.deliveryAddress || row.unloadingPoint || '',
-                vehicleNumber: row.vehicleNumber || '--',
-                driverName: row.driverName || '--',
-                driverMobile: row.driverMobile || '--',
-                paymentTerm: row.paymentTerm || '--',
-                id: row.id
-            } as any);
-        } else {
-            const lrDoc = snap.docs[0].data() as LR;
-            setPreviewLr({
-                ...lrDoc,
-                id: snap.docs[0].id,
-                date: parseSafeDate(lrDoc.date),
-                trip: row as any,
-                carrier: finalCarrier,
-                shipment: shipmentObj,
-                plant: row.plant || { id: row.originPlantId, name: row.plantName },
-                consignorName: lrDoc.consignorName || row.consignor || '',
-                consignorAddress: lrDoc.consignorAddress || row.consignorAddress || '',
-                consignorGtin: lrDoc.consignorGtin || shipmentObj.consignorGtin || consignorGtin,
-                buyerName: lrDoc.buyerName || row.billToParty || '',
-                buyerAddress: lrDoc.buyerAddress || row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
-                buyerGtin: lrDoc.buyerGtin || shipmentObj.billToGtin || buyerGtin,
-                shipToParty: lrDoc.shipToParty || row.shipToParty || row.billToParty || '',
-                shipToGtin: lrDoc.shipToGtin || shipmentObj.shipToGtin || shipToGtin,
-                shipToCode: lrDoc.shipToCode || row.shipToCode || '',
-                deliveryAddress: lrDoc.deliveryAddress || row.deliveryAddress || row.unloadingPoint || '',
-                vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
-                driverName: row.driverName || lrDoc.driverName,
-                driverMobile: row.driverMobile || lrDoc.driverMobile,
-                paymentTerm: row.paymentTerm || lrDoc.paymentTerm
-            } as EnrichedLR);
+        let lrDocData = row.lrData;
+        if (!lrDocData && firestore && row.lrNumber) {
+            const plantId = normalizePlantId(row.originPlantId);
+            const lrsRef = collection(firestore, `plants/${plantId}/lrs`);
+            const q = query(lrsRef, where("lrNumber", "==", row.lrNumber), limit(1));
+            const snap = await getDocs(q);
+            if(!snap.empty) lrDocData = snap.docs[0].data();
         }
+
+        const enrichedLR: any = {
+            ...lrDocData,
+            lrNumber: row.lrNumber,
+            date: parseSafeDate(lrDocData?.date || row.lrDate) || new Date(),
+            trip: row as any,
+            carrier: finalCarrier,
+            shipment: shipmentObj,
+            plant: row.plant || { id: row.originPlantId, name: row.plantName },
+            items: lrDocData?.items || manifestItems,
+            weightSelection: lrDocData?.weightSelection || 'Assigned Weight',
+            assignedTripWeight: row.quantity,
+            from: lrDocData?.from || row.loadingPoint || row.plantName || '',
+            to: lrDocData?.to || row.unloadingPoint || '',
+            consignorName: lrDocData?.consignorName || row.consignor || '',
+            consignorGtin: lrDocData?.consignorGtin || shipmentObj.consignorGtin || consignorGtin,
+            consignorAddress: lrDocData?.consignorAddress || row.consignorAddress || '',
+            consignorCode: lrDocData?.consignorCode || row.customerCode || '',
+            buyerName: lrDocData?.buyerName || row.billToParty || '',
+            buyerAddress: lrDocData?.buyerAddress || row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
+            buyerGtin: lrDocData?.buyerGtin || shipmentObj.billToGtin || buyerGtin,
+            shipToParty: lrDocData?.shipToParty || row.shipToParty || row.billToParty || '',
+            shipToGtin: lrDocData?.shipToGtin || shipmentObj.shipToGtin || shipToGtin,
+            shipToCode: lrDocData?.shipToCode || row.shipToCode || '',
+            deliveryAddress: lrDocData?.deliveryAddress || row.deliveryAddress || row.unloadingPoint || '',
+            vehicleNumber: row.vehicleNumber || '--',
+            driverName: row.driverName || '--',
+            driverMobile: row.driverMobile || '--',
+            paymentTerm: row.paymentTerm || '--',
+            id: row.id
+        };
+
+        setPreviewLr(enrichedLR);
     } catch (e) {
         toast({ variant: 'destructive', title: "Registry Error", description: "Could not extract LR manifest." });
     } finally {
@@ -512,7 +498,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
                         const isCancelled = s.currentStatusId?.toLowerCase() === 'cancelled';
                         const isShortClosed = s.currentStatusId?.toLowerCase() === 'short closed';
                         
-                        // MISSION FIX: Enable actions for Admins always, or for specific statuses for operators
                         const canAssign = isAdmin || (!isCancelled && !isShortClosed && (s.materialTypeId === 'FTL' ? s.assignedQty < 1 : s.balanceQty > 0.001));
                         const canEdit = isAdmin || (!isCancelled && !isShortClosed && (s.currentStatusId === 'pending' || s.currentStatusId === 'partly vehicle assigned'));
                         

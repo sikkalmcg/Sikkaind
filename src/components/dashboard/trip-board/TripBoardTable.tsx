@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -225,7 +224,6 @@ function MissionRegistryCard({
     const showLrAndInvoices = ['open-order', 'loading', 'transit', 'arrived', 'pod-status', 'rejection', 'closed'].includes(activeTab);
     const canEditLRNode = ['open-order', 'loading', 'transit'].includes(activeTab) && !isReadOnly;
     
-    // MISSION REGISTRY RULE: Trips assigned to 'ARRANGE BY PARTY' should not show/edit LR
     const isArrangeByParty = row.carrierName === 'ARRANGE BY PARTY' || row.carrierId === 'ARRANGE_BY_PARTY';
 
     const dateNode = isPending ? row.creationDate : row.startDate;
@@ -263,7 +261,7 @@ function MissionRegistryCard({
         const pIdStr = normalizePlantId(row.originPlantId);
         const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
         
-        // MISSION FIX: Prioritize already resolved carrierObj
+        // MISSION FIX: Improved Carrier Resolution (Strict Handshake)
         let finalCarrier: any = row.carrierObj || (allCarriers || []).find(c => 
             c.id === row.carrierId || 
             c.name === row.carrierName
@@ -284,6 +282,7 @@ function MissionRegistryCard({
                     stateName: 'DELHI',
                     pan: 'AYQPS6936B',
                     email: 'sil@sikkaenterprises.com',
+                    website: 'www.sikkaind.com',
                     terms: DEFAULT_LMC_TERMS
                 };
             } else if (pIdStr === '1214' || pIdStr === 'ID23' || isSikkaLmc) {
@@ -297,6 +296,7 @@ function MissionRegistryCard({
                     stateName: 'UTTAR PRADESH',
                     pan: 'AYQPS6936B',
                     email: 'sil@sikkaenterprises.com',
+                    website: 'www.sikkaind.com',
                     terms: DEFAULT_LMC_TERMS
                 };
             }
@@ -313,6 +313,7 @@ function MissionRegistryCard({
                 stateName: 'DELHI',
                 pan: 'AYQPS6936B',
                 email: 'sil@sikkaenterprises.com',
+                website: 'www.sikkaind.com',
                 terms: DEFAULT_LMC_TERMS
             };
         }
@@ -339,7 +340,6 @@ function MissionRegistryCard({
             weight: row.dispatchedQty || row.assignedQtyInTrip || row.quantity
         }];
 
-        // Resolve LR doc for specific fields if available
         let lrDocData = row.lrData;
         if (!lrDocData && firestore && row.lrNumber) {
             const plantId = normalizePlantId(row.originPlantId);
