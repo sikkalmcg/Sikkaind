@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -149,9 +150,9 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
         const carrier = (allCarriers || []).find(c => c.id === trip?.carrierId || c.id === shipment.carrierId || c.name === shipment.carrierName);
 
         const itemsManifest = shipment.items || [];
-        const summarizedInvoices = Array.from(new Set(itemsManifest.map(i => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
+        const summarizedInvoices = Array.from(new Set(itemsManifest.map((i: any) => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo).filter(Boolean))).join(', ') || shipment.invoiceNumber || '--';
         
-        const uniqueDescs = Array.from(new Set(itemsManifest.map(i => (i.itemDescription || i.description || '').toUpperCase().trim()).filter(Boolean)));
+        const uniqueDescs = Array.from(new Set(itemsManifest.map((i: any) => (i.itemDescription || i.description || '').toUpperCase().trim()).filter(Boolean)));
         const summarizedItems = uniqueDescs.length > 2 
             ? "VARIOUS ITEMS AS PER INVOICE" 
             : (uniqueDescs.join(', ') || shipment.itemDescription || shipment.material || '--');
@@ -372,171 +373,173 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
   };
   
   return (
-    <Card className="border-none shadow-md bg-white rounded-[2.5rem] overflow-hidden">
-      <CardHeader className="bg-slate-50 border-b p-4 md:p-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-                <div className="p-1.5 md:p-2 bg-blue-900 text-white rounded-xl shadow-lg rotate-3 shrink-0"><FileText className="h-4 w-4 md:h-5 md:w-5" /></div>
-                <div>
-                    <CardTitle className="text-sm md:text-lg font-black uppercase text-blue-900 italic leading-none">Order Ledger Registry</CardTitle>
-                    <CardDescription className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-400 mt-1 md:mt-2">Consolidated mission plans across authorized plants</CardDescription>
-                </div>
-            </div>
-            <div className="flex items-center gap-3">
-                <div className="relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
-                    <Input
-                        placeholder="Filter registry..."
-                        value={searchTerm}
-                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                        className="pl-9 w-full md:w-[240px] h-9 rounded-xl bg-white border-slate-200 shadow-sm font-bold focus-visible:ring-blue-900 text-[10px]"
-                    />
-                </div>
-                <Button variant="outline" size="sm" onClick={handleExport} className="h-9 px-4 gap-2 font-black text-[9px] uppercase border-slate-200 text-blue-900 bg-white shadow-sm hover:bg-slate-50 transition-all">
-                    <FileDown className="h-3.5 w-3.5" /> Export
-                </Button>
-            </div>
-        </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="relative overflow-hidden">
-            <div className="overflow-auto max-h-[600px] custom-scrollbar border-t">
-                <Table className="border-collapse w-full min-w-[1400px]">
-                    <TableHeader className="bg-slate-100 sticky top-0 z-50 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
-                    <TableRow className="h-14 hover:bg-transparent border-b-2 border-slate-200">
-                        {isAdmin && (
-                            <TableHead className="w-16 px-6 bg-slate-100 align-middle">
-                                <Checkbox 
-                                    checked={isAllOnPageSelected}
-                                    onCheckedChange={(checked) => handleSelectAllOnPage(!!checked)}
-                                    className="h-4 w-4 data-[state=checked]:bg-blue-900 shadow-sm border-slate-300"
-                                />
-                            </TableHead>
-                        )}
-                        <TableHead className="text-[10px] font-black uppercase px-6 w-32 bg-slate-100 align-middle">Plant</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 w-36 bg-slate-100 align-middle">Sales Order No</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40 bg-slate-100 align-middle">Order Date</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 w-36 text-center bg-slate-100 align-middle">Vehicle No</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100 align-middle">Pilot Mobile</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100 align-middle">LR No</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100 align-middle">Consignor</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100 align-middle">Consignee</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 w-40 bg-slate-100 align-middle">Destination</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-right w-32 bg-slate-100 align-middle">Order Qty</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-4 text-center bg-slate-100 align-middle">Status</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase px-8 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-24 align-middle">Action</TableHead>
-                    </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {paginatedShipments.length === 0 ? (
-                        <TableRow><TableCell colSpan={isAdmin ? 13 : 12} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
-                    ) : (
-                        paginatedShipments.map(s => {
-                        const isChecked = selectedIds.includes(s.id);
-                        const isCancelled = s.currentStatusId?.toLowerCase() === 'cancelled';
-                        const isShortClosed = s.currentStatusId?.toLowerCase() === 'short closed';
-                        
-                        const canAssign = isAdmin || (!isCancelled && !isShortClosed && (s.materialTypeId === 'FTL' ? s.assignedQty < 1 : s.balanceQty > 0.001));
-                        const canEdit = isAdmin || (!isCancelled && !isShortClosed && (s.currentStatusId === 'pending' || s.currentStatusId === 'partly vehicle assigned'));
-                        
-                        return (
-                            <TableRow key={s.id} className={cn(
-                                "hover:bg-blue-50/20 even:bg-slate-50/50 transition-all h-12 md:h-14 border-b border-slate-100 last:border-0 group text-[10px] md:text-[11px] font-medium text-slate-600",
-                                isChecked && "bg-blue-50/40"
-                            )}>
-                            {isAdmin && (
-                                <TableCell className="px-6 align-middle">
-                                    <Checkbox 
-                                        checked={isChecked}
-                                        onCheckedChange={(checked) => handleSelectRow(s.id, !!checked)}
-                                        className="h-4 w-4 data-[state=checked]:bg-blue-900 shadow-sm border-slate-300"
-                                    />
-                                </TableCell>
-                            )}
-                            <TableCell className="px-6 font-bold text-slate-600 uppercase truncate align-middle">{s.plantName}</TableCell>
-                            <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-[10px] align-middle">{s.shipmentId}</TableCell>
-                            <TableCell className="px-4 text-center whitespace-nowrap text-slate-500 font-bold align-middle">{formatSafeDateString(s.creationDate, 'dd/MM/yy HH:mm')}</TableCell>
-                            <TableCell className="px-4 text-center font-black text-slate-900 uppercase tracking-tighter align-middle">{s.vehicleNumber || '--'}</TableCell>
-                            <TableCell className="px-4 text-center font-mono font-bold text-slate-400 align-middle">{s.driverMobile || '--'}</TableCell>
-                            <TableCell className="px-4 text-center align-middle">
-                                {s.lrNumber ? (
-                                    <button 
-                                        type="button" 
-                                        onClick={(e) => openLRPrint(e, s)} 
-                                        className="font-black text-blue-700 hover:underline underline-offset-4 decoration-blue-200 uppercase text-[10px]"
-                                    >
-                                        {s.lrNumber}
-                                    </button>
-                                ) : '--'}
-                            </TableCell>
-                            <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px] align-middle" title={s.consignor}>{s.consignor}</TableCell>
-                            <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px] align-middle" title={s.billToParty}>{s.billToParty}</TableCell>
-                            <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-[10px] align-middle">{s.unloadingPoint}</TableCell>
-                            <TableCell className="px-4 text-right font-black text-blue-900 align-middle">
-                                {`${s.quantity.toFixed(3)} MT`}
-                            </TableCell>
-                            <TableCell className="px-4 text-center align-middle">
-                                <Badge variant="outline" className={cn("text-[8px] font-black uppercase px-2.5 h-6 border shadow-sm", getStatusColor(s.currentStatusId))}>
-                                    {s.currentStatusId}
-                                </Badge>
-                            </TableCell>
-                            <TableCell className="px-8 text-right sticky right-0 bg-white shadow-[-4px_0_10px_rgba(0,0,0,0.02)] align-middle">
-                                <DropdownMenu modal={false}>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-900 transition-all"><MoreHorizontal size={18} /></Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuPortal>
-                                        <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-slate-200 shadow-3xl bg-white z-[100]">
-                                            <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Manifest Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => onEdit(s)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50" disabled={!canEdit}><Edit2 className="h-4 w-4 text-blue-600" /> Correct Plan</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleOpenAssignModal(s)} className="gap-3 font-black py-2.5 rounded-xl cursor-pointer bg-blue-900 text-white hover:bg-black focus:bg-black" disabled={!canAssign}><PlusCircle className="h-4 w-4" /> Assign fleet</DropdownMenuItem>
-                                            <DropdownMenuSeparator className="bg-slate-100" />
-                                            {isAdmin && (
-                                                <DropdownMenuItem onClick={() => onDelete(s.id)} className="gap-3 font-bold py-2.5 text-red-600 rounded-xl cursor-pointer hover:bg-red-50">
-                                                    <Ban className="h-4 w-4" /> Revoke Order
-                                                </DropdownMenuItem>
-                                            )}
-                                        </DropdownMenuContent>
-                                    </DropdownMenuPortal>
-                                </DropdownMenu>
-                            </TableCell>
-                            </TableRow>
-                        )
-                        })
-                    )}
-                    </TableBody>
-                </Table>
-            </div>
-        </div>
-        
-        <div className="p-4 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows:</span>
-                    <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
-                        <SelectTrigger className="h-8 w-[70px] rounded-lg border-slate-200 bg-white font-black text-[10px] shadow-sm">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                            <SelectItem value="10" className="font-bold py-2">10</SelectItem>
-                            <SelectItem value="25" className="font-bold py-2">25</SelectItem>
-                            <SelectItem value="50" className="font-bold py-2">50</SelectItem>
-                            <SelectItem value="100" className="font-bold py-2">100</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
+    <div className="space-y-6">
+      <Card className="border-none shadow-md bg-white rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="bg-slate-50 border-b p-4 md:p-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                  <div className="p-1.5 md:p-2 bg-blue-900 text-white rounded-xl shadow-lg rotate-3 shrink-0"><FileText className="h-4 w-4 md:h-5 md:w-5" /></div>
+                  <div>
+                      <CardTitle className="text-sm md:text-lg font-black uppercase text-blue-900 italic leading-none">Order Ledger Registry</CardTitle>
+                      <CardDescription className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-slate-400 mt-1 md:mt-2">Consolidated mission plans across authorized plants</CardDescription>
+                  </div>
+              </div>
+              <div className="flex items-center gap-3">
+                  <div className="relative group">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-blue-900 transition-colors" />
+                      <Input
+                          placeholder="Filter registry..."
+                          value={searchTerm}
+                          onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                          className="pl-9 w-full md:w-[240px] h-9 rounded-xl bg-white border-slate-200 shadow-sm font-bold focus-visible:ring-blue-900 text-[10px]"
+                      />
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleExport} className="h-9 px-4 gap-2 font-black text-[9px] uppercase border-slate-200 text-blue-900 bg-white shadow-sm hover:bg-slate-50 transition-all">
+                      <FileDown className="h-3.5 w-3.5" /> Export
+                  </Button>
+              </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="relative overflow-hidden">
+              <div className="overflow-auto max-h-[600px] custom-scrollbar border-t">
+                  <Table className="border-collapse w-full min-w-[1400px]">
+                      <TableHeader className="bg-slate-100 sticky top-0 z-50 shadow-[0_2px_5px_rgba(0,0,0,0.05)]">
+                      <TableRow className="h-14 hover:bg-transparent border-b-2 border-slate-200">
+                          {isAdmin && (
+                              <TableHead className="w-16 px-6 bg-slate-100 align-middle">
+                                  <Checkbox 
+                                      checked={isAllOnPageSelected}
+                                      onCheckedChange={(checked) => handleSelectAllOnPage(!!checked)}
+                                      className="h-4 w-4 data-[state=checked]:bg-blue-900 shadow-sm border-slate-300"
+                                  />
+                              </TableHead>
+                          )}
+                          <TableHead className="text-[10px] font-black uppercase px-6 w-32 bg-slate-100 align-middle">Plant</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase px-4 w-36 bg-slate-100 align-middle">Sales Order No</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase px-4 text-center w-40 bg-slate-100 align-middle">Order Date</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase px-4 w-36 text-center bg-slate-100 align-middle">Vehicle No</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100 align-middle">Pilot Mobile</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase px-4 text-center w-36 bg-slate-100 align-middle">LR No</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100 align-middle">Consignor</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase px-4 w-48 bg-slate-100 align-middle">Consignee</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase px-4 w-40 bg-slate-100 align-middle">Destination</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase px-4 text-right w-32 bg-slate-100 align-middle">Order Qty</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase px-4 text-center bg-slate-100 align-middle">Status</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase px-8 text-right sticky right-0 bg-slate-100 shadow-[-2px_0_5px_rgba(0,0,0,0.05)] w-24 align-middle">Action</TableHead>
+                      </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                      {paginatedShipments.length === 0 ? (
+                          <TableRow><TableCell colSpan={isAdmin ? 13 : 12} className="h-64 text-center text-slate-400 italic font-medium uppercase tracking-[0.3em] opacity-40">No mission plans detected in current registry.</TableCell></TableRow>
+                      ) : (
+                          paginatedShipments.map(s => {
+                          const isChecked = selectedIds.includes(s.id);
+                          const isCancelled = s.currentStatusId?.toLowerCase() === 'cancelled';
+                          const isShortClosed = s.currentStatusId?.toLowerCase() === 'short closed';
+                          
+                          const canAssign = isAdmin || (!isCancelled && !isShortClosed && (s.materialTypeId === 'FTL' ? s.assignedQty < 1 : s.balanceQty > 0.001));
+                          const canEdit = isAdmin || (!isCancelled && !isShortClosed && (s.currentStatusId === 'pending' || s.currentStatusId === 'partly vehicle assigned'));
+                          
+                          return (
+                              <TableRow key={s.id} className={cn(
+                                  "hover:bg-blue-50/20 even:bg-slate-50/50 transition-all h-12 md:h-14 border-b border-slate-100 last:border-0 group text-[10px] md:text-[11px] font-medium text-slate-600",
+                                  isChecked && "bg-blue-50/40"
+                              )}>
+                              {isAdmin && (
+                                  <TableCell className="px-6 align-middle">
+                                      <Checkbox 
+                                          checked={isChecked}
+                                          onCheckedChange={(checked) => handleSelectRow(s.id, !!checked)}
+                                          className="h-4 w-4 data-[state=checked]:bg-blue-900 shadow-sm border-slate-300"
+                                      />
+                                  </TableCell>
+                              )}
+                              <TableCell className="px-6 font-bold text-slate-600 uppercase truncate align-middle">{s.plantName}</TableCell>
+                              <TableCell className="px-4 font-black text-blue-700 font-mono tracking-tighter text-[10px] align-middle">{s.shipmentId}</TableCell>
+                              <TableCell className="px-4 text-center whitespace-nowrap text-slate-500 font-bold align-middle">{formatSafeDateString(s.creationDate, 'dd/MM/yy HH:mm')}</TableCell>
+                              <TableCell className="px-4 text-center font-black text-slate-900 uppercase tracking-tighter align-middle">{s.vehicleNumber || '--'}</TableCell>
+                              <TableCell className="px-4 text-center font-mono font-bold text-slate-400 align-middle">{s.driverMobile || '--'}</TableCell>
+                              <TableCell className="px-4 text-center align-middle">
+                                  {s.lrNumber ? (
+                                      <button 
+                                          type="button" 
+                                          onClick={(e) => openLRPrint(e, s)} 
+                                          className="font-black text-blue-700 hover:underline underline-offset-4 decoration-blue-200 uppercase text-[10px]"
+                                      >
+                                          {s.lrNumber}
+                                      </button>
+                                  ) : '--'}
+                              </TableCell>
+                              <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px] align-middle" title={s.consignor}>{s.consignor}</TableCell>
+                              <TableCell className="px-4 truncate font-bold text-slate-800 uppercase text-[10px] align-middle" title={s.billToParty}>{s.billToParty}</TableCell>
+                              <TableCell className="px-4 truncate font-black text-slate-900 uppercase text-[10px] align-middle">{s.unloadingPoint}</TableCell>
+                              <TableCell className="px-4 text-right font-black text-blue-900 align-middle">
+                                  {`${s.quantity.toFixed(3)} MT`}
+                              </TableCell>
+                              <TableCell className="px-4 text-center align-middle">
+                                  <Badge variant="outline" className={cn("text-[8px] font-black uppercase px-2.5 h-6 border shadow-sm", getStatusColor(s.currentStatusId))}>
+                                      {s.currentStatusId}
+                                  </Badge>
+                              </TableCell>
+                              <TableCell className="px-8 text-right sticky right-0 bg-white shadow-[-4px_0_10px_rgba(0,0,0,0.02)] align-middle">
+                                  <DropdownMenu modal={false}>
+                                      <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-900 transition-all"><MoreHorizontal size={18} /></Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuPortal>
+                                          <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-slate-200 shadow-3xl bg-white z-[100]">
+                                              <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Manifest Actions</DropdownMenuLabel>
+                                              <DropdownMenuItem onClick={() => onEdit(s)} className="gap-3 font-bold py-2.5 rounded-xl cursor-pointer hover:bg-blue-50" disabled={!canEdit}><Edit2 className="h-4 w-4 text-blue-600" /> Correct Plan</DropdownMenuItem>
+                                              <DropdownMenuItem onClick={() => handleOpenAssignModal(s)} className="gap-3 font-black py-2.5 rounded-xl cursor-pointer bg-blue-900 text-white hover:bg-black focus:bg-black" disabled={!canAssign}><PlusCircle className="h-4 w-4" /> Assign fleet</DropdownMenuItem>
+                                              <DropdownMenuSeparator className="bg-slate-100" />
+                                              {isAdmin && (
+                                                  <DropdownMenuItem onClick={() => onDelete(s.id)} className="gap-3 font-bold py-2.5 text-red-600 rounded-xl cursor-pointer hover:bg-red-50">
+                                                      <Ban className="h-4 w-4" /> Revoke Order
+                                                  </DropdownMenuItem>
+                                              )}
+                                          </DropdownMenuContent>
+                                      </DropdownMenuPortal>
+                                  </DropdownMenu>
+                              </TableCell>
+                              </TableRow>
+                          )
+                          })
+                      )}
+                      </TableBody>
+                  </Table>
+              </div>
+          </div>
+          
+          <div className="p-4 bg-slate-50 border-t flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest whitespace-nowrap">Rows:</span>
+                      <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
+                          <SelectTrigger className="h-8 w-[70px] rounded-lg border-slate-200 bg-white font-black text-[10px] shadow-sm">
+                              <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl">
+                              <SelectItem value="10" className="font-bold py-2">10</SelectItem>
+                              <SelectItem value="25" className="font-bold py-2">25</SelectItem>
+                              <SelectItem value="50" className="font-bold py-2">50</SelectItem>
+                              <SelectItem value="100" className="font-bold py-2">100</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  </div>
+              </div>
 
-            <Pagination 
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                canPreviousPage={currentPage > 1}
-                canNextPage={currentPage < totalPages}
-                itemCount={filteredShipments.length}
-            />
-        </div>
-      </CardContent>
+              <Pagination 
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  canPreviousPage={currentPage > 1}
+                  canNextPage={currentPage < totalPages}
+                  itemCount={filteredShipments.length}
+              />
+          </div>
+        </CardContent>
+      </Card>
       {previewLr && <LRPrintPreviewModal isOpen={!!previewLr} onClose={() => setPreviewLr(null)} lr={previewLr} />}
       {isAssignModalOpen && selectedShipment && (
         <VehicleAssignModal 
@@ -547,6 +550,6 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             carriers={allCarriers || []}
         />
       )}
-    </Card>
+    </div>
   );
 }

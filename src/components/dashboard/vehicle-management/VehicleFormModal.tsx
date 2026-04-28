@@ -24,7 +24,7 @@ import {
 import { useFirestore } from '@/firebase';
 import { doc, setDoc, updateDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
 import type { Vehicle, WithId, Plant } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, sanitizeRegistryNode } from '@/lib/utils';
 
 const vehicleNumberRegex = /^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/;
 
@@ -78,14 +78,16 @@ export default function VehicleFormModal({ isOpen, onClose, vehicle, type, plant
   const onSubmit = async (values: FormValues) => {
     if (!firestore) return;
     try {
-        // Registry Logic Node: Establish base payload without creation timestamp
-        const dataToSave: any = {
+        // Registry Logic Node: Establish base payload and sanitize
+        const basePayload: any = {
             ...values,
             vehicleType: type,
             status: vehicle?.status || 'Available',
             isDeleted: false,
             updatedAt: serverTimestamp(),
         };
+
+        const dataToSave = sanitizeRegistryNode(basePayload);
 
         if (isEditing && vehicle) {
             // CORRECTION PULSE: Standard update without overwriting original creation node
