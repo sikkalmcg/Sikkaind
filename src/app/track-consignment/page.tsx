@@ -105,6 +105,7 @@ function TrackConsignmentContent() {
     }, [firestore]);
 
     const stages = [
+        { id: 'allocated', label: 'ORDER ALLOCATED', icon: FileText },
         { id: 'assign', label: 'ASSIGN', icon: ClipboardList },
         { id: 'loading', label: 'LOADING', icon: Factory },
         { id: 'transit', label: 'IN-TRANSIT', icon: Truck },
@@ -114,21 +115,23 @@ function TrackConsignmentContent() {
 
     const getTargetIndex = useCallback((status: string) => {
         const s = status?.toLowerCase().trim().replace(/[\s/_-]+/g, '-') || '';
-        if (['delivered', 'closed'].includes(s)) return 4;
-        if (['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'rejected'].includes(s)) return 3;
-        if (['in-transit', 'out-for-delivery', 'dispatched'].includes(s)) return 2;
-        if (['yard', 'loading', 'loaded', 'loading-complete', 'yard-loading'].includes(s)) return 1;
+        if (['delivered', 'closed'].includes(s)) return 5;
+        if (['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'rejected'].includes(s)) return 4;
+        if (['in-transit', 'out-for-delivery', 'dispatched'].includes(s)) return 3;
+        if (['yard', 'loading', 'loaded', 'loading-complete', 'yard-loading'].includes(s)) return 2;
+        if (['assigned', 'vehicle-assigned'].includes(s)) return 1;
         return 0;
     }, []);
 
     const getStageTimestamp = useCallback((index: number) => {
         if (!activeTrip) return null;
         switch (index) {
-            case 0: return activeTrip.startDate || activeTrip.shipment?.creationDate || activeTrip.creationDate;
-            case 1: return activeTrip.entryTime || activeTrip.startDate || activeTrip.shipment?.creationDate;
-            case 2: return activeTrip.outDate || activeTrip.lastUpdated || activeTrip.startDate;
-            case 3: return activeTrip.arrivalDate || activeTrip.lastUpdated;
-            case 4: return activeTrip.actualCompletionDate || activeTrip.lastUpdated;
+            case 0: return activeTrip.shipment?.creationDate;
+            case 1: return activeTrip.startDate;
+            case 2: return activeTrip.entryTime;
+            case 3: return activeTrip.outDate;
+            case 4: return activeTrip.arrivalDate;
+            case 5: return activeTrip.actualCompletionDate;
             default: return null;
         }
     }, [activeTrip]);
@@ -149,10 +152,10 @@ function TrackConsignmentContent() {
                 if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
                 if (rejected) {
                     setTimeout(() => {
-                        setAnimIndex(4);
+                        setAnimIndex(5);
                         setTimeout(() => {
                             setIsReversed(true);
-                            let rev = 4;
+                            let rev = 5;
                             const revInterval = setInterval(() => {
                                 rev--;
                                 if (rev >= 0) setAnimIndex(rev);
@@ -286,10 +289,13 @@ function TrackConsignmentContent() {
     const handleDirectTripClick = useCallback((tId: string) => {
         setSearchType('TRIP');
         setRegistryInput(tId);
-        setTimeout(() => {
-            handleSearch(tId);
-        }, 10);
-    }, [handleSearch]);
+    }, []);
+
+    useEffect(() => {
+        if (searchType === 'TRIP' && registryInput && (shipmentResult || linkedTrips.length > 0)) {
+            handleSearch(registryInput);
+        }
+    }, [registryInput, searchType]);
 
     // Live Telemetry Sync Loop
     useEffect(() => {
@@ -536,7 +542,7 @@ function TrackConsignmentContent() {
                                         <motion.div 
                                             className={cn("h-full transition-colors duration-700", (activeTrip.isRejected && isReversed) ? "bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]" : "bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.5)]")}
                                             initial={{ width: 0 }}
-                                            animate={{ width: `${(animIndex / 4) * 100}%` }}
+                                            animate={{ width: `${(animIndex / 5) * 100}%` }}
                                             transition={{ duration: 0.8, ease: "easeInOut" }}
                                         />
                                     </div>
@@ -545,7 +551,7 @@ function TrackConsignmentContent() {
                                         {stages.map((stage, i) => {
                                             const active = i <= animIndex;
                                             const isTarget = i === animIndex;
-                                            const isFinal = i === 4;
+                                            const isFinal = i === 5;
                                             const activeColor = (activeTrip.isRejected && isReversed) ? "bg-red-600 border-red-400" : "bg-blue-600 border-blue-400";
                                             const label = (isFinal && activeTrip.isRejected) ? 'MISSION REJECTED' : stage.label;
                                             

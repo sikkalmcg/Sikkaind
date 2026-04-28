@@ -165,6 +165,9 @@ function LRPrintContent({ lrId }: { lrId: string }) {
                 consignorGtin: lr.consignorGtin || (shipment as any)?.consignorGtin || '',
                 buyerGtin: lr.buyerGtin || (shipment as any)?.billToGtin || '',
                 shipToGtin: lr.shipToGtin || (shipment as any)?.shipToGtin || '',
+                consignorMobile: lr.consignorMobile || (shipment as any)?.consignorMobile || '',
+                buyerMobile: lr.buyerMobile || (shipment as any)?.billToMobile || '',
+                shipToMobile: lr.shipToMobile || (shipment as any)?.shipToMobile || '',
             } as EnrichedLR);
 
         } catch (error) {

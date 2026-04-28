@@ -22,11 +22,15 @@ interface PrintableLRProps {
   totalInSeries: number;
 }
 
-/**
- * @fileOverview SIKKA LMC - Printable Lorry Receipt Node.
- * Optimized Header: Carrier info moved higher, left-aligned, with Email and Website pulse.
- * Hardened: Plant-specific identity resolution for 1214, 1426, ID20, ID23.
- */
+const REGISTRY_TERMS = [
+    "Goods carried at Owner’s Risk as per Carriers Act 2007 unless insured.",
+    "Consignor responsible for proper packing, correct declaration & documents (including GST/E-way bill as per Goods and Services Tax (GST) Act). Carrier not liable for issues arising from the same.",
+    "Freight & all charges payable as agreed. Carrier has full lien rights on goods until payment.",
+    "Claims must be reported within 24 hours with proof; otherwise not accepted. Liability limited to invoice value or as per law.",
+    "Transit insurance is consignor’s responsibility unless arranged in writing by carrier.",
+    "All disputes subject to Ghaziabad jurisdiction only."
+];
+
 export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }: PrintableLRProps) {
   const formatDate = (date: any, pattern: string = 'dd MMM yyyy') => {
     const d = parseSafeDate(date);
@@ -102,26 +106,16 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const tripIdDisplay = lr.tripId || lr.trip?.tripId || '--';
 
   const carrier = lr.carrier || {};
-  const registryTerms = (carrier.terms && Array.isArray(carrier.terms) && carrier.terms.length > 0) 
-    ? carrier.terms 
-    : [
-        "AGENCY NOT RESPONSIBLE FOR RAIN OR CALAMITY.",
-        "DISCREPANCIES MUST BE INTIMATED WITHIN 24 HOURS.",
-        "VEHICLE OWNER RESPONSIBLE AFTER YARD DEPARTURE.",
-        "ALL DISPUTES SUBJECT TO GHAZIABAD JURISDICTION."
-      ];
 
   return (
     <div className="A4-page p-[6mm] bg-white text-black font-sans text-[8.5pt] leading-tight flex flex-col relative box-border h-[297mm] w-[210mm] overflow-hidden select-text border-none mx-auto">
       
-      {/* 1. TOP MANIFEST INDICATOR */}
       <div className="flex justify-end mb-1 shrink-0">
         <div className="border-2 border-black px-4 py-0.5 bg-slate-50 shadow-sm">
             <span className="text-[8pt] font-black uppercase tracking-widest text-slate-900 leading-none">{copyType}</span>
         </div>
       </div>
 
-      {/* 2. CARRIER HEADER NODE: Higher & Left Aligned */}
       <div className="flex justify-between items-start mb-5 shrink-0 border-b-4 border-black pb-4">
         <div className="flex gap-4 flex-1 pr-4">
           <div className="h-16 w-18 bg-white border border-black rounded-lg flex items-center justify-center p-1 shrink-0 overflow-hidden shadow-sm">
@@ -132,16 +126,16 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <p className="text-[7.5pt] font-bold text-slate-600 uppercase max-w-[500px] leading-tight">{carrier.address || 'GHAZIABAD, UTTAR PRADESH'}</p>
             
             <div className="text-[7pt] font-black text-slate-400 flex flex-wrap gap-x-4 gap-y-1.5 pt-1.5 uppercase leading-none">
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">PHONE:</span> <span className="text-slate-900 font-mono">{carrier.mobile || '9136688004'}</span></p>
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">EMAIL:</span> <span className="text-blue-700 lowercase font-bold">{carrier.email || 'sil@sikkaenterprises.com'}</span></p>
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">WEB:</span> <span className="text-blue-700 lowercase font-bold">{carrier.website || 'www.sikkaind.com'}</span></p>
-            </div>
-            
-            <div className="text-[7pt] font-black text-slate-400 flex flex-wrap gap-x-4 gap-y-1.5 pt-1 uppercase leading-none">
               <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">GSTIN:</span> <span className="font-mono text-slate-900">{carrier.gstin || '--'}</span></p>
               <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">PAN:</span> <span className="font-mono text-slate-900">{carrier.pan || '--'}</span></p>
               <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">STATE:</span> <span className="text-slate-900">{carrier.stateName || '--'}</span></p>
               <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">CODE:</span> <span className="text-slate-900">{carrier.stateCode || '--'}</span></p>
+            </div>
+
+            <div className="text-[7pt] font-black text-slate-400 flex flex-wrap gap-x-4 gap-y-1.5 pt-1 uppercase leading-none">
+              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">PHONE:</span> <span className="text-slate-900 font-mono">{carrier.mobile || '9136688004'}</span></p>
+              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">EMAIL:</span> <span className="text-blue-700 lowercase font-bold">{carrier.email || 'sil@sikkaenterprises.com'}</span></p>
+              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">WEB:</span> <span className="text-blue-700 lowercase font-bold">{carrier.website || 'www.sikkaind.com'}</span></p>
             </div>
           </div>
         </div>
@@ -159,7 +153,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 3. TRIP PARTICULARS GRID */}
       <div className="grid grid-cols-4 border-2 border-black rounded-xl overflow-hidden mb-5 bg-white divide-x-2 divide-black shadow-sm shrink-0">
         {[
           { label: 'TRIP ID NODE', value: tripIdDisplay, mono: true, bold: true, color: 'text-blue-900' },
@@ -174,25 +167,28 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         ))}
       </div>
 
-      {/* 4. ENTITY HANDSHAKE GRID */}
       <div className="grid grid-cols-3 gap-6 mb-6 shrink-0">
         {[
-            { title: 'CONSIGNOR (SENDER)', name: lr.consignorName, addr: lr.consignorAddress || lr.from, gstin: lr.consignorGtin },
-            { title: 'CONSIGNEE (RECEIVER)', name: lr.buyerName || lr.shipToParty, addr: buyerAddress, gstin: lr.buyerGtin },
-            { title: 'SHIP TO PARTY', name: lr.shipToParty || lr.buyerName, addr: shipToAddress, gstin: lr.shipToGtin }
+            { title: 'CONSIGNOR (SENDER)', name: lr.consignorName, addr: lr.consignorAddress || lr.from, gstin: lr.consignorGtin, mobile: (lr as any).consignorMobile },
+            { title: 'CONSIGNEE (RECEIVER)', name: lr.buyerName || lr.shipToParty, addr: buyerAddress, gstin: lr.buyerGtin, mobile: (lr as any).buyerMobile },
+            { title: 'SHIP TO PARTY', name: lr.shipToParty || lr.buyerName, addr: shipToAddress, gstin: lr.shipToGtin, mobile: (lr as any).shipToMobile }
         ].map((node, idx) => (
             <div key={idx} className="border-2 border-black rounded-[1.25rem] p-4 pt-5 relative min-h-[125px] flex flex-col justify-center bg-white shadow-md text-center">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-1 rounded-full text-[6.5pt] font-black uppercase tracking-widest shadow-xl whitespace-nowrap">{node.title}</div>
-                <div className="space-y-1 mt-1">
+                <div className="space-y-1 mt-1 flex-1 flex flex-col justify-center">
                     <p className="text-[9pt] font-black uppercase text-slate-900 leading-tight line-clamp-2">{node.name}</p>
-                    <p className="text-[7.5pt] font-bold text-slate-500 leading-snug italic uppercase line-clamp-2">{node.addr}</p>
-                    <p className="font-black text-slate-900 text-[7pt] pt-1.5 border-t border-slate-100 mt-1">GSTIN: <span className="font-mono uppercase">{node.gstin || 'N/A'}</span></p>
+                    <p className="text-[7.5pt] font-bold text-slate-500 leading-snug italic uppercase line-clamp-3">{node.addr}</p>
+                    <div className="pt-1.5 border-t border-slate-100 mt-auto space-y-1 text-[7pt]">
+                        {node.mobile && (
+                           <p className="font-black text-slate-900">MOB: <span className="font-mono uppercase">{node.mobile}</span></p>
+                        )}
+                        <p className="font-black text-slate-900">GSTIN: <span className="font-mono uppercase">{node.gstin || 'N/A'}</span></p>
+                    </div>
                 </div>
             </div>
         ))}
       </div>
 
-      {/* 5. MANIFEST TABLE */}
       <div className="flex-1 flex flex-col mb-6 min-h-0">
         <div className="border-2 border-black rounded-[1.25rem] overflow-hidden flex flex-col shadow-lg bg-white">
             <table className="w-full border-collapse table-fixed">
@@ -227,12 +223,11 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 6. TERMS & SIGNATURES */}
       <div className="grid grid-cols-2 gap-12 mb-2 shrink-0 px-4 mt-auto border-t-2 border-slate-100 pt-6">
         <div className="space-y-3">
             <span className="text-[8.5pt] font-bold uppercase text-slate-900 border-b border-black inline-block pb-0.5 tracking-widest italic">TERMS & CONDITIONS</span>
             <div className="space-y-1 pt-0.5">
-                {registryTerms.map((term: string, i: number) => (
+                {REGISTRY_TERMS.map((term: string, i: number) => (
                     <p key={i} className="text-[7pt] font-normal text-slate-600 leading-tight uppercase tracking-tight">
                         {i + 1}. {term}
                     </p>
@@ -245,10 +240,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      {/* 7. FOOTER CONTROL NODE */}
       <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col items-center gap-1.5 shrink-0">
           <p className="text-[7.5pt] font-black text-slate-400 uppercase tracking-tighter text-center max-w-[600px]">
-              Note: This Lorry Receipt was generated digitally and is to be considered as original mission document.
+              Note: This Lorry Receipt was generated digitally and is to be considered as original.
           </p>
           <div className="flex flex-col items-center gap-0.5">
               <span className="text-[8.5pt] font-black text-slate-900 tracking-widest">

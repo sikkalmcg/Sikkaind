@@ -25,6 +25,7 @@ import ChangeToContractModal from '@/components/dashboard/trip-board/ChangeToCon
 import OrderDetailsDrawer from '@/components/dashboard/vehicle-assign/OrderDetailsDrawer';
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit, Party } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
+import { DEFAULT_LMC_TERMS } from '@/lib/constants';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId, cn } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, query, doc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, getDocs, where, limit, onSnapshot, writeBatch, orderBy, deleteDoc } from "firebase/firestore";
@@ -40,21 +41,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
-
-const DEFAULT_LMC_TERMS = [
-    "AGENCY NOT RESPONSIBLE FOR RAIN OR CALAMITY.",
-    "DISCREPANCIES MUST BE INTIMATED WITHIN 24 HOURS.",
-    "VEHICLE OWNER RESPONSIBLE AFTER YARD DEPARTURE.",
-    "ALL DISPUTES SUBJECT TO GHAZIABAD JURISDICTION."
-];
+import { DatePicker } from '@/components/date-picker';
+import { Button } from '@/components/ui/button';
 
 type TripBoardTab = 'pending-assignment' | 'open-order' | 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
-/**
- * @fileOverview Trip Board Control Center.
- * Handles the central mission registry monitoring and status transitions.
- * Updated: Fixed ReferenceError by importing startOfDay, endOfDay, and subDays.
- */
 function TripBoardContent() {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -574,18 +565,28 @@ function TripBoardContent() {
 
             const shipmentObj = row.shipmentObj || {};
 
-            const resolveGtin = (name: string, code: string, current: string) => {
-                if (current && current !== 'N/A' && current !== '') return current;
-                const match = (parties || []).find(p => 
-                    (code && p.customerCode?.toUpperCase() === code.toUpperCase()) || 
-                    (p.name?.toUpperCase() === name?.toUpperCase())
+            const resolveParty = (name?: string, code?: string) => {
+                if (!name && !code) return null;
+                const upperName = name?.toUpperCase();
+                const upperCode = code?.toUpperCase();
+                return (parties || []).find(p =>
+                    (upperCode && p.customerCode?.toUpperCase() === upperCode) ||
+                    (upperName && p.name?.toUpperCase() === upperName)
                 );
-                return match?.gstin || '';
             };
 
-            const consignorGtin = resolveGtin(row.consignor, row.customerCode || '', row.consignorGtin || '');
-            const buyerGtin = resolveGtin(row.billToParty, row.billToCode || '', row.billToGtin || '');
-            const shipToGtin = resolveGtin(row.shipToParty || '', row.shipToCode || '', row.shipToGtin || '');
+            const consignorParty = resolveParty(row.consignor, row.customerCode);
+            const buyerParty = resolveParty(row.billToParty, row.billToCode);
+            let shipToPartyVal = row.shipToParty || row.billToParty;
+            let shipToCodeVal = row.shipToCode || row.billToCode;
+            const shipToPartyObj = resolveParty(shipToPartyVal, shipToCodeVal);
+
+            const consignorGtin = row.consignorGtin || consignorParty?.gstin || '';
+            const buyerGtin = row.billToGtin || buyerParty?.gstin || '';
+            const shipToGtin = row.shipToGtin || shipToPartyObj?.gstin || '';
+            
+            const buyerMobile = row.billToMobile || buyerParty?.mobile || '';
+            const shipToMobile = row.shipToMobile || shipToPartyObj?.mobile || '';
 
             const manifestItems = row.items && row.items.length > 0 ? row.items : [{
                 invoiceNumber: row.summarizedInvoices || row.invoiceNumbers || 'NA',
@@ -616,10 +617,12 @@ function TripBoardContent() {
                     buyerName: row.billToParty || shipmentObj.billToParty || row.billToParty || '',
                     buyerAddress: row.billToAddress || shipmentObj.billToAddress || shipmentObj.deliveryAddress || shipmentObj.unloadingPoint || '',
                     buyerGtin: buyerGtin,
+                    buyerMobile: buyerMobile,
                     buyerCode: row.billToCode || '',
-                    shipToParty: row.shipToParty || shipmentObj.shipToParty || shipmentObj.billToParty || row.billToParty || '',
+                    shipToParty: shipToPartyVal || shipmentObj.shipToParty || shipmentObj.billToParty || '',
                     shipToGtin: shipToGtin,
-                    shipToCode: row.shipToCode || '',
+                    shipToMobile: shipToMobile,
+                    shipToCode: shipToCodeVal || '',
                     deliveryAddress: row.deliveryAddress || shipmentObj.deliveryAddress || row.unloadingPoint || '',
                     vehicleNumber: row.vehicleNumber || '--',
                     driverName: row.driverName || '--',
@@ -642,11 +645,13 @@ function TripBoardContent() {
                     consignorGtin: lrDoc.consignorGtin || row.shipmentObj?.consignorGtin || consignorGtin,
                     buyerName: lrDoc.buyerName || row.billToParty || '',
                     buyerAddress: lrDoc.buyerAddress || row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
-                    buyerGtin: lrDoc.buyerGtin || row.shipmentObj?.billToGtin || buyerGtin,
+                    buyerGtin: lrDoc.buyerGtin || buyerGtin,
+                    buyerMobile: lrDoc.buyerMobile || buyerMobile,
                     buyerCode: lrDoc.buyerCode || row.billToCode || '',
-                    shipToParty: lrDoc.shipToParty || row.shipToParty || row.billToParty || '',
-                    shipToGtin: lrDoc.shipToGtin || row.shipmentObj?.shipToGtin || shipToGtin,
-                    shipToCode: lrDoc.shipToCode || row.shipToCode || '',
+                    shipToParty: lrDoc.shipToParty || shipToPartyVal || '',
+                    shipToGtin: lrDoc.shipToGtin || shipToGtin,
+                    shipToMobile: lrDoc.shipToMobile || shipToMobile,
+                    shipToCode: lrDoc.shipToCode || shipToCodeVal || '',
                     deliveryAddress: lrDoc.deliveryAddress || lrDoc.deliveryAddress || row.unloadingPoint || '',
                     vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
                     driverName: row.driverName || lrDoc.driverName,
@@ -1182,8 +1187,8 @@ function TripBoardContent() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); setSelectedPendingIds([]); }} className="w-full mt-2 md:mt-3">
-          <TabsList className="bg-transparent h-8 md:h-9 p-0 border-b-0 gap-3 md:gap-6 justify-start overflow-x-auto no-scrollbar flex-nowrap shrink-0">
+        <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); setSelectedPendingIds([]); }} className="w-full mt-2 md:mt-3 overflow-x-auto no-scrollbar">
+          <TabsList className="bg-transparent h-8 md:h-9 p-0 border-b-0 gap-3 md:gap-6 justify-start flex-nowrap shrink-0">
             {[
                 { id: 'pending-assignment', label: 'Assign fleet Pending', count: counts.pendingAssignment, icon: ClipboardList },
                 { id: 'open-order', label: 'Open Order', count: counts.openOrder },
