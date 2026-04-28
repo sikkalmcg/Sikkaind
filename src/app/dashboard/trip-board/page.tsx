@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -26,7 +25,7 @@ import OrderDetailsDrawer from '@/components/dashboard/vehicle-assign/OrderDetai
 import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryExit, Party } from '@/types';
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId, cn } from '@/lib/utils';
-import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
+import { useFirestore, useUser, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, query, doc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, getDocs, where, limit, onSnapshot, writeBatch, orderBy, deleteDoc } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList, CheckCircle2, Truck, PlusCircle, ArrowUpDown, ShieldCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -37,6 +36,7 @@ import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/e
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
 
@@ -190,32 +190,14 @@ function TripBoardContent() {
     const unsubscribers: (() => void)[] = [];
 
     unsubscribers.push(onSnapshot(collection(firestore, "vehicleEntries"), (snap) => {
-        setEntries(snap.docs.map(d => ({ 
-            id: d.id, 
-            ...d.data(),
-            entryTimestamp: parseSafeDate(d.data().entryTimestamp),
-            exitTimestamp: parseSafeDate(d.data().exitTimestamp)
-        } as any)));
+        setEntries(snap.docs.map(d => ({ id: d.id, ...d.data(), entryTimestamp: parseSafeDate(d.data().entryTimestamp), exitTimestamp: parseSafeDate(d.data().exitTimestamp) } as any)));
     }));
 
     selectedPlants.forEach((pId) => {
       const plantId = normalizePlantId(pId);
       
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/trips`), (snap) => {
-        const list = snap.docs.map(d => ({ 
-            id: d.id, 
-            originPlantId: plantId, 
-            ...d.data(), 
-            startDate: parseSafeDate(d.data().startDate),
-            outDate: parseSafeDate(d.data().outDate),
-            arrivalDate: parseSafeDate(d.data().arrivalDate),
-            actualCompletionDate: parseSafeDate(d.data().actualCompletionDate),
-            lrDate: parseSafeDate(d.data().lrDate),
-            srnDate: parseSafeDate(d.data().srnDate),
-            podUploadDate: parseSafeDate(d.data().podUploadDate),
-            rejectedAt: parseSafeDate(d.data().rejectedAt),
-            lastUpdated: parseSafeDate(d.data().lastUpdated)
-        } as any));
+        const list = snap.docs.map(d => ({ id: d.id, originPlantId: plantId, ...d.data(), startDate: parseSafeDate(d.data().startDate), outDate: parseSafeDate(d.data().outDate), arrivalDate: parseSafeDate(d.data().arrivalDate), actualCompletionDate: parseSafeDate(d.data().actualCompletionDate), lrDate: parseSafeDate(d.data().lrDate), srnDate: parseSafeDate(d.data().srnDate), podUploadDate: parseSafeDate(d.data().podUploadDate), rejectedAt: parseSafeDate(d.data().rejectedAt), lastUpdated: parseSafeDate(d.data().lastUpdated) } as any));
         setTrips(prev => {
             const others = prev.filter(t => normalizePlantId(t.originPlantId) !== plantId);
             return [...others, ...list];
@@ -224,22 +206,12 @@ function TripBoardContent() {
       }));
 
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/shipments`), (snap) => {
-        const list = snap.docs.map(d => ({ 
-            id: d.id, 
-            originPlantId: plantId, 
-            ...d.data(),
-            creationDate: parseSafeDate(d.data().creationDate)
-        } as any));
+        const list = snap.docs.map(d => ({ id: d.id, originPlantId: plantId, ...d.data(), creationDate: parseSafeDate(d.data().creationDate) } as any));
         setShipments(prev => [...prev.filter(s => normalizePlantId(s.originPlantId) !== plantId), ...list]);
       }));
 
       unsubscribers.push(onSnapshot(collection(firestore, `plants/${plantId}/lrs`), (snap) => {
-        const list = snap.docs.map(d => ({
-          id: d.id,
-          originPlantId: plantId,
-          ...d.data(),
-          date: parseSafeDate(d.data().date)
-        } as any));
+        const list = snap.docs.map(d => ({ id: d.id, originPlantId: plantId, ...d.data(), date: parseSafeDate(d.data().date) } as any));
         setLrs(prev => [...prev.filter(l => l.originPlantId !== plantId), ...list]);
       }));
     });
@@ -259,12 +231,7 @@ function TripBoardContent() {
         const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId || (l.lrNumber === t.lrNumber && l.originPlantId === t.originPlantId));
         const entry = entries.find(e => (e.tripId === t.id || (e.vehicleNumber === t.vehicleNumber && e.status === 'OUT')) && normalizePlantId(e.plantId) === tPlantId);
         
-        const carrier = (dbCarriers || []).find(c => 
-            c.id === t.carrierId || 
-            c.id === shipment?.carrierId || 
-            (t.carrierName && c.name === t.carrierName) ||
-            (shipment?.carrierName && c.name === shipment.carrierName)
-        );
+        const carrier = (dbCarriers || []).find(c => c.id === t.carrierId || c.id === shipment?.carrierId || (t.carrierName && c.name === t.carrierName) || (shipment?.carrierName && c.name === shipment.carrierName));
 
         const plant = plants.find(p => normalizePlantId(p.id) === tPlantId);
 
@@ -272,9 +239,7 @@ function TripBoardContent() {
         const invoiceNumbers = Array.from(new Set(items.map((i: any) => i.invoiceNumber || i.invoiceNo || i.deliveryNumber || i.deliveryNo).filter(Boolean))).join(', ');
         
         const uniqueDescs = Array.from(new Set(items.map((i: any) => (i.itemDescription || i.description || '').toUpperCase().trim()).filter(Boolean)));
-        const summarizedItems = uniqueDescs.length > 2 
-            ? "VARIOUS ITEMS AS PER INVOICE" 
-            : (uniqueDescs.join(', ') || shipment?.itemDescription || shipment?.material || '--');
+        const summarizedItems = uniqueDescs.length > 2 ? "VARIOUS ITEMS AS PER INVOICE" : (uniqueDescs.join(', ') || shipment?.itemDescription || shipment?.material || '--');
 
         const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
         const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
@@ -681,7 +646,7 @@ function TripBoardContent() {
                     shipToParty: lrDoc.shipToParty || row.shipToParty || row.billToParty || '',
                     shipToGtin: lrDoc.shipToGtin || row.shipmentObj?.shipToGtin || shipToGtin,
                     shipToCode: lrDoc.shipToCode || row.shipToCode || '',
-                    deliveryAddress: lrDoc.deliveryAddress || row.deliveryAddress || row.unloadingPoint || '',
+                    deliveryAddress: lrDoc.deliveryAddress || lrDoc.deliveryAddress || row.unloadingPoint || '',
                     vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
                     driverName: row.driverName || lrDoc.driverName,
                     driverMobile: row.driverMobile || lrDoc.driverMobile,
@@ -1195,7 +1160,7 @@ function TripBoardContent() {
           <div className="flex flex-wrap items-end gap-1.5 bg-slate-50/50 p-1.5 rounded-xl border border-slate-100 shadow-inner">
             <div className="flex flex-col gap-0.5 flex-1 min-w-[140px]">
               <Label className="text-[7px] md:text-[8px] font-black uppercase text-slate-400 px-1">PLANT SCOPE</Label>
-              <MultiSelectPlantFilter options={plants} selected={selectedPlants} onChange={handlePlantChange} isLoading={isAuthLoading} />
+              <MultiSelectPlantFilter options={plants || []} selected={selectedPlants} onChange={handlePlantChange} isLoading={isAuthLoading} />
             </div>
             <div className="flex flex-col gap-0.5">
               <Label className="text-[7px] md:text-[8px] font-black uppercase text-slate-400 px-1">DATE FROM</Label>
