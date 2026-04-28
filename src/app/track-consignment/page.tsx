@@ -58,7 +58,7 @@ const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracki
 
 /**
  * @fileOverview Public Track Consignment Terminal v3.0.
- * Hardened: Live map trigger node restricted to Transit/Arrival states.
+ * Hardened: Robust stage timestamp resolution with progression fallbacks.
  * Sync: Handshakes with Wheelseye satellite registry for real-time telemetry.
  * UI: High-density layout for mission manifest and route visualization.
  */
@@ -123,15 +123,31 @@ function TrackConsignmentContent() {
         return 0;
     }, []);
 
+    /**
+     * MISSION REGISTRY PROGRESSION LOGIC
+     * Fallback strategy ensures the timeline is never empty if the mission has moved to later stages.
+     */
     const getStageTimestamp = useCallback((index: number) => {
         if (!activeTrip) return null;
+        const shipment = activeTrip.shipment || {};
+        
+        // Resolve raw timestamp nodes
+        const t = {
+            allocated: parseSafeDate(shipment.creationDate || activeTrip.creationDate),
+            assigned: parseSafeDate(activeTrip.startDate),
+            loading: parseSafeDate(activeTrip.entryTime),
+            transit: parseSafeDate(activeTrip.outDate),
+            arrived: parseSafeDate(activeTrip.arrivalDate),
+            delivered: parseSafeDate(activeTrip.actualCompletionDate)
+        };
+
         switch (index) {
-            case 0: return activeTrip.shipment?.creationDate;
-            case 1: return activeTrip.startDate;
-            case 2: return activeTrip.entryTime;
-            case 3: return activeTrip.outDate;
-            case 4: return activeTrip.arrivalDate;
-            case 5: return activeTrip.actualCompletionDate;
+            case 0: return t.allocated;
+            case 1: return t.assigned || t.allocated; // Fallback to allocation if assign pulse missing
+            case 2: return t.loading || t.assigned || t.allocated;
+            case 3: return t.transit || t.loading || t.assigned;
+            case 4: return t.arrived || t.transit;
+            case 5: return t.delivered || t.arrived;
             default: return null;
         }
     }, [activeTrip]);

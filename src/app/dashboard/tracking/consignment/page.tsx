@@ -47,7 +47,7 @@ const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracki
 
 /**
  * @fileOverview Consignment Terminal - Tracking Hub.
- * Hardened: Robust status normalization and real-time animation pulse.
+ * Hardened: Robust stage timestamp resolution with progression fallbacks.
  * Optimized: Uses ref lock to prevent infinite re-loads of truck animation.
  * Fixed: Telemetry sync node ordering resolved. Fallback timestamp node for specific plants.
  */
@@ -103,14 +103,28 @@ function TrackConsignmentContent() {
         return 0;
     }, []);
 
+    /**
+     * MISSION REGISTRY PROGRESSION LOGIC
+     * Fallback strategy ensures the timeline is never empty if the mission has moved to later stages.
+     */
     const getStageTimestamp = useCallback((index: number) => {
         if (!consignment) return null;
+        
+        const t = {
+            assigned: parseSafeDate(consignment.startDate),
+            loading: parseSafeDate(consignment.entryTime),
+            transit: parseSafeDate(consignment.outDate),
+            arrived: parseSafeDate(consignment.arrivalDate),
+            delivered: parseSafeDate(consignment.actualCompletionDate),
+            creation: parseSafeDate(consignment.shipment?.creationDate || consignment.creationDate)
+        };
+
         switch (index) {
-            case 0: return consignment.startDate || consignment.shipment?.creationDate || consignment.creationDate;
-            case 1: return consignment.entryTime || consignment.startDate || consignment.shipment?.creationDate;
-            case 2: return consignment.outDate || consignment.lastUpdated || consignment.startDate;
-            case 3: return consignment.arrivalDate || consignment.lastUpdated;
-            case 4: return consignment.actualCompletionDate || consignment.lastUpdated;
+            case 0: return t.assigned || t.creation;
+            case 1: return t.loading || t.assigned || t.creation;
+            case 2: return t.transit || t.loading || t.assigned;
+            case 3: return t.arrived || t.transit;
+            case 4: return t.delivered || t.arrived;
             default: return null;
         }
     }, [consignment]);
