@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -474,7 +473,7 @@ function MissionRegistryCard({
                                     </div>
                                 )}
                             </div>
-                            <span className="text-[9px] font-mono font-bold text-slate-400 pl-6">{row.driverMobile || '--'}</span>
+                            <span className="text-[10px] font-mono font-black text-slate-600 pl-6">{row.driverMobile || '--'}</span>
                         </>
                     ) : (
                         <Badge variant="outline" className="w-fit bg-slate-50 text-slate-400 border-slate-100 text-[8px] font-black uppercase whitespace-nowrap">FLEET PENDING</Badge>
@@ -695,7 +694,7 @@ function MissionRegistryCard({
 
                                     {isAdmin && !isReadOnly && (
                                         <>
-                                            <DropdownMenuSeparator className="bg-slate-50" />
+                                            <DropdownMenuSeparator className="bg-slate-100" />
                                             <DropdownMenuItem onClick={() => onAction('cancel', row)} className="gap-3 font-bold py-2.5 text-red-600 rounded-xl cursor-pointer hover:bg-red-50">
                                                 <Ban className="h-4 w-4" /> Purge Mission
                                             </DropdownMenuItem>
