@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, Suspense, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -26,25 +27,32 @@ import type { WithId, Shipment, Trip, Plant, SubUser, Carrier, LR, VehicleEntryE
 import { mockPlants } from '@/lib/mock-data';
 import { normalizePlantId, parseSafeDate, calculateDuration, generateRandomTripId, cn } from '@/lib/utils';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, query, doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, where, limit, onSnapshot, getDocs, orderBy, Timestamp, deleteDoc } from "firebase/firestore";
+import { collection, query, doc, updateDoc, setDoc, addDoc, serverTimestamp, runTransaction, getDocs, where, limit, onSnapshot, writeBatch, orderBy, deleteDoc } from "firebase/firestore";
 import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, ArrowRightLeft, Trash2, Ban, FileDown, Container, X, ClipboardList, CheckCircle2, Truck, PlusCircle, ArrowUpDown, ShieldCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
-import { format } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
+
+const DEFAULT_LMC_TERMS = [
+    "AGENCY NOT RESPONSIBLE FOR RAIN OR CALAMITY.",
+    "DISCREPANCIES MUST BE INTIMATED WITHIN 24 HOURS.",
+    "VEHICLE OWNER RESPONSIBLE AFTER YARD DEPARTURE.",
+    "ALL DISPUTES SUBJECT TO GHAZIABAD JURISDICTION."
+];
 
 type TripBoardTab = 'pending-assignment' | 'open-order' | 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
 /**
  * @fileOverview Trip Board Control Center.
  * Handles the central mission registry monitoring and status transitions.
- * Updated: Integrated horizontal scrolling for mobile navigation tabs with hidden scrollbars.
+ * Updated: Fixed ReferenceError by importing startOfDay, endOfDay, and subDays.
  */
 function TripBoardContent() {
   const { toast } = useToast();
@@ -453,7 +461,7 @@ function TripBoardContent() {
     }));
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, ws, "Mission Registry");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Mission Registry");
     XLSX.writeFile(workbook, `TripBoard_${activeTab}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
@@ -632,7 +640,7 @@ function TripBoardContent() {
                     plant: row.plant || { id: row.originPlantId, name: row.plantName },
                     items: manifestItems,
                     weightSelection: 'Assigned Weight',
-                    assignedTripWeight: row.dispatchedQty || row.assignedQtyInTrip || row.quantity,
+                    assignedTripWeight: row.quantity,
                     from: row.from || shipmentObj.loadingPoint || '',
                     to: row.unloadingPoint || shipmentObj.unloadingPoint || '',
                     consignorName: row.consignor || shipmentObj.consignor || '',
