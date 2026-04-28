@@ -78,19 +78,22 @@ export default function VehicleFormModal({ isOpen, onClose, vehicle, type, plant
   const onSubmit = async (values: FormValues) => {
     if (!firestore) return;
     try {
-        const dataToSave = {
+        // Registry Logic Node: Establish base payload without creation timestamp
+        const dataToSave: any = {
             ...values,
             vehicleType: type,
             status: vehicle?.status || 'Available',
             isDeleted: false,
             updatedAt: serverTimestamp(),
-            createdAt: vehicle?.id ? undefined : serverTimestamp(),
         };
 
-        if (isEditing) {
+        if (isEditing && vehicle) {
+            // CORRECTION PULSE: Standard update without overwriting original creation node
             await updateDoc(doc(firestore, "vehicles", vehicle.id), dataToSave);
             toast({ title: "Registry Updated", description: `Asset ${values.vehicleNumber} profile corrected.` });
         } else {
+            // PROVISION PULSE: Inject creation timestamp for new registry node
+            dataToSave.createdAt = serverTimestamp();
             await addDoc(collection(firestore, "vehicles"), dataToSave);
             toast({ title: "Node Provisioned", description: `New vehicle ${values.vehicleNumber} added to ${type} registry.` });
         }
@@ -200,7 +203,7 @@ export default function VehicleFormModal({ isOpen, onClose, vehicle, type, plant
 
                     <DialogFooter className="pt-10 border-t flex-row justify-end gap-4">
                         <Button type="button" variant="ghost" onClick={onClose} className="font-black text-slate-400 uppercase text-[11px] tracking-widest px-10 h-12 rounded-xl">Discard</Button>
-                        <Button type="submit" disabled={isSubmitting} className="bg-blue-900 hover:bg-black text-white px-16 h-12 rounded-xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl shadow-blue-900/30 transition-all active:scale-95 border-none">
+                        <Button type="submit" disabled={isSubmitting} className="bg-blue-900 hover:bg-black text-white px-16 h-12 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-blue-900/30 transition-all active:scale-95 border-none">
                             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                             Sync Registry
                         </Button>
