@@ -127,6 +127,7 @@ function TrackConsignmentContent() {
     /**
      * MISSION REGISTRY PROGRESSION LOGIC
      * Fallback strategy ensures the timeline is never empty if the mission has moved to later stages.
+     * UPDATED: Priority fallback to lastUpdated for VEHICLE ASSIGN node to handle ID20/ID23 discrepancy.
      */
     const getStageTimestamp = useCallback((index: number) => {
         if (!activeTrip) return null;
@@ -135,7 +136,7 @@ function TrackConsignmentContent() {
         // Resolve raw timestamp nodes
         const t = {
             allocated: parseSafeDate(shipment.creationDate || activeTrip.creationDate),
-            assigned: parseSafeDate(activeTrip.startDate),
+            assigned: parseSafeDate(activeTrip.startDate || activeTrip.lastUpdated),
             loading: parseSafeDate(activeTrip.entryTime),
             transit: parseSafeDate(activeTrip.outDate),
             arrived: parseSafeDate(activeTrip.arrivalDate),
@@ -144,7 +145,7 @@ function TrackConsignmentContent() {
 
         switch (index) {
             case 0: return t.allocated;
-            case 1: return t.assigned; // STRICT: Only show assignment time
+            case 1: return t.assigned; // STRICT: Only show assignment/update time
             case 2: return t.loading || t.assigned || t.allocated;
             case 3: return t.transit || t.loading || t.assigned;
             case 4: return t.arrived || t.transit;
@@ -287,7 +288,7 @@ function TrackConsignmentContent() {
                         const tripsList = lTripsSnap.docs.map(d => ({ 
                             id: d.id, 
                             ...d.data(),
-                            startDate: parseSafeDate(d.data().startDate)
+                            startDate: parseSafeDate(d.data().startDate || d.data().lastUpdated)
                         }));
                         setLinkedTrips(tripsList);
                     }
