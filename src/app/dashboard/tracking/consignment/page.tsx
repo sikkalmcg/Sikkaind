@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, Suspense, useRef } from 'react';
@@ -13,27 +14,22 @@ import {
     ShieldCheck, 
     Radar, 
     Factory, 
-    Loader2,
-    Calendar,
-    User,
-    Clock,
-    CircleDot,
-    X as XIcon,
-    AlertCircle,
-    Smartphone,
-    RefreshCcw,
+    Loader2, 
     ClipboardList,
     CheckCircle2,
     Box,
-    ArrowLeft,
     FileText,
     Weight,
     XCircle,
-    Navigation
+    Navigation,
+    Activity,
+    AlertCircle,
+    Smartphone,
+    User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFirestore } from '@/firebase';
-import { collection, query, where, getDocs, limit, doc, getDoc, Timestamp, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { format, isValid } from 'date-fns';
 import { cn, parseSafeDate, normalizePlantId } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -50,6 +46,7 @@ const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracki
  * Hardened: Robust stage timestamp resolution with progression fallbacks.
  * Optimized: Uses ref lock to prevent infinite re-loads of truck animation.
  * Fixed: Telemetry sync node ordering resolved. Fallback timestamp node for specific plants.
+ * Layout: Renamed stages to match public standard (VEHICLE ASSIGN).
  */
 function TrackConsignmentContent() {
     const { toast } = useToast();
@@ -87,7 +84,8 @@ function TrackConsignmentContent() {
     }, [firestore]);
 
     const stages = [
-        { id: 'assign', label: 'ASSIGN', icon: ClipboardList },
+        { id: 'allocated', label: 'ORDER ALLOCATED', icon: FileText },
+        { id: 'assign', label: 'VEHICLE ASSIGN', icon: ClipboardList },
         { id: 'loading', label: 'LOADING', icon: Factory },
         { id: 'transit', label: 'IN-TRANSIT', icon: Truck },
         { id: 'arrived', label: 'ARRIVED', icon: MapPin },
@@ -96,11 +94,12 @@ function TrackConsignmentContent() {
 
     const getTargetIndex = useCallback((status: string) => {
         const s = status?.toLowerCase().trim().replace(/[\s/_-]+/g, '-') || '';
-        if (['delivered', 'closed'].includes(s)) return 4;
-        if (['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'rejected'].includes(s)) return 3;
-        if (['in-transit', 'out-for-delivery', 'dispatched'].includes(s)) return 2;
-        if (['yard', 'loading', 'loaded', 'loading-complete', 'yard-loading'].includes(s)) return 1;
-        return 0;
+        if (['delivered', 'closed'].includes(s)) return 5;
+        if (['arrived', 'arrival-for-delivery', 'arrive-for-deliver', 'rejected'].includes(s)) return 4;
+        if (['in-transit', 'out-for-delivery', 'dispatched'].includes(s)) return 3;
+        if (['yard', 'loading', 'loaded', 'loading-complete', 'yard-loading'].includes(s)) return 2;
+        if (['assigned', 'vehicle-assigned'].includes(s)) return 1;
+        return 0; // ORDER ALLOCATED
     }, []);
 
     /**
@@ -111,20 +110,21 @@ function TrackConsignmentContent() {
         if (!consignment) return null;
         
         const t = {
+            allocated: parseSafeDate(consignment.shipment?.creationDate || consignment.creationDate),
             assigned: parseSafeDate(consignment.startDate),
             loading: parseSafeDate(consignment.entryTime),
             transit: parseSafeDate(consignment.outDate),
             arrived: parseSafeDate(consignment.arrivalDate),
-            delivered: parseSafeDate(consignment.actualCompletionDate),
-            creation: parseSafeDate(consignment.shipment?.creationDate || consignment.creationDate)
+            delivered: parseSafeDate(consignment.actualCompletionDate)
         };
 
         switch (index) {
-            case 0: return t.assigned || t.creation;
-            case 1: return t.loading || t.assigned || t.creation;
-            case 2: return t.transit || t.loading || t.assigned;
-            case 3: return t.arrived || t.transit;
-            case 4: return t.delivered || t.arrived;
+            case 0: return t.allocated;
+            case 1: return t.assigned; // STRICT: Only show assignment time
+            case 2: return t.loading || t.assigned || t.allocated;
+            case 3: return t.transit || t.loading || t.assigned;
+            case 4: return t.arrived || t.transit;
+            case 5: return t.delivered || t.arrived;
             default: return null;
         }
     }, [consignment]);
@@ -148,10 +148,10 @@ function TrackConsignmentContent() {
                 
                 if (rejected) {
                     setTimeout(() => {
-                        setAnimIndex(4);
+                        setAnimIndex(5);
                         setTimeout(() => {
                             setIsReversed(true);
-                            let rev = 4;
+                            let rev = 5;
                             const revInterval = setInterval(() => {
                                 rev--;
                                 if (rev >= 0) {
@@ -376,7 +376,7 @@ function TrackConsignmentContent() {
                                         (consignment.isRejected && isReversed) ? "bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]" : "bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.5)]"
                                     )}
                                     initial={{ width: 0 }}
-                                    animate={{ width: `${(animIndex / 4) * 100}%` }}
+                                    animate={{ width: `${(animIndex / 5) * 100}%` }}
                                     transition={{ duration: 0.8, ease: "easeInOut" }}
                                 />
                             </div>
@@ -385,7 +385,7 @@ function TrackConsignmentContent() {
                                 {stages.map((stage, i) => {
                                     const active = i <= animIndex;
                                     const isTarget = i === animIndex;
-                                    const isFinal = i === 4;
+                                    const isFinal = i === 5;
                                     
                                     const activeColor = (consignment.isRejected && isReversed) ? "bg-red-600 border-red-400" : "bg-blue-600 border-blue-400";
                                     const label = (isFinal && consignment.isRejected) ? 'MISSION REJECTED' : stage.label;

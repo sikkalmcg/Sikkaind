@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense, useRef } from 'react';
@@ -106,7 +107,7 @@ function TrackConsignmentContent() {
 
     const stages = [
         { id: 'allocated', label: 'ORDER ALLOCATED', icon: FileText },
-        { id: 'assign', label: 'ASSIGN', icon: ClipboardList },
+        { id: 'assign', label: 'VEHICLE ASSIGN', icon: ClipboardList },
         { id: 'loading', label: 'LOADING', icon: Factory },
         { id: 'transit', label: 'IN-TRANSIT', icon: Truck },
         { id: 'arrived', label: 'ARRIVED', icon: MapPin },
@@ -120,7 +121,7 @@ function TrackConsignmentContent() {
         if (['in-transit', 'out-for-delivery', 'dispatched'].includes(s)) return 3;
         if (['yard', 'loading', 'loaded', 'loading-complete', 'yard-loading'].includes(s)) return 2;
         if (['assigned', 'vehicle-assigned'].includes(s)) return 1;
-        return 0;
+        return 0; // ORDER ALLOCATED
     }, []);
 
     /**
@@ -143,7 +144,7 @@ function TrackConsignmentContent() {
 
         switch (index) {
             case 0: return t.allocated;
-            case 1: return t.assigned || t.allocated; // Fallback to allocation if assign pulse missing
+            case 1: return t.assigned; // STRICT: Only show assignment time
             case 2: return t.loading || t.assigned || t.allocated;
             case 3: return t.transit || t.loading || t.assigned;
             case 4: return t.arrived || t.transit;
