@@ -23,9 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 /**
  * @fileOverview Order Plan Control (Master Hub).
  * UI REFINEMENT: Unified navigation tabs into the primary header for high-density ERP layout.
- * Hardened: Robust path resolution for mission revocation and bulk purge nodes.
- * Fixed: Robust scroll-to-top logic node using RAF and multi-stage timeout to block auto-scroll jump.
- * IMPORT FIX: Added useCollection to resolve runtime reference error.
+ * Updated: Enabled horizontal scrolling for mobile navigation tabs with hidden scrollbars.
  */
 function ShipmentPlanContent() {
   const { toast } = useToast();
@@ -47,23 +45,15 @@ function ShipmentPlanContent() {
   const [editingShipment, setEditingShipment] = useState<WithId<Shipment> | null>(null);
 
   // Registry Pulse: Reset scroll to top on tab change or mount
-  // Hardened to prevent jump to "Invoice Number" section
   useEffect(() => {
     const forceScrollTop = () => {
         if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollTop = 0;
-            // Also reset window scroll to be safe
             window.scrollTo(0, 0);
         }
     };
-
-    // Stage 1: Immediate Reset
     forceScrollTop();
-
-    // Stage 2: Animation Frame Sync
     const raf = requestAnimationFrame(forceScrollTop);
-
-    // Stage 3: Delayed Pulse (Overrides browser autofocus on lower inputs)
     const timer1 = setTimeout(forceScrollTop, 50);
     const timer2 = setTimeout(forceScrollTop, 150);
     const timer3 = setTimeout(forceScrollTop, 300);
@@ -79,7 +69,6 @@ function ShipmentPlanContent() {
   const handleTabChange = (val: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', val);
-    // MISSION FIX: Enable scroll reset during router transition
     router.replace(`${pathname}?${params.toString()}`, { scroll: true });
   };
 
@@ -286,28 +275,24 @@ function ShipmentPlanContent() {
   return (
     <div className="flex flex-1 flex-col h-full bg-[#f8fafc] overflow-hidden">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col overflow-hidden">
-            {/* UNIFIED HEADER TERMINAL */}
             <div className="bg-white border-b px-4 md:px-8 py-2 md:py-3 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 shadow-sm relative z-30">
                 <div className="flex flex-wrap items-center gap-8 md:gap-12">
-                    {/* TITLE NODE */}
                     <div className="flex items-center gap-3">
                         <div className="p-1.5 bg-blue-900 text-white rounded-xl shadow-lg rotate-3 shrink-0"><Package className="h-5 w-5" /></div>
                         <h1 className="text-sm md:text-xl font-black text-blue-900 uppercase tracking-tight italic leading-none truncate">Order Plan Control</h1>
                     </div>
 
-                    {/* NAVIGATION TABS NODE */}
-                    <TabsList className="bg-transparent h-auto p-0 border-b-0 gap-6 md:gap-10 justify-start">
-                        <TabsTrigger value="create" className="data-[state=active]:border-b-4 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 pb-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-1.5 md:gap-2 whitespace-nowrap">
+                    <TabsList className="bg-transparent h-auto p-0 border-b-0 gap-6 md:gap-10 justify-start overflow-x-auto no-scrollbar flex-nowrap">
+                        <TabsTrigger value="create" className="data-[state=active]:border-b-4 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 pb-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-1.5 md:gap-2 whitespace-nowrap shrink-0">
                             <Package className="h-3.5 w-3.5" /> Create Order
                         </TabsTrigger>
-                        <TabsTrigger value="history" className="data-[state=active]:border-b-4 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 pb-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-1.5 md:gap-2 whitespace-nowrap">
+                        <TabsTrigger value="history" className="data-[state=active]:border-b-4 data-[state=active]:border-blue-900 data-[state=active]:bg-transparent rounded-none px-0 pb-1 text-[10px] md:text-[11px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-1.5 md:gap-2 whitespace-nowrap shrink-0">
                             <ListTree className="h-3.5 w-3.5" /> Order Ledger 
-                            <Badge className="ml-1 md:ml-2 bg-slate-100 text-slate-500 border-none font-black text-[7px] md:text-[8px] px-1.5 h-4 md:h-5">{filteredShipments.length}</Badge>
+                            <Badge className="ml-1 md:ml-2 bg-slate-100 text-slate-500 border-none font-black text-[7px] md:text-[8px] px-1.5 h-4 md:h-5 shrink-0">{filteredShipments.length}</Badge>
                         </TabsTrigger>
                     </TabsList>
                 </div>
                 
-                {/* LIFTING SCOPE SELECT */}
                 <div className="flex items-center gap-2 bg-slate-50/50 p-1.5 rounded-xl border border-slate-100 shadow-inner w-full md:w-auto">
                     <div className="flex flex-col gap-0.5 flex-1 md:flex-none">
                         <Label className="text-[7px] md:text-[8px] font-black uppercase text-slate-400 px-1">Lifting Scope</Label>
@@ -332,7 +317,6 @@ function ShipmentPlanContent() {
                 </div>
             </div>
 
-            {/* CONTENT NODE */}
             <div ref={scrollContainerRef} className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6">
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                     <TabsContent value="create" className="focus-visible:ring-0 m-0">

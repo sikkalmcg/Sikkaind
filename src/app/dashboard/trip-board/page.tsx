@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, Suspense, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -32,22 +31,20 @@ import { Loader2, WifiOff, MonitorPlay, RefreshCcw, Search, Factory, Filter, Arr
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/context/LoadingContext';
-import { Input } from '@/components/ui/input';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import { format } from 'date-fns';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { DatePicker } from '@/components/date-picker';
-import { startOfDay, endOfDay, subDays, format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Pagination from '@/components/dashboard/vehicle-management/Pagination';
-import { DEFAULT_LMC_TERMS } from '@/lib/constants';
 
 type TripBoardTab = 'pending-assignment' | 'open-order' | 'loading' | 'transit' | 'arrived' | 'pod-status' | 'rejection' | 'closed';
 
 /**
  * @fileOverview Trip Board Control Center.
  * Handles the central mission registry monitoring and status transitions.
- * Updated: Integrated "Change to Contract" logic node with LR purge capability.
- * Hardened: Vehicle correction node now supports Transporter Name and Freight Rate synchronization.
+ * Updated: Integrated horizontal scrolling for mobile navigation tabs with hidden scrollbars.
  */
 function TripBoardContent() {
   const { toast } = useToast();
@@ -57,6 +54,7 @@ function TripBoardContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { showLoader, hideLoader } = useLoading();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   const activeTab = (searchParams.get('tab') as TripBoardTab) || 'pending-assignment';
   const urlPlants = useMemo(() => (searchParams.get('plants')?.split(',').filter(Boolean) || []).map(normalizePlantId), [searchParams]);
@@ -253,7 +251,6 @@ function TripBoardContent() {
         const lr = lrs.find(l => l.tripDocId === t.id || l.tripId === t.tripId || (l.lrNumber === t.lrNumber && l.originPlantId === t.originPlantId));
         const entry = entries.find(e => (e.tripId === t.id || (e.vehicleNumber === t.vehicleNumber && e.status === 'OUT')) && normalizePlantId(e.plantId) === tPlantId);
         
-        // MISSION FIX: Robust Carrier Resolution (ID + Name Handshake)
         const carrier = (dbCarriers || []).find(c => 
             c.id === t.carrierId || 
             c.id === shipment?.carrierId || 
@@ -454,7 +451,7 @@ function TripBoardContent() {
     const exportData = processedData.map(t => ({
         'Plant': t.plantName, 'ID': t.tripId || t.shipmentId, 'Invoice Number': t.invoiceNumbers || '--', 'Vehicle Number': t.vehicleNumber || '--', 'LR Number': t.lrNumber || '--', 'Consignor': t.consignor, 'Consignee': t.consignee || t.billToParty, 'Destination': t.unloadingPoint, 'Weight (MT)': t.dispatchedQty || t.quantity, 'Status': t.tripStatus || t.currentStatusId, 'Date': t.startDate ? format(t.startDate, 'dd-MM-yy HH:mm') : (t.creationDate ? format(t.creationDate, 'dd-MM-yy HH:mm') : '--')
     }));
-    const ws = XLSX.utils.json_to_sheet(exportData);
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, ws, "Mission Registry");
     XLSX.writeFile(workbook, `TripBoard_${activeTab}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
@@ -552,7 +549,6 @@ function TripBoardContent() {
             const pIdStr = normalizePlantId(row.originPlantId);
             const isSikkaLmcShorthand = row.carrierName?.toLowerCase().trim() === 'sikka lmc';
             
-            // MISSION FIX: Improved Carrier Resolution (Respecting assignments)
             let finalCarrier: any = row.carrierObj || (dbCarriers || []).find(c => 
                 c.id === row.carrierId || 
                 c.id === row.shipmentObj?.carrierId || 
@@ -562,7 +558,7 @@ function TripBoardContent() {
             if (!finalCarrier && (pIdStr === '1426' || pIdStr === 'ID20')) {
                 finalCarrier = {
                     id: 'ID20',
-                    name: 'SIKKA LMC',
+                    name: 'SIKKA INDUSTRIES AND LOGISTICS',
                     address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
                     mobile: '9136688004',
                     gstin: '07AYQPS6936B1ZZ',
@@ -704,7 +700,7 @@ function TripBoardContent() {
             if (pIdStr === '1426' || pIdStr === 'ID20') {
                 finalCarrier = {
                     id: 'ID20',
-                    name: 'SIKKA LMC',
+                    name: 'SIKKA INDUSTRIES AND LOGISTICS',
                     address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
                     mobile: '9136688004',
                     gstin: '07AYQPS6936B1ZZ',
@@ -1213,7 +1209,7 @@ function TripBoardContent() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); setSelectedPendingIds([]); }} className="w-full mt-2 md:mt-3">
-          <TabsList className="bg-transparent h-8 md:h-9 p-0 border-b-0 gap-3 md:gap-6 justify-start overflow-x-auto no-scrollbar shrink-0">
+          <TabsList className="bg-transparent h-8 md:h-9 p-0 border-b-0 gap-3 md:gap-6 justify-start overflow-x-auto no-scrollbar flex-nowrap shrink-0">
             {[
                 { id: 'pending-assignment', label: 'Assign fleet Pending', count: counts.pendingAssignment, icon: ClipboardList },
                 { id: 'open-order', label: 'Open Order', count: counts.openOrder },
@@ -1224,9 +1220,9 @@ function TripBoardContent() {
                 { id: 'rejection', label: 'Rejection/SRN', count: counts.rejection },
                 { id: 'closed', label: 'History Ledger', count: counts.closed }
             ].map(t => (
-                <TabsTrigger key={t.id} value={t.id} className="relative h-8 md:h-9 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[8px] md:text-[10px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-1 md:gap-1.5 whitespace-nowrap">
+                <TabsTrigger key={t.id} value={t.id} className="relative h-8 md:h-9 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[8px] md:text-[10px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all flex items-center gap-1 md:gap-1.5 whitespace-nowrap shrink-0">
                     {t.icon && <t.icon className="h-2.5 md:h-3 w-2.5 md:w-3" />}
-                    {t.label} <Badge className="ml-1 bg-slate-100 text-slate-500 border-none font-black text-[7px] md:text-[8px] px-1 h-4">{t.count}</Badge>
+                    {t.label} <Badge className="ml-1 bg-slate-100 text-slate-500 border-none font-black text-[7px] md:text-[8px] px-1 h-4 shrink-0">{t.count}</Badge>
                 </TabsTrigger>
             ))}
           </TabsList>

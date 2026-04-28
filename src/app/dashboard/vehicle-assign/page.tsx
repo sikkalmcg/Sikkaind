@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -32,6 +31,11 @@ import { Card } from '@/components/ui/card';
 
 export type OrderTab = 'pending' | 'process' | 'dispatched' | 'cancelled';
 
+/**
+ * @fileOverview Fleet Allocation HUB.
+ * Registry terminal for mapping lifting nodes to vehicles.
+ * Updated: Enabled horizontal scrolling for mobile navigation tabs with hidden scrollbars.
+ */
 function OpenOrdersContent() {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -269,8 +273,8 @@ function OpenOrdersContent() {
           summarizedItems,
           totalUnitsCount,
           paymentTerm: linkedTrips[0]?.paymentTerm || s.paymentTerm,
-          consignee: s.billToParty || '--', // MISSION FIX: Explicit mapping to Bill To Party
-          shipToParty: s.shipToParty || '--' // MISSION FIX: Correctly map Ship To
+          consignee: s.billToParty || '--', 
+          shipToParty: s.shipToParty || '--' 
         };
       });
   }, [allData, dbCarriers, plants, selectedPlants]);
@@ -547,15 +551,15 @@ function OpenOrdersContent() {
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => { updateURL(selectedPlants, v); setCurrentPage(1); }} className="w-full">
-          <TabsList className="bg-transparent h-10 p-0 border-b-0 gap-10 justify-start">
+          <TabsList className="bg-transparent h-10 p-0 border-b-0 gap-10 justify-start overflow-x-auto no-scrollbar flex-nowrap shrink-0">
             {[
                 { id: 'pending', label: 'Awaiting Fleet', count: counts.pending },
                 { id: 'process', label: 'Allocated Plants', count: counts.process },
                 { id: 'dispatched', label: 'Outbound Flow', count: counts.dispatched },
                 { id: 'cancelled', label: 'Revoked Archive', count: counts.cancelled }
             ].map(t => (
-                <TabsTrigger key={t.id} value={t.id} className="relative h-10 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[11px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all">
-                    {t.label} <Badge className="ml-2 bg-slate-100 text-slate-500 border-none font-black text-[9px]">{t.count}</Badge>
+                <TabsTrigger key={t.id} value={t.id} className="relative h-10 rounded-none border-b-2 border-b-transparent data-[state=active]:border-b-blue-900 data-[state=active]:bg-transparent px-0 font-bold uppercase text-[11px] tracking-widest text-slate-400 data-[state=active]:text-blue-900 transition-all shrink-0">
+                    {t.label} <Badge className="ml-2 bg-slate-100 text-slate-500 border-none font-black text-[9px] shrink-0">{t.count}</Badge>
                 </TabsTrigger>
             ))}
           </TabsList>
@@ -595,7 +599,7 @@ function OpenOrdersContent() {
         <VehicleAssignModal 
             isOpen={isAssignModalOpen}
             onClose={() => { setAssignModalOpen(false); setEditingTrip(null); }}
-            shipments={selectedShipment}
+            shipments={[selectedShipment]}
             trip={editingTrip}
             carriers={dbCarriers || []}
             onAssignmentComplete={() => { setAssignModalOpen(false); setEditingTrip(null); }}
