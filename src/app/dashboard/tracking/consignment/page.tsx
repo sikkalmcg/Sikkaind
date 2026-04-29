@@ -45,8 +45,7 @@ const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracki
  * @fileOverview Consignment Terminal - Tracking Hub.
  * Hardened: Robust stage timestamp resolution with progression fallbacks.
  * Optimized: Uses ref lock to prevent infinite re-loads of truck animation.
- * Fixed: Telemetry sync node ordering resolved. Fallback timestamp node for specific plants.
- * Layout: Renamed stages to match public standard (VEHICLE ASSIGN).
+ * UI: descriptive mission node labels on map.
  */
 function TrackConsignmentContent() {
     const { toast } = useToast();
@@ -102,11 +101,6 @@ function TrackConsignmentContent() {
         return 0; // ORDER ALLOCATED
     }, []);
 
-    /**
-     * MISSION REGISTRY PROGRESSION LOGIC
-     * Fallback strategy ensures the timeline is never empty if the mission has moved to later stages.
-     * UPDATED: Priority fallback to lastUpdated for VEHICLE ASSIGN node to handle ID20/ID23 discrepancy.
-     */
     const getStageTimestamp = useCallback((index: number) => {
         if (!consignment) return null;
         
@@ -121,7 +115,7 @@ function TrackConsignmentContent() {
 
         switch (index) {
             case 0: return t.allocated;
-            case 1: return t.assigned; // STRICT: Only show assignment/update time
+            case 1: return t.assigned;
             case 2: return t.loading || t.assigned || t.allocated;
             case 3: return t.transit || t.loading || t.assigned;
             case 4: return t.arrived || t.transit;
@@ -131,7 +125,6 @@ function TrackConsignmentContent() {
     }, [consignment]);
 
     const runAnimation = useCallback((targetIndex: number, rejected: boolean) => {
-        // Clear existing pulse to prevent collision
         if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
         
         setAnimIndex(-1);
@@ -179,7 +172,7 @@ function TrackConsignmentContent() {
             const result = await response.json();
     
             if (Array.isArray(result) && result.length > 0) {
-                const vehicleData = result.find(v => v.vehicleNumber === vNo);
+                const vehicleData = result.find((v: any) => v.vehicleNumber === vNo);
                 if (vehicleData) {
                     setLivePos(vehicleData);
                     setIsGpsEnabled(true);
@@ -190,7 +183,6 @@ function TrackConsignmentContent() {
         }
     }, [apiKey]);
 
-    // REAL-TIME REGISTRY LISTENER node
     useEffect(() => {
         if (!consignment?.id || !firestore) return;
 
@@ -232,7 +224,7 @@ function TrackConsignmentContent() {
         setLivePos(null);
         setIsGpsEnabled(false);
         setAnimIndex(-1);
-        lastTargetIndexRef.current = -1; // Reset lock for new search
+        lastTargetIndexRef.current = -1;
 
         try {
             const tripsRef = collection(firestore, "trips");
@@ -251,7 +243,8 @@ function TrackConsignmentContent() {
             }
 
             const trip = { id: snap.docs[0].id, ...snap.docs[0].data() } as any;
-            const plantSnap = await getDoc(doc(firestore, "logistics_plants", trip.originPlantId));
+            const plantId = normalizePlantId(trip.originPlantId);
+            const plantSnap = await getDoc(doc(firestore, "logistics_plants", plantId));
             trip.plantName = plantSnap.exists() ? plantSnap.data().name : trip.originPlantId;
             
             trip.toCity = trip.unloadingPoint?.split(',')[0].trim() || 'N/A';
@@ -266,7 +259,7 @@ function TrackConsignmentContent() {
             const result = await response.json();
             
             if (Array.isArray(result) && result.length > 0) {
-                const vehicleData = result.find(v => v.vehicleNumber === trip.vehicleNumber);
+                const vehicleData = result.find((v: any) => v.vehicleNumber === trip.vehicleNumber);
                 if (vehicleData) {
                     setLivePos(vehicleData);
                     setIsGpsEnabled(true);
@@ -276,8 +269,6 @@ function TrackConsignmentContent() {
             const status = (trip.tripStatus || trip.currentStatusId || 'assigned').toLowerCase();
             const isRejected = status === 'rejected';
 
-            // Resolve shipment context for fallback dates
-            const plantId = normalizePlantId(trip.originPlantId);
             const shipId = Array.isArray(trip.shipmentIds) ? trip.shipmentIds[0] : trip.shipmentId;
             let shipmentData = null;
             if (shipId) {
@@ -308,6 +299,9 @@ function TrackConsignmentContent() {
             handleSearch(urlSearch);
         }
     }, [urlSearch, firestore, apiKey, handleSearch]);
+
+    const originLabel = useMemo(() => consignment?.plantName || 'Lifting Node', [consignment]);
+    const destinationLabel = useMemo(() => consignment?.shipToParty || 'Drop Node', [consignment]);
 
     return (
         <main className="flex flex-1 flex-col h-full bg-[#f8fafc] animate-in fade-in duration-500 overflow-y-auto custom-scrollbar">
@@ -367,9 +361,7 @@ function TrackConsignmentContent() {
                             ))}
                         </div>
 
-                        {/* ADVANCED PROGRESS ANIMATION NODE */}
                         <div className="relative p-12 md:p-20 bg-white border border-slate-100 rounded-[4rem] shadow-3xl overflow-hidden min-h-[450px] flex flex-col justify-center">
-                            {/* PROGRESS LINE BACKGROUND */}
                             <div className="absolute top-1/2 left-24 right-24 h-2 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden shadow-inner">
                                 <motion.div 
                                     className={cn(
@@ -464,7 +456,6 @@ function TrackConsignmentContent() {
                             </AnimatePresence>
                         </div>
 
-                        {/* LIVE MAP NODE */}
                         <div className="pt-8">
                             <Card className="border-none shadow-3xl rounded-[3rem] overflow-hidden bg-white">
                                 <CardHeader className="bg-slate-900 text-white p-6 border-b border-white/5 flex items-center justify-between">
@@ -483,9 +474,10 @@ function TrackConsignmentContent() {
                                         livePos={livePos}
                                         origin={consignment.loadingPoint || consignment.fromCity}
                                         destination={consignment.unloadingPoint || consignment.toCity}
+                                        originLabel={originLabel}
+                                        destinationLabel={destinationLabel}
                                         height="100%"
                                     />
-                                    {/* MAP OVERLAY LEGEND */}
                                     <div className="absolute bottom-6 right-6 bg-slate-900/80 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-3xl space-y-3 z-10 pointer-events-none">
                                         <div className="flex items-center gap-3">
                                             <div className="h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" />

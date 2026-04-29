@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -11,6 +12,10 @@ const MAPS_JS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
 const DEFAULT_RUNNING_ICON = "https://png.pngtree.com/png-vector/20250122/ourlarge/pngtree-colorful-delivery-truck-icon-png-image_15301010.png";
 const DEFAULT_STOPPED_ICON = "https://cdn-icons-png.flaticon.com/512/2555/2555013.png";
 
+// Custom Mission Markers
+const ORIGIN_ICON = "https://cdn-icons-png.flaticon.com/512/3061/3061341.png"; // Factory/Lifting Node
+const DESTINATION_ICON = "https://cdn-icons-png.flaticon.com/512/2271/2271062.png"; // Warehouse/Drop Node
+
 const libraries: ("places")[] = ['places'];
 
 interface TrackingMapProps {
@@ -18,6 +23,8 @@ interface TrackingMapProps {
   livePos?: any;
   origin?: string | { lat: number; lng: number; name: string };
   destination?: string | { lat: number; lng: number; name: string };
+  originLabel?: string;
+  destinationLabel?: string;
   height?: string;
   runningIconUrl?: string | null;
   stoppedIconUrl?: string | null;
@@ -70,6 +77,8 @@ export default function TrackingMap({
   livePos, 
   origin, 
   destination, 
+  originLabel,
+  destinationLabel,
   height = "500px",
   runningIconUrl,
   stoppedIconUrl
@@ -197,12 +206,34 @@ export default function TrackingMap({
             {/* Start Node Marker */}
             <Marker 
                 position={directions.routes[0].legs[0].start_location}
-                label={{ text: "Lifting Node", color: "white", fontSize: "10px", fontWeight: "900" }}
+                icon={{
+                    url: ORIGIN_ICON,
+                    scaledSize: new google.maps.Size(40, 40),
+                    anchor: new google.maps.Point(20, 40)
+                }}
+                label={{ 
+                    text: originLabel || "Lifting Node", 
+                    color: "white", 
+                    fontSize: "11px", 
+                    fontWeight: "900",
+                    className: "bg-black/80 px-2 py-1 rounded-md shadow-xl border border-white/20"
+                }}
             />
             {/* End Node Marker */}
             <Marker 
                 position={directions.routes[0].legs[0].end_location}
-                label={{ text: "Drop Node", color: "white", fontSize: "10px", fontWeight: "900" }}
+                icon={{
+                    url: DESTINATION_ICON,
+                    scaledSize: new google.maps.Size(40, 40),
+                    anchor: new google.maps.Point(20, 40)
+                }}
+                label={{ 
+                    text: destinationLabel || "Drop Node", 
+                    color: "white", 
+                    fontSize: "11px", 
+                    fontWeight: "900",
+                    className: "bg-blue-600/90 px-2 py-1 rounded-md shadow-xl border border-white/20"
+                }}
             />
           </>
         )}

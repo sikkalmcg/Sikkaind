@@ -61,7 +61,7 @@ const TrackingMap = dynamic(() => import('@/components/dashboard/shipment-tracki
  * @fileOverview Public Track Consignment Terminal v3.0.
  * Hardened: Robust stage timestamp resolution with progression fallbacks.
  * Sync: Handshakes with Wheelseye satellite registry for real-time telemetry.
- * UI: High-density layout for mission manifest and route visualization.
+ * UI: High-density layout with descriptive mission node labels on map.
  */
 
 function TrackConsignmentContent() {
@@ -124,16 +124,10 @@ function TrackConsignmentContent() {
         return 0; // ORDER ALLOCATED
     }, []);
 
-    /**
-     * MISSION REGISTRY PROGRESSION LOGIC
-     * Fallback strategy ensures the timeline is never empty if the mission has moved to later stages.
-     * UPDATED: Priority fallback to lastUpdated for VEHICLE ASSIGN node to handle ID20/ID23 discrepancy.
-     */
     const getStageTimestamp = useCallback((index: number) => {
         if (!activeTrip) return null;
         const shipment = activeTrip.shipment || {};
         
-        // Resolve raw timestamp nodes
         const t = {
             allocated: parseSafeDate(shipment.creationDate || activeTrip.creationDate),
             assigned: parseSafeDate(activeTrip.startDate || activeTrip.lastUpdated),
@@ -145,7 +139,7 @@ function TrackConsignmentContent() {
 
         switch (index) {
             case 0: return t.allocated;
-            case 1: return t.assigned; // STRICT: Only show assignment/update time
+            case 1: return t.assigned;
             case 2: return t.loading || t.assigned || t.allocated;
             case 3: return t.transit || t.loading || t.assigned;
             case 4: return t.arrived || t.transit;
@@ -242,6 +236,9 @@ function TrackConsignmentContent() {
                     const toLoc = tripData.unloadingPoint || tripData.destination || shipmentData?.unloadingPoint || '';
                     tripData.toCity = toLoc.split(',')[0].trim();
 
+                    const plantSnap = await getDoc(doc(firestore, "logistics_plants", plantId));
+                    tripData.plantName = plantSnap.exists() ? plantSnap.data().name : tripData.originPlantId;
+
                     setActiveTrip({ ...tripData, shipment: shipmentData });
                     
                     const status = (tripData.tripStatus || tripData.currentStatusId || 'assigned').toLowerCase();
@@ -249,7 +246,6 @@ function TrackConsignmentContent() {
                     lastTargetIndexRef.current = targetIdx;
                     runAnimation(targetIdx, status === 'rejected');
 
-                    // Immediate Telemetry Handshake
                     if (tripData.vehicleNumber) {
                         refreshTelemetry(tripData.vehicleNumber);
                     }
@@ -297,7 +293,6 @@ function TrackConsignmentContent() {
                 }
             }
         } catch (e: any) {
-            console.error("Registry resolving error:", e);
             setError("Registry Handshake Failure.");
         } finally {
             setIsSearching(false);
@@ -315,7 +310,6 @@ function TrackConsignmentContent() {
         }
     }, [registryInput, searchType]);
 
-    // Live Telemetry Sync Loop
     useEffect(() => {
         if (searchType !== 'TRIP' || !activeTrip?.vehicleNumber) return;
         const interval = setInterval(() => {
@@ -324,7 +318,6 @@ function TrackConsignmentContent() {
         return () => clearInterval(interval);
     }, [activeTrip?.vehicleNumber, searchType, refreshTelemetry]);
 
-    // Conditional Map Trigger Node
     const showLiveMap = useMemo(() => {
         if (searchType !== 'TRIP' || !activeTrip) return false;
         const s = (activeTrip.tripStatus || activeTrip.currentStatusId || '').toLowerCase().trim().replace(/[\s/_-]+/g, '-');
@@ -362,10 +355,8 @@ function TrackConsignmentContent() {
         return baseFields;
     }, [shipmentResult, activeTrip, linkedTrips, searchType]);
 
-    const formattedOrderTime = useMemo(() => {
-        const d = parseSafeDate(shipmentResult?.creationDate || activeTrip?.shipment?.creationDate);
-        return d ? format(d, 'dd MMM yyyy') : '--';
-    }, [shipmentResult?.creationDate, activeTrip?.shipment?.creationDate]);
+    const originLabel = useMemo(() => activeTrip?.plantName || 'Lifting Node', [activeTrip]);
+    const destinationLabel = useMemo(() => activeTrip?.shipToParty || 'Drop Node', [activeTrip]);
 
     return (
         <div className="min-h-screen bg-white flex flex-col items-center py-6 px-4 md:py-10 font-body">
@@ -467,9 +458,6 @@ function TrackConsignmentContent() {
                                         <p className="text-xl md:text-2xl font-black text-red-900 leading-relaxed uppercase tracking-tight italic text-center">
                                             Sale Order <span className="text-red-700">{shipmentResult?.shipmentId}</span> has been CANCELLED.
                                         </p>
-                                        <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mt-3">
-                                            Registry Revocation node established
-                                        </p>
                                         {shipmentResult.cancelReason && (
                                             <div className="mt-8 p-6 bg-white border border-red-100 rounded-2xl shadow-inner max-w-xl w-full">
                                                 <p className="text-[10px] font-black uppercase text-red-300 mb-2 tracking-widest">OFFICIAL REMARK</p>
@@ -523,7 +511,7 @@ function TrackConsignmentContent() {
                                                 <p className="text-md md:text-lg font-bold text-slate-700 leading-relaxed uppercase tracking-tight italic text-center">
                                                     {linkedTrips.length === 0 ? (
                                                         <>
-                                                            Sale Order <span className="text-blue-900 font-black">{shipmentResult?.shipmentId}</span> is booked for dispatch on <span className="text-blue-600 font-black">{formattedOrderTime}</span>. 
+                                                            Sale Order <span className="text-blue-900 font-black">{shipmentResult?.shipmentId}</span> is booked for dispatch. 
                                                             Vehicle will be assigned shortly.
                                                         </>
                                                     ) : (
@@ -554,7 +542,6 @@ function TrackConsignmentContent() {
 
                         {searchType === 'TRIP' && activeTrip && (
                             <div className="space-y-10">
-                                {/* PROGRESS ANIMATION NODE */}
                                 <div className="relative p-10 md:p-14 bg-white border border-slate-100 rounded-[3rem] shadow-2xl overflow-hidden min-h-[350px] flex flex-col justify-center">
                                     <div className="absolute top-1/2 left-16 right-16 h-1.5 bg-slate-100 -translate-y-1/2 rounded-full overflow-hidden shadow-inner">
                                         <motion.div 
@@ -612,7 +599,6 @@ function TrackConsignmentContent() {
                                     </div>
                                 </div>
 
-                                {/* LIVE MAP TRIGGER NODE - CONDITIONAL VISIBILITY */}
                                 <AnimatePresence>
                                     {showLiveMap && (
                                         <motion.div 
@@ -642,10 +628,11 @@ function TrackConsignmentContent() {
                                                         livePos={livePos}
                                                         origin={activeTrip.consignorAddress || activeTrip.loadingPoint || activeTrip.fromCity}
                                                         destination={activeTrip.deliveryAddress || activeTrip.unloadingPoint || activeTrip.toCity}
+                                                        originLabel={originLabel}
+                                                        destinationLabel={destinationLabel}
                                                         height="100%"
                                                     />
                                                     
-                                                    {/* SATELLITE INFO OVERLAY */}
                                                     <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-xl border border-slate-200 p-5 rounded-2xl shadow-3xl max-w-sm space-y-4">
                                                         <div className="flex items-start gap-3">
                                                             <div className="p-2 bg-blue-50 rounded-xl text-blue-600"><MapPin size={18} /></div>
@@ -663,18 +650,6 @@ function TrackConsignmentContent() {
                                                                 <span className="text-[9px] font-black uppercase text-slate-400">Registry Pulse:</span>
                                                                 <span className="text-[10px] font-black text-emerald-600 uppercase">Synchronized</span>
                                                             </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* MAP LEGEND */}
-                                                    <div className="absolute bottom-6 right-6 bg-slate-900/80 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-3xl space-y-3 pointer-events-none">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
-                                                            <span className="text-[8px] font-black text-white uppercase tracking-widest">Lifting node</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-                                                            <span className="text-[8px] font-black text-white uppercase tracking-widest">Drop node</span>
                                                         </div>
                                                     </div>
                                                 </CardContent>

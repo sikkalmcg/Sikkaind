@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -38,7 +39,7 @@ interface TripTrackingModalProps {
 /**
  * @fileOverview Trip Tracking Modal Terminal.
  * Synchronized with Server-side GIS Handshake node.
- * Updated: Renders mission route from Consignor address to Consignee address.
+ * Updated: Renders mission route with descriptive Lifting/Drop node labels.
  */
 export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackingModalProps) {
     const firestore = useFirestore();
@@ -71,9 +72,6 @@ export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackin
                 const plantRef = doc(firestore, "logistics_plants", plantId);
                 const plantSnap = await getDoc(plantRef);
                 
-                // MISSION ROUTE LOGIC: Target full addresses for the route manifest
-                const consignorAddr = trip.consignorAddress || trip.loadingPoint || (plantSnap.exists() ? plantSnap.data().address : null);
-                
                 if (plantSnap.exists()) {
                     const pData = plantSnap.data();
                     setOriginData({
@@ -95,7 +93,11 @@ export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackin
         return () => clearInterval(interval);
     }, [isOpen, trip, firestore, refreshTelemetry]);
 
-    // Resolve specific addresses for the route line
+    // Resolve specific names for labels
+    const originLabel = useMemo(() => originData?.name || trip.plantName || 'Lifting Node', [originData, trip]);
+    const destinationLabel = useMemo(() => trip.shipToParty || trip.unloadingPoint || 'Drop Node', [trip]);
+
+    // Resolve specific addresses for the route routing protocol
     const originLocation = useMemo(() => trip.consignorAddress || trip.loadingPoint || originData?.name || 'Lifting Node', [trip, originData]);
     const destinationLocation = useMemo(() => trip.deliveryAddress || trip.unloadingPoint || trip.destination || 'Drop Node', [trip]);
 
@@ -131,6 +133,8 @@ export default function TripTrackingModal({ isOpen, onClose, trip }: TripTrackin
                                 livePos={livePos}
                                 origin={originLocation}
                                 destination={destinationLocation}
+                                originLabel={originLabel}
+                                destinationLabel={destinationLabel}
                                 height="100%"
                             />
                         )}
