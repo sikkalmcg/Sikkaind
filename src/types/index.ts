@@ -6,6 +6,26 @@ export type VehicleStatus = 'Available' | 'Assigned' | 'In Transit' | 'Arrival f
 export type TripStatus = 'Assigned' | 'Vehicle Assigned' | 'Loaded' | 'Loading Complete' | 'In Transit' | 'Arrived' | 'Arrival for Delivery' | 'Delivered' | 'Closed' | 'Cancelled';
 export type PODStatus = 'None' | 'Missing' | 'Receipt Soft Copy' | 'Hard Copy' | 'Verified';
 
+// Newly added types to fix build errors
+export type ChargeType = 'Detention' | 'Unloading' | 'Loading' | 'Other';
+export type PaymentMode = 'UPI' | 'Banking' | 'Cash';
+export type PaymentMethod = 'Prepaid' | 'Postpaid' | 'To-Pay';
+
+export interface Charge {
+  amount: number;
+  type: ChargeType;
+  remark?: string;
+  createdAt: Date;
+}
+
+export interface Payment {
+  amount: number;
+  mode: PaymentMode;
+  referenceNo?: string;
+  paymentDate: Date;
+}
+// End of new types
+
 export interface User {
   id: string;
   fullName: string;
@@ -206,8 +226,8 @@ export interface Freight {
   balanceAmount: number;
   paymentStatus: string;
   podStatus: string;
-  charges?: any[];
-  payments?: any[];
+  charges?: WithId<Charge>[];
+  payments?: WithId<Payment>[];
   lastUpdated: any;
 }
 

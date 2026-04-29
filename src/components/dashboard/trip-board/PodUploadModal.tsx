@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -17,37 +17,44 @@ import {
     AlertTriangle, 
     AlertCircle,
     CheckCircle2,
-    ImageIcon,
+    FileUp,
     X as XIcon,
-    Save,
-    Weight
+    Save
 } from 'lucide-react';
 import { useFirestore, useUser } from "@/firebase";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // Allow larger uploads for compression pulse
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
 
 const formSchema = z.object({
-  podImage: z.any()
-    .refine((files) => files?.length > 0, "POD image is required.")
-    .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `Max raw image size is 10MB.`)
+  podFile: z.any()
+    .refine((files) => files?.length > 0, "POD proof is required.")
+    .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `Max file size is 10MB.`)
     .refine(
-      (files) => ACCEPTED_IMAGE_TYPES.includes(files?.[0]?.type),
-      "Only .jpg, .jpeg, .png and .webp formats are supported."
+      (files) => ACCEPTED_FILE_TYPES.includes(files?.[0]?.type),
+      "Only images (.jpg, .png, etc.) and PDF files are supported."
     ),
   unloadQty: z.coerce.number().positive("Unload quantity must be a positive number.")
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
+const getFileTypeFromDataUrl = (dataUrl: string | null): string | null => {
+    if (!dataUrl) return null;
+    if (dataUrl.startsWith('data:application/pdf')) return 'application/pdf';
+    if (dataUrl.startsWith('data:image/')) return 'image/jpeg';
+    return 'image/jpeg';
+};
+
 export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { isOpen: boolean; onClose: () => void; trip: any; onSuccess: () => void }) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
   const [preview, setPreview] = useState<string | null>(trip.podUrl || null);
+  const [fileType, setFileType] = useState<string | null>(getFileTypeFromDataUrl(trip.podUrl));
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -58,19 +65,28 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
 
   const { isSubmitting } = form.formState;
 
+  useEffect(() => {
+    if (trip.podUrl) {
+        setPreview(trip.podUrl);
+        setFileType(getFileTypeFromDataUrl(trip.podUrl));
+    } else {
+        setPreview(null);
+        setFileType(null);
+    }
+    form.reset({ unloadQty: trip.assignedQtyInTrip || 0 });
+  }, [trip, form]);
+
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+        setFileType(file.type);
         const reader = new FileReader();
         reader.onload = (event) => setPreview(event.target?.result as string);
         reader.readAsDataURL(file);
     }
   };
 
-  /**
-   * MISSION REGISTRY COMPRESSION NODE
-   * Compresses image to target 150kb - 200kb range while maintaining audit fidelity.
-   */
   const compressImagePulse = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -83,18 +99,11 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
           let width = img.width;
           let height = img.height;
           
-          // Resolution Scaling: Target Max 1600px for high-fidelity documents
           const MAX_DIM = 1600;
           if (width > height) {
-            if (width > MAX_DIM) {
-              height *= MAX_DIM / width;
-              width = MAX_DIM;
-            }
+            if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; }
           } else {
-            if (height > MAX_DIM) {
-              width *= MAX_DIM / height;
-              height = MAX_DIM;
-            }
+            if (height > MAX_DIM) { width *= MAX_DIM / height; height = MAX_DIM; }
           }
 
           canvas.width = width;
@@ -102,7 +111,6 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
 
-          // Quality Pulse: 0.6 - 0.7 quality usually yields 150kb-200kb for mobile documents
           const quality = 0.65;
           const dataUrl = canvas.toDataURL('image/jpeg', quality);
           resolve(dataUrl);
@@ -112,12 +120,29 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
     });
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (error) => reject(error);
+    });
+  };
+
   const onSubmit = async (values: FormValues) => {
     if (!firestore || !user) return;
 
     try {
-        // EXECUTE REGISTRY COMPRESSION PULSE
-        const compressedBase64 = await compressImagePulse(values.podImage[0]);
+        const file = values.podFile[0];
+        let fileDataUrl: string;
+
+        if (file.type.startsWith('image/')) {
+            fileDataUrl = await compressImagePulse(file);
+        } else if (file.type === 'application/pdf') {
+            fileDataUrl = await fileToBase64(file);
+        } else {
+            throw new Error("Unsupported file type.");
+        }
         
         const plantId = trip.originPlantId;
         const tripRef = doc(firestore, `plants/${plantId}/trips`, trip.id);
@@ -128,7 +153,7 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
         const ts = serverTimestamp();
 
         const updateData = {
-            podUrl: compressedBase64,
+            podUrl: fileDataUrl,
             podStatus: 'Receipt Soft Copy' as const,
             podReceived: true,
             unloadQty: values.unloadQty,
@@ -143,9 +168,10 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
         await updateDoc(globalTripRef, updateData);
         await updateDoc(shipmentRef, { currentStatusId: 'Delivered', lastUpdateDate: ts });
 
-        toast({ title: 'Registry Sync Complete', description: 'POD compressed and synchronized successfully.' });
+        toast({ title: 'Registry Sync Complete', description: 'POD proof synchronized successfully.' });
         onSuccess();
     } catch (error: any) {
+        console.error("POD Upload Error:", error);
         toast({ variant: 'destructive', title: 'Registry Error', description: error.message });
     }
   };
@@ -202,22 +228,22 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
                                 </FormItem>
                             )} />
 
-                            <FormField name="podImage" control={form.control} render={({ field: { onChange, value, ...field } }) => (
+                            <FormField name="podFile" control={form.control} render={({ field: { onChange, value, ...field } }) => (
                                 <FormItem className="space-y-3">
                                     <FormLabel className="text-[10px] font-black uppercase text-blue-900 tracking-widest px-1">Scan Receipt / Hard Copy *</FormLabel>
                                     <FormControl>
                                         <label className="flex flex-col items-center justify-center w-full h-48 border-4 border-dashed border-slate-200 rounded-[2rem] bg-white cursor-pointer hover:bg-slate-50 hover:border-blue-400 transition-all group shadow-sm">
                                             <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                                 <div className="p-4 bg-slate-50 rounded-2xl mb-4 group-hover:bg-blue-900 group-hover:text-white transition-colors">
-                                                    <ImageIcon className="h-8 w-8 text-slate-400 group-hover:text-white" />
+                                                    <FileUp className="h-8 w-8 text-slate-400 group-hover:text-white" />
                                                 </div>
-                                                <p className="text-xs font-black uppercase text-slate-500 tracking-widest text-center">Tap to Upload Registry Proof</p>
-                                                <p className="text-[9px] font-bold text-slate-400 mt-2">AUTO-COMPRESSION ACTIVE (150KB - 200KB)</p>
+                                                <p className="text-xs font-black uppercase text-slate-500 tracking-widest text-center">UPLOAD IMAGE OR PDF PROOF</p>
+                                                <p className="text-[9px] font-bold text-slate-400 mt-2">Images (JPG, PNG) & PDFs are supported</p>
                                             </div>
                                             <Input 
                                                 type="file" 
                                                 className="hidden" 
-                                                accept="image/*" 
+                                                accept="image/*,application/pdf" 
                                                 onChange={(e) => {
                                                     onChange(e.target.files);
                                                     handleFileChange(e);
@@ -237,7 +263,23 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
                     <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-4 mb-4">Document Preview</h4>
                     <div className="flex-1 bg-slate-200 rounded-[2.5rem] border-4 border-white shadow-2xl overflow-hidden relative group min-h-[400px]">
                         {preview ? (
-                            <img src={preview} alt="POD Preview" className="w-full h-full object-contain" />
+                            <>
+                                {fileType?.startsWith('image/') ? (
+                                    <img src={preview} alt="POD Preview" className="w-full h-full object-contain" />
+                                ) : fileType === 'application/pdf' ? (
+                                    <object data={preview} type="application/pdf" width="100%" height="100%">
+                                        <div className="flex flex-col items-center justify-center h-full text-center p-4 bg-slate-100">
+                                            <p className="font-bold text-slate-700">PDF preview is not available.</p>
+                                            <a href={preview} download="pod-proof.pdf" className="mt-2 text-sm text-blue-600 hover:underline font-semibold">Download PDF to view</a>
+                                        </div>
+                                    </object>
+                                ) : (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 opacity-50">
+                                        <AlertCircle className="h-12 w-12 text-slate-500" />
+                                        <span className="text-sm font-bold text-slate-600">Unsupported file type</span>
+                                    </div>
+                                )}
+                            </>
                         ) : (
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 opacity-20 grayscale">
                                 <AlertTriangle className="h-16 w-16 text-slate-400" />
@@ -245,7 +287,7 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
                             </div>
                         )}
                         {preview && (
-                            <button onClick={() => {setPreview(null); form.setValue('podImage', undefined);}} className="absolute top-6 right-6 p-2 bg-red-600 text-white rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => {setPreview(null); setFileType(null); form.setValue('podFile', null);}} className="absolute top-6 right-6 p-2 bg-red-600 text-white rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity">
                                 <XIcon className="h-5 w-5" />
                             </button>
                         )}
@@ -258,7 +300,7 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
                 <div className="space-y-1">
                     <p className="text-[10px] font-black text-blue-900 uppercase">Registry Optimization Node</p>
                     <p className="text-[10px] font-bold text-blue-700 leading-normal uppercase">
-                        The system will automatically establish a compressed node for the POD image to optimize mission bandwidth. Final manifest size will range from 150kb to 200kb.
+                        The system will automatically establish a compressed node for image proofs to optimize mission bandwidth. PDFs will be uploaded in their original format.
                     </p>
                 </div>
             </div>
@@ -271,7 +313,7 @@ export default function PodUploadModal({ isOpen, onClose, trip, onSuccess }: { i
             <Button variant="ghost" onClick={onClose} className="font-bold text-slate-500 uppercase text-[11px] tracking-widest px-8 h-12">Discard</Button>
             <Button 
                 onClick={form.handleSubmit(onSubmit)} 
-                disabled={isSubmitting} 
+                disabled={isSubmitting}
                 className="bg-blue-900 hover:bg-black text-white px-16 h-12 rounded-xl font-black uppercase text-[11px] tracking-widest shadow-xl border-none transition-all active:scale-95"
             >
                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}

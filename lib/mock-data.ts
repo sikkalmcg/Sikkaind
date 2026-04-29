@@ -1,6 +1,6 @@
 
 
-import type { WithId, Plant, VehicleEntryExit, Trip, Shipment, Notification, Vehicle, VehicleType, Freight, Charge, Payment, ChargeType, PaymentMode, PaymentMethod, Carrier, LR, LRProduct, FuelPump, FuelEntry, FuelPayment, RecycledItem, ShipmentStatusMaster, SubUser, OwnVehicle, ContractVehicle, MarketVehicle, Customer, MasterDataItem, Invoice } from '@/types';
+import type { WithId, Plant, VehicleEntryExit, Trip, Shipment, Notification, Vehicle, Freight, Charge, Payment, ChargeType, PaymentMode, PaymentMethod, Carrier, LR, FuelPump, FuelEntry, FuelPayment, RecycledItem, ShipmentStatusMaster, SubUser, OwnVehicle, ContractVehicle, MarketVehicle, Customer, MasterDataItem, Invoice } from '@/types';
 
 export let mockPlants: WithId<Plant>[] = [
     {
@@ -33,10 +33,10 @@ export let mockPlants: WithId<Plant>[] = [
 ];
 
 export let mockVehicles: WithId<Vehicle>[] = [
-  { id: 'veh1', vehicleNumber: 'UP14A1111', plantId: 'plantA', driverId: 'drv1', driverName: 'Amit Kumar', driverMobile: '9876543210', status: 'available', lastOdometerReading: 120500 },
-  { id: 'veh2', vehicleNumber: 'UP14B2222', plantId: 'plantA', driverId: 'drv2', driverName: 'Rajesh Singh', driverMobile: '9876543211', status: 'available', lastOdometerReading: 85000 },
-  { id: 'veh3', vehicleNumber: 'WB02C3333', plantId: 'plantB', driverId: 'drv3', driverName: 'Suman Das', driverMobile: '9876543212', status: 'available', lastOdometerReading: 210000 },
-  { id: 'veh4', vehicleNumber: 'DL01AD4444', plantId: 'plantC', driverId: 'drv4', driverName: 'Priya Sharma', driverMobile: '9876543213', status: 'assigned', lastOdometerReading: 55000 },
+  { id: 'veh1', vehicleNumber: 'UP14A1111', plantId: 'plantA', driverId: 'drv1', driverName: 'Amit Kumar', driverMobile: '9876543210', status: 'Available', lastOdometerReading: 120500 },
+  { id: 'veh2', vehicleNumber: 'UP14B2222', plantId: 'plantA', driverId: 'drv2', driverName: 'Rajesh Singh', driverMobile: '9876543211', status: 'Available', lastOdometerReading: 85000 },
+  { id: 'veh3', vehicleNumber: 'WB02C3333', plantId: 'plantB', driverId: 'drv3', driverName: 'Suman Das', driverMobile: '9876543212', status: 'Available', lastOdometerReading: 210000 },
+  { id: 'veh4', vehicleNumber: 'DL01AD4444', plantId: 'plantC', driverId: 'drv4', driverName: 'Priya Sharma', driverMobile: '9876543213', status: 'Assigned', lastOdometerReading: 55000 },
 ];
 
 
@@ -78,7 +78,7 @@ export let mockShipments: WithId<Shipment>[] = [
       materialTypeId: 'Metric Ton',
       weight: 10000,
       shipmentDate: new Date(),
-      currentStatusId: 'delivered',
+      currentStatusId: 'Delivered',
       creationDate: new Date(new Date().setDate(new Date().getDate() - 1)),
       shipToParty: 'Mumbai Retailer',
       shipToGstin: '27FGHIJ5678K1Z9',
@@ -103,7 +103,7 @@ export let mockShipments: WithId<Shipment>[] = [
       materialTypeId: 'Metric Ton',
       weight: 15000,
       shipmentDate: new Date(),
-      currentStatusId: 'arrival-for-delivery',
+      currentStatusId: 'Arrival for Delivery',
       creationDate: new Date(),
       shipToParty: 'Chennai Wholesaler',
       shipToGstin: '33LMNOP1234Q1Z3',
@@ -128,7 +128,7 @@ export let mockShipments: WithId<Shipment>[] = [
         materialTypeId: 'Metric Ton',
         weight: 30000,
         shipmentDate: new Date(),
-        currentStatusId: 'in-transit',
+        currentStatusId: 'In Transit',
         creationDate: new Date(),
         shipToParty: 'Pune Trader',
         shipToGstin: '27RSTUV5678W1Z1',
@@ -189,7 +189,7 @@ export let mockTrips: WithId<Trip>[] = [
         startDate: new Date(new Date().setDate(new Date().getDate() - 2)), // Assigned
         outDate: new Date(new Date().setDate(new Date().getDate() - 1)), // Out
         arrivalDate: new Date(), // Arrived
-        currentStatusId: 'arrival-for-delivery',
+        currentStatusId: 'Arrival for Delivery',
         lrGenerated: true,
         lrNumber: 'LR001',
         lrDate: new Date(new Date().setDate(new Date().getDate() - 2)),
@@ -216,7 +216,7 @@ export let mockTrips: WithId<Trip>[] = [
         destination: 'Pune',
         startDate: new Date(new Date().setDate(new Date().getDate() - 1)), // Assigned
         outDate: new Date(), // Out
-        currentStatusId: 'in-transit',
+        currentStatusId: 'In Transit',
         lrGenerated: false,
         podReceived: true,
         userName: 'Priya Sharma',
@@ -242,7 +242,7 @@ export let mockTrips: WithId<Trip>[] = [
         outDate: new Date(new Date().setDate(new Date().getDate() - 3)),
         arrivalDate: new Date(new Date().setDate(new Date().getDate() - 2)),
         actualCompletionDate: new Date(new Date().setDate(new Date().getDate() - 1)), // Delivered 1 day ago
-        currentStatusId: 'delivered',
+        currentStatusId: 'Delivered',
         lrGenerated: true,
         lrNumber: 'LR002',
         lrDate: new Date(new Date().setDate(new Date().getDate() - 4)),
@@ -271,7 +271,7 @@ export let mockTrips: WithId<Trip>[] = [
         outDate: new Date(new Date().setDate(new Date().getDate() - 6)),
         arrivalDate: new Date(new Date().setDate(new Date().getDate() - 5)),
         actualCompletionDate: new Date(new Date().setDate(new Date().getDate() - 4)), // Delivered 4 days ago (>72 hours)
-        currentStatusId: 'delivered',
+        currentStatusId: 'Delivered',
         lrGenerated: true,
         lrNumber: 'LR003',
         lrDate: new Date(new Date().setDate(new Date().getDate() - 7)),
@@ -623,13 +623,13 @@ export function addMockVehicleIn(
     if (tripData) {
         const tripIndex = mockTrips.findIndex(t => t.id === tripData.id);
         if (tripIndex !== -1) {
-            mockTrips[tripIndex].currentStatusId = 'in-transit';
+            mockTrips[tripIndex].currentStatusId = 'In Transit';
             mockTrips[tripIndex].outDate = new Date();
             
             // Also update shipment status if it was fully assigned
             const shipment = mockShipments.find(s => s.id === mockTrips[tripIndex].shipmentIds[0]);
             if (shipment) {
-                shipment.currentStatusId = 'in-transit';
+                shipment.currentStatusId = 'In Transit';
             }
         }
     }
@@ -738,7 +738,7 @@ export function addMockVehicle(
     const newVehicle: WithId<Vehicle> = {
         id: newId,
         driverId: `drv${newId}`,
-        status: 'available',
+        status: 'Available',
         plantId: plantId,
         ...vehicleData,
     };
@@ -750,7 +750,7 @@ export function addMockTrip(
     shipment: WithId<Shipment>, 
     vehicle: WithId<Vehicle>,
     assignQty: number,
-    vehicleType: VehicleType,
+    vehicleType: string,
     tripDetails: Partial<Trip>
 ): WithId<Trip> {
 
@@ -801,7 +801,7 @@ export function addMockTrip(
     // Update vehicle status
     const vehicleIndex = mockVehicles.findIndex(v => v.id === vehicle.id);
     if(vehicleIndex !== -1) {
-        mockVehicles[vehicleIndex].status = 'assigned';
+        mockVehicles[vehicleIndex].status = 'Assigned';
     }
 
     // Update shipment status
@@ -870,7 +870,7 @@ export function unassignMockTrip(trip: WithId<Trip>) {
     if (!isVehicleStillAssigned) {
         const vehicleIndex = mockVehicles.findIndex(v => v.id === vehicleIdToUpdate);
         if (vehicleIndex !== -1) {
-            mockVehicles[vehicleIndex].status = 'available';
+            mockVehicles[vehicleIndex].status = 'Available';
         }
     }
     
@@ -897,7 +897,7 @@ export function updateMockTrip(
     shipment: WithId<Shipment>,
     newVehicle: WithId<Vehicle>,
     newAssignQty: number,
-    newVehicleType: VehicleType,
+    newVehicleType: string,
     newTripDetails: Partial<Trip>
 ) {
     const tripIndex = mockTrips.findIndex(t => t.id === tripToUpdate.id);
@@ -916,7 +916,7 @@ export function updateMockTrip(
         if (!isOldVehicleStillAssigned) {
              const oldVehicleIndex = mockVehicles.findIndex(v => v.id === tripToUpdate.vehicleId);
             if (oldVehicleIndex !== -1) {
-                mockVehicles[oldVehicleIndex].status = 'available';
+                mockVehicles[oldVehicleIndex].status = 'Available';
             }
         }
     }
@@ -949,7 +949,7 @@ export function updateMockTrip(
     // 4. Update the vehicle status for the new vehicle
     const newVehicleIndex = mockVehicles.findIndex(v => v.id === newVehicle.id);
     if (newVehicleIndex !== -1) {
-        mockVehicles[newVehicleIndex].status = 'assigned';
+        mockVehicles[newVehicleIndex].status = 'Assigned';
     }
     
     // 5. Re-apply new quantities to the shipment
@@ -1012,7 +1012,7 @@ export function updateMockTripStatus(tripId: string, newStatus: string, location
   trip.lastUpdated = new Date();
 
   // If status is arrival, set the date
-  if (newStatus === 'arrival-for-delivery') {
+  if (newStatus === 'Arrival for Delivery') {
       trip.arrivalDate = new Date();
   }
 }
@@ -1033,12 +1033,12 @@ export function completeMockTrip(tripId: string, unloadQty: number) {
         timestamp: new Date(),
         previousStatus: previousStatus,
         previousStatusTimestamp: previousStatusTimestamp,
-        newStatus: 'delivered',
+        newStatus: 'Delivered',
         updatedBy: 'System',
     });
 
     // Update trip with delivered details
-    trip.currentStatusId = 'delivered';
+    trip.currentStatusId = 'Delivered';
     trip.actualCompletionDate = new Date();
     trip.lastUpdated = new Date();
     trip.unloadQty = unloadQty;
@@ -1050,7 +1050,7 @@ export function completeMockTrip(tripId: string, unloadQty: number) {
         const shipmentIndex = mockShipments.findIndex(s => s.id === shipmentId);
         if (shipmentIndex !== -1) {
             // This is a simplification. A real app would check if all parts of the shipment are delivered.
-            mockShipments[shipmentIndex].currentStatusId = 'delivered';
+            mockShipments[shipmentIndex].currentStatusId = 'Delivered';
         }
     });
 
@@ -1059,7 +1059,7 @@ export function completeMockTrip(tripId: string, unloadQty: number) {
      if (!isVehicleStillAssigned) {
         const vehicleIndex = mockVehicles.findIndex(v => v.id === trip.vehicleId);
         if (vehicleIndex !== -1) {
-            mockVehicles[vehicleIndex].status = 'available';
+            mockVehicles[vehicleIndex].status = 'Available';
         }
     }
 }

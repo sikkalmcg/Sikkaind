@@ -40,8 +40,34 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const buyerAddress = lr.buyerAddress || lr.deliveryAddress || lr.to;
   const shipToAddress = lr.deliveryAddress || buyerAddress || lr.to;
 
-  const allItems = lr.items || [];
+  const allItems = useMemo(() => {
+    return (lr.items || []).map(item => {
+      let weight = Number(item.weight) || 0;
+      
+      if (weight > 0) {
+        return { ...item, weight };
+      }
+      
+      const description = (item.itemDescription || item.description || '').toUpperCase();
+      const match = description.match(/(\d+)\s*KG/);
+
+      if (match) {
+        const weightPerPackage = Number(match[1]);
+        const units = Number(item.units) || 0;
+        if (weightPerPackage && units) {
+          const calculatedWeightInMT = (weightPerPackage * units) / 1000;
+          return { ...item, weight: calculatedWeightInMT };
+        }
+      }
+      
+      return { ...item, weight: 0 };
+    });
+  }, [lr.items]);
   
+  const totalWeightFromItems = useMemo(() => {
+    return allItems.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
+  }, [allItems]);
+
   const displayItems = useMemo(() => {
     const invGroups = allItems.reduce((acc, item) => {
         const inv = (item.invoiceNumber || 'NA').trim();
@@ -54,8 +80,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
     Object.entries(invGroups).forEach(([inv, invItems]) => {
         const uniqueDescs = Array.from(new Set(invItems.map(i => (i.itemDescription || i.description || 'GENERAL CARGO').toUpperCase().trim())));
+        const totalInvWeight = invItems.reduce((s, i) => s + (Number(i.weight) || 0), 0);
         
-        if (invItems.length > 2) {
+        if (invItems.length > 1) {
             const totalUnits = invItems.reduce((s, i) => s + (Number(i.units) || 0), 0);
             const ewaybills = Array.from(new Set(invItems.map(i => i.ewaybillNumber).filter(Boolean))).join(', ');
             
@@ -64,7 +91,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 ewaybillNumber: ewaybills || '--',
                 itemDescription: uniqueDescs.length === 1 ? uniqueDescs[0] : `VARIOUS ITEMS AS PER INVOICE`,
                 units: totalUnits,
-                weight: 0 
+                weight: totalInvWeight
             });
         } else {
             invItems.forEach(i => {
@@ -73,7 +100,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                     ewaybillNumber: i.ewaybillNumber || '--',
                     itemDescription: (i.itemDescription || i.description || 'GENERAL CARGO').toUpperCase(),
                     units: Number(i.units) || 0,
-                    weight: 0
+                    weight: Number(i.weight) || 0
                 });
             });
         }
@@ -87,7 +114,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   }, [allItems]);
 
   const totalUnitsFinal = allItems.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
-  const totalWeightFinal = Number(lr.assignedTripWeight) || 0;
+  const totalWeightFinal = lr.originPlantId === 'ID23' ? totalWeightFromItems : (Number(lr.assignedTripWeight) || totalWeightFromItems || 0);
+
 
   const renderPairedValues = (valueString: string) => {
     const items = (valueString || '').split(',').map(p => p.trim()).filter(Boolean).filter(v => v !== '--');
@@ -208,13 +236,13 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                     <td className="border-r-2 border-slate-100 px-1 py-1 font-black uppercase align-middle text-blue-800">{renderPairedValues(item.ewaybillNumber)}</td>
                     <td className="border-r-2 border-slate-100 px-4 py-1 uppercase italic font-black text-slate-700 leading-tight tracking-tighter text-center">{item.itemDescription}</td>
                     <td className="border-r-2 border-slate-100 px-1 text-center font-black text-[12pt] text-slate-900">{item.units}</td>
-                    <td className="px-4 text-center font-black text-[12pt] text-slate-900 tracking-tighter">{idx === 0 ? totalWeightFinal.toFixed(3) : '--'}</td>
+                    <td className="px-4 text-center font-black text-[12pt] text-slate-900 tracking-tighter">{item.weight > 0 ? item.weight.toFixed(3) : '--'}</td>
                 </tr>
                 ))}
             </tbody>
             <tfoot className="bg-slate-50 font-black h-11 border-t-2 border-black text-[9.5pt] text-black">
                 <tr>
-                <td colSpan={3} className="px-8 uppercase border-r-2 border-black/10 tracking-[0.8em]">MANIFEST TOTALS:</td>
+        <td colSpan={3} className="px-8 uppercase border-r-2 border-black/10 tracking-[0.8e   m]">MANIFEST TOTALS:</td>
                 <td className="border-r-2 border-black/10 text-center font-black">{totalUnitsFinal}</td>
                 <td className="text-center px-4 font-black text-slate-900 tracking-tighter text-[13pt]">{totalWeightFinal.toFixed(3)} MT</td>
                 </tr>
