@@ -1,3 +1,4 @@
+
 'use client';
 
 import { format, isValid } from 'date-fns';
@@ -105,14 +106,14 @@ export default function PrintablePaymentSlip({ freight, payment }: { freight: En
                 <div className="space-y-1.5 flex-1 pr-10">
                     <h1 className="text-[16pt] font-black uppercase leading-none tracking-tight text-slate-900">{carrier.name || 'SIKKA LMC'}</h1>
                     <p className="text-[8.5pt] font-bold text-slate-600 uppercase max-w-[450px] leading-tight">{carrier.address || 'GHAZIABAD, UTTAR PRADESH'}</p>
-                    <div className="text-[8pt] font-black pt-2 flex flex-wrap gap-x-4 gap-y-1 uppercase leading-snug">
-                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">PHONE:</span> <span className="text-slate-900 font-mono">{carrier.mobile || '9136688004'}</span></p>
-                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">GSTIN:</span> <span className="font-mono text-slate-900">{carrier.gstin || '--'}</span></p>
-                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">PAN:</span> <span className="font-mono text-slate-900">{carrier.pan || '--'}</span></p>
-                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">STATE:</span> <span className="text-slate-900">{carrier.stateName || '--'}</span></p>
-                        <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">CODE:</span> <span className="text-slate-900">{carrier.stateCode || '--'}</span></p>
-                        {carrier.email && <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">E-MAIL:</span> <span className="text-slate-900 lowercase font-bold">{carrier.email}</span></p>}
-                        {carrier.website && <p className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase text-[7pt]">WEB:</span> <span className="text-slate-900 lowercase font-bold">{carrier.website}</span></p>}
+                    <div className="text-[8pt] font-black pt-3 flex flex-wrap gap-x-5 gap-y-2 uppercase leading-snug">
+                        <p className="flex items-center gap-2"><span className="text-slate-500 font-bold uppercase text-[7.5pt]">PHONE:</span> <span className="text-slate-900 font-mono font-black">{carrier.mobile || '9136688004'}</span></p>
+                        <p className="flex items-center gap-2"><span className="text-slate-500 font-bold uppercase text-[7.5pt]">GSTIN:</span> <span className="font-mono text-slate-950 font-black text-[10pt] tracking-tighter">{carrier.gstin || '--'}</span></p>
+                        <p className="flex items-center gap-2"><span className="text-slate-500 font-bold uppercase text-[7.5pt]">PAN:</span> <span className="font-mono text-slate-950 font-black text-[10pt] tracking-tighter">{carrier.pan || '--'}</span></p>
+                        <p className="flex items-center gap-2"><span className="text-slate-500 font-bold uppercase text-[7.5pt]">STATE:</span> <span className="text-slate-900 font-black">{carrier.stateName || '--'}</span></p>
+                        <p className="flex items-center gap-2"><span className="text-slate-500 font-bold uppercase text-[7.5pt]">CODE:</span> <span className="text-slate-900 font-black">{carrier.stateCode || '--'}</span></p>
+                        {carrier.email && <p className="flex items-center gap-2"><span className="text-slate-500 font-bold uppercase text-[7.5pt]">E-MAIL:</span> <span className="text-slate-900 lowercase font-black">{carrier.email}</span></p>}
+                        {carrier.website && <p className="flex items-center gap-2"><span className="text-slate-500 font-bold uppercase text-[7.5pt]">WEB:</span> <span className="text-slate-900 lowercase font-black">{carrier.website}</span></p>}
                     </div>
                 </div>
                 
@@ -134,7 +135,7 @@ export default function PrintablePaymentSlip({ freight, payment }: { freight: En
                 </div>
                 <div className="border-2 border-black grid grid-cols-3 divide-x-2 divide-black divide-y-2 rounded-xl overflow-hidden shadow-sm">
                     {tripGrid.map((item, i) => (
-                        <div key={i} className="p-3 bg-white">
+                        <div className="p-3 bg-white" key={i}>
                             <span className="text-[7pt] font-black uppercase text-slate-400 block mb-1 tracking-wider">{item.label}</span>
                             <p className={cn(
                                 "text-[9.5pt] leading-none",

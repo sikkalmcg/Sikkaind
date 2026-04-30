@@ -144,17 +144,29 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <h1 className="text-[16pt] font-black uppercase tracking-tight leading-none text-slate-900">{carrier.name || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
             <p className="text-[7.5pt] font-bold text-slate-600 uppercase max-w-[500px] leading-tight">{carrier.address || 'GHAZIABAD, UTTAR PRADESH'}</p>
             
-            <div className="text-[7pt] font-black text-slate-400 flex flex-wrap gap-x-4 gap-y-1.5 pt-1.5 uppercase leading-none">
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">GSTIN:</span> <span className="font-mono text-slate-900">{carrier.gstin || '--'}</span></p>
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">PAN:</span> <span className="font-mono text-slate-900">{carrier.pan || '--'}</span></p>
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">STATE:</span> <span className="text-slate-900">{carrier.stateName || '--'}</span></p>
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">CODE:</span> <span className="text-slate-900">{carrier.stateCode || '--'}</span></p>
+            <div className="text-[8pt] font-black text-slate-400 flex flex-wrap gap-x-5 gap-y-2 pt-2 uppercase leading-none">
+              <p className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-bold uppercase text-[7.5pt]">GSTIN:</span> 
+                <span className="font-mono text-slate-950 text-[10pt] tracking-tighter">{carrier.gstin || '--'}</span>
+              </p>
+              <p className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-bold uppercase text-[7.5pt]">PAN:</span> 
+                <span className="font-mono text-slate-950 text-[10pt] tracking-tighter">{carrier.pan || '--'}</span>
+              </p>
+              <p className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-bold uppercase text-[7pt]">STATE:</span> 
+                <span className="text-slate-900 font-black">{carrier.stateName || '--'}</span>
+              </p>
+              <p className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-bold uppercase text-[7pt]">CODE:</span> 
+                <span className="text-slate-900 font-black">{carrier.stateCode || '--'}</span>
+              </p>
             </div>
 
-            <div className="text-[7pt] font-black text-slate-400 flex flex-wrap gap-x-4 gap-y-1.5 pt-1 uppercase leading-none">
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">PHONE:</span> <span className="text-slate-900 font-mono">{carrier.mobile || '9136688004'}</span></p>
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">EMAIL:</span> <span className="text-blue-700 lowercase font-bold">{carrier.email || 'sil@sikkaenterprises.com'}</span></p>
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">WEB:</span> <span className="text-blue-700 lowercase font-bold">{carrier.website || 'www.sikkaind.com'}</span></p>
+            <div className="text-[7pt] font-black text-slate-400 flex flex-wrap gap-x-4 gap-y-1.5 pt-1.5 uppercase leading-none">
+              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">PHONE:</span> <span className="text-slate-900 font-mono font-black">{carrier.mobile || '9136688004'}</span></p>
+              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">EMAIL:</span> <span className="text-blue-700 lowercase font-black">{carrier.email || 'sil@sikkaenterprises.com'}</span></p>
+              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">WEB:</span> <span className="text-blue-700 lowercase font-black">{carrier.website || 'www.sikkaind.com'}</span></p>
             </div>
           </div>
         </div>
@@ -233,7 +245,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             </tbody>
             <tfoot className="bg-slate-50 font-black h-11 border-t-2 border-black text-[9.5pt] text-black">
                 <tr>
-        <td colSpan={3} className="px-8 uppercase border-r-2 border-black/10 tracking-[0.8e   m]">MANIFEST TOTALS:</td>
+                <td colSpan={3} className="px-8 uppercase border-r-2 border-black/10 tracking-[0.8em]">MANIFEST TOTALS:</td>
                 <td className="border-r-2 border-black/10 text-center font-black">{totalUnitsFinal}</td>
                 <td className="text-center px-4 font-black text-slate-900 tracking-tighter text-[13pt]">{totalWeightFinal.toFixed(3)} MT</td>
                 </tr>
