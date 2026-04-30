@@ -220,8 +220,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <tbody className="text-[9pt]">
                 {displayItems.map((item, idx) => (
                 <tr key={idx} className="align-middle border-b-2 border-slate-100 last:border-b-0">
-                    <td className="border-r-2 border-slate-100 px-1 py-1 font-black uppercase align-middle">{renderPairedValues(item.invoiceNumber)}</td>
-                    <td className="border-r-2 border-slate-100 px-1 py-1 font-black uppercase align-middle text-blue-800">{renderPairedValues(item.ewaybillNumber)}</td>
+                    <td className="border-r-2 border-slate-100 px-1 py-1 font-normal uppercase align-middle">{renderPairedValues(item.invoiceNumber)}</td>
+                    <td className="border-r-2 border-slate-100 px-1 py-1 font-normal uppercase align-middle text-blue-800">{renderPairedValues(item.ewaybillNumber)}</td>
                     <td className="border-r-2 border-slate-100 px-4 py-1 uppercase italic font-black text-slate-700 leading-tight tracking-tighter text-center">{item.itemDescription}</td>
                     <td className="border-r-2 border-slate-100 px-1 text-center font-black text-[12pt] text-slate-900">{item.units}</td>
                     <td className="px-4 text-center font-black text-[12pt] text-slate-900 tracking-tighter">{item.weight > 0 ? item.weight.toFixed(3) : '--'}</td>

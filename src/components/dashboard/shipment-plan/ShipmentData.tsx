@@ -75,6 +75,7 @@ type EnrichedShipment = WithId<Shipment> & {
     summarizedInvoices?: string;
     summarizedItems?: string;
     totalUnitsCount?: number;
+    assignedQtyInTrip?: number;
 };
 
 const getStatusColor = (status: string) => {
@@ -178,7 +179,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             totalUnitsCount,
             vehicleType: trip?.vehicleType || shipment.materialTypeId,
             paymentTerm: trip?.paymentTerm || shipment.paymentTerm,
-            assignedQtyInTrip: trip?.assignedQtyInTrip // For LR weight resolution
+            assignedQtyInTrip: Number(trip?.assignedQtyInTrip) || Number(shipment.assignedQty) || 0
         }
     });
   }, [shipments, plants, trips, allCarriers]);
@@ -334,7 +335,8 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             if(!snap.empty) lrDocData = snap.docs[0].data();
         }
 
-        const finalWeight = Number(row.assignedQtyInTrip) || Number(row.quantity) || 0;
+        // MISSION FIX: Prioritize assignedQtyInTrip then fallback to order quantity
+        const finalWeight = Number(row.assignedQtyInTrip) || Number(row.assignedQty) || Number(row.quantity) || 0;
 
         const enrichedLR: any = {
             ...lrDocData,
@@ -350,7 +352,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             from: lrDocData?.from || row.loadingPoint || row.plantName || '',
             to: lrDocData?.to || row.unloadingPoint || '',
             consignorName: lrDocData?.consignorName || row.consignor || row.shipmentObj?.consignor || '',
-            consignorGtin: lrDocData?.consignorGtin || row.consignorGtin || consignorGtin,
+            consignorGtin: lrDocData?.consignorGtin || row.shipmentObj?.consignorGtin || consignorGtin,
             consignorAddress: lrDocData?.consignorAddress || row.consignorAddress || row.shipmentObj?.consignorAddress || '',
             consignorCode: lrDocData?.consignorCode || row.customerCode || '',
             buyerName: lrDocData?.buyerName || row.billToParty || row.shipmentObj?.billToParty || row.billToParty || '',

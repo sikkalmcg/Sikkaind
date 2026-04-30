@@ -290,7 +290,7 @@ function TripBoardContent() {
 }, [trips, shipments, lrs, entries, plants, dbCarriers, selectedPlants]);
 
   const processedData = useMemo(() => {
-    const dayStart = fromDate ? startOfDay(fromDate) : startOfDay(subDays(new Date(), 7));
+    const dayStart = fromDate ? startOfDay(fromDate) : startOfDay(subDays(new Date(), 30));
     const dayEnd = toDate ? endOfDay(toDate) : endOfDay(new Date());
     const normalizedSelected = selectedPlants.map(normalizePlantId);
 
@@ -597,6 +597,8 @@ function TripBoardContent() {
                 weight: row.dispatchedQty || row.assignedQtyInTrip || row.quantity
             }];
 
+            const finalWeight = Number(row.dispatchedQty) || Number(row.assignedQtyInTrip) || Number(row.quantity) || 0;
+
             if (snap.empty) {
                 setLrPreviewData({
                     lrNumber: row.lrNumber,
@@ -607,7 +609,7 @@ function TripBoardContent() {
                     plant: row.plant || { id: row.originPlantId, name: row.plantName },
                     items: manifestItems,
                     weightSelection: 'Assigned Weight',
-                    assignedTripWeight: Number(row.dispatchedQty) || Number(row.assignedQtyInTrip) || Number(row.quantity) || 0,
+                    assignedTripWeight: finalWeight,
                     from: row.from || shipmentObj.loadingPoint || '',
                     to: row.unloadingPoint || shipmentObj.unloadingPoint || '',
                     consignorName: row.consignor || shipmentObj.consignor || '',
@@ -656,7 +658,8 @@ function TripBoardContent() {
                     vehicleNumber: row.vehicleNumber || lrDoc.vehicleNumber,
                     driverName: row.driverName || lrDoc.driverName,
                     driverMobile: row.driverMobile || lrDoc.driverMobile,
-                    paymentTerm: row.paymentTerm || lrDoc.paymentTerm
+                    paymentTerm: row.paymentTerm || lrDoc.paymentTerm,
+                    assignedTripWeight: finalWeight
                 } as any);
             }
         } catch (e) {
