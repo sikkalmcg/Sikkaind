@@ -5,8 +5,6 @@ import React, { useMemo } from 'react';
 import { format, isValid } from 'date-fns';
 import { cn, parseSafeDate } from '@/lib/utils';
 import type { LR, Trip, Shipment, Carrier, Plant } from '@/types';
-import { Timestamp } from 'firebase/firestore';
-import { ShieldCheck, Mail, Globe, Phone } from 'lucide-react';
 
 export type EnrichedLR = LR & {
   trip: Trip;
@@ -40,74 +38,69 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const buyerAddress = lr.buyerAddress || lr.deliveryAddress || lr.to;
   const shipToAddress = lr.deliveryAddress || buyerAddress || lr.to;
 
-  const allItems = useMemo(() => {
-    return (lr.items || []).map(item => {
-      let weight = Number(item.weight) || 0;
-      
-      if (item.weightUnit === 'KG') {
-        weight = weight / 1000;
-      }
+  const totalWeightFinal = useMemo(() => {
+    const parseWeight = (val: any) => {
+        if (val === undefined || val === null || val === '') return 0;
+        const num = parseFloat(String(val));
+        return isNaN(num) ? 0 : num;
+    };
 
-      if (weight > 0) {
-        return { ...item, weight };
-      }
-      
-      const description = (item.itemDescription || item.description || '').toUpperCase();
-      const match = description.match(/(\d+)\s*KG/);
+    // 1. Check LR Document Node
+    let weight = 
+      parseWeight(lr.assignedTripWeight) || 
+      parseWeight(lr.totalWeight) || 
+      parseWeight((lr as any).quantity);
+    if (weight > 0) return weight;
 
-      if (match) {
-        const weightPerPackage = Number(match[1]);
-        const units = Number(item.units) || 0;
-        if (weightPerPackage && units) {
-          const calculatedWeightInMT = (weightPerPackage * units) / 1000;
-          return { ...item, weight: calculatedWeightInMT };
-        }
-      }
-      
-      return { ...item, weight: 0 };
-    });
-  }, [lr.items]);
-  
-  const totalWeightFromItems = useMemo(() => {
-    return allItems.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
-  }, [allItems]);
-  
+    // 2. Fallback to Trip Registry Node
+    const tripNode = lr.trip || {};
+    weight = 
+      parseWeight(tripNode.assignedQtyInTrip) ||
+      parseWeight(tripNode.assignedTripWeight) ||
+      parseWeight((tripNode as any).dispatchedQty) ||
+      parseWeight((tripNode as any).quantity) ||
+      parseWeight((tripNode as any).weight);
+    if (weight > 0) return weight;
+
+    // 3. Fallback to Shipment/Order Node
+    const shipNode = lr.shipment || {};
+    weight = 
+      parseWeight(shipNode.quantity) ||
+      parseWeight(shipNode.assignedQty) ||
+      parseWeight((shipNode as any).totalWeight) ||
+      parseWeight((shipNode as any).weight);
+    if (weight > 0) return weight;
+
+    // 4. Fallback to aggregate of items manifest
+    const weightFromItems = (lr.items || []).reduce((sum, item) => {
+      const itemWeight = parseWeight(item.weight) || parseWeight(item.quantity);
+      return sum + (item.weightUnit === 'KG' ? itemWeight / 1000 : itemWeight);
+    }, 0);
+    
+    return weightFromItems;
+  }, [lr]);
+
   const totalUnitsFinal = useMemo(() => {
-    return allItems.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
-  }, [allItems]);
-
-  // MISSION FIX: Priority logic for total weight resolution
-  const totalWeightFinal = totalWeightFromItems > 0 ? totalWeightFromItems : (Number(lr.assignedTripWeight) || 0);
+    const unitsFromItems = (lr.items || []).reduce((sum, item) => sum + (Number(item.units) || 0), 0);
+    return unitsFromItems > 0 ? unitsFromItems : (Number(lr.totalUnits) || 0);
+  }, [lr.items, lr.totalUnits]);
 
   const displayItems = useMemo(() => {
-    if (!allItems || allItems.length === 0) {
-      return [{ invoiceNumber: '--', ewaybillNumber: '--', itemDescription: 'GENERAL CARGO', units: 0, weight: totalWeightFinal }];
-    }
+    const items = lr.items || [];
+    const units = totalUnitsFinal > 0 ? totalUnitsFinal : '--';
+    const singleItem = items.length > 0 ? items[0] : {};
+    const description = items.length > 1 ? 'VARIOUS ITEMS AS PER INVOICE' : (singleItem.itemDescription || singleItem.description || 'GENERAL CARGO').toUpperCase();
+    const invoiceNumbers = Array.from(new Set((items || []).map(i => i.invoiceNumber || i.invoiceNo).filter(Boolean))).join(', ') || lr.invoiceNumber || '--';
+    const ewaybillNumbers = Array.from(new Set((items || []).map(i => i.ewaybillNumber || i.ewaybillNo).filter(Boolean))).join(', ') || lr.ewaybillNumber || '--';
 
-    if (allItems.length > 1) {
-      const allInvoiceNumbers = [...new Set(allItems.map((i) => i.invoiceNumber).filter(Boolean))].join(', ');
-      const allEwaybills = [...new Set(allItems.map((i) => i.ewaybillNumber).filter(Boolean))].join(', ');
-
-      return [
-        {
-          invoiceNumber: allInvoiceNumbers,
-          ewaybillNumber: allEwaybills,
-          itemDescription: 'VARIOUS ITEMS AS PER INVOICE',
-          units: totalUnitsFinal,
-          weight: totalWeightFinal,
-        },
-      ];
-    }
-
-    return allItems.map((item) => ({
-      invoiceNumber: item.invoiceNumber || '--',
-      ewaybillNumber: item.ewaybillNumber || '--',
-      itemDescription: (item.itemDescription || item.description || 'GENERAL CARGO').toUpperCase(),
-      units: Number(item.units) || 0,
-      weight: (Number(item.weight) || totalWeightFinal),
-    }));
-  }, [allItems, totalUnitsFinal, totalWeightFinal]);
-
+    return [{
+      invoiceNumber: invoiceNumbers,
+      ewaybillNumber: ewaybillNumbers,
+      itemDescription: description,
+      units: units,
+      weight: totalWeightFinal,
+    }];
+  }, [lr, totalUnitsFinal, totalWeightFinal]);
 
   const renderPairedValues = (valueString: string) => {
     const items = (valueString || '').split(',').map(p => p.trim()).filter(Boolean).filter(v => v !== '--');
@@ -115,7 +108,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     const rows = [];
     for (let i = 0; i < items.length; i += 2) {
         const pair = items.slice(i, i + 2).join(', ');
-        // MISSION REFINEMENT: Size increased to 9pt, weight normalized
         rows.push(<div key={i} className="text-[9pt] font-normal text-slate-900 leading-tight mb-0.5 last:mb-0 uppercase text-center">{pair}</div>);
     }
     return <div className="flex flex-col py-1 items-center justify-center h-full">{rows}</div>;
@@ -130,7 +122,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
 
   return (
     <div className="A4-page p-[6mm] bg-white text-black font-sans text-[8.5pt] leading-tight flex flex-col relative box-border h-[297mm] w-[210mm] overflow-hidden select-text border-none mx-auto">
-      
       <div className="flex justify-end mb-1 shrink-0">
         <div className="border-2 border-black px-4 py-0.5 bg-slate-50 shadow-sm">
             <span className="text-[8pt] font-black uppercase tracking-widest text-slate-900 leading-none">{copyType}</span>
@@ -149,7 +140,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <div className="text-[8pt] font-black text-slate-400 flex flex-wrap gap-x-5 gap-y-2 pt-2 uppercase leading-none">
               <p className="flex items-center gap-1.5">
                 <span className="text-slate-500 font-bold uppercase text-[7.5pt]">GSTIN:</span> 
-                {/* MISSION REFINEMENT: Size increased to 13pt for high visibility */}
                 <span className="font-mono text-slate-950 text-[13pt] tracking-tighter">{carrier.gstin || '--'}</span>
               </p>
               <p className="flex items-center gap-1.5">
@@ -253,7 +243,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         <div className="space-y-3">
             <span className="text-[8.5pt] font-bold uppercase text-slate-900 border-b border-black inline-block pb-0.5 tracking-widest italic">TERMS & CONDITIONS</span>
             <div className="space-y-1 pt-0.5">
-                {REGISTRY_TERMS.map((term: string, i: number) => (
+                {REGISTRY_TERMS.map((term, i) => (
                     <p key={i} className="text-[7pt] font-normal text-slate-600 leading-tight uppercase tracking-tight">
                         {i + 1}. {term}
                     </p>

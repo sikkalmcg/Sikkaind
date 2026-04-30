@@ -234,7 +234,7 @@ function TripBoardContent() {
         const summarizedItems = uniqueDescs.length > 2 ? "VARIOUS ITEMS AS PER INVOICE" : (uniqueDescs.join(', ') || shipment?.itemDescription || shipment?.material || '--');
 
         const units = items.reduce((sum: number, i: any) => sum + (Number(i.units) || 0), 0);
-        const dispatchedQty = lr ? (Number(lr.assignedTripWeight) || 0) : (Number(t.assignedQtyInTrip || t.assignQty) || 0);
+        const dispatchedQty = lr?.assignedTripWeight ? Number(lr.assignedTripWeight) : (Number(t.assignedQtyInTrip || t.assignQty) || (shipment?.quantity || 0));
 
         const s = (t.tripStatus || t.currentStatusId || 'assigned').toLowerCase().trim().replace(/[\s/_-]+/g, '-');
 
@@ -318,7 +318,7 @@ function TripBoardContent() {
                     orderNo: s.shipmentId,
                     qtyUom: `${s.quantity} MT`,
                     balanceUom: `${s.balanceQty} MT`,
-                    carrierObj: (dbCarriers || []).find(c => c.id === s.carrierId || c.name === s.carrierName),
+                    carrierObj: (allMasterPlants || []).find(c => c.id === s.carrierId),
                     invoiceNumbers: invs,
                     consignee: s.billToParty || '--'
                 };
@@ -356,7 +356,7 @@ function TripBoardContent() {
       const s = searchTerm.toLowerCase();
       return (t.tripId?.toLowerCase().includes(s) || t.vehicleNumber?.toLowerCase().includes(s) || t.lrNumber?.toLowerCase().includes(s) || t.consignor?.toLowerCase().includes(s) || t.consignee?.toLowerCase().includes(s) || t.invoiceNumbers?.toLowerCase().includes(s));
     });
-  }, [joinedData, shipments, activeTab, fromDate, toDate, searchTerm, selectedPlants, plants, sortAlphabetical, dbCarriers]);
+  }, [joinedData, shipments, activeTab, fromDate, toDate, searchTerm, selectedPlants, plants, sortAlphabetical, allMasterPlants]);
 
   const counts = useMemo(() => {
     const res = { pendingAssignment: 0, openOrder: 0, loading: 0, transit: 0, arrived: 0, pod: 0, rejection: 0, closed: 0 };
@@ -364,7 +364,7 @@ function TripBoardContent() {
     const normalizedSelected = selectedPlants.map(normalizePlantId);
     shipments.forEach(s => {
         if (normalizedSelected.includes(normalizePlantId(s.originPlantId))) {
-            if (!['cancelled', 'short closed'].includes(s.currentStatusId?.toLowerCase()) && s.balanceQty > 0) {
+            if (!['cancelled', 'short closed'].includes(s.currentStatusId?.toLowerCase()) && s.balanceQty > 0.001) {
                 res.pendingAssignment++;
             }
         }
@@ -607,7 +607,7 @@ function TripBoardContent() {
                     plant: row.plant || { id: row.originPlantId, name: row.plantName },
                     items: manifestItems,
                     weightSelection: 'Assigned Weight',
-                    assignedTripWeight: row.quantity,
+                    assignedTripWeight: Number(row.dispatchedQty) || Number(row.assignedQtyInTrip) || Number(row.quantity) || 0,
                     from: row.from || shipmentObj.loadingPoint || '',
                     to: row.unloadingPoint || shipmentObj.unloadingPoint || '',
                     consignorName: row.consignor || shipmentObj.consignor || '',
@@ -936,7 +936,7 @@ function TripBoardContent() {
     showLoader();
     try {
         const plantId = normalizePlantId(podStatusTrip.originPlantId);
-        const tripRef = doc(firestore, `plants/${plantId}/trips`, podStatusTrip.id);
+        const tripRef = doc(firestore, `plants/${podStatusTrip.originPlantId}/trips`, podStatusTrip.id);
         const globalTripRef = doc(firestore, 'trips', podStatusTrip.id);
         const ts = serverTimestamp();
         const currentName = isAdminSession ? 'AJAY SOMRA' : (user.displayName || user.email?.split('@')[0] || 'System');
@@ -1208,7 +1208,7 @@ function TripBoardContent() {
         </Tabs>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-2 md:py-4 bg-slate-50 custom-scrollbar relative">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 md:px-8 py-2 md:py-4 bg-slate-50 custom-scrollbar relative">
         {isLoading ? (
             <div className="flex h-64 flex-col items-center justify-center gap-4">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-900" />

@@ -177,7 +177,8 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             summarizedItems,
             totalUnitsCount,
             vehicleType: trip?.vehicleType || shipment.materialTypeId,
-            paymentTerm: trip?.paymentTerm || shipment.paymentTerm
+            paymentTerm: trip?.paymentTerm || shipment.paymentTerm,
+            assignedQtyInTrip: trip?.assignedQtyInTrip // For LR weight resolution
         }
     });
   }, [shipments, plants, trips, allCarriers]);
@@ -288,7 +289,7 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             } else if (pIdStr === '1214' || pIdStr === 'ID23') {
                 finalCarrier = {
                     id: 'ID21',
-                    name: 'SIKKA INDUSTRIES AND LOGISTICS',
+                    name: 'SIKKA LMC',
                     address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD 201009',
                     mobile: '9136688004',
                     gstin: '09AYQPS6936B1ZV',
@@ -333,6 +334,8 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             if(!snap.empty) lrDocData = snap.docs[0].data();
         }
 
+        const finalWeight = Number(row.assignedQtyInTrip) || Number(row.quantity) || 0;
+
         const enrichedLR: any = {
             ...lrDocData,
             lrNumber: row.lrNumber,
@@ -343,20 +346,20 @@ export default function ShipmentData({ shipments, plants, onEdit, onDelete, onBu
             plant: row.plant || { id: row.originPlantId, name: row.plantName },
             items: lrDocData?.items || manifestItems,
             weightSelection: lrDocData?.weightSelection || 'Assigned Weight',
-            assignedTripWeight: row.quantity,
+            assignedTripWeight: finalWeight,
             from: lrDocData?.from || row.loadingPoint || row.plantName || '',
             to: lrDocData?.to || row.unloadingPoint || '',
-            consignorName: lrDocData?.consignorName || row.consignor || '',
+            consignorName: lrDocData?.consignorName || row.consignor || row.shipmentObj?.consignor || '',
             consignorGtin: lrDocData?.consignorGtin || row.consignorGtin || consignorGtin,
-            consignorAddress: lrDocData?.consignorAddress || row.consignorAddress || '',
+            consignorAddress: lrDocData?.consignorAddress || row.consignorAddress || row.shipmentObj?.consignorAddress || '',
             consignorCode: lrDocData?.consignorCode || row.customerCode || '',
-            buyerName: lrDocData?.buyerName || row.billToParty || '',
-            buyerAddress: lrDocData?.buyerAddress || row.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
+            buyerName: lrDocData?.buyerName || row.billToParty || row.shipmentObj?.billToParty || row.billToParty || '',
+            buyerAddress: lrDocData?.buyerAddress || row.billToAddress || row.shipmentObj?.billToAddress || row.deliveryAddress || row.unloadingPoint || '',
             buyerGtin: lrDocData?.buyerGtin || row.billToGtin || buyerGtin,
-            shipToParty: lrDocData?.shipToParty || row.shipToParty || row.billToParty || '',
+            shipToParty: lrDocData?.shipToParty || row.shipToParty || row.shipmentObj?.shipToParty || row.shipmentObj?.billToParty || row.billToParty || '',
             shipToGtin: lrDocData?.shipToGtin || row.shipToGtin || shipToGtin,
             shipToCode: lrDocData?.shipToCode || row.shipToCode || '',
-            deliveryAddress: lrDocData?.deliveryAddress || row.deliveryAddress || row.unloadingPoint || '',
+            deliveryAddress: lrDocData?.deliveryAddress || row.deliveryAddress || row.shipmentObj?.deliveryAddress || row.unloadingPoint || '',
             vehicleNumber: row.vehicleNumber || '--',
             driverName: row.driverName || '--',
             driverMobile: row.driverMobile || '--',
