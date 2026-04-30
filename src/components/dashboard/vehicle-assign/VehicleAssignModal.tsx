@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm, useWatch, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format } from 'date-fns';
@@ -41,13 +41,18 @@ import {
     ClipboardList,
     Lock,
     Sparkles,
-    AlertCircle
+    AlertCircle,
+    FileText,
+    PlusCircle,
+    Trash2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
+import { DatePicker } from '@/components/date-picker';
 import type { Shipment, Vehicle, WithId, Trip, Carrier, VehicleEntryExit, Plant, SubUser, FuelPump } from '@/types';
-import { VehicleTypes, PaymentTerms } from '@/lib/constants';
+import { VehicleTypes, PaymentTerms, LRUnitTypes } from '@/lib/constants';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from "@/firebase";
 import { 
   collection, 
@@ -78,6 +83,15 @@ const VEHICLE_REGEX = /^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/;
 const MAPS_JS_KEY = "AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU";
 const MAP_LIBRARIES: ("places")[] = ['places'];
 
+const itemSchema = z.object({
+  invoiceNumber: z.string().optional().or(z.literal('')),
+  ewaybillNumber: z.string().optional().or(z.literal('')),
+  units: z.coerce.number().min(1, "Units required"),
+  unitType: z.string().default('Package'),
+  itemDescription: z.string().min(1, "Item desc required"),
+  hsnSac: z.string().optional(),
+});
+
 const formSchema = z.object({
     isNewVehicle: z.boolean().default(false),
     vehicleId: z.string().optional(),
@@ -105,6 +119,10 @@ const formSchema = z.object({
     isFixRate: z.boolean().default(false),
     fixedAmount: z.coerce.number().optional().default(0),
     paymentTerm: z.enum(PaymentTerms).optional().default('Paid'),
+    // NEW UNIQUE MANIFEST FIELDS
+    lrNumber: z.string().min(1, "Unique LR Number is mandatory per vehicle assignment."),
+    lrDate: z.date({ required_error: "LR date is required." }),
+    items: z.array(itemSchema).min(1, "Trip manifest requires at least one item."),
 }).superRefine((data, ctx) => {
     if (data.vehicleType === 'Market Vehicle') {
         if (!data.transporterName?.trim()) {
@@ -144,12 +162,14 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
         fixedAmount: 0,
         paymentTerm: 'Paid',
         carrierId: '',
-        carrierName: ''
+        carrierName: '',
+        items: []
     },
   });
-  const { watch, setValue, handleSubmit, reset, control, formState: { isSubmitting } } = form;
+  const { watch, setValue, handleSubmit, reset, control, formState: { isSubmitting, errors } } = form;
+  const { fields, append, remove } = useFieldArray({ control, name: "items" });
 
-  const { isNewVehicle, vehicleId, assignQty, vehicleType, freightRate, isFixRate, fixedAmount, distance: currentDistance } = watch();
+  const { isNewVehicle, vehicleId, assignQty, vehicleType, freightRate, isFixRate, fixedAmount, distance: currentDistance, items: watchedItems } = watch();
 
   const plantsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "logistics_plants")) : null, [firestore]);
   const { data: plants } = useCollection<Plant>(plantsQuery);
@@ -178,6 +198,11 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
   const plantAddressDisplay = selectedPlant?.address || primaryShipment?.loadingPoint;
 
   useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     if (vehicleType === 'ARRANGE BY PARTY') {
       setValue('carrierId', 'ARRANGE_BY_PARTY', { shouldValidate: true });
       setValue('carrierName', 'ARRANGE BY PARTY', { shouldValidate: true });
@@ -197,6 +222,12 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             }
         }
 
+        // MISSION UNIQUE NODE: Prepare unique items manifest for this trip
+        let initialItems = trip?.items || primaryShipment.items || [];
+        if (initialItems.length === 0) {
+            initialItems = [{ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: primaryShipment.material || 'GENERAL CARGO' }];
+        }
+
         reset({
             isNewVehicle: false,
             vehicleId: trip?.vehicleId || '',
@@ -213,9 +244,12 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             ownerMobile: (trip as any)?.ownerMobile || '',
             distance: trip?.distance || 0,
             freightRate: trip?.freightRate || 0,
-            isFixRate: trip?.isFixRate || false,
+            isFixRate: !!trip?.isFixRate,
             fixedAmount: trip?.fixedAmount || 0,
-            paymentTerm: (trip?.paymentTerm as any) || primaryShipment.paymentTerm || 'Paid'
+            paymentTerm: (trip?.paymentTerm as any) || primaryShipment.paymentTerm || 'Paid',
+            lrNumber: trip?.lrNumber || '',
+            lrDate: parseSafeDate(trip?.lrDate || new Date()),
+            items: initialItems
         });
     }
   }, [isOpen, trip, primaryShipment, reset, totalBalanceQty, carriers]);
@@ -280,22 +314,19 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
     if (vendor) {
         setValue('transporterName', vendor.name, { shouldValidate: true });
         setValue('transporterMobile', vendor.mobile || '', { shouldValidate: true });
-        
-        if (vendor.isFixRate !== undefined) {
-            setValue('isFixRate', vendor.isFixRate);
-        }
-        
+        if (vendor.isFixRate !== undefined) setValue('isFixRate', vendor.isFixRate);
         if (vendor.defaultRate) {
-            if (vendor.isFixRate) {
-                setValue('fixedAmount', vendor.defaultRate);
-                setValue('freightRate', 0);
-            } else {
-                setValue('freightRate', vendor.defaultRate);
-                setValue('fixedAmount', 0);
-            }
+            if (vendor.isFixRate) { setValue('fixedAmount', vendor.defaultRate); setValue('freightRate', 0); }
+            else { setValue('freightRate', vendor.defaultRate); setValue('fixedAmount', 0); }
         }
     }
   };
+
+  const totals = useMemo(() => {
+    return (watchedItems || []).reduce((acc, item) => ({
+        units: acc.units + (Number(item?.units) || 0),
+    }), { units: 0 });
+  }, [watchedItems]);
 
   const onSubmit = async (values: FormValues) => {
     if (!firestore || !user || shipments.length === 0) return;
@@ -308,27 +339,18 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             const docId = trip?.id || doc(collection(firestore, 'trips')).id;
             const tripId = trip?.tripId || generateRandomTripId();
             
-            // 1. REGISTRY READ PHASE: Perform all reads first to satisfy Firestore constraints
             const shipmentSnapshots = [];
             for (const s of shipments) {
                 const sRef = doc(firestore, `plants/${plantId}/shipments`, s.id);
                 const sSnap = await transaction.get(sRef);
-                if (sSnap.exists()) {
-                    shipmentSnapshots.push({ ref: sRef, snap: sSnap });
-                }
+                if (sSnap.exists()) shipmentSnapshots.push({ ref: sRef, snap: sSnap });
             }
 
-            // 2. COMMIT PHASE: Perform all writes after reads are finalized
-            let aggregateItems: any[] = [];
             const shipmentIds: string[] = [];
-
             for (const item of shipmentSnapshots) {
                 const { ref: sRef, snap: sSnap } = item;
                 const sData = sSnap.data() as Shipment;
                 shipmentIds.push(sSnap.id);
-                aggregateItems = [...aggregateItems, ...(sData.items || [])];
-
-                // For bulk, we assume full balance allocation per shipment to keep it consistent
                 const shipmentAssignedQty = shipments.length === 1 ? values.assignQty : sData.balanceQty;
                 const newTotalAssigned = (sData.assignedQty || 0) + shipmentAssignedQty;
                 const newBalance = sData.quantity - newTotalAssigned;
@@ -337,7 +359,10 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                     assignedQty: newTotalAssigned,
                     balanceQty: Math.max(0, newBalance),
                     currentStatusId: newBalance > 0.001 ? 'Partly Vehicle Assigned' : 'Assigned',
-                    lastUpdateDate: timestamp
+                    lastUpdateDate: timestamp,
+                    // SYNC SHIPMENT Registry: Update latest LR node if this is the only assignment or update
+                    lrNumber: values.lrNumber,
+                    lrDate: values.lrDate
                 });
             }
 
@@ -358,9 +383,6 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                 unloadingPoint: primaryShipment.unloadingPoint, 
                 deliveryAddress: primaryShipment.deliveryAddress || primaryShipment.unloadingPoint,
                 materialTypeId: primaryShipment.materialTypeId,
-                items: aggregateItems,
-                lrNumber: primaryShipment.lrNumber || '', 
-                lrDate: primaryShipment.lrDate || null,   
                 lastUpdated: timestamp,
                 userName: currentName,
                 userId: user.uid,
@@ -373,7 +395,7 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
             transaction.set(doc(firestore, `plants/${plantId}/trips`, docId), tripData);
             transaction.set(doc(firestore, 'trips', docId), tripData);
         });
-        toast({ title: 'Mission Established', description: `Registry synced for ${shipments.length} orders.` });
+        toast({ title: 'Mission Established', description: `Registry synced for ${shipments.length} orders with unique LR Node.` });
         onAssignmentComplete();
     } catch (e: any) {
         toast({ variant: 'destructive', title: 'Registry Error', description: e.message });
@@ -386,102 +408,91 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 border-none shadow-2xl bg-slate-50 rounded-[2rem] md:rounded-[3rem]">
-        <DialogHeader className="bg-slate-900 text-white p-4 md:p-6 shrink-0 flex flex-row items-center justify-between pr-10 md:pr-12">
-          <div className="flex items-center gap-3 md:gap-4">
-            <div className="p-2 md:p-3 bg-blue-600 rounded-xl shadow-lg rotate-3"><Truck className="h-7 w-7" /></div>
+      <DialogContent className="max-w-[95vw] w-[1500px] h-[95vh] flex flex-col p-0 border-none shadow-3xl bg-[#f1f5f9] rounded-[3rem]">
+        <DialogHeader className="bg-slate-900 text-white p-6 shrink-0 flex flex-row items-center justify-between pr-12">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-600 rounded-2xl shadow-xl rotate-3"><Truck className="h-8 w-8" /></div>
             <div>
-                <DialogTitle className="text-lg md:text-2xl font-black uppercase tracking-tight italic leading-none text-white">SIKKA LMC | ALLOCATION BOARD</DialogTitle>
-                <DialogDescription className="text-blue-300 font-bold uppercase text-[8px] md:text-[9px] tracking-widest mt-1 md:mt-2">Registry Terminal Node | {shipments.length > 1 ? 'BULK CONSOLIDATION' : 'SINGLE MISSION'}</DialogDescription>
+                <DialogTitle className="text-2xl font-black uppercase tracking-tight italic leading-none">SIKKA LMC | MISSION ALLOCATION TERMINAL</DialogTitle>
+                <DialogDescription className="text-blue-300 font-bold uppercase text-[9px] tracking-widest mt-2">Node Registry | Unique LR & Manifest Handler</DialogDescription>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <Badge variant="outline" className="bg-white/5 border-white/10 text-white font-mono h-8 md:h-10 px-4 md:px-6 rounded-xl flex items-center hidden sm:flex">{format(currentTime, 'HH:mm:ss')}</Badge>
-            <button onClick={onClose} className="h-8 w-8 md:h-10 md:w-10 bg-white p-0 text-red-600 hover:bg-red-50 transition-all rounded-xl shadow-lg flex items-center justify-center border-none">
-                <X size={20} className="stroke-[3]" />
-            </button>
+            <Badge variant="outline" className="bg-white/5 border-white/10 text-white font-mono h-10 px-6 rounded-xl flex items-center hidden sm:flex">{format(currentTime, 'HH:mm:ss')}</Badge>
+            <button onClick={onClose} className="h-10 w-10 bg-white p-0 text-red-600 hover:bg-red-50 transition-all rounded-xl shadow-lg flex items-center justify-center border-none"><X size={24} className="stroke-[3]" /></button>
           </div>
         </DialogHeader>
 
-        <Form {...form}>
-            <form id="vehicle-assign-form" className="flex-1 flex flex-col overflow-hidden" onSubmit={handleSubmit(onSubmit)}>
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 md:space-y-8">
-                <Card className="p-4 md:p-6 border-2 border-slate-100 shadow-xl rounded-[2.5rem] bg-white relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-2 h-full bg-blue-900" />
-                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100 shadow-sm"><ShieldCheck className="h-7 w-7 text-blue-600" /></div>
-                            <div>
-                                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 leading-none">Mission Summary</h3>
-                                <p className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase mt-1">
-                                    {shipments.length > 1 ? `CONSOLIDATED MANIFEST (${shipments.length})` : primaryShipment.shipmentId}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="text-right flex flex-col items-end bg-slate-50 p-3 rounded-2xl border shadow-inner min-w-[200px]">
-                            <span className="text-[9px] font-black uppercase text-slate-500">Aggregate Registry Weight</span>
-                            <p className="text-2xl md:text-4xl font-black text-blue-900 tracking-tighter">{totalBalanceQty.toFixed(3)} <span className="text-sm font-bold text-slate-400 ml-1">MT</span></p>
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-10">
+          {/* TOP SECTION: MISSION CONTEXT */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              <Card className="lg:col-span-8 p-8 border-2 border-slate-100 shadow-xl rounded-[2.5rem] bg-white relative overflow-hidden flex flex-col justify-between">
+                <div className="absolute top-0 left-0 w-2 h-full bg-blue-900" />
+                <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100"><ShieldCheck className="h-7 w-7 text-blue-600" /></div>
+                        <div>
+                            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Shipment Context</h3>
+                            <p className="text-2xl font-black text-slate-900 uppercase">
+                                {shipments.length > 1 ? `CONSOLIDATED MANIFEST (${shipments.length})` : primaryShipment.shipmentId}
+                            </p>
                         </div>
                     </div>
-
-                    <Separator className="my-4 opacity-50" />
-
-                    <div className="space-y-4">
-                        <h3 className="text-[10px] font-black uppercase text-blue-900 tracking-[0.3em] flex items-center gap-3">
-                            <Package className="h-4 w-4" /> Order Registry Details
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {shipments.map((s) => {
-                                const sPlant = plants?.find(p => p.id === s.originPlantId || normalizePlantId(p.id).toLowerCase() === normalizePlantId(s.originPlantId).toLowerCase());
-                                const sPlantName = sPlant?.name || s.originPlantId;
-                                const sPlantAddr = sPlant?.address || s.loadingPoint;
-                                
-                                return (
-                                    <Card key={s.id} className="border border-slate-100 bg-slate-50/50 rounded-[1.5rem] p-4 hover:border-blue-200 transition-all shadow-sm hover:shadow-lg relative overflow-hidden group">
-                                        <div className="absolute top-0 right-0 p-4 opacity-[0.03] rotate-12 transition-transform duration-700 group-hover:scale-110">
-                                            <ClipboardList size={100} />
-                                        </div>
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-center gap-3">
-                                                <Badge className="bg-blue-900 text-white font-black uppercase text-[9px] px-3 h-5 border-none shadow-md">{s.shipmentId}</Badge>
-                                            </div>
-                                            <Badge variant="outline" className="bg-white border-blue-200 text-blue-900 font-black uppercase text-[9px] px-3 h-5">
-                                                {s.balanceQty.toFixed(3)} MT
-                                            </Badge>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-y-4 gap-x-4 relative z-10">
-                                            <ContextNode label="Lifting Plant" value={sPlantName} icon={Factory} />
-                                            <ContextNode label="Consignor" value={s.consignor} icon={UserCircle} />
-                                            <ContextNode label="Site Point" value={sPlantAddr} icon={MapPin} className="col-span-2" />
-                                            <ContextNode label="Consignee" value={s.billToParty} icon={UserCircle} />
-                                            <ContextNode label="Drop Plant" value={s.deliveryAddress || s.unloadingPoint} icon={MapPin} bold className="text-blue-900" />
-                                        </div>
-                                    </Card>
-                                );
-                            })}
-                        </div>
+                    <div className="text-right">
+                        <span className="text-[10px] font-black uppercase text-slate-400">Lifting Plant Node</span>
+                        <p className="text-sm font-black text-blue-900 uppercase">{plantNameDisplay}</p>
                     </div>
-                </Card>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+                    <ContextNode label="Consignor" value={primaryShipment.consignor} icon={UserCircle} />
+                    <ContextNode label="From Hub" value={primaryShipment.loadingPoint} icon={MapPin} />
+                    <ContextNode label="Consignee" value={primaryShipment.billToParty} icon={UserCircle} />
+                    <ContextNode label="Drop Point" value={primaryShipment.unloadingPoint} icon={MapPin} bold />
+                    <div className="bg-slate-50 p-3 rounded-2xl border shadow-inner flex flex-col items-center justify-center">
+                        <span className="text-[9px] font-black uppercase text-slate-500">Registry Weight</span>
+                        <p className="text-2xl font-black text-blue-900 tracking-tighter">{totalBalanceQty.toFixed(3)} MT</p>
+                    </div>
+                </div>
+              </Card>
 
-                <Card className="border-none shadow-2xl rounded-[2rem] md:rounded-[2.5rem] bg-white overflow-hidden">
-                    <div className="p-4 md:p-6 bg-slate-50 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <h3 className="font-black text-xs uppercase tracking-[0.3em] text-slate-500 flex items-center gap-3"><Truck className="h-5 w-5 text-blue-600"/> Fleet Entry Control</h3>
+              <Card className="lg:col-span-4 p-8 bg-blue-900 text-white rounded-[2.5rem] shadow-2xl relative overflow-hidden group h-full flex flex-col justify-center">
+                <div className="absolute top-0 right-0 p-8 opacity-5 rotate-12 group-hover:scale-110 transition-transform duration-1000"><Truck size={140} /></div>
+                <div className="relative z-10 space-y-4">
+                    <h4 className="text-xl font-black uppercase italic leading-tight">Identity Handshake</h4>
+                    <p className="text-[10px] font-bold text-blue-100 leading-relaxed uppercase opacity-80">Every mission allocation establishes a unique document registry. Ensure individual LR and Invoice nodes are finalized for audit compliance.</p>
+                    <div className="pt-4 flex justify-between items-end border-t border-white/10">
+                        <div>
+                            <span className="text-[8px] font-black uppercase text-blue-300 tracking-widest">Active Operator</span>
+                            <p className="text-sm font-black uppercase">@{userProfile?.username || 'SYSTEM'}</p>
+                        </div>
+                        <ShieldCheck className="h-8 w-8 text-emerald-400" />
+                    </div>
+                </div>
+              </Card>
+          </div>
+
+          <Form {...form}>
+            <form className="space-y-12" onSubmit={handleSubmit(onSubmit)}>
+                {/* MISSION FLEET NODE */}
+                <Card className="border-none shadow-2xl rounded-[3rem] bg-white overflow-hidden">
+                    <div className="p-6 bg-slate-50 border-b flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <h3 className="font-black text-xs uppercase tracking-[0.3em] text-slate-500 flex items-center gap-3"><Truck className="h-5 w-5 text-blue-600"/> 1. FLEET ALLOCATION NODE</h3>
                         <div className="bg-white p-1 rounded-xl border-2 border-slate-200 shadow-inner flex items-center gap-1">
-                            <button type="button" onClick={() => setValue('isNewVehicle', false)} className={cn("px-4 md:px-6 py-2 rounded-lg text-[9px] md:text-[10px] font-black uppercase transition-all", !isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>At Gate Registry</button>
-                            <button type="button" onClick={() => setValue('isNewVehicle', true)} className={cn("px-4 md:px-6 py-2 rounded-lg text-[9px] md:text-[10px] font-black uppercase transition-all", isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>Direct Manual Entry</button>
+                            <button type="button" onClick={() => setValue('isNewVehicle', false)} className={cn("px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all", !isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>At Gate Registry</button>
+                            <button type="button" onClick={() => setValue('isNewVehicle', true)} className={cn("px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all", isNewVehicle ? "bg-slate-900 text-white shadow-xl" : "text-slate-400 hover:text-slate-600")}>Direct Manual Entry</button>
                         </div>
                     </div>
-                    <div className="p-6 md:p-8 space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                    <div className="p-10">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Vehicle Number *</label>
                                 {isNewVehicle ? (
-                                    <FormField name="vehicleNumber" control={control} render={({field}) => <FormItem><FormControl><div className="relative"><Input placeholder="XX00XX0000" className="h-12 rounded-xl font-black text-blue-900 uppercase text-lg shadow-inner border-blue-200 focus-visible:ring-blue-900" {...field} /></div></FormControl><FormMessage /></FormItem>} />
+                                    <FormField name="vehicleNumber" control={control} render={({field}) => <FormItem><FormControl><Input placeholder="XX00XX0000" className="h-12 rounded-xl font-black text-blue-900 uppercase text-lg shadow-inner" {...field} /></FormControl><FormMessage /></FormItem>} />
                                 ) : (
                                     <FormField name="vehicleId" control={control} render={({field}) => (
                                         <FormItem>
                                         <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl><SelectTrigger className="h-12 rounded-xl font-black text-blue-900 shadow-sm border-slate-200"><SelectValue placeholder={isDataLoading ? "Syncing Gate..." : "Resolve from Gate"} /></SelectTrigger></FormControl>
+                                            <FormControl><SelectTrigger className="h-12 rounded-xl font-black text-blue-900"><SelectValue placeholder={isDataLoading ? "Syncing Gate..." : "Resolve from Gate"} /></SelectTrigger></FormControl>
                                             <SelectContent className="rounded-xl">{vehiclesAtGate.map(v => <SelectItem key={v.id} value={v.id} className="font-bold py-3 uppercase italic text-black">{v.vehicleNumber} ({v.driverName})</SelectItem>)}</SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -489,207 +500,182 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
                                     )} />
                                 )}
                             </div>
-
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Pilot Name</label>
-                                <FormField name="driverName" control={control} render={({field}) => <FormItem><FormControl><Input placeholder="Pilot Name" className="h-12 rounded-xl font-bold uppercase border-slate-200" {...field} /></FormControl><FormMessage /></FormItem>} />
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Pilot Mobile</label>
-                                <FormField name="driverMobile" control={control} render={({field}) => <FormItem><FormControl><Input {...field} maxLength={10} placeholder="10 Digits" className="h-12 rounded-xl font-mono font-bold border-slate-200" /></FormControl><FormMessage /></FormItem>} />
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Fleet Type *</label>
-                                <FormField name="vehicleType" control={control} render={({ field }) => (
-                                    <FormItem>
+                            <FormField name="vehicleType" control={control} render={({ field }) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400 px-1">Fleet Category *</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl font-bold"><SelectValue /></SelectTrigger></FormControl><SelectContent className="rounded-xl">{VehicleTypes.map(t => <SelectItem key={t} value={t} className="font-bold py-2.5">{t}</SelectItem>)}</SelectContent></Select></FormItem>
+                            )} />
+                            <FormField name="assignQty" control={control} render={({field}) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400 px-1">Assign Quantity (MT) *</FormLabel><FormControl><Input {...field} value={field.value ?? ''} type="number" step="0.001" className="h-12 rounded-xl text-right font-black text-xl text-blue-900 shadow-inner" /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField name="carrierId" control={control} render={({ field }) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-blue-900 px-1">Carrier Agent *</FormLabel><SearchableSelect options={carrierOptions} onChange={field.onChange} value={field.value} className="h-12" disabled={carrierOptions.length === 0 || vehicleType === 'ARRANGE BY PARTY'} /><FormMessage /></FormItem>
+                            )} />
+                            <FormField name="driverName" control={control} render={({field}) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400 px-1">Pilot Name</FormLabel><FormControl><Input placeholder="Full Name" className="h-11 rounded-xl font-bold uppercase" {...field} /></FormControl></FormItem>
+                            )} />
+                            <FormField name="driverMobile" control={control} render={({field}) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400 px-1">Pilot Mobile</FormLabel><FormControl><Input {...field} maxLength={10} placeholder="10 Digits" className="h-11 rounded-xl font-mono font-black" /></FormControl></FormItem>
+                            )} />
+                             <FormField name="paymentTerm" control={control} render={({ field }) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400 px-1">Mission Payment Term</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl font-bold border-slate-200"><SelectValue placeholder="Select Type"/></SelectTrigger></FormControl>
-                                        <SelectContent className="rounded-xl">{VehicleTypes.map(t => <SelectItem key={t} value={t} className="font-bold py-2.5">{t}</SelectItem>)}</SelectContent>
+                                        <FormControl><SelectTrigger className="h-11 rounded-xl font-bold border-slate-200"><SelectValue /></SelectTrigger></FormControl>
+                                        <SelectContent className="rounded-xl">{PaymentTerms.map(t => <SelectItem key={t} value={t} className="font-bold py-2.5 uppercase">{t.toUpperCase()}</SelectItem>)}</SelectContent>
                                     </Select>
-                                    <FormMessage />
-                                    </FormItem>
-                                )} />
-                            </div>
+                                </FormItem>
+                            )} />
+                        </div>
+                    </div>
+                </Card>
 
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-blue-900 tracking-widest px-1 flex items-center gap-2">
-                                    <ShieldCheck className="h-3.5 w-3.5" /> Carrier Agent
-                                </label>
-                                <FormField name="carrierId" control={control} render={({ field }) => (
-                                    <FormItem>
-                                    <SearchableSelect 
-                                        options={carrierOptions} 
-                                        onChange={field.onChange} 
-                                        value={field.value} 
-                                        placeholder={carrierOptions.length === 0 ? "No carriers for this plant" : "Pick Agent"}
-                                        className="h-12"
-                                        disabled={carrierOptions.length === 0 || vehicleType === 'ARRANGE BY PARTY'}
-                                    />
+                {/* UNIQUE MANIFEST NODE */}
+                <Card className="border-none shadow-2xl rounded-[3rem] bg-white overflow-hidden">
+                    <div className="p-6 bg-blue-900 text-white border-b flex items-center justify-between">
+                        <h3 className="font-black text-xs uppercase tracking-[0.3em] flex items-center gap-3"><FileText className="h-5 w-5 text-blue-300"/> 2. MISSION MANIFEST REGISTRY (LR & INVOICE)</h3>
+                        <Badge variant="outline" className="bg-white/10 border-white/20 text-white font-black uppercase text-[10px] px-6 h-8 border-none">Unique Node Per Vehicle</Badge>
+                    </div>
+                    <div className="p-10 space-y-10">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                            <FormField name="lrNumber" control={control} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-black uppercase text-blue-900 tracking-widest px-1">UNIQUE LR NUMBER *</FormLabel>
+                                    <FormControl>
+                                        <div className="relative group">
+                                            <FileText className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-blue-600" />
+                                            <Input placeholder="ENTER LR#" {...field} className="pl-12 h-14 rounded-2xl font-black text-blue-900 text-xl uppercase shadow-inner border-blue-900/20" />
+                                        </div>
+                                    </FormControl>
                                     <FormMessage />
-                                    </FormItem>
-                                )} />
-                            </div>
+                                </FormItem>
+                            )} />
+                            <FormField name="lrDate" control={control} render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="text-[10px] font-black uppercase text-slate-500 tracking-widest px-1">LR REGISTRATION DATE *</FormLabel>
+                                    <FormControl><DatePicker date={field.value} setDate={field.onChange} className="h-14 rounded-2xl" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
 
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Assign Qty (MT) *</label>
-                                <FormField name="assignQty" control={control} render={({field}) => (
-                                    <FormItem>
-                                    <FormControl><Input {...field} value={field.value ?? ''} type="number" step="0.001" className="h-12 rounded-xl text-right font-black text-xl text-blue-900 shadow-inner border-blue-900/20" /></FormControl>
-                                    <FormMessage />
-                                    </FormItem>
-                                )} />
+                        <Separator className="opacity-50" />
+
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between px-2">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Calculator className="h-4 w-4" /> Item & Invoice Ledger</h4>
+                                <Button type="button" variant="outline" size="sm" onClick={() => append({ invoiceNumber: '', ewaybillNumber: '', units: 1, unitType: 'Package', itemDescription: primaryShipment.material || 'GENERAL CARGO' })} className="h-9 px-6 gap-2 font-black text-[10px] uppercase border-blue-200 text-blue-700 bg-white rounded-xl shadow-sm"><PlusCircle size={14} /> Add Manifest Row</Button>
+                            </div>
+                            <div className="rounded-[2.5rem] border-2 border-slate-100 bg-slate-50/30 overflow-hidden shadow-inner">
+                                <Table>
+                                    <TableHeader className="bg-slate-900">
+                                        <TableRow className="hover:bg-transparent border-none h-12">
+                                            <TableHead className="text-white text-[9px] font-black uppercase px-8 w-48">INVOICE NUMBER</TableHead>
+                                            <TableHead className="text-white text-[9px] font-black uppercase px-4 w-48">E-WAYBILL NO.</TableHead>
+                                            <TableHead className="text-white text-[9px] font-black uppercase px-4">ITEM DESCRIPTION *</TableHead>
+                                            <TableHead className="text-white text-[9px] font-black uppercase px-4 text-center w-56">UNITS / UOM</TableHead>
+                                            <TableHead className="w-12"></TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {fields.map((field, index) => (
+                                            <TableRow key={field.id} className="h-16 border-b border-slate-100 last:border-none hover:bg-blue-50/10 transition-colors group">
+                                                <TableCell className="px-8"><Input {...form.register(`items.${index}.invoiceNumber`)} className="h-10 rounded-xl font-black uppercase bg-white border-slate-200" /></TableCell>
+                                                <TableCell className="px-4"><Input {...form.register(`items.${index}.ewaybillNumber`)} className="h-10 rounded-xl font-mono text-blue-600 bg-white border-slate-200 uppercase" /></TableCell>
+                                                <TableCell className="px-4"><Input {...form.register(`items.${index}.itemDescription`)} className="h-10 rounded-xl font-bold bg-white border-slate-200 uppercase" /></TableCell>
+                                                <TableCell className="px-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <Input type="number" {...form.register(`items.${index}.units`)} className="h-10 w-20 text-center font-black text-blue-900 bg-white border-slate-200 rounded-lg shadow-inner" />
+                                                        <Controller name={`items.${index}.unitType`} control={control} render={({ field }) => (
+                                                            <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-10 flex-1 min-w-[120px] rounded-lg border-slate-200 bg-white font-black text-[10px] uppercase shadow-sm"><SelectValue /></SelectTrigger></FormControl><SelectContent className="rounded-xl">{LRUnitTypes.map(t => <SelectItem key={t} value={t} className="font-bold py-2 uppercase text-[10px]">{t}</SelectItem>)}</SelectContent></Select>
+                                                        )}/>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="pr-6 text-right"><Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1} className="text-red-400 hover:text-red-600 rounded-lg"><Trash2 size={18}/></Button></TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                    <TableFooter className="bg-slate-100 border-t-2 border-slate-200 h-14">
+                                        <TableRow className="hover:bg-transparent border-none">
+                                            <TableCell colSpan={3} className="px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest">TOTAL MANIFEST REGISTRY</TableCell>
+                                            <TableCell className="text-center font-black text-lg text-blue-900">{totals.units} Units</TableCell>
+                                            <TableCell></TableCell>
+                                        </TableRow>
+                                    </TableFooter>
+                                </Table>
                             </div>
                         </div>
                     </div>
                 </Card>
 
-                <div className="grid grid-cols-1 gap-8">
-                    <Card className={cn("p-6 md:p-8 transition-all duration-500 rounded-[2.5rem] shadow-xl", (vehicleType === 'Market Vehicle' || vehicleType === 'ARRANGE BY PARTY') ? "bg-blue-50/30 border-2 border-blue-100 opacity-100" : "opacity-40 grayscale pointer-events-none border-slate-100")}>
-                        <div className="flex items-center gap-3 mb-6 px-2">
-                            <IndianRupee className="h-5 w-5 text-blue-600" />
-                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Financial Particulars (Market Node)</h3>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-end">
-                            <FormField name="transporterName" control={control} render={({field}) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase text-slate-400">Transporter Name *</FormLabel>
-                                    <SearchableSelect 
-                                        options={vendorOptions} 
-                                        onChange={(vId) => handleTransporterSelect(vId)} 
-                                        value={vendors?.find(v => v.name === field.value)?.id || ''} 
-                                        placeholder="Resolve from Registry"
-                                        className="h-12"
-                                        disabled={vehicleType === 'ARRANGE BY PARTY'}
-                                    />
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                            
+                {/* FINANCIAL & ROUTE NODE */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                    <Card className={cn("p-10 transition-all duration-500 rounded-[3rem] shadow-xl", (vehicleType === 'Market Vehicle' || vehicleType === 'Contract Vehicle') ? "bg-blue-50/30 border-2 border-blue-100" : "opacity-40 grayscale pointer-events-none")}>
+                        <div className="flex items-center gap-3 mb-8 px-2"><IndianRupee className="h-5 w-5 text-blue-600" /><h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Financial Particulars (Settlement Node)</h3></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Transporter Identity *</label>
+                                <SearchableSelect options={vendorOptions} onChange={(vId) => handleTransporterSelect(vId)} value={vendors?.find(v => v.name === watch('transporterName'))?.id || ''} placeholder="Resolve Transporter" className="h-12" disabled={vehicleType === 'ARRANGE BY PARTY'} />
+                            </div>
                             <FormField name="transporterMobile" control={control} render={({field}) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase text-slate-400">Transporter Mobile</FormLabel>
-                                    <FormControl>
-                                        <div className="relative group">
-                                            <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
-                                            <Input placeholder="Registry Linked" {...field} maxLength={10} className="h-12 rounded-xl bg-white border-slate-200 font-mono pl-10" disabled={vehicleType === 'ARRANGE BY PARTY'} />
-                                        </div>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase text-slate-400">Transporter Mobile</FormLabel><FormControl><Input {...field} maxLength={10} className="h-12 rounded-xl bg-white border-slate-200 font-mono pl-6" disabled={vehicleType === 'ARRANGE BY PARTY'} /></FormControl><FormMessage /></FormItem>
                             )} />
-
                             <FormField name="isFixRate" control={control} render={({ field }) => (
-                                <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-4 border rounded-xl bg-white shadow-sm col-span-1 md:col-span-2">
-                                    <FormControl>
-                                        <Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-6 w-6 rounded-lg data-[state=checked]:bg-blue-900 shadow-md" disabled={vehicleType === 'ARRANGE BY PARTY'} />
-                                    </FormControl>
-                                    <div className="space-y-1 leading-none">
-                                        <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest cursor-pointer">Fixed Rate Mission</FormLabel>
-                                    </div>
+                                <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-4 border rounded-xl bg-white shadow-sm md:col-span-2">
+                                    <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} className="h-6 w-6 rounded-lg data-[state=checked]:bg-blue-900 shadow-md" /></FormControl>
+                                    <FormLabel className="text-[10px] font-black uppercase text-blue-600 tracking-widest cursor-pointer">Fixed Mission Rate Node</FormLabel>
                                 </FormItem>
                             )} />
-
-                            <FormField name="ownerName" control={control} render={({field}) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase text-slate-400">Vehicle Owner Name</FormLabel>
-                                    <FormControl>
-                                        <div className="relative group">
-                                            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
-                                            <Input placeholder="Enter owner name" {...field} className="h-12 rounded-xl bg-white border-slate-200 font-bold pl-10 uppercase" disabled={vehicleType === 'ARRANGE BY PARTY'} />
-                                        </div>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-
-                            <FormField name="ownerMobile" control={control} render={({field}) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase text-slate-400">Owner Mobile Number</FormLabel>
-                                    <FormControl>
-                                        <div className="relative group">
-                                            <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
-                                            <Input placeholder="Optional" {...field} maxLength={10} className="h-12 rounded-xl bg-white border-slate-200 font-mono pl-10" disabled={vehicleType === 'ARRANGE BY PARTY'} />
-                                        </div>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-
                             <FormField name="freightRate" control={control} render={({field}) => (
-                                <FormItem>
-                                    <FormLabel className={cn("text-[10px] font-black uppercase", (isFixRate || vehicleType === 'ARRANGE BY PARTY') ? "text-slate-300" : "text-blue-600")}>Freight Rate (MT) *</FormLabel>
-                                    <FormControl><Input type="number" step="0.01" {...field} disabled={isFixRate || vehicleType === 'ARRANGE BY PARTY'} className="h-12 rounded-xl bg-white border-blue-200 font-black text-blue-900 text-lg shadow-inner disabled:bg-slate-50 disabled:text-slate-300" /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
+                                <FormItem><FormLabel className={cn("text-[10px] font-black uppercase", isFixRate ? "text-slate-300" : "text-blue-600")}>Freight Rate (MT) *</FormLabel><FormControl><Input type="number" step="0.01" {...field} disabled={isFixRate} className="h-12 rounded-xl bg-white font-black text-blue-900 text-lg shadow-inner" /></FormControl></FormItem>
                             )} />
-
                             <FormField name="fixedAmount" control={control} render={({field}) => (
-                                <FormItem>
-                                    <FormLabel className={cn("text-[10px] font-black uppercase", (!isFixRate || vehicleType === 'ARRANGE BY PARTY') ? "text-slate-300" : "text-emerald-600")}>Fixed Total Amount *</FormLabel>
-                                    <FormControl><Input type="number" step="0.01" {...field} disabled={!isFixRate || vehicleType === 'ARRANGE BY PARTY'} className="h-12 rounded-xl bg-white border-emerald-200 font-black text-emerald-900 text-lg shadow-inner disabled:bg-slate-50 disabled:text-slate-300" /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
+                                <FormItem><FormLabel className={cn("text-[10px] font-black uppercase", !isFixRate ? "text-slate-300" : "text-emerald-600")}>Fixed Total *</FormLabel><FormControl><Input type="number" step="0.01" {...field} disabled={!isFixRate} className="h-12 rounded-xl bg-white font-black text-emerald-900 text-lg shadow-inner" /></FormControl></FormItem>
                             )} />
-                            
                             <div className="flex flex-col gap-1.5 md:col-span-2">
-                                <span className="text-[10px] font-black uppercase text-slate-400">
-                                    {isFixRate ? 'Fixed Mission Total' : 'Calculated Freight'}
-                                </span>
-                                <div className="h-14 px-6 flex items-center bg-blue-900 rounded-xl text-white font-black text-2xl shadow-xl">
-                                    {isFixRate ? 'FIX RATE: ' : ''}₹ {calculatedFreight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                </div>
+                                <span className="text-[10px] font-black uppercase text-slate-400">Total Calculated Freight</span>
+                                <div className="h-14 px-6 flex items-center bg-blue-900 rounded-xl text-white font-black text-2xl shadow-xl">₹ {calculatedFreight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                             </div>
                         </div>
                     </Card>
 
-                    <Card className="p-4 md:p-8 rounded-[2.5rem] bg-white border-2 border-slate-100 shadow-xl flex items-center gap-4 md:gap-8 relative overflow-hidden group">
-                        <div className="flex flex-col gap-1">
-                            <span className="text-[8px] md:text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">Routing Distance Node</span>
-                            <div className="flex items-center gap-3">
-                                <h4 className="text-3xl md:text-5xl font-black text-blue-900 tracking-tighter">
-                                    {calculatingDistance ? <Loader2 className="h-10 w-10 animate-spin" /> : (currentDistance || '--')}
-                                </h4>
-                                <span className="text-lg md:text-xl font-black text-slate-300">KM</span>
+                    <Card className="p-10 rounded-[3rem] bg-white border-2 border-slate-100 shadow-xl flex flex-col justify-center gap-10 relative overflow-hidden group">
+                        <div className="space-y-4">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 leading-none"><MapPin className="h-4 w-4 text-blue-600" /> Routing Distance Node</span>
+                            <div className="flex items-center gap-4">
+                                <h4 className="text-6xl font-black text-blue-900 tracking-tighter">{calculatingDistance ? <Loader2 className="h-12 w-12 animate-spin" /> : (currentDistance || '--')}</h4>
+                                <span className="text-2xl font-black text-slate-200 uppercase">Kilometers</span>
                             </div>
                         </div>
-                        <div className="h-16 w-px bg-slate-100 mx-1 md:mx-2" />
-                        <div className="flex items-start gap-4">
-                            <AlertCircle className="h-6 w-6 text-blue-600 shrink-0 mt-1 hidden sm:block" />
-                            <p className="text-[9px] font-bold text-slate-500 uppercase leading-normal max-w-[200px]">Distance synchronized with Google Maps mission routing protocol.</p>
+                        <div className="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100 flex items-start gap-4">
+                            <AlertCircle className="h-6 w-6 text-blue-600 shrink-0 mt-0.5" />
+                            <p className="text-[11px] font-bold text-slate-500 uppercase leading-relaxed">Route synchronized with satellite registry protocol. Distance used for mileage & detention logic.</p>
                         </div>
                     </Card>
                 </div>
 
                 <div className="flex flex-col md:flex-row justify-end pt-10 border-t border-white/5 gap-6">
-                    <button type="button" onClick={onClose} className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-white transition-all py-2">ABORT ALLOCATION</button>
-                    <Button 
-                        type="submit" 
-                        disabled={isSubmitting || calculatingDistance} 
-                        className="h-16 px-16 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none p-0 flex items-center justify-center min-w-[280px]"
-                    >
-                        {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Save className="mr-3 h-4 w-4" />} 
-                        {isEditing ? 'UPDATE REGISTRY' : 'ESTABLISH MISSION NODE'}
+                    <button type="button" onClick={onClose} className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-red-600 transition-all py-2 px-6">ABORT ALLOCATION</button>
+                    <Button type="submit" disabled={isSubmitting || calculatingDistance} className="h-16 px-20 bg-blue-600 hover:bg-blue-700 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] shadow-2xl shadow-blue-600/30 transition-all active:scale-95 border-none p-0 flex items-center justify-center min-w-[350px]">
+                        {isSubmitting ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />} 
+                        {isEditing ? 'UPDATE MISSION HANDBOOK' : 'ESTABLISH MISSION NODE'}
                     </Button>
                 </div>
-                </div>
-
-                <DialogFooter className="p-4 md:p-8 bg-slate-900 flex flex-col md:flex-row justify-between items-center shrink-0 gap-8">
-                    <div className="flex flex-col gap-1.5">
-                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2 leading-none"><Calculator className="h-3 w-3" /> Balance remaining</span>
-                        <span className={cn("text-2xl md:text-4xl font-black tracking-tighter transition-all duration-500 leading-none", balanceQty > 0.001 ? "text-orange-400" : "text-emerald-400")}>
-                            {balanceQty.toFixed(3)} MT
-                        </span>
-                    </div>
-
-                    <div className="flex items-center gap-4 md:gap-8">
-                        <ShieldCheck className="h-5 w-5 text-emerald-600" />
-                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest italic">Authorized Registry Handshake Node</span>
-                    </div>
-                </DialogFooter>
             </form>
-        </Form>
+          </Form>
+        </div>
+
+        <DialogFooter className="p-8 bg-slate-900 flex flex-col md:flex-row justify-between items-center shrink-0 gap-8">
+            <div className="flex flex-col gap-1.5">
+                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2 leading-none"><Calculator className="h-3 w-3" /> Balance remaining</span>
+                <span className={cn("text-3xl font-black tracking-tighter transition-all duration-500 leading-none", balanceQty > 0.001 ? "text-orange-400" : "text-emerald-400")}>
+                    {balanceQty.toFixed(3)} MT
+                </span>
+            </div>
+            <div className="flex items-center gap-8">
+                <div className="flex items-center gap-3">
+                    <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Authorized Registry Handshake Node</span>
+                </div>
+            </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -697,11 +683,12 @@ export default function VehicleAssignModal({ isOpen, onClose, shipments, trip, o
 
 function ContextNode({ label, value, icon: Icon, className, bold }: any) {
     return (
-        <div className={cn("space-y-1", className)}>
-            <span className="text-[8px] font-black uppercase text-slate-400 flex items-center gap-1.5 tracking-widest leading-none">
-                {Icon && <Icon className="h-2.5 w-2.5" />} {label}
+        <div className={cn("space-y-1.5", className)}>
+            <span className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 tracking-widest leading-none">
+                {Icon && <Icon className="h-3 w-3" />} {label}
             </span>
-            <p className={cn("text-[10px] md:text-xs leading-tight wrap", bold ? "font-black" : "font-bold text-slate-700")}>{value || '--'}</p>
+            <p className={cn("text-xs leading-tight font-bold uppercase", bold ? "font-black text-slate-900" : "text-slate-700")}>{value || '--'}</p>
         </div>
     );
 }
+

@@ -44,6 +44,10 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     return (lr.items || []).map(item => {
       let weight = Number(item.weight) || 0;
       
+      if (item.weightUnit === 'KG') {
+        weight = weight / 1000;
+      }
+
       if (weight > 0) {
         return { ...item, weight };
       }
@@ -67,54 +71,41 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
   const totalWeightFromItems = useMemo(() => {
     return allItems.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
   }, [allItems]);
-
-  const displayItems = useMemo(() => {
-    const invGroups = allItems.reduce((acc, item) => {
-        const inv = (item.invoiceNumber || 'NA').trim();
-        if (!acc[inv]) acc[inv] = [];
-        acc[inv].push(item);
-        return acc;
-    }, {} as Record<string, any[]>);
-
-    let rows: any[] = [];
-
-    Object.entries(invGroups).forEach(([inv, invItems]) => {
-        const uniqueDescs = Array.from(new Set(invItems.map(i => (i.itemDescription || i.description || 'GENERAL CARGO').toUpperCase().trim())));
-        const totalInvWeight = invItems.reduce((s, i) => s + (Number(i.weight) || 0), 0);
-        
-        if (invItems.length > 1) {
-            const totalUnits = invItems.reduce((s, i) => s + (Number(i.units) || 0), 0);
-            const ewaybills = Array.from(new Set(invItems.map(i => i.ewaybillNumber).filter(Boolean))).join(', ');
-            
-            rows.push({
-                invoiceNumber: inv === 'NA' ? '--' : inv,
-                ewaybillNumber: ewaybills || '--',
-                itemDescription: uniqueDescs.length === 1 ? uniqueDescs[0] : `VARIOUS ITEMS AS PER INVOICE`,
-                units: totalUnits,
-                weight: totalInvWeight
-            });
-        } else {
-            invItems.forEach(i => {
-                rows.push({
-                    invoiceNumber: inv === 'NA' ? '--' : inv,
-                    ewaybillNumber: i.ewaybillNumber || '--',
-                    itemDescription: (i.itemDescription || i.description || 'GENERAL CARGO').toUpperCase(),
-                    units: Number(i.units) || 0,
-                    weight: Number(i.weight) || 0
-                });
-            });
-        }
-    });
-
-    if (rows.length === 0) {
-        rows.push({ invoiceNumber: '--', ewaybillNumber: '--', itemDescription: 'GENERAL CARGO', units: 0, weight: 0 });
-    }
-
-    return rows;
+  
+  const totalUnitsFinal = useMemo(() => {
+    return allItems.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
   }, [allItems]);
 
-  const totalUnitsFinal = allItems.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
-  const totalWeightFinal = lr.originPlantId === 'ID23' ? totalWeightFromItems : (Number(lr.assignedTripWeight) || totalWeightFromItems || 0);
+  const totalWeightFinal = totalWeightFromItems;
+
+  const displayItems = useMemo(() => {
+    if (!allItems || allItems.length === 0) {
+      return [{ invoiceNumber: '--', ewaybillNumber: '--', itemDescription: 'GENERAL CARGO', units: 0, weight: 0 }];
+    }
+
+    if (allItems.length > 1) {
+      const allInvoiceNumbers = [...new Set(allItems.map((i) => i.invoiceNumber).filter(Boolean))].join(', ');
+      const allEwaybills = [...new Set(allItems.map((i) => i.ewaybillNumber).filter(Boolean))].join(', ');
+
+      return [
+        {
+          invoiceNumber: allInvoiceNumbers,
+          ewaybillNumber: allEwaybills,
+          itemDescription: 'VARIOUS ITEMS AS PER INVOICE',
+          units: totalUnitsFinal,
+          weight: totalWeightFinal,
+        },
+      ];
+    }
+
+    return allItems.map((item) => ({
+      invoiceNumber: item.invoiceNumber || '--',
+      ewaybillNumber: item.ewaybillNumber || '--',
+      itemDescription: (item.itemDescription || item.description || 'GENERAL CARGO').toUpperCase(),
+      units: Number(item.units) || 0,
+      weight: Number(item.weight) || 0,
+    }));
+  }, [allItems, totalUnitsFinal, totalWeightFinal]);
 
 
   const renderPairedValues = (valueString: string) => {
