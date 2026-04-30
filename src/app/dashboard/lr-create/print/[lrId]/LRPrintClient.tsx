@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
@@ -77,21 +76,19 @@ function LRPrintContent({ lrId }: { lrId: string }) {
             
             let carrier = carrierSnap.exists() ? { id: carrierSnap.id, ...carrierSnap.data() } : null;
 
-            // REGISTRY OVERRIDE NODE: Hardened resolution for Sikka LMC nodes - Strictly mapping per plant requirements
+            // REGISTRY OVERRIDE NODE: Hardened resolution for Sikka LMC nodes - Only override if database record is missing
             const pIdStr = normalizePlantId(currentPlantId).toUpperCase();
-            const carrierNameRaw = (carrier?.name || lr.carrierName || '').toUpperCase();
-            const isSikkaLmc = carrierNameRaw.includes('SIKKA');
-
-            if (isSikkaLmc || !carrier) {
+            
+            if (!carrier) {
                 if (pIdStr === 'ID20') {
                     carrier = {
                         id: 'ID20',
                         name: 'SIKKA INDUSTRIES AND LOGISTICS',
                         address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, Uttar Pradesh, 201009',
-                        mobile: '9136688004',
-                        gstin: '09AYQPS6936B1ZV',
-                        stateCode: '09',
-                        stateName: 'UTTAR PRADESH',
+                        mobile: '8860091900',
+                        gstin: '07AYQPS6936B1ZZ',
+                        stateCode: '07',
+                        stateName: 'DELHI',
                         pan: 'AYQPS6936B',
                         email: 'sil@sikkaenterprises.com',
                         website: 'www.sikkaind.com',
@@ -102,7 +99,7 @@ function LRPrintContent({ lrId }: { lrId: string }) {
                         id: 'ID23',
                         name: 'SIKKA INDUSTRIES AND LOGISTICS',
                         address: 'PLOT NO. C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD 201009',
-                        mobile: '9136688004',
+                        mobile: '8860091900',
                         gstin: '09AYQPS6936B1ZV',
                         stateCode: '09',
                         stateName: 'UTTAR PRADESH',
@@ -116,7 +113,7 @@ function LRPrintContent({ lrId }: { lrId: string }) {
                         id: '1426',
                         name: 'SIKKA LMC',
                         address: '20Km. Stone, Near Tivoli Grand Resort, Khasra No. -9, G.T. Karnal Road, Jindpur, Delhi - 110036',
-                        mobile: '9136688004',
+                        mobile: '9136688004, 9136688006, 9136688009',
                         gstin: '07AYQPS6936B1ZZ',
                         stateCode: '07',
                         stateName: 'DELHI',
@@ -130,7 +127,7 @@ function LRPrintContent({ lrId }: { lrId: string }) {
                         id: '1214',
                         name: 'SIKKA LMC',
                         address: 'B-11, BULANDSHAHR ROAD INDLAREA, GHAZIABAD, UTTAR PRADESH, 201009',
-                        mobile: '9136688004',
+                        mobile: '8929402000, 9136688004',
                         gstin: '09AYQPS6936B1ZV',
                         stateCode: '09',
                         stateName: 'UTTAR PRADESH',

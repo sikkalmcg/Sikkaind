@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo } from 'react';
@@ -149,9 +148,9 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             </div>
 
             <div className="text-[7pt] font-black text-slate-400 flex flex-wrap gap-x-4 gap-y-1.5 pt-1.5 uppercase leading-none">
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">PHONE:</span> <span className="text-slate-900 font-mono font-black">{carrier.mobile || '9136688004'}</span></p>
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">EMAIL:</span> <span className="text-blue-700 lowercase font-black">{carrier.email || 'sil@sikkaenterprises.com'}</span></p>
-              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">WEB:</span> <span className="text-blue-700 lowercase font-black">{carrier.website || 'www.sikkaind.com'}</span></p>
+              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">PHONE:</span> <span className="text-slate-900 font-mono font-black">{carrier.mobile || carrier.phone || '--'}</span></p>
+              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">EMAIL:</span> <span className="text-blue-700 lowercase font-black">{carrier.email || '--'}</span></p>
+              <p className="flex items-center gap-1.5"><span className="text-slate-400 font-bold uppercase text-[6.5pt]">WEB:</span> <span className="text-blue-700 lowercase font-black">{carrier.website || '--'}</span></p>
             </div>
           </div>
         </div>
@@ -198,7 +197,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                         {node.mobile && (
                            <p className="font-black text-slate-900 text-[7.5pt]">MOB: <span className="font-mono uppercase">{node.mobile}</span></p>
                         )}
-                        <p className="font-black text-slate-950 text-[11pt] tracking-tighter leading-none">GSTIN: <span className="font-mono uppercase">{node.gstin || 'N/A'}</span></p>
+                        <p className="font-black text-slate-950 text-[11pt] tracking-tighter leading-none">GSTIN: <span className="font-mono uppercase text-[11pt]">{node.gstin || 'N/A'}</span></p>
                     </div>
                 </div>
             </div>
