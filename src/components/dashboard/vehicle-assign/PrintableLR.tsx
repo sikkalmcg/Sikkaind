@@ -153,14 +153,6 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 <span className="text-slate-500 font-bold uppercase text-[7.5pt]">PAN:</span> 
                 <span className="font-mono text-slate-950 text-[10pt] tracking-tighter">{carrier.pan || '--'}</span>
               </p>
-              <p className="flex items-center gap-1.5">
-                <span className="text-slate-500 font-bold uppercase text-[7pt]">STATE:</span> 
-                <span className="text-slate-900 font-black">{carrier.stateName || '--'}</span>
-              </p>
-              <p className="flex items-center gap-1.5">
-                <span className="text-slate-500 font-bold uppercase text-[7pt]">CODE:</span> 
-                <span className="text-slate-900 font-black">{carrier.stateCode || '--'}</span>
-              </p>
             </div>
 
             <div className="text-[7pt] font-black text-slate-400 flex flex-wrap gap-x-4 gap-y-1.5 pt-1.5 uppercase leading-none">
