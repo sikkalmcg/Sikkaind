@@ -179,7 +179,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
         </div>
       </div>
 
-      <div className="grid grid-cols-4 border-2 border-black rounded-xl overflow-hidden mb-5 bg-white divide-x-2 divide-black shadow-sm shrink-0">
+      <div className="grid grid-cols-4 border-2 border-black rounded-xl overflow-hidden mb-5 bg-white divide-x-2 divide-black divide-y-2 shadow-sm shrink-0">
         {[
           { label: 'TRIP ID NODE', value: tripIdDisplay, mono: true, bold: true, color: 'text-blue-900' },
           { label: 'VEHICLE REGISTRY', value: vehicleNumber, bold: true },
@@ -204,11 +204,11 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
                 <div className="space-y-1 mt-1 flex-1 flex flex-col justify-center">
                     <p className="text-[9pt] font-black uppercase text-slate-900 leading-tight line-clamp-2">{node.name}</p>
                     <p className="text-[7.5pt] font-bold text-slate-500 leading-snug italic uppercase line-clamp-3">{node.addr}</p>
-                    <div className="pt-1.5 border-t border-slate-100 mt-auto space-y-1 text-[7pt]">
+                    <div className="pt-1.5 border-t border-slate-100 mt-auto space-y-1">
                         {node.mobile && (
-                           <p className="font-black text-slate-900">MOB: <span className="font-mono uppercase">{node.mobile}</span></p>
+                           <p className="font-black text-slate-900 text-[7.5pt]">MOB: <span className="font-mono uppercase">{node.mobile}</span></p>
                         )}
-                        <p className="font-black text-slate-900">GSTIN: <span className="font-mono uppercase">{node.gstin || 'N/A'}</span></p>
+                        <p className="font-black text-slate-950 text-[11pt] tracking-tighter leading-none">GSTIN: <span className="font-mono uppercase">{node.gstin || 'N/A'}</span></p>
                     </div>
                 </div>
             </div>
