@@ -76,11 +76,12 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     return allItems.reduce((sum, item) => sum + (Number(item.units) || 0), 0);
   }, [allItems]);
 
-  const totalWeightFinal = totalWeightFromItems;
+  // MISSION FIX: Priority logic for total weight resolution
+  const totalWeightFinal = totalWeightFromItems > 0 ? totalWeightFromItems : (Number(lr.assignedTripWeight) || 0);
 
   const displayItems = useMemo(() => {
     if (!allItems || allItems.length === 0) {
-      return [{ invoiceNumber: '--', ewaybillNumber: '--', itemDescription: 'GENERAL CARGO', units: 0, weight: 0 }];
+      return [{ invoiceNumber: '--', ewaybillNumber: '--', itemDescription: 'GENERAL CARGO', units: 0, weight: totalWeightFinal }];
     }
 
     if (allItems.length > 1) {
@@ -103,7 +104,7 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
       ewaybillNumber: item.ewaybillNumber || '--',
       itemDescription: (item.itemDescription || item.description || 'GENERAL CARGO').toUpperCase(),
       units: Number(item.units) || 0,
-      weight: Number(item.weight) || 0,
+      weight: (Number(item.weight) || totalWeightFinal),
     }));
   }, [allItems, totalUnitsFinal, totalWeightFinal]);
 
@@ -114,7 +115,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
     const rows = [];
     for (let i = 0; i < items.length; i += 2) {
         const pair = items.slice(i, i + 2).join(', ');
-        rows.push(<div key={i} className="text-[7pt] font-black text-slate-900 leading-tight mb-0.5 last:mb-0 uppercase text-center">{pair}</div>);
+        // MISSION REFINEMENT: Size increased to 9pt, weight normalized
+        rows.push(<div key={i} className="text-[9pt] font-normal text-slate-900 leading-tight mb-0.5 last:mb-0 uppercase text-center">{pair}</div>);
     }
     return <div className="flex flex-col py-1 items-center justify-center h-full">{rows}</div>;
   };
@@ -147,7 +149,8 @@ export default function PrintableLR({ lr, copyType, pageNumber, totalInSeries }:
             <div className="text-[8pt] font-black text-slate-400 flex flex-wrap gap-x-5 gap-y-2 pt-2 uppercase leading-none">
               <p className="flex items-center gap-1.5">
                 <span className="text-slate-500 font-bold uppercase text-[7.5pt]">GSTIN:</span> 
-                <span className="font-mono text-slate-950 text-[10pt] tracking-tighter">{carrier.gstin || '--'}</span>
+                {/* MISSION REFINEMENT: Size increased to 13pt for high visibility */}
+                <span className="font-mono text-slate-950 text-[13pt] tracking-tighter">{carrier.gstin || '--'}</span>
               </p>
               <p className="flex items-center gap-1.5">
                 <span className="text-slate-500 font-bold uppercase text-[7.5pt]">PAN:</span> 
