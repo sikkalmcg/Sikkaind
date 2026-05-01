@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -247,6 +248,28 @@ export default function SapDashboard() {
 
   const handleSave = React.useCallback(() => {
     if (!user || activeScreen === 'HOME' || activeScreen.endsWith('03')) return;
+
+    // XK Validation (Vendor Master)
+    if (activeScreen.startsWith('XK')) {
+      const { vendorName, vendorFirmName, mobile, address, route } = formData;
+      const nameVal = (vendorName || '').toString().trim();
+      const firmVal = (vendorFirmName || '').toString().trim();
+      const mobileVal = (mobile || '').toString().trim();
+      const addressVal = (address || '').toString().trim();
+      const routeVal = (route || '').toString().trim();
+
+      const hasNames = nameVal.length > 0 || firmVal.length > 0;
+      const hasMandatory = mobileVal.length > 0 && addressVal.length > 0 && routeVal.length > 0;
+
+      if (!hasMandatory || !hasNames) {
+        setStatusMsg({ 
+          text: 'Error: Mobile, Address, Route & (Name or Firm Name) are mandatory', 
+          type: 'error' 
+        });
+        return;
+      }
+    }
+
     if (activeScreen === 'VA04') {
       if (!formData.saleOrder || !formData.reason) {
         setStatusMsg({ text: 'Error: Sales Order & Reason are mandatory', type: 'error' });
@@ -553,7 +576,7 @@ function PlantForm({ data, onChange, disabled }: any) {
       <SectionGrouping title="">
         <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
       </SectionGrouping>
-      <SectionGrouping title="SETTINGS / ">
+      <SectionGrouping title="SETTINGS">
         <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
         <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
         <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
@@ -613,9 +636,14 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
 function VendorForm({ data, onChange, disabled }: any) {
   return (
     <div className="space-y-4">
-      <SectionGrouping title="">
+      <SectionGrouping title="IDENTIFICATION">
         <FormInput label="VENDOR NAME" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
+        <FormInput label="VENDOR FIRM NAME" value={data.vendorFirmName} onChange={(v: string) => onChange({...data, vendorFirmName: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="DETAILS">
         <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="ROUTE" value={data.route} onChange={(v: string) => onChange({...data, route: v})} disabled={disabled} />
       </SectionGrouping>
     </div>
   );
@@ -698,7 +726,7 @@ function RegistryList({ onSelectItem, listData }: any) {
   );
 }
 
-function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN }: any) {
+function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN }: { orders: any[] | null, trips: any[] | null, onStatusUpdate: any, plants: any[] | null, onPrintLR: any, onPrintCN: any }) {
   const { user } = useUser();
   const db = useFirestore();
   const [plantFilter, setPlantFilter] = React.useState('ALL');
@@ -736,7 +764,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
   );
 }
 
-function BulkDataHub({ allPlants, onStatusUpdate }: any) {
+function BulkDataHub({ allPlants, onStatusUpdate }: { allPlants: any[] | null, onStatusUpdate: any }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-7xl mx-auto p-4">
       <div className="bg-white rounded-sm shadow-xl border border-slate-300 overflow-hidden flex flex-col">

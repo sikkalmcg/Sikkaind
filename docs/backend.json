@@ -81,12 +81,14 @@
         "id": { "type": "string" },
         "plantCodes": { "type": "array", "items": { "type": "string" } },
         "vendorName": { "type": "string" },
+        "vendorFirmName": { "type": "string" },
         "address": { "type": "string" },
         "mobile": { "type": "string" },
+        "route": { "type": "string" },
         "gstin": { "type": "string" },
         "pan": { "type": "string" }
       },
-      "required": ["vendorName"]
+      "required": ["mobile", "address", "route"]
     },
     "Customer": {
       "title": "Customer",
