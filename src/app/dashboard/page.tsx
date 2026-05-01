@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -8,7 +7,7 @@ import {
   ChevronRight, Check, AlertCircle, Info, PlusCircle, Trash2,
   Grid2X2, Upload, Download, ShoppingBag, ArrowUpRight,
   Filter, Truck, Calendar, MapPin, User, DollarSign, Activity,
-  Layers, PackageCheck, Ban, Lock
+  Layers, PackageCheck, Ban, Lock, Play, XCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,9 +51,17 @@ export default function SapDashboard() {
   // Memoize data for various contexts
   const ordersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'sales_orders') : null, [user, db]);
   const tripsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'trips') : null, [user, db]);
+  const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
+  const companiesQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'companies') : null, [user, db]);
+  const vendorsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'vendors') : null, [user, db]);
+  const customersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'customers') : null, [user, db]);
   
   const { data: recentOrders } = useCollection(ordersQuery);
   const { data: allTrips } = useCollection(tripsQuery);
+  const { data: allPlants } = useCollection(plantsQuery);
+  const { data: allCompanies } = useCollection(companiesQuery);
+  const { data: allVendors } = useCollection(vendorsQuery);
+  const { data: allCustomers } = useCollection(customersQuery);
 
   const handleSave = () => {
     if (!user) {
@@ -123,6 +130,15 @@ export default function SapDashboard() {
     setTCode('');
   };
 
+  const handleCancel = () => {
+    setFormData({});
+    if (activeScreen.endsWith('02') || activeScreen.endsWith('03')) {
+      // Logic for cancel in initial screen
+    } else {
+      setActiveScreen('HOME');
+    }
+  };
+
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === 's') {
@@ -155,6 +171,15 @@ export default function SapDashboard() {
   const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
   const showForm = activeScreen.endsWith('01') || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
   const isReadOnly = activeScreen.endsWith('03');
+
+  const getRegistryList = () => {
+    if (activeScreen.startsWith('OX')) return allPlants;
+    if (activeScreen.startsWith('FM')) return allCompanies;
+    if (activeScreen.startsWith('XK')) return allVendors;
+    if (activeScreen.startsWith('XD')) return allCustomers;
+    if (activeScreen.startsWith('VA')) return recentOrders;
+    return [];
+  };
 
   return (
     <div className="flex flex-col h-screen bg-[#d9e1f2] text-[#333] font-mono select-none overflow-hidden">
@@ -191,36 +216,56 @@ export default function SapDashboard() {
       </div>
 
       {/* Command Bar */}
-      <div className="flex items-center bg-[#f0f0f0] border-b border-slate-300 px-2 py-1 gap-2 shadow-sm">
-        <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner">
-          <div className="px-1 text-[#008000] font-black text-xs">✓</div>
-          <input 
-            ref={tCodeRef}
-            type="text" 
-            value={tCode}
-            onChange={(e) => setTCode(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && executeTCode(tCode)}
-            className="w-48 outline-none text-xs px-1 font-bold tracking-wider"
-            placeholder="/n..."
-          />
+      <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm">
+        <div className="flex items-center px-2 py-1 gap-2">
+          <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner">
+            <div className="px-1 text-[#008000] font-black text-xs">✓</div>
+            <input 
+              ref={tCodeRef}
+              type="text" 
+              value={tCode}
+              onChange={(e) => setTCode(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && executeTCode(tCode)}
+              className="w-48 outline-none text-xs px-1 font-bold tracking-wider"
+              placeholder="/n..."
+            />
+          </div>
+          <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-6">
+             <button onClick={handleSave} title="Save (Ctrl+S)" className="p-1 hover:bg-slate-200 rounded group transition-all">
+               <Save className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
+             </button>
+             <button onClick={() => setActiveScreen('HOME')} title="Exit" className="p-1 hover:bg-slate-200 rounded group transition-all">
+               <X className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
+             </button>
+             <button onClick={() => setFormData({})} title="Refresh/Reset" className="p-1 hover:bg-slate-200 rounded group transition-all">
+               <RotateCcw className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
+             </button>
+             <button onClick={() => window.print()} title="Print" className="p-1 hover:bg-slate-200 rounded group transition-all">
+               <Printer className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
+             </button>
+          </div>
+          <div className="flex items-center gap-2 ml-auto">
+             <HelpCircle className="h-4 w-4 text-slate-600" />
+          </div>
         </div>
-        <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-6">
-           <button onClick={handleSave} title="Save (Ctrl+S)" className="p-1 hover:bg-slate-200 rounded group transition-all">
-             <Save className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
-           </button>
-           <button onClick={() => setActiveScreen('HOME')} title="Exit" className="p-1 hover:bg-slate-200 rounded group transition-all">
-             <X className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
-           </button>
-           <button onClick={() => setFormData({})} title="Refresh/Reset" className="p-1 hover:bg-slate-200 rounded group transition-all">
-             <RotateCcw className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
-           </button>
-           <button onClick={() => window.print()} title="Print" className="p-1 hover:bg-slate-200 rounded group transition-all">
-             <Printer className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
-           </button>
-        </div>
-        <div className="flex items-center gap-2 ml-auto">
-           <HelpCircle className="h-4 w-4 text-slate-600" />
-        </div>
+
+        {/* Transaction Sub-Toolbar */}
+        {isModuleActive && activeScreen !== 'HOME' && (
+          <div className="bg-[#e2eaf3] border-t border-slate-200 px-4 py-1.5 flex items-center gap-6">
+            <button 
+              onClick={handleSave} 
+              className="flex items-center gap-2 text-[10px] font-bold text-slate-600 hover:text-blue-700 transition-colors uppercase tracking-widest"
+            >
+              <Play className="h-3 w-3 fill-emerald-500 text-emerald-500" /> Execute
+            </button>
+            <button 
+              onClick={handleCancel}
+              className="flex items-center gap-2 text-[10px] font-bold text-slate-600 hover:text-red-700 transition-colors uppercase tracking-widest"
+            >
+              <XCircle className="h-3 w-3 text-red-500" /> Cancel
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 flex overflow-hidden">
@@ -344,21 +389,54 @@ export default function SapDashboard() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white shadow-2xl rounded-[2.5rem] border border-slate-100 overflow-hidden animate-slide-up w-full print:shadow-none print:border-none print:rounded-none">
-                 <div className="h-2 bg-yellow-500 w-full print:hidden" />
-                 <div className="p-10 space-y-10">
-                   {showForm && (
-                     <>
-                       {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                       {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                       {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                       {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                       {activeScreen.startsWith('VA') && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                     </>
+              <div className="bg-white shadow-2xl rounded-sm border border-slate-300 overflow-hidden animate-slide-up w-full print:shadow-none print:border-none print:rounded-none">
+                 {/* Top SAP Yellow Highlight */}
+                 <div className="h-1 bg-yellow-500 w-full print:hidden" />
+                 
+                 <div className="p-1 min-h-[600px] bg-[#fdfdfd] flex flex-col">
+                   {/* Form Header Area for Initial Screens */}
+                   {showList && (
+                     <div className="bg-[#e9f0f8] p-4 border-b border-slate-300 mb-6">
+                        <div className="flex items-center gap-6 max-w-2xl">
+                           <label className="text-xs font-bold text-slate-600 w-32">Selection Registry</label>
+                           <select 
+                            className="flex-1 h-8 bg-white border border-slate-400 px-2 text-xs outline-none"
+                            onChange={(e) => {
+                              const selected = getRegistryList()?.find(i => i.id === e.target.value);
+                              if (selected) setFormData(selected);
+                            }}
+                           >
+                            <option value="">Select Registry Item...</option>
+                            {getRegistryList()?.map(item => (
+                              <option key={item.id} value={item.id}>
+                                {item.saleOrder || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)} - {item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}
+                              </option>
+                            ))}
+                           </select>
+                        </div>
+                     </div>
                    )}
-                   {showList && <RegistryList screen={activeScreen} onSelectItem={setFormData} />}
-                   {activeScreen === 'TR21' && <DripBoard orders={recentOrders} trips={allTrips} onStatusUpdate={setStatusMsg} />}
-                   {activeScreen === 'BULK' && <BulkUploadForm setStatus={setStatusMsg} />}
+
+                   {/* Form Content */}
+                   <div className="p-4 space-y-6">
+                     {showForm && (
+                       <>
+                         {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                         {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                         {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                         {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                         {activeScreen.startsWith('VA') && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                       </>
+                     )}
+                     {showList && (
+                       <div className="space-y-4">
+                         <h3 className="text-[10px] font-bold uppercase bg-[#dae4f1] px-4 py-1 border-y border-slate-300 text-[#1e3a8a]">Selection List</h3>
+                         <RegistryList screen={activeScreen} onSelectItem={setFormData} />
+                       </div>
+                     )}
+                     {activeScreen === 'TR21' && <DripBoard orders={recentOrders} trips={allTrips} onStatusUpdate={setStatusMsg} />}
+                     {activeScreen === 'BULK' && <BulkUploadForm setStatus={setStatusMsg} />}
+                   </div>
                  </div>
               </div>
             )}
@@ -679,25 +757,20 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
 }
 
 function getScreenTitle(screen: Screen): string {
+  const isCreate = screen.endsWith('01');
+  const isEdit = screen.endsWith('02');
+  const isDisplay = screen.endsWith('03');
+  const suffix = isEdit ? ': CHANGE INITIAL SCREEN' : isDisplay ? ': DISPLAY INITIAL SCREEN' : isCreate ? ': CREATE INITIAL SCREEN' : '';
+
   switch (screen) {
-    case 'OX01': return 'Create Plant Master';
-    case 'OX02': return 'Edit Plant Registry';
-    case 'OX03': return 'Display Plant Node';
-    case 'FM01': return 'Create Company Hub';
-    case 'FM02': return 'Edit Company Registry';
-    case 'FM03': return 'Display Company Node';
-    case 'XK01': return 'Create Vendor Registry';
-    case 'XK02': return 'Edit Vendor Registry';
-    case 'XK03': return 'Display Vendor Registry';
-    case 'XD01': return 'Create Customer Registry';
-    case 'XD02': return 'Edit Customer Registry';
-    case 'XD03': return 'Display Customer Registry';
-    case 'VA01': return 'Create Sales Order Registry';
-    case 'VA02': return 'Edit Sales Order Registry';
-    case 'VA03': return 'Display Sales Order Registry';
-    case 'TR21': return 'Drip Board Registry Control';
-    case 'BULK': return 'Bulk Data Hub Registry';
-    default: return 'Central Management Control Registry';
+    case 'OX01': case 'OX02': case 'OX03': return 'PLANT MASTER' + suffix;
+    case 'FM01': case 'FM02': case 'FM03': return 'COMPANY MASTER' + suffix;
+    case 'XK01': case 'XK02': case 'XK03': return 'VENDOR MASTER' + suffix;
+    case 'XD01': case 'XD02': case 'XD03': return 'CUSTOMER MASTER' + suffix;
+    case 'VA01': case 'VA02': case 'VA03': return 'SALES ORDER REGISTRY' + suffix;
+    case 'TR21': return 'DRIP BOARD REGISTRY CONTROL';
+    case 'BULK': return 'BULK DATA HUB REGISTRY';
+    default: return 'CENTRAL MANAGEMENT HUB';
   }
 }
 
@@ -803,72 +876,44 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
   );
 }
 
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <div className="bg-[#dae4f1] border-y border-slate-300 px-4 py-1.5 mb-6">
+      <h3 className="text-[11px] font-bold text-[#1e3a8a] uppercase tracking-wide">{title}</h3>
+    </div>
+  );
+}
+
 function PlantForm({ data, onChange, disabled }: any) {
   const updateField = (field: string, val: any) => !disabled && onChange({ ...data, [field]: val });
 
-  const addMobile = () => {
-    if (disabled) return;
-    const current = data.mobileNumbers || [];
-    onChange({ ...data, mobileNumbers: [...current, ''] });
-  };
-
-  const updateMobile = (idx: number, val: string) => {
-    if (disabled) return;
-    const current = [...(data.mobileNumbers || [])];
-    current[idx] = val;
-    onChange({ ...data, mobileNumbers: current });
-  };
-
-  const removeMobile = (idx: number) => {
-    if (disabled) return;
-    const current = (data.mobileNumbers || []).filter((_: any, i: number) => i !== idx);
-    onChange({ ...data, mobileNumbers: current });
-  };
-
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-      <FormField label="Plant Code" placeholder="PLNT01" value={data.plantCode} onChange={(e: any) => updateField('plantCode', e.target.value)} required disabled={disabled} />
-      <FormField label="Plant Name" placeholder="Sikka Industries Hub" value={data.plantName} onChange={(e: any) => updateField('plantName', e.target.value)} required disabled={disabled} />
-      <FormField label="City" placeholder="Ghaziabad" value={data.city} onChange={(e: any) => updateField('city', e.target.value)} disabled={disabled} />
-      <FormField label="State" placeholder="Uttar Pradesh" value={data.state} onChange={(e: any) => updateField('state', e.target.value)} disabled={disabled} />
-      <FormField label="State Code" placeholder="09" value={data.stateCode} onChange={(e: any) => updateField('stateCode', e.target.value)} disabled={disabled} />
-      <FormField label="Postal Code" placeholder="201009" value={data.postalCode} onChange={(e: any) => updateField('postalCode', e.target.value)} disabled={disabled} />
-      <FormField label="GSTIN" placeholder="07AAAAA0000A1Z5" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} disabled={disabled} />
-      <FormField label="PAN" placeholder="ABCDE1234F" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} disabled={disabled} />
-      <FormField label="Email ID" placeholder="plant@sikka.com" value={data.email} onChange={(e: any) => updateField('email', e.target.value)} disabled={disabled} />
-      <FormField label="Website" placeholder="www.sikka.com" value={data.website} onChange={(e: any) => updateField('website', e.target.value)} disabled={disabled} />
-      
-      <div className="space-y-3">
-        <label className="text-[10px] font-black uppercase text-slate-400 flex items-center justify-between">
-          Mobile Numbers
-          {!disabled && (
-            <button onClick={addMobile} className="text-[#0056d2] hover:underline flex items-center gap-1">
-              <PlusCircle className="h-3 w-3" /> Add Multiple
-            </button>
-          )}
-        </label>
-        <div className="space-y-2">
-          {(data.mobileNumbers || ['']).map((num: string, idx: number) => (
-            <div key={idx} className="flex gap-2">
-              <Input 
-                value={num} 
-                onChange={(e) => updateMobile(idx, e.target.value)}
-                placeholder="+91..."
-                disabled={disabled}
-                className="h-9 border-slate-200 bg-slate-50 px-3 rounded-lg font-bold"
-              />
-              {idx > 0 && !disabled && (
-                <button onClick={() => removeMobile(idx)} className="text-red-400 hover:text-red-600">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          ))}
+    <div className="space-y-8">
+      <div>
+        <SectionHeader title="Plant Master Data" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
+          <FormField label="Plant Code" placeholder="PLNT01" value={data.plantCode} onChange={(e: any) => updateField('plantCode', e.target.value)} required disabled={disabled} />
+          <FormField label="Plant Name" placeholder="Sikka Industries Hub" value={data.plantName} onChange={(e: any) => updateField('plantName', e.target.value)} required disabled={disabled} />
+          <FormField label="City" placeholder="Ghaziabad" value={data.city} onChange={(e: any) => updateField('city', e.target.value)} disabled={disabled} />
+          <FormField label="State" placeholder="Uttar Pradesh" value={data.state} onChange={(e: any) => updateField('state', e.target.value)} disabled={disabled} />
         </div>
       </div>
 
-      <div className="md:col-span-2">
-        <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} disabled={disabled} />
+      <div>
+        <SectionHeader title="Tax & Financial Details" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
+          <FormField label="GSTIN" placeholder="07AAAAA0000A1Z5" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} disabled={disabled} />
+          <FormField label="PAN" placeholder="ABCDE1234F" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} disabled={disabled} />
+          <FormField label="Postal Code" placeholder="201009" value={data.postalCode} onChange={(e: any) => updateField('postalCode', e.target.value)} disabled={disabled} />
+          <FormField label="Email ID" placeholder="plant@sikka.com" value={data.email} onChange={(e: any) => updateField('email', e.target.value)} disabled={disabled} />
+        </div>
+      </div>
+
+      <div>
+        <SectionHeader title="Location Details" />
+        <div className="px-4">
+           <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} disabled={disabled} />
+        </div>
       </div>
     </div>
   );
@@ -896,25 +941,36 @@ function CompanyForm({ data, onChange, disabled }: any) {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-      <div className="space-y-2">
-        <label className="text-[10px] font-black uppercase text-slate-400">Plant Code (Select Node)</label>
-        <select 
-          disabled={disabled}
-          className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none disabled:opacity-50"
-          value={data.plantCode}
-          onChange={(e) => updateField('plantCode', e.target.value)}
-        >
-          <option value="">Select Plant</option>
-          {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
-        </select>
+    <div className="space-y-8">
+      <div>
+        <SectionHeader title="Company Hub Selection" />
+        <div className="px-4">
+          <div className="flex items-center gap-6 max-w-2xl">
+            <label className="text-xs font-bold text-slate-600 w-48">Plant Node Selection</label>
+            <select 
+              disabled={disabled}
+              className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none disabled:bg-slate-50"
+              value={data.plantCode}
+              onChange={(e) => updateField('plantCode', e.target.value)}
+            >
+              <option value="">Select Plant...</option>
+              {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
+            </select>
+          </div>
+        </div>
       </div>
-      <FormField label="Company Code" value={data.companyCode || '10000'} onChange={(e: any) => updateField('companyCode', e.target.value)} required disabled={disabled} />
-      <FormField label="Company Name" placeholder="Sikka Industries" value={data.companyName} onChange={(e: any) => updateField('companyName', e.target.value)} required disabled={disabled} />
-      <FormField label="GSTIN" placeholder="09AAAAA0000A1Z5" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} required disabled={disabled} />
-      <FormField label="PAN" value={data.pan} disabled />
-      <FormField label="State" value={data.state} disabled />
-      <FormField label="Mobile Number" value={data.mobileNumber} onChange={(e: any) => updateField('mobileNumber', e.target.value)} disabled={disabled} />
+
+      <div>
+        <SectionHeader title="Company Registry Data" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
+          <FormField label="Company Code" value={data.companyCode || '10000'} onChange={(e: any) => updateField('companyCode', e.target.value)} required disabled={disabled} />
+          <FormField label="Company Name" placeholder="Sikka Industries" value={data.companyName} onChange={(e: any) => updateField('companyName', e.target.value)} required disabled={disabled} />
+          <FormField label="GSTIN" placeholder="09AAAAA0000A1Z5" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} required disabled={disabled} />
+          <FormField label="PAN" value={data.pan} disabled />
+          <FormField label="State" value={data.state} disabled />
+          <FormField label="Mobile Number" value={data.mobileNumber} onChange={(e: any) => updateField('mobileNumber', e.target.value)} disabled={disabled} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -928,32 +984,44 @@ function VendorForm({ data, onChange, disabled }: any) {
   const updateField = (field: string, val: any) => !disabled && onChange({ ...data, [field]: val });
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-      <div className="md:col-span-2 space-y-2">
-        <label className="text-[10px] font-black uppercase text-slate-400">Select Plants (Multi-Node Selection)</label>
-        <div className="flex flex-wrap gap-2 p-4 bg-slate-50 border border-slate-200 rounded-2xl min-h-[60px]">
-          {plants?.map(p => (
-            <Badge 
-              key={p.id} 
-              onClick={() => {
-                if (disabled) return;
-                const current = data.plantCodes || [];
-                const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode];
-                updateField('plantCodes', next);
-              }}
-              className={`cursor-pointer rounded-lg py-1.5 px-3 transition-colors ${data.plantCodes?.includes(p.plantCode) ? 'bg-[#0056d2] text-white' : 'bg-white border-slate-200 text-slate-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              {p.plantCode}
-            </Badge>
-          ))}
+    <div className="space-y-8">
+      <div>
+        <SectionHeader title="Selection: Plant Nodes" />
+        <div className="px-4">
+           <div className="flex flex-wrap gap-2 p-2 bg-slate-50 border border-slate-300 min-h-[40px]">
+            {plants?.map(p => (
+              <Badge 
+                key={p.id} 
+                onClick={() => {
+                  if (disabled) return;
+                  const current = data.plantCodes || [];
+                  const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode];
+                  updateField('plantCodes', next);
+                }}
+                className={`cursor-pointer rounded-none border-slate-400 text-[10px] font-bold py-0.5 px-2 transition-colors ${data.plantCodes?.includes(p.plantCode) ? 'bg-[#0056d2] text-white' : 'bg-white text-slate-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {p.plantCode}
+              </Badge>
+            ))}
+          </div>
         </div>
       </div>
-      <FormField label="Vendor Name" value={data.vendorName} onChange={(e: any) => updateField('vendorName', e.target.value)} required disabled={disabled} />
-      <FormField label="GSTIN" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} disabled={disabled} />
-      <FormField label="PAN" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} disabled={disabled} />
-      <FormField label="Mobile" value={data.mobile} onChange={(e: any) => updateField('mobile', e.target.value)} disabled={disabled} />
-      <div className="md:col-span-2">
-        <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} disabled={disabled} />
+
+      <div>
+        <SectionHeader title="Vendor Data Registry" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
+          <FormField label="Vendor Name" value={data.vendorName} onChange={(e: any) => updateField('vendorName', e.target.value)} required disabled={disabled} />
+          <FormField label="GSTIN" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} disabled={disabled} />
+          <FormField label="PAN" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} disabled={disabled} />
+          <FormField label="Mobile" value={data.mobile} onChange={(e: any) => updateField('mobile', e.target.value)} disabled={disabled} />
+        </div>
+      </div>
+
+      <div>
+        <SectionHeader title="Address Registry" />
+        <div className="px-4">
+          <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} disabled={disabled} />
+        </div>
       </div>
     </div>
   );
@@ -968,52 +1036,62 @@ function CustomerForm({ data, onChange, disabled }: any) {
   const updateField = (field: string, val: any) => !disabled && onChange({ ...data, [field]: val });
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-      <FormField label="Customer Code" placeholder="CUST1000" value={data.customerCode} onChange={(e: any) => updateField('customerCode', e.target.value)} required disabled={disabled} />
-      <FormField label="Customer Name" placeholder="ABC Logistics" value={data.customerName} onChange={(e: any) => updateField('customerName', e.target.value)} required disabled={disabled} />
-      
-      <div className="md:col-span-2 space-y-2">
-        <label className="text-[10px] font-black uppercase text-slate-400">Plant Code (Select Multiple) <span className="text-red-500">*</span></label>
-        <div className="flex flex-wrap gap-2 p-4 bg-slate-50 border border-slate-200 rounded-2xl min-h-[60px]">
-          {plants?.map(p => (
-            <Badge 
-              key={p.id} 
-              onClick={() => {
-                if (disabled) return;
-                const current = data.plantCodes || [];
-                const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode];
-                updateField('plantCodes', next);
-              }}
-              className={`cursor-pointer rounded-lg py-1.5 px-3 transition-colors ${data.plantCodes?.includes(p.plantCode) ? 'bg-[#0056d2] text-white' : 'bg-white border-slate-200 text-slate-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              {p.plantCode}
-            </Badge>
-          ))}
+    <div className="space-y-8">
+      <div>
+        <SectionHeader title="Selection" />
+        <div className="px-4">
+           <div className="flex items-center gap-6 max-w-2xl">
+              <label className="text-xs font-bold text-slate-600 w-48">Plant Code Selection</label>
+              <div className="flex-1 flex flex-wrap gap-1 p-1 bg-slate-50 border border-slate-300 min-h-[32px]">
+                {plants?.map(p => (
+                  <Badge 
+                    key={p.id} 
+                    onClick={() => {
+                      if (disabled) return;
+                      const current = data.plantCodes || [];
+                      const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode];
+                      updateField('plantCodes', next);
+                    }}
+                    className={`cursor-pointer rounded-none text-[9px] font-bold transition-colors ${data.plantCodes?.includes(p.plantCode) ? 'bg-[#0056d2] text-white' : 'bg-white border-slate-300 text-slate-600'}`}
+                  >
+                    {p.plantCode}
+                  </Badge>
+                ))}
+              </div>
+           </div>
         </div>
       </div>
-      
-      <div className="space-y-2">
-        <label className="text-[10px] font-black uppercase text-slate-400">Customer Type <span className="text-red-500">*</span></label>
-        <select 
-          disabled={disabled}
-          className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none disabled:opacity-50"
-          value={data.customerType}
-          onChange={(e) => updateField('customerType', e.target.value)}
-        >
-          <option value="">Select Type</option>
-          <option value="Consignor">Consignor</option>
-          <option value="Consignee">Consignee – Ship to Party</option>
-        </select>
+
+      <div>
+        <SectionHeader title="Customer Data" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
+          <FormField label="Customer Code" placeholder="CUST1000" value={data.customerCode} onChange={(e: any) => updateField('customerCode', e.target.value)} required disabled={disabled} />
+          <FormField label="Full Name" placeholder="ABC Logistics" value={data.customerName} onChange={(e: any) => updateField('customerName', e.target.value)} required disabled={disabled} />
+          <FormField label="Mobile Number" value={data.mobile} onChange={(e: any) => updateField('mobile', e.target.value)} disabled={disabled} />
+          <FormField label="Email Address" value={data.email} onChange={(e: any) => updateField('email', e.target.value)} disabled={disabled} />
+          <div className="space-y-1 flex items-center gap-6 md:col-span-2">
+            <label className="text-xs font-bold text-slate-600 w-48">Customer Type</label>
+            <select 
+              disabled={disabled}
+              className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none max-w-sm"
+              value={data.customerType}
+              onChange={(e) => updateField('customerType', e.target.value)}
+            >
+              <option value="">Select Type...</option>
+              <option value="Consignor">Consignor</option>
+              <option value="Consignee">Consignee – Ship to Party</option>
+            </select>
+          </div>
+        </div>
       </div>
-      
-      <FormField label="City" placeholder="Noida" value={data.city} onChange={(e: any) => updateField('city', e.target.value)} required disabled={disabled} />
-      <FormField label="GSTIN" placeholder="09XXXX..." value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} disabled={disabled} />
-      <FormField label="PAN" placeholder="ABCDE1234F" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} disabled={disabled} />
-      <FormField label="Mobile" value={data.mobile} onChange={(e: any) => updateField('mobile', e.target.value)} disabled={disabled} />
-      <FormField label="Email" value={data.email} onChange={(e: any) => updateField('email', e.target.value)} disabled={disabled} />
-      
-      <div className="md:col-span-2">
-        <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} disabled={disabled} />
+
+      <div>
+        <SectionHeader title="Tax & Financial Details" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
+          <FormField label="GSTIN" placeholder="09XXXX..." value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} disabled={disabled} />
+          <FormField label="PAN" placeholder="ABCDE1234F" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} disabled={disabled} />
+          <FormField label="City" placeholder="Noida" value={data.city} onChange={(e: any) => updateField('city', e.target.value)} required disabled={disabled} />
+        </div>
       </div>
     </div>
   );
@@ -1074,139 +1152,133 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
   };
 
   return (
-    <div className="space-y-12">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-8">
-        <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase text-slate-400">Plant Code</label>
-          <select 
-            disabled={disabled}
-            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none disabled:opacity-50"
-            value={data.plantCode}
-            onChange={(e) => updateField('plantCode', e.target.value)}
-          >
-            <option value="">Select Plant</option>
-            {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
-          </select>
+    <div className="space-y-8">
+      <div>
+        <SectionHeader title="Order Registry Selection" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
+           <div className="flex items-center gap-6">
+              <label className="text-xs font-bold text-slate-600 w-48">Plant Selection</label>
+              <select 
+                disabled={disabled}
+                className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none"
+                value={data.plantCode}
+                onChange={(e) => updateField('plantCode', e.target.value)}
+              >
+                <option value="">Select Plant...</option>
+                {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
+              </select>
+           </div>
+           <FormField label="Sale Order Date" type="date" value={data.saleOrderDate} onChange={(e: any) => updateField('saleOrderDate', e.target.value)} required disabled={disabled} />
         </div>
-        <FormField label="Sale Order" placeholder="SO-10001" value={data.saleOrder} onChange={(e: any) => updateField('saleOrder', e.target.value)} required disabled={disabled} />
-        <FormField label="Sale Order Date" type="date" value={data.saleOrderDate} onChange={(e: any) => updateField('saleOrderDate', e.target.value)} required disabled={disabled} />
-        
-        <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase text-slate-400">Consignor</label>
-          <select 
-            disabled={disabled}
-            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none disabled:opacity-50"
-            value={data.consignor}
-            onChange={(e) => updateField('consignor', e.target.value)}
-          >
-            <option value="">Select Consignor</option>
-            {customers?.filter(c => c.customerType === 'Consignor').map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
-          </select>
-        </div>
-        <FormField label="From (City)" value={data.from} disabled />
-        
-        <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase text-slate-400">Consignee</label>
-          <select 
-            disabled={disabled}
-            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none disabled:opacity-50"
-            value={data.consignee}
-            onChange={(e) => updateField('consignee', e.target.value)}
-          >
-            <option value="">Select Consignee</option>
-            {customers?.filter(c => c.customerType === 'Consignee').map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
-          </select>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase text-slate-400">Ship to Party</label>
-          <select 
-            disabled={disabled}
-            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none disabled:opacity-50"
-            value={data.shipToParty}
-            onChange={(e) => updateField('shipToParty', e.target.value)}
-          >
-            <option value="">Select Ship to Party</option>
-            {customers?.filter(c => c.customerType === 'Consignee').map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
-          </select>
-        </div>
-        <FormField label="Destination (City)" value={data.destination} disabled />
-        
-        <FormField label="Vehicle Number" placeholder="UP14-XX-0000" value={data.vehicleNumber} onChange={(e: any) => updateField('vehicleNumber', e.target.value)} disabled={disabled} />
-        <FormField label="Driver Mobile" placeholder="+91..." value={data.driverMobile} onChange={(e: any) => updateField('driverMobile', e.target.value)} disabled={disabled} />
       </div>
 
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest italic">Line Items Registry</h3>
-          {!disabled && (
-            <Button onClick={addItem} variant="outline" className="h-9 px-6 rounded-xl font-bold gap-2 text-[#0056d2] border-blue-200 bg-blue-50/50">
-              <PlusCircle className="h-4 w-4" /> Add Row Node
-            </Button>
-          )}
+      <div>
+        <SectionHeader title="Consignment Data" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
+          <FormField label="Sale Order No" placeholder="SO-10001" value={data.saleOrder} onChange={(e: any) => updateField('saleOrder', e.target.value)} required disabled={disabled} />
+          <div className="flex items-center gap-6">
+            <label className="text-xs font-bold text-slate-600 w-48">Consignor</label>
+            <select 
+              disabled={disabled}
+              className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none"
+              value={data.consignor}
+              onChange={(e) => updateField('consignor', e.target.value)}
+            >
+              <option value="">Select Consignor...</option>
+              {customers?.filter(c => c.customerType === 'Consignor').map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+            </select>
+          </div>
+          <FormField label="From (City)" value={data.from} disabled />
+          <div className="flex items-center gap-6">
+            <label className="text-xs font-bold text-slate-600 w-48">Consignee</label>
+            <select 
+              disabled={disabled}
+              className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none"
+              value={data.consignee}
+              onChange={(e) => updateField('consignee', e.target.value)}
+            >
+              <option value="">Select Consignee...</option>
+              {customers?.filter(c => c.customerType === 'Consignee').map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-6">
+            <label className="text-xs font-bold text-slate-600 w-48">Ship to Party</label>
+            <select 
+              disabled={disabled}
+              className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none"
+              value={data.shipToParty}
+              onChange={(e) => updateField('shipToParty', e.target.value)}
+            >
+              <option value="">Select Ship to Party...</option>
+              {customers?.filter(c => c.customerType === 'Consignee').map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+            </select>
+          </div>
+          <FormField label="Destination" value={data.destination} disabled />
+          <FormField label="Vehicle Number" placeholder="UP14-XX-0000" value={data.vehicleNumber} onChange={(e: any) => updateField('vehicleNumber', e.target.value)} disabled={disabled} />
+          <FormField label="Driver Mobile" placeholder="+91..." value={data.driverMobile} onChange={(e: any) => updateField('driverMobile', e.target.value)} disabled={disabled} />
         </div>
+      </div>
 
-        <div className="overflow-x-auto rounded-3xl border border-slate-100 shadow-sm bg-slate-50/30 p-1">
-          <table className="w-full text-left border-collapse min-w-[1000px]">
-            <thead>
-              <tr className="bg-slate-100/50">
-                <th className="p-4 text-[9px] font-black uppercase text-slate-400 border-r border-white/50">Invoice No.</th>
-                <th className="p-4 text-[9px] font-black uppercase text-slate-400 border-r border-white/50">Ewaybill No.</th>
-                <th className="p-4 text-[9px] font-black uppercase text-slate-400 border-r border-white/50">Product Node</th>
-                <th className="p-4 text-[9px] font-black uppercase text-slate-400 border-r border-white/50 w-48">Unit / UOM</th>
-                <th className="p-4 text-[9px] font-black uppercase text-slate-400 border-r border-white/50 w-48">Weight / UOM</th>
-                <th className="p-4 text-[9px] font-black uppercase text-slate-400 w-12 text-center">Act</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data.items || []).map((item: any, idx: number) => (
-                <tr key={idx} className="border-t border-slate-100 group">
-                  <td className="p-2 border-r border-slate-100">
-                    <Input disabled={disabled} value={item.invoiceNumber} onChange={(e) => updateItem(idx, 'invoiceNumber', e.target.value)} className="h-9 border-none bg-transparent font-bold focus:bg-white" />
-                  </td>
-                  <td className="p-2 border-r border-slate-100">
-                    <Input disabled={disabled} value={item.ewaybillNumber} onChange={(e) => updateItem(idx, 'ewaybillNumber', e.target.value)} className="h-9 border-none bg-transparent font-bold focus:bg-white" />
-                  </td>
-                  <td className="p-2 border-r border-slate-100">
-                    <Input disabled={disabled} value={item.product} onChange={(e) => updateItem(idx, 'product', e.target.value)} className="h-9 border-none bg-transparent font-bold focus:bg-white" />
-                  </td>
-                  <td className="p-2 border-r border-slate-100">
-                    <div className="flex gap-1">
-                      <Input disabled={disabled} value={item.unit} onChange={(e) => updateItem(idx, 'unit', e.target.value)} className="h-9 w-20 border-none bg-transparent font-bold focus:bg-white" />
-                      <select 
-                        disabled={disabled}
-                        value={item.unitUom} 
-                        onChange={(e) => updateItem(idx, 'unitUom', e.target.value)}
-                        className="h-9 flex-1 bg-transparent font-bold outline-none border-none text-[10px] uppercase disabled:opacity-50"
-                      >
-                        {['Box', 'Bag', 'Drum', 'Pcs', 'Others'].map(u => <option key={u} value={u}>{u}</option>)}
-                      </select>
-                    </div>
-                  </td>
-                  <td className="p-2 border-r border-slate-100">
-                    <div className="flex gap-1">
-                      <Input disabled={disabled} value={item.weight} onChange={(e) => updateItem(idx, 'weight', e.target.value)} className="h-9 w-20 border-none bg-transparent font-bold focus:bg-white" />
-                      <select 
-                        disabled={disabled}
-                        value={item.weightUom} 
-                        onChange={(e) => updateItem(idx, 'weightUom', e.target.value)}
-                        className="h-9 flex-1 bg-transparent font-bold outline-none border-none text-[10px] uppercase disabled:opacity-50"
-                      >
-                        {['KG', 'MT', 'LTR'].map(u => <option key={u} value={u}>{u}</option>)}
-                      </select>
-                    </div>
-                  </td>
-                  <td className="p-2 text-center">
-                    {!disabled && (
-                      <button onClick={() => removeItem(idx)} className="text-slate-300 hover:text-red-500 transition-colors">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </td>
+      <div>
+        <SectionHeader title="Line Item Registry Table" />
+        <div className="px-4">
+           {!disabled && (
+            <Button onClick={addItem} variant="outline" className="h-7 px-4 mb-2 rounded-none font-bold gap-1 text-[9px] uppercase border-slate-400 bg-slate-50">
+              <PlusCircle className="h-3 w-3" /> Add Item Row
+            </Button>
+           )}
+           <div className="overflow-x-auto border border-slate-300">
+            <table className="w-full text-left border-collapse text-[10px]">
+              <thead className="bg-[#e9f0f8] border-b border-slate-300">
+                <tr>
+                  <th className="p-2 border-r border-slate-300">Invoice No</th>
+                  <th className="p-2 border-r border-slate-300">Ewaybill No</th>
+                  <th className="p-2 border-r border-slate-300">Product</th>
+                  <th className="p-2 border-r border-slate-300 w-32">Unit / UOM</th>
+                  <th className="p-2 border-r border-slate-300 w-32">Weight / UOM</th>
+                  {!disabled && <th className="p-2 w-8 text-center">Act</th>}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {(data.items || []).map((item: any, idx: number) => (
+                  <tr key={idx} className="border-b border-slate-200">
+                    <td className="p-1 border-r border-slate-200">
+                      <input disabled={disabled} value={item.invoiceNumber} onChange={(e) => updateItem(idx, 'invoiceNumber', e.target.value)} className="w-full h-7 bg-transparent px-1 outline-none" />
+                    </td>
+                    <td className="p-1 border-r border-slate-200">
+                      <input disabled={disabled} value={item.ewaybillNumber} onChange={(e) => updateItem(idx, 'ewaybillNumber', e.target.value)} className="w-full h-7 bg-transparent px-1 outline-none" />
+                    </td>
+                    <td className="p-1 border-r border-slate-200">
+                      <input disabled={disabled} value={item.product} onChange={(e) => updateItem(idx, 'product', e.target.value)} className="w-full h-7 bg-transparent px-1 outline-none" />
+                    </td>
+                    <td className="p-1 border-r border-slate-200">
+                      <div className="flex gap-1">
+                        <input disabled={disabled} value={item.unit} onChange={(e) => updateItem(idx, 'unit', e.target.value)} className="w-12 h-7 bg-transparent px-1 outline-none border-r border-slate-200" />
+                        <select disabled={disabled} value={item.unitUom} onChange={(e) => updateItem(idx, 'unitUom', e.target.value)} className="flex-1 bg-transparent text-[9px] outline-none">
+                          {['Box', 'Bag', 'Drum', 'Pcs', 'Others'].map(u => <option key={u} value={u}>{u}</option>)}
+                        </select>
+                      </div>
+                    </td>
+                    <td className="p-1 border-r border-slate-200">
+                      <div className="flex gap-1">
+                        <input disabled={disabled} value={item.weight} onChange={(e) => updateItem(idx, 'weight', e.target.value)} className="w-12 h-7 bg-transparent px-1 outline-none border-r border-slate-200" />
+                        <select disabled={disabled} value={item.weightUom} onChange={(e) => updateItem(idx, 'weightUom', e.target.value)} className="flex-1 bg-transparent text-[9px] outline-none">
+                          {['KG', 'MT', 'LTR'].map(u => <option key={u} value={u}>{u}</option>)}
+                        </select>
+                      </div>
+                    </td>
+                    {!disabled && (
+                      <td className="p-1 text-center">
+                        <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-600">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+           </div>
         </div>
       </div>
     </div>
@@ -1229,40 +1301,40 @@ function RegistryList({ screen, onSelectItem }: { screen: string, onSelectItem: 
   if (isLoading) return <div className="p-8 text-center text-slate-400 font-bold">Synchronizing Node Data...</div>;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="bg-slate-50 border-y border-slate-100">
-            <th className="p-4 text-[10px] font-black uppercase text-slate-400">ID / Node</th>
-            <th className="p-4 text-[10px] font-black uppercase text-slate-400">Name / Description</th>
-            <th className="p-4 text-[10px] font-black uppercase text-slate-400">Type / Details</th>
-            <th className="p-4 text-[10px] font-black uppercase text-slate-400">Status</th>
+    <div className="overflow-x-auto px-4">
+      <table className="w-full text-left border-collapse border border-slate-300">
+        <thead className="bg-[#f0f3f9] border-b border-slate-300">
+          <tr>
+            <th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">ID / Node</th>
+            <th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">Name / Description</th>
+            <th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">Type / Details</th>
+            <th className="p-2 text-[10px] font-bold text-slate-600">Status</th>
           </tr>
         </thead>
         <tbody>
           {list?.map((item) => (
             <tr 
               key={item.id} 
-              className="border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer group"
+              className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer group"
               onClick={() => onSelectItem(item)}
             >
-              <td className="p-4 font-bold text-xs text-[#0056d2] group-hover:underline">
+              <td className="p-2 font-bold text-[11px] text-[#0056d2] group-hover:underline border-r border-slate-200">
                 {item.saleOrder || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}
               </td>
-              <td className="p-4 font-bold text-xs text-slate-600 uppercase">
+              <td className="p-2 font-bold text-[11px] text-slate-600 uppercase border-r border-slate-200">
                 {item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}
               </td>
-              <td className="p-4 font-bold text-xs text-slate-400 uppercase italic">
+              <td className="p-2 font-bold text-[11px] text-slate-400 uppercase italic border-r border-slate-200">
                 {item.destination || item.customerType || item.city || 'Standard Registry'}
               </td>
-              <td className="p-4">
+              <td className="p-2">
                 <Badge className="bg-emerald-50 text-emerald-600 rounded-none uppercase text-[8px] font-black border border-emerald-100">Synchronized</Badge>
               </td>
             </tr>
           ))}
           {(!list || list.length === 0) && (
             <tr>
-              <td colSpan={4} className="p-12 text-center text-slate-300 font-bold text-xs uppercase italic tracking-widest">
+              <td colSpan={4} className="p-12 text-center text-slate-300 font-bold text-[10px] uppercase italic tracking-widest">
                 No records found in this registry hub.
               </td>
             </tr>
@@ -1275,8 +1347,8 @@ function RegistryList({ screen, onSelectItem }: { screen: string, onSelectItem: 
 
 function FormField({ label, placeholder, type = 'text', required, value, onChange, disabled }: any) {
   return (
-    <div className="space-y-2">
-      <label className="text-[10px] font-black uppercase text-slate-400">
+    <div className="flex items-center gap-6 w-full">
+      <label className="text-xs font-bold text-slate-600 w-48 shrink-0">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       {type === 'textarea' ? (
@@ -1285,16 +1357,16 @@ function FormField({ label, placeholder, type = 'text', required, value, onChang
           onChange={onChange}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full p-4 border border-slate-200 bg-slate-50 rounded-2xl font-bold min-h-[100px] outline-none disabled:opacity-50"
+          className="flex-1 p-2 border border-slate-400 bg-white text-xs min-h-[60px] outline-none disabled:bg-slate-50 disabled:text-slate-500"
         />
       ) : (
-        <Input 
+        <input 
           type={type}
           value={value || ''}
           onChange={onChange}
           placeholder={placeholder}
           disabled={disabled}
-          className="h-11 border-slate-200 bg-slate-50 px-4 rounded-xl font-bold disabled:opacity-50"
+          className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none disabled:bg-slate-50 disabled:text-slate-500"
         />
       )}
     </div>
