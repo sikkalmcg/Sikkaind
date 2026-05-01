@@ -1,23 +1,18 @@
-
 {
   "placeholderImages": [
     {
-      "id": "cargo-ship",
-      "description": "Cargo ship at sea",
-      "imageUrl": "https://picsum.photos/seed/cargo1/800/400",
-      "imageHint": "cargo ship"
+      "id": "logo-old",
+      "url": "https://picsum.photos/seed/sikka-logo/200/100",
+      "width": 200,
+      "height": 100,
+      "description": "Sikka Industries Logo"
     },
     {
-      "id": "delivery-truck",
-      "description": "Logistics delivery truck",
-      "imageUrl": "https://picsum.photos/seed/truck1/800/400",
-      "imageHint": "delivery truck"
-    },
-    {
-      "id": "warehouse",
-      "description": "Modern logistics warehouse",
-      "imageUrl": "https://picsum.photos/seed/warehouse1/800/400",
-      "imageHint": "warehouse logistics"
+      "id": "hero-logistics",
+      "url": "https://picsum.photos/seed/logistics-hero/1200/800",
+      "width": 1200,
+      "height": 800,
+      "description": "Modern Logistics Operations"
     }
   ]
 }

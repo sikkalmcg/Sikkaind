@@ -3,37 +3,90 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    /* Primary: #522999 (Indigo) */
-    --background: 255 17% 96%;
-    --foreground: 262 58% 10%;
+  :root,
+  [data-theme="signature"] {
+    --background: 220 13% 97%;
+    --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 262 58% 10%;
+    --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 262 58% 10%;
-    --primary: 262 58% 38%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 217 91% 60%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 255 10% 90%;
-    --secondary-foreground: 262 58% 38%;
-    --muted: 255 10% 90%;
-    --muted-foreground: 262 20% 45%;
-    /* Accent: #5FB2FF (Sky Blue) */
-    --accent: 209 100% 69%;
-    --accent-foreground: 209 100% 15%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 262 20% 88%;
-    --input: 262 20% 88%;
-    --ring: 262 58% 38%;
-    --radius: 0.75rem;
-    --sidebar-background: 262 58% 15%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 217 91% 60%;
+    --chart-1: 224 100% 58%;
+    --chart-2: 160.1 50% 45.1%;
+    --chart-3: 30.1 80% 55.1%;
+    --chart-4: 280.1 65% 60.1%;
+    --chart-5: 340.1 75% 55.1%;
+    --radius: 0.5rem;
+
+    /* Sikka Logistics Sidebar Theme - Deep Blue */
+    --sidebar-background: 222.2 47% 11%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 262 58% 38%;
+    --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 262 58% 25%;
+    --sidebar-accent: 217 91% 60%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 262 58% 20%;
-    --sidebar-ring: 262 58% 38%;
+    --sidebar-border: 217 91% 20%;
+    --sidebar-ring: 217 91% 60%;
+
+    /* Font Variables */
+    --font-family: "Inter", sans-serif;
+    --font-weight: 400;
+    --font-style: normal;
+    --font-size-base: 14px;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --chart-1: 221.2 83.2% 53.3%;
+    --chart-2: 160.1 50% 45.1%;
+    --chart-3: 30.1 80% 55.1%;
+    --chart-4: 280.1 65% 60.1%;
+    --chart-5: 340.1 75% 55.1%;
+
+    --sidebar-background: 222.2 84% 4.9%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 210 40% 98%;
+    --sidebar-primary-foreground: 222.2 84% 4.9%;
+    --sidebar-accent: 217.2 91.2% 59.8%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --font-family: "Inter", sans-serif;
+    --font-weight: 400;
+    --font-style: normal;
+    --font-size-base: 14px;
   }
 }
 
@@ -42,6 +95,115 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-body;
+    @apply bg-background text-foreground;
+    font-family: var(--font-family);
+    font-weight: var(--font-weight);
+    font-style: var(--font-style);
+    font-size: var(--font-size-base);
+  }
+}
+
+@layer utilities {
+  .text-shadow {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  }
+  
+  /* Hide scrollbar utility */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Subtle professional scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400;
+  }
+
+  @keyframes slide-down {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .animate-slide-down { animation: slide-down 0.5s ease-out forwards; }
+
+  @keyframes slide-up {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .animate-slide-up { animation: slide-up 0.5s ease-out forwards 0.2s; opacity: 0; }
+  
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
+  
+  @keyframes slide-in-right {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  .animate-slide-in-right { animation: slide-in-right 0.3s ease-out forwards; }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0mm;
+  }
+  
+  html, body {
+    width: 210mm;
+    height: 297mm;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+    background-color: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Reset and Hide Everything except printable area */
+  body * {
+    visibility: hidden;
+  }
+  
+  #printable-area, #printable-area * {
+    visibility: visible;
+  }
+  
+  #printable-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .page-break-after-always {
+    page-break-after: always !important;
+    break-after: page !important;
+    display: block !important;
+    clear: both !important;
+  }
+  
+  table, tr, td, th {
+    border-color: black !important;
   }
 }
