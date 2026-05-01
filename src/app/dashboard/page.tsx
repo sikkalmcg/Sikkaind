@@ -8,7 +8,8 @@ import {
   Printer, Save, X, Info, LogOut,
   ChevronRight, ChevronLeft, Truck, MapPin, User, Users, ShoppingBag,
   Grid2X2, CloudUpload, ShieldAlert, Edit3, 
-  PlusSquare, XCircle, Calendar as CalendarIcon, Package, Undo2
+  PlusSquare, XCircle, Calendar as CalendarIcon, Package, Undo2,
+  FileText, UploadCloud
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,6 +87,9 @@ export default function SapDashboard() {
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const monthRef = React.useRef<HTMLDivElement>(null);
 
+  // XD02 Search State
+  const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '' });
+
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
   const { data: userProfile } = useDoc(profileRef);
 
@@ -154,11 +158,17 @@ export default function SapDashboard() {
     if (activeScreen.startsWith('OX')) return rawPlants || [];
     if (activeScreen.startsWith('FM')) return rawCompanies || [];
     if (activeScreen.startsWith('XK')) return rawVendors || [];
-    if (activeScreen.startsWith('XD')) return rawCustomers || [];
+    if (activeScreen.startsWith('XD')) {
+      let list = rawCustomers || [];
+      if (xdSearch.plant) list = list.filter((c: any) => c.plantCodes?.includes(xdSearch.plant));
+      if (xdSearch.type) list = list.filter((c: any) => c.customerType === xdSearch.type);
+      if (xdSearch.name) list = list.filter((c: any) => c.customerName?.toUpperCase().includes(xdSearch.name.toUpperCase()));
+      return list;
+    }
     if (activeScreen.startsWith('VA')) return rawOrders || [];
     if (activeScreen.startsWith('SU')) return allUsers || [];
     return [];
-  }, [activeScreen, rawPlants, rawCompanies, rawVendors, rawCustomers, rawOrders, allUsers]);
+  }, [activeScreen, rawPlants, rawCompanies, rawVendors, rawCustomers, rawOrders, allUsers, xdSearch]);
 
   const allTrips = React.useMemo(() => {
     const authPlants = getAuthorizedPlants();
@@ -223,6 +233,7 @@ export default function SapDashboard() {
       setActiveScreen(cleanCode as Screen);
       setFormData({});
       setSearchId('');
+      setXdSearch({ plant: '', type: '', name: '' });
       setStatusMsg({ text: `Transaction ${cleanCode} executed`, type: 'info' });
     } else {
       setStatusMsg({ text: `T-Code ${cleanCode} not found`, type: 'error' });
@@ -253,34 +264,14 @@ export default function SapDashboard() {
 
     if (activeScreen.startsWith('XK')) {
       const { vendorName, vendorFirmName, mobile, address, route } = localData;
-      const nameVal = (vendorName || '').toString().trim();
-      const firmVal = (vendorFirmName || '').toString().trim();
-      const mobileVal = (mobile || '').toString().trim();
-      const addressVal = (address || '').toString().trim();
-      const routeVal = (route || '').toString().trim();
-
-      const hasNames = nameVal.length > 0 || firmVal.length > 0;
-      const hasMandatory = mobileVal.length > 0 && addressVal.length > 0 && routeVal.length > 0;
-
+      const hasNames = (vendorName || '').toString().trim().length > 0 || (vendorFirmName || '').toString().trim().length > 0;
+      const hasMandatory = (mobile || '').toString().trim().length > 0 && (address || '').toString().trim().length > 0 && (route || '').toString().trim().length > 0;
       if (!hasMandatory || !hasNames) {
-        setStatusMsg({ 
-          text: 'Error: Mobile, Address, Route & (Name or Firm Name) are mandatory', 
-          type: 'error' 
-        });
+        setStatusMsg({ text: 'Error: Mobile, Address, Route & (Name or Firm Name) are mandatory', type: 'error' });
         return;
       }
-
-      // Auto-generate Vendor Code if not present
       if (!localData.vendorCode) {
-        const getFirstAlpha = (val: any) => {
-          if (!val) return '';
-          const s = String(val);
-          const match = s.match(/[a-zA-Z]/);
-          return match ? match[0].toUpperCase() : '';
-        };
-        let prefix = getFirstAlpha(vendorFirmName);
-        if (!prefix) prefix = getFirstAlpha(vendorName);
-        if (!prefix) prefix = 'V';
+        const prefix = (vendorFirmName || vendorName || 'V').toString().charAt(0).toUpperCase();
         const num = Math.floor(10000 + Math.random() * 90000);
         localData.vendorCode = `${prefix}${num}`;
       }
@@ -328,6 +319,16 @@ export default function SapDashboard() {
     setSearchId('');
     setStatusMsg({ text: 'Operation cancelled', type: 'info' });
   }, [activeScreen]);
+
+  const handleBulkUpload = () => {
+    // Simulated Bulk Upload
+    const success = Math.floor(Math.random() * 50) + 10;
+    const failed = Math.floor(Math.random() * 5);
+    setStatusMsg({ 
+      text: `Bulk Processing Complete: ${success} SUCCESSFUL, ${failed} FAILED`, 
+      type: success > 0 ? 'success' : 'error' 
+    });
+  };
 
   const isReadOnly = activeScreen.endsWith('03');
   const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
@@ -424,6 +425,12 @@ export default function SapDashboard() {
           </div>
           <div className="flex-1" />
           <div className="flex items-center gap-3 pr-4">
+             {activeScreen === 'XD01' && (
+               <div className="flex items-center gap-2 mr-4">
+                 <button onClick={() => setStatusMsg({ text: 'Template Exported Successfully', type: 'success' })} className="flex items-center gap-1.5 px-3 h-7 bg-white border border-slate-300 hover:bg-slate-50 rounded text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]"><FileText className="h-3.5 w-3.5" /> Template</button>
+                 <button onClick={handleBulkUpload} className="flex items-center gap-1.5 px-3 h-7 bg-[#1e3a8a] hover:bg-blue-900 text-white rounded text-[9px] font-black uppercase tracking-widest"><UploadCloud className="h-3.5 w-3.5" /> Bulk Upload</button>
+               </div>
+             )}
              <button onClick={() => window.print()} className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Printer className="h-4 w-4" /></button>
              <button onClick={() => router.push('/login')} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700"><LogOut className="h-3.5 w-3.5" /> Log Off</button>
           </div>
@@ -508,7 +515,7 @@ export default function SapDashboard() {
                      {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
                      {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
                      {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                     {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                     {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
                      {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} allCustomers={rawCustomers} />}
                      {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={rawOrders} onPost={handleSave} onCancel={() => setFormData({})} />}
                      {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
@@ -516,14 +523,40 @@ export default function SapDashboard() {
                  )}
                  {showList && (
                    <div className="space-y-6">
-                     <div className="bg-[#dae4f1]/30 p-4 border border-slate-300">
-                        <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">
-                           Enter {activeScreen.startsWith('OX') ? 'Plant' : activeScreen.startsWith('FM') ? 'Company' : 'ID'} & Press Enter
-                        </label>
-                        <input 
-                           className="h-10 w-full max-w-md border border-slate-400 px-4 text-xs font-black outline-none focus:ring-1 focus:ring-blue-600 bg-white"
-                           value={searchId} onChange={(e) => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE..."
-                        />
+                     <div className="bg-[#dae4f1]/30 p-6 border border-slate-300 space-y-4">
+                        <label className="text-[11px] font-black uppercase text-slate-500 block">Transaction Search Hub</label>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                           {activeScreen.startsWith('XD') ? (
+                             <>
+                               <div className="flex flex-col gap-1.5">
+                                 <label className="text-[9px] font-black text-slate-400 uppercase">Select Plant</label>
+                                 <select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none" value={xdSearch.plant} onChange={(e) => setXdSearch({...xdSearch, plant: e.target.value})}>
+                                   <option value="">ALL PLANTS</option>
+                                   {rawPlants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
+                                 </select>
+                               </div>
+                               <div className="flex flex-col gap-1.5">
+                                 <label className="text-[9px] font-black text-slate-400 uppercase">Select Type</label>
+                                 <select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none" value={xdSearch.type} onChange={(e) => setXdSearch({...xdSearch, type: e.target.value})}>
+                                   <option value="">ALL TYPES</option>
+                                   <option value="Consignor">Consignor</option>
+                                   <option value="Consignee - Ship to Party">Consignee - Ship to Party</option>
+                                 </select>
+                               </div>
+                               <div className="flex flex-col gap-1.5 col-span-2">
+                                 <label className="text-[9px] font-black text-slate-400 uppercase">Enter Name</label>
+                                 <input className="h-10 border border-slate-400 px-4 text-xs font-black outline-none bg-white" value={xdSearch.name} onChange={(e) => setXdSearch({...xdSearch, name: e.target.value})} placeholder="START TYPING NAME..." />
+                               </div>
+                             </>
+                           ) : (
+                             <div className="col-span-4 flex items-center gap-4">
+                               <input 
+                                 className="h-11 w-full max-w-md border border-slate-400 px-4 text-xs font-black outline-none focus:ring-1 focus:ring-blue-600 bg-white"
+                                 value={searchId} onChange={(e) => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE & PRESS ENTER..."
+                               />
+                             </div>
+                           )}
+                        </div>
                      </div>
                      <RegistryList onSelectItem={setFormData} listData={getRegistryList()} />
                    </div>
@@ -542,7 +575,7 @@ export default function SapDashboard() {
           <span className="flex items-center gap-2.5"><div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse" />SYNC: ACTIVE</span>
           <span className="text-slate-400">|</span><span>{activeScreen}</span>
           <span className="text-slate-400">|</span><span>USER: Ajay Somra (Sikkaind)</span>
-          {statusMsg.text !== 'Ready' && <><span className="text-slate-400">|</span><span className="text-blue-400">EVENT: {statusMsg.text}</span></>}
+          {statusMsg.text !== 'Ready' && <><span className="text-slate-400">|</span><span className={cn(statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span></>}
         </div>
       </div>
 
@@ -589,7 +622,7 @@ function FormSelect({ label, value, options, onChange, disabled }: any) {
 function PlantForm({ data, onChange, disabled }: any) {
   return (
     <div className="space-y-4">
-      <SectionGrouping title="">
+      <SectionGrouping title="MASTER DATA">
         <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
       </SectionGrouping>
       <SectionGrouping title="SETTINGS">
@@ -627,7 +660,7 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
         <FormInput label="WEBSITE" value={data.website} onChange={(v: string) => onChange({...data, website: v})} disabled={disabled} />
       </SectionGrouping>
 
-      <SectionGrouping title="LOGO">
+      <SectionGrouping title="MEDIA">
         <div className="col-span-2 flex items-center gap-6 p-2">
            <div className="w-24 h-24 border border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden">
              {data.logo ? <Image src={data.logo} alt="Logo" width={96} height={96} className="object-contain" unoptimized /> : <Package className="h-8 w-8 text-slate-300" />}
@@ -666,18 +699,55 @@ function VendorForm({ data, onChange, disabled }: any) {
   );
 }
 
-function CustomerForm({ data, onChange, disabled }: any) {
+function CustomerForm({ data, onChange, disabled, allPlants }: any) {
+  const plants = (allPlants || []).map((p: any) => p.plantCode);
+  const handlePlantToggle = (plant: string) => {
+    const current = data.plantCodes || [];
+    const updated = current.includes(plant) ? current.filter((p: string) => p !== plant) : [...current, plant];
+    onChange({...data, plantCodes: updated});
+  };
+
   return (
     <div className="space-y-4">
-      <SectionGrouping title="">
+      <SectionGrouping title="CORE IDENTIFICATION">
+        <div className="col-span-2 space-y-2 mb-4">
+          <label className="text-[10px] font-bold text-slate-500 uppercase">Plant Assignment (Multiple)</label>
+          <div className="flex flex-wrap gap-2">
+            {plants.map((p: string) => (
+              <button 
+                key={p} 
+                onClick={() => handlePlantToggle(p)}
+                disabled={disabled}
+                className={cn(
+                  "px-3 py-1.5 text-[10px] font-black border uppercase transition-all",
+                  data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-600 border-slate-300"
+                )}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
         <FormInput label="CUSTOMER CODE" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} />
         <FormInput label="CUSTOMER NAME" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
+        <FormSelect 
+          label="CUSTOMER TYPE" 
+          value={data.customerType} 
+          options={[
+            { value: "Consignor", label: "Consignor" },
+            { value: "Consignee - Ship to Party", label: "Consignee - Ship to Party" }
+          ]} 
+          onChange={(v: string) => onChange({...data, customerType: v})} 
+          disabled={disabled} 
+        />
       </SectionGrouping>
-      <SectionGrouping title="ROLE">
-        <RadioGroup value={data.customerType || 'Consignor'} onValueChange={(v) => onChange({...data, customerType: v})} disabled={disabled} className="flex gap-6 mt-1">
-          <div className="flex items-center space-x-2"><RadioGroupItem value="Consignor" id="con" /><Label htmlFor="con">Consignor</Label></div>
-          <div className="flex items-center space-x-2"><RadioGroupItem value="Consignee" id="cee" /><Label htmlFor="cee">Consignee</Label></div>
-        </RadioGroup>
+      
+      <SectionGrouping title="LOCATION & TAX">
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+        <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+        <FormInput label="PAN" value={data.pan} onChange={(v: string) => onChange({...data, pan: v})} disabled={disabled} />
+        <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
       </SectionGrouping>
     </div>
   );
@@ -686,10 +756,10 @@ function CustomerForm({ data, onChange, disabled }: any) {
 function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: any) {
   const plantOpts = (allPlants || []).map((p: any) => p.plantCode);
   const consignors = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignor').map((c: any) => c.customerName)));
-  const consignees = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignee').map((c: any) => c.customerName)));
+  const consignees = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignee' || c.customerType === 'Consignee - Ship to Party').map((c: any) => c.customerName)));
   return (
     <div className="space-y-4">
-      <SectionGrouping title="">
+      <SectionGrouping title="BASIC DETAILS">
         <FormSelect label="PLANT CODE" value={data.plantCode} options={plantOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
         <FormInput label="SALE ORDER NO" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
         <FormInput label="LR NO" value={data.lrNo} onChange={(v: string) => onChange({...data, lrNo: v})} disabled={disabled} />
@@ -706,7 +776,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
 function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
   return (
     <div className="space-y-8">
-      <SectionGrouping title="">
+      <SectionGrouping title="CANCELLATION HUB">
         <div className="flex flex-col gap-2 col-span-2">
           <label className="text-[11px] font-black uppercase text-red-600">Sales Order Number *</label>
           <input className="h-12 border border-red-200 rounded-none px-4 text-sm font-black outline-none bg-red-50/30" placeholder="ENTER ORDER NO. & PRESS ENTER" value={data.saleOrder || ''} onChange={(e) => onChange({ ...data, saleOrder: e.target.value.toUpperCase() })} onKeyDown={(e) => {
@@ -722,7 +792,7 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
 function UserForm({ data, onChange, disabled }: any) {
   return (
     <div className="space-y-4">
-      <SectionGrouping title="">
+      <SectionGrouping title="USER ACCESS">
         <FormInput label="FULL NAME" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
         <FormInput label="USERNAME" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} />
       </SectionGrouping>
