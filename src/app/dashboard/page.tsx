@@ -211,6 +211,7 @@ export default function SapDashboard() {
           route: `${payload.from || ''} - ${payload.destination || ''}`,
           orderQty: `${totalQty} ${uom}`,
           destination: payload.destination || '',
+          delayRemark: payload.delayRemark || '',
           updatedAt: payload.updatedAt
         }, { merge: true });
       }
@@ -598,6 +599,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
   const [vehicleNo, setVehicleNo] = React.useState('');
   const [driverMobile, setDriverMobile] = React.useState('');
   const [vendorName, setVendorName] = React.useState('');
+  const [delayRemark, setDelayRemark] = React.useState('');
   const [rate, setRate] = React.useState<string>('');
   const [freightAmount, setFreightAmount] = React.useState<string>('');
   const [isFixRate, setIsFixRate] = React.useState(false);
@@ -629,6 +631,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       vehicleNumber: vehicleNo,
       driverMobile: driverMobile,
       vendorName: vehicleType === 'MARKET VEHICLE' ? vendorName : '',
+      delayRemark: delayRemark,
       rate: (vehicleType === 'MARKET VEHICLE' && !isFixRate) ? parseFloat(rate) : 0,
       freightAmount: vehicleType === 'MARKET VEHICLE' ? parseFloat(freightAmount) : 0,
       isFixedRate: vehicleType === 'MARKET VEHICLE' ? isFixRate : false,
@@ -653,6 +656,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       consignee: selectedOrder.consignee || '',
       shipToParty: selectedOrder.shipToParty || '',
       orderQty: `${totalOrderWeight} ${weightUom}`,
+      delayRemark: delayRemark,
       updatedAt: tripData.createdAt
     }, { merge: true });
 
@@ -667,6 +671,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       shipToParty: selectedOrder.shipToParty || '',
       route: tripData.route,
       orderQty: `${totalOrderWeight} ${weightUom}`,
+      delayRemark: delayRemark,
       updatedAt: tripData.createdAt
     }, { merge: true });
 
@@ -696,6 +701,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     setVehicleNo('');
     setDriverMobile('');
     setVendorName('');
+    setDelayRemark('');
     setRate('');
     setFreightAmount('');
     setIsFixRate(false);
@@ -896,6 +902,10 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                   <Input value={vendorName} onChange={(e) => setVendorName(e.target.value)} placeholder="Select Vendor" className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" />
                 </div>
               )}
+              <div className="space-y-2 col-span-2">
+                <label className="text-[10px] font-black uppercase text-slate-400">Delay Remark (Registry Note)</label>
+                <Input value={delayRemark} onChange={(e) => setDelayRemark(e.target.value)} placeholder="Enter reason for potential delay..." className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" />
+              </div>
             </div>
 
             {vehicleType === 'MARKET VEHICLE' && (
@@ -961,7 +971,7 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
       return 'customerCode,customerName,customerType,city,plantCodes,gstin,pan,mobile,email,address\nC1001,Global Logistics,Consignee,Mumbai,PLNT01;PLNT02,27AAAAA0000A1Z5,ABCDE1234F,9876543210,info@global.com,Street 1';
     }
     if (registryType === 'sales_orders') {
-      return 'plantCode,saleOrder,saleOrderDate,consignor,from,consignee,shipToParty,destination,vehicleNumber,driverMobile\nPLNT01,SO-9001,2023-10-27,Consignor A,City A,Consignee B,Ship Party C,City C,UP14-XX-0000,+919999999999';
+      return 'plantCode,saleOrder,saleOrderDate,consignor,from,consignee,shipToParty,destination,vehicleNumber,driverMobile,delayRemark\nPLNT01,SO-9001,2023-10-27,Consignor A,City A,Consignee B,Ship Party C,City C,UP14-XX-0000,+919999999999,No Delay';
     }
     return '';
   };
@@ -1032,6 +1042,7 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
           route: `${data.from || ''} - ${data.destination || ''}`,
           orderQty: `${totalQty} ${uom}`,
           destination: data.destination || '',
+          delayRemark: data.delayRemark || '',
           updatedAt: new Date().toISOString()
         }, { merge: true });
       }
@@ -1350,6 +1361,7 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
           <FormField label="Destination" value={data.destination} disabled />
           <FormField label="Vehicle Number" placeholder="UP14-XX-0000" value={data.vehicleNumber} onChange={(e: any) => updateField('vehicleNumber', e.target.value)} disabled={disabled} />
           <FormField label="Driver Mobile" placeholder="+91..." value={data.vehicleNumber} onChange={(e: any) => updateField('driverMobile', e.target.value)} disabled={disabled} />
+          <FormField label="Delay Remark" placeholder="Enter delay details if any..." value={data.delayRemark} onChange={(e: any) => updateField('delayRemark', e.target.value)} disabled={disabled} />
         </div>
       </div>
       <div>

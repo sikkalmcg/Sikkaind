@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -145,16 +146,18 @@ export default function TrackPage() {
                 SALE ORDER <span className="text-blue-700">{data.saleOrder}</span> IS BOOKED FOR DISPATCH ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>. VEHICLE WILL BE ASSIGNED SHORTLY.
                </h2>
 
-               {/* Official Delay Registry Node */}
-               <div className="mt-12 bg-orange-500 p-6 rounded-[1.5rem] shadow-xl border border-orange-600 max-w-lg w-full">
-                  <div className="flex items-center justify-center gap-3 text-white mb-4">
-                    <AlertTriangle className="h-5 w-5" />
-                    <span className="text-[11px] font-black uppercase tracking-widest">Official Delay Registry Node</span>
-                  </div>
-                  <p className="text-white text-[12px] font-black italic bg-black/10 p-4 rounded-xl border border-white/20 leading-relaxed">
-                    "Discussed with customer Delivery on Monday 27-April-2026"
-                  </p>
-               </div>
+               {/* Delay Remark Box (White with Shadow) */}
+               {data.delayRemark && (
+                 <div className="mt-12 bg-white p-10 md:p-14 rounded-[2.5rem] shadow-2xl border border-slate-100 w-full max-w-3xl flex flex-col items-center">
+                    <div className="flex items-center gap-2 mb-4 text-slate-400">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span className="text-[9px] font-black uppercase tracking-[0.2em]">Official Registry Note</span>
+                    </div>
+                    <p className="text-slate-700 text-sm md:text-lg font-black italic text-center leading-relaxed">
+                      "{data.delayRemark}"
+                    </p>
+                 </div>
+               )}
             </div>
           </div>
         </div>
