@@ -81,7 +81,7 @@ export default function ContactForm() {
           name="subject"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Subject Node *</FormLabel>
+              <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Subject *</FormLabel>
               <FormControl>
                 <Input placeholder="Registry Enquiry" {...field} className="h-12 rounded-xl font-bold bg-white border-slate-200" />
               </FormControl>
@@ -97,7 +97,7 @@ export default function ContactForm() {
               <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mission Details *</FormLabel>
               <FormControl>
                 <Textarea 
-                  placeholder="How can we assist with your logistics node?" 
+                  placeholder="How can we assist with your logistics hub?" 
                   {...field} 
                   rows={5}
                   className="rounded-2xl font-bold bg-white border-slate-200 resize-none" 
@@ -117,7 +117,7 @@ export default function ContactForm() {
           ) : (
             <Send className="h-5 w-5 mr-2" />
           )}
-          {isSubmitting ? 'Transmitting...' : 'Send Enquiry Node'}
+          {isSubmitting ? 'Transmitting...' : 'Send Enquiry'}
         </Button>
       </form>
     </Form>

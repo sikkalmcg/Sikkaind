@@ -85,7 +85,7 @@ export default function HomePage() {
         <div className="max-w-[800px] mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tighter uppercase italic">
-              Contact Node
+              Contact
             </h2>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.3em] mt-4">Registry for Enquiry and Support</p>
           </div>

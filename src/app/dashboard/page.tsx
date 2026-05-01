@@ -53,25 +53,25 @@ type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK
 const MASTER_TCODES = [
   { code: 'OX01', description: 'PLANT MASTER: CREATE INITIAL SCREEN', icon: Database, module: 'Master Data' },
   { code: 'OX02', description: 'PLANT MASTER: CHANGE REGISTRY', icon: Edit3, module: 'Master Data' },
-  { code: 'OX03', description: 'PLANT MASTER: DISPLAY NODE', icon: Info, module: 'Master Data' },
+  { code: 'OX03', description: 'PLANT MASTER: DISPLAY', icon: Info, module: 'Master Data' },
   { code: 'FM01', description: 'COMPANY MASTER: CREATE INITIAL SCREEN', icon: Layers, module: 'Master Data' },
   { code: 'FM02', description: 'COMPANY MASTER: CHANGE REGISTRY', icon: Edit3, module: 'Master Data' },
-  { code: 'FM03', description: 'COMPANY MASTER: DISPLAY NODE', icon: Info, module: 'Master Data' },
+  { code: 'FM03', description: 'COMPANY MASTER: DISPLAY', icon: Info, module: 'Master Data' },
   { code: 'XK01', description: 'VENDOR MASTER: CREATE INITIAL SCREEN', icon: User, module: 'Master Data' },
   { code: 'XK02', description: 'VENDOR MASTER: CHANGE REGISTRY', icon: Edit3, module: 'Master Data' },
-  { code: 'XK03', description: 'VENDOR MASTER: DISPLAY NODE', icon: Info, module: 'Master Data' },
+  { code: 'XK03', description: 'VENDOR MASTER: DISPLAY', icon: Info, module: 'Master Data' },
   { code: 'XD01', description: 'CUSTOMER MASTER: CREATE INITIAL SCREEN', icon: Users, module: 'Master Data' },
   { code: 'XD02', description: 'CUSTOMER MASTER: CHANGE REGISTRY', icon: Edit3, module: 'Master Data' },
-  { code: 'XD03', description: 'CUSTOMER MASTER: DISPLAY NODE', icon: Info, module: 'Master Data' },
+  { code: 'XD03', description: 'CUSTOMER MASTER: DISPLAY', icon: Info, module: 'Master Data' },
   { code: 'VA01', description: 'SALES ORDER REGISTRY: CREATE INITIAL SCREEN', icon: ShoppingBag, module: 'Logistics' },
-  { code: 'VA02', description: 'SALES ORDER REGISTRY: CHANGE NODE', icon: Edit3, module: 'Logistics' },
-  { code: 'VA03', description: 'SALES ORDER REGISTRY: DISPLAY NODE', icon: Info, module: 'Logistics' },
+  { code: 'VA02', description: 'SALES ORDER REGISTRY: CHANGE', icon: Edit3, module: 'Logistics' },
+  { code: 'VA03', description: 'SALES ORDER REGISTRY: DISPLAY', icon: Info, module: 'Logistics' },
   { code: 'VA04', description: 'CANCEL SALES ORDER REGISTRY', icon: Ban, module: 'Logistics' },
   { code: 'TR21', description: 'DRIP BOARD REGISTRY CONTROL', icon: Truck, module: 'Logistics' },
   { code: 'BULK', description: 'BULK DATA HUB CONTROL', icon: CloudUpload, module: 'System' },
   { code: 'SU01', description: 'USER MANAGEMENT: CREATE INITIAL SCREEN', icon: ShieldAlert, module: 'System' },
   { code: 'SU02', description: 'USER MANAGEMENT: CHANGE REGISTRY', icon: Edit3, module: 'System' },
-  { code: 'SU03', description: 'USER MANAGEMENT: DISPLAY NODE', icon: Info, module: 'System' },
+  { code: 'SU03', description: 'USER MANAGEMENT: DISPLAY', icon: Info, module: 'System' },
   { code: 'ZCODE', description: 'SYSTEM: ALL ACTIVE T-CODES REGISTRY', icon: Grid2X2, module: 'System' },
 ];
 
@@ -268,7 +268,7 @@ export default function SapDashboard() {
   const handleMinimize = () => {
     toast({
       title: "Minimize",
-      description: "Mission registry running in background node."
+      description: "Mission registry running in background."
     });
   };
 
@@ -524,7 +524,7 @@ export default function SapDashboard() {
             MISSION SYNC: ACTIVE
           </span>
           <span className="text-slate-400">|</span>
-          <span>NODE: {activeScreen}</span>
+          <span>{activeScreen}</span>
           <span className="text-slate-400">|</span>
           <span>USER: Ajay Somra (Sikkaind)</span>
           {statusMsg.text !== 'Ready' && (
@@ -541,7 +541,7 @@ export default function SapDashboard() {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none bg-slate-800 shadow-2xl">
           <div className="bg-slate-900 p-4 flex justify-between items-center sticky top-0 z-10 border-b border-white/10">
             <DialogTitle className="text-white font-black uppercase italic tracking-tighter text-sm">Registry Print Handshake: LR Preview</DialogTitle>
-            <Button onClick={handleActualPrint} className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-[10px] tracking-widest h-9 px-8 rounded-lg">Confirm & Print Mission Node</Button>
+            <Button onClick={handleActualPrint} className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-[10px] tracking-widest h-9 px-8 rounded-lg">Confirm & Print Mission</Button>
           </div>
           <div className="p-12 bg-slate-200">
             <div className="bg-white p-12 shadow-2xl mx-auto max-w-[210mm] border border-slate-300">
@@ -557,7 +557,7 @@ export default function SapDashboard() {
             <DialogTitle className="text-white font-black uppercase italic tracking-tighter text-sm">Consignment Note: 3-Copy Registry Hub</DialogTitle>
             <div className="flex items-center gap-4">
               <div className="bg-white/5 px-4 py-1.5 rounded-lg border border-white/10">
-                <span className="text-[10px] font-black uppercase text-blue-400 mr-2">Delivery Node Edit:</span>
+                <span className="text-[10px] font-black uppercase text-blue-400 mr-2">Delivery Edit:</span>
                 <input 
                   className="bg-transparent text-white text-xs outline-none border-b border-white/20 focus:border-blue-400 w-48"
                   value={cnPreviewData?.deliveryAddress || ''}
@@ -625,7 +625,7 @@ function PlantForm({ data, onChange, disabled }: any) {
         <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
         <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
       </SectionGrouping>
-      <SectionGrouping title="SETTINGS / REGISTRY NODE">
+      <SectionGrouping title="SETTINGS / REGISTRY">
         <FormInput label="PLANT CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
         <FormInput label="PLANT ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
         <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
@@ -680,13 +680,13 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
         <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
         <FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
       </SectionGrouping>
-      <SectionGrouping title="GSTIN / TAX REGISTRY NODE">
+      <SectionGrouping title="GSTIN / TAX REGISTRY">
         <FormInput label="GSTIN NUMBER" value={data.gstin} onChange={handleGstinChange} disabled={disabled} placeholder="15 Digit GSTIN" />
         <FormInput label="PAN NUMBER (AUTO)" value={data.pan} disabled={true} />
         <FormInput label="STATE (AUTO)" value={data.state} disabled={true} />
         <FormInput label="STATE CODE (AUTO)" value={data.stateCode} disabled={true} />
       </SectionGrouping>
-      <SectionGrouping title="LOGO REGISTRY NODE">
+      <SectionGrouping title="LOGO REGISTRY">
         <div className="col-span-2 flex items-center gap-6 p-2">
            <div className="w-24 h-24 border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden">
              {data.logo ? (
@@ -706,7 +706,7 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
            )}
         </div>
       </SectionGrouping>
-      <SectionGrouping title="CONTACT & SETTINGS NODE">
+      <SectionGrouping title="CONTACT & SETTINGS">
         <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
         <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
         <FormInput label="EMAIL HUB" value={data.email} onChange={(v: string) => onChange({...data, email: v})} disabled={disabled} />
@@ -789,7 +789,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
         <FormInput label="LR Date" value={data.lrDate} type="date" onChange={(v: string) => onChange({...data, lrDate: v})} disabled={disabled} />
         <FormInput label="Sale Order No" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
       </SectionGrouping>
-      <SectionGrouping title="MISSION COORDINATION NODE">
+      <SectionGrouping title="MISSION COORDINATION">
         <FormSelect label="Consignor" value={data.consignor} options={consignors} onChange={(v: string) => onChange({...data, consignor: v})} disabled={disabled} />
         <FormSelect label="Consignee" value={data.consignee} options={consignees} onChange={(v: string) => onChange({...data, consignee: v})} disabled={disabled} />
         <FormSelect label="Ship To Party" value={data.shipToParty} options={shipto} onChange={(v: string) => onChange({...data, shipToParty: v})} disabled={disabled} />
@@ -1013,7 +1013,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
 
       <Dialog open={!!editingTrip} onOpenChange={() => setEditingTrip(null)}>
         <DialogContent className="max-w-md rounded-none border-none shadow-2xl p-0 font-mono">
-          <div className="bg-[#1e3a8a] p-6 text-white text-center"><DialogTitle className="text-lg font-black uppercase italic tracking-tighter">Edit CN Registry Node</DialogTitle></div>
+          <div className="bg-[#1e3a8a] p-6 text-white text-center"><DialogTitle className="text-lg font-black uppercase italic tracking-tighter">Edit CN Registry</DialogTitle></div>
           <div className="p-10 space-y-6">
             <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-slate-400">CN Number Registry</label><Input value={editingTrip?.cnNo || ''} onChange={(e) => setEditingTrip({ ...editingTrip, cnNo: e.target.value.toUpperCase() })} placeholder="CN-XXXXXX" className="h-11 rounded-none border-slate-400 font-bold text-xs" /></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-slate-400">CN Date Registry</label><Input type="date" value={editingTrip?.cnDate || ''} onChange={(e) => setEditingTrip({ ...editingTrip, cnDate: e.target.value })} className="h-11 rounded-none border-slate-400 font-bold text-xs" /></div>
@@ -1061,13 +1061,13 @@ function BulkDataHub({ allPlants }: any) {
         <div className="p-10 space-y-8 flex-1">
           <SectionGrouping title="">
             <select className="w-full h-12 bg-white border border-slate-400 rounded-none px-4 text-[11px] font-black uppercase outline-none focus:ring-1 focus:ring-blue-600 shadow-sm col-span-2" value={mod} onChange={(e) => setMod(e.target.value)}>
-              <option value="">Select Registry Node Type...</option><option value="XD">CUSTOMER MASTER REGISTRY</option><option value="VA">SALES ORDER MASTER REGISTRY</option>
+              <option value="">Select Registry Type...</option><option value="XD">CUSTOMER MASTER REGISTRY</option><option value="VA">SALES ORDER MASTER REGISTRY</option>
             </select>
           </SectionGrouping>
           {mod === 'VA' && (
-            <SectionGrouping title="SETTINGS / TARGET NODE">
+            <SectionGrouping title="SETTINGS / TARGET">
               <select className="w-full h-12 bg-white border border-slate-400 rounded-none px-4 text-[11px] font-black uppercase outline-none focus:ring-1 focus:ring-blue-600 shadow-sm col-span-2" value={plant} onChange={(e) => setPlant(e.target.value)}>
-                <option value="">Select Target Plant Node...</option>
+                <option value="">Select Target Plant...</option>
                 {allPlants?.map((p: any) => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
               </select>
             </SectionGrouping>
@@ -1092,7 +1092,7 @@ function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code:
             <tr className="bg-[#f0f0f0] border-b-2 border-slate-300">
               <th className="p-4 text-[10px] font-black uppercase text-slate-500 w-32">T-Code Registry</th>
               <th className="p-4 text-[10px] font-black uppercase text-slate-500">Mission Description</th>
-              <th className="p-4 text-[10px] font-black uppercase text-slate-500 w-48">Module Node</th>
+              <th className="p-4 text-[10px] font-black uppercase text-slate-500 w-48">Module</th>
             </tr>
           </thead>
           <tbody>
@@ -1139,7 +1139,7 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
         <div className="text-right space-y-4">
           <div className="inline-block border-2 border-black px-6 py-2 font-black text-sm uppercase bg-black text-white">{copyType}</div>
           <div className="space-y-1">
-            <p className="text-[11px] font-black uppercase text-slate-400">CN Number Node</p>
+            <p className="text-[11px] font-black uppercase text-slate-400">CN Number</p>
             <p className="text-2xl font-black tracking-widest">{trip?.cnNo || '--'}</p>
             <div className="flex justify-end gap-6 pt-2">
                <div className="text-right"><p className="text-[9px] font-black text-slate-400 uppercase">Registry Date</p><p className="text-xs font-black">{trip?.cnDate || '--'}</p></div>
@@ -1177,7 +1177,7 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
           <p className="text-[10px] font-medium text-slate-600">{order?.destination || '--'}</p>
         </div>
         <div className="p-6 space-y-3 bg-slate-50/50">
-          <h3 className="text-[11px] font-black uppercase border-b border-black pb-2 mb-3 text-slate-500 tracking-[0.2em]">Ship To Party Node</h3>
+          <h3 className="text-[11px] font-black uppercase border-b border-black pb-2 mb-3 text-slate-500 tracking-[0.2em]">Ship To Party</h3>
           <p className="text-sm font-black uppercase leading-tight">{trip?.shipToParty || '--'}</p>
           <div className="min-h-[50px] border border-dashed border-black/20 p-2 mt-2">
              <p className="text-[10px] font-medium leading-relaxed italic">{deliveryAddress || '--'}</p>
@@ -1190,7 +1190,7 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
           <thead>
             <tr className="bg-black text-white font-black text-[10px] uppercase tracking-widest">
               <th className="p-4 border-r border-white/20 w-[20%]">Invoice Registry</th>
-              <th className="p-4 border-r border-white/20 w-[20%]">E-waybill Node</th>
+              <th className="p-4 border-r border-white/20 w-[20%]">E-waybill</th>
               <th className="p-4 border-r border-white/20 w-[15%]">Package Unit</th>
               <th className="p-3 border-r border-white/20 w-[30%]">Description of Goods Hub</th>
               <th className="p-4 w-[15%] text-right">Qty Hub</th>
@@ -1221,7 +1221,7 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
       <div className="grid grid-cols-2 gap-0 border-2 border-black divide-x-2 divide-black mb-8">
         <div className="p-6 space-y-6">
           <div className="space-y-2">
-            <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Delivery Address Node</h4>
+            <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Delivery Address</h4>
             <p className="text-[11px] font-black italic uppercase leading-relaxed">{deliveryAddress || '--'}</p>
           </div>
         </div>
@@ -1269,8 +1269,8 @@ function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
       </div>
       <div className="grid grid-cols-2 gap-20 pt-10">
         <div className="space-y-10">
-          <div><p className="text-[11px] font-black uppercase text-slate-500 mb-2 tracking-widest">Consignor Node Registry</p><p className="text-lg font-black uppercase">{trip?.consignor || order?.consignor || '--'}</p><p className="text-sm mt-2 italic">{order?.from || '--'}</p></div>
-          <div><p className="text-[11px] font-black uppercase text-slate-500 mb-2 tracking-widest">Consignee Node Registry</p><p className="text-lg font-black uppercase">{trip?.consignee || order?.consignee || '--'}</p><p className="text-sm mt-2 italic">{order?.destination || '--'}</p></div>
+          <div><p className="text-[11px] font-black uppercase text-slate-500 mb-2 tracking-widest">Consignor Registry</p><p className="text-lg font-black uppercase">{trip?.consignor || order?.consignor || '--'}</p><p className="text-sm mt-2 italic">{order?.from || '--'}</p></div>
+          <div><p className="text-[11px] font-black uppercase text-slate-500 mb-2 tracking-widest">Consignee Registry</p><p className="text-lg font-black uppercase">{trip?.consignee || order?.consignee || '--'}</p><p className="text-sm mt-2 italic">{order?.destination || '--'}</p></div>
         </div>
         <div className="border-l-4 border-black pl-12 space-y-8">
           <div className="grid grid-cols-2 gap-8"><div><p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">LR Registry No</p><p className="text-2xl font-black tracking-widest">{lrNo}</p></div><div><p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Registry Date</p><p className="text-xl font-black">{lrDate}</p></div></div>
@@ -1279,7 +1279,7 @@ function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
       </div>
       <div className="border-4 border-black mt-10">
         <table className="w-full text-left border-collapse">
-          <thead><tr className="bg-slate-100 border-b-4 border-black"><th className="p-5 border-r-4 border-black text-xs font-black uppercase tracking-widest">Consignment Hub Particulars</th><th className="p-5 border-r-4 border-black text-xs font-black uppercase tracking-widest">Invoice Registry Node</th><th className="p-5 text-xs font-black uppercase tracking-widest">Mission Payload Qty</th></tr></thead>
+          <thead><tr className="bg-slate-100 border-b-4 border-black"><th className="p-5 border-r-4 border-black text-xs font-black uppercase tracking-widest">Consignment Hub Particulars</th><th className="p-5 border-r-4 border-black text-xs font-black uppercase tracking-widest">Invoice Registry</th><th className="p-5 text-xs font-black uppercase tracking-widest">Mission Payload Qty</th></tr></thead>
           <tbody><tr className="h-64 align-top"><td className="p-6 border-r-4 border-black font-bold uppercase text-lg italic">{product}</td><td className="p-6 border-r-4 border-black font-bold uppercase text-lg">{invNo}</td><td className="p-6 font-black text-2xl">{weight}</td></tr></tbody>
         </table>
       </div>

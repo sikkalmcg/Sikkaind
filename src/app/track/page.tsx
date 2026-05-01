@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -88,7 +87,7 @@ export default function TrackPage() {
       if (!snap.exists()) {
         setResult({ 
           found: false, 
-          message: `No active mission node found for this ${trackType === 'sales' ? 'Sales Order' : 'Trip ID'}.` 
+          message: `No active mission found for this ${trackType === 'sales' ? 'Sales Order' : 'Trip ID'}.` 
         });
         setShowResult(false);
       } else {
@@ -329,7 +328,7 @@ export default function TrackPage() {
         <div className="space-y-8">
           <div className="space-y-2.5">
             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">
-              Registry Node Type *
+              Registry Type *
             </label>
             <Select value={type} onValueChange={setType}>
               <SelectContent className="rounded-2xl border-slate-100">
