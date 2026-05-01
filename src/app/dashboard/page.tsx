@@ -496,6 +496,7 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
   const [rate, setRate] = React.useState<string>('');
   const [freightAmount, setFreightAmount] = React.useState<string>('');
   const [isFixRate, setIsFixRate] = React.useState(false);
+  const [vehicleType, setVehicleType] = React.useState('OWN FLEET');
 
   // Fetch plants for filter
   const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
@@ -524,12 +525,13 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
       shipToParty: selectedOrder.shipToParty,
       route: `${selectedOrder.from} - ${selectedOrder.destination}`,
       assignWeight: parseFloat(assignWeight),
+      vehicleType: vehicleType,
       vehicleNumber: vehicleNo,
       driverMobile: driverMobile,
-      vendorName: vendorName,
-      rate: isFixRate ? 0 : parseFloat(rate),
-      freightAmount: parseFloat(freightAmount),
-      isFixedRate: isFixRate,
+      vendorName: vehicleType === 'MARKET VEHICLE' ? vendorName : '',
+      rate: (vehicleType === 'MARKET VEHICLE' && !isFixRate) ? parseFloat(rate) : 0,
+      freightAmount: vehicleType === 'MARKET VEHICLE' ? parseFloat(freightAmount) : 0,
+      isFixedRate: vehicleType === 'MARKET VEHICLE' ? isFixRate : false,
       status: 'LOADING',
       createdAt: new Date().toISOString()
     };
@@ -563,6 +565,7 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
   };
 
   const resetForm = () => {
+    setVehicleType('OWN FLEET');
     setAssignWeight('');
     setVehicleNo('');
     setDriverMobile('');
@@ -734,6 +737,18 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
           <div className="p-8 space-y-6">
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400">Vehicle Type</label>
+                <select 
+                  value={vehicleType} 
+                  onChange={(e) => setVehicleType(e.target.value)}
+                  className="w-full h-11 rounded-xl font-bold bg-slate-50 border-slate-200 px-4 text-xs outline-none"
+                >
+                  <option value="OWN FLEET">OWN FLEET</option>
+                  <option value="CONTRACT">CONTRACT</option>
+                  <option value="MARKET VEHICLE">MARKET VEHICLE</option>
+                </select>
+              </div>
+              <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400">Assign Weight</label>
                 <Input 
                   value={assignWeight} 
@@ -760,45 +775,49 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
                   className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" 
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400">Vendor Name</label>
-                <Input 
-                  value={vendorName} 
-                  onChange={(e) => setVendorName(e.target.value)} 
-                  placeholder="Select Vendor"
-                  className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" 
-                />
-              </div>
+              {vehicleType === 'MARKET VEHICLE' && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400">Vendor Name</label>
+                  <Input 
+                    value={vendorName} 
+                    onChange={(e) => setVendorName(e.target.value)} 
+                    placeholder="Select Vendor"
+                    className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" 
+                  />
+                </div>
+              )}
             </div>
 
-            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
-               <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Checkbox id="fix-rate" checked={isFixRate} onCheckedChange={(val) => setIsFixRate(val as boolean)} />
-                    <label htmlFor="fix-rate" className="text-[10px] font-black uppercase text-slate-600">Apply Fix Rate Manual</label>
-                  </div>
-               </div>
-               <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                   <label className="text-[9px] font-black uppercase text-slate-400">Rate (Per UOM)</label>
-                   <Input 
-                     disabled={isFixRate} 
-                     value={rate} 
-                     onChange={(e) => setRate(e.target.value)}
-                     className="h-10 rounded-xl font-bold border-slate-200 disabled:opacity-30" 
-                   />
+            {vehicleType === 'MARKET VEHICLE' && (
+              <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
+                 <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Checkbox id="fix-rate" checked={isFixRate} onCheckedChange={(val) => setIsFixRate(val as boolean)} />
+                      <label htmlFor="fix-rate" className="text-[10px] font-black uppercase text-slate-600">Apply Fix Rate Manual</label>
+                    </div>
                  </div>
-                 <div className="space-y-2">
-                   <label className="text-[9px] font-black uppercase text-slate-400">Freight Amount</label>
-                   <Input 
-                     disabled={!isFixRate} 
-                     value={freightAmount} 
-                     onChange={(e) => setFreightAmount(e.target.value)}
-                     className="h-10 rounded-xl font-bold border-slate-200 disabled:bg-white/50" 
-                   />
+                 <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-2">
+                     <label className="text-[9px] font-black uppercase text-slate-400">Rate (Per UOM)</label>
+                     <Input 
+                       disabled={isFixRate} 
+                       value={rate} 
+                       onChange={(e) => setRate(e.target.value)}
+                       className="h-10 rounded-xl font-bold border-slate-200 disabled:opacity-30" 
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-[9px] font-black uppercase text-slate-400">Freight Amount</label>
+                     <Input 
+                       disabled={!isFixRate} 
+                       value={freightAmount} 
+                       onChange={(e) => setFreightAmount(e.target.value)}
+                       className="h-10 rounded-xl font-bold border-slate-200 disabled:bg-white/50" 
+                     />
+                   </div>
                  </div>
-               </div>
-            </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="p-6 border-t border-slate-50 bg-slate-50/50">
@@ -1302,7 +1321,7 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
           </div>
           <FormField label="Destination" value={data.destination} disabled />
           <FormField label="Vehicle Number" placeholder="UP14-XX-0000" value={data.vehicleNumber} onChange={(e: any) => updateField('vehicleNumber', e.target.value)} disabled={disabled} />
-          <FormField label="Driver Mobile" placeholder="+91..." value={data.vehicleNumber} onChange={(e: any) => updateField('driverMobile', e.target.value)} disabled={disabled} />
+          <FormField label="Driver Mobile" placeholder="+91..." value={data.driverMobile} onChange={(e: any) => updateField('driverMobile', e.target.value)} disabled={disabled} />
         </div>
       </div>
 

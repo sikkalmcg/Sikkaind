@@ -137,6 +137,7 @@
         "shipToParty": { "type": "string" },
         "route": { "type": "string" },
         "assignWeight": { "type": "number" },
+        "vehicleType": { "type": "string", "enum": ["OWN FLEET", "CONTRACT", "MARKET VEHICLE"] },
         "vehicleNumber": { "type": "string" },
         "driverMobile": { "type": "string" },
         "vendorName": { "type": "string" },
