@@ -12,7 +12,7 @@ import {
   ArrowRight, Calendar, Phone, FileText, Package, Clock,
   LayoutDashboard, Database, Settings, BarChart, TrendingUp,
   FileSpreadsheet, HardDriveDownload, CloudUpload, ShieldAlert,
-  AlertTriangle, Radar, Loader2
+  AlertTriangle, Radar, Loader2, Edit3, FileDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,6 +93,8 @@ export default function SapDashboard() {
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const [printData, setPrintData] = React.useState<any>(null);
   const [showPrintPreview, setShowPrintPreview] = React.useState(false);
+  const [cnPreviewData, setCnPreviewData] = React.useState<any>(null);
+  const [showCnPreview, setShowCnPreview] = React.useState(false);
   const tCodeRef = React.useRef<HTMLInputElement>(null);
 
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
@@ -225,9 +227,15 @@ export default function SapDashboard() {
     setShowPrintPreview(true);
   };
 
+  const handlePrintCN = (trip: any, order: any) => {
+    setCnPreviewData({ trip, order, deliveryAddress: trip.deliveryAddress || order.destination || '' });
+    setShowCnPreview(true);
+  };
+
   const handleActualPrint = () => {
     window.print();
     setShowPrintPreview(false);
+    setShowCnPreview(false);
   };
 
   const handleLogout = () => router.push('/login');
@@ -379,7 +387,7 @@ export default function SapDashboard() {
                      </>
                    )}
                    {showList && <RegistryList onSelectItem={setFormData} listData={getRegistryList()} />}
-                   {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} onPrintLR={handlePrintLR} />}
+                   {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} onPrintLR={handlePrintLR} onPrintCN={handlePrintCN} />}
                    {activeScreen === 'BULK' && <BulkDataHub allPlants={rawPlants} />}
                 </div>
               )}
@@ -403,9 +411,42 @@ export default function SapDashboard() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={showCnPreview} onOpenChange={setShowCnPreview}>
+          <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0 border-none bg-slate-800 shadow-2xl">
+            <div className="bg-slate-900 p-4 flex justify-between items-center sticky top-0 z-10 border-b border-white/10">
+              <DialogTitle className="text-white font-black uppercase italic tracking-tighter text-sm">Consignment Note: 3-Copy Registry Hub</DialogTitle>
+              <div className="flex items-center gap-4">
+                <div className="bg-white/5 px-4 py-1.5 rounded-lg border border-white/10">
+                  <span className="text-[10px] font-black uppercase text-blue-400 mr-2">Delivery Node Edit:</span>
+                  <input 
+                    className="bg-transparent text-white text-xs outline-none border-b border-white/20 focus:border-blue-400 w-48"
+                    value={cnPreviewData?.deliveryAddress || ''}
+                    onChange={(e) => setCnPreviewData({ ...cnPreviewData, deliveryAddress: e.target.value })}
+                  />
+                </div>
+                <Button onClick={handleActualPrint} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase text-[10px] tracking-widest h-9 px-8 rounded-lg flex items-center gap-2">
+                  <Printer className="h-3 w-3" /> PRINT ALL COPIES
+                </Button>
+              </div>
+            </div>
+            <div className="p-8 bg-slate-200 space-y-12">
+              {cnPreviewData && ["CONSIGNEE COPY", "DRIVER COPY", "CONSIGNOR COPY"].map((copyType) => (
+                <div key={copyType} className="bg-white shadow-2xl mx-auto max-w-[210mm] min-h-[297mm] print:shadow-none print:m-0 page-break-after-always">
+                  <CNPrintTemplate trip={cnPreviewData.trip} order={cnPreviewData.order} copyType={copyType} deliveryAddress={cnPreviewData.deliveryAddress} />
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
         
-        <div id="printable-area" className="hidden print:block p-8 bg-white text-black font-serif border-2 border-black m-4">
+        <div id="printable-area" className="hidden print:block p-0 m-0">
           {printData && <LRPrintTemplate trip={printData.trip} order={printData.order} />}
+          {cnPreviewData && ["CONSIGNEE COPY", "DRIVER COPY", "CONSIGNOR COPY"].map((copyType) => (
+             <div key={copyType} className="page-break-after-always">
+                <CNPrintTemplate trip={cnPreviewData.trip} order={cnPreviewData.order} copyType={copyType} deliveryAddress={cnPreviewData.deliveryAddress} />
+             </div>
+          ))}
         </div>
       </div>
     </SidebarProvider>
@@ -413,6 +454,162 @@ export default function SapDashboard() {
 }
 
 // FORMS & HELPERS
+
+function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any, order: any, copyType: string, deliveryAddress?: string }) {
+  const cnNo = trip?.cnNo || '--';
+  const cnDate = trip?.cnDate || (trip?.createdAt ? format(new Date(trip.createdAt), 'dd-MMM-yyyy') : '--');
+  const paymentMode = trip?.paymentMode || 'To Pay';
+  const items = order?.items || [{ product: trip?.product || 'SALT', weight: trip?.assignWeight || '--', weightUom: trip?.weightUom || 'MT', invoiceNumber: trip?.invoiceNumber || '--' }];
+  
+  const totalPackages = items.reduce((acc: number, item: any) => acc + (parseFloat(item.packages) || 0), 0);
+  const totalWeight = items.reduce((acc: number, item: any) => acc + (parseFloat(item.weight) || 0), 0);
+
+  return (
+    <div className="w-full p-8 md:p-12 font-body text-black leading-tight bg-white min-h-[297mm] flex flex-col box-border border-4 border-black/5">
+      {/* 1. TOP HEADER SECTION */}
+      <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-6">
+        <div className="flex gap-6 items-center">
+          <div className="w-16 h-16 bg-black flex items-center justify-center rounded-xl shrink-0">
+            <span className="text-white font-black text-3xl italic">S</span>
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-black uppercase tracking-tighter italic">Sikka Industries & Logistics</h1>
+            <p className="text-[10px] font-bold opacity-70">Ghaziabad – 201009, Uttar Pradesh, India</p>
+            <p className="text-[9px] font-black uppercase text-slate-500">GSTIN: 09ABCDE1234F1Z5 | PH: +91 120 4290010</p>
+          </div>
+        </div>
+        <div className="text-right space-y-3">
+          <div className="inline-block border-2 border-black px-4 py-1.5 font-black text-xs uppercase bg-black text-white rounded-md">{copyType}</div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase text-slate-400">CN Number</p>
+            <p className="text-xl font-black tracking-widest">{cnNo}</p>
+            <div className="flex justify-end gap-4 pt-1">
+               <div className="text-right"><p className="text-[8px] font-black text-slate-400 uppercase">Date</p><p className="text-[10px] font-black">{cnDate}</p></div>
+               <div className="text-right"><p className="text-[8px] font-black text-slate-400 uppercase">Origin</p><p className="text-[10px] font-black uppercase italic">{order?.from || '--'}</p></div>
+               <div className="text-right"><p className="text-[8px] font-black text-slate-400 uppercase">Dest.</p><p className="text-[10px] font-black uppercase italic">{order?.destination || '--'}</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. VEHICLE DETAILS SECTION */}
+      <div className="border-2 border-black mb-6">
+        <div className="grid grid-cols-4 divide-x-2 divide-black bg-slate-50 border-b-2 border-black font-black text-[9px] uppercase">
+          <div className="p-2 text-center">Vehicle Number</div>
+          <div className="p-2 text-center">Driver Mobile</div>
+          <div className="p-2 text-center">Payment Term</div>
+          <div className="p-2 text-center">Trip ID</div>
+        </div>
+        <div className="grid grid-cols-4 divide-x-2 divide-black text-[11px] font-black uppercase">
+          <div className="p-3 text-center">{trip?.vehicleNumber || '--'}</div>
+          <div className="p-3 text-center">{trip?.driverMobile || '--'}</div>
+          <div className="p-3 text-center text-blue-600 italic">{paymentMode}</div>
+          <div className="p-3 text-center">{trip?.tripId || '--'}</div>
+        </div>
+      </div>
+
+      {/* 3. PARTY DETAILS SECTION */}
+      <div className="grid grid-cols-3 gap-0 border-2 border-black divide-x-2 divide-black mb-6">
+        <div className="p-4 space-y-2">
+          <h3 className="text-[10px] font-black uppercase border-b border-black pb-1 mb-2 text-slate-500 tracking-widest">Consignor</h3>
+          <p className="text-xs font-black uppercase leading-tight">{trip?.consignor || '--'}</p>
+          <p className="text-[9px] font-medium text-slate-600">{order?.from || '--'}</p>
+          <p className="text-[9px] font-black mt-2">GSTIN: {trip?.consignorGst || '--'}</p>
+        </div>
+        <div className="p-4 space-y-2">
+          <h3 className="text-[10px] font-black uppercase border-b border-black pb-1 mb-2 text-slate-500 tracking-widest">Consignee</h3>
+          <p className="text-xs font-black uppercase leading-tight">{trip?.consignee || '--'}</p>
+          <p className="text-[9px] font-medium text-slate-600">{order?.destination || '--'}</p>
+          <p className="text-[9px] font-black mt-2">GSTIN: {trip?.consigneeGst || '--'}</p>
+        </div>
+        <div className="p-4 space-y-2 bg-slate-50/50">
+          <h3 className="text-[10px] font-black uppercase border-b border-black pb-1 mb-2 text-slate-500 tracking-widest">Ship To Party</h3>
+          <p className="text-xs font-black uppercase leading-tight">{trip?.shipToParty || '--'}</p>
+          <div className="min-h-[40px] border border-dashed border-black/10 p-1 mt-1">
+             <p className="text-[9px] font-medium leading-relaxed italic">{deliveryAddress || '--'}</p>
+          </div>
+          <p className="text-[9px] font-black mt-1">GSTIN: {trip?.shipToGst || '--'}</p>
+        </div>
+      </div>
+
+      {/* 4. DOCUMENT & ITEMS TABLE */}
+      <div className="border-2 border-black flex-1 flex flex-col mb-6">
+        <table className="w-full text-left border-collapse table-fixed">
+          <thead>
+            <tr className="bg-black text-white font-black text-[9px] uppercase tracking-wider">
+              <th className="p-3 border-r border-white/20 w-[20%]">Invoice No</th>
+              <th className="p-3 border-r border-white/20 w-[20%]">E-waybill No</th>
+              <th className="p-3 border-r border-white/20 w-[15%]">Package + UOM</th>
+              <th className="p-3 border-r border-white/20 w-[30%]">Description of Goods</th>
+              <th className="p-3 w-[15%] text-right">Quantity + UOM</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y-2 divide-black/10">
+            {items.map((item: any, idx: number) => (
+              <tr key={idx} className="text-[10px] font-bold align-top">
+                <td className="p-3 border-r-2 border-black/5 uppercase">{item.invoiceNumber || '--'}</td>
+                <td className="p-3 border-r-2 border-black/5 uppercase">{item.ewaybillNumber || '--'}</td>
+                <td className="p-3 border-r-2 border-black/5 uppercase">{item.packages || '--'} {item.unitUom || 'BAGS'}</td>
+                <td className="p-3 border-r-2 border-black/5 uppercase italic">{item.product || 'SALT'}</td>
+                <td className="p-3 text-right font-black">{item.weight || '--'} {item.weightUom || 'MT'}</td>
+              </tr>
+            ))}
+            {/* Pad empty space if needed */}
+            <tr className="flex-1 min-h-[100px]"><td colSpan={5}></td></tr>
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-black bg-slate-100 font-black text-xs">
+              <td colSpan={2} className="p-4 text-right uppercase opacity-50 text-[9px]">Registry Total Mission Payload</td>
+              <td className="p-4 border-l-2 border-black uppercase text-center">{totalPackages || '--'} PKGS</td>
+              <td className="p-4 border-l-2 border-black"></td>
+              <td className="p-4 border-l-2 border-black text-right">{totalWeight || '--'} {trip?.weightUom || 'MT'}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* 5. ACKNOWLEDGEMENT BOX */}
+      <div className="grid grid-cols-2 gap-0 border-2 border-black divide-x-2 divide-black mb-6">
+        <div className="p-4 space-y-4">
+          <div className="space-y-1">
+            <h4 className="text-[9px] font-black uppercase text-slate-400">Final Delivery Address Node</h4>
+            <p className="text-[10px] font-black italic uppercase leading-relaxed">{deliveryAddress || '--'}</p>
+          </div>
+          <div className="pt-2">
+            <p className="text-[9px] font-black uppercase mb-1">Carrier Note Registry:</p>
+            <p className="text-[9px] italic font-medium opacity-60 leading-relaxed">Ensure safe custody and verification of seal before unloading.</p>
+          </div>
+        </div>
+        <div className="flex flex-col">
+          <div className="p-4 border-b-2 border-black bg-slate-50 flex-1">
+            <h4 className="text-[9px] font-black uppercase text-center tracking-[0.2em] mb-4">Acknowledgement & Receiver's Seal</h4>
+            <div className="h-24"></div>
+          </div>
+          <div className="p-4 text-right">
+             <p className="text-[9px] font-black uppercase">For Sikka Industries & Logistics</p>
+             <div className="h-12"></div>
+             <p className="text-[10px] font-black uppercase underline decoration-2 underline-offset-4">Authorized Signatory Hub</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 6. TERMS & CONDITIONS */}
+      <div className="mb-4">
+        <h4 className="text-[8px] font-black uppercase mb-1 tracking-widest opacity-40">Standard Logistics Registry Terms</h4>
+        <p className="text-[7px] text-justify leading-relaxed opacity-60 font-medium italic">
+          1. The movement is subject to the conditions of carriage as displayed on the carrier's primary management node. 2. Carrier is not responsible for damage caused by inadequate packaging at consignor end. 3. Subject to Ghaziabad jurisdiction only. 4. Detention charges applicable if unloading exceeds mission timeline. 5. This registry node is digital and tamper-evident.
+        </p>
+      </div>
+
+      {/* 7. NOTE LINE */}
+      <div className="text-center pt-2 border-t border-black/10">
+         <p className="text-[9px] font-black uppercase tracking-[0.3em] italic">
+           Note: "This Lorry Receipt was generated digitally and is to be considered as original."
+         </p>
+      </div>
+    </div>
+  );
+}
 
 function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
   const lrNo = trip?.lrNo || order?.lrNo || '--';
@@ -600,12 +797,13 @@ function RegistryList({ onSelectItem, listData }: any) {
   );
 }
 
-function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR }: { orders: any[] | null, trips: any[] | null, onStatusUpdate: any, plants: any[] | null, onPrintLR: any }) {
+function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN }: { orders: any[] | null, trips: any[] | null, onStatusUpdate: any, plants: any[] | null, onPrintLR: any, onPrintCN: any }) {
   const { user } = useUser();
   const db = useFirestore();
   const [plantFilter, setPlantFilter] = React.useState('ALL');
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [viewTrip, setViewTrip] = React.useState<any>(null);
+  const [editingTrip, setEditingTrip] = React.useState<any>(null);
   const [assignWeight, setAssignWeight] = React.useState('');
   const [vehicleNo, setVehicleNo] = React.useState('');
   const [driverMobile, setDriverMobile] = React.useState('');
@@ -624,11 +822,19 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR }: { order
       product: selectedOrder.items?.[0]?.product || 'SALT',
       weightUom: selectedOrder.items?.[0]?.weightUom || 'MT',
       shipToParty: selectedOrder.shipToParty || '',
-      route: `${selectedOrder.from || 'Sikka'}--${selectedOrder.destination || 'Unloaded'}`
+      route: `${selectedOrder.from || 'Sikka'}--${selectedOrder.destination || 'Unloaded'}`,
+      cnNo: '', cnDate: '', paymentMode: 'To Pay'
     };
     setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', newId), payload, { merge: true });
     setSelectedOrder(null);
     onStatusUpdate({ text: `Mission ${tripId} created`, type: 'success' });
+  };
+
+  const handleUpdateCn = () => {
+    if (!user || !editingTrip) return;
+    setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', editingTrip.id), editingTrip, { merge: true });
+    setEditingTrip(null);
+    onStatusUpdate({ text: `CN Registry Node synchronized`, type: 'success' });
   };
 
   const getTripsByStatus = (status: string) => (trips || []).filter(t => t.status === status && (plantFilter === 'ALL' || t.plantCode === plantFilter));
@@ -666,13 +872,23 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR }: { order
               const parentOrder = orders?.find(o => o.id === t.saleOrderId);
               const lrVal = t.lrNo || parentOrder?.lrNo || '--';
               const invVal = t.invoiceNumber || parentOrder?.items?.[0]?.invoiceNumber || '--';
+              const cnVal = t.cnNo || '--';
               return (
                 <div key={t.id} className="bg-white border rounded-lg p-6 shadow-sm flex flex-col lg:flex-row gap-6 items-center">
-                  <div className="flex flex-col gap-1 min-w-[120px]">
+                  <div className="flex flex-col gap-1 min-w-[140px]">
                     <span className="text-[#0056d2] font-black text-xs">#{t.tripId}</span>
                     <span className="text-[8px] font-bold text-slate-400 uppercase">SO: {t.saleOrder || 'N/A'}</span>
                     <button onClick={() => onPrintLR(t, parentOrder)} className="text-[#0056d2] font-black text-[8px] uppercase hover:underline text-left">LR: {lrVal}</button>
                     <span className="text-[8px] font-black text-slate-400 uppercase">INV: {invVal}</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <button 
+                        onClick={() => cnVal !== '--' && onPrintCN(t, parentOrder)} 
+                        className={cn("font-black text-[9px] uppercase", cnVal === '--' ? "text-slate-300 cursor-default" : "text-emerald-600 hover:underline")}
+                      >
+                        CN: {cnVal}
+                      </button>
+                      <button onClick={() => setEditingTrip(t)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-blue-600"><Edit3 className="h-3 w-3" /></button>
+                    </div>
                   </div>
                   <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="flex flex-col"><span className="text-[8px] uppercase text-slate-400 font-black">Consignor</span><span className="text-[10px] font-black uppercase truncate">{t.consignor}</span></div>
@@ -687,6 +903,25 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR }: { order
           </TabsContent>
         ))}
       </Tabs>
+
+      {/* DIALOGS */}
+      <Dialog open={!!editingTrip} onOpenChange={() => setEditingTrip(null)}>
+        <DialogContent className="max-w-md rounded-[2rem] border-none shadow-2xl p-0 font-mono">
+          <div className="bg-[#1e3a8a] p-6 text-white text-center"><DialogTitle className="text-lg font-black uppercase italic tracking-tighter">Edit CN Registry Node</DialogTitle></div>
+          <div className="p-8 space-y-4">
+            <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400">CN Number</label><Input value={editingTrip?.cnNo || ''} onChange={(e) => setEditingTrip({ ...editingTrip, cnNo: e.target.value.toUpperCase() })} placeholder="CN-XXXXXX" /></div>
+            <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400">CN Date</label><Input type="date" value={editingTrip?.cnDate || ''} onChange={(e) => setEditingTrip({ ...editingTrip, cnDate: e.target.value })} /></div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase text-slate-400">Payment Mode</label>
+              <select className="w-full h-10 border border-slate-200 rounded-lg px-3 text-xs font-bold" value={editingTrip?.paymentMode || 'To Pay'} onChange={(e) => setEditingTrip({ ...editingTrip, paymentMode: e.target.value })}>
+                <option value="Paid">Paid</option>
+                <option value="To Pay">To Pay</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter className="p-6 border-t"><Button onClick={handleUpdateCn} className="bg-[#1e3a8a] hover:bg-black text-white px-8 h-12 rounded-xl font-black uppercase text-[10px]">Sync Registry</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
         <DialogContent className="max-w-xl rounded-[2rem] border-none shadow-2xl p-0 font-mono">
@@ -743,4 +978,3 @@ function BulkDataHub({ allPlants }: any) {
     </div>
   );
 }
-
