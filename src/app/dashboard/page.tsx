@@ -42,26 +42,26 @@ import { format } from 'date-fns';
 type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'TR21' | 'BULK' | 'SU01' | 'SU02' | 'SU03';
 
 const MASTER_TCODES = [
-  { code: 'OX01', description: 'Create Plant Master' },
-  { code: 'OX02', description: 'Change Plant Master' },
-  { code: 'OX03', description: 'Display Plant Master' },
-  { code: 'FM01', description: 'Create Company Hub' },
-  { code: 'FM02', description: 'Change Company Hub' },
-  { code: 'FM03', description: 'Display Company Hub' },
-  { code: 'XK01', description: 'Create Vendor Master' },
-  { code: 'XK02', description: 'Change Vendor Master' },
-  { code: 'XK03', description: 'Display Vendor Master' },
-  { code: 'XD01', description: 'Create Customer Registry' },
-  { code: 'XD02', description: 'Change Customer Registry' },
-  { code: 'XD03', description: 'Display Customer Registry' },
-  { code: 'VA01', description: 'Create Sales Order' },
-  { code: 'VA02', description: 'Change Sales Order' },
-  { code: 'VA03', description: 'Display Sales Order' },
-  { code: 'TR21', description: 'Drip Board Control' },
-  { code: 'BULK', description: 'Bulk Data Upload' },
-  { code: 'SU01', description: 'Create User Management' },
-  { code: 'SU02', description: 'Change User Management' },
-  { code: 'SU03', description: 'Display User Management' },
+  { code: 'OX01', description: 'PLANT MASTER: CREATE INITIAL SCREEN' },
+  { code: 'OX02', description: 'PLANT MASTER: CHANGE REGISTRY' },
+  { code: 'OX03', description: 'PLANT MASTER: DISPLAY NODE' },
+  { code: 'FM01', description: 'COMPANY MASTER: CREATE INITIAL SCREEN' },
+  { code: 'FM02', description: 'COMPANY MASTER: CHANGE REGISTRY' },
+  { code: 'FM03', description: 'COMPANY MASTER: DISPLAY NODE' },
+  { code: 'XK01', description: 'VENDOR MASTER: CREATE INITIAL SCREEN' },
+  { code: 'XK02', description: 'VENDOR MASTER: CHANGE REGISTRY' },
+  { code: 'XK03', description: 'VENDOR MASTER: DISPLAY NODE' },
+  { code: 'XD01', description: 'CUSTOMER MASTER: CREATE INITIAL SCREEN' },
+  { code: 'XD02', description: 'CUSTOMER MASTER: CHANGE REGISTRY' },
+  { code: 'XD03', description: 'CUSTOMER MASTER: DISPLAY NODE' },
+  { code: 'VA01', description: 'SALES ORDER REGISTRY: CREATE INITIAL SCREEN' },
+  { code: 'VA02', description: 'SALES ORDER REGISTRY: CHANGE NODE' },
+  { code: 'VA03', description: 'SALES ORDER REGISTRY: DISPLAY NODE' },
+  { code: 'TR21', description: 'DRIP BOARD REGISTRY CONTROL' },
+  { code: 'BULK', description: 'BULK DATA HUB CONTROL' },
+  { code: 'SU01', description: 'USER MANAGEMENT: CREATE INITIAL SCREEN' },
+  { code: 'SU02', description: 'USER MANAGEMENT: CHANGE REGISTRY' },
+  { code: 'SU03', description: 'USER MANAGEMENT: DISPLAY NODE' },
 ];
 
 export default function SapDashboard() {
@@ -177,10 +177,6 @@ export default function SapDashboard() {
         updatedAt: new Date().toISOString() 
       };
 
-      if (activeScreen.startsWith('VA') && !payload.saleOrderDate) {
-        payload.saleOrderDate = new Date().toISOString();
-      }
-
       if (isSystemUser) {
         const tcodes = payload.tcodes || [];
         const expandedTcodes = [...tcodes];
@@ -272,6 +268,10 @@ export default function SapDashboard() {
     }
   };
 
+  const getScreenTitle = (code: Screen) => {
+    return MASTER_TCODES.find(t => t.code === code)?.description || '';
+  };
+
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === 's') {
@@ -315,19 +315,11 @@ export default function SapDashboard() {
     return [];
   };
 
-  const handleMenuClick = () => {
-    setActiveScreen('HOME');
-    setStatusMsg({ text: 'Main Hub', type: 'none' });
-  };
-
   return (
     <div className="flex flex-col h-screen bg-[#d9e1f2] text-[#333] font-mono select-none overflow-hidden">
       <div className="flex items-center bg-[#f0f0f0] border-b border-white/50 px-2 h-7 text-[11px] font-semibold">
         <DropdownMenu>
-          <DropdownMenuTrigger 
-            onClick={handleMenuClick}
-            className="px-3 hover:bg-[#0056d2] hover:text-white outline-none transition-colors h-full flex items-center"
-          >
+          <DropdownMenuTrigger className="px-3 hover:bg-[#0056d2] hover:text-white outline-none transition-colors h-full flex items-center">
             Menu
           </DropdownMenuTrigger>
           <DropdownMenuContent className="bg-white rounded-none border-slate-300 shadow-xl text-[11px] p-0 min-w-[150px]">
@@ -380,152 +372,89 @@ export default function SapDashboard() {
                <Printer className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
              </button>
           </div>
-          <div className="flex items-center gap-2 ml-auto">
-             <HelpCircle className="h-4 w-4 text-slate-600" />
-          </div>
         </div>
-
-        {isModuleActive && activeScreen !== 'HOME' && (
-          <div className="bg-[#e2eaf3] border-t border-slate-200 px-4 py-1.5 flex items-center gap-6">
-            <button 
-              onClick={handleSave} 
-              className="flex items-center gap-2 text-[10px] font-bold text-slate-600 hover:text-blue-700 transition-colors uppercase tracking-widest"
-            >
-              <Play className="h-3 w-3 fill-emerald-500 text-emerald-500" /> Execute
-            </button>
-            <button 
-              onClick={handleCancel}
-              className="flex items-center gap-2 text-[10px] font-bold text-slate-600 hover:text-red-700 transition-colors uppercase tracking-widest"
-            >
-              <XCircle className="h-3 w-3 text-red-500" /> Cancel
-            </button>
-          </div>
-        )}
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {!isModuleActive && (
-          <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-sm animate-fade-in print:hidden">
-             <div className="p-6 border-b border-slate-100 flex items-center gap-4">
-                <div className="bg-[#0056d2] p-2 rounded-lg flex items-center justify-center">
-                   <Grid2X2 className="h-6 w-6 text-white" />
-                </div>
-                <div className="flex flex-col">
-                  <h2 className="text-[13px] font-black uppercase text-[#1e3a8a] italic tracking-tight leading-none">
-                    Sikka Logistics
-                  </h2>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                    Registry Control
-                  </span>
-                </div>
-             </div>
-             <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar">
-                <div className="space-y-4">
-                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 mb-6">Favorites</p>
-                  {[
-                    { code: 'OX01', label: 'Create Plant' },
-                    { code: 'FM01', label: 'Create Company' },
-                    { code: 'XK01', label: 'Create Vendor' },
-                    { code: 'XD01', label: 'Create Customer' },
-                    { code: 'VA01', label: 'Create Sales Order' },
-                    { code: 'TR21', label: 'Drip Board Control' },
-                    { code: 'BULK', label: 'Bulk Data Upload' },
-                    { code: 'SU01', label: 'User Management' },
-                  ].map((item) => (
-                    <button 
-                      key={item.code} 
-                      onClick={() => executeTCode(item.code)}
-                      className="flex items-center gap-4 w-full text-left py-2 px-2 hover:bg-[#f0f3f9] rounded-lg group transition-all"
-                    >
-                      <div className="w-2 h-2 rounded-full bg-slate-300 group-hover:bg-[#0056d2] shrink-0" />
-                      <span className="text-[12px] font-bold text-slate-600 group-hover:text-[#1e3a8a] flex items-center gap-2">
-                        <span className="text-[#1e3a8a]">{item.code}</span>
-                        <span className="text-slate-300">-</span>
-                        <span>{item.label}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-             </div>
-          </div>
-        )}
-
         <div className="flex-1 flex flex-col bg-[#f0f3f9] overflow-y-auto no-scrollbar">
-          <div className="bg-[#0056d2] text-white py-1.5 px-6 shadow-lg print:bg-white print:text-black print:shadow-none flex flex-col items-center justify-center min-h-[50px]">
-            <h1 className="text-xl font-black italic tracking-tighter uppercase leading-none text-center">
-              {activeScreen === 'HOME' ? 'Sikka Logistics Hub' : activeScreen}
+          <div className="bg-[#0056d2] text-white py-2 px-6 shadow-lg flex flex-col items-center justify-center min-h-[60px]">
+            <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none text-center">
+              Sikka Logistics Hub
             </h1>
-            <p className="text-[8px] font-bold uppercase tracking-[0.4em] mt-1 text-center">
-              {getScreenTitle(activeScreen)}
+            <p className="text-[10px] font-bold uppercase tracking-[0.4em] mt-1 text-center text-blue-100">
+              Central Management Hub
             </p>
           </div>
 
-          <div id="printable-area" className={`p-8 w-full ${isModuleActive ? 'max-w-none' : 'max-w-7xl'} mx-auto`}>
+          <div className={`p-8 w-full ${isModuleActive ? 'max-w-none' : 'max-w-[1400px]'} mx-auto`}>
             {activeScreen === 'HOME' ? (
-              <div className="space-y-8 animate-fade-in">
-                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl overflow-hidden">
-                   <div className="bg-slate-900 px-8 py-5 flex items-center justify-between">
+              <div className="space-y-12 animate-fade-in">
+                {/* RECENT SALES ORDER REGISTRY */}
+                <div className="bg-white rounded-[3rem] border border-slate-200 shadow-2xl overflow-hidden">
+                   <div className="bg-[#1e293b] px-10 py-6 flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <ShoppingBag className="h-5 w-5 text-blue-400" />
-                        <h2 className="text-[13px] font-black uppercase text-white tracking-widest italic">Recent Sales Order Registry</h2>
+                        <ShoppingBag className="h-6 w-6 text-blue-400" />
+                        <h2 className="text-sm font-black uppercase text-white tracking-[0.2em] italic">Recent Sales Order Registry</h2>
                       </div>
-                      <Badge className="bg-blue-600 text-white border-none rounded-lg px-4 font-black italic">NODE ACTIVITY</Badge>
+                      <Badge className="bg-[#0056d2] text-white border-none rounded-lg px-6 py-1.5 font-black italic tracking-widest text-[10px]">NODE ACTIVITY</Badge>
                    </div>
-                   <div className="overflow-x-auto">
+                   <div className="overflow-x-auto p-4">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="bg-slate-50 border-b border-slate-100">
-                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400">SO Number</th>
-                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400">Consignor</th>
-                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400">Destination</th>
-                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400">Date</th>
-                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400 text-center">Status</th>
+                          <tr className="border-b-2 border-slate-100">
+                            <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">SO Number</th>
+                            <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Consignor</th>
+                            <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Destination</th>
+                            <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Date</th>
+                            <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">Status</th>
                           </tr>
                         </thead>
                         <tbody>
                           {recentOrders?.slice(0, 5).map((order) => (
                             <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { setFormData(order); setActiveScreen('VA03'); }}>
-                              <td className="p-4 font-black text-xs text-[#0056d2]">{order.saleOrder || order.saleOrderNumber}</td>
-                              <td className="p-4 font-bold text-xs text-slate-600 uppercase">{order.consignor}</td>
-                              <td className="p-4 font-bold text-xs text-slate-400 uppercase italic">{order.destination}</td>
-                              <td className="p-4 font-bold text-[10px] text-slate-400">{order.saleOrderDate ? format(new Date(order.saleOrderDate), 'dd-MM-yyyy') : '--'}</td>
-                              <td className="p-4 text-center">
-                                <div className="flex items-center justify-center gap-1 text-emerald-500">
-                                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                   <span className="text-[8px] font-black uppercase">Active</span>
+                              <td className="p-6 font-black text-sm text-[#0056d2]">{order.saleOrder || order.saleOrderNumber}</td>
+                              <td className="p-6 font-bold text-[11px] text-slate-600 uppercase tracking-tight">{order.consignor}</td>
+                              <td className="p-6 font-black italic text-[11px] text-[#64748b] uppercase">{order.destination}</td>
+                              <td className="p-6 font-bold text-[11px] text-slate-400">{order.saleOrderDate ? format(new Date(order.saleOrderDate), 'dd-MM-yyyy') : '--'}</td>
+                              <td className="p-6 text-center">
+                                <div className="flex items-center justify-center gap-2 text-emerald-500">
+                                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                   <span className="text-[10px] font-black uppercase tracking-widest">Active</span>
                                 </div>
                               </td>
                             </tr>
                           ))}
-                          {(!recentOrders || recentOrders.length === 0) && (
-                            <tr>
-                              <td colSpan={5} className="p-12 text-center">
-                                <p className="text-slate-300 font-bold text-xs italic uppercase tracking-[0.2em]">No recent order registry nodes found.</p>
-                                <Button onClick={() => executeTCode('VA01')} variant="outline" className="mt-4 border-dashed border-slate-300 text-slate-400 rounded-xl font-bold uppercase text-[10px]">Create Initial Order Registry</Button>
-                              </td>
-                            </tr>
-                          )}
                         </tbody>
                       </table>
                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                {/* T-CODE CARDS GRID */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 pb-10">
                   {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'TR21', 'SU01'].map((code) => (
-                    <div key={code} onClick={() => executeTCode(code)} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
-                      <div className="flex items-center justify-between mb-4">
-                        <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1 font-black italic">{code}</Badge>
-                        <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-[#0056d2]" />
+                    <div 
+                      key={code} 
+                      onClick={() => executeTCode(code)} 
+                      className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer group flex flex-col min-h-[300px]"
+                    >
+                      <div className="flex items-center justify-between mb-8">
+                        <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-6 py-2 font-black italic tracking-widest text-[11px] border-none shadow-sm">{code}</Badge>
+                        <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-[#0056d2] group-hover:translate-x-1 transition-all" />
                       </div>
-                      <h3 className="text-[11px] font-black uppercase text-[#1e3a8a]">{getScreenTitle(code as Screen)}</h3>
+                      <div className="flex-1 flex flex-col justify-start">
+                         <h3 className="text-[13px] font-black text-[#1e3a8a] leading-[1.6] uppercase tracking-wider">
+                           {getScreenTitle(code as Screen).split(' ').map((word, i) => (
+                             <span key={i} className="block">{word}</span>
+                           ))}
+                         </h3>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             ) : (
-              <div className="bg-white shadow-2xl rounded-sm border border-slate-300 overflow-hidden animate-slide-up w-full print:shadow-none print:border-none print:rounded-none">
-                 <div className="h-1 bg-yellow-500 w-full print:hidden" />
-                 
+              <div className="bg-white shadow-2xl rounded-sm border border-slate-300 overflow-hidden animate-slide-up w-full">
+                 <div className="h-1 bg-yellow-500 w-full" />
                  <div className="p-1 min-h-[600px] bg-[#fdfdfd] flex flex-col">
                    {showList && (
                      <div className="bg-[#e9f0f8] p-4 border-b border-slate-300 mb-6">
@@ -548,7 +477,6 @@ export default function SapDashboard() {
                         </div>
                      </div>
                    )}
-
                    <div className="p-4 space-y-6">
                      {showForm && (
                        <>
@@ -567,7 +495,6 @@ export default function SapDashboard() {
                        </div>
                      )}
                      {activeScreen === 'TR21' && <DripBoard orders={recentOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} />}
-                     {activeScreen === 'BULK' && <BulkUploadForm setStatus={setStatusMsg} />}
                    </div>
                  </div>
               </div>
@@ -583,16 +510,279 @@ export default function SapDashboard() {
           {statusMsg.type === 'info' && <Info className="h-3 w-3 text-blue-500" />}
           <span className={statusMsg.type === 'error' ? 'text-red-600' : ''}>{statusMsg.text}</span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-slate-400">System: <span className="text-slate-600">S4P</span></span>
-          <span className="text-slate-400">Client: <span className="text-slate-600">100</span></span>
-          <span className="text-slate-400">User: <span className="text-slate-600">{user?.uid.slice(0, 8).toUpperCase()}</span></span>
-        </div>
         <div className="ml-auto flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="text-[9px] uppercase tracking-widest text-emerald-600">Synced</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Re-implementing helper components and forms here to ensure complete file...
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <h3 className="text-[10px] font-black uppercase tracking-widest bg-[#dae4f1] border-y border-slate-300 px-4 py-1 text-[#1e3a8a]">
+      {title}
+    </h3>
+  );
+}
+
+function DetailRow({ label, value }: { label: string, value?: string | number }) {
+  return (
+    <div className="grid grid-cols-3 gap-4 py-1 border-b border-slate-50 last:border-none">
+      <span className="text-[9px] font-black uppercase text-slate-400">{label}</span>
+      <span className="col-span-2 text-[10px] font-bold text-slate-700 uppercase">{value || '--'}</span>
+    </div>
+  );
+}
+
+function PlantForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Plant Code" value={data.plantCode} onChange={(v) => onChange({...data, plantCode: v})} disabled={disabled} />
+      <FormInput label="Plant Name" value={data.plantName} onChange={(v) => onChange({...data, plantName: v})} disabled={disabled} />
+      <FormInput label="City" value={data.city} onChange={(v) => onChange({...data, city: v})} disabled={disabled} />
+      <FormInput label="State" value={data.state} onChange={(v) => onChange({...data, state: v})} disabled={disabled} />
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v) => onChange({...data, gstin: v})} disabled={disabled} />
+      <FormInput label="Address" value={data.address} onChange={(v) => onChange({...data, address: v})} disabled={disabled} />
+    </div>
+  );
+}
+
+function CompanyForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Company Code" value={data.companyCode} onChange={(v) => onChange({...data, companyCode: v})} disabled={disabled} />
+      <FormInput label="Company Name" value={data.companyName} onChange={(v) => onChange({...data, companyName: v})} disabled={disabled} />
+      <FormInput label="Address" value={data.address} onChange={(v) => onChange({...data, address: v})} disabled={disabled} />
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v) => onChange({...data, gstin: v})} disabled={disabled} />
+    </div>
+  );
+}
+
+function VendorForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Vendor Name" value={data.vendorName} onChange={(v) => onChange({...data, vendorName: v})} disabled={disabled} />
+      <FormInput label="Mobile" value={data.mobile} onChange={(v) => onChange({...data, mobile: v})} disabled={disabled} />
+      <FormInput label="PAN" value={data.pan} onChange={(v) => onChange({...data, pan: v})} disabled={disabled} />
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v) => onChange({...data, gstin: v})} disabled={disabled} />
+    </div>
+  );
+}
+
+function CustomerForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Customer Code" value={data.customerCode} onChange={(v) => onChange({...data, customerCode: v})} disabled={disabled} />
+      <FormInput label="Customer Name" value={data.customerName} onChange={(v) => onChange({...data, customerName: v})} disabled={disabled} />
+      <FormInput label="City" value={data.city} onChange={(v) => onChange({...data, city: v})} disabled={disabled} />
+      <FormInput label="Mobile" value={data.mobile} onChange={(v) => onChange({...data, mobile: v})} disabled={disabled} />
+      <FormSelect label="Type" value={data.customerType} options={['Consignor', 'Consignee']} onChange={(v) => onChange({...data, customerType: v})} disabled={disabled} />
+    </div>
+  );
+}
+
+function SalesOrderForm({ data, onChange, disabled }: any) {
+  const [time, setTime] = React.useState(new Date());
+
+  React.useEffect(() => {
+    if (!data.id) {
+      const timer = setInterval(() => setTime(new Date()), 1000);
+      return () => clearInterval(timer);
+    }
+  }, [data.id]);
+
+  const currentTimeStr = format(time, 'dd-MM-yyyy HH:mm:ss');
+
+  return (
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+        <FormInput label="Plant Code" value={data.plantCode} onChange={(v) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormInput label="System Date/Time" value={data.id ? (data.saleOrderDate || '--') : currentTimeStr} disabled={true} />
+        <FormInput label="Sale Order No" value={data.saleOrder} onChange={(v) => onChange({...data, saleOrder: v})} disabled={disabled} />
+        <FormInput label="Consignor Name" value={data.consignor} onChange={(v) => onChange({...data, consignor: v})} disabled={disabled} />
+        <FormInput label="Consignee Name" value={data.consignee} onChange={(v) => onChange({...data, consignee: v})} disabled={disabled} />
+        <FormInput label="Ship To Party" value={data.shipToParty} onChange={(v) => onChange({...data, shipToParty: v})} disabled={disabled} />
+        <FormInput label="From City" value={data.from} onChange={(v) => onChange({...data, from: v})} disabled={disabled} />
+        <FormInput label="Destination City" value={data.destination} onChange={(v) => onChange({...data, destination: v})} disabled={disabled} />
+        <FormInput label="LR Number" value={data.lrNo} onChange={(v) => onChange({...data, lrNo: v})} disabled={disabled} />
+        <FormInput label="LR Date" value={data.lrDate} type="date" onChange={(v) => onChange({...data, lrDate: v})} disabled={disabled} />
+      </div>
+      
+      <div className="space-y-4">
+        <SectionHeader title="Product Item Registry" />
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse border border-slate-300">
+            <thead className="bg-[#f0f0f0]">
+              <tr>
+                <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">Product</th>
+                <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">Weight</th>
+                <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">UOM</th>
+                <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">Ewaybill</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data.items || [{}]).map((item: any, idx: number) => (
+                <tr key={idx}>
+                  <td className="p-1 border border-slate-300">
+                    <input className="w-full outline-none text-[10px] p-1 font-bold" value={item.product || ''} onChange={(e) => {
+                      const items = [...(data.items || [{ product: 'SALT' }])];
+                      items[idx] = { ...items[idx], product: e.target.value };
+                      onChange({ ...data, items });
+                    }} disabled={disabled} />
+                  </td>
+                  <td className="p-1 border border-slate-300">
+                    <input className="w-full outline-none text-[10px] p-1 font-bold" value={item.weight || ''} onChange={(e) => {
+                      const items = [...(data.items || [{ product: 'SALT' }])];
+                      items[idx] = { ...items[idx], weight: e.target.value };
+                      onChange({ ...data, items });
+                    }} disabled={disabled} />
+                  </td>
+                  <td className="p-1 border border-slate-300">
+                    <select className="w-full outline-none text-[10px] p-1 font-bold" value={item.weightUom || 'MT'} onChange={(e) => {
+                      const items = [...(data.items || [{ product: 'SALT' }])];
+                      items[idx] = { ...items[idx], weightUom: e.target.value };
+                      onChange({ ...data, items });
+                    }} disabled={disabled}>
+                      <option value="MT">MT</option>
+                      <option value="KG">KG</option>
+                      <option value="PCS">PCS</option>
+                    </select>
+                  </td>
+                  <td className="p-1 border border-slate-300">
+                    <input className="w-full outline-none text-[10px] p-1 font-bold" value={item.ewaybillNumber || ''} onChange={(e) => {
+                      const items = [...(data.items || [{ product: 'SALT' }])];
+                      items[idx] = { ...items[idx], ewaybillNumber: e.target.value };
+                      onChange({ ...data, items });
+                    }} disabled={disabled} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UserForm({ data, onChange, disabled, allPlants }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Full Name" value={data.fullName} onChange={(v) => onChange({...data, fullName: v})} disabled={disabled} />
+      <FormInput label="Username" value={data.username} onChange={(v) => onChange({...data, username: v})} disabled={disabled} />
+      <FormInput label="Mobile" value={data.mobile} onChange={(v) => onChange({...data, mobile: v})} disabled={disabled} />
+      <div className="space-y-2">
+        <label className="text-[10px] font-bold text-slate-500 uppercase">Authorized T-Codes</label>
+        <div className="bg-white border border-slate-400 h-32 overflow-y-auto p-2">
+          {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'BULK').map(t => (
+            <div key={t.code} className="flex items-center gap-2 mb-1">
+              <Checkbox 
+                checked={data.tcodes?.includes(t.code)} 
+                onCheckedChange={(val) => {
+                  const codes = data.tcodes || [];
+                  if (val) onChange({...data, tcodes: [...codes, t.code]});
+                  else onChange({...data, tcodes: codes.filter((c: string) => c !== t.code)});
+                }}
+                disabled={disabled}
+              />
+              <span className="text-[10px] font-bold">{t.code} - {t.description}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label className="text-[10px] font-bold text-slate-500 uppercase">Authorized Plants</label>
+        <div className="bg-white border border-slate-400 h-32 overflow-y-auto p-2">
+          {allPlants?.map((p: any) => (
+            <div key={p.plantCode} className="flex items-center gap-2 mb-1">
+              <Checkbox 
+                checked={data.plants?.includes(p.plantCode)} 
+                onCheckedChange={(val) => {
+                  const plants = data.plants || [];
+                  if (val) onChange({...data, plants: [...plants, p.plantCode]});
+                  else onChange({...data, plants: plants.filter((c: string) => c !== p.plantCode)});
+                }}
+                disabled={disabled}
+              />
+              <span className="text-[10px] font-bold">{p.plantCode} - {p.plantName}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FormInput({ label, value, onChange, type = "text", disabled }: any) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <Input 
+        type={type} 
+        value={value || ''} 
+        onChange={(e) => onChange(e.target.value)} 
+        disabled={disabled}
+        className="h-8 rounded-none border-slate-400 focus:ring-0 focus:border-[#0056d2] text-xs font-bold bg-white"
+      />
+    </div>
+  );
+}
+
+function FormSelect({ label, value, options, onChange, disabled }: any) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <select 
+        value={value || ''} 
+        onChange={(e) => onChange(e.target.value)} 
+        disabled={disabled}
+        className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold outline-none"
+      >
+        <option value="">Select...</option>
+        {options.map((o: string) => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function RegistryList({ screen, onSelectItem, listData }: any) {
+  const getCols = () => {
+    if (screen.startsWith('VA')) return ['SO Number', 'Name / Description', 'Type / Details', 'Date'];
+    if (screen.startsWith('SU')) return ['Username', 'Name', 'Registry ID', 'Node Active'];
+    return ['Registry ID', 'Name / Description', 'Type / Details', 'Sync Node'];
+  };
+
+  return (
+    <div className="overflow-x-auto border border-slate-300">
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="bg-[#f0f0f0] border-b border-slate-300">
+            {getCols().map(col => <th key={col} className="p-2 text-[9px] font-black uppercase text-slate-500">{col}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {listData?.map((item: any) => (
+            <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors">
+              <td className="p-2 text-[10px] font-black text-[#0056d2]">
+                {item.username || item.saleOrder || item.saleOrderNumber || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}
+              </td>
+              <td className="p-2 text-[10px] font-bold text-slate-600 uppercase">
+                {item.fullName || item.plantName || item.companyName || item.vendorName || item.customerName || `${item.consignor} → ${item.consignee || 'UNSPECIFIED'}`}
+                {item.shipToParty && item.shipToParty !== item.consignee && <span className="block text-[8px] text-red-500">Ship to: {item.shipToParty}</span>}
+              </td>
+              <td className="p-2 text-[10px] font-bold text-slate-400 uppercase italic">
+                {item.customerType || item.city || (item.from ? `${item.from} → ${item.destination}` : 'REGISTRY NODE')}
+              </td>
+              <td className="p-2 text-[10px] font-bold text-slate-400">
+                {item.saleOrderDate || item.updatedAt ? format(new Date(item.saleOrderDate || item.updatedAt), 'dd-MM-yyyy') : 'SYNC ACTIVE'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -907,9 +1097,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                       <div className="col-span-1 flex flex-col gap-1">
                         <span className="text-slate-900 font-black text-[10px]">{trip.assignWeight} {trip.weightUom || 'MT'}</span>
                         <span className="text-slate-400 font-bold text-[9px] truncate italic">{trip.product || 'SALT'}</span>
-                        <div className="h-1 bg-yellow-500 w-full mt-1 rounded-full overflow-hidden">
-                           <div className="h-full bg-yellow-600 w-3/4" />
-                        </div>
                       </div>
 
                       <div className="col-span-1 flex flex-col gap-2 items-center">
@@ -937,29 +1124,11 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                              <Badge variant="outline" className="border-emerald-100 text-emerald-600 font-black text-[7px] uppercase tracking-tighter rounded-sm">On Schedule</Badge>
                              <span className="text-slate-400 font-bold text-[8px]">{formattedDate}, {formattedTime}</span>
                           </div>
-                          <div className="hidden md:flex items-center gap-4 text-slate-300">
-                             <div className="flex items-center gap-1.5">
-                                <MapPin className="h-2.5 w-2.5 text-blue-500" />
-                                <span className="text-[8px] font-bold uppercase">{trip.route}</span>
-                             </div>
-                          </div>
-                       </div>
-                       <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-1 text-slate-400">
-                             <Activity className="h-3 w-3" />
-                             <span className="text-[7px] font-black uppercase tracking-widest">Registry Sync: Active</span>
-                          </div>
                        </div>
                     </div>
                   </div>
                 );
               })}
-              {getTripsByStatus(status).length === 0 && (
-                <div className="p-12 text-center bg-white rounded-3xl border border-dashed border-slate-200">
-                  <Package className="h-10 w-10 text-slate-200 mx-auto mb-4" />
-                  <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.2em]">No mission nodes currently active in {status} registry.</p>
-                </div>
-              )}
             </div>
           </TabsContent>
         ))}
@@ -969,15 +1138,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
         <DialogContent className="max-w-2xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden font-mono">
           <div className="bg-[#0056d2] p-6 text-white flex flex-col items-center">
             <DialogTitle className="text-xl font-black uppercase italic tracking-tighter">Assign Mission Vehicle</DialogTitle>
-            <div className="flex gap-4 mt-3 opacity-80 text-[10px] font-bold uppercase tracking-widest">
-              <span>SO: {selectedOrder?.saleOrder || selectedOrder?.saleOrderNumber}</span>
-              <span>•</span>
-              <span>To: {selectedOrder?.shipToParty}</span>
-              <span>•</span>
-              <span>Route: {selectedOrder?.from}--{selectedOrder?.destination}</span>
-            </div>
           </div>
-          
           <div className="p-8 space-y-6">
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
@@ -1004,43 +1165,15 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                 <label className="text-[10px] font-black uppercase text-slate-400">Driver Mobile</label>
                 <Input value={driverMobile} onChange={(e) => setDriverMobile(e.target.value)} placeholder="+91..." className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" />
               </div>
-              {vehicleType === 'MARKET VEHICLE' && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Vendor Name</label>
-                  <Input value={vendorName} onChange={(e) => setVendorName(e.target.value)} placeholder="Select Vendor" className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" />
-                </div>
-              )}
               <div className="space-y-2 col-span-2">
-                <label className="text-[10px] font-black uppercase text-slate-400">Delay Remark (Registry Note)</label>
-                <Input value={delayRemark} onChange={(e) => setDelayRemark(e.target.value)} placeholder="Enter reason for potential delay..." className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" />
+                <label className="text-[10px] font-black uppercase text-slate-400">Delay Remark</label>
+                <Input value={delayRemark} onChange={(e) => setDelayRemark(e.target.value)} placeholder="Reason for delay..." className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" />
               </div>
             </div>
-
-            {vehicleType === 'MARKET VEHICLE' && (
-              <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
-                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Checkbox id="fix-rate" checked={isFixRate} onCheckedChange={(val) => setIsFixRate(val as boolean)} />
-                      <label htmlFor="fix-rate" className="text-[10px] font-black uppercase text-slate-600">Apply Fix Rate Manual</label>
-                    </div>
-                 </div>
-                 <div className="grid grid-cols-2 gap-4">
-                   <div className="space-y-2">
-                     <label className="text-[9px] font-black uppercase text-slate-400">Rate (Per UOM)</label>
-                     <Input disabled={isFixRate} value={rate} onChange={(e) => setRate(e.target.value)} className="h-10 rounded-xl font-bold border-slate-200 disabled:opacity-30" />
-                   </div>
-                   <div className="space-y-2">
-                     <label className="text-[9px] font-black uppercase text-slate-400">Freight Amount</label>
-                     <Input disabled={!isFixRate} value={freightAmount} onChange={(e) => setFreightAmount(e.target.value)} className="h-10 rounded-xl font-bold border-slate-200 disabled:bg-white/50" />
-                   </div>
-                 </div>
-              </div>
-            )}
           </div>
-
-          <DialogFooter className="p-6 border-t border-slate-50 bg-slate-50/50">
+          <DialogFooter className="p-6 border-t border-slate-50">
             <Button variant="ghost" onClick={() => setSelectedOrder(null)} className="rounded-xl font-black uppercase text-[10px]">Cancel</Button>
-            <Button onClick={handleAssign} className="bg-[#0056d2] hover:bg-black text-white px-8 h-12 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-blue-900/20">Assign Mission</Button>
+            <Button onClick={handleAssign} className="bg-[#0056d2] hover:bg-black text-white px-8 h-12 rounded-xl font-black uppercase text-[10px]">Assign Mission</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1052,68 +1185,32 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
               <DialogTitle className="text-lg font-black uppercase italic tracking-tighter">Mission Registry Hub</DialogTitle>
               <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-blue-200 mt-1">Registry Detail Node: {viewTrip?.tripId}</p>
             </div>
-            <Badge className="bg-white/20 text-white border-white/40 rounded-none px-4 py-1 font-black italic uppercase text-[10px]">
-              {viewTrip?.status}
-            </Badge>
           </div>
-
           <div className="p-6 space-y-8 bg-[#fdfdfd]">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-4">
                 <SectionHeader title="Consignment Context" />
                 <div className="space-y-3 px-2">
-                  <DetailRow label="Sale Order" value={viewTrip?.saleOrderNumber || viewTrip?.saleOrder} />
+                  <DetailRow label="Sale Order" value={viewTrip?.saleOrderNumber} />
                   <DetailRow label="Consignor" value={viewTrip?.consignor} />
                   <DetailRow label="Consignee" value={viewTrip?.consignee} />
-                  <DetailRow label="Ship to Party" value={viewTrip?.shipToParty} />
                 </div>
               </div>
-
               <div className="space-y-4">
                 <SectionHeader title="Mission Specs" />
                 <div className="space-y-3 px-2">
-                  <DetailRow label="Vehicle Number" value={viewTrip?.vehicleNumber} />
-                  <DetailRow label="Vehicle Type" value={viewTrip?.vehicleType} />
-                  <DetailRow label="Driver Contact" value={viewTrip?.driverMobile} />
-                  <DetailRow label="Carrier Node" value={viewTrip?.vendorName} />
+                  <DetailRow label="Vehicle" value={viewTrip?.vehicleNumber} />
+                  <DetailRow label="Product" value={viewTrip?.product} />
+                  <DetailRow label="Assign Weight" value={`${viewTrip?.assignWeight} ${viewTrip?.weightUom}`} />
                 </div>
               </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <SectionHeader title="Route Registry" />
-                <div className="space-y-3 px-2">
-                  <DetailRow label="Planned Route" value={viewTrip?.route} />
-                  <DetailRow label="Mission Start" value={viewTrip?.createdAt ? format(new Date(viewTrip.createdAt), 'dd-MMM-yyyy HH:mm') : '--'} />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <SectionHeader title="Quantity Node" />
-                <div className="space-y-3 px-2">
-                  <DetailRow label="Product Registry" value={viewTrip?.product || 'SALT'} />
-                  <DetailRow label="Assign Weight" value={`${viewTrip?.assignWeight} ${viewTrip?.weightUom || 'MT'}`} />
-                </div>
-              </div>
-            </div>
-
-            {viewTrip?.delayRemark && (
-              <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                <p className="text-[9px] font-black uppercase text-slate-400 mb-2">Registry Observation Note</p>
-                <p className="text-xs font-bold text-slate-700 italic">"{viewTrip.delayRemark}"</p>
-              </div>
-            )}
           </div>
-
-          <DialogFooter className="p-4 bg-[#f0f0f0] border-t border-slate-300">
-            <Button onClick={() => setViewTrip(null)} className="bg-slate-800 hover:bg-black text-white px-8 rounded-none font-black uppercase text-[10px] h-9">
-              Close Registry
-            </Button>
+          <DialogFooter className="p-4 bg-[#f0f0f0]">
+            <Button onClick={() => setViewTrip(null)} className="bg-slate-800 hover:bg-black text-white px-8 rounded-none font-black uppercase text-[10px]">Close Registry</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
-// Rest of the file remains exactly the same...
