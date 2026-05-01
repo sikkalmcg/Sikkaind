@@ -233,6 +233,8 @@ export default function SapDashboard() {
           consignor: payload.consignor || '',
           consignee: payload.consignee || '',
           shipToParty: payload.shipToParty || '',
+          lrNo: payload.lrNo || '',
+          lrDate: payload.lrDate || '',
           route: routeStr,
           orderQty: `${totalQty} ${uom}`,
           destination: payload.destination || '',
@@ -697,14 +699,14 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
         <FormInput label="Plant Code" value={data.plantCode} onChange={(v) => onChange({...data, plantCode: v})} disabled={disabled} />
         <FormInput label="System Date/Time" value={data.id ? (data.saleOrderDate || '--') : currentTimeStr} disabled={true} />
+        <FormInput label="LR Number" value={data.lrNo} onChange={(v) => onChange({...data, lrNo: v})} disabled={disabled} />
+        <FormInput label="LR Date" value={data.lrDate} type="date" onChange={(v) => onChange({...data, lrDate: v})} disabled={disabled} />
         <FormInput label="Sale Order No" value={data.saleOrder} onChange={(v) => onChange({...data, saleOrder: v})} disabled={disabled} />
         <FormInput label="Consignor Name" value={data.consignor} onChange={(v) => onChange({...data, consignor: v})} disabled={disabled} />
         <FormInput label="Consignee Name" value={data.consignee} onChange={(v) => onChange({...data, consignee: v})} disabled={disabled} />
         <FormInput label="Ship To Party" value={data.shipToParty} onChange={(v) => onChange({...data, shipToParty: v})} disabled={disabled} />
         <FormInput label="From City" value={data.from} onChange={(v) => onChange({...data, from: v})} disabled={disabled} />
         <FormInput label="Destination City" value={data.destination} onChange={(v) => onChange({...data, destination: v})} disabled={disabled} />
-        <FormInput label="LR Number" value={data.lrNo} onChange={(v) => onChange({...data, lrNo: v})} disabled={disabled} />
-        <FormInput label="LR Date" value={data.lrDate} type="date" onChange={(v) => onChange({...data, lrDate: v})} disabled={disabled} />
       </div>
       
       <div className="space-y-4">
@@ -716,11 +718,12 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
                 <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">Product</th>
                 <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">Weight</th>
                 <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">UOM</th>
+                <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">Invoice No</th>
                 <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">Ewaybill</th>
               </tr>
             </thead>
             <tbody>
-              {(data.items || [{ product: 'SALT', weight: '', weightUom: 'MT', ewaybillNumber: '' }]).map((item: any, idx: number) => (
+              {(data.items || [{ product: 'SALT', weight: '', weightUom: 'MT', invoiceNumber: '', ewaybillNumber: '' }]).map((item: any, idx: number) => (
                 <tr key={idx}>
                   <td className="p-1 border border-slate-300">
                     <input className="w-full outline-none text-[10px] p-1 font-bold" value={item.product || ''} onChange={(e) => {
@@ -746,6 +749,13 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
                       <option value="KG">KG</option>
                       <option value="PCS">PCS</option>
                     </select>
+                  </td>
+                  <td className="p-1 border border-slate-300">
+                    <input className="w-full outline-none text-[10px] p-1 font-bold" value={item.invoiceNumber || ''} onChange={(e) => {
+                      const items = [...(data.items || [{ product: 'SALT' }])];
+                      items[idx] = { ...items[idx], invoiceNumber: e.target.value };
+                      onChange({ ...data, items });
+                    }} disabled={disabled} />
                   </td>
                   <td className="p-1 border border-slate-300">
                     <input className="w-full outline-none text-[10px] p-1 font-bold" value={item.ewaybillNumber || ''} onChange={(e) => {
@@ -916,6 +926,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const weightUom = selectedOrder.items?.[0]?.weightUom || 'MT';
     const soNo = (selectedOrder.saleOrder || selectedOrder.saleOrderNumber || 'N/A').toString().trim().toUpperCase();
     const productName = selectedOrder.items?.[0]?.product || 'SALT';
+    const invoiceNo = selectedOrder.items?.[0]?.invoiceNumber || 'N/A';
     
     const tripData = {
       id: newTripId,
@@ -923,6 +934,9 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       saleOrderId: selectedOrder.id,
       saleOrderNumber: soNo,
       saleOrder: soNo,
+      lrNo: selectedOrder.lrNo || '',
+      lrDate: selectedOrder.lrDate || '',
+      invoiceNumber: invoiceNo,
       plantCode: selectedOrder.plantCode,
       shipToParty: selectedOrder.shipToParty || '',
       consignee: selectedOrder.consignee || '',
@@ -953,6 +967,8 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       tripId: tripId,
       saleOrder: soNo,
       saleOrderNumber: soNo,
+      lrNo: selectedOrder.lrNo || '',
+      invoiceNumber: invoiceNo,
       vehicleNumber: vehicleNo,
       route: routeStr,
       consignor: selectedOrder.consignor || '',
@@ -968,6 +984,8 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       status: 'LOADING',
       vehicleNumber: vehicleNo,
       tripId: tripId,
+      lrNo: selectedOrder.lrNo || '',
+      invoiceNumber: invoiceNo,
       consignor: selectedOrder.consignor || '',
       consignee: selectedOrder.consignee || '',
       shipToParty: selectedOrder.shipToParty || '',
@@ -1141,9 +1159,13 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                 return (
                   <div key={trip.id} className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden">
                     <div className="grid grid-cols-1 lg:grid-cols-10 items-center p-4 lg:p-6 gap-4">
-                      <div className="col-span-1 flex flex-col gap-1">
+                      <div className="col-span-1 flex flex-col gap-0.5">
                         <span className="text-[#0056d2] font-black text-[11px] leading-tight">#{trip.tripId}</span>
-                        <span className="text-slate-400 font-bold text-[9px]">SO: {soNo}</span>
+                        <span className="text-slate-400 font-bold text-[8px] uppercase tracking-tighter">SO: {soNo}</span>
+                        <div className="flex flex-col mt-1">
+                          <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">LR: {trip.lrNo || '--'}</span>
+                          <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">INV: {trip.invoiceNumber || '--'}</span>
+                        </div>
                       </div>
 
                       <div className="col-span-1 flex flex-col gap-1">
@@ -1288,6 +1310,8 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                 <SectionHeader title="Consignment Context" />
                 <div className="space-y-3 px-2">
                   <DetailRow label="Sale Order" value={viewTrip?.saleOrderNumber} />
+                  <DetailRow label="LR Number" value={viewTrip?.lrNo} />
+                  <DetailRow label="Invoice" value={viewTrip?.invoiceNumber} />
                   <DetailRow label="Consignor" value={viewTrip?.consignor} />
                   <DetailRow label="Consignee" value={viewTrip?.consignee} />
                 </div>
