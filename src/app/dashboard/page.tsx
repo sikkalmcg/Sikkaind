@@ -17,15 +17,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import placeholderData from '@/app/lib/placeholder-images.json';
+import { useToast } from '@/hooks/use-toast';
 
 type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03';
 
 export default function SapDashboard() {
   const router = useRouter();
+  const { toast } = useToast();
   const [tCode, setTCode] = React.useState('');
   const [activeScreen, setActiveScreen] = React.useState<Screen>('HOME');
   const tCodeRef = React.useRef<HTMLInputElement>(null);
-  const logoImg = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
 
   // Handle T-Code Execution
   const executeTCode = (code: string) => {
@@ -38,6 +39,15 @@ export default function SapDashboard() {
       setActiveScreen('HOME');
     }
     setTCode('');
+  };
+
+  const handleSave = () => {
+    if (activeScreen !== 'HOME') {
+      toast({
+        title: "Registry Updated",
+        description: `Changes for ${activeScreen} have been synchronized.`,
+      });
+    }
   };
 
   // Keyboard Shortcuts
@@ -61,10 +71,14 @@ export default function SapDashboard() {
         e.preventDefault();
         tCodeRef.current?.focus();
       }
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [router]);
+  }, [router, activeScreen]);
 
   const handleLogout = () => router.push('/login');
 
@@ -78,6 +92,7 @@ export default function SapDashboard() {
               {item}
             </DropdownMenuTrigger>
             <DropdownMenuContent className="bg-white rounded-none border-slate-300 shadow-xl text-[11px] p-0 min-w-[150px]">
+              <DropdownMenuItem className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4" onClick={() => handleSave()}>Save</DropdownMenuItem>
               <DropdownMenuItem className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Execute T-Code</DropdownMenuItem>
               <DropdownMenuItem className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Create Window</DropdownMenuItem>
               <DropdownMenuSeparator className="m-0 bg-slate-200" />
@@ -109,11 +124,24 @@ export default function SapDashboard() {
           />
         </div>
         <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-6">
-           {[Save, ArrowLeft, ArrowRight, RotateCcw, X, Printer].map((Icon, idx) => (
-             <button key={idx} onClick={() => Icon === X && setActiveScreen('HOME')} className="p-1 hover:bg-slate-200 rounded transition-colors group">
-               <Icon className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
-             </button>
-           ))}
+           <button onClick={handleSave} title="Save (Ctrl+S)" className="p-1 hover:bg-slate-200 rounded transition-colors group">
+             <Save className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
+           </button>
+           <button onClick={() => setActiveScreen('HOME')} title="Back" className="p-1 hover:bg-slate-200 rounded transition-colors group">
+             <ArrowLeft className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
+           </button>
+           <button className="p-1 hover:bg-slate-200 rounded transition-colors group">
+             <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
+           </button>
+           <button className="p-1 hover:bg-slate-200 rounded transition-colors group">
+             <RotateCcw className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
+           </button>
+           <button onClick={() => setActiveScreen('HOME')} title="Exit" className="p-1 hover:bg-slate-200 rounded transition-colors group">
+             <X className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
+           </button>
+           <button className="p-1 hover:bg-slate-200 rounded transition-colors group">
+             <Printer className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
+           </button>
         </div>
         <div className="flex items-center gap-2 ml-auto">
            {[Search, HelpCircle].map((Icon, idx) => (
@@ -262,6 +290,7 @@ export default function SapDashboard() {
           <span>ALT+Y SYSTEM</span>
           <span>CTRL+T COMMAND</span>
           <span>CTRL+L LOGOFF</span>
+          <span>CTRL+S SAVE</span>
         </div>
         <div className="ml-auto flex items-center gap-4">
            <span>INS</span>
@@ -352,9 +381,6 @@ function PlantForm() {
       <div className="md:col-span-2">
         <FormField label="Address" placeholder="Full Address Node Details" type="textarea" />
       </div>
-      <div className="md:col-span-2 pt-6">
-        <Button className="bg-[#0056d2] text-white rounded-none uppercase text-xs font-black px-10 h-12 shadow-xl hover:bg-black transition-all">Create Plant Node</Button>
-      </div>
     </div>
   );
 }
@@ -380,9 +406,6 @@ function CompanyForm() {
       <FormField label="Mobile Number" placeholder="+91 0000000000" />
       <FormField label="Email ID" placeholder="registry@sikka.com" />
       <FormField label="Website" placeholder="www.sikka.com" />
-      <div className="md:col-span-2 pt-6">
-        <Button className="bg-[#0056d2] text-white rounded-none uppercase text-xs font-black px-10 h-12 shadow-xl hover:bg-black transition-all">Create Company Hub</Button>
-      </div>
     </div>
   );
 }
@@ -406,9 +429,6 @@ function VendorForm() {
       <FormField label="PAN" placeholder="ABCDE1234F" />
       <div className="md:col-span-2">
         <FormField label="Address" placeholder="Vendor Mission Address" type="textarea" />
-      </div>
-      <div className="md:col-span-2 pt-6">
-        <Button className="bg-[#0056d2] text-white rounded-none uppercase text-xs font-black px-10 h-12 shadow-xl hover:bg-black transition-all">Register Vendor Mission</Button>
       </div>
     </div>
   );
