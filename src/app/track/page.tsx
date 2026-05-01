@@ -17,7 +17,7 @@ import { doc, getDoc } from 'firebase/firestore';
 
 /**
  * @fileOverview Track Consignment page.
- * Uses optimized direct document lookups to resolve index errors.
+ * Uses optimized direct document lookups to resolve synchronization gaps.
  */
 export default function TrackPage() {
   const db = useFirestore();
@@ -66,7 +66,6 @@ export default function TrackPage() {
   return (
     <div className="min-h-[80vh] bg-slate-50 flex flex-col items-center justify-center p-6 py-12">
       <div className="w-full max-w-md space-y-10 bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 animate-slide-up">
-        {/* Header Section */}
         <div className="flex flex-col items-center gap-6">
           <div className="p-5 bg-blue-900 rounded-[1.5rem] shadow-xl shadow-blue-900/20">
             <Radar className="h-10 w-10 text-white" />
@@ -76,7 +75,6 @@ export default function TrackPage() {
           </h1>
         </div>
 
-        {/* Form Section */}
         <div className="space-y-8">
           <div className="space-y-2.5">
             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">
@@ -116,7 +114,6 @@ export default function TrackPage() {
           </Button>
         </div>
 
-        {/* Result Display */}
         {result && (
           <div className="animate-fade-in border-t border-slate-100 pt-8 mt-8">
             {!result.found ? (
@@ -136,54 +133,30 @@ export default function TrackPage() {
                   <CheckCircle className="h-4 w-4 text-emerald-500" />
                 </div>
 
-                {result.data.status !== 'PLACED' ? (
-                  <div className="bg-slate-900 p-8 rounded-[2rem] text-white space-y-6 shadow-xl">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-400">Current Status</p>
-                        <h3 className="text-2xl font-black uppercase italic tracking-tighter mt-1">{result.data.status}</h3>
-                      </div>
-                      <Truck className="h-10 w-10 text-white/20" />
-                    </div>
-
-                    <div className="space-y-4 pt-4 border-t border-white/10">
-                      <div className="flex justify-between text-[11px] font-bold">
-                        <span className="text-slate-400 uppercase">Vehicle No.</span>
-                        <span className="uppercase">{result.data.vehicleNumber || 'ASSIGNING...'}</span>
-                      </div>
-                      <div className="flex justify-between text-[11px] font-bold">
-                        <span className="text-slate-400 uppercase">Trip Registry</span>
-                        <span>{result.data.tripId || 'N/A'}</span>
-                      </div>
-                      <div className="flex items-center gap-2 pt-2">
-                        <MapPin className="h-3 w-3 text-blue-400" />
-                        <span className="text-[9px] font-bold uppercase truncate text-slate-400">{result.data.route || 'TRANSIT PENDING'}</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-white p-8 rounded-[2rem] border-2 border-dashed border-blue-100 space-y-6 text-center shadow-sm">
-                    <div className="flex justify-center">
-                      <div className="p-4 bg-blue-50 rounded-full">
-                        <Package className="h-8 w-8 text-blue-600" />
-                      </div>
-                    </div>
+                <div className="bg-slate-900 p-8 rounded-[2rem] text-white space-y-6 shadow-xl">
+                  <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="text-lg font-black uppercase text-blue-900 tracking-tight">Order Placed</h3>
-                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Vehicle assignment in progress</p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-400">Current Status</p>
+                      <h3 className="text-2xl font-black uppercase italic tracking-tighter mt-1">{result.data.status}</h3>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
-                      <div className="text-left">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Consignor</p>
-                        <p className="text-[10px] font-bold text-slate-700 uppercase truncate">{result.data.consignor || 'N/A'}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Destination</p>
-                        <p className="text-[10px] font-bold text-slate-700 uppercase truncate">{result.data.destination || 'N/A'}</p>
-                      </div>
+                    <Truck className="h-10 w-10 text-white/20" />
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t border-white/10">
+                    <div className="flex justify-between text-[11px] font-bold">
+                      <span className="text-slate-400 uppercase">Vehicle No.</span>
+                      <span className="uppercase">{result.data.vehicleNumber || 'ASSIGNING...'}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px] font-bold">
+                      <span className="text-slate-400 uppercase">Registry ID</span>
+                      <span>{result.data.saleOrder || result.data.tripId || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 pt-2">
+                      <MapPin className="h-3 w-3 text-blue-400" />
+                      <span className="text-[9px] font-bold uppercase truncate text-slate-400">{result.data.route || result.data.destination || 'TRANSIT PENDING'}</span>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             )}
           </div>

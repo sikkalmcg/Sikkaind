@@ -8,7 +8,8 @@ import {
   ChevronRight, Check, AlertCircle, Info, PlusCircle, Trash2,
   Grid2X2, Upload, Download, ShoppingBag, ArrowUpRight,
   Filter, Truck, MapPin, User, DollarSign, Activity,
-  Layers, PackageCheck, Ban, Lock, Play, XCircle, Search
+  Layers, PackageCheck, Ban, Lock, Play, XCircle, Search,
+  ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,21 +74,17 @@ export default function SapDashboard() {
   const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
   const tCodeRef = React.useRef<HTMLInputElement>(null);
 
-  // Authorization Profile for current user
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
   const { data: userProfile } = useDoc(profileRef);
 
-  // Authorized filtering
   const isAuthorized = (code: string) => {
     if (code === 'HOME' || code === '') return true;
-    // If no profile exists yet (e.g. initial superuser), allow everything
     if (!userProfile) return true; 
     return userProfile.tcodes?.includes(code);
   };
 
   const getAuthorizedPlants = () => userProfile?.plants || [];
 
-  // Data Queries with Plant Authorization
   const ordersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'sales_orders') : null, [user, db]);
   const tripsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'trips') : null, [user, db]);
   const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
@@ -104,7 +101,6 @@ export default function SapDashboard() {
   const { data: rawCustomers } = useCollection(customersQuery);
   const { data: allUsers } = useCollection(usersQuery);
 
-  // Filtered data based on Plant Authorization
   const recentOrders = React.useMemo(() => {
     const authPlants = getAuthorizedPlants();
     if (!authPlants.length) return rawOrders;
@@ -132,7 +128,6 @@ export default function SapDashboard() {
   const allVendors = React.useMemo(() => {
     const authPlants = getAuthorizedPlants();
     if (!authPlants.length) return rawVendors;
-    // Vendor logic: vendor has many plants. If ANY of its plants are authorized, show it.
     return rawVendors?.filter(v => v.plantCodes?.some((p: string) => authPlants.includes(p)));
   }, [rawVendors, userProfile]);
 
@@ -181,7 +176,6 @@ export default function SapDashboard() {
         updatedAt: new Date().toISOString() 
       };
 
-      // SU01/02 Auto Mapping logic
       if (isSystemUser) {
         const tcodes = payload.tcodes || [];
         const expandedTcodes = [...tcodes];
@@ -200,13 +194,13 @@ export default function SapDashboard() {
       
       setDocumentNonBlocking(docRef, payload, { merge: true });
       
-      // Sync to public tracking if it's a Sales Order
       if (collectionName === 'sales_orders' && payload.saleOrder) {
-        const publicRef = doc(db, 'public_orders', payload.saleOrder);
+        const cleanSo = payload.saleOrder.toString().trim().toUpperCase();
+        const publicRef = doc(db, 'public_orders', cleanSo);
         setDocumentNonBlocking(publicRef, {
           type: 'order',
           status: 'PLACED',
-          saleOrder: payload.saleOrder,
+          saleOrder: cleanSo,
           consignor: payload.consignor,
           destination: payload.destination,
           updatedAt: payload.updatedAt
@@ -257,7 +251,6 @@ export default function SapDashboard() {
   const handleCancel = () => {
     setFormData({});
     if (activeScreen.endsWith('02') || activeScreen.endsWith('03')) {
-      // Logic for cancel in initial screen
     } else {
       setActiveScreen('HOME');
     }
@@ -313,7 +306,6 @@ export default function SapDashboard() {
 
   return (
     <div className="flex flex-col h-screen bg-[#d9e1f2] text-[#333] font-mono select-none overflow-hidden">
-      {/* Menu Bar */}
       <div className="flex items-center bg-[#f0f0f0] border-b border-white/50 px-2 h-7 text-[11px] font-semibold">
         <DropdownMenu>
           <DropdownMenuTrigger 
@@ -344,7 +336,6 @@ export default function SapDashboard() {
         </div>
       </div>
 
-      {/* Command Bar */}
       <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm">
         <div className="flex items-center px-2 py-1 gap-2">
           <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner">
@@ -378,7 +369,6 @@ export default function SapDashboard() {
           </div>
         </div>
 
-        {/* Transaction Sub-Toolbar */}
         {isModuleActive && activeScreen !== 'HOME' && (
           <div className="bg-[#e2eaf3] border-t border-slate-200 px-4 py-1.5 flex items-center gap-6">
             <button 
@@ -398,7 +388,6 @@ export default function SapDashboard() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
         {!isModuleActive && (
           <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-sm animate-fade-in print:hidden">
              <div className="p-6 border-b border-slate-100 flex items-center gap-4">
@@ -445,7 +434,6 @@ export default function SapDashboard() {
           </div>
         )}
 
-        {/* Main Content Area */}
         <div className="flex-1 flex flex-col bg-[#f0f3f9] overflow-y-auto no-scrollbar">
           <div className="bg-[#0056d2] text-white py-1.5 px-6 shadow-lg print:bg-white print:text-black print:shadow-none flex flex-col items-center justify-center min-h-[50px]">
             <h1 className="text-xl font-black italic tracking-tighter uppercase leading-none text-center">
@@ -520,11 +508,9 @@ export default function SapDashboard() {
               </div>
             ) : (
               <div className="bg-white shadow-2xl rounded-sm border border-slate-300 overflow-hidden animate-slide-up w-full print:shadow-none print:border-none print:rounded-none">
-                 {/* Top SAP Yellow Highlight */}
                  <div className="h-1 bg-yellow-500 w-full print:hidden" />
                  
                  <div className="p-1 min-h-[600px] bg-[#fdfdfd] flex flex-col">
-                   {/* Form Header Area for Initial Screens */}
                    {showList && (
                      <div className="bg-[#e9f0f8] p-4 border-b border-slate-300 mb-6">
                         <div className="flex items-center gap-6 max-w-2xl">
@@ -547,7 +533,6 @@ export default function SapDashboard() {
                      </div>
                    )}
 
-                   {/* Form Content */}
                    <div className="p-4 space-y-6">
                      {showForm && (
                        <>
@@ -575,7 +560,6 @@ export default function SapDashboard() {
         </div>
       </div>
 
-      {/* Status Bar */}
       <div className="h-6 bg-[#f0f0f0] border-t border-slate-300 flex items-center px-4 gap-6 text-[10px] font-bold text-slate-600 print:hidden">
         <div className="flex items-center gap-2 pr-6 border-r border-slate-200 min-w-[250px]">
           {statusMsg.type === 'success' && <Check className="h-3 w-3 text-emerald-500" />}
@@ -611,7 +595,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
   const [isFixRate, setIsFixRate] = React.useState(false);
   const [vehicleType, setVehicleType] = React.useState('OWN FLEET');
 
-  // Auto calculate freight
   React.useEffect(() => {
     if (!isFixRate && assignWeight && rate) {
       const total = parseFloat(assignWeight) * parseFloat(rate);
@@ -648,7 +631,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const docRef = doc(db, 'users', user.uid, 'trips', newTripId);
     setDocumentNonBlocking(docRef, tripData, { merge: true });
 
-    // Sync to public tracking
     const publicTripRef = doc(db, 'public_trips', tripId);
     setDocumentNonBlocking(publicTripRef, {
       type: 'trip',
@@ -659,8 +641,8 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       updatedAt: tripData.createdAt
     }, { merge: true });
 
-    // Update public order tracking too
-    const publicOrderRef = doc(db, 'public_orders', selectedOrder.saleOrder);
+    const cleanSo = selectedOrder.saleOrder.toString().trim().toUpperCase();
+    const publicOrderRef = doc(db, 'public_orders', cleanSo);
     setDocumentNonBlocking(publicOrderRef, {
       status: 'LOADING',
       vehicleNumber: vehicleNo,
@@ -671,6 +653,21 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     onStatusUpdate({ text: `Trip ${tripId} registered successfully`, type: 'success' });
     setSelectedOrder(null);
     resetForm();
+  };
+
+  const updateTripStatus = (trip: any, nextStatus: string) => {
+    if (!user) return;
+    const docRef = doc(db, 'users', user.uid, 'trips', trip.id);
+    setDocumentNonBlocking(docRef, { status: nextStatus }, { merge: true });
+
+    const publicTripRef = doc(db, 'public_trips', trip.tripId);
+    setDocumentNonBlocking(publicTripRef, { status: nextStatus, updatedAt: new Date().toISOString() }, { merge: true });
+
+    const cleanSo = trip.saleOrderNumber.toString().trim().toUpperCase();
+    const publicOrderRef = doc(db, 'public_orders', cleanSo);
+    setDocumentNonBlocking(publicOrderRef, { status: nextStatus, updatedAt: new Date().toISOString() }, { merge: true });
+
+    onStatusUpdate({ text: `Mission ${trip.tripId} moved to ${nextStatus}`, type: 'success' });
   };
 
   const resetForm = () => {
@@ -695,14 +692,19 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const totalW = (o.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
     const remaining = calculateRemainingWeight(o.id, totalW);
     const matchesPlant = plantFilter === 'ALL' || o.plantCode === plantFilter;
-    
-    // Show order if it has remaining weight OR it was just created and has no trips yet
     const hasNoTrips = !(trips || []).some(t => t.saleOrderId === o.id);
     return matchesPlant && (remaining > 0 || (totalW > 0 && hasNoTrips) || (totalW === 0 && hasNoTrips));
   });
 
   const getTripsByStatus = (status: string) => {
     return (trips || []).filter(t => t.status === status && (plantFilter === 'ALL' || t.plantCode === plantFilter)) || [];
+  };
+
+  const getNextStatus = (current: string) => {
+    const sequence = ['LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD', 'CLOSED'];
+    const idx = sequence.indexOf(current);
+    if (idx !== -1 && idx < sequence.length - 1) return sequence[idx + 1];
+    return null;
   };
 
   return (
@@ -780,13 +782,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                     </tr>
                   );
                 })}
-                {(!filteredOrders || filteredOrders.length === 0) && (
-                  <tr>
-                    <td colSpan={8} className="p-12 text-center text-slate-300 font-bold text-[10px] uppercase italic tracking-widest">
-                      No open orders found for this registry node.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
@@ -795,45 +790,47 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
         {['LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD', 'REJECTION', 'CLOSED'].map(status => (
           <TabsContent key={status} value={status} className="mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {getTripsByStatus(status).map(trip => (
-                <div key={trip.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Badge className="bg-slate-900 text-white rounded-lg px-3 py-1 font-black italic">{trip.tripId}</Badge>
-                    <Badge variant="outline" className="border-emerald-100 text-emerald-600 uppercase text-[8px] font-black">
-                      {status}
-                    </Badge>
+              {getTripsByStatus(status).map(trip => {
+                const next = getNextStatus(status);
+                return (
+                  <div key={trip.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Badge className="bg-slate-900 text-white rounded-lg px-3 py-1 font-black italic">{trip.tripId}</Badge>
+                      <Badge variant="outline" className="border-emerald-100 text-emerald-600 uppercase text-[8px] font-black">
+                        {status}
+                      </Badge>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-[11px] font-bold">
+                         <span className="text-slate-400 uppercase tracking-tighter">Order Number:</span>
+                         <span className="text-slate-900">{trip.saleOrderNumber}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] font-bold">
+                         <span className="text-slate-400 uppercase tracking-tighter">Vehicle Number:</span>
+                         <span className="text-slate-900">{trip.vehicleNumber}</span>
+                      </div>
+                      <div className="pt-3 border-t border-slate-50 flex items-center gap-2 text-slate-400">
+                        <MapPin className="h-3 w-3" />
+                        <span className="text-[9px] font-bold uppercase truncate">{trip.route}</span>
+                      </div>
+                    </div>
+                    {next && (
+                      <Button 
+                        onClick={() => updateTripStatus(trip, next)}
+                        variant="outline" 
+                        className="w-full h-9 rounded-xl border-[#0056d2] text-[#0056d2] text-[9px] font-black uppercase tracking-widest hover:bg-[#0056d2] hover:text-white transition-all gap-2"
+                      >
+                        <ArrowRight className="h-3 w-3" /> Move to {next}
+                      </Button>
+                    )}
                   </div>
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-[11px] font-bold">
-                       <span className="text-slate-400 uppercase tracking-tighter">Order Number:</span>
-                       <span className="text-slate-900">{trip.saleOrderNumber}</span>
-                    </div>
-                    <div className="flex justify-between text-[11px] font-bold">
-                       <span className="text-slate-400 uppercase tracking-tighter">Vehicle Number:</span>
-                       <span className="text-slate-900">{trip.vehicleNumber}</span>
-                    </div>
-                    <div className="flex justify-between text-[11px] font-bold">
-                       <span className="text-slate-400 uppercase tracking-tighter">Assign Weight:</span>
-                       <span className="text-slate-900">{trip.assignWeight}</span>
-                    </div>
-                    <div className="pt-3 border-t border-slate-50 flex items-center gap-2 text-slate-400">
-                      <MapPin className="h-3 w-3" />
-                      <span className="text-[9px] font-bold uppercase truncate">{trip.route}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {getTripsByStatus(status).length === 0 && (
-                <div className="col-span-full p-12 bg-white rounded-[2rem] border border-slate-100 text-center text-slate-300 font-bold text-[10px] uppercase italic tracking-widest">
-                  No missions currently in {status} phase.
-                </div>
-              )}
+                );
+              })}
             </div>
           </TabsContent>
         ))}
       </Tabs>
 
-      {/* Assignment Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
         <DialogContent className="max-w-2xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden font-mono">
           <div className="bg-[#0056d2] p-6 text-white flex flex-col items-center">
@@ -863,40 +860,20 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400">Assign Weight</label>
-                <Input 
-                  value={assignWeight} 
-                  onChange={(e) => setAssignWeight(e.target.value)} 
-                  placeholder="0.00"
-                  className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" 
-                />
+                <Input value={assignWeight} onChange={(e) => setAssignWeight(e.target.value)} placeholder="0.00" className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" />
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400">Vehicle Number</label>
-                <Input 
-                  value={vehicleNo} 
-                  onChange={(e) => setVehicleNo(e.target.value)} 
-                  placeholder="UP14-XX-0000"
-                  className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" 
-                />
+                <Input value={vehicleNo} onChange={(e) => setVehicleNo(e.target.value)} placeholder="UP14-XX-0000" className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" />
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400">Driver Mobile</label>
-                <Input 
-                  value={driverMobile} 
-                  onChange={(e) => setDriverMobile(e.target.value)} 
-                  placeholder="+91..."
-                  className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" 
-                />
+                <Input value={driverMobile} onChange={(e) => setDriverMobile(e.target.value)} placeholder="+91..." className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" />
               </div>
               {vehicleType === 'MARKET VEHICLE' && (
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400">Vendor Name</label>
-                  <Input 
-                    value={vendorName} 
-                    onChange={(e) => setVendorName(e.target.value)} 
-                    placeholder="Select Vendor"
-                    className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" 
-                  />
+                  <Input value={vendorName} onChange={(e) => setVendorName(e.target.value)} placeholder="Select Vendor" className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" />
                 </div>
               )}
             </div>
@@ -912,21 +889,11 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                  <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-2">
                      <label className="text-[9px] font-black uppercase text-slate-400">Rate (Per UOM)</label>
-                     <Input 
-                       disabled={isFixRate} 
-                       value={rate} 
-                       onChange={(e) => setRate(e.target.value)}
-                       className="h-10 rounded-xl font-bold border-slate-200 disabled:opacity-30" 
-                     />
+                     <Input disabled={isFixRate} value={rate} onChange={(e) => setRate(e.target.value)} className="h-10 rounded-xl font-bold border-slate-200 disabled:opacity-30" />
                    </div>
                    <div className="space-y-2">
                      <label className="text-[9px] font-black uppercase text-slate-400">Freight Amount</label>
-                     <Input 
-                       disabled={!isFixRate} 
-                       value={freightAmount} 
-                       onChange={(e) => setFreightAmount(e.target.value)}
-                       className="h-10 rounded-xl font-bold border-slate-200 disabled:bg-white/50" 
-                     />
+                     <Input disabled={!isFixRate} value={freightAmount} onChange={(e) => setFreightAmount(e.target.value)} className="h-10 rounded-xl font-bold border-slate-200 disabled:bg-white/50" />
                    </div>
                  </div>
               </div>
@@ -1028,13 +995,13 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
-      // If Sales Order, sync to public tracking registry
       if (registryType === 'sales_orders' && data.saleOrder) {
-        const publicRef = doc(db, 'public_orders', data.saleOrder);
+        const cleanSo = data.saleOrder.toString().trim().toUpperCase();
+        const publicRef = doc(db, 'public_orders', cleanSo);
         setDocumentNonBlocking(publicRef, {
           type: 'order',
           status: 'PLACED',
-          saleOrder: data.saleOrder,
+          saleOrder: cleanSo,
           consignor: data.consignor,
           destination: data.destination,
           updatedAt: new Date().toISOString()
@@ -1106,7 +1073,6 @@ function SectionHeader({ title }: { title: string }) {
 
 function PlantForm({ data, onChange, disabled }: any) {
   const updateField = (field: string, val: any) => !disabled && onChange({ ...data, [field]: val });
-
   return (
     <div className="space-y-8">
       <div>
@@ -1118,7 +1084,6 @@ function PlantForm({ data, onChange, disabled }: any) {
           <FormField label="State" placeholder="Uttar Pradesh" value={data.state} onChange={(e: any) => updateField('state', e.target.value)} disabled={disabled} />
         </div>
       </div>
-
       <div>
         <SectionHeader title="Tax & Financial Details" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
@@ -1128,7 +1093,6 @@ function PlantForm({ data, onChange, disabled }: any) {
           <FormField label="Email ID" placeholder="plant@sikka.com" value={data.email} onChange={(e: any) => updateField('email', e.target.value)} disabled={disabled} />
         </div>
       </div>
-
       <div>
         <SectionHeader title="Location Details" />
         <div className="px-4">
@@ -1144,7 +1108,6 @@ function CompanyForm({ data, onChange, disabled }: any) {
   const db = useFirestore();
   const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
   const { data: plants } = useCollection(plantsQuery);
-
   const updateField = (field: string, val: any) => {
     if (disabled) return;
     let newData = { ...data, [field]: val };
@@ -1159,7 +1122,6 @@ function CompanyForm({ data, onChange, disabled }: any) {
     }
     onChange(newData);
   };
-
   return (
     <div className="space-y-8">
       <div>
@@ -1167,19 +1129,13 @@ function CompanyForm({ data, onChange, disabled }: any) {
         <div className="px-4">
           <div className="flex items-center gap-6 max-w-2xl">
             <label className="text-xs font-bold text-slate-600 w-48">Plant Node Selection</label>
-            <select 
-              disabled={disabled}
-              className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none disabled:bg-slate-50"
-              value={data.plantCode}
-              onChange={(e) => updateField('plantCode', e.target.value)}
-            >
+            <select disabled={disabled} className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none disabled:bg-slate-50" value={data.plantCode} onChange={(e) => updateField('plantCode', e.target.value)}>
               <option value="">Select Plant...</option>
               {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
             </select>
           </div>
         </div>
       </div>
-
       <div>
         <SectionHeader title="Company Registry Data" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
@@ -1200,9 +1156,7 @@ function VendorForm({ data, onChange, disabled }: any) {
   const db = useFirestore();
   const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
   const { data: plants } = useCollection(plantsQuery);
-
   const updateField = (field: string, val: any) => !disabled && onChange({ ...data, [field]: val });
-
   return (
     <div className="space-y-8">
       <div>
@@ -1210,23 +1164,13 @@ function VendorForm({ data, onChange, disabled }: any) {
         <div className="px-4">
            <div className="flex flex-wrap gap-2 p-2 bg-slate-50 border border-slate-300 min-h-[40px]">
             {plants?.map(p => (
-              <Badge 
-                key={p.id} 
-                onClick={() => {
-                  if (disabled) return;
-                  const current = data.plantCodes || [];
-                  const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode];
-                  updateField('plantCodes', next);
-                }}
-                className={`cursor-pointer rounded-none border-slate-400 text-[10px] font-bold py-0.5 px-2 transition-colors ${data.plantCodes?.includes(p.plantCode) ? 'bg-[#0056d2] text-white' : 'bg-white text-slate-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
+              <Badge key={p.id} onClick={() => { if (disabled) return; const current = data.plantCodes || []; const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode]; updateField('plantCodes', next); }} className={`cursor-pointer rounded-none border-slate-400 text-[10px] font-bold py-0.5 px-2 transition-colors ${data.plantCodes?.includes(p.plantCode) ? 'bg-[#0056d2] text-white' : 'bg-white text-slate-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 {p.plantCode}
               </Badge>
             ))}
           </div>
         </div>
       </div>
-
       <div>
         <SectionHeader title="Vendor Data Registry" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
@@ -1236,7 +1180,6 @@ function VendorForm({ data, onChange, disabled }: any) {
           <FormField label="Mobile" value={data.mobile} onChange={(e: any) => updateField('mobile', e.target.value)} disabled={disabled} />
         </div>
       </div>
-
       <div>
         <SectionHeader title="Address Registry" />
         <div className="px-4">
@@ -1252,9 +1195,7 @@ function CustomerForm({ data, onChange, disabled }: any) {
   const db = useFirestore();
   const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
   const { data: plants } = useCollection(plantsQuery);
-
   const updateField = (field: string, val: any) => !disabled && onChange({ ...data, [field]: val });
-
   return (
     <div className="space-y-8">
       <div>
@@ -1264,16 +1205,7 @@ function CustomerForm({ data, onChange, disabled }: any) {
               <label className="text-xs font-bold text-slate-600 w-48">Plant Code Selection</label>
               <div className="flex-1 flex flex-wrap gap-1 p-1 bg-slate-50 border border-slate-300 min-h-[32px]">
                 {plants?.map(p => (
-                  <Badge 
-                    key={p.id} 
-                    onClick={() => {
-                      if (disabled) return;
-                      const current = data.plantCodes || [];
-                      const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode];
-                      updateField('plantCodes', next);
-                    }}
-                    className={`cursor-pointer rounded-none text-[9px] font-bold transition-colors ${data.plantCodes?.includes(p.plantCode) ? 'bg-[#0056d2] text-white' : 'bg-white border-slate-300 text-slate-600'}`}
-                  >
+                  <Badge key={p.id} onClick={() => { if (disabled) return; const current = data.plantCodes || []; const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode]; updateField('plantCodes', next); }} className={`cursor-pointer rounded-none text-[9px] font-bold transition-colors ${data.plantCodes?.includes(p.plantCode) ? 'bg-[#0056d2] text-white' : 'bg-white border-slate-300 text-slate-600'}`}>
                     {p.plantCode}
                   </Badge>
                 ))}
@@ -1281,7 +1213,6 @@ function CustomerForm({ data, onChange, disabled }: any) {
            </div>
         </div>
       </div>
-
       <div>
         <SectionHeader title="Customer Data" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
@@ -1291,12 +1222,7 @@ function CustomerForm({ data, onChange, disabled }: any) {
           <FormField label="Email Address" value={data.email} onChange={(e: any) => updateField('email', e.target.value)} disabled={disabled} />
           <div className="space-y-1 flex items-center gap-6 md:col-span-2">
             <label className="text-xs font-bold text-slate-600 w-48">Customer Type</label>
-            <select 
-              disabled={disabled}
-              className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none max-w-sm"
-              value={data.customerType}
-              onChange={(e) => updateField('customerType', e.target.value)}
-            >
+            <select disabled={disabled} className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none max-w-sm" value={data.customerType} onChange={(e) => updateField('customerType', e.target.value)}>
               <option value="">Select Type...</option>
               <option value="Consignor">Consignor</option>
               <option value="Consignee">Consignee – Ship to Party</option>
@@ -1304,7 +1230,6 @@ function CustomerForm({ data, onChange, disabled }: any) {
           </div>
         </div>
       </div>
-
       <div>
         <SectionHeader title="Tax & Financial Details" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
@@ -1320,57 +1245,39 @@ function CustomerForm({ data, onChange, disabled }: any) {
 function SalesOrderForm({ data, onChange, disabled }: any) {
   const { user } = useUser();
   const db = useFirestore();
-  
   const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
   const customersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'customers') : null, [user, db]);
-  
   const { data: plants } = useCollection(plantsQuery);
   const { data: customers } = useCollection(customersQuery);
-
   const updateField = (field: string, val: any) => {
     if (disabled) return;
     let nextData = { ...data, [field]: val };
-    
     if (field === 'consignor') {
       const selected = customers?.find(c => c.customerName === val);
       if (selected) nextData.from = selected.city;
     }
-    
     if (field === 'shipToParty') {
       const selected = customers?.find(c => c.customerName === val);
       if (selected) nextData.destination = selected.city;
     }
-    
     onChange(nextData);
   };
-
   const addItem = () => {
     if (disabled) return;
     const current = data.items || [];
-    onChange({ ...data, items: [...current, { 
-      invoiceNumber: '', 
-      ewaybillNumber: '', 
-      product: '', 
-      unit: '', 
-      unitUom: 'Box', 
-      weight: '', 
-      weightUom: 'KG' 
-    }] });
+    onChange({ ...data, items: [...current, { invoiceNumber: '', ewaybillNumber: '', product: '', unit: '', unitUom: 'Box', weight: '', weightUom: 'KG' }] });
   };
-
   const updateItem = (idx: number, field: string, val: any) => {
     if (disabled) return;
     const nextItems = [...(data.items || [])];
     nextItems[idx] = { ...nextItems[idx], [field]: val };
     onChange({ ...data, items: nextItems });
   };
-
   const removeItem = (idx: number) => {
     if (disabled) return;
     const nextItems = (data.items || []).filter((_: any, i: number) => i !== idx);
     onChange({ ...data, items: nextItems });
   };
-
   return (
     <div className="space-y-8">
       <div>
@@ -1378,12 +1285,7 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
            <div className="flex items-center gap-6">
               <label className="text-xs font-bold text-slate-600 w-48">Plant Selection</label>
-              <select 
-                disabled={disabled}
-                className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none"
-                value={data.plantCode}
-                onChange={(e) => updateField('plantCode', e.target.value)}
-              >
+              <select disabled={disabled} className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none" value={data.plantCode} onChange={(e) => updateField('plantCode', e.target.value)}>
                 <option value="">Select Plant...</option>
                 {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
               </select>
@@ -1391,19 +1293,13 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
            <FormField label="Sale Order Date" type="date" value={data.saleOrderDate} onChange={(e: any) => updateField('saleOrderDate', e.target.value)} required disabled={disabled} />
         </div>
       </div>
-
       <div>
         <SectionHeader title="Consignment Data" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
           <FormField label="Sale Order No" placeholder="SO-10001" value={data.saleOrder} onChange={(e: any) => updateField('saleOrder', e.target.value)} required disabled={disabled} />
           <div className="flex items-center gap-6">
             <label className="text-xs font-bold text-slate-600 w-48">Consignor</label>
-            <select 
-              disabled={disabled}
-              className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none"
-              value={data.consignor}
-              onChange={(e) => updateField('consignor', e.target.value)}
-            >
+            <select disabled={disabled} className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none" value={data.consignor} onChange={(e) => updateField('consignor', e.target.value)}>
               <option value="">Select Consignor...</option>
               {customers?.filter(c => c.customerType === 'Consignor').map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
             </select>
@@ -1411,24 +1307,14 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
           <FormField label="From (City)" value={data.from} disabled />
           <div className="flex items-center gap-6">
             <label className="text-xs font-bold text-slate-600 w-48">Consignee</label>
-            <select 
-              disabled={disabled}
-              className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none"
-              value={data.consignee}
-              onChange={(e) => updateField('consignee', e.target.value)}
-            >
+            <select disabled={disabled} className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none" value={data.consignee} onChange={(e) => updateField('consignee', e.target.value)}>
               <option value="">Select Consignee...</option>
               {customers?.filter(c => c.customerType === 'Consignee').map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-6">
             <label className="text-xs font-bold text-slate-600 w-48">Ship to Party</label>
-            <select 
-              disabled={disabled}
-              className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none"
-              value={data.shipToParty}
-              onChange={(e) => updateField('shipToParty', e.target.value)}
-            >
+            <select disabled={disabled} className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none" value={data.shipToParty} onChange={(e) => updateField('shipToParty', e.target.value)}>
               <option value="">Select Ship to Party...</option>
               {customers?.filter(c => c.customerType === 'Consignee').map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
             </select>
@@ -1438,7 +1324,6 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
           <FormField label="Driver Mobile" placeholder="+91..." value={data.driverMobile} onChange={(e: any) => updateField('driverMobile', e.target.value)} disabled={disabled} />
         </div>
       </div>
-
       <div>
         <SectionHeader title="Line Item Registry Table" />
         <div className="px-4">
@@ -1462,38 +1347,12 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
               <tbody>
                 {(data.items || []).map((item: any, idx: number) => (
                   <tr key={idx} className="border-b border-slate-200">
-                    <td className="p-1 border-r border-slate-200">
-                      <input disabled={disabled} value={item.invoiceNumber} onChange={(e) => updateItem(idx, 'invoiceNumber', e.target.value)} className="w-full h-7 bg-transparent px-1 outline-none" />
-                    </td>
-                    <td className="p-1 border-r border-slate-200">
-                      <input disabled={disabled} value={item.ewaybillNumber} onChange={(e) => updateItem(idx, 'ewaybillNumber', e.target.value)} className="w-full h-7 bg-transparent px-1 outline-none" />
-                    </td>
-                    <td className="p-1 border-r border-slate-200">
-                      <input disabled={disabled} value={item.product} onChange={(e) => updateItem(idx, 'product', e.target.value)} className="w-full h-7 bg-transparent px-1 outline-none" />
-                    </td>
-                    <td className="p-1 border-r border-slate-200">
-                      <div className="flex gap-1">
-                        <input disabled={disabled} value={item.unit} onChange={(e) => updateItem(idx, 'unit', e.target.value)} className="w-12 h-7 bg-transparent px-1 outline-none border-r border-slate-200" />
-                        <select disabled={disabled} value={item.unitUom} onChange={(e) => updateItem(idx, 'unitUom', e.target.value)} className="flex-1 bg-transparent text-[9px] outline-none">
-                          {['Box', 'Bag', 'Drum', 'Pcs', 'Others'].map(u => <option key={u} value={u}>{u}</option>)}
-                        </select>
-                      </div>
-                    </td>
-                    <td className="p-1 border-r border-slate-200">
-                      <div className="flex gap-1">
-                        <input disabled={disabled} value={item.weight} onChange={(e) => updateItem(idx, 'weight', e.target.value)} className="w-12 h-7 bg-transparent px-1 outline-none border-r border-slate-200" />
-                        <select disabled={disabled} value={item.weightUom} onChange={(e) => updateItem(idx, 'weightUom', e.target.value)} className="flex-1 bg-transparent text-[9px] outline-none">
-                          {['KG', 'MT', 'LTR'].map(u => <option key={u} value={u}>{u}</option>)}
-                        </select>
-                      </div>
-                    </td>
-                    {!disabled && (
-                      <td className="p-1 text-center">
-                        <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-600">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </td>
-                    )}
+                    <td className="p-1 border-r border-slate-200"><input disabled={disabled} value={item.invoiceNumber} onChange={(e) => updateItem(idx, 'invoiceNumber', e.target.value)} className="w-full h-7 bg-transparent px-1 outline-none" /></td>
+                    <td className="p-1 border-r border-slate-200"><input disabled={disabled} value={item.ewaybillNumber} onChange={(e) => updateItem(idx, 'ewaybillNumber', e.target.value)} className="w-full h-7 bg-transparent px-1 outline-none" /></td>
+                    <td className="p-1 border-r border-slate-200"><input disabled={disabled} value={item.product} onChange={(e) => updateItem(idx, 'product', e.target.value)} className="w-full h-7 bg-transparent px-1 outline-none" /></td>
+                    <td className="p-1 border-r border-slate-200"><div className="flex gap-1"><input disabled={disabled} value={item.unit} onChange={(e) => updateItem(idx, 'unit', e.target.value)} className="w-12 h-7 bg-transparent px-1 outline-none border-r border-slate-200" /><select disabled={disabled} value={item.unitUom} onChange={(e) => updateItem(idx, 'unitUom', e.target.value)} className="flex-1 bg-transparent text-[9px] outline-none">{['Box', 'Bag', 'Drum', 'Pcs', 'Others'].map(u => <option key={u} value={u}>{u}</option>)}</select></div></td>
+                    <td className="p-1 border-r border-slate-200"><div className="flex gap-1"><input disabled={disabled} value={item.weight} onChange={(e) => updateItem(idx, 'weight', e.target.value)} className="w-12 h-7 bg-transparent px-1 outline-none border-r border-slate-200" /><select disabled={disabled} value={item.weightUom} onChange={(e) => updateItem(idx, 'weightUom', e.target.value)} className="flex-1 bg-transparent text-[9px] outline-none">{['KG', 'MT', 'LTR'].map(u => <option key={u} value={u}>{u}</option>)}</select></div></td>
+                    {!disabled && <td className="p-1 text-center"><button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button></td>}
                   </tr>
                 ))}
               </tbody>
@@ -1507,7 +1366,6 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
 
 function UserForm({ data, onChange, disabled, allPlants }: any) {
   const updateField = (field: string, val: any) => !disabled && onChange({ ...data, [field]: val });
-
   return (
     <div className="space-y-8">
       <div>
@@ -1519,58 +1377,29 @@ function UserForm({ data, onChange, disabled, allPlants }: any) {
           <FormField label="Mobile Number" placeholder="+91..." value={data.mobile} onChange={(e: any) => updateField('mobile', e.target.value)} disabled={disabled} />
         </div>
       </div>
-
       <div>
         <SectionHeader title="Plant Node Authorization (Multi-Select)" />
         <div className="px-4">
           <div className="flex flex-wrap gap-2 p-3 bg-slate-50 border border-slate-300 min-h-[48px] rounded-lg">
             {allPlants?.map((p: any) => (
-              <Badge 
-                key={p.id} 
-                onClick={() => {
-                  if (disabled) return;
-                  const current = data.plants || [];
-                  const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode];
-                  updateField('plants', next);
-                }}
-                className={`cursor-pointer rounded-lg border-slate-300 text-[10px] font-bold py-1 px-3 transition-all ${data.plants?.includes(p.plantCode) ? 'bg-[#0056d2] text-white shadow-md' : 'bg-white text-slate-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
+              <Badge key={p.id} onClick={() => { if (disabled) return; const current = data.plants || []; const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode]; updateField('plants', next); }} className={`cursor-pointer rounded-lg border-slate-300 text-[10px] font-bold py-1 px-3 transition-all ${data.plants?.includes(p.plantCode) ? 'bg-[#0056d2] text-white shadow-md' : 'bg-white text-slate-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 {p.plantCode} - {p.plantName}
               </Badge>
             ))}
-            {(!allPlants || allPlants.length === 0) && <span className="text-[10px] text-slate-400 italic">No plants available in registry hub.</span>}
           </div>
         </div>
       </div>
-
       <div>
         <SectionHeader title="T-Code Authorization Hub (Dynamic Mapping)" />
         <div className="px-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4 bg-slate-50 border border-slate-300 rounded-lg max-h-[300px] overflow-y-auto custom-scrollbar">
             {MASTER_TCODES.map((t) => (
-              <div 
-                key={t.code} 
-                className={`flex items-center gap-3 p-2 rounded-lg border border-slate-200 bg-white transition-all ${disabled ? 'opacity-70' : 'cursor-pointer hover:border-[#0056d2] hover:bg-blue-50'}`}
-                onClick={() => {
-                  if (disabled) return;
-                  const current = data.tcodes || [];
-                  const next = current.includes(t.code) ? current.filter((c: string) => c !== t.code) : [...current, t.code];
-                  updateField('tcodes', next);
-                }}
-              >
-                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${data.tcodes?.includes(t.code) ? 'bg-[#0056d2] border-[#0056d2]' : 'border-slate-300'}`}>
-                  {data.tcodes?.includes(t.code) && <Check className="h-3 w-3 text-white" />}
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[11px] font-black text-[#1e3a8a]">{t.code}</span>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">{t.description}</span>
-                </div>
+              <div key={t.code} className={`flex items-center gap-3 p-2 rounded-lg border border-slate-200 bg-white transition-all ${disabled ? 'opacity-70' : 'cursor-pointer hover:border-[#0056d2] hover:bg-blue-50'}`} onClick={() => { if (disabled) return; const current = data.tcodes || []; const next = current.includes(t.code) ? current.filter((c: string) => c !== t.code) : [...current, t.code]; updateField('tcodes', next); }}>
+                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${data.tcodes?.includes(t.code) ? 'bg-[#0056d2] border-[#0056d2]' : 'border-slate-300'}`}>{data.tcodes?.includes(t.code) && <Check className="h-3 w-3 text-white" />}</div>
+                <div className="flex flex-col"><span className="text-[11px] font-black text-[#1e3a8a]">{t.code}</span><span className="text-[9px] font-bold text-slate-400 uppercase leading-none">{t.description}</span></div>
               </div>
             ))}
           </div>
-          <p className="text-[9px] font-bold text-blue-600 mt-3 px-1 italic">
-            * Note: Selecting a 'Create' T-code (01) will automatically authorize related Change (02) and Display (03) modes upon execution.
-          </p>
         </div>
       </div>
     </div>
@@ -1578,49 +1407,22 @@ function UserForm({ data, onChange, disabled, allPlants }: any) {
 }
 
 function RegistryList({ screen, onSelectItem, listData }: { screen: string, onSelectItem: (item: any) => void, listData: any[] | null }) {
-  const isLoading = listData === null;
-
-  if (isLoading) return <div className="p-8 text-center text-slate-400 font-bold">Synchronizing Node Data...</div>;
-
+  if (listData === null) return <div className="p-8 text-center text-slate-400 font-bold">Synchronizing Node Data...</div>;
   return (
     <div className="overflow-x-auto px-4">
       <table className="w-full text-left border-collapse border border-slate-300">
         <thead className="bg-[#f0f3f9] border-b border-slate-300">
-          <tr>
-            <th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">ID / Node</th>
-            <th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">Name / Description</th>
-            <th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">Type / Details</th>
-            <th className="p-2 text-[10px] font-bold text-slate-600">Status</th>
-          </tr>
+          <tr><th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">ID / Node</th><th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">Name / Description</th><th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">Type / Details</th><th className="p-2 text-[10px] font-bold text-slate-600">Status</th></tr>
         </thead>
         <tbody>
           {listData?.map((item) => (
-            <tr 
-              key={item.id} 
-              className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer group"
-              onClick={() => onSelectItem(item)}
-            >
-              <td className="p-2 font-bold text-[11px] text-[#0056d2] group-hover:underline border-r border-slate-200">
-                {item.username || item.saleOrder || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}
-              </td>
-              <td className="p-2 font-bold text-[11px] text-slate-600 uppercase border-r border-slate-200">
-                {item.fullName || item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}
-              </td>
-              <td className="p-2 font-bold text-[11px] text-slate-400 uppercase italic border-r border-slate-200">
-                {item.destination || item.customerType || item.city || (item.plants ? `${item.plants.length} Plants Auth` : 'Standard Registry')}
-              </td>
-              <td className="p-2">
-                <Badge className="bg-emerald-50 text-emerald-600 rounded-none uppercase text-[8px] font-black border border-emerald-100">Synchronized</Badge>
-              </td>
+            <tr key={item.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => onSelectItem(item)}>
+              <td className="p-2 font-bold text-[11px] text-[#0056d2] group-hover:underline border-r border-slate-200">{item.username || item.saleOrder || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}</td>
+              <td className="p-2 font-bold text-[11px] text-slate-600 uppercase border-r border-slate-200">{item.fullName || item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}</td>
+              <td className="p-2 font-bold text-[11px] text-slate-400 uppercase italic border-r border-slate-200">{item.destination || item.customerType || item.city || (item.plants ? `${item.plants.length} Plants Auth` : 'Standard Registry')}</td>
+              <td className="p-2"><Badge className="bg-emerald-50 text-emerald-600 rounded-none uppercase text-[8px] font-black border border-emerald-100">Synchronized</Badge></td>
             </tr>
           ))}
-          {(!listData || listData.length === 0) && (
-            <tr>
-              <td colSpan={4} className="p-12 text-center text-slate-300 font-bold text-[10px] uppercase italic tracking-widest">
-                No records found in this registry hub.
-              </td>
-            </tr>
-          )}
         </tbody>
       </table>
     </div>
@@ -1630,26 +1432,11 @@ function RegistryList({ screen, onSelectItem, listData }: { screen: string, onSe
 function FormField({ label, placeholder, type = 'text', required, value, onChange, disabled }: any) {
   return (
     <div className="flex items-center gap-6 w-full">
-      <label className="text-xs font-bold text-slate-600 w-48 shrink-0">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
+      <label className="text-xs font-bold text-slate-600 w-48 shrink-0">{label} {required && <span className="text-red-500">*</span>}</label>
       {type === 'textarea' ? (
-        <textarea 
-          value={value || ''}
-          onChange={onChange}
-          placeholder={placeholder}
-          disabled={disabled}
-          className="flex-1 p-2 border border-slate-400 bg-white text-xs min-h-[60px] outline-none disabled:bg-slate-50 disabled:text-slate-500"
-        />
+        <textarea value={value || ''} onChange={onChange} placeholder={placeholder} disabled={disabled} className="flex-1 p-2 border border-slate-400 bg-white text-xs min-h-[60px] outline-none disabled:bg-slate-50 disabled:text-slate-500" />
       ) : (
-        <input 
-          type={type}
-          value={value || ''}
-          onChange={onChange}
-          placeholder={placeholder}
-          disabled={disabled}
-          className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none disabled:bg-slate-50 disabled:text-slate-500"
-        />
+        <input type={type} value={value || ''} onChange={onChange} placeholder={placeholder} disabled={disabled} className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none disabled:bg-slate-50 disabled:text-slate-500" />
       )}
     </div>
   );
