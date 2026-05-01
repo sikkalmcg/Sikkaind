@@ -12,7 +12,7 @@ import {
   ArrowRight, Calendar, Phone, FileText, Package, Clock,
   LayoutDashboard, Database, Settings, BarChart, TrendingUp,
   FileSpreadsheet, HardDriveDownload, CloudUpload, ShieldAlert,
-  AlertTriangle, Radar
+  AlertTriangle, Radar, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,7 +73,7 @@ const MASTER_TCODES = [
   { code: 'VA01', description: 'SALES ORDER REGISTRY: CREATE INITIAL SCREEN' },
   { code: 'VA02', description: 'SALES ORDER REGISTRY: CHANGE NODE' },
   { code: 'VA03', description: 'SALES ORDER REGISTRY: DISPLAY NODE' },
-  { code: 'VA04', description: 'SALES ORDER REGISTRY: CANCEL NODE' },
+  { code: 'VA04', description: 'CANCEL SALES ORDER REGISTRY' },
   { code: 'TR21', description: 'DRIP BOARD REGISTRY CONTROL' },
   { code: 'BULK', description: 'BULK DATA HUB CONTROL' },
   { code: 'SU01', description: 'USER MANAGEMENT: CREATE INITIAL SCREEN' },
@@ -159,31 +159,40 @@ export default function SapDashboard() {
     return rawCustomers?.filter(c => c.plantCodes?.some((p: string) => authPlants.includes(p)));
   }, [rawCustomers, userProfile]);
 
-  React.useEffect(() => {
-    setSidebarOpen(activeScreen === 'HOME');
-  }, [activeScreen]);
-
-  const handleSave = () => {
-    if (!user) {
-      setStatusMsg({ text: 'Session error: Please log in again', type: 'error' });
+  const executeTCode = (code: string) => {
+    const cleanCode = code.toUpperCase().trim().replace(/^\/N/, '');
+    if (cleanCode === 'HOME' || cleanCode === '') {
+      setActiveScreen('HOME');
+      setTCode('');
       return;
     }
+    if (!isAuthorized(cleanCode)) {
+      setStatusMsg({ text: `Authorization failed for ${cleanCode}`, type: 'error' });
+      setTCode('');
+      return;
+    }
+    if (MASTER_TCODES.some(t => t.code === cleanCode)) {
+      setActiveScreen(cleanCode as Screen);
+      setFormData({});
+    }
+    setTCode('');
+  };
+
+  const handleSave = () => {
+    if (!user) return;
     
     if (activeScreen === 'VA04') {
       if (!formData.saleOrder || !formData.reason) {
         setStatusMsg({ text: 'Error: Sales Order & Reason are mandatory', type: 'error' });
         return;
       }
-
-      const orderToCancel = rawOrders?.find(o => (o.saleOrder || o.saleOrderNumber || o.id)?.toString().toUpperCase() === formData.saleOrder.toString().toUpperCase());
+      const orderToCancel = rawOrders?.find(o => (o.saleOrder || o.id)?.toString().toUpperCase() === formData.saleOrder.toString().toUpperCase());
       if (!orderToCancel) {
-        setStatusMsg({ text: `Error: Sales Order ${formData.saleOrder} not found`, type: 'error' });
+        setStatusMsg({ text: `Error: Order ${formData.saleOrder} not found`, type: 'error' });
         return;
       }
-
       const docRef = doc(db, 'users', user.uid, 'sales_orders', orderToCancel.id);
-      const payload = { status: 'CANCELLED', cancellationReason: formData.reason, updatedAt: new Date().toISOString() };
-      setDocumentNonBlocking(docRef, payload, { merge: true });
+      setDocumentNonBlocking(docRef, { status: 'CANCELLED', cancellationReason: formData.reason, updatedAt: new Date().toISOString() }, { merge: true });
       setStatusMsg({ text: `Success: Order ${formData.saleOrder} CANCELLED`, type: 'success' });
       setFormData({});
       return;
@@ -209,25 +218,6 @@ export default function SapDashboard() {
       setStatusMsg({ text: `Registry synchronized successfully`, type: 'success' });
       if (!formData.id) setFormData(payload);
     }
-  };
-
-  const executeTCode = (code: string) => {
-    const cleanCode = code.toUpperCase().trim().replace(/^\/N/, '');
-    if (cleanCode === 'HOME' || cleanCode === '') {
-      setActiveScreen('HOME');
-      setTCode('');
-      return;
-    }
-    if (!isAuthorized(cleanCode)) {
-      setStatusMsg({ text: `Authorization failed for ${cleanCode}`, type: 'error' });
-      setTCode('');
-      return;
-    }
-    if (MASTER_TCODES.some(t => t.code === cleanCode)) {
-      setActiveScreen(cleanCode as Screen);
-      setFormData({});
-    }
-    setTCode('');
   };
 
   const handlePrintLR = (trip: any, order: any) => {
@@ -274,15 +264,9 @@ export default function SapDashboard() {
               <DropdownMenuItem onClick={handleLogout} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4 text-red-600">Log Off</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <div className="ml-auto flex items-center gap-2 pr-4 text-[10px] text-slate-500 font-bold uppercase">
-            <span>S4P (1) 100</span>
-            <div className="flex items-center gap-1 ml-4 text-[#0056d2] cursor-pointer" onClick={handleLogout}>
-               <LogOut className="h-3 w-3" /><span>Log Off</span>
-            </div>
-          </div>
         </div>
 
-        {/* T-CODE COMMAND BAR */}
+        {/* COMMAND BAR */}
         <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40">
           <div className="flex items-center px-2 py-1 gap-2">
             <SidebarTrigger className="h-6 w-6 text-slate-600 hover:bg-slate-200 rounded" />
@@ -299,49 +283,47 @@ export default function SapDashboard() {
               />
             </div>
             <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-6">
-               <button onClick={handleSave} className="p-1 hover:bg-slate-200 rounded group transition-all"><Save className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" /></button>
-               <button onClick={() => setActiveScreen('HOME')} className="p-1 hover:bg-slate-200 rounded group transition-all"><X className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" /></button>
-               <button onClick={() => setFormData({})} className="p-1 hover:bg-slate-200 rounded group transition-all"><RotateCcw className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" /></button>
+               <button onClick={handleSave} className="p-1 hover:bg-slate-200 rounded group"><Save className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" /></button>
+               <button onClick={() => setActiveScreen('HOME')} className="p-1 hover:bg-slate-200 rounded group"><X className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" /></button>
+               <button onClick={() => setFormData({})} className="p-1 hover:bg-slate-200 rounded group"><RotateCcw className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" /></button>
             </div>
           </div>
         </div>
 
         <div className="flex-1 flex overflow-hidden">
           <Sidebar collapsible="icon" className="border-r border-slate-300 bg-sidebar">
-            <SidebarHeader className="bg-[#1e293b] text-white p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center shrink-0 font-black italic text-white shadow-lg">S</div>
-                <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-                  <span className="text-[10px] font-black uppercase text-white tracking-tighter">Sikka Logistics</span>
-                  <span className="text-[8px] font-bold text-white/50 uppercase">Registry V2.5</span>
-                </div>
-              </div>
+            <SidebarHeader className="bg-[#0056d2] text-white p-3">
+              <SidebarMenuButton onClick={() => setActiveScreen('HOME')} isActive={activeScreen === 'HOME'} className="hover:bg-white/10 text-white">
+                <Grid2X2 className="h-4 w-4" />
+                <span className="font-black uppercase italic tracking-tighter text-xs">Home Hub</span>
+              </SidebarMenuButton>
             </SidebarHeader>
-            <SidebarContent className="custom-scrollbar">
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => setActiveScreen('HOME')} isActive={activeScreen === 'HOME'}>
-                    <LayoutDashboard className="h-4 w-4" /><span>Home Hub</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                
-                <div className="px-4 py-3 mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-60">Logistics</div>
-                
+            <SidebarContent className="custom-scrollbar px-2">
+              <div className="px-4 py-6 text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Logistics</div>
+              <SidebarMenu className="gap-2">
                 {[
-                  { label: "Plant Master", code: "OX01", icon: Database }, 
-                  { label: "Vendor Master", code: "XK01", icon: User }, 
-                  { label: "Sales Orders", code: "VA01", icon: ShoppingBag }, 
-                  { label: "Cancel Order", code: "VA04", icon: XCircle }, 
-                  { label: "Drip Board", code: "TR21", icon: Truck }, 
-                  { label: "Bulk Sync", code: "BULK", icon: TrendingUp }
+                  { code: 'OX01', label: 'PLANT MASTER' },
+                  { code: 'FM01', label: 'COMPANY MASTER' },
+                  { code: 'XK01', label: 'VENDOR MASTER' },
+                  { code: 'XD01', label: 'CUSTOMER MASTER' },
+                  { code: 'VA01', label: 'SALES ORDERS' },
+                  { code: 'VA04', label: 'CANCEL ORDER' },
+                  { code: 'TR21', label: 'DRIP BOARD' },
+                  { code: 'BULK', label: 'BULK SYNC' },
+                  { code: 'SU01', label: 'USER MANAGEMENT' },
                 ].map((item) => (
                   <SidebarMenuItem key={item.code}>
                     <SidebarMenuButton 
                       onClick={() => executeTCode(item.code)} 
-                      isActive={activeScreen.startsWith(item.code.slice(0,2))}
+                      isActive={activeScreen.startsWith(item.code.slice(0,2)) || (item.code === 'BULK' && activeScreen === 'BULK')}
+                      className="px-4 h-9 hover:bg-slate-100 transition-colors"
                     >
-                      <item.icon className="h-4 w-4" />
-                      <span className="text-[11px] font-black uppercase tracking-tight">{item.label}</span>
+                      <span className={cn(
+                        "text-[11px] font-black uppercase tracking-tight",
+                        activeScreen.startsWith(item.code.slice(0,2)) ? "text-[#0056d2]" : "text-slate-600"
+                      )}>
+                        {item.code} - {item.label}
+                      </span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -356,55 +338,51 @@ export default function SapDashboard() {
               </h1>
             </div>
 
-            <div className="flex-1 overflow-y-auto no-scrollbar">
-              <div className={`p-8 w-full ${isModuleActive ? 'max-w-none' : 'max-w-[1400px]'} mx-auto`}>
-                {activeScreen === 'HOME' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
-                    {[
-                      { code: 'OX01', lines: ['CREATE', 'INITIAL', 'SCREEN'] },
-                      { code: 'FM01', lines: ['CREATE', 'INITIAL', 'SCREEN'] },
-                      { code: 'XK01', lines: ['CREATE', 'INITIAL', 'SCREEN'] },
-                      { code: 'XD01', lines: ['CREATE', 'INITIAL', 'SCREEN'] },
-                      { code: 'VA01', lines: ['CREATE', 'INITIAL', 'SCREEN'] },
-                      { code: 'VA04', lines: ['CANCEL', 'NODE'] },
-                    ].map((item) => (
-                      <div 
-                        key={item.code} 
-                        onClick={() => executeTCode(item.code)} 
-                        className="bg-white p-8 rounded-[1.5rem] shadow-xl border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all cursor-pointer group flex flex-col min-h-[220px] max-w-[300px] w-full mx-auto"
-                      >
-                        <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1.5 font-black italic tracking-[0.15em] text-[10px] border-none mb-8 w-fit self-start">
-                          {item.code}
-                        </Badge>
-                        <h3 className="text-[13px] font-black text-[#1e3a8a] leading-[1.8] uppercase tracking-[0.1em]">
-                          {item.lines.map((line, idx) => (
-                            <span key={idx} className="block">{line}</span>
-                          ))}
-                        </h3>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="bg-white shadow-2xl rounded-sm border border-slate-300 overflow-hidden animate-slide-up w-full">
-                     <div className="p-4 space-y-6 min-h-[600px]">
-                       {showForm && (
-                         <>
-                           {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                           {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                           {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                           {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                           {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} allCustomers={rawCustomers} />}
-                           {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={rawOrders} onPost={handleSave} onCancel={() => setFormData({})} />}
-                           {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
-                         </>
-                       )}
-                       {showList && <RegistryList screen={activeScreen} onSelectItem={setFormData} listData={getRegistryList()} />}
-                       {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} onPrintLR={handlePrintLR} />}
-                       {activeScreen === 'BULK' && <BulkDataHub allPlants={rawPlants} />}
-                     </div>
-                  </div>
-                )}
-              </div>
+            <div className="flex-1 overflow-y-auto no-scrollbar p-8">
+              {activeScreen === 'HOME' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 max-w-[1400px] mx-auto">
+                  {[
+                    { code: 'OX01', label: ['CREATE', 'INITIAL', 'SCREEN'] },
+                    { code: 'FM01', label: ['CREATE', 'INITIAL', 'SCREEN'] },
+                    { code: 'XK01', label: ['CREATE', 'INITIAL', 'SCREEN'] },
+                    { code: 'XD01', label: ['CREATE', 'INITIAL', 'SCREEN'] },
+                    { code: 'VA01', label: ['CREATE', 'INITIAL', 'SCREEN'] },
+                    { code: 'VA04', label: ['CANCEL', 'NODE'] },
+                  ].map((item) => (
+                    <div 
+                      key={item.code} 
+                      onClick={() => executeTCode(item.code)} 
+                      className="bg-white p-8 rounded-[1.5rem] shadow-xl border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all cursor-pointer group flex flex-col min-h-[220px] w-full"
+                    >
+                      <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1.5 font-black italic tracking-[0.15em] text-[10px] border-none mb-8 w-fit">
+                        {item.code}
+                      </Badge>
+                      <h3 className="text-[13px] font-black text-[#1e3a8a] leading-[1.8] uppercase tracking-[0.1em]">
+                        {item.label.map((line, idx) => (
+                          <span key={idx} className="block">{line}</span>
+                        ))}
+                      </h3>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white shadow-2xl rounded-sm border border-slate-300 overflow-hidden animate-slide-up w-full min-h-[600px] p-6">
+                   {showForm && (
+                     <>
+                       {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                       {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                       {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                       {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                       {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} allCustomers={rawCustomers} />}
+                       {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={rawOrders} onPost={handleSave} onCancel={() => setFormData({})} />}
+                       {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
+                     </>
+                   )}
+                   {showList && <RegistryList onSelectItem={setFormData} listData={getRegistryList()} />}
+                   {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} onPrintLR={handlePrintLR} />}
+                   {activeScreen === 'BULK' && <BulkDataHub allPlants={rawPlants} />}
+                </div>
+              )}
             </div>
             <div className="h-6 bg-[#f0f0f0] border-t border-slate-300 flex items-center px-4 text-[10px] font-bold text-slate-600">
               <span>{statusMsg.text}</span>
@@ -412,12 +390,6 @@ export default function SapDashboard() {
           </SidebarInset>
         </div>
 
-        {/* PRINTABLE AREA FOR LR */}
-        <div id="printable-area" className="hidden print:block p-8 bg-white text-black font-serif border-2 border-black m-4">
-          {printData && <LRPrintTemplate trip={printData.trip} order={printData.order} />}
-        </div>
-
-        {/* PRINT PREVIEW DIALOG */}
         <Dialog open={showPrintPreview} onOpenChange={setShowPrintPreview}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none bg-slate-800 shadow-2xl">
             <div className="bg-slate-900 p-4 flex justify-between items-center sticky top-0 z-10 border-b border-white/10">
@@ -431,12 +403,16 @@ export default function SapDashboard() {
             </div>
           </DialogContent>
         </Dialog>
+        
+        <div id="printable-area" className="hidden print:block p-8 bg-white text-black font-serif border-2 border-black m-4">
+          {printData && <LRPrintTemplate trip={printData.trip} order={printData.order} />}
+        </div>
       </div>
     </SidebarProvider>
   );
 }
 
-// HELPER COMPONENTS
+// FORMS & HELPERS
 
 function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
   const lrNo = trip?.lrNo || order?.lrNo || '--';
@@ -491,19 +467,6 @@ function FormInput({ label, value, onChange, type = "text", disabled }: any) {
 
 function FormSelect({ label, value, options, onChange, disabled }: any) {
   return <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label><select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold outline-none"><option value="">Select Registry...</option>{options.map((o: string) => <option key={o} value={o}>{o}</option>)}</select></div>;
-}
-
-function RegistryList({ onSelectItem, listData }: any) {
-  return (
-    <div className="overflow-x-auto border border-slate-300">
-      <table className="w-full text-left border-collapse">
-        <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr>{['Registry ID', 'Name / Node Description', 'Type / Details', 'Sync Node'].map(c => <th key={c} className="p-2 text-[9px] font-black uppercase text-slate-500">{c}</th>)}</tr></thead>
-        <tbody>{listData?.map((item: any) => (
-          <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer"><td className="p-2 text-[10px] font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.id.slice(0, 8)}</td><td className="p-2 text-[10px] font-bold uppercase">{item.customerName || item.plantName || `${item.consignor} → ${item.consignee}`}</td><td className="p-2 text-[10px] italic">{item.city || item.customerType || 'REGISTRY'}</td><td className="p-2 text-[10px] font-bold text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></tr>
-        ))}</tbody>
-      </table>
-    </div>
-  );
 }
 
 function PlantForm({ data, onChange, disabled }: any) {
@@ -589,7 +552,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
 function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && data.saleOrder) {
-      const order = allOrders?.find((o: any) => (o.saleOrder || o.saleOrderNumber || o.id)?.toString().toUpperCase() === data.saleOrder.toString().toUpperCase());
+      const order = allOrders?.find((o: any) => (o.saleOrder || o.id)?.toString().toUpperCase() === data.saleOrder.toString().toUpperCase());
       if (order) onChange({ 
         ...data, 
         ...order, 
@@ -622,6 +585,19 @@ function UserForm({ data, onChange, disabled, allPlants }: any) {
     <FormInput label="Full Name" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
     <FormInput label="Username" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} />
   </div>;
+}
+
+function RegistryList({ onSelectItem, listData }: any) {
+  return (
+    <div className="overflow-x-auto border border-slate-300">
+      <table className="w-full text-left border-collapse">
+        <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr>{['Registry ID', 'Name / Node Description', 'Type / Details', 'Sync Node'].map(c => <th key={c} className="p-2 text-[9px] font-black uppercase text-slate-500">{c}</th>)}</tr></thead>
+        <tbody>{listData?.map((item: any) => (
+          <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer"><td className="p-2 text-[10px] font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.id.slice(0, 8)}</td><td className="p-2 text-[10px] font-bold uppercase">{item.customerName || item.plantName || `${item.consignor} → ${item.consignee}`}</td><td className="p-2 text-[10px] italic">{item.city || item.customerType || 'REGISTRY'}</td><td className="p-2 text-[10px] font-bold text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></tr>
+        ))}</tbody>
+      </table>
+    </div>
+  );
 }
 
 function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR }: { orders: any[] | null, trips: any[] | null, onStatusUpdate: any, plants: any[] | null, onPrintLR: any }) {
@@ -712,7 +688,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR }: { order
         ))}
       </Tabs>
 
-      {/* ASSIGN MODAL */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
         <DialogContent className="max-w-xl rounded-[2rem] border-none shadow-2xl p-0 font-mono">
           <div className="bg-[#0056d2] p-6 text-white text-center"><DialogTitle className="text-lg font-black uppercase italic tracking-tighter">Assign Mission Vehicle</DialogTitle></div>
@@ -725,7 +700,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR }: { order
         </DialogContent>
       </Dialog>
 
-      {/* VIEW TRIP MODAL */}
       <Dialog open={!!viewTrip} onOpenChange={() => setViewTrip(null)}>
         <DialogContent className="max-w-xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden font-mono">
           <div className="bg-[#0056d2] p-6 text-white flex flex-col items-center">
@@ -769,3 +743,4 @@ function BulkDataHub({ allPlants }: any) {
     </div>
   );
 }
+
