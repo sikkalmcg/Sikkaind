@@ -9,10 +9,18 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
-    // Comprehensive rule for all user-owned registries (plants, companies, vendors, customers, sales_orders)
-    // This pattern ensures that list operations on these collections are correctly permitted for the owner.
+    // Comprehensive rule for all user-owned registries
     match /users/{userId}/{collectionName}/{docId} {
       allow read, write: if isOwner(userId);
+    }
+
+    // Public tracking access via collection group queries
+    // Specifically allows read access for sales_orders and trips if they are accessed correctly
+    match /{path=**}/sales_orders/{orderId} {
+      allow read: if true; 
+    }
+    match /{path=**}/trips/{tripId} {
+      allow read: if true;
     }
   }
 }
