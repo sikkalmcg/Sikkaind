@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -69,6 +70,24 @@
         "pan": { "type": "string" }
       },
       "required": ["vendorName"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "type": "object",
+      "description": "Customer registry (Consignor/Consignee).",
+      "properties": {
+        "id": { "type": "string" },
+        "plantCodes": { "type": "array", "items": { "type": "string" } },
+        "customerType": { "type": "string", "enum": ["Consignor", "Consignee"] },
+        "customerName": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "gstin": { "type": "string" },
+        "pan": { "type": "string" },
+        "mobile": { "type": "string" },
+        "email": { "type": "string" }
+      },
+      "required": ["plantCodes", "customerName", "customerType", "city"]
     }
   },
   "auth": {
@@ -78,6 +97,7 @@
     "/user_profiles/{userId}": { "schema": "UserProfile", "description": "User profile data." },
     "/users/{userId}/plants/{plantId}": { "schema": "Plant", "description": "User-owned plants." },
     "/users/{userId}/companies/{companyId}": { "schema": "Company", "description": "User-owned companies." },
-    "/users/{userId}/vendors/{vendorId}": { "schema": "Vendor", "description": "User-owned vendors." }
+    "/users/{userId}/vendors/{vendorId}": { "schema": "Vendor", "description": "User-owned vendors." },
+    "/users/{userId}/customers/{customerId}": { "schema": "Customer", "description": "User-owned customers." }
   }
 }

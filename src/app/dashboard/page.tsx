@@ -5,8 +5,8 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Printer, Save, ArrowLeft, ArrowRight, 
-  RotateCcw, X, HelpCircle, LogOut, LayoutDashboard, PlusCircle,
-  ChevronRight, FileText, Building2, Check, AlertCircle, Info
+  RotateCcw, X, HelpCircle, LogOut, LayoutDashboard,
+  ChevronRight, Building2, Check, AlertCircle, Info, PlusCircle, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +25,7 @@ import {
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 
-type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03';
+type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03';
 
 export default function SapDashboard() {
   const router = useRouter();
@@ -44,7 +44,7 @@ export default function SapDashboard() {
       return;
     }
     
-    if (activeScreen === 'HOME') {
+    if (activeScreen === 'HOME' || activeScreen.endsWith('02') || activeScreen.endsWith('03')) {
       setStatusMsg({ text: 'No active transaction to save', type: 'info' });
       return;
     }
@@ -55,6 +55,7 @@ export default function SapDashboard() {
     if (activeScreen.startsWith('OX')) collectionName = 'plants';
     else if (activeScreen.startsWith('FM')) collectionName = 'companies';
     else if (activeScreen.startsWith('XK')) collectionName = 'vendors';
+    else if (activeScreen.startsWith('XD')) collectionName = 'customers';
 
     if (collectionName) {
       const docRef = doc(db, 'users', user.uid, collectionName, docId);
@@ -84,7 +85,9 @@ export default function SapDashboard() {
     const formatted = code.toUpperCase().trim();
     const cleanCode = formatted.startsWith('/N') ? formatted.slice(2) : formatted;
     
-    if (['OX01', 'OX02', 'OX03', 'FM01', 'FM02', 'FM03', 'XK01', 'XK02', 'XK03'].includes(cleanCode)) {
+    const validCodes = ['OX01', 'OX02', 'OX03', 'FM01', 'FM02', 'FM03', 'XK01', 'XK02', 'XK03', 'XD01', 'XD02', 'XD03'];
+    
+    if (validCodes.includes(cleanCode)) {
       setActiveScreen(cleanCode as Screen);
       setFormData({});
       setStatusMsg({ text: `Transaction ${cleanCode} started`, type: 'info' });
@@ -123,8 +126,11 @@ export default function SapDashboard() {
     );
   }
 
+  const isModuleActive = activeScreen !== 'HOME';
+
   return (
     <div className="flex flex-col h-screen bg-[#d9e1f2] text-[#333] font-mono select-none overflow-hidden">
+      {/* Menu Bar */}
       <div className="flex items-center bg-[#f0f0f0] border-b border-white/50 px-2 h-7 text-[11px] font-semibold">
         {['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map((item) => (
           <DropdownMenu key={item}>
@@ -147,6 +153,7 @@ export default function SapDashboard() {
         </div>
       </div>
 
+      {/* Command Bar */}
       <div className="flex items-center bg-[#f0f0f0] border-b border-slate-300 px-2 py-1 gap-2 shadow-sm">
         <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner">
           <div className="px-1 text-[#008000] font-black text-xs">✓</div>
@@ -164,17 +171,11 @@ export default function SapDashboard() {
            <button onClick={handleSave} title="Save (Ctrl+S)" className="p-1 hover:bg-slate-200 rounded group transition-all">
              <Save className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
            </button>
-           <button onClick={() => setActiveScreen('HOME')} title="Back" className="p-1 hover:bg-slate-200 rounded group transition-all">
-             <ArrowLeft className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
-           </button>
-           <button className="p-1 hover:bg-slate-200 rounded group transition-all">
-             <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
+           <button onClick={() => setActiveScreen('HOME')} title="Exit" className="p-1 hover:bg-slate-200 rounded group transition-all">
+             <X className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
            </button>
            <button onClick={() => setFormData({})} title="Refresh/Reset" className="p-1 hover:bg-slate-200 rounded group transition-all">
              <RotateCcw className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
-           </button>
-           <button onClick={() => setActiveScreen('HOME')} title="Exit" className="p-1 hover:bg-slate-200 rounded group transition-all">
-             <X className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
            </button>
            <button onClick={() => window.print()} title="Print" className="p-1 hover:bg-slate-200 rounded group transition-all">
              <Printer className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
@@ -186,7 +187,8 @@ export default function SapDashboard() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {activeScreen === 'HOME' && (
+        {/* Sidebar - Auto hides when module is active */}
+        {!isModuleActive && (
           <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-sm animate-fade-in print:hidden">
              <div className="p-4 border-b border-slate-100 flex items-center gap-3">
                 <div className="bg-[#0056d2] p-2 rounded">
@@ -204,6 +206,7 @@ export default function SapDashboard() {
                     { code: 'OX01', label: 'Create Plant' },
                     { code: 'FM01', label: 'Create Company' },
                     { code: 'XK01', label: 'Create Vendor' },
+                    { code: 'XD01', label: 'Create Customer' },
                   ].map((item) => (
                     <button 
                       key={item.code} 
@@ -219,31 +222,33 @@ export default function SapDashboard() {
           </div>
         )}
 
+        {/* Main Content Area */}
         <div className="flex-1 flex flex-col bg-[#f0f3f9] overflow-y-auto no-scrollbar">
-          <div className="bg-[#0056d2] text-white py-3 px-6 shadow-lg print:bg-white print:text-black print:shadow-none flex flex-col items-center justify-center">
-            <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none">
+          {/* Centered Title Bar - 50% Height Reduction */}
+          <div className="bg-[#0056d2] text-white py-1.5 px-6 shadow-lg print:bg-white print:text-black print:shadow-none flex flex-col items-center justify-center min-h-[50px]">
+            <h1 className="text-xl font-black italic tracking-tighter uppercase leading-none text-center">
               {activeScreen === 'HOME' ? 'Sikka Logistics Hub' : activeScreen}
             </h1>
-            <p className="text-[9px] font-bold uppercase tracking-[0.4em] opacity-80 mt-1">
+            <p className="text-[8px] font-bold uppercase tracking-[0.4em] opacity-80 mt-1 text-center">
               {getScreenTitle(activeScreen)}
             </p>
           </div>
 
-          <div id="printable-area" className="p-8 w-full max-w-7xl mx-auto">
+          <div id="printable-area" className={`p-8 w-full ${isModuleActive ? 'max-w-none' : 'max-w-7xl'} mx-auto`}>
             {activeScreen === 'HOME' ? (
               <div className="space-y-12 animate-fade-in">
                 <div className="relative w-full aspect-[21/9] border-4 border-dashed border-slate-300 bg-white/50 flex flex-col items-center justify-center rounded-[2rem] overflow-hidden group hover:border-[#0056d2] transition-colors">
                    <Building2 className="h-16 w-16 text-slate-200 mb-4 group-hover:scale-110 transition-transform" />
                    <p className="text-xl font-black text-slate-300 uppercase tracking-tighter italic group-hover:text-[#0056d2]">Your firm image will be placed here</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  {['OX01', 'FM01', 'XK01'].map((code) => (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                  {['OX01', 'FM01', 'XK01', 'XD01'].map((code) => (
                     <div key={code} onClick={() => executeTCode(code)} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
                       <div className="flex items-center justify-between mb-4">
                         <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1 font-black italic">{code}</Badge>
                         <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-[#0056d2]" />
                       </div>
-                      <h3 className="text-sm font-black uppercase text-[#1e3a8a]">{getScreenTitle(code as Screen)}</h3>
+                      <h3 className="text-[11px] font-black uppercase text-[#1e3a8a]">{getScreenTitle(code as Screen)}</h3>
                     </div>
                   ))}
                 </div>
@@ -255,6 +260,7 @@ export default function SapDashboard() {
                    {activeScreen === 'OX01' && <PlantForm data={formData} onChange={setFormData} />}
                    {activeScreen === 'FM01' && <CompanyForm data={formData} onChange={setFormData} />}
                    {activeScreen === 'XK01' && <VendorForm data={formData} onChange={setFormData} />}
+                   {activeScreen === 'XD01' && <CustomerForm data={formData} onChange={setFormData} />}
                    {(activeScreen.endsWith('02') || activeScreen.endsWith('03')) && <RegistryList screen={activeScreen} />}
                  </div>
               </div>
@@ -263,8 +269,9 @@ export default function SapDashboard() {
         </div>
       </div>
 
+      {/* Status Bar */}
       <div className="h-6 bg-[#f0f0f0] border-t border-slate-300 flex items-center px-4 gap-6 text-[10px] font-bold text-slate-600 print:hidden">
-        <div className="flex items-center gap-2 pr-6 border-r border-slate-200 min-w-[200px]">
+        <div className="flex items-center gap-2 pr-6 border-r border-slate-200 min-w-[250px]">
           {statusMsg.type === 'success' && <Check className="h-3 w-3 text-emerald-500" />}
           {statusMsg.type === 'error' && <AlertCircle className="h-3 w-3 text-red-500" />}
           {statusMsg.type === 'info' && <Info className="h-3 w-3 text-blue-500" />}
@@ -293,12 +300,33 @@ function getScreenTitle(screen: Screen): string {
     case 'FM02': return 'Edit Company Registry';
     case 'FM03': return 'Display Company Node';
     case 'XK01': return 'Create Vendor Registry';
+    case 'XK02': return 'Edit Vendor Registry';
+    case 'XK03': return 'Display Vendor Registry';
+    case 'XD01': return 'Create Customer Registry';
+    case 'XD02': return 'Edit Customer Registry';
+    case 'XD03': return 'Display Customer Registry';
     default: return 'Central Management Control Registry';
   }
 }
 
 function PlantForm({ data, onChange }: any) {
   const updateField = (field: string, val: any) => onChange({ ...data, [field]: val });
+
+  const addMobile = () => {
+    const current = data.mobileNumbers || [];
+    onChange({ ...data, mobileNumbers: [...current, ''] });
+  };
+
+  const updateMobile = (idx: number, val: string) => {
+    const current = [...(data.mobileNumbers || [])];
+    current[idx] = val;
+    onChange({ ...data, mobileNumbers: current });
+  };
+
+  const removeMobile = (idx: number) => {
+    const current = (data.mobileNumbers || []).filter((_: any, i: number) => i !== idx);
+    onChange({ ...data, mobileNumbers: current });
+  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
@@ -307,10 +335,38 @@ function PlantForm({ data, onChange }: any) {
       <FormField label="City" placeholder="Ghaziabad" value={data.city} onChange={(e: any) => updateField('city', e.target.value)} />
       <FormField label="State" placeholder="Uttar Pradesh" value={data.state} onChange={(e: any) => updateField('state', e.target.value)} />
       <FormField label="State Code" placeholder="09" value={data.stateCode} onChange={(e: any) => updateField('stateCode', e.target.value)} />
+      <FormField label="Postal Code" placeholder="201009" value={data.postalCode} onChange={(e: any) => updateField('postalCode', e.target.value)} />
       <FormField label="GSTIN" placeholder="07AAAAA0000A1Z5" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} />
       <FormField label="PAN" placeholder="ABCDE1234F" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} />
       <FormField label="Email ID" placeholder="plant@sikka.com" value={data.email} onChange={(e: any) => updateField('email', e.target.value)} />
       <FormField label="Website" placeholder="www.sikka.com" value={data.website} onChange={(e: any) => updateField('website', e.target.value)} />
+      
+      <div className="space-y-3">
+        <label className="text-[10px] font-black uppercase text-slate-400 flex items-center justify-between">
+          Mobile Numbers
+          <button onClick={addMobile} className="text-[#0056d2] hover:underline flex items-center gap-1">
+            <PlusCircle className="h-3 w-3" /> Add Multiple
+          </button>
+        </label>
+        <div className="space-y-2">
+          {(data.mobileNumbers || ['']).map((num: string, idx: number) => (
+            <div key={idx} className="flex gap-2">
+              <Input 
+                value={num} 
+                onChange={(e) => updateMobile(idx, e.target.value)}
+                placeholder="+91..."
+                className="h-9 border-slate-200 bg-slate-50 px-3 rounded-lg font-bold"
+              />
+              {idx > 0 && (
+                <button onClick={() => removeMobile(idx)} className="text-red-400 hover:text-red-600">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="md:col-span-2">
         <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} />
       </div>
@@ -391,6 +447,64 @@ function VendorForm({ data, onChange }: any) {
       </div>
       <FormField label="Vendor Name" value={data.vendorName} onChange={(e: any) => updateField('vendorName', e.target.value)} required />
       <FormField label="GSTIN" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} />
+      <FormField label="PAN" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} />
+      <FormField label="Mobile" value={data.mobile} onChange={(e: any) => updateField('mobile', e.target.value)} />
+      <div className="md:col-span-2">
+        <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} />
+      </div>
+    </div>
+  );
+}
+
+function CustomerForm({ data, onChange }: any) {
+  const { user } = useUser();
+  const db = useFirestore();
+  const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
+  const { data: plants } = useCollection(plantsQuery);
+
+  const updateField = (field: string, val: any) => onChange({ ...data, [field]: val });
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+      <div className="md:col-span-2 space-y-2">
+        <label className="text-[10px] font-black uppercase text-slate-400">Plant Code (Select Multiple) <span className="text-red-500">*</span></label>
+        <div className="flex flex-wrap gap-2 p-4 bg-slate-50 border border-slate-200 rounded-2xl min-h-[60px]">
+          {plants?.map(p => (
+            <Badge 
+              key={p.id} 
+              onClick={() => {
+                const current = data.plantCodes || [];
+                const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode];
+                updateField('plantCodes', next);
+              }}
+              className={`cursor-pointer rounded-lg py-1.5 px-3 transition-colors ${data.plantCodes?.includes(p.plantCode) ? 'bg-[#0056d2] text-white' : 'bg-white border-slate-200 text-slate-600'}`}
+            >
+              {p.plantCode}
+            </Badge>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label className="text-[10px] font-black uppercase text-slate-400">Customer Type <span className="text-red-500">*</span></label>
+        <select 
+          className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none"
+          value={data.customerType}
+          onChange={(e) => updateField('customerType', e.target.value)}
+        >
+          <option value="">Select Type</option>
+          <option value="Consignor">Consignor</option>
+          <option value="Consignee">Consignee – Ship to Party</option>
+        </select>
+      </div>
+      <FormField label="Customer Name" placeholder="ABC Logistics" value={data.customerName} onChange={(e: any) => updateField('customerName', e.target.value)} required />
+      <FormField label="City" placeholder="Noida" value={data.city} onChange={(e: any) => updateField('city', e.target.value)} required />
+      <FormField label="GSTIN" placeholder="09XXXX..." value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} />
+      <FormField label="PAN" placeholder="ABCDE1234F" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} />
+      <FormField label="Mobile" value={data.mobile} onChange={(e: any) => updateField('mobile', e.target.value)} />
+      <FormField label="Email" value={data.email} onChange={(e: any) => updateField('email', e.target.value)} />
+      <div className="md:col-span-2">
+        <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} />
+      </div>
     </div>
   );
 }
@@ -402,6 +516,7 @@ function RegistryList({ screen }: { screen: string }) {
   if (screen.startsWith('OX')) collectionName = 'plants';
   else if (screen.startsWith('FM')) collectionName = 'companies';
   else if (screen.startsWith('XK')) collectionName = 'vendors';
+  else if (screen.startsWith('XD')) collectionName = 'customers';
 
   const listQuery = useMemoFirebase(() => user && collectionName ? collection(db, 'users', user.uid, collectionName) : null, [user, db, collectionName]);
   const { data: list, isLoading } = useCollection(listQuery);
@@ -415,6 +530,7 @@ function RegistryList({ screen }: { screen: string }) {
           <tr className="bg-slate-50 border-y border-slate-100">
             <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">ID</th>
             <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Name / Description</th>
+            <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Type / Details</th>
             <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
           </tr>
         </thead>
@@ -422,12 +538,20 @@ function RegistryList({ screen }: { screen: string }) {
           {list?.map((item) => (
             <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
               <td className="p-4 font-bold text-xs text-[#0056d2]">{item.plantCode || item.companyCode || item.id.slice(0, 8)}</td>
-              <td className="p-4 font-bold text-xs text-slate-600 uppercase">{item.plantName || item.companyName || item.vendorName}</td>
+              <td className="p-4 font-bold text-xs text-slate-600 uppercase">{item.plantName || item.companyName || item.vendorName || item.customerName}</td>
+              <td className="p-4 font-bold text-xs text-slate-400 uppercase italic">
+                {item.customerType || item.city || 'Standard Registry'}
+              </td>
               <td className="p-4">
                 <Badge className="bg-emerald-50 text-emerald-600 rounded-none uppercase text-[8px] font-black border border-emerald-100">Synchronized</Badge>
               </td>
             </tr>
           ))}
+          {(!list || list.length === 0) && (
+            <tr>
+              <td colSpan={4} className="p-12 text-center text-slate-300 font-bold text-xs italic">No registry nodes found for this transaction.</td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
