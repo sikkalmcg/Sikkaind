@@ -239,10 +239,18 @@ export default function SapDashboard() {
 
   const handleSearchIdEnter = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && searchId) {
-      const list = getRegistryList();
-      const item = list.find((i: any) => 
+      let list = getRegistryList();
+      let item = list.find((i: any) => 
         (i.plantCode || i.customerCode || i.companyCode || i.saleOrder || i.username || i.id || i.vendorCode).toString().toUpperCase() === searchId.toUpperCase()
       );
+      
+      // Fallback for XD transactions if filters are active and specific ID entry is needed
+      if (!item && activeScreen.startsWith('XD')) {
+        item = (rawCustomers || []).find((i: any) => 
+          (i.customerCode || i.id).toString().toUpperCase() === searchId.toUpperCase()
+        );
+      }
+      
       if (item) {
         setFormData(item);
         setSearchId('');
@@ -530,6 +538,16 @@ export default function SapDashboard() {
                            {activeScreen.startsWith('XD') ? (
                              <>
                                <div className="flex flex-col gap-1.5">
+                                 <label className="text-[9px] font-black text-slate-400 uppercase">Customer ID</label>
+                                 <input 
+                                   className="h-10 border border-slate-400 px-3 text-xs font-black outline-none bg-white focus:ring-1 focus:ring-blue-600 shadow-sm"
+                                   value={searchId} 
+                                   onChange={(e) => setSearchId(e.target.value)} 
+                                   onKeyDown={handleSearchIdEnter} 
+                                   placeholder="ID & ENTER..." 
+                                 />
+                               </div>
+                               <div className="flex flex-col gap-1.5">
                                  <label className="text-[9px] font-black text-slate-400 uppercase">Select Plant</label>
                                  <select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none" value={xdSearch.plant} onChange={(e) => setXdSearch({...xdSearch, plant: e.target.value})}>
                                    <option value="">ALL PLANTS</option>
@@ -544,9 +562,9 @@ export default function SapDashboard() {
                                    <option value="Consignee - Ship to Party">Consignee - Ship to Party</option>
                                  </select>
                                </div>
-                               <div className="flex flex-col gap-1.5 col-span-2">
+                               <div className="flex flex-col gap-1.5">
                                  <label className="text-[9px] font-black text-slate-400 uppercase">Enter Name</label>
-                                 <input className="h-10 border border-slate-400 px-4 text-xs font-black outline-none bg-white" value={xdSearch.name} onChange={(e) => setXdSearch({...xdSearch, name: e.target.value})} placeholder="START TYPING NAME..." />
+                                 <input className="h-10 border border-slate-400 px-4 text-xs font-black outline-none bg-white" value={xdSearch.name} onChange={(e) => setXdSearch({...xdSearch, name: e.target.value})} placeholder="NAME..." />
                                </div>
                              </>
                            ) : (
