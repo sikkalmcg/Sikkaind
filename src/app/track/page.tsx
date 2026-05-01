@@ -1,7 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { Radar, Search, Package, Truck, CheckCircle, AlertCircle, Loader2, MapPin, User, ArrowRightLeft } from 'lucide-react';
+import { 
+  Radar, Search, Package, Truck, CheckCircle, 
+  AlertCircle, Loader2, MapPin, User, ArrowLeft, 
+  ShoppingCart, AlertTriangle 
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -13,16 +17,18 @@ import {
 } from '@/components/ui/select';
 import { useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { format } from 'date-fns';
 
 /**
  * @fileOverview Track Consignment page.
- * Displays mission-critical details including Consignor, Consignee, Ship-to-party, Route, and Order Qty.
+ * Displays mission-critical details in a high-visibility layout matching the requested design.
  */
 export default function TrackPage() {
   const db = useFirestore();
   const [type, setType] = React.useState('sales');
   const [value, setValue] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+  const [showResult, setShowResult] = React.useState(false);
   const [result, setResult] = React.useState<{
     found: boolean;
     data?: any;
@@ -46,21 +52,115 @@ export default function TrackPage() {
           found: false, 
           message: `No active mission node found for this ${type === 'sales' ? 'Sales Order' : 'Trip ID'}.` 
         });
+        setShowResult(false);
       } else {
         const data = snap.data();
         setResult({ 
           found: true, 
           data: data,
-          message: data.status === 'PLACED' ? 'Order Placed - Vehicle will be assigned shortly.' : undefined
         });
+        setShowResult(true);
       }
     } catch (error) {
       console.error('Tracking Error:', error);
       setResult({ found: false, message: 'System error during synchronization. Please check registry ID.' });
+      setShowResult(false);
     } finally {
       setLoading(false);
     }
   };
+
+  const handleBack = () => {
+    setShowResult(false);
+    setValue('');
+    setResult(null);
+  };
+
+  if (showResult && result?.found && type === 'sales') {
+    const data = result.data;
+    const formattedDate = data.updatedAt ? format(new Date(data.updatedAt), 'dd-MMM-yyyy HH:mm').toUpperCase() : 'PENDING';
+
+    return (
+      <div className="min-h-screen bg-white font-mono p-4 md:p-8 animate-fade-in">
+        <div className="max-w-[1400px] mx-auto space-y-8">
+          {/* Top Navigation */}
+          <button 
+            onClick={handleBack}
+            className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 hover:text-blue-900 transition-colors mb-4"
+          >
+            <ArrowLeft className="h-3 w-3" /> BACK TO SEARCH
+          </button>
+
+          {/* High Visibility Info Bar */}
+          <div className="bg-[#0f172a] text-white rounded-[1.5rem] md:rounded-full px-8 py-6 flex flex-wrap items-center justify-between gap-8 shadow-2xl">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
+                <Package className="h-3 w-3" /> Sale Order
+              </div>
+              <p className="text-[12px] font-black text-blue-500">{data.saleOrder}</p>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
+                <User className="h-3 w-3" /> Consignor
+              </div>
+              <p className="text-[10px] font-black uppercase text-slate-100">{data.consignor || 'N/A'}</p>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
+                <User className="h-3 w-3" /> Consignee
+              </div>
+              <p className="text-[10px] font-black uppercase text-slate-100">{data.consignee || 'N/A'}</p>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
+                <MapPin className="h-3 w-3" /> Ship to Party
+              </div>
+              <p className="text-[10px] font-black uppercase text-slate-100">{data.shipToParty || 'N/A'}</p>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
+                <ShoppingCart className="h-3 w-3" /> Order Quantity
+              </div>
+              <p className="text-[10px] font-black text-emerald-500">{data.orderQty || '0 MT'}</p>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
+                <Truck className="h-3 w-3" /> Route
+              </div>
+              <p className="text-[10px] font-black uppercase text-blue-300">
+                {data.route || 'TRANSIT PENDING'}
+              </p>
+            </div>
+          </div>
+
+          {/* Mission Status Content */}
+          <div className="flex justify-center pt-8">
+            <div className="bg-[#f0f7ff] border-l-[6px] border-blue-600 rounded-[2.5rem] p-10 md:p-16 max-w-4xl w-full shadow-lg relative flex flex-col items-center text-center">
+               <h2 className="text-xl md:text-2xl font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
+                SALE ORDER <span className="text-blue-700">{data.saleOrder}</span> IS BOOKED FOR DISPATCH ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>. VEHICLE WILL BE ASSIGNED SHORTLY.
+               </h2>
+
+               {/* Official Delay Registry Node */}
+               <div className="mt-12 bg-orange-500 p-6 rounded-[1.5rem] shadow-xl border border-orange-600 max-w-lg w-full">
+                  <div className="flex items-center justify-center gap-3 text-white mb-4">
+                    <AlertTriangle className="h-5 w-5" />
+                    <span className="text-[11px] font-black uppercase tracking-widest">Official Delay Registry Node</span>
+                  </div>
+                  <p className="text-white text-[12px] font-black italic bg-black/10 p-4 rounded-xl border border-white/20 leading-relaxed">
+                    "Discussed with customer Delivery on Monday 27-April-2026"
+                  </p>
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[80vh] bg-slate-50 flex flex-col items-center justify-center p-6 py-12">
@@ -113,76 +213,48 @@ export default function TrackPage() {
           </Button>
         </div>
 
-        {result && (
+        {result && !result.found && (
           <div className="animate-fade-in border-t border-slate-100 pt-8 mt-8">
-            {!result.found ? (
-              <div className="flex flex-col items-center gap-4 p-6 bg-red-50 rounded-3xl border border-red-100">
-                <AlertCircle className="h-8 w-8 text-red-500" />
-                <p className="text-xs font-black uppercase text-red-600 text-center tracking-tight">
-                  {result.message}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-blue-900" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mission Node Result</span>
-                  </div>
-                  <CheckCircle className="h-4 w-4 text-emerald-500" />
-                </div>
-
-                <div className="bg-slate-900 p-8 rounded-[2rem] text-white space-y-6 shadow-xl">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-400">Current Status</p>
-                      <h3 className="text-2xl font-black uppercase italic tracking-tighter mt-1 leading-tight">
-                        {result.data.status === 'PLACED' 
-                          ? `YOUR ORDER NO. '${result.data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY` 
-                          : result.data.status}
-                      </h3>
-                    </div>
-                    <Truck className="h-10 w-10 text-white/20 ml-4 shrink-0" />
-                  </div>
-
-                  <div className="space-y-3.5 pt-4 border-t border-white/10">
-                    <div className="flex justify-between text-[11px] font-bold">
-                      <span className="text-slate-400 uppercase tracking-tighter">Vehicle No.</span>
-                      <span className="uppercase">{result.data.vehicleNumber || 'ASSIGNING...'}</span>
-                    </div>
-                    <div className="flex justify-between text-[11px] font-bold">
-                      <span className="text-slate-400 uppercase tracking-tighter">Registry ID</span>
-                      <span>{result.data.saleOrder || result.data.tripId || 'N/A'}</span>
-                    </div>
-                    
-                    <div className="flex justify-between text-[11px] font-bold">
-                      <span className="text-slate-400 uppercase tracking-tighter">Consignor</span>
-                      <span className="uppercase text-right ml-4">{result.data.consignor || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between text-[11px] font-bold">
-                      <span className="text-slate-400 uppercase tracking-tighter">Consignee</span>
-                      <span className="uppercase text-right ml-4">{result.data.consignee || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between text-[11px] font-bold">
-                      <span className="text-slate-400 uppercase tracking-tighter">Ship-to-Party</span>
-                      <span className="uppercase text-right ml-4">{result.data.shipToParty || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between text-[11px] font-bold">
-                      <span className="text-slate-400 uppercase tracking-tighter">Order Qty.</span>
-                      <span className="text-blue-400">{result.data.orderQty || 'N/A'}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-3 border-t border-white/5">
-                      <MapPin className="h-3 w-3 text-blue-400" />
-                      <span className="text-[9px] font-bold uppercase truncate text-slate-400 tracking-tight">
-                        {result.data.route || result.data.destination || 'TRANSIT PENDING'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            <div className="flex flex-col items-center gap-4 p-6 bg-red-50 rounded-3xl border border-red-100">
+              <AlertCircle className="h-8 w-8 text-red-500" />
+              <p className="text-xs font-black uppercase text-red-600 text-center tracking-tight">
+                {result.message}
+              </p>
+            </div>
           </div>
+        )}
+
+        {result && result.found && type === 'trip' && (
+           <div className="animate-fade-in border-t border-slate-100 pt-8 mt-8">
+              <div className="bg-slate-900 p-8 rounded-[2rem] text-white space-y-6 shadow-xl relative overflow-hidden">
+                <div className="flex justify-between items-start relative z-10">
+                  <div className="flex-1">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-400">Current Status</p>
+                    <h3 className="text-2xl font-black uppercase italic tracking-tighter mt-1 leading-tight">
+                      {result.data.status}
+                    </h3>
+                  </div>
+                  <Truck className="h-10 w-10 text-white/20 ml-4 shrink-0" />
+                </div>
+                <div className="space-y-3.5 pt-4 border-t border-white/10 relative z-10">
+                  <div className="flex justify-between text-[11px] font-bold">
+                    <span className="text-slate-400 uppercase tracking-tighter">Vehicle No.</span>
+                    <span className="uppercase">{result.data.vehicleNumber || 'ASSIGNING...'}</span>
+                  </div>
+                  <div className="flex justify-between text-[11px] font-bold">
+                    <span className="text-slate-400 uppercase tracking-tighter">Registry ID</span>
+                    <span>{result.data.tripId}</span>
+                  </div>
+                  <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+                    <MapPin className="h-3 w-3 text-blue-400" />
+                    <span className="text-[9px] font-black uppercase truncate text-slate-400 tracking-tight">
+                      {result.data.route || 'TRANSIT PENDING'}
+                    </span>
+                  </div>
+                </div>
+                <Button onClick={handleBack} variant="ghost" className="w-full text-[10px] font-black uppercase text-blue-400 mt-4 hover:bg-white/5">Back to Search</Button>
+              </div>
+           </div>
         )}
       </div>
     </div>
