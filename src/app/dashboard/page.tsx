@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -373,7 +374,7 @@ export default function SapDashboard() {
         <Dialog open={showPrintPreview} onOpenChange={setShowPrintPreview}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none bg-slate-800 shadow-2xl">
             <div className="bg-slate-900 p-4 flex justify-between items-center sticky top-0 z-10 border-b border-white/10">
-              <h2 className="text-white font-black uppercase italic tracking-tighter text-sm">Registry Print Handshake: LR Preview</h2>
+              <DialogTitle className="text-white font-black uppercase italic tracking-tighter text-sm">Registry Print Handshake: LR Preview</DialogTitle>
               <Button onClick={handleActualPrint} className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-[10px] tracking-widest h-9 px-8 rounded-lg">Confirm & Print Mission Node</Button>
             </div>
             <div className="p-12 bg-slate-200">
@@ -493,6 +494,12 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
   const plantOpts = (allPlants || []).map((p: any) => p.plantCode);
   const consignors = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignor').map((c: any) => c.customerName)));
   const consignees = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignee').map((c: any) => c.customerName)));
+  const shipto = Array.from(new Set((allCustomers || []).map((c: any) => c.customerName)));
+  const cities = Array.from(new Set([
+    ...(allPlants || []).map((p: any) => p.city),
+    ...(allCustomers || []).map((c: any) => c.city)
+  ].filter(Boolean)));
+
   return <div className="space-y-8">
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
       <FormSelect label="Plant Code" value={data.plantCode} options={plantOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
@@ -501,6 +508,9 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
       <FormInput label="Sale Order No" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
       <FormSelect label="Consignor" value={data.consignor} options={consignors} onChange={(v: string) => onChange({...data, consignor: v})} disabled={disabled} />
       <FormSelect label="Consignee" value={data.consignee} options={consignees} onChange={(v: string) => onChange({...data, consignee: v})} disabled={disabled} />
+      <FormSelect label="Ship To Party" value={data.shipToParty} options={shipto} onChange={(v: string) => onChange({...data, shipToParty: v})} disabled={disabled} />
+      <FormSelect label="From City" value={data.from} options={cities} onChange={(v: string) => onChange({...data, from: v})} disabled={disabled} />
+      <FormSelect label="Destination" value={data.destination} options={cities} onChange={(v: string) => onChange({...data, destination: v})} disabled={disabled} />
     </div>
     <div className="space-y-4"><SectionHeader title="Product Registry" />
       <table className="w-full text-left border-collapse border border-slate-300 text-[10px]">
@@ -533,7 +543,12 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && data.saleOrder) {
       const order = allOrders?.find((o: any) => (o.saleOrder || o.saleOrderNumber || o.id)?.toString().toUpperCase() === data.saleOrder.toString().toUpperCase());
-      if (order) onChange({ ...data, ...order, weight: `${order.items?.[0]?.weight || '0'} ${order.items?.[0]?.weightUom || 'MT'}` });
+      if (order) onChange({ 
+        ...data, 
+        ...order, 
+        weight: `${order.items?.[0]?.weight || '0'} ${order.items?.[0]?.weightUom || 'MT'}`,
+        productName: order.items?.[0]?.product || 'SALT'
+      });
     }
   };
   return <div className="space-y-6">
@@ -541,7 +556,15 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
       <label className="text-[10px] font-black uppercase text-red-600">Sales Order Number *</label>
       <input className="h-12 border border-red-200 rounded-xl px-4 text-sm font-black outline-none" placeholder="ENTER ORDER NO. & ENTER" value={data.saleOrder || ''} onChange={(e) => onChange({ ...data, saleOrder: e.target.value.toUpperCase() })} onKeyDown={handleKeyDown} />
     </div>
-    <div className="grid grid-cols-2 gap-4 bg-slate-50 p-6 rounded-[2rem]"><DetailRow label="Consignor" value={data.consignor} /><DetailRow label="Consignee" value={data.consignee} /></div>
+    <div className="grid grid-cols-2 gap-4 bg-slate-50 p-6 rounded-[2rem]">
+      <DetailRow label="Consignor" value={data.consignor} />
+      <DetailRow label="From" value={data.from} />
+      <DetailRow label="Consignee" value={data.consignee} />
+      <DetailRow label="Ship To Party" value={data.shipToParty} />
+      <DetailRow label="Destination" value={data.destination} />
+      <DetailRow label="Product Name" value={data.productName} />
+      <DetailRow label="Weight" value={data.weight} />
+    </div>
     <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400">Reason *</label><textarea className="w-full min-h-[100px] rounded-2xl border border-slate-200 p-4 font-bold" value={data.reason || ''} onChange={(e) => onChange({ ...data, reason: e.target.value })} /></div>
     <div className="flex justify-end gap-4"><Button onClick={onCancel} variant="ghost" className="font-black uppercase text-[10px]">Cancel</Button><Button onClick={onPost} className="bg-red-600 hover:bg-black text-white font-black uppercase text-[10px] px-8 h-12">Post Cancellation</Button></div>
   </div>;
@@ -577,6 +600,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR }: { order
       invoiceNumber: selectedOrder.items?.[0]?.invoiceNumber || '',
       product: selectedOrder.items?.[0]?.product || 'SALT',
       weightUom: selectedOrder.items?.[0]?.weightUom || 'MT',
+      shipToParty: selectedOrder.shipToParty || '',
       route: `${selectedOrder.from || 'Sikka'}--${selectedOrder.destination || 'Unloaded'}`
     };
     setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', newId), payload, { merge: true });
@@ -598,7 +622,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR }: { order
       <Tabs defaultValue="OPEN">
         <TabsList className="bg-slate-100 rounded-2xl w-full justify-start overflow-x-auto gap-1 h-12 p-1">
           {['OPEN', 'LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD', 'CLOSED'].map(s => (
-            <TabsTrigger key={s} value={s} className="rounded-xl px-6 font-black text-[10px] uppercase data-[state=active]:bg-[#0056d2] data-[state=active]:text-white text-slate-600 h-10">{s}</TabsTrigger>
+            <TabsTrigger key={s} value={s} className="rounded-xl px-6 font-black text-[10px] uppercase data-[state=active]:bg-[#0056d2] data-[state=active]:text-white text-slate-600 h-10">{s} ({s === 'OPEN' ? orders?.filter(o => (plantFilter === 'ALL' || o.plantCode === plantFilter) && o.status !== 'CANCELLED').length : getTripsByStatus(s).length})</TabsTrigger>
           ))}
         </TabsList>
         <TabsContent value="OPEN" className="mt-6 bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden">
@@ -651,6 +675,22 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR }: { order
             <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400">Driver Mobile</label><Input value={driverMobile} onChange={(e) => setDriverMobile(e.target.value)} placeholder="+91..." /></div>
           </div>
           <DialogFooter className="p-6 border-t"><Button onClick={handleAssign} className="bg-[#0056d2] hover:bg-black text-white px-8 h-12 rounded-xl font-black uppercase text-[10px]">Assign Mission</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* VIEW TRIP MODAL */}
+      <Dialog open={!!viewTrip} onOpenChange={() => setViewTrip(null)}>
+        <DialogContent className="max-w-xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden font-mono">
+          <div className="bg-[#0056d2] p-6 text-white flex flex-col items-center">
+            <DialogTitle className="text-xl font-black uppercase italic tracking-tighter">Mission Registry Hub</DialogTitle>
+            <span className="text-[10px] font-bold text-white/60 tracking-widest mt-1">NODE: {viewTrip?.tripId}</span>
+          </div>
+          <div className="p-8 space-y-6">
+            <div className="grid grid-cols-1 gap-4"><SectionHeader title="Mission Consignment" /><DetailRow label="Consignor" value={viewTrip?.consignor} /><DetailRow label="Consignee" value={viewTrip?.consignee} /><DetailRow label="Ship-to-Party" value={viewTrip?.shipToParty} /></div>
+            <div className="grid grid-cols-1 gap-4"><SectionHeader title="Official Documentation" /><DetailRow label="LR Number" value={viewTrip?.lrNo} /><DetailRow label="Invoice" value={viewTrip?.invoiceNumber} /><DetailRow label="Route" value={viewTrip?.route} /></div>
+            <div className="grid grid-cols-1 gap-4"><SectionHeader title="Mission Specs" /><DetailRow label="Vehicle No" value={viewTrip?.vehicleNumber} /><DetailRow label="Assigned Qty" value={`${viewTrip?.assignWeight} ${viewTrip?.weightUom}`} /></div>
+          </div>
+          <DialogFooter className="p-6 border-t"><Button onClick={() => setViewTrip(null)} className="w-full bg-slate-900 hover:bg-black text-white h-12 rounded-xl font-black uppercase text-[10px]">Close Node</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
