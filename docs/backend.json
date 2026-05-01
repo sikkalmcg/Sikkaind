@@ -56,7 +56,7 @@
       "description": "Company hub.",
       "properties": {
         "id": { "type": "string" },
-        "plantCode": { "type": "string" },
+        "plantCodes": { "type": "array", "items": { "type": "string" } },
         "companyCode": { "type": "string" },
         "companyName": { "type": "string" },
         "address": { "type": "string" },

@@ -629,11 +629,33 @@ function PlantForm({ data, onChange, disabled }: any) {
 }
 
 function CompanyForm({ data, onChange, disabled, allPlants }: any) {
-  const plantOpts = (allPlants || []).map((p: any) => ({ value: p.plantCode, label: `${p.plantCode}` }));
+  const plants = (allPlants || []).map((p: any) => p.plantCode);
+  const handlePlantToggle = (plant: string) => {
+    const current = data.plantCodes || [];
+    const updated = current.includes(plant) ? current.filter((p: string) => p !== plant) : [...current, plant];
+    onChange({...data, plantCodes: updated});
+  };
   return (
     <div className="space-y-4">
       <SectionGrouping title="IDENTIFICATION">
-        <FormSelect label="PLANT" value={data.plantCode} options={plantOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <div className="col-span-2 space-y-2 mb-4">
+          <label className="text-[10px] font-bold text-slate-500 uppercase">Plant Assignment (Multiple)</label>
+          <div className="flex flex-wrap gap-2">
+            {plants.map((p: string) => (
+              <button 
+                key={p} 
+                onClick={() => handlePlantToggle(p)}
+                disabled={disabled}
+                className={cn(
+                  "px-3 py-1.5 text-[10px] font-black border uppercase transition-all",
+                  data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-600 border-slate-300"
+                )}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
         <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
         <FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
       </SectionGrouping>
@@ -933,7 +955,12 @@ function RegistryList({ onSelectItem, listData }: any) {
       <table className="w-full text-left border-collapse">
         <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr>{['ID', 'Name / Description', 'Type / Details', 'Sync Hub'].map(c => <th key={c} className="p-3 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">{c}</th>)}</tr></thead>
         <tbody>{listData?.map((item: any) => (
-          <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors"><td className="p-3 text-[11px] font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.vendorCode || item.id.slice(0, 8)}</td><td className="p-3 text-[11px] font-bold uppercase">{item.customerName || item.plantName || item.vendorName || `${item.consignor} → ${item.consignee}`}</td><td className="p-3 text-[11px] italic text-slate-500">{item.city || item.customerType || item.vendorCode || 'DATA'}</td><td className="p-3 text-[11px] font-bold text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></tr>
+          <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors">
+            <td className="p-3 text-[11px] font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.vendorCode || item.companyCode || item.id.slice(0, 8)}</td>
+            <td className="p-3 text-[11px] font-bold uppercase">{item.customerName || item.plantName || item.vendorName || item.companyName || `${item.consignor} → ${item.consignee}`}</td>
+            <td className="p-3 text-[11px] italic text-slate-500">{item.city || item.customerType || item.vendorCode || 'DATA'}</td>
+            <td className="p-3 text-[11px] font-bold text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td>
+          </tr>
         ))}</tbody>
       </table>
     </div>
@@ -1038,7 +1065,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
   const matchingVendors = vendors?.filter(v => v.vendorName?.toUpperCase().includes(vendorSearch.toUpperCase()));
 
   const handleCnClick = (trip: any) => {
-    const carrier = companies?.find(c => c.plantCode === trip.plantCode)?.companyName || 'Sikka Logistics';
+    const carrier = companies?.find(c => c.plantCodes?.includes(trip.plantCode))?.companyName || 'Sikka Logistics';
     setCnData({
       consignor: trip.consignor,
       consignee: trip.consignee,
@@ -1344,26 +1371,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code: string) => void }) {
-  return (
-    <div className="space-y-6">
-      <div className="bg-slate-50 p-6 border-b border-slate-200"><h2 className="text-sm font-black uppercase tracking-widest text-[#1e3a8a]">System Master Transaction</h2></div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead><tr className="bg-[#f0f0f0] border-b-2 border-slate-300"><th className="p-4 text-[10px] font-black uppercase text-slate-500 w-32">T-Code</th><th className="p-4 text-[10px] font-black uppercase text-slate-500">Description</th><th className="p-4 text-[10px] font-black uppercase text-slate-500 w-48">Module</th></tr></thead>
-          <tbody>{tcodes.map((t) => (
-            <tr key={t.code} onClick={() => onExecute(t.code)} className="border-b border-slate-200 hover:bg-blue-50 cursor-pointer transition-colors group">
-              <td className="p-4 font-black text-blue-600 group-hover:underline">{t.code}</td>
-              <td className="p-4 font-bold text-slate-700 uppercase">{t.description}</td>
-              <td className="p-4"><Badge variant="outline" className="rounded-none border-slate-300 text-[9px] font-black px-3 py-1 bg-white uppercase">{t.module || 'DATA'}</Badge></td>
-            </tr>
-          ))}</tbody>
-        </table>
-      </div>
     </div>
   );
 }
