@@ -364,7 +364,6 @@ export default function SapDashboard() {
   const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
   const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
   
-  // TASK: Auto-hide favorite bar when any transaction page is opened (activeScreen is not HOME)
   const hideSidebar = activeScreen !== 'HOME';
 
   React.useEffect(() => {
@@ -640,7 +639,7 @@ function FormInput({ label, value, onChange, type = "text", disabled, placeholde
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
-      <Input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder={placeholder} className="h-9 rounded-none border-slate-400 text-xs font-bold bg-white focus:ring-1 focus:ring-blue-600 shadow-sm" />
+      <Input type={type} value={value || ''} onChange={(v: string) => onChange(v)} disabled={disabled} placeholder={placeholder} className="h-9 rounded-none border-slate-400 text-xs font-bold bg-white focus:ring-1 focus:ring-blue-600 shadow-sm" />
     </div>
   );
 }
@@ -857,8 +856,15 @@ function CustomerForm({ data, onChange, disabled, allPlants }: any) {
 
 function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: any) {
   const plantOpts = (allPlants || []).map((p: any) => p.plantCode);
-  const consignors = (allCustomers || []).filter((c: any) => c.customerType === 'Consignor');
-  const shipToParties = (allCustomers || []).filter((c: any) => c.customerType === 'Consignee - Ship to Party');
+  
+  // Filter customers based on selected plant strictly
+  const plantFilteredCustomers = React.useMemo(() => {
+    if (!data.plantCode) return [];
+    return (allCustomers || []).filter((c: any) => c.plantCodes?.includes(data.plantCode));
+  }, [allCustomers, data.plantCode]);
+
+  const consignors = plantFilteredCustomers.filter((c: any) => c.customerType === 'Consignor');
+  const shipToParties = plantFilteredCustomers.filter((c: any) => c.customerType === 'Consignee - Ship to Party');
 
   const items = data.items || [{ invoice: '', ewaybill: '', product: '', weight: '', weightUom: 'MT' }];
 
@@ -901,7 +907,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
         <FormSelect 
           label="CONSIGNEE" 
           value={data.consignee} 
-          options={(allCustomers || []).map((c: any) => c.customerName)} 
+          options={plantFilteredCustomers.map((c: any) => c.customerName)} 
           onChange={(v: string) => onChange({...data, consignee: v})} 
           disabled={disabled} 
         />
@@ -1030,7 +1036,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
   const [cnPopup, setCnPopup] = React.useState<{ isOpen: boolean, trip: any | null, isEdit: boolean }>({ isOpen: false, trip: null, isEdit: false });
   const [cnData, setCnData] = React.useState<any>({});
   const [cnPreview, setCnPreview] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null });
-  const [vehicleEditPopup, setVehicleEditPopup] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null });
+  const [vehicleEditPopup, setVehicleEditPopup] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: boolean, trip: null });
   const [vehicleEditData, setVehicleEditData] = React.useState<any>({});
   const [vehicleOutPopup, setVehicleOutPopup] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null });
   const [vehicleOutData, setVehicleOutData] = React.useState<any>({});
@@ -1323,7 +1329,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
                 { label: 'Ship To', val: cnData.shipToParty }, { label: 'Route', val: cnData.route }, 
                 { label: 'Vehicle No', val: cnData.vehicleNumber }, { label: 'Carrier Name', val: cnData.carrierName }
               ].map(item => (
-                <div key={item.label} className="space-y-1"><p className="text-[7px] font-black uppercase text-slate-400 tracking-widest">{item.label}</p><p className="text-[9px] font-black text-[#1e3a8a] truncate">{item.val}</p></div>
+                <div key={item.label} className="space-y-1"><p className="text-[7px] font-black uppercase text-slate-400 tracking-widest">{item.label}</p><p className="text-9px font-black text-[#1e3a8a] truncate">{item.val}</p></div>
               ))}
             </div>
             <div className="grid grid-cols-3 gap-6">
@@ -1359,7 +1365,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
              <div className="flex justify-between items-start border-b-2 border-slate-800 pb-8">
                <div className="space-y-2">
                   <h1 className="text-3xl font-black italic text-[#1e3a8a] tracking-tighter uppercase">{cnPreview.trip?.carrierName}</h1>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Premium Logistics Hub node</p>
+                  <p className="text-10px font-black text-slate-400 uppercase tracking-widest">Premium Logistics Hub node</p>
                </div>
                <div className="text-right space-y-1">
                   <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Consignment Note No.</p>
@@ -1378,14 +1384,14 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
                </div>
              </div>
              <table className="w-full border-2 border-slate-800 border-collapse">
-                <thead className="bg-slate-50 border-b-2 border-slate-800"><tr>{['Invoice', 'E-waybill', 'Product', 'Quantity'].map(h => <th key={h} className="p-3 text-[10px] font-black uppercase text-left border-r border-slate-800">{h}</th>)}</tr></thead>
+                <thead className="bg-slate-50 border-b-2 border-slate-800"><tr>{['Invoice', 'E-waybill', 'Product', 'Quantity'].map(h => <th key={h} className="p-3 text-10px font-black uppercase text-left border-r border-slate-800">{h}</th>)}</tr></thead>
                 <tbody>{cnPreview.trip?.items?.map((it: any, i: number) => (
                   <tr key={i} className="border-b border-slate-200"><td className="p-3 text-[11px] font-bold border-r border-slate-800">{it.invoice}</td><td className="p-3 text-[11px] font-bold border-r border-slate-800">{it.ewaybill}</td><td className="p-3 text-[11px] font-bold border-r border-slate-800">{it.product}</td><td className="p-3 text-[11px] font-black border-r border-slate-800">{it.unit} {it.unitUom}</td></tr>
                 ))}</tbody>
              </table>
              <div className="flex justify-between items-end pt-12">
-                <div className="space-y-4"><div className="w-48 h-[1px] bg-slate-400" /><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Receiver's Signature</p></div>
-                <div className="text-right space-y-4"><div className="w-48 h-[1px] bg-slate-400 ml-auto" /><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Authorized Signatory</p></div>
+                <div className="space-y-4"><div className="w-48 h-[1px] bg-slate-400" /><p className="text-10px font-black uppercase text-slate-400 tracking-widest">Receiver's Signature</p></div>
+                <div className="text-right space-y-4"><div className="w-48 h-[1px] bg-slate-400 ml-auto" /><p className="text-10px font-black uppercase text-slate-400 tracking-widest">Authorized Signatory</p></div>
              </div>
           </div>
         </DialogContent>
