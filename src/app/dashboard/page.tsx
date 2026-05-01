@@ -1,13 +1,14 @@
+
 'use client';
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  Printer, Save, ArrowLeft, ArrowRight, 
-  RotateCcw, X, HelpCircle, LogOut, LayoutDashboard,
-  ChevronRight, Building2, Check, AlertCircle, Info, PlusCircle, Trash2,
-  Grid2X2, Upload, FileText, Download, Calendar as CalendarIcon,
-  ShoppingBag, ArrowUpRight
+  Printer, Save, RotateCcw, X, HelpCircle, LogOut,
+  ChevronRight, Check, AlertCircle, Info, PlusCircle, Trash2,
+  Grid2X2, Upload, Download, ShoppingBag, ArrowUpRight,
+  Filter, Truck, Calendar, MapPin, User, DollarSign, Activity,
+  Layers, PackageCheck, Ban, Lock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,8 +26,17 @@ import {
   setDocumentNonBlocking 
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter 
+} from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 
-type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'BULK';
+type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'TR21' | 'BULK';
 
 export default function SapDashboard() {
   const router = useRouter();
@@ -39,9 +49,12 @@ export default function SapDashboard() {
   const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
   const tCodeRef = React.useRef<HTMLInputElement>(null);
 
-  // Memoize sales order query for the Home Screen summary
+  // Memoize data for various contexts
   const ordersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'sales_orders') : null, [user, db]);
+  const tripsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'trips') : null, [user, db]);
+  
   const { data: recentOrders } = useCollection(ordersQuery);
+  const { data: allTrips } = useCollection(tripsQuery);
 
   const handleSave = () => {
     if (!user) {
@@ -49,7 +62,7 @@ export default function SapDashboard() {
       return;
     }
     
-    if (activeScreen === 'HOME' || activeScreen === 'BULK' || activeScreen.endsWith('02') || activeScreen.endsWith('03')) {
+    if (activeScreen === 'HOME' || activeScreen === 'BULK' || activeScreen === 'TR21' || activeScreen.endsWith('02') || activeScreen.endsWith('03')) {
       setStatusMsg({ text: 'No active transaction to save', type: 'info' });
       return;
     }
@@ -91,7 +104,7 @@ export default function SapDashboard() {
     const formatted = code.toUpperCase().trim();
     const cleanCode = formatted.startsWith('/N') ? formatted.slice(2) : formatted;
     
-    const validCodes = ['OX01', 'OX02', 'OX03', 'FM01', 'FM02', 'FM03', 'XK01', 'XK02', 'XK03', 'XD01', 'XD02', 'XD03', 'VA01', 'VA02', 'VA03', 'BULK'];
+    const validCodes = ['OX01', 'OX02', 'OX03', 'FM01', 'FM02', 'FM03', 'XK01', 'XK02', 'XK03', 'XD01', 'XD02', 'XD03', 'VA01', 'VA02', 'VA03', 'TR21', 'BULK'];
     
     if (validCodes.includes(cleanCode)) {
       setActiveScreen(cleanCode as Screen);
@@ -202,10 +215,9 @@ export default function SapDashboard() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar - Auto hides when module is active */}
+        {/* Sidebar */}
         {!isModuleActive && (
           <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-sm animate-fade-in print:hidden">
-             {/* Header branding */}
              <div className="p-6 border-b border-slate-100 flex items-center gap-4">
                 <div className="bg-[#0056d2] p-2 rounded-lg flex items-center justify-center">
                    <Grid2X2 className="h-6 w-6 text-white" />
@@ -219,8 +231,6 @@ export default function SapDashboard() {
                   </span>
                 </div>
              </div>
-             
-             {/* Favorites list */}
              <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar">
                 <div className="space-y-4">
                   <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 mb-6">Favorites</p>
@@ -230,6 +240,7 @@ export default function SapDashboard() {
                     { code: 'XK01', label: 'Create Vendor' },
                     { code: 'XD01', label: 'Create Customer' },
                     { code: 'VA01', label: 'Create Sales Order' },
+                    { code: 'TR21', label: 'Drip Board Control' },
                     { code: 'BULK', label: 'Bulk Data Upload' },
                   ].map((item) => (
                     <button 
@@ -252,7 +263,6 @@ export default function SapDashboard() {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col bg-[#f0f3f9] overflow-y-auto no-scrollbar">
-          {/* Centered Title Bar */}
           <div className="bg-[#0056d2] text-white py-1.5 px-6 shadow-lg print:bg-white print:text-black print:shadow-none flex flex-col items-center justify-center min-h-[50px]">
             <h1 className="text-xl font-black italic tracking-tighter uppercase leading-none text-center">
               {activeScreen === 'HOME' ? 'Sikka Logistics Hub' : activeScreen}
@@ -265,7 +275,6 @@ export default function SapDashboard() {
           <div id="printable-area" className={`p-8 w-full ${isModuleActive ? 'max-w-none' : 'max-w-7xl'} mx-auto`}>
             {activeScreen === 'HOME' ? (
               <div className="space-y-8 animate-fade-in">
-                {/* Recent Orders Overview replacing the firm image placeholder */}
                 <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl overflow-hidden">
                    <div className="bg-slate-900 px-8 py-5 flex items-center justify-between">
                       <div className="flex items-center gap-4">
@@ -311,17 +320,10 @@ export default function SapDashboard() {
                         </tbody>
                       </table>
                    </div>
-                   {recentOrders && recentOrders.length > 5 && (
-                     <div className="p-4 border-t border-slate-50 text-center">
-                       <button onClick={() => executeTCode('VA03')} className="text-[10px] font-black text-[#0056d2] uppercase tracking-widest hover:underline flex items-center justify-center gap-2 mx-auto">
-                         View Complete Order Registry <ArrowUpRight className="h-3 w-3" />
-                       </button>
-                     </div>
-                   )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                  {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'BULK'].map((code) => (
+                  {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'TR21'].map((code) => (
                     <div key={code} onClick={() => executeTCode(code)} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
                       <div className="flex items-center justify-between mb-4">
                         <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1 font-black italic">{code}</Badge>
@@ -341,6 +343,7 @@ export default function SapDashboard() {
                    {activeScreen === 'XK01' && <VendorForm data={formData} onChange={setFormData} />}
                    {activeScreen === 'XD01' && <CustomerForm data={formData} onChange={setFormData} />}
                    {activeScreen === 'VA01' && <SalesOrderForm data={formData} onChange={setFormData} />}
+                   {activeScreen === 'TR21' && <DripBoard orders={recentOrders} trips={allTrips} onStatusUpdate={setStatusMsg} />}
                    {activeScreen === 'BULK' && <BulkUploadForm setStatus={setStatusMsg} />}
                    {(activeScreen.endsWith('02') || activeScreen.endsWith('03')) && <RegistryList screen={activeScreen} />}
                  </div>
@@ -372,6 +375,296 @@ export default function SapDashboard() {
   );
 }
 
+function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, trips: any[] | null, onStatusUpdate: any }) {
+  const { user } = useUser();
+  const db = useFirestore();
+  const [plantFilter, setPlantFilter] = React.useState('ALL');
+  const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
+  const [assignWeight, setAssignWeight] = React.useState<string>('');
+  const [vehicleNo, setVehicleNo] = React.useState('');
+  const [driverMobile, setDriverMobile] = React.useState('');
+  const [vendorName, setVendorName] = React.useState('');
+  const [rate, setRate] = React.useState<string>('');
+  const [freightAmount, setFreightAmount] = React.useState<string>('');
+  const [isFixRate, setIsFixRate] = React.useState(false);
+
+  // Fetch plants for filter
+  const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
+  const { data: plants } = useCollection(plantsQuery);
+
+  // Auto calculate freight
+  React.useEffect(() => {
+    if (!isFixRate && assignWeight && rate) {
+      const total = parseFloat(assignWeight) * parseFloat(rate);
+      setFreightAmount(total.toString());
+    }
+  }, [assignWeight, rate, isFixRate]);
+
+  const handleAssign = () => {
+    if (!user || !selectedOrder) return;
+    
+    const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
+    const newTripId = crypto.randomUUID();
+    
+    const tripData = {
+      id: newTripId,
+      tripId: tripId,
+      saleOrderId: selectedOrder.id,
+      saleOrderNumber: selectedOrder.saleOrder,
+      plantCode: selectedOrder.plantCode,
+      shipToParty: selectedOrder.shipToParty,
+      route: `${selectedOrder.from} - ${selectedOrder.destination}`,
+      assignWeight: parseFloat(assignWeight),
+      vehicleNumber: vehicleNo,
+      driverMobile: driverMobile,
+      vendorName: vendorName,
+      rate: isFixRate ? 0 : parseFloat(rate),
+      freightAmount: parseFloat(freightAmount),
+      isFixedRate: isFixRate,
+      status: 'LOADING',
+      createdAt: new Date().toISOString()
+    };
+
+    const docRef = doc(db, 'users', user.uid, 'trips', newTripId);
+    setDocumentNonBlocking(docRef, tripData, { merge: true });
+
+    onStatusUpdate({ text: `Trip ${tripId} registered successfully`, type: 'success' });
+    setSelectedOrder(null);
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setAssignWeight('');
+    setVehicleNo('');
+    setDriverMobile('');
+    setVendorName('');
+    setRate('');
+    setFreightAmount('');
+    setIsFixRate(false);
+  };
+
+  const calculateRemainingWeight = (orderId: string, totalWeight: number) => {
+    const assigned = trips?.filter(t => t.saleOrderId === orderId).reduce((sum, t) => sum + (t.assignWeight || 0), 0) || 0;
+    return totalWeight - assigned;
+  };
+
+  const filteredOrders = orders?.filter(o => {
+    const totalW = o.items?.reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0) || 0;
+    const remaining = calculateRemainingWeight(o.id, totalW);
+    const matchesPlant = plantFilter === 'ALL' || o.plantCode === plantFilter;
+    return remaining > 0 && matchesPlant;
+  });
+
+  const getTripsByStatus = (status: string) => {
+    return trips?.filter(t => t.status === status && (plantFilter === 'ALL' || t.plantCode === plantFilter)) || [];
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+        <Filter className="h-4 w-4 text-slate-400" />
+        <span className="text-[10px] font-black uppercase text-slate-400">Plant Filter</span>
+        <select 
+          className="h-9 border-none bg-white px-4 rounded-lg font-bold text-xs outline-none shadow-sm min-w-[200px]"
+          value={plantFilter}
+          onChange={(e) => setPlantFilter(e.target.value)}
+        >
+          <option value="ALL">ALL PLANTS</option>
+          {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
+        </select>
+      </div>
+
+      <Tabs defaultValue="OPEN" className="w-full">
+        <TabsList className="bg-slate-100 p-1 rounded-2xl w-full justify-start overflow-x-auto no-scrollbar gap-1 h-12">
+          {['OPEN ORDER', 'LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD SECTION', 'REJECTION', 'CLOSED'].map((tab) => (
+            <TabsTrigger 
+              key={tab} 
+              value={tab.split(' ')[0]}
+              className="rounded-xl px-6 font-black text-[10px] uppercase tracking-wider data-[state=active]:bg-[#0056d2] data-[state=active]:text-white h-10"
+            >
+              {tab}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="OPEN" className="mt-6">
+          <div className="overflow-x-auto rounded-3xl border border-slate-100 shadow-xl bg-white">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="p-4 text-[9px] font-black uppercase text-slate-400">Order Header</th>
+                  <th className="p-4 text-[9px] font-black uppercase text-slate-400">Consignor</th>
+                  <th className="p-4 text-[9px] font-black uppercase text-slate-400">Consignee</th>
+                  <th className="p-4 text-[9px] font-black uppercase text-slate-400">Ship To Party</th>
+                  <th className="p-4 text-[9px] font-black uppercase text-slate-400">Route</th>
+                  <th className="p-4 text-[9px] font-black uppercase text-slate-400">Remaining Weight</th>
+                  <th className="p-4 text-[9px] font-black uppercase text-slate-400 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOrders?.map(order => {
+                  const totalW = order.items?.reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0) || 0;
+                  const remaining = calculateRemainingWeight(order.id, totalW);
+                  const uom = order.items?.[0]?.weightUom || 'KG';
+                  
+                  return (
+                    <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                      <td className="p-4 font-black text-xs text-[#0056d2]">{order.saleOrder}</td>
+                      <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.consignor}</td>
+                      <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.consignee}</td>
+                      <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.shipToParty}</td>
+                      <td className="p-4 font-bold text-[10px] uppercase text-slate-400 italic">
+                        {order.from} - {order.destination}
+                      </td>
+                      <td className="p-4 font-black text-xs">
+                        <Badge variant="outline" className="border-blue-100 text-[#0056d2] rounded-lg px-2">
+                          {remaining} {uom}
+                        </Badge>
+                      </td>
+                      <td className="p-4 text-center">
+                        <Button 
+                          onClick={() => setSelectedOrder(order)}
+                          className="bg-[#0056d2] hover:bg-black text-white h-8 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest gap-2"
+                        >
+                          <Truck className="h-3 w-3" /> Assign Vehicle
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        {['LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD', 'REJECTION', 'CLOSED'].map(status => (
+          <TabsContent key={status} value={status} className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {getTripsByStatus(status).map(trip => (
+                <div key={trip.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Badge className="bg-slate-900 text-white rounded-lg px-3 py-1 font-black italic">{trip.tripId}</Badge>
+                    <Badge variant="outline" className="border-emerald-100 text-emerald-600 uppercase text-[8px] font-black">
+                      {status}
+                    </Badge>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-[11px] font-bold">
+                       <span className="text-slate-400 uppercase tracking-tighter">Order Number:</span>
+                       <span className="text-slate-900">{trip.saleOrderNumber}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px] font-bold">
+                       <span className="text-slate-400 uppercase tracking-tighter">Vehicle Number:</span>
+                       <span className="text-slate-900">{trip.vehicleNumber}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px] font-bold">
+                       <span className="text-slate-400 uppercase tracking-tighter">Assign Weight:</span>
+                       <span className="text-slate-900">{trip.assignWeight}</span>
+                    </div>
+                    <div className="pt-3 border-t border-slate-50 flex items-center gap-2 text-slate-400">
+                      <MapPin className="h-3 w-3" />
+                      <span className="text-[9px] font-bold uppercase truncate">{trip.route}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+        ))}
+      </Tabs>
+
+      {/* Assignment Dialog */}
+      <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
+        <DialogContent className="max-w-2xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden font-mono">
+          <div className="bg-[#0056d2] p-6 text-white flex flex-col items-center">
+            <DialogTitle className="text-xl font-black uppercase italic tracking-tighter">Assign Mission Vehicle</DialogTitle>
+            <div className="flex gap-4 mt-3 opacity-80 text-[10px] font-bold uppercase tracking-widest">
+              <span>SO: {selectedOrder?.saleOrder}</span>
+              <span>•</span>
+              <span>To: {selectedOrder?.shipToParty}</span>
+            </div>
+          </div>
+          
+          <div className="p-8 space-y-6">
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400">Assign Weight</label>
+                <Input 
+                  value={assignWeight} 
+                  onChange={(e) => setAssignWeight(e.target.value)} 
+                  placeholder="0.00"
+                  className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400">Vehicle Number</label>
+                <Input 
+                  value={vehicleNo} 
+                  onChange={(e) => setVehicleNo(e.target.value)} 
+                  placeholder="UP14-XX-0000"
+                  className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400">Driver Mobile</label>
+                <Input 
+                  value={driverMobile} 
+                  onChange={(e) => setDriverMobile(e.target.value)} 
+                  placeholder="+91..."
+                  className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400">Vendor Name</label>
+                <Input 
+                  value={vendorName} 
+                  onChange={(e) => setVendorName(e.target.value)} 
+                  placeholder="Select Vendor"
+                  className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" 
+                />
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="fix-rate" checked={isFixRate} onCheckedChange={(val) => setIsFixRate(val as boolean)} />
+                    <label htmlFor="fix-rate" className="text-[10px] font-black uppercase text-slate-600">Apply Fix Rate Manual</label>
+                  </div>
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-2">
+                   <label className="text-[9px] font-black uppercase text-slate-400">Rate (Per UOM)</label>
+                   <Input 
+                     disabled={isFixRate} 
+                     value={rate} 
+                     onChange={(e) => setRate(e.target.value)}
+                     className="h-10 rounded-xl font-bold border-slate-200 disabled:opacity-30" 
+                   />
+                 </div>
+                 <div className="space-y-2">
+                   <label className="text-[9px] font-black uppercase text-slate-400">Freight Amount</label>
+                   <Input 
+                     disabled={!isFixRate} 
+                     value={freightAmount} 
+                     onChange={(e) => setFreightAmount(e.target.value)}
+                     className="h-10 rounded-xl font-bold border-slate-200 disabled:bg-white/50" 
+                   />
+                 </div>
+               </div>
+            </div>
+          </div>
+
+          <DialogFooter className="p-6 border-t border-slate-50 bg-slate-50/50">
+            <Button variant="ghost" onClick={() => setSelectedOrder(null)} className="rounded-xl font-black uppercase text-[10px]">Cancel</Button>
+            <Button onClick={handleAssign} className="bg-[#0056d2] hover:bg-black text-white px-8 h-12 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-blue-900/20">Assign Mission</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function getScreenTitle(screen: Screen): string {
   switch (screen) {
     case 'OX01': return 'Create Plant Master';
@@ -389,6 +682,7 @@ function getScreenTitle(screen: Screen): string {
     case 'VA01': return 'Create Sales Order Registry';
     case 'VA02': return 'Edit Sales Order Registry';
     case 'VA03': return 'Display Sales Order Registry';
+    case 'TR21': return 'Drip Board Registry Control';
     case 'BULK': return 'Bulk Data Hub Registry';
     default: return 'Central Management Control Registry';
   }
@@ -490,13 +784,6 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
           <div className="absolute top-4 right-4 text-[9px] font-bold text-slate-300 uppercase tracking-widest bg-white/80 px-3 py-1 rounded-full">
             Raw Node Input
           </div>
-        </div>
-      </div>
-
-      <div className="p-6 bg-blue-50 border border-blue-100 rounded-2xl flex gap-4">
-        <Info className="h-5 w-5 text-blue-500 shrink-0" />
-        <div className="text-[11px] text-blue-700 leading-relaxed font-bold italic">
-          Tip: Ensure the first line contains exact field names from the registry schema. For multi-selection fields (like Plant Codes), use a semicolon (;) to separate values within the cell.
         </div>
       </div>
     </div>
@@ -721,13 +1008,11 @@ function SalesOrderForm({ data, onChange }: any) {
   const updateField = (field: string, val: any) => {
     let nextData = { ...data, [field]: val };
     
-    // Auto populate city for Consignor
     if (field === 'consignor') {
       const selected = customers?.find(c => c.customerName === val);
       if (selected) nextData.from = selected.city;
     }
     
-    // Auto populate city for Ship to Party
     if (field === 'shipToParty') {
       const selected = customers?.find(c => c.customerName === val);
       if (selected) nextData.destination = selected.city;
@@ -831,12 +1116,12 @@ function SalesOrderForm({ data, onChange }: any) {
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
               <tr className="bg-slate-100/50">
-                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400 border-r border-white/50">Invoice No.</th>
-                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400 border-r border-white/50">Ewaybill No.</th>
-                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400 border-r border-white/50">Product Node</th>
-                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400 border-r border-white/50 w-48">Unit / UOM</th>
-                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400 border-r border-white/50 w-48">Weight / UOM</th>
-                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-12 text-center">Act</th>
+                <th className="p-4 text-[9px] font-black uppercase text-slate-400 border-r border-white/50">Invoice No.</th>
+                <th className="p-4 text-[9px] font-black uppercase text-slate-400 border-r border-white/50">Ewaybill No.</th>
+                <th className="p-4 text-[9px] font-black uppercase text-slate-400 border-r border-white/50">Product Node</th>
+                <th className="p-4 text-[9px] font-black uppercase text-slate-400 border-r border-white/50 w-48">Unit / UOM</th>
+                <th className="p-4 text-[9px] font-black uppercase text-slate-400 border-r border-white/50 w-48">Weight / UOM</th>
+                <th className="p-4 text-[9px] font-black uppercase text-slate-400 w-12 text-center">Act</th>
               </tr>
             </thead>
             <tbody>
@@ -882,13 +1167,6 @@ function SalesOrderForm({ data, onChange }: any) {
                   </td>
                 </tr>
               ))}
-              {(!data.items || data.items.length === 0) && (
-                <tr>
-                  <td colSpan={6} className="p-12 text-center text-slate-300 font-bold text-[10px] italic uppercase tracking-widest">
-                    No Line items registered. Click "Add Row Node" to start.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -917,10 +1195,10 @@ function RegistryList({ screen }: { screen: string }) {
       <table className="w-full text-left border-collapse">
         <thead>
           <tr className="bg-slate-50 border-y border-slate-100">
-            <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">ID / Node</th>
-            <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Name / Description</th>
-            <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Type / Details</th>
-            <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+            <th className="p-4 text-[10px] font-black uppercase text-slate-400">ID / Node</th>
+            <th className="p-4 text-[10px] font-black uppercase text-slate-400">Name / Description</th>
+            <th className="p-4 text-[10px] font-black uppercase text-slate-400">Type / Details</th>
+            <th className="p-4 text-[10px] font-black uppercase text-slate-400">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -940,11 +1218,6 @@ function RegistryList({ screen }: { screen: string }) {
               </td>
             </tr>
           ))}
-          {(!list || list.length === 0) && (
-            <tr>
-              <td colSpan={4} className="p-12 text-center text-slate-300 font-bold text-xs italic">No registry nodes found for this transaction.</td>
-            </tr>
-          )}
         </tbody>
       </table>
     </div>
