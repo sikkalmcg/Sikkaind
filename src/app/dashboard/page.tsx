@@ -624,7 +624,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const totalOrderWeight = (selectedOrder.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
     const weightUom = selectedOrder.items?.[0]?.weightUom || 'MT';
     const soNo = (selectedOrder.saleOrder || selectedOrder.saleOrderNumber || 'N/A').toString().trim().toUpperCase();
-    const productName = selectedOrder.items?.[0]?.product || 'General Cargo';
+    const productName = selectedOrder.items?.[0]?.product || 'SALT';
     
     const tripData = {
       id: newTripId,
@@ -901,7 +901,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                       {/* Qty/Product */}
                       <div className="col-span-1 flex flex-col gap-1">
                         <span className="text-slate-900 font-black text-[10px]">{trip.assignWeight} {trip.weightUom || 'MT'}</span>
-                        <span className="text-slate-400 font-bold text-[9px] truncate italic">{trip.product || 'Soda Ash'}</span>
+                        <span className="text-slate-400 font-bold text-[9px] truncate italic">{trip.product || 'SALT'}</span>
                         <div className="h-1 bg-yellow-500 w-full mt-1 rounded-full overflow-hidden">
                            <div className="h-full bg-yellow-600 w-3/4" />
                         </div>
