@@ -84,7 +84,7 @@ export default function SapDashboard() {
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const monthRef = React.useRef<HTMLDivElement>(null);
 
-  const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '' });
+  const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '' });
 
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
   const { data: userProfile } = useDoc(profileRef);
@@ -159,6 +159,7 @@ export default function SapDashboard() {
       if (xdSearch.plant) list = list.filter((c: any) => c.plantCodes?.includes(xdSearch.plant));
       if (xdSearch.type) list = list.filter((c: any) => c.customerType === xdSearch.type);
       if (xdSearch.name) list = list.filter((c: any) => c.customerName?.toUpperCase().includes(xdSearch.name.toUpperCase()));
+      if (xdSearch.customerId) list = list.filter((c: any) => (c.customerCode || c.id)?.toString().toUpperCase() === xdSearch.customerId.toUpperCase());
       return list;
     }
     if (activeScreen.startsWith('VA')) return rawOrders || [];
@@ -229,7 +230,7 @@ export default function SapDashboard() {
       setActiveScreen(cleanCode as Screen);
       setFormData({});
       setSearchId('');
-      setXdSearch({ plant: '', type: '', name: '' });
+      setXdSearch({ plant: '', type: '', name: '', customerId: '' });
       setStatusMsg({ text: `Transaction ${cleanCode} executed`, type: 'info' });
     } else {
       setStatusMsg({ text: `T-Code ${cleanCode} not found`, type: 'error' });
@@ -238,24 +239,28 @@ export default function SapDashboard() {
   }, [userProfile, isAuthorized]);
 
   const handleSearchIdEnter = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && searchId) {
+    if (e.key === 'Enter') {
+      const idToSearch = searchId || xdSearch.customerId;
+      if (!idToSearch) return;
+
       let list = getRegistryList();
       let item = list.find((i: any) => 
-        (i.plantCode || i.customerCode || i.companyCode || i.saleOrder || i.username || i.id || i.vendorCode).toString().toUpperCase() === searchId.toUpperCase()
+        (i.plantCode || i.customerCode || i.companyCode || i.saleOrder || i.username || i.id || i.vendorCode).toString().toUpperCase() === idToSearch.toUpperCase()
       );
       
       if (!item && activeScreen.startsWith('XD')) {
         item = (rawCustomers || []).find((i: any) => 
-          (i.customerCode || i.id).toString().toUpperCase() === searchId.toUpperCase()
+          (i.customerCode || i.id).toString().toUpperCase() === idToSearch.toUpperCase()
         );
       }
       
       if (item) {
         setFormData(item);
         setSearchId('');
-        setStatusMsg({ text: `Record ${searchId} loaded`, type: 'success' });
+        setXdSearch({ ...xdSearch, customerId: '' });
+        setStatusMsg({ text: `Record ${idToSearch} loaded`, type: 'success' });
       } else {
-        setStatusMsg({ text: `Record ${searchId} not found`, type: 'error' });
+        setStatusMsg({ text: `Record ${idToSearch} not found`, type: 'error' });
       }
     }
   };
@@ -287,9 +292,9 @@ export default function SapDashboard() {
         const num = Math.floor(10000 + Math.random() * 90000);
         localData.vendorCode = `${prefix}${num}`;
       }
-      const exists = rawVendors?.some((v: any) => v.id !== localData.id && v.vendorCode?.toString().toUpperCase() === localData.vendorCode?.toString().toUpperCase());
+      const exists = rawVendors?.some((v: any) => v.id !== localData.id && (v.vendorCode || v.id)?.toString().toUpperCase() === (localData.vendorCode || localData.id)?.toString().toUpperCase());
       if (exists) {
-        setStatusMsg({ text: `ID/Number ${localData.vendorCode} Already exists, duplicate not allowed`, type: 'error' });
+        setStatusMsg({ text: `ID/Number ${localData.vendorCode || localData.id} Already exists, duplicate not allowed`, type: 'error' });
         return;
       }
     }
@@ -562,8 +567,8 @@ export default function SapDashboard() {
                                  <label className="text-[9px] font-black text-slate-400 uppercase">Customer ID</label>
                                  <input 
                                    className="h-10 border border-slate-400 px-3 text-xs font-black outline-none bg-white focus:ring-1 focus:ring-blue-600 shadow-sm"
-                                   value={searchId} 
-                                   onChange={(e) => setSearchId(e.target.value)} 
+                                   value={xdSearch.customerId} 
+                                   onChange={(e) => setXdSearch({...xdSearch, customerId: e.target.value})} 
                                    onKeyDown={handleSearchIdEnter} 
                                    placeholder="ID & ENTER..." 
                                  />
@@ -1443,3 +1448,1173 @@ function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code:
     </div>
   );
 }
+
+function SectionGrouping({ title, children }: { title: string, children: React.ReactNode }) {
+  return (
+    <div className="border border-slate-300 p-5 pt-4 relative bg-white rounded-sm mb-6">
+      {title && <span className="absolute -top-3 left-4 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 border border-slate-200">{title}</span>}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">{children}</div>
+    </div>
+  );
+}
+
+function FormInput({ label, value, onChange, type = "text", disabled, placeholder }: any) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <Input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder={placeholder} className="h-9 rounded-none border-slate-400 text-xs font-bold bg-white focus:ring-1 focus:ring-blue-600 shadow-sm" />
+    </div>
+  );
+}
+
+function FormSelect({ label, value, options, onChange, disabled }: any) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-9 border border-slate-400 bg-white px-2 text-xs font-bold outline-none shadow-sm">
+        <option value="">Select...</option>
+        {options.map((o: any, idx: number) => typeof o === 'string' ? <option key={`${o}-${idx}`} value={o}>{o}</option> : <option key={`${o.value}-${idx}`} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function PlantForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="space-y-4">
+      <SectionGrouping title="DATA">
+        <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="SETTINGS">
+        <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
+        <FormInput label="STATE" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
+      </SectionGrouping>
+    </div>
+  );
+}
+
+function CompanyForm({ data, onChange, disabled, allPlants }: any) {
+  const plants = (allPlants || []).map((p: any) => p.plantCode);
+  const handlePlantToggle = (plant: string) => {
+    const current = data.plantCodes || [];
+    const updated = current.includes(plant) ? current.filter((p: string) => p !== plant) : [...current, plant];
+    onChange({...data, plantCodes: updated});
+  };
+  return (
+    <div className="space-y-4">
+      <SectionGrouping title="IDENTIFICATION">
+        <div className="col-span-2 space-y-2 mb-4">
+          <label className="text-[10px] font-bold text-slate-500 uppercase">Plant Assignment (Multiple)</label>
+          <div className="flex flex-wrap gap-2">
+            {plants.map((p: string) => (
+              <button 
+                key={p} 
+                onClick={() => handlePlantToggle(p)}
+                disabled={disabled}
+                className={cn(
+                  "px-3 py-1.5 text-[10px] font-black border uppercase transition-all",
+                  data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-600 border-slate-300"
+                )}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+        <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
+        <FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
+      </SectionGrouping>
+      
+      <SectionGrouping title="LOCATION DETAILS">
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+        <FormInput label="STATE" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
+        <FormInput label="STATE CODE" value={data.stateCode} onChange={(v: string) => onChange({...data, stateCode: v})} disabled={disabled} />
+        <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
+      </SectionGrouping>
+
+      <SectionGrouping title="TAX & CONTACT">
+        <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+        <FormInput label="PAN" value={data.pan} onChange={(v: string) => onChange({...data, pan: v})} disabled={disabled} />
+        <FormInput label="MOBILE (COMMA SEPARATED)" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} placeholder="e.g. 9876543210, 8765432109" />
+        <FormInput label="EMAIL" value={data.email} onChange={(v: string) => onChange({...data, email: v})} disabled={disabled} />
+        <FormInput label="WEBSITE" value={data.website} onChange={(v: string) => onChange({...data, website: v})} disabled={disabled} />
+      </SectionGrouping>
+
+      <SectionGrouping title="TERMS & CONDITIONS">
+        <div className="col-span-2 space-y-3">
+          {(data.termsAndConditions || ['']).map((term: string, idx: number) => (
+            <div key={idx} className="flex gap-2">
+              <span className="w-6 text-[10px] font-black text-slate-400 mt-2.5">0{idx + 1}</span>
+              <input
+                value={term}
+                onChange={(e) => {
+                  const newTerms = [...(data.termsAndConditions || [''])];
+                  newTerms[idx] = e.target.value;
+                  onChange({...data, termsAndConditions: newTerms});
+                }}
+                disabled={disabled}
+                className="flex-1 h-9 border border-slate-400 px-3 text-xs font-bold outline-none focus:bg-[#ffffcc]"
+                placeholder={`TERM ${idx + 1}...`}
+              />
+              {!disabled && (data.termsAndConditions?.length || 1) > 1 && (
+                 <button onClick={() => {
+                   const newTerms = data.termsAndConditions.filter((_:any, i:number) => i !== idx);
+                   onChange({...data, termsAndConditions: newTerms});
+                 }} className="text-red-400 p-2"><Trash2 className="h-4 w-4" /></button>
+              )}
+            </div>
+          ))}
+          {!disabled && (data.termsAndConditions?.length || 1) < 8 && (
+            <button
+              onClick={() => onChange({...data, termsAndConditions: [...(data.termsAndConditions || ['']), '']})}
+              className="text-[9px] font-black uppercase text-blue-600 hover:underline flex items-center gap-1"
+            >
+              <Plus className="h-3 w-3" /> Add New Term
+            </button>
+          )}
+        </div>
+      </SectionGrouping>
+
+      <SectionGrouping title="MEDIA">
+        <div className="col-span-2 flex items-center gap-6 p-2">
+           <div className="w-24 h-24 border border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden">
+             {data.logo ? <Image src={data.logo} alt="Logo" width={96} height={96} className="object-contain" unoptimized /> : <Package className="h-8 w-8 text-slate-300" />}
+           </div>
+           {!disabled && (
+             <div className="flex flex-col gap-2">
+               <label className="text-[10px] uppercase font-black text-blue-600 cursor-pointer hover:underline">
+                 Upload Company Logo
+                 <input type="file" accept="image/*" onChange={(e) => {
+                   const file = e.target.files?.[0];
+                   if (file) { const reader = new FileReader(); reader.onloadend = () => onChange({...data, logo: reader.result as string}); reader.readAsDataURL(file); }
+                 }} className="hidden" />
+               </label>
+             </div>
+           )}
+        </div>
+      </SectionGrouping>
+    </div>
+  );
+}
+
+function VendorForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="space-y-4">
+      <SectionGrouping title="IDENTIFICATION">
+        <FormInput label="VENDOR CODE" value={data.vendorCode} disabled={true} placeholder="AUTO-GENERATED" />
+        <FormInput label="VENDOR NAME" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
+        <FormInput label="VENDOR FIRM NAME" value={data.vendorFirmName} onChange={(v: string) => onChange({...data, vendorFirmName: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="DETAILS">
+        <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="SPECIAL ROUTE" value={data.route} onChange={(v: string) => onChange({...data, route: v})} disabled={disabled} />
+      </SectionGrouping>
+    </div>
+  );
+}
+
+function CustomerForm({ data, onChange, disabled, allPlants }: any) {
+  const plants = (allPlants || []).map((p: any) => p.plantCode);
+  const handlePlantToggle = (plant: string) => {
+    const current = data.plantCodes || [];
+    const updated = current.includes(plant) ? current.filter((p: string) => p !== plant) : [...current, plant];
+    onChange({...data, plantCodes: updated});
+  };
+
+  return (
+    <div className="space-y-4">
+      <SectionGrouping title="CORE IDENTIFICATION">
+        <div className="col-span-2 space-y-2 mb-4">
+          <label className="text-[10px] font-bold text-slate-500 uppercase">Plant Assignment (Multiple)</label>
+          <div className="flex flex-wrap gap-2">
+            {plants.map((p: string) => (
+              <button 
+                key={p} 
+                onClick={() => handlePlantToggle(p)}
+                disabled={disabled}
+                className={cn(
+                  "px-3 py-1.5 text-[10px] font-black border uppercase transition-all",
+                  data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-600 border-slate-300"
+                )}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+        <FormInput label="CUSTOMER CODE" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} />
+        <FormInput label="CUSTOMER NAME" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
+        <FormSelect 
+          label="CUSTOMER TYPE" 
+          value={data.customerType} 
+          options={[
+            { value: "Consignor", label: "Consignor" },
+            { value: "Consignee - Ship to Party", label: "Consignee - Ship to Party" }
+          ]} 
+          onChange={(v: string) => onChange({...data, customerType: v})} 
+          disabled={disabled} 
+        />
+      </SectionGrouping>
+      
+      <SectionGrouping title="LOCATION & TAX">
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+        <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
+        <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+        <FormInput label="PAN" value={data.pan} onChange={(v: string) => onChange({...data, pan: v})} disabled={disabled} />
+        <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+      </SectionGrouping>
+    </div>
+  );
+}
+
+function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: any) {
+  const plantOpts = (allPlants || []).map((p: any) => p.plantCode);
+  const consignors = (allCustomers || []).filter((c: any) => c.customerType === 'Consignor');
+  const shipToParties = (allCustomers || []).filter((c: any) => c.customerType === 'Consignee - Ship to Party');
+
+  const items = data.items || [{ invoice: '', ewaybill: '', product: '', weight: '', weightUom: 'MT' }];
+
+  const handleAddItem = () => {
+    onChange({ ...data, items: [...items, { invoice: '', ewaybill: '', product: '', weight: '', weightUom: 'MT' }] });
+  };
+
+  const handleUpdateItem = (index: number, field: string, value: any) => {
+    const newItems = [...items];
+    newItems[index] = { ...newItems[index], [field]: value };
+    onChange({ ...data, items: newItems });
+  };
+
+  const handleRemoveItem = (index: number) => {
+    if (items.length <= 1) return;
+    const newItems = items.filter((_, i) => i !== index);
+    onChange({ ...data, items: newItems });
+  };
+
+  return (
+    <div className="space-y-4">
+      <SectionGrouping title="HEADER">
+        <FormSelect label="PLANT" value={data.plantCode} options={plantOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormInput label="SALE ORDER NO" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
+      </SectionGrouping>
+
+      <SectionGrouping title="COORDINATION">
+        <FormSelect 
+          label="CONSIGNOR" 
+          value={data.consignor} 
+          options={consignors.map(c => c.customerName)} 
+          onChange={(v: string) => {
+            const cust = consignors.find(c => c.customerName === v);
+            onChange({...data, consignor: v, from: cust?.city || ''});
+          }} 
+          disabled={disabled} 
+        />
+        <FormInput label="FROM" value={data.from} disabled={true} placeholder="AUTO-FILLED" />
+        
+        <FormSelect 
+          label="CONSIGNEE" 
+          value={data.consignee} 
+          options={(allCustomers || []).map((c: any) => c.customerName)} 
+          onChange={(v: string) => onChange({...data, consignee: v})} 
+          disabled={disabled} 
+        />
+        <FormSelect 
+          label="SHIP TO PARTY" 
+          value={data.shipToParty} 
+          options={shipToParties.map(c => c.customerName)} 
+          onChange={(v: string) => {
+            const cust = shipToParties.find(c => c.customerName === v);
+            onChange({...data, shipToParty: v, destination: cust?.city || ''});
+          }} 
+          disabled={disabled} 
+        />
+        <FormInput label="DESTINATION" value={data.destination} disabled={true} placeholder="AUTO-FILLED" />
+      </SectionGrouping>
+
+      <div className="border border-slate-300 rounded-sm overflow-hidden">
+        <div className="bg-[#dae4f1]/50 p-3 border-b border-slate-300 flex justify-between items-center">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">ITEM</span>
+          {!disabled && (
+            <Button onClick={handleAddItem} size="sm" variant="outline" className="h-7 rounded-none border-blue-600 text-blue-600 font-black text-[9px] uppercase tracking-tighter hover:bg-blue-50">
+              <Plus className="h-3 w-3 mr-1" /> Add Row
+            </Button>
+          )}
+        </div>
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-[#f8fafc] border-b border-slate-300">
+            <tr>
+              {['Invoice', 'Ewaybill', 'Product', 'Weight', 'Weight UOM', ''].map(h => (
+                <th key={h} className="p-2 text-[9px] font-black uppercase text-slate-400 border-r border-slate-200">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item: any, idx: number) => (
+              <tr key={idx} className="border-b border-slate-200 bg-white">
+                <td className="p-1 border-r border-slate-100">
+                  <input value={item.invoice} onChange={e => handleUpdateItem(idx, 'invoice', e.target.value)} disabled={disabled} className="w-full h-8 outline-none px-2 text-[11px] font-bold focus:bg-[#ffffcc]" />
+                </td>
+                <td className="p-1 border-r border-slate-100">
+                  <input value={item.ewaybill} onChange={e => handleUpdateItem(idx, 'ewaybill', e.target.value)} disabled={disabled} className="w-full h-8 outline-none px-2 text-[11px] font-bold focus:bg-[#ffffcc]" />
+                </td>
+                <td className="p-1 border-r border-slate-100">
+                  <input value={item.product} onChange={e => handleUpdateItem(idx, 'product', e.target.value)} disabled={disabled} className="w-full h-8 outline-none px-2 text-[11px] font-bold focus:bg-[#ffffcc]" />
+                </td>
+                <td className="p-1 border-r border-slate-100">
+                  <input value={item.weight} onChange={e => handleUpdateItem(idx, 'weight', e.target.value)} disabled={disabled} className="w-full h-8 outline-none px-2 text-[11px] font-bold focus:bg-[#ffffcc]" />
+                </td>
+                <td className="p-1 border-r border-slate-100">
+                  <select value={item.weightUom} onChange={e => handleUpdateItem(idx, 'weightUom', e.target.value)} disabled={disabled} className="w-full h-8 outline-none px-2 text-[11px] font-bold bg-white focus:bg-[#ffffcc]">
+                    <option value="MT">MT</option>
+                    <option value="LTR">LTR</option>
+                  </select>
+                </td>
+                <td className="p-1 text-center">
+                  {!disabled && (
+                    <button onClick={() => handleRemoveItem(idx)} className="text-red-400 hover:text-red-600 transition-colors">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
+  return (
+    <div className="space-y-8">
+      <SectionGrouping title="CANCELLATION HUB">
+        <div className="flex flex-col gap-2 col-span-2">
+          <label className="text-[11px] font-black uppercase text-red-600">Sales Order Number *</label>
+          <input className="h-12 border border-red-200 rounded-none px-4 text-sm font-black outline-none bg-red-50/30" placeholder="ENTER ORDER NO. & PRESS ENTER" value={data.saleOrder || ''} onChange={(e) => onChange({ ...data, saleOrder: e.target.value.toUpperCase() })} onKeyDown={(e) => {
+            if (e.key === 'Enter') { const o = allOrders?.find((ord: any) => ord.saleOrder === data.saleOrder); if (o) onChange({...data, ...o}); }
+          }} />
+        </div>
+      </SectionGrouping>
+      <div className="flex justify-end gap-4"><Button onClick={onCancel} variant="ghost">Exit</Button><Button onClick={onPost} className="bg-red-600 text-white font-black uppercase text-[10px] px-10 h-11 rounded-none shadow-lg">Execute Cancellation</Button></div>
+    </div>
+  );
+}
+
+function UserForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="space-y-4">
+      <SectionGrouping title="USER ACCESS">
+        <FormInput label="FULL NAME" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
+        <FormInput label="USERNAME" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} />
+      </SectionGrouping>
+    </div>
+  );
+}
+
+function RegistryList({ onSelectItem, listData }: any) {
+  return (
+    <div className="overflow-x-auto border border-slate-300 shadow-sm">
+      <table className="w-full text-left border-collapse">
+        <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr>{['ID', 'Name / Description', 'Type / Details', 'Sync Hub'].map(c => <th key={c} className="p-3 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">{c}</th>)}</tr></thead>
+        <tbody>{listData?.map((item: any) => (
+          <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors">
+            <td className="p-3 text-[11px] font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.vendorCode || item.companyCode || item.id.slice(0, 8)}</td>
+            <td className="p-3 text-[11px] font-bold uppercase">{item.customerName || item.plantName || item.vendorName || item.companyName || `${item.consignor} → ${item.consignee}`}</td>
+            <td className="p-3 text-[11px] italic text-slate-500">{item.city || item.customerType || item.vendorCode || 'DATA'}</td>
+            <td className="p-3 text-[11px] font-bold text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td>
+          </tr>
+        ))}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }: { orders: any[] | null, trips: any[] | null, vendors: any[] | null, plants: any[] | null, companies: any[] | null, onStatusUpdate: any }) {
+  const { user } = useUser();
+  const db = useFirestore();
+  const [activeTab, setActiveTab] = React.useState('Open Orders');
+  const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
+  const [isPopupOpen, setIsPopupOpen] = React.useState(false);
+  const [assignData, setAssignData] = React.useState<any>({ fleetType: 'Own Vehicle', isFixedRate: false });
+  const [vendorSearch, setVendorSearch] = React.useState('');
+  const [showVendorSuggestions, setShowVendorSuggestions] = React.useState(false);
+
+  const [cnPopup, setCnPopup] = React.useState<{ isOpen: boolean, trip: any | null, isEdit: boolean }>({ isOpen: false, trip: null, isEdit: false });
+  const [cnData, setCnData] = React.useState<any>({});
+  const [cnPreview, setCnPreview] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null });
+  const [vehicleEditPopup, setVehicleEditPopup] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null });
+  const [vehicleEditData, setVehicleEditData] = React.useState<any>({});
+  const [vehicleOutPopup, setVehicleOutPopup] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null });
+  const [vehicleOutData, setVehicleOutData] = React.useState<any>({});
+
+  const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
+
+  const getOrderStats = (order: any) => {
+    const totalOrderQty = order.items?.reduce((acc: number, item: any) => acc + (parseFloat(item.weight) || 0), 0) || 0;
+    const assignedQty = trips?.filter(t => t.saleOrderId === order.id && t.status !== 'CANCELLED').reduce((acc: number, t: any) => acc + (t.assignWeight || 0), 0) || 0;
+    const balanceQty = totalOrderQty - assignedQty;
+    const uom = order.items?.[0]?.weightUom || 'MT';
+    return { totalOrderQty, assignedQty, balanceQty, uom };
+  };
+
+  const filteredOrders = React.useMemo(() => {
+    if (!orders) return [];
+    return orders.filter(o => o.status !== 'CANCELLED').map(o => ({ ...o, ...getOrderStats(o) })).filter(o => o.balanceQty > 0);
+  }, [orders, trips]);
+
+  const filteredTrips = React.useMemo(() => {
+    if (!trips) return [];
+    const statusMap: any = {
+      'Loading': 'LOADING',
+      'In-Transit': 'IN-TRANSIT',
+      'Arrived': 'ARRIVED',
+      'Reject': 'REJECTION',
+      'POD Verify': 'POD',
+      'Closed': 'CLOSED'
+    };
+    return trips.filter(t => t.status === statusMap[activeTab]);
+  }, [trips, activeTab]);
+
+  const handleAssignClick = (order: any) => {
+    setSelectedOrder(order);
+    setAssignData({ 
+      plantCode: order.plantCode,
+      consignee: order.consignee,
+      shipToParty: order.shipToParty,
+      route: order.route || '',
+      orderQty: `${order.balanceQty} ${order.uom}`,
+      fleetType: 'Own Vehicle',
+      isFixedRate: false,
+      assignWeight: order.balanceQty
+    });
+    setIsPopupOpen(true);
+  };
+
+  const handlePost = () => {
+    if (!user || !selectedOrder) return;
+    const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
+    
+    const exists = trips?.some((t: any) => t.tripId === tripId);
+    if (exists) {
+       onStatusUpdate({ text: `ID/Number ${tripId} Already exists, duplicate not allowed`, type: 'error' });
+       return;
+    }
+
+    const newId = crypto.randomUUID();
+    const payload = { 
+      id: newId, 
+      tripId, 
+      saleOrderId: selectedOrder.id, 
+      saleOrderNumber: selectedOrder.saleOrder, 
+      plantCode: assignData.plantCode, 
+      shipToParty: assignData.shipToParty,
+      route: assignData.route,
+      consignor: selectedOrder.consignor,
+      consignee: selectedOrder.consignee,
+      vehicleNumber: assignData.vehicleNumber, 
+      driverMobile: assignData.driverMobile,
+      fleetType: assignData.fleetType,
+      vendorName: assignData.vendorName,
+      vendorMobile: assignData.vendorMobile,
+      rate: parseFloat(assignData.rate || 0),
+      isFixedRate: assignData.isFixedRate,
+      freightAmount: parseFloat(assignData.freightAmount || 0),
+      assignWeight: parseFloat(assignData.assignWeight || 0), 
+      status: 'LOADING', 
+      createdAt: new Date().toISOString() 
+    };
+
+    setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', newId), payload, { merge: true });
+    setIsPopupOpen(false);
+    setSelectedOrder(null);
+    onStatusUpdate({ text: `Trip ${tripId} posted to Loading`, type: 'success' });
+  };
+
+  const matchingVendors = vendors?.filter(v => v.vendorName?.toUpperCase().includes(vendorSearch.toUpperCase()));
+
+  const handleCnClick = (trip: any) => {
+    const carrier = companies?.find(c => c.plantCodes?.includes(trip.plantCode))?.companyName || 'Sikka Logistics';
+    setCnData({
+      consignor: trip.consignor,
+      consignee: trip.consignee,
+      shipToParty: trip.shipToParty,
+      route: trip.route,
+      vehicleNumber: trip.vehicleNumber,
+      carrierName: carrier,
+      cnNumber: '',
+      cnDate: format(new Date(), 'yyyy-MM-dd'),
+      paymentTerm: 'Paid',
+      items: [{ invoice: '', ewaybill: '', product: '', unit: '', unitUom: 'BAG' }]
+    });
+    setCnPopup({ isOpen: true, trip, isEdit: false });
+  };
+
+  const handlePostCN = () => {
+    if (!user || !cnPopup.trip) return;
+    
+    const exists = trips?.some((t: any) => t.id !== cnPopup.trip.id && t.cnNumber?.toString().toUpperCase() === cnData.cnNumber?.toString().toUpperCase());
+    if (exists) {
+      onStatusUpdate({ text: `ID/Number ${cnData.cnNumber} Already exists, duplicate not allowed`, type: 'error' });
+      return;
+    }
+
+    const docRef = doc(db, 'users', user.uid, 'trips', cnPopup.trip.id);
+    setDocumentNonBlocking(docRef, { ...cnData, cnPosted: true, updatedAt: new Date().toISOString() }, { merge: true });
+    setCnPopup({ isOpen: false, trip: null, isEdit: false });
+    onStatusUpdate({ text: `CN ${cnData.cnNumber} Synchronized`, type: 'success' });
+  };
+
+  const handleVehicleOutConfirm = () => {
+    if (!user || !vehicleOutPopup.trip) return;
+    const docRef = doc(db, 'users', user.uid, 'trips', vehicleOutPopup.trip.id);
+    setDocumentNonBlocking(docRef, { 
+      status: 'IN-TRANSIT', 
+      outDate: vehicleOutData.date, 
+      outTime: vehicleOutData.time,
+      updatedAt: new Date().toISOString() 
+    }, { merge: true });
+    setVehicleOutPopup({ isOpen: false, trip: null });
+    onStatusUpdate({ text: `Vehicle ${vehicleOutPopup.trip.vehicleNumber} is now In-Transit`, type: 'success' });
+  };
+
+  const handleVehicleUpdate = () => {
+    if (!user || !vehicleEditPopup.trip) return;
+    const docRef = doc(db, 'users', user.uid, 'trips', vehicleEditPopup.trip.id);
+    setDocumentNonBlocking(docRef, { 
+      vehicleNumber: vehicleEditData.vehicleNumber.toUpperCase(), 
+      driverMobile: vehicleEditData.driverMobile,
+      updatedAt: new Date().toISOString() 
+    }, { merge: true });
+    setVehicleEditPopup({ isOpen: false, trip: null });
+    onStatusUpdate({ text: `Vehicle details updated successfully`, type: 'success' });
+  };
+
+  return (
+    <div className="flex flex-col h-full space-y-4">
+      <div className="flex border-b border-slate-300 bg-[#dae4f1]/30">
+        {TABS.map(tab => (
+          <button 
+            key={tab} 
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              "px-6 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all",
+              activeTab === tab ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-auto bg-white border border-slate-300 shadow-sm">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-[#f8fafc] border-b border-slate-300 sticky top-0 z-10">
+            {activeTab === 'Open Orders' ? (
+              <tr>
+                {['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => (
+                  <th key={h} className="p-3 text-[9px] font-black uppercase text-slate-500 border-r border-slate-200">{h}</th>
+                ))}
+              </tr>
+            ) : (
+              <tr>
+                {['Trip ID', 'Vehicle No', 'Plant', 'Consignee', 'Ship to Party', 'Route', 'Assign Qty', 'CN Number', 'Action', 'Sync'].map(h => (
+                  <th key={h} className="p-3 text-[9px] font-black uppercase text-slate-500 border-r border-slate-200">{h}</th>
+                ))}
+              </tr>
+            )}
+          </thead>
+          <tbody>
+            {activeTab === 'Open Orders' ? (
+              filteredOrders.map(order => (
+                <tr key={order.id} className="border-b border-slate-100 hover:bg-blue-50/50 transition-colors">
+                  <td className="p-3 text-[11px] font-bold">{order.plantCode}</td>
+                  <td className="p-3 text-[11px] font-black text-[#0056d2]">{order.saleOrder}</td>
+                  <td className="p-3 text-[11px] font-bold uppercase truncate max-w-[120px]">{order.consignor}</td>
+                  <td className="p-3 text-[11px] font-bold uppercase truncate max-w-[120px]">{order.consignee}</td>
+                  <td className="p-3 text-[11px] font-bold uppercase truncate max-w-[120px]">{order.shipToParty}</td>
+                  <td className="p-3 text-[11px] font-bold uppercase">{order.route}</td>
+                  <td className="p-3 text-[11px] font-black text-slate-700">{order.totalOrderQty} {order.uom}</td>
+                  <td className="p-3 text-[11px] font-bold text-emerald-600">{order.assignedQty} {order.uom}</td>
+                  <td className="p-3 text-[11px] font-black text-red-600">{order.balanceQty} {order.uom}</td>
+                  <td className="p-3">
+                    <Button onClick={() => handleAssignClick(order)} size="sm" className="h-7 rounded-none bg-[#0056d2] hover:bg-blue-800 text-white font-black text-[9px] uppercase tracking-tighter shadow-md">Assign Vehicle</Button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              filteredTrips.map(trip => (
+                <tr key={trip.id} className="border-b border-slate-100 hover:bg-blue-50/50 transition-colors group">
+                  <td className="p-3 text-[11px] font-black text-[#0056d2]">#{trip.tripId}</td>
+                  <td className="p-3 text-[11px] font-black uppercase cursor-pointer hover:bg-blue-50" 
+                      onDoubleClick={() => { setVehicleEditData({ vehicleNumber: trip.vehicleNumber, driverMobile: trip.driverMobile }); setVehicleEditPopup({ isOpen: true, trip }); }}>
+                    {trip.vehicleNumber}
+                    <span className="ml-2 opacity-0 group-hover:opacity-100 text-[8px] text-slate-400 font-bold uppercase tracking-widest">(Double Click / F2)</span>
+                  </td>
+                  <td className="p-3 text-[11px] font-bold">{trip.plantCode}</td>
+                  <td className="p-3 text-[11px] font-bold uppercase truncate max-w-[150px]">{trip.consignee || 'N/A'}</td>
+                  <td className="p-3 text-[11px] font-bold uppercase truncate max-w-[150px]">{trip.shipToParty}</td>
+                  <td className="p-3 text-[11px] font-bold uppercase">{trip.route}</td>
+                  <td className="p-3 text-[11px] font-black text-emerald-600">{trip.assignWeight} MT</td>
+                  <td className="p-3">
+                    {trip.cnNumber ? (
+                      <button onClick={() => setCnPreview({ isOpen: true, trip })} className="text-[10px] font-black text-blue-600 hover:underline">{trip.cnNumber}</button>
+                    ) : (
+                      <button onClick={() => handleCnClick(trip)} className="p-1 hover:bg-blue-100 rounded text-blue-600 transition-colors"><Plus className="h-4 w-4" /></button>
+                    )}
+                  </td>
+                  <td className="p-3">
+                    {activeTab === 'Loading' && (
+                      <Button 
+                        onClick={() => {
+                          setVehicleOutData({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
+                          setVehicleOutPopup({ isOpen: true, trip });
+                        }}
+                        disabled={!trip.cnNumber}
+                        size="sm" 
+                        className={cn("h-7 rounded-none font-black text-[9px] uppercase tracking-tighter shadow-md", !trip.cnNumber ? "bg-slate-300" : "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                      >
+                        Vehicle Out
+                      </Button>
+                    )}
+                    {activeTab !== 'Loading' && <Badge className="bg-blue-100 text-[#0056d2] border-blue-200 text-[8px] font-black">{trip.status}</Badge>}
+                  </td>
+                  <td className="p-3 text-[10px] text-slate-400 font-bold">{format(new Date(trip.createdAt), 'dd-MM HH:mm')}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
+        <DialogContent className="max-w-3xl p-0 border-none rounded-none shadow-2xl bg-[#f0f3f9]">
+          <div className="bg-[#1e3a8a] text-white px-6 py-4 flex justify-between items-center">
+            <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2"><Truck className="h-4 w-4" /> Vehicle Assignment Hub</h2>
+            <button onClick={() => setIsPopupOpen(false)} className="hover:bg-white/10 p-1 rounded transition-colors"><X className="h-4 w-4" /></button>
+          </div>
+          <div className="p-8 space-y-8 overflow-y-auto max-h-[85vh] green-scrollbar">
+            <div className="grid grid-cols-5 gap-4 bg-white p-5 border border-slate-200 shadow-sm rounded-sm">
+              {[{ label: 'Plant', val: assignData.plantCode }, { label: 'Consignee', val: assignData.consignee }, { label: 'Ship To', val: assignData.shipToParty }, { label: 'Route', val: assignData.route }, { label: 'Order Qty', val: assignData.orderQty }].map(item => (
+                <div key={item.label} className="space-y-1"><p className="text-[8px] font-black uppercase text-slate-400 tracking-widest">{item.label}</p><p className="text-[10px] font-black text-[#1e3a8a] truncate">{item.val}</p></div>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-500">Vehicle Number *</label><input value={assignData.vehicleNumber || ''} onChange={e => setAssignData({...assignData, vehicleNumber: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black outline-none focus:bg-[#ffffcc] bg-white shadow-sm" placeholder="E.G. UP14-BT-1234" /></div>
+              <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-500">Driver Mobile *</label><input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black outline-none focus:bg-[#ffffcc] bg-white shadow-sm" placeholder="ENTER 10 DIGITS" /></div>
+              <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-500">Assign Qty *</label><input type="number" value={assignData.assignWeight || ''} onChange={e => { const val = e.target.value; const freight = assignData.isFixedRate ? (assignData.freightAmount || 0) : (parseFloat(assignData.rate || 0) * parseFloat(val || 0)); setAssignData({...assignData, assignWeight: val, freightAmount: freight}); }} className="h-10 border border-slate-400 px-3 text-xs font-black outline-none focus:bg-[#ffffcc] bg-white shadow-sm" /></div>
+              <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-500">Fleet Type *</label><select value={assignData.fleetType} onChange={e => setAssignData({...assignData, fleetType: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black outline-none bg-white shadow-sm">{['Own Vehicle', 'Contract Vehicle', 'Market Vehicle', 'Arrange by Party'].map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></div>
+            </div>
+            {assignData.fleetType === 'Market Vehicle' && (
+              <div className="p-6 bg-[#dae4f1]/20 border-l-4 border-blue-600 space-y-6 rounded-r-sm animate-fade-in shadow-inner">
+                <div className="grid grid-cols-2 gap-6 relative">
+                  <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-500">Vendor *</label><div className="relative"><input value={vendorSearch} onChange={e => { setVendorSearch(e.target.value); setShowVendorSuggestions(true); }} onFocus={() => setShowVendorSuggestions(true)} className="h-10 w-full border border-slate-400 px-3 text-xs font-black outline-none focus:bg-[#ffffcc] bg-white shadow-sm" placeholder="TYPE VENDOR NAME..." />{showVendorSuggestions && matchingVendors && matchingVendors.length > 0 && (<div className="absolute top-full left-0 w-full bg-white border border-slate-300 shadow-xl z-20 mt-1 max-h-40 overflow-y-auto">{matchingVendors.map(v => (<div key={v.id} onClick={() => { setVendorSearch(v.vendorName); setAssignData({...assignData, vendorName: v.vendorName, vendorMobile: v.mobile}); setShowVendorSuggestions(false); }} className="px-4 py-2.5 text-[11px] font-bold hover:bg-blue-50 cursor-pointer border-b border-slate-100 flex justify-between"><span>{v.vendorName}</span><span className="text-slate-400 italic">{v.vendorCode}</span></div>))}</div>)}</div></div>
+                  <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-500">Vendor Mobile</label><input value={assignData.vendorMobile || ''} disabled className="h-10 border border-slate-300 px-3 text-xs font-bold bg-slate-100 outline-none text-slate-500" placeholder="AUTO-FILLED" /></div>
+                </div>
+                <div className="grid grid-cols-3 gap-6 items-end">
+                  <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-500">Rate (Per UOM)</label><input type="number" disabled={assignData.isFixedRate} value={assignData.rate || ''} onChange={e => { const val = e.target.value; const freight = parseFloat(val || 0) * parseFloat(assignData.assignWeight || 0); setAssignData({...assignData, rate: val, freightAmount: freight}); }} className={cn("h-10 border border-slate-400 px-3 text-xs font-black outline-none shadow-sm", assignData.isFixedRate ? "bg-slate-100" : "bg-white focus:bg-[#ffffcc]")} /></div>
+                  <div className="flex items-center gap-3 h-10 px-4 bg-white border border-slate-400 shadow-sm"><Checkbox id="isFixed" checked={assignData.isFixedRate} onCheckedChange={checked => setAssignData({...assignData, isFixedRate: !!checked, rate: !!checked ? '' : assignData.rate})} /><label htmlFor="isFixed" className="text-[10px] font-black uppercase text-slate-700 cursor-pointer">Fix Rate Logic</label></div>
+                  <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-500">Total Freight Amount</label><input type="number" disabled={!assignData.isFixedRate} value={assignData.freightAmount || ''} onChange={e => setAssignData({...assignData, freightAmount: e.target.value})} className={cn("h-10 border border-slate-400 px-3 text-xs font-black outline-none shadow-sm", !assignData.isFixedRate ? "bg-slate-100" : "bg-white focus:bg-[#ffffcc]")} /></div>
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end gap-4 pt-4 border-t border-slate-200"><Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-11 px-8 rounded-none border-red-200 text-red-600 font-black text-[10px] uppercase tracking-widest hover:bg-red-50">Cancel</Button><Button onClick={handlePost} className="h-11 px-12 rounded-none bg-[#0056d2] hover:bg-blue-800 text-white font-black text-[10px] uppercase tracking-widest shadow-lg">Post to Loading</Button></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={cnPopup.isOpen} onOpenChange={(val) => setCnPopup({...cnPopup, isOpen: val})}>
+        <DialogContent className="max-w-4xl p-0 border-none rounded-none shadow-2xl bg-[#f0f3f9]">
+          <div className="bg-[#1e3a8a] text-white px-6 py-4 flex justify-between items-center">
+            <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2"><FileCheck className="h-4 w-4" /> Consignment Note Registry Hub</h2>
+            <button onClick={() => setCnPopup({...cnPopup, isOpen: false})} className="hover:bg-white/10 p-1 rounded transition-colors"><X className="h-4 w-4" /></button>
+          </div>
+          <div className="p-8 space-y-6 overflow-y-auto max-h-[85vh] green-scrollbar">
+            <div className="grid grid-cols-6 gap-4 bg-white p-5 border border-slate-200 shadow-sm rounded-sm">
+              {[
+                { label: 'Consignor', val: cnData.consignor }, { label: 'Consignee', val: cnData.consignee }, 
+                { label: 'Ship To', val: cnData.shipToParty }, { label: 'Route', val: cnData.route }, 
+                { label: 'Vehicle No', val: cnData.vehicleNumber }, { label: 'Carrier Name', val: cnData.carrierName }
+              ].map(item => (
+                <div key={item.label} className="space-y-1"><p className="text-[7px] font-black uppercase text-slate-400 tracking-widest">{item.label}</p><p className="text-[9px] font-black text-[#1e3a8a] truncate">{item.val}</p></div>
+              ))}
+            </div>
+            <div className="grid grid-cols-3 gap-6">
+              <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-500">CN Number *</label><input value={cnData.cnNumber || ''} onChange={e => setCnData({...cnData, cnNumber: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black outline-none focus:bg-[#ffffcc] bg-white shadow-sm" /></div>
+              <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-500">Date *</label><input type="date" value={cnData.cnDate || ''} onChange={e => setCnData({...cnData, cnDate: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black outline-none bg-white shadow-sm" /></div>
+              <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-500">Payment Term *</label><select value={cnData.paymentTerm} onChange={e => setCnData({...cnData, paymentTerm: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black outline-none bg-white shadow-sm"><option value="Paid">Paid</option><option value="To Pay">To Pay</option></select></div>
+            </div>
+            <div className="border border-slate-300 rounded-sm overflow-hidden">
+              <div className="bg-[#dae4f1]/50 p-2.5 border-b border-slate-300 flex justify-between items-center"><span className="text-[9px] font-black uppercase tracking-widest text-slate-500">DOCUMENT ITEMS</span><button onClick={() => setCnData({...cnData, items: [...(cnData.items || []), { invoice: '', ewaybill: '', product: '', unit: '', unitUom: 'BAG' }]})} className="h-6 px-3 bg-[#1e3a8a] text-white font-black text-[8px] uppercase tracking-tighter">Add Row</button></div>
+              <table className="w-full text-left border-collapse text-[10px]">
+                <thead className="bg-[#f8fafc] border-b border-slate-300"><tr>{['Invoice', 'E-waybill', 'Product', 'Unit', 'Unit UOM', ''].map(h => <th key={h} className="p-2 font-black uppercase text-slate-400 border-r border-slate-200">{h}</th>)}</tr></thead>
+                <tbody>{(cnData.items || []).map((it: any, idx: number) => (
+                  <tr key={idx} className="border-b border-slate-100"><td className="p-1 border-r border-slate-100"><input value={it.invoice} onChange={e => { const items = [...cnData.items]; items[idx].invoice = e.target.value; setCnData({...cnData, items}); }} className="w-full h-7 outline-none px-2 font-bold focus:bg-[#ffffcc]" /></td><td className="p-1 border-r border-slate-100"><input value={it.ewaybill} onChange={e => { const items = [...cnData.items]; items[idx].ewaybill = e.target.value; setCnData({...cnData, items}); }} className="w-full h-7 outline-none px-2 font-bold focus:bg-[#ffffcc]" /></td><td className="p-1 border-r border-slate-100"><input value={it.product} onChange={e => { const items = [...cnData.items]; items[idx].product = e.target.value; setCnData({...cnData, items}); }} className="w-full h-7 outline-none px-2 font-bold focus:bg-[#ffffcc]" /></td><td className="p-1 border-r border-slate-100"><input value={it.unit} onChange={e => { const items = [...cnData.items]; items[idx].unit = e.target.value; setCnData({...cnData, items}); }} className="w-full h-7 outline-none px-2 font-bold focus:bg-[#ffffcc]" /></td><td className="p-1 border-r border-slate-100"><select value={it.unitUom} onChange={e => { const items = [...cnData.items]; items[idx].unitUom = e.target.value; setCnData({...cnData, items}); }} className="w-full h-7 outline-none bg-white font-bold">{['BAG', 'BOX', 'DRUM', 'Pieces'].map(u => <option key={u} value={u}>{u}</option>)}</select></td><td className="p-1 text-center"><button onClick={() => { const items = cnData.items.filter((_:any, i:number) => i !== idx); setCnData({...cnData, items}); }} className="text-red-400"><Trash2 className="h-3 w-3" /></button></td></tr>
+                ))}</tbody>
+              </table>
+            </div>
+            <div className="flex justify-end gap-4 pt-4 border-t border-slate-200"><Button onClick={() => setCnPopup({...cnPopup, isOpen: false})} variant="outline" className="h-10 px-8 rounded-none border-red-200 text-red-600 font-black text-[9px] uppercase tracking-widest">Cancel</Button><Button onClick={handlePostCN} className="h-10 px-12 rounded-none bg-[#0056d2] text-white font-black text-[9px] uppercase tracking-widest">{cnPopup.isEdit ? 'Update CN' : 'Post CN'}</Button></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={cnPreview.isOpen} onOpenChange={(val) => setCnPreview({...cnPreview, isOpen: val})}>
+        <DialogContent className="max-w-4xl p-0 border-none rounded-none shadow-2xl bg-white">
+          <div className="bg-[#1e3a8a] text-white px-6 py-4 flex justify-between items-center no-print">
+            <h2 className="text-sm font-black uppercase tracking-widest">CN Preview: {cnPreview.trip?.cnNumber}</h2>
+            <div className="flex gap-2">
+              <button onClick={() => { setCnData(cnPreview.trip); setCnPopup({ isOpen: true, trip: cnPreview.trip, isEdit: true }); setCnPreview({ isOpen: false, trip: null }); }} className="flex items-center gap-1.5 px-3 h-8 bg-blue-500 hover:bg-blue-600 rounded text-[9px] font-black uppercase transition-colors"><Edit3 className="h-3.5 w-3.5" /> Edit</button>
+              <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 h-8 bg-emerald-600 hover:bg-emerald-700 rounded text-[9px] font-black uppercase transition-colors"><Download className="h-3.5 w-3.5" /> Generate PDF</button>
+              <button onClick={() => setCnPreview({ isOpen: false, trip: null })} className="p-1 hover:bg-white/10 rounded"><X className="h-4 w-4" /></button>
+            </div>
+          </div>
+          <div id="printable-area" className="p-12 space-y-10 font-mono text-[#333]">
+             <div className="flex justify-between items-start border-b-2 border-slate-800 pb-8">
+               <div className="space-y-2">
+                  <h1 className="text-3xl font-black italic text-[#1e3a8a] tracking-tighter uppercase">{cnPreview.trip?.carrierName}</h1>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Premium Logistics Hub node</p>
+               </div>
+               <div className="text-right space-y-1">
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Consignment Note No.</p>
+                  <p className="text-2xl font-black tracking-tighter text-[#1e3a8a]">{cnPreview.trip?.cnNumber}</p>
+                  <p className="text-[11px] font-bold text-slate-500">{cnPreview.trip?.cnDate}</p>
+               </div>
+             </div>
+             <div className="grid grid-cols-2 gap-12">
+               <div className="space-y-4">
+                  <div className="space-y-1"><p className="text-[9px] font-black uppercase text-slate-400">Consignor Details</p><p className="text-sm font-black uppercase leading-tight">{cnPreview.trip?.consignor}</p></div>
+                  <div className="space-y-1"><p className="text-[9px] font-black uppercase text-slate-400">Consignee Details</p><p className="text-sm font-black uppercase leading-tight">{cnPreview.trip?.consignee}</p></div>
+               </div>
+               <div className="space-y-4">
+                  <div className="space-y-1"><p className="text-[9px] font-black uppercase text-slate-400">Route & Vehicle</p><p className="text-sm font-black uppercase tracking-widest">{cnPreview.trip?.route}</p><p className="text-xs font-bold text-slate-500">{cnPreview.trip?.vehicleNumber}</p></div>
+                  <div className="space-y-1"><p className="text-[9px] font-black uppercase text-slate-400">Payment Term</p><Badge className="rounded-none bg-[#1e3a8a] text-white text-[9px] font-black uppercase px-3 py-1">{cnPreview.trip?.paymentTerm}</Badge></div>
+               </div>
+             </div>
+             <table className="w-full border-2 border-slate-800 border-collapse">
+                <thead className="bg-slate-50 border-b-2 border-slate-800"><tr>{['Invoice', 'E-waybill', 'Product', 'Quantity'].map(h => <th key={h} className="p-3 text-[10px] font-black uppercase text-left border-r border-slate-800">{h}</th>)}</tr></thead>
+                <tbody>{cnPreview.trip?.items?.map((it: any, i: number) => (
+                  <tr key={i} className="border-b border-slate-200"><td className="p-3 text-[11px] font-bold border-r border-slate-800">{it.invoice}</td><td className="p-3 text-[11px] font-bold border-r border-slate-800">{it.ewaybill}</td><td className="p-3 text-[11px] font-bold border-r border-slate-800">{it.product}</td><td className="p-3 text-[11px] font-black border-r border-slate-800">{it.unit} {it.unitUom}</td></tr>
+                ))}</tbody>
+             </table>
+             <div className="flex justify-between items-end pt-12">
+                <div className="space-y-4"><div className="w-48 h-[1px] bg-slate-400" /><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Receiver's Signature</p></div>
+                <div className="text-right space-y-4"><div className="w-48 h-[1px] bg-slate-400 ml-auto" /><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Authorized Signatory</p></div>
+             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={vehicleOutPopup.isOpen} onOpenChange={(val) => setVehicleOutPopup({...vehicleOutPopup, isOpen: val})}>
+        <DialogContent className="max-w-md p-0 border-none rounded-none shadow-2xl bg-[#f0f3f9]">
+          <div className="bg-emerald-600 text-white px-6 py-4 flex justify-between items-center">
+            <h2 className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2"><Truck className="h-4 w-4" /> Vehicle Out Confirmation</h2>
+            <button onClick={() => setVehicleOutPopup({ isOpen: false, trip: null })} className="hover:bg-white/10 p-1 rounded transition-colors"><X className="h-4 w-4" /></button>
+          </div>
+          <div className="p-8 space-y-6">
+            <div className="bg-white p-5 border border-slate-200 rounded-sm space-y-3">
+              <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle</span><span className="text-[11px] font-black uppercase">{vehicleOutPopup.trip?.vehicleNumber}</span></div>
+              <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-[8px] font-black text-slate-400 uppercase">CN No</span><span className="text-[11px] font-black text-blue-600">{vehicleOutPopup.trip?.cnNumber}</span></div>
+              <div className="flex justify-between pb-1"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[11px] font-black uppercase">{vehicleOutPopup.trip?.route}</span></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-500 uppercase">Out Date</label><input type="date" value={vehicleOutData.date} onChange={e => setVehicleOutData({...vehicleOutData, date: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-bold" /></div>
+              <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-500 uppercase">Out Time</label><input type="time" value={vehicleOutData.time} onChange={e => setVehicleOutData({...vehicleOutData, time: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-bold" /></div>
+            </div>
+            <div className="flex gap-4 pt-2">
+              <Button onClick={() => setVehicleOutPopup({ isOpen: false, trip: null })} variant="outline" className="flex-1 h-11 border-red-200 text-red-600 font-black text-[10px] uppercase tracking-widest rounded-none">Cancel</Button>
+              <Button onClick={handleVehicleOutConfirm} className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest rounded-none">Confirm Mission</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={vehicleEditPopup.isOpen} onOpenChange={(val) => setVehicleEditPopup({...vehicleEditPopup, isOpen: val})}>
+        <DialogContent className="max-w-md p-0 border-none rounded-none shadow-2xl bg-[#f0f3f9]">
+          <div className="bg-[#1e3a8a] text-white px-6 py-4 flex justify-between items-center">
+            <h2 className="text-xs font-black uppercase tracking-[0.2em]">Edit Vehicle: {vehicleEditPopup.trip?.tripId}</h2>
+            <button onClick={() => setVehicleEditPopup({ isOpen: false, trip: null })} className="hover:bg-white/10 p-1 rounded transition-colors"><X className="h-4 w-4" /></button>
+          </div>
+          <div className="p-8 space-y-6">
+            <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-500 uppercase">Vehicle Number</label><input value={vehicleEditData.vehicleNumber} onChange={e => setVehicleEditData({...vehicleEditData, vehicleNumber: e.target.value.toUpperCase()})} className="h-11 border border-slate-400 px-4 text-xs font-black focus:bg-[#ffffcc]" /></div>
+            <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-500 uppercase">Driver Mobile</label><input value={vehicleEditData.driverMobile} onChange={e => setVehicleEditData({...vehicleEditData, driverMobile: e.target.value})} className="h-11 border border-slate-400 px-4 text-xs font-black focus:bg-[#ffffcc]" /></div>
+            <div className="flex gap-4 pt-4 border-t border-slate-200">
+               <Button onClick={() => setVehicleEditPopup({ isOpen: false, trip: null })} variant="outline" className="flex-1 h-11 border-red-200 text-red-600 font-black text-[10px] uppercase rounded-none">Cancel</Button>
+               <Button onClick={handleVehicleUpdate} className="flex-1 h-11 bg-[#1e3a8a] text-white font-black text-[10px] uppercase rounded-none">Update Vehicle</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code: string) => void }) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+      {tcodes.map((item) => (
+        <div key={item.code} onClick={() => onExecute(item.code)} className="bg-white border border-slate-200 p-6 rounded-xl shadow-md hover:shadow-xl transition-all cursor-pointer group flex items-start gap-5">
+           <div className="p-3 bg-blue-50 text-[#0056d2] rounded-lg group-hover:bg-[#0056d2] group-hover:text-white transition-colors">
+              <item.icon className="h-6 w-6" />
+           </div>
+           <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{item.module}</p>
+              <h3 className="text-sm font-black text-slate-800 uppercase leading-tight mb-2">{item.code}</h3>
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">{item.description}</p>
+           </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SectionGrouping({ title, children }: { title: string, children: React.ReactNode }) {
+  return (
+    <div className="border border-slate-300 p-5 pt-4 relative bg-white rounded-sm mb-6">
+      {title && <span className="absolute -top-3 left-4 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 border border-slate-200">{title}</span>}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">{children}</div>
+    </div>
+  );
+}
+
+function FormInput({ label, value, onChange, type = "text", disabled, placeholder }: any) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <Input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder={placeholder} className="h-9 rounded-none border-slate-400 text-xs font-bold bg-white focus:ring-1 focus:ring-blue-600 shadow-sm" />
+    </div>
+  );
+}
+
+function FormSelect({ label, value, options, onChange, disabled }: any) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-9 border border-slate-400 bg-white px-2 text-xs font-bold outline-none shadow-sm">
+        <option value="">Select...</option>
+        {options.map((o: any, idx: number) => {
+          const optValue = typeof o === 'string' ? o : o.value;
+          const optLabel = typeof o === 'string' ? o : o.label;
+          return <option key={`${optValue}-${idx}`} value={optValue}>{optLabel}</option>;
+        })}
+      </select>
+    </div>
+  );
+}
+
+function PlantForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="space-y-4">
+      <SectionGrouping title="DATA">
+        <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="SETTINGS">
+        <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
+        <FormInput label="STATE" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
+      </SectionGrouping>
+    </div>
+  );
+}
+
+function CompanyForm({ data, onChange, disabled, allPlants }: any) {
+  const plants = (allPlants || []).map((p: any) => p.plantCode);
+  const handlePlantToggle = (plant: string) => {
+    const current = data.plantCodes || [];
+    const updated = current.includes(plant) ? current.filter((p: string) => p !== plant) : [...current, plant];
+    onChange({...data, plantCodes: updated});
+  };
+  return (
+    <div className="space-y-4">
+      <SectionGrouping title="IDENTIFICATION">
+        <div className="col-span-2 space-y-2 mb-4">
+          <label className="text-[10px] font-bold text-slate-500 uppercase">Plant Assignment (Multiple)</label>
+          <div className="flex flex-wrap gap-2">
+            {plants.map((p: string) => (
+              <button 
+                key={p} 
+                onClick={() => handlePlantToggle(p)}
+                disabled={disabled}
+                className={cn(
+                  "px-3 py-1.5 text-[10px] font-black border uppercase transition-all",
+                  data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-600 border-slate-300"
+                )}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+        <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
+        <FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
+      </SectionGrouping>
+      
+      <SectionGrouping title="LOCATION DETAILS">
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+        <FormInput label="STATE" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
+        <FormInput label="STATE CODE" value={data.stateCode} onChange={(v: string) => onChange({...data, stateCode: v})} disabled={disabled} />
+        <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
+      </SectionGrouping>
+
+      <SectionGrouping title="TAX & CONTACT">
+        <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+        <FormInput label="PAN" value={data.pan} onChange={(v: string) => onChange({...data, pan: v})} disabled={disabled} />
+        <FormInput label="MOBILE (COMMA SEPARATED)" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} placeholder="e.g. 9876543210, 8765432109" />
+        <FormInput label="EMAIL" value={data.email} onChange={(v: string) => onChange({...data, email: v})} disabled={disabled} />
+        <FormInput label="WEBSITE" value={data.website} onChange={(v: string) => onChange({...data, website: v})} disabled={disabled} />
+      </SectionGrouping>
+
+      <SectionGrouping title="TERMS & CONDITIONS">
+        <div className="col-span-2 space-y-3">
+          {(data.termsAndConditions || ['']).map((term: string, idx: number) => (
+            <div key={idx} className="flex gap-2">
+              <span className="w-6 text-[10px] font-black text-slate-400 mt-2.5">0{idx + 1}</span>
+              <input
+                value={term}
+                onChange={(e) => {
+                  const newTerms = [...(data.termsAndConditions || [''])];
+                  newTerms[idx] = e.target.value;
+                  onChange({...data, termsAndConditions: newTerms});
+                }}
+                disabled={disabled}
+                className="flex-1 h-9 border border-slate-400 px-3 text-xs font-bold outline-none focus:bg-[#ffffcc]"
+                placeholder={`TERM ${idx + 1}...`}
+              />
+              {!disabled && (data.termsAndConditions?.length || 1) > 1 && (
+                 <button onClick={() => {
+                   const newTerms = data.termsAndConditions.filter((_:any, i:number) => i !== idx);
+                   onChange({...data, termsAndConditions: newTerms});
+                 }} className="text-red-400 p-2"><Trash2 className="h-4 w-4" /></button>
+              )}
+            </div>
+          ))}
+          {!disabled && (data.termsAndConditions?.length || 1) < 8 && (
+            <button
+              onClick={() => onChange({...data, termsAndConditions: [...(data.termsAndConditions || ['']), '']})}
+              className="text-[9px] font-black uppercase text-blue-600 hover:underline flex items-center gap-1"
+            >
+              <Plus className="h-3 w-3" /> Add New Term
+            </button>
+          )}
+        </div>
+      </SectionGrouping>
+
+      <SectionGrouping title="MEDIA">
+        <div className="col-span-2 flex items-center gap-6 p-2">
+           <div className="w-24 h-24 border border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden">
+             {data.logo ? <Image src={data.logo} alt="Logo" width={96} height={96} className="object-contain" unoptimized /> : <Package className="h-8 w-8 text-slate-300" />}
+           </div>
+           {!disabled && (
+             <div className="flex flex-col gap-2">
+               <label className="text-[10px] uppercase font-black text-blue-600 cursor-pointer hover:underline">
+                 Upload Company Logo
+                 <input type="file" accept="image/*" onChange={(e) => {
+                   const file = e.target.files?.[0];
+                   if (file) { const reader = new FileReader(); reader.onloadend = () => onChange({...data, logo: reader.result as string}); reader.readAsDataURL(file); }
+                 }} className="hidden" />
+               </label>
+             </div>
+           )}
+        </div>
+      </SectionGrouping>
+    </div>
+  );
+}
+
+function VendorForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="space-y-4">
+      <SectionGrouping title="IDENTIFICATION">
+        <FormInput label="VENDOR CODE" value={data.vendorCode} disabled={true} placeholder="AUTO-GENERATED" />
+        <FormInput label="VENDOR NAME" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
+        <FormInput label="VENDOR FIRM NAME" value={data.vendorFirmName} onChange={(v: string) => onChange({...data, vendorFirmName: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="DETAILS">
+        <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="SPECIAL ROUTE" value={data.route} onChange={(v: string) => onChange({...data, route: v})} disabled={disabled} />
+      </SectionGrouping>
+    </div>
+  );
+}
+
+function CustomerForm({ data, onChange, disabled, allPlants }: any) {
+  const plants = (allPlants || []).map((p: any) => p.plantCode);
+  const handlePlantToggle = (plant: string) => {
+    const current = data.plantCodes || [];
+    const updated = current.includes(plant) ? current.filter((p: string) => p !== plant) : [...current, plant];
+    onChange({...data, plantCodes: updated});
+  };
+
+  return (
+    <div className="space-y-4">
+      <SectionGrouping title="CORE IDENTIFICATION">
+        <div className="col-span-2 space-y-2 mb-4">
+          <label className="text-[10px] font-bold text-slate-500 uppercase">Plant Assignment (Multiple)</label>
+          <div className="flex flex-wrap gap-2">
+            {plants.map((p: string) => (
+              <button 
+                key={p} 
+                onClick={() => handlePlantToggle(p)}
+                disabled={disabled}
+                className={cn(
+                  "px-3 py-1.5 text-[10px] font-black border uppercase transition-all",
+                  data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-600 border-slate-300"
+                )}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+        <FormInput label="CUSTOMER CODE" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} />
+        <FormInput label="CUSTOMER NAME" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
+        <FormSelect 
+          label="CUSTOMER TYPE" 
+          value={data.customerType} 
+          options={[
+            { value: "Consignor", label: "Consignor" },
+            { value: "Consignee - Ship to Party", label: "Consignee - Ship to Party" }
+          ]} 
+          onChange={(v: string) => onChange({...data, customerType: v})} 
+          disabled={disabled} 
+        />
+      </SectionGrouping>
+      
+      <SectionGrouping title="LOCATION & TAX">
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+        <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
+        <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+        <FormInput label="PAN" value={data.pan} onChange={(v: string) => onChange({...data, pan: v})} disabled={disabled} />
+        <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+      </SectionGrouping>
+    </div>
+  );
+}
+
+function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: any) {
+  const plantOpts = (allPlants || []).map((p: any) => p.plantCode);
+  const consignors = (allCustomers || []).filter((c: any) => c.customerType === 'Consignor');
+  const shipToParties = (allCustomers || []).filter((c: any) => c.customerType === 'Consignee - Ship to Party');
+
+  const items = data.items || [{ invoice: '', ewaybill: '', product: '', weight: '', weightUom: 'MT' }];
+
+  const handleAddItem = () => {
+    onChange({ ...data, items: [...items, { invoice: '', ewaybill: '', product: '', weight: '', weightUom: 'MT' }] });
+  };
+
+  const handleUpdateItem = (index: number, field: string, value: any) => {
+    const newItems = [...items];
+    newItems[index] = { ...newItems[index], [field]: value };
+    onChange({ ...data, items: newItems });
+  };
+
+  const handleRemoveItem = (index: number) => {
+    if (items.length <= 1) return;
+    const newItems = items.filter((_, i) => i !== index);
+    onChange({ ...data, items: newItems });
+  };
+
+  return (
+    <div className="space-y-4">
+      <SectionGrouping title="HEADER">
+        <FormSelect label="PLANT" value={data.plantCode} options={plantOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormInput label="SALE ORDER NO" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
+      </SectionGrouping>
+
+      <SectionGrouping title="COORDINATION">
+        <FormSelect 
+          label="CONSIGNOR" 
+          value={data.consignor} 
+          options={consignors.map(c => c.customerName)} 
+          onChange={(v: string) => {
+            const cust = consignors.find(c => c.customerName === v);
+            onChange({...data, consignor: v, from: cust?.city || ''});
+          }} 
+          disabled={disabled} 
+        />
+        <FormInput label="FROM" value={data.from} disabled={true} placeholder="AUTO-FILLED" />
+        
+        <FormSelect 
+          label="CONSIGNEE" 
+          value={data.consignee} 
+          options={(allCustomers || []).map((c: any) => c.customerName)} 
+          onChange={(v: string) => onChange({...data, consignee: v})} 
+          disabled={disabled} 
+        />
+        <FormSelect 
+          label="SHIP TO PARTY" 
+          value={data.shipToParty} 
+          options={shipToParties.map(c => c.customerName)} 
+          onChange={(v: string) => {
+            const cust = shipToParties.find(c => c.customerName === v);
+            onChange({...data, shipToParty: v, destination: cust?.city || ''});
+          }} 
+          disabled={disabled} 
+        />
+        <FormInput label="DESTINATION" value={data.destination} disabled={true} placeholder="AUTO-FILLED" />
+      </SectionGrouping>
+
+      <div className="border border-slate-300 rounded-sm overflow-hidden">
+        <div className="bg-[#dae4f1]/50 p-3 border-b border-slate-300 flex justify-between items-center">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">ITEM</span>
+          {!disabled && (
+            <Button onClick={handleAddItem} size="sm" variant="outline" className="h-7 rounded-none border-blue-600 text-blue-600 font-black text-[9px] uppercase tracking-tighter hover:bg-blue-50">
+              <Plus className="h-3 w-3 mr-1" /> Add Row
+            </Button>
+          )}
+        </div>
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-[#f8fafc] border-b border-slate-300">
+            <tr>
+              {['Invoice', 'Ewaybill', 'Product', 'Weight', 'Weight UOM', ''].map(h => (
+                <th key={h} className="p-2 text-[9px] font-black uppercase text-slate-400 border-r border-slate-200">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item: any, idx: number) => (
+              <tr key={idx} className="border-b border-slate-200 bg-white">
+                <td className="p-1 border-r border-slate-100">
+                  <input value={item.invoice} onChange={e => handleUpdateItem(idx, 'invoice', e.target.value)} disabled={disabled} className="w-full h-8 outline-none px-2 text-[11px] font-bold focus:bg-[#ffffcc]" />
+                </td>
+                <td className="p-1 border-r border-slate-100">
+                  <input value={item.ewaybill} onChange={e => handleUpdateItem(idx, 'ewaybill', e.target.value)} disabled={disabled} className="w-full h-8 outline-none px-2 text-[11px] font-bold focus:bg-[#ffffcc]" />
+                </td>
+                <td className="p-1 border-r border-slate-100">
+                  <input value={item.product} onChange={e => handleUpdateItem(idx, 'product', e.target.value)} disabled={disabled} className="w-full h-8 outline-none px-2 text-[11px] font-bold focus:bg-[#ffffcc]" />
+                </td>
+                <td className="p-1 border-r border-slate-100">
+                  <input value={item.weight} onChange={e => handleUpdateItem(idx, 'weight', e.target.value)} disabled={disabled} className="w-full h-8 outline-none px-2 text-[11px] font-bold focus:bg-[#ffffcc]" />
+                </td>
+                <td className="p-1 border-r border-slate-100">
+                  <select value={item.weightUom} onChange={e => handleUpdateItem(idx, 'weightUom', e.target.value)} disabled={disabled} className="w-full h-8 outline-none px-2 text-[11px] font-bold bg-white focus:bg-[#ffffcc]">
+                    <option value="MT">MT</option>
+                    <option value="LTR">LTR</option>
+                  </select>
+                </td>
+                <td className="p-1 text-center">
+                  {!disabled && (
+                    <button onClick={() => handleRemoveItem(idx)} className="text-red-400 hover:text-red-600 transition-colors">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+    
