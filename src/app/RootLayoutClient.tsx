@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Toaster } from "@/components/ui/toaster";
 import Header from '@/components/website/Header';
 import Footer from '@/components/website/Footer';
+import { FirebaseClientProvider } from '@/firebase';
 
 /**
  * @fileOverview Client-side Root Layout Wrapper.
@@ -24,13 +25,13 @@ export default function RootLayoutClient({ children }: { children: ReactNode }) 
   const showHeaderFooter = mounted && !isDashboardOrLogin;
 
   return (
-    <>
+    <FirebaseClientProvider>
       <Suspense fallback={null}>
         {showHeaderFooter && <Header />}
         <main className={showHeaderFooter ? 'block' : 'contents'}>{children}</main>
         {showHeaderFooter && <Footer />}
       </Suspense>
       <Toaster />
-    </>
+    </FirebaseClientProvider>
   );
 }

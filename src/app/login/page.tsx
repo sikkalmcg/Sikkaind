@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -9,6 +8,7 @@ import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import placeholderData from '@/app/lib/placeholder-images.json';
+import { useAuth, initiateAnonymousSignIn } from '@/firebase';
 
 /**
  * @fileOverview Portal Login page.
@@ -16,11 +16,14 @@ import placeholderData from '@/app/lib/placeholder-images.json';
  */
 export default function LoginPage() {
   const router = useRouter();
+  const auth = useAuth();
   const [showPassword, setShowPassword] = React.useState(false);
   const loginImg = placeholderData.placeholderImages.find(p => p.id === 'login-hero');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    // Initiate non-blocking sign-in to establish Firebase session for Firestore access
+    initiateAnonymousSignIn(auth);
     router.push('/dashboard');
   };
 
@@ -31,7 +34,7 @@ export default function LoginPage() {
         <div className="h-2 w-full bg-yellow-500" />
 
         <div className="flex flex-col md:flex-row flex-1">
-          {/* Left Column: Image (Hidden on small mobile if needed, but here we make it responsive) */}
+          {/* Left Column: Image */}
           <div className="w-full md:w-[45%] p-4 md:p-12 flex items-center justify-center bg-white">
             <div className="relative w-full aspect-[4/5] md:aspect-[3/4] shadow-xl overflow-hidden group">
               {loginImg && (
