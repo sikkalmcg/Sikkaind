@@ -194,8 +194,8 @@ export default function SapDashboard() {
       
       setDocumentNonBlocking(docRef, payload, { merge: true });
       
-      if (collectionName === 'sales_orders' && payload.saleOrder) {
-        const cleanSo = payload.saleOrder.toString().trim().toUpperCase();
+      if (collectionName === 'sales_orders' && (payload.saleOrder || payload.saleOrderNumber)) {
+        const cleanSo = (payload.saleOrder || payload.saleOrderNumber).toString().trim().toUpperCase();
         const publicRef = doc(db, 'public_orders', cleanSo);
         
         const totalQty = (payload.items || []).reduce((sum: number, item: any) => sum + (parseFloat(item.weight) || 0), 0);
@@ -480,7 +480,7 @@ export default function SapDashboard() {
                         <tbody>
                           {recentOrders?.slice(0, 5).map((order) => (
                             <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { setFormData(order); setActiveScreen('VA03'); }}>
-                              <td className="p-4 font-black text-xs text-[#0056d2]">{order.saleOrder}</td>
+                              <td className="p-4 font-black text-xs text-[#0056d2]">{order.saleOrder || order.saleOrderNumber}</td>
                               <td className="p-4 font-bold text-xs text-slate-600 uppercase">{order.consignor}</td>
                               <td className="p-4 font-bold text-xs text-slate-400 uppercase italic">{order.destination}</td>
                               <td className="p-4 font-bold text-[10px] text-slate-400">{order.saleOrderDate}</td>
@@ -536,7 +536,7 @@ export default function SapDashboard() {
                             <option value="">Select Registry Item...</option>
                             {getRegistryList()?.map(item => (
                               <option key={item.id} value={item.id}>
-                                {item.username || item.saleOrder || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)} - {item.fullName || item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}
+                                {item.username || item.saleOrder || item.saleOrderNumber || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)} - {item.fullName || item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}
                               </option>
                             ))}
                            </select>
@@ -648,7 +648,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const docRef = doc(db, 'users', user.uid, 'trips', newTripId);
     setDocumentNonBlocking(docRef, tripData, { merge: true });
 
-    // Update Public Trip Registry with all metadata
+    // Update Public Trip Registry with all metadata explicitly for high visibility tracking
     const publicTripRef = doc(db, 'public_trips', tripId);
     setDocumentNonBlocking(publicTripRef, {
       type: 'trip',
@@ -666,7 +666,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       updatedAt: tripData.createdAt
     }, { merge: true });
 
-    // Update Public Order Registry to point to Trip
+    // Update Public Order Registry to point to Trip and maintain metadata
     const publicOrderRef = doc(db, 'public_orders', soNo);
     setDocumentNonBlocking(publicOrderRef, {
       status: 'LOADING',
@@ -1035,8 +1035,8 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
-      if (registryType === 'sales_orders' && data.saleOrder) {
-        const cleanSo = data.saleOrder.toString().trim().toUpperCase();
+      if (registryType === 'sales_orders' && (data.saleOrder || data.saleOrderNumber)) {
+        const cleanSo = (data.saleOrder || data.saleOrderNumber).toString().trim().toUpperCase();
         const publicRef = doc(db, 'public_orders', cleanSo);
 
         const totalQty = (data.items || []).reduce((sum: number, item: any) => sum + (parseFloat(item.weight) || 0), 0);

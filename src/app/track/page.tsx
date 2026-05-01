@@ -93,9 +93,10 @@ export default function TrackPage() {
         setShowResult(false);
       } else {
         const data = snap.data();
+        // Include ID for fallback visibility
         setResult({ 
           found: true, 
-          data: data,
+          data: { ...data, id: snap.id },
         });
         setViewMode(trackType === 'sales' ? 'order' : 'trip');
         if (overrideValue) {
@@ -125,7 +126,9 @@ export default function TrackPage() {
   if (showResult && result?.found) {
     const data = result.data;
     const formattedDate = data.updatedAt ? format(new Date(data.updatedAt), 'dd-MMM-yyyy HH:mm').toUpperCase() : 'PENDING';
-    const soNo = data.saleOrder || data.saleOrderNumber || data.id || 'N/A';
+    
+    // Robust access to Sale Order Number across all search types
+    const soNo = data.saleOrder || data.saleOrderNumber || (viewMode === 'order' ? data.id : 'N/A');
     const hasTrip = !!data.tripId;
     const currentRoute = data.route || 'TRANSIT PENDING';
 
@@ -268,7 +271,7 @@ export default function TrackPage() {
                     </div>
                     <div className="flex flex-col gap-0.5">
                       <span className="text-slate-500 text-[8px] font-black uppercase tracking-[0.2em]">Registry ID</span>
-                      <span className="text-sm md:text-lg font-black tracking-widest">{data.tripId || soNo}</span>
+                      <span className="text-sm md:text-lg font-black tracking-widest">{data.tripId || data.id}</span>
                     </div>
                   </div>
                   
