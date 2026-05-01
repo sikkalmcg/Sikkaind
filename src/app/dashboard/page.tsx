@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -13,7 +14,7 @@ import {
   LayoutDashboard, Database, Settings, BarChart, TrendingUp,
   FileSpreadsheet, HardDriveDownload, CloudUpload, ShieldAlert,
   AlertTriangle, Radar, Loader2, Edit3, FileDown,
-  Monitor, Share2, Copy, Eraser, Undo2
+  Monitor, Share2, Copy, Eraser, Undo2, Plus, Mail, Globe
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -72,6 +73,17 @@ const MASTER_TCODES = [
   { code: 'SU02', description: 'USER MANAGEMENT: CHANGE REGISTRY', icon: Edit3 },
   { code: 'SU03', description: 'USER MANAGEMENT: DISPLAY NODE', icon: Info },
 ];
+
+const GST_STATE_MAP: Record<string, string> = {
+  "01": "Jammu & Kashmir", "02": "Himachal Pradesh", "03": "Punjab", "04": "Chandigarh",
+  "05": "Uttarakhand", "06": "Haryana", "07": "Delhi", "08": "Rajasthan", "09": "Uttar Pradesh",
+  "10": "Bihar", "11": "Sikkim", "12": "Arunachal Pradesh", "13": "Nagaland", "14": "Manipur",
+  "15": "Mizoram", "16": "Tripura", "17": "Meghalaya", "18": "Assam", "19": "West Bengal",
+  "20": "Jharkhand", "21": "Odisha", "22": "Chhattisgarh", "23": "Madhya Pradesh", "24": "Gujarat",
+  "26": "Dadra & Nagar Haveli", "27": "Maharashtra", "28": "Andhra Pradesh (Old)", "29": "Karnataka",
+  "30": "Goa", "31": "Lakshadweep", "32": "Kerala", "33": "Tamil Nadu", "34": "Puducherry",
+  "35": "Andaman & Nicobar Islands", "36": "Telangana", "37": "Andhra Pradesh (New)", "38": "Ladakh"
+};
 
 export default function SapDashboard() {
   const router = useRouter();
@@ -231,15 +243,14 @@ export default function SapDashboard() {
 
   const handleLogout = () => router.push('/login');
 
-  if (isUserLoading) return <div className="flex h-screen items-center justify-center bg-[#d9e1f2] font-mono"><RotateCcw className="h-12 w-12 text-[#0056d2] animate-spin" /></div>;
+  if (isUserLoading) return <div className="flex h-screen items-center justify-center bg-[#f0f3f9] font-mono"><RotateCcw className="h-12 w-12 text-[#0056d2] animate-spin" /></div>;
 
   const isModuleActive = activeScreen !== 'HOME';
   const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
   const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
   const isReadOnly = activeScreen.endsWith('03');
 
-  // Logic to hide favorites registry/sidebar for OX01, OX02, OX03 to show in full width
-  const hideSidebar = activeScreen.startsWith('OX');
+  const hideSidebar = activeScreen.startsWith('OX') || activeScreen.startsWith('FM');
 
   const getRegistryList = () => {
     if (activeScreen.startsWith('OX')) return allPlantsList;
@@ -255,7 +266,6 @@ export default function SapDashboard() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono select-none overflow-hidden">
-      {/* SAP TOP MENU BAR */}
       <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50">
         <div className="flex items-center gap-6">
           {['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(item => (
@@ -263,16 +273,13 @@ export default function SapDashboard() {
           ))}
         </div>
         <div className="flex-1" />
-        <div className="flex items-center gap-2 text-[10px] text-slate-700 font-bold pr-4">
-          <div className="flex items-center gap-1.5 ml-4">
-            <Monitor className="h-3 w-3" />
-            <Share2 className="h-3 w-3" />
-            <Copy className="h-3 w-3" />
-          </div>
+        <div className="flex items-center gap-1.5 ml-4">
+          <Monitor className="h-3 w-3" />
+          <Share2 className="h-3 w-3" />
+          <Copy className="h-3 w-3" />
         </div>
       </div>
 
-      {/* SAP COMMAND BAR */}
       <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40">
         <div className="flex items-center px-2 py-1 gap-4">
           <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">
@@ -312,7 +319,6 @@ export default function SapDashboard() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* SIDEBAR FAVORITES - Hidden for OX01/02/03 for full width display */}
         {!hideSidebar && (
           <div className="w-72 bg-white border-r border-slate-300 flex flex-col overflow-y-auto no-scrollbar">
             <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50">
@@ -326,7 +332,7 @@ export default function SapDashboard() {
                   key={item.code} 
                   onClick={() => executeTCode(item.code)}
                   className={cn(
-                    "flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-50 transition-all",
+                    "flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all",
                     activeScreen === item.code ? "bg-[#0056d2] text-white" : "text-[#1e3a8a]"
                   )}
                 >
@@ -348,7 +354,6 @@ export default function SapDashboard() {
           </div>
         )}
 
-        {/* MAIN CONTENT AREA */}
         <div className="flex-1 flex flex-col overflow-hidden bg-[#f0f3f9]">
           {activeScreen !== 'HOME' && (
              <div className="bg-[#0056d2] text-white py-3 px-6 shadow-md flex items-center gap-4 shrink-0">
@@ -385,7 +390,7 @@ export default function SapDashboard() {
                  {showForm && (
                    <div className="space-y-6">
                      {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                     {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                     {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
                      {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
                      {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
                      {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} allCustomers={rawCustomers} />}
@@ -400,7 +405,6 @@ export default function SapDashboard() {
             )}
           </div>
 
-          {/* SAP STATUS BAR */}
           <div className="h-6 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/70 uppercase tracking-widest shrink-0">
             <div className="flex items-center gap-6">
               <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.8)]" /> MISSION SYNC: ACTIVE</span>
@@ -417,7 +421,6 @@ export default function SapDashboard() {
         </div>
       </div>
 
-      {/* DIALOGS FOR PRINTING */}
       <Dialog open={showPrintPreview} onOpenChange={setShowPrintPreview}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none bg-slate-800 shadow-2xl">
           <div className="bg-slate-900 p-4 flex justify-between items-center sticky top-0 z-10 border-b border-white/10">
@@ -472,8 +475,6 @@ export default function SapDashboard() {
   );
 }
 
-// SAP COMPONENT ABSTRACTIONS
-
 function SectionGrouping({ title, children }: { title: string, children: React.ReactNode }) {
   return (
     <div className="border border-slate-300 p-5 pt-4 relative bg-white rounded-sm mb-6">
@@ -491,12 +492,12 @@ function DetailRow({ label, value }: { label: string, value?: string | number })
   return <div className="grid grid-cols-3 gap-4 py-2 border-b border-slate-100 last:border-none"><span className="text-[9px] font-black uppercase text-slate-400">{label}</span><span className="col-span-2 text-[10px] font-bold text-slate-700 uppercase">{value || '--'}</span></div>;
 }
 
-function FormInput({ label, value, onChange, type = "text", disabled }: any) {
-  return <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label><Input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-9 rounded-none border-slate-400 text-xs font-bold bg-white focus:ring-1 focus:ring-blue-600 shadow-sm" /></div>;
+function FormInput({ label, value, onChange, type = "text", disabled, placeholder }: any) {
+  return <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label><Input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder={placeholder} className="h-9 rounded-none border-slate-400 text-xs font-bold bg-white focus:ring-1 focus:ring-blue-600 shadow-sm" /></div>;
 }
 
 function FormSelect({ label, value, options, onChange, disabled }: any) {
-  return <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label><select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-9 border border-slate-400 bg-white px-2 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-600 shadow-sm"><option value="">Select...</option>{options.map((o: string) => <option key={o} value={o}>{o}</option>)}</select></div>;
+  return <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label><select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-9 border border-slate-400 bg-white px-2 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-600 shadow-sm"><option value="">Select...</option>{options.map((o: any) => typeof o === 'string' ? <option key={o} value={o}>{o}</option> : <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>;
 }
 
 function PlantForm({ data, onChange, disabled }: any) {
@@ -516,12 +517,64 @@ function PlantForm({ data, onChange, disabled }: any) {
   );
 }
 
-function CompanyForm({ data, onChange, disabled }: any) {
+function CompanyForm({ data, onChange, disabled, allPlants }: any) {
+  const handleGstinChange = (gstin: string) => {
+    const cleanGstin = gstin.toUpperCase().trim();
+    const updates: any = { gstin: cleanGstin };
+    if (cleanGstin.length >= 2) {
+      const sCode = cleanGstin.substring(0, 2);
+      updates.stateCode = sCode;
+      updates.state = GST_STATE_MAP[sCode] || '';
+    }
+    if (cleanGstin.length >= 12) {
+      updates.pan = cleanGstin.substring(2, 12);
+    }
+    onChange({ ...data, ...updates });
+  };
+
+  const handleMobileChange = (idx: number, val: string) => {
+    const mobiles = [...(data.mobileNumbers || [''])];
+    mobiles[idx] = val;
+    onChange({ ...data, mobileNumbers: mobiles });
+  };
+
+  const addMobile = () => {
+    onChange({ ...data, mobileNumbers: [...(data.mobileNumbers || ['']), ''] });
+  };
+
+  const plantOpts = (allPlants || []).map((p: any) => ({ value: p.plantCode, label: `${p.plantCode} - ${p.plantName}` }));
+
   return (
-    <div className="space-y-8">
-      <SectionGrouping title="Database Selection Node">
-        <FormInput label="Company Code" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
-        <FormInput label="Company Name" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
+    <div className="space-y-4">
+      <SectionGrouping title="DATABASE SELECTION NODE">
+        <FormSelect label="PLANT HUB" value={data.plantCode} options={plantOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
+        <FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="GSTIN / TAX REGISTRY NODE">
+        <FormInput label="GSTIN NUMBER" value={data.gstin} onChange={handleGstinChange} disabled={disabled} placeholder="15 Digit GSTIN" />
+        <FormInput label="PAN NUMBER (AUTO)" value={data.pan} disabled={true} />
+        <FormInput label="STATE (AUTO)" value={data.state} disabled={true} />
+        <FormInput label="STATE CODE (AUTO)" value={data.stateCode} disabled={true} />
+      </SectionGrouping>
+      <SectionGrouping title="CONTACT & SETTINGS NODE">
+        <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
+        <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+        <FormInput label="EMAIL HUB" value={data.email} onChange={(v: string) => onChange({...data, email: v})} disabled={disabled} />
+        <FormInput label="WEBSITE" value={data.website} onChange={(v: string) => onChange({...data, website: v})} disabled={disabled} />
+        <div className="col-span-2 space-y-4 mt-2">
+          <label className="text-[10px] font-bold text-slate-500 uppercase">MOBILE REGISTRY (MULTIPLE)</label>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {(data.mobileNumbers || ['']).map((m: string, i: number) => (
+              <Input key={i} value={m} onChange={(e) => handleMobileChange(i, e.target.value)} disabled={disabled} className="h-9 rounded-none border-slate-400 font-bold text-xs" />
+            ))}
+            {!disabled && <Button onClick={addMobile} variant="outline" className="h-9 rounded-none border-dashed border-slate-400 text-[10px] font-black uppercase"><Plus className="h-3 w-3 mr-2" /> Add Mobile</Button>}
+          </div>
+        </div>
+        <div className="col-span-2 mt-2">
+          <label className="text-[10px] font-bold text-slate-500 uppercase">ADDRESS HUB</label>
+          <textarea className="w-full min-h-[80px] mt-1 border border-slate-400 p-3 font-bold text-xs outline-none focus:ring-1 focus:ring-blue-600 shadow-sm" value={data.address || ''} onChange={(e) => onChange({ ...data, address: e.target.value })} disabled={disabled} />
+        </div>
       </SectionGrouping>
     </div>
   );
@@ -730,7 +783,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
 
   return (
     <div className="space-y-8">
-      <SectionGrouping title="Database Selection / Filters">
+      <SectionGrouping title="DATABASE SELECTION / FILTERS NODE">
         <div className="flex items-center gap-4 col-span-2">
           <Filter className="h-4 w-4 text-[#1e3a8a]" />
           <select className="bg-white border border-slate-400 rounded-none h-9 px-4 font-bold text-xs outline-none flex-1 shadow-sm" value={plantFilter} onChange={(e) => setPlantFilter(e.target.value)}>
@@ -1034,4 +1087,3 @@ function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
     </div>
   );
 }
-
