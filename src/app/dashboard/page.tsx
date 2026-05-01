@@ -934,7 +934,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const weightUom = selectedOrder.items?.[0]?.weightUom || 'MT';
     const soNo = (selectedOrder.saleOrder || selectedOrder.saleOrderNumber || 'N/A').toString().trim().toUpperCase();
     const productName = selectedOrder.items?.[0]?.product || 'SALT';
-    const invoiceNo = selectedOrder.items?.[0]?.invoiceNumber || 'N/A';
+    const invoiceNo = selectedOrder.items?.[0]?.invoiceNumber || '';
     
     const tripData = {
       id: newTripId,
