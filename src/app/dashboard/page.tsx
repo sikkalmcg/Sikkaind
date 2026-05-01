@@ -650,6 +650,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       type: 'trip',
       status: 'LOADING',
       tripId: tripId,
+      saleOrder: selectedOrder.saleOrder, // Ensure Sale Order number is saved for Trip Registry
       vehicleNumber: vehicleNo,
       route: routeStr,
       consignor: selectedOrder.consignor || '',
