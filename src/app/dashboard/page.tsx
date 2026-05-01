@@ -419,9 +419,6 @@ export default function SapDashboard() {
              <button onClick={handleSave} title="Save (Ctrl+S / F8)" className="p-1 hover:bg-slate-200 rounded group"><Save className="h-4 w-4 text-slate-600" /></button>
              <button onClick={() => executeTCode('/n')} title="Back (F3)" className="p-1 hover:bg-slate-200 rounded group"><Undo2 className="h-4 w-4 text-slate-600" /></button>
              <button onClick={() => setFormData({})} title="Clear Form (F12)" className="p-1 hover:bg-slate-200 rounded group"><Eraser className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={() => toast({ title: "Filter", description: "Filter Registry Node Activated" })} title="Filter" className="p-1 hover:bg-slate-200 rounded group ml-4"><Filter className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={() => toast({ title: "Database", description: "Database Connectivity: Secure" })} title="Database" className="p-1 hover:bg-slate-200 rounded group"><Database className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={() => toast({ title: "Activity", description: "Mission Activity Log Synchronized" })} title="Activity" className="p-1 hover:bg-slate-200 rounded group"><Activity className="h-4 w-4 text-slate-600" /></button>
           </div>
           <div className="flex-1" />
           <div className="flex items-center gap-3 pr-4">
@@ -597,9 +594,11 @@ export default function SapDashboard() {
 function SectionGrouping({ title, children }: { title: string, children: React.ReactNode }) {
   return (
     <div className="border border-slate-300 p-5 pt-4 relative bg-white rounded-sm mb-6">
-      <span className="absolute -top-3 left-4 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 border border-slate-200 shadow-sm">
-        {title}
-      </span>
+      {title && (
+        <span className="absolute -top-3 left-4 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 border border-slate-200 shadow-sm">
+          {title}
+        </span>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
         {children}
       </div>
@@ -622,7 +621,7 @@ function FormSelect({ label, value, options, onChange, disabled }: any) {
 function PlantForm({ data, onChange, disabled }: any) {
   return (
     <div className="space-y-4">
-      <SectionGrouping title="DATABASE SELECTION NODE">
+      <SectionGrouping title="">
         <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
         <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
       </SectionGrouping>
@@ -676,7 +675,7 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
 
   return (
     <div className="space-y-4">
-      <SectionGrouping title="DATABASE SELECTION NODE">
+      <SectionGrouping title="">
         <FormSelect label="PLANT HUB" value={data.plantCode} options={plantOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
         <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
         <FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
@@ -733,7 +732,7 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
 function VendorForm({ data, onChange, disabled }: any) {
   return (
     <div className="space-y-8">
-      <SectionGrouping title="DATABASE SELECTION NODE">
+      <SectionGrouping title="">
         <FormInput label="Vendor Name" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
         <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
       </SectionGrouping>
@@ -744,7 +743,7 @@ function VendorForm({ data, onChange, disabled }: any) {
 function CustomerForm({ data, onChange, disabled }: any) {
   return (
     <div className="space-y-8">
-      <SectionGrouping title="DATABASE SELECTION NODE">
+      <SectionGrouping title="">
         <FormInput label="Customer Code" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} />
         <FormInput label="Customer Name" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
       </SectionGrouping>
@@ -784,7 +783,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
 
   return (
     <div className="space-y-10">
-      <SectionGrouping title="DATABASE SELECTION NODE">
+      <SectionGrouping title="">
         <FormSelect label="Plant Code" value={data.plantCode} options={plantOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
         <FormInput label="LR Number" value={data.lrNo} onChange={(v: string) => onChange({...data, lrNo: v})} disabled={disabled} />
         <FormInput label="LR Date" value={data.lrDate} type="date" onChange={(v: string) => onChange({...data, lrDate: v})} disabled={disabled} />
@@ -840,7 +839,7 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
   };
   return (
     <div className="space-y-8">
-      <SectionGrouping title="DATABASE SELECTION NODE">
+      <SectionGrouping title="">
         <div className="flex flex-col gap-2 col-span-2">
           <label className="text-[11px] font-black uppercase text-red-600">Sales Order Number *</label>
           <input className="h-12 border border-red-200 rounded-none px-4 text-sm font-black outline-none focus:ring-2 focus:ring-red-600 bg-red-50/30" placeholder="ENTER ORDER NO. & PRESS ENTER" value={data.saleOrder || ''} onChange={(e) => onChange({ ...data, saleOrder: e.target.value.toUpperCase() })} onKeyDown={handleKeyDown} />
@@ -868,7 +867,7 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
 function UserForm({ data, onChange, disabled, allPlants }: any) {
   return (
     <div className="space-y-8">
-      <SectionGrouping title="DATABASE SELECTION NODE">
+      <SectionGrouping title="">
         <FormInput label="Full Name" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
         <FormInput label="Username" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} />
       </SectionGrouping>
@@ -923,6 +922,12 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
     onStatusUpdate({ text: `Mission ${tripId} created`, type: 'success' });
   };
 
+  const updateTripStatus = (tripId: string, newStatus: string) => {
+    if (!user) return;
+    setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', tripId), { status: newStatus, updatedAt: new Date().toISOString() }, { merge: true });
+    onStatusUpdate({ text: `Mission ${newStatus} handshake complete`, type: 'success' });
+  };
+
   const handleUpdateCn = () => {
     if (!user || !editingTrip) return;
     setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', editingTrip.id), editingTrip, { merge: true });
@@ -934,9 +939,8 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
 
   return (
     <div className="space-y-8">
-      <SectionGrouping title="DATABASE SELECTION / FILTERS NODE">
+      <SectionGrouping title="">
         <div className="flex items-center gap-4 col-span-2">
-          <Filter className="h-4 w-4 text-[#1e3a8a]" />
           <select className="bg-white border border-slate-400 rounded-none h-9 px-4 font-bold text-xs outline-none flex-1 shadow-sm" value={plantFilter} onChange={(e) => setPlantFilter(e.target.value)}>
             <option value="ALL">ALL PLANTS REGISTRY</option>
             {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
@@ -993,7 +997,13 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
                     <div className="flex flex-col"><span className="text-[9px] uppercase text-slate-400 font-black tracking-widest">Vehicle</span><span className="text-[11px] font-black uppercase">{t.vehicleNumber}</span></div>
                     <div className="flex flex-col"><span className="text-[9px] uppercase text-slate-400 font-black tracking-widest">Payload</span><span className="text-[11px] font-black">{t.assignWeight} {t.weightUom}</span></div>
                   </div>
-                  <div className="flex gap-3"><Button onClick={() => setViewTrip(t)} variant="outline" className="h-10 text-[10px] font-black uppercase rounded-none border-slate-300 hover:bg-slate-50 px-8 shadow-sm">Details</Button></div>
+                  <div className="flex gap-3">
+                    {s === 'LOADING' && <Button onClick={() => updateTripStatus(t.id, 'IN-TRANSIT')} className="h-10 text-[10px] font-black uppercase rounded-none bg-emerald-600 hover:bg-emerald-700 text-white px-8 shadow-lg">Start Transit</Button>}
+                    {s === 'IN-TRANSIT' && <Button onClick={() => updateTripStatus(t.id, 'ARRIVED')} className="h-10 text-[10px] font-black uppercase rounded-none bg-blue-600 hover:bg-blue-700 text-white px-8 shadow-lg">Mark Arrived</Button>}
+                    {s === 'ARRIVED' && <Button onClick={() => updateTripStatus(t.id, 'POD')} className="h-10 text-[10px] font-black uppercase rounded-none bg-indigo-600 hover:bg-indigo-700 text-white px-8 shadow-lg">Mark POD</Button>}
+                    {s === 'POD' && <Button onClick={() => updateTripStatus(t.id, 'CLOSED')} className="h-10 text-[10px] font-black uppercase rounded-none bg-slate-900 hover:bg-black text-white px-8 shadow-lg">Close Mission</Button>}
+                    <Button onClick={() => setViewTrip(t)} variant="outline" className="h-10 text-[10px] font-black uppercase rounded-none border-slate-300 hover:bg-slate-50 px-8 shadow-sm">Details</Button>
+                  </div>
                 </div>
               );
             })}
@@ -1049,7 +1059,7 @@ function BulkDataHub({ allPlants }: any) {
       <div className="bg-white rounded-none shadow-xl border border-slate-300 overflow-hidden flex flex-col">
         <div className="bg-[#0056d2] p-6 text-white font-black uppercase italic text-sm tracking-widest">Mission Sync Control</div>
         <div className="p-10 space-y-8 flex-1">
-          <SectionGrouping title="DATABASE SELECTION NODE">
+          <SectionGrouping title="">
             <select className="w-full h-12 bg-white border border-slate-400 rounded-none px-4 text-[11px] font-black uppercase outline-none focus:ring-1 focus:ring-blue-600 shadow-sm col-span-2" value={mod} onChange={(e) => setMod(e.target.value)}>
               <option value="">Select Registry Node Type...</option><option value="XD">CUSTOMER MASTER REGISTRY</option><option value="VA">SALES ORDER MASTER REGISTRY</option>
             </select>
