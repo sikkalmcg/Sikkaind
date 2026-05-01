@@ -36,22 +36,24 @@ export default function TrackPage() {
     message?: string;
   } | null>(null);
 
-  const handleTrack = async () => {
-    const cleanValue = value.trim().toUpperCase();
-    if (!cleanValue) return;
+  const handleTrack = async (overrideValue?: string, overrideType?: string) => {
+    const trackValue = (overrideValue || value).trim().toUpperCase();
+    const trackType = overrideType || type;
+    
+    if (!trackValue) return;
     
     setLoading(true);
     setResult(null);
 
     try {
-      const collectionName = type === 'sales' ? 'public_orders' : 'public_trips';
-      const docRef = doc(db, collectionName, cleanValue);
+      const collectionName = trackType === 'sales' ? 'public_orders' : 'public_trips';
+      const docRef = doc(db, collectionName, trackValue);
       const snap = await getDoc(docRef);
 
       if (!snap.exists()) {
         setResult({ 
           found: false, 
-          message: `No active mission node found for this ${type === 'sales' ? 'Sales Order' : 'Trip ID'}.` 
+          message: `No active mission node found for this ${trackType === 'sales' ? 'Sales Order' : 'Trip ID'}.` 
         });
         setShowResult(false);
       } else {
@@ -60,6 +62,7 @@ export default function TrackPage() {
           found: true, 
           data: data,
         });
+        setType(trackType);
         setShowResult(true);
       }
     } catch (error) {
@@ -80,6 +83,7 @@ export default function TrackPage() {
   if (showResult && result?.found && type === 'sales') {
     const data = result.data;
     const formattedDate = data.updatedAt ? format(new Date(data.updatedAt), 'dd-MMM-yyyy HH:mm').toUpperCase() : 'PENDING';
+    const hasTrip = !!data.tripId;
 
     return (
       <div className="min-h-screen bg-white font-mono p-4 md:p-8 animate-fade-in">
@@ -143,7 +147,15 @@ export default function TrackPage() {
           <div className="flex justify-center pt-8">
             <div className="bg-[#f0f7ff] border-l-[6px] border-blue-600 rounded-[2.5rem] p-10 md:p-16 max-w-4xl w-full shadow-lg relative flex flex-col items-center text-center">
                <h2 className="text-xl md:text-2xl font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
-                YOUR ORDER NO. '{data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.
+                {!hasTrip ? (
+                  <>
+                    YOUR ORDER NO. '{data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.
+                  </>
+                ) : (
+                  <>
+                    YOUR TRIP ID IS <button onClick={() => handleTrack(data.tripId, 'trip')} className="text-blue-600 underline decoration-2 hover:text-black transition-colors">{data.tripId}</button> FOR THIS SALES ORDER NO. {data.saleOrder}
+                  </>
+                )}
                </h2>
 
                {/* Delay Remark Box (White with Shadow) */}
@@ -207,7 +219,7 @@ export default function TrackPage() {
           </div>
 
           <Button
-            onClick={handleTrack}
+            onClick={() => handleTrack()}
             disabled={loading}
             className="w-full h-16 bg-blue-900 hover:bg-black font-black uppercase text-xs tracking-[0.4em] rounded-2xl shadow-xl shadow-blue-900/30 transition-all active:scale-95 flex items-center justify-center gap-4 disabled:opacity-50"
           >
