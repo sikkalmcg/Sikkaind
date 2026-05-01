@@ -177,7 +177,6 @@ export default function SapDashboard() {
         updatedAt: new Date().toISOString() 
       };
 
-      // Ensure VA01/02 saves current time if not present
       if (activeScreen.startsWith('VA') && !payload.saleOrderDate) {
         payload.saleOrderDate = new Date().toISOString();
       }
@@ -840,7 +839,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                 <div className="col-span-1">ID / Node</div>
                 <div className="col-span-1">Date</div>
                 <div className="col-span-2">Loading / Consignor</div>
-                <div className="col-span-2">Unloading / Consignee</div>
+                <div className="col-span-2">Unloading / Consignee / Ship To</div>
                 <div className="col-span-1">Vehicle / Carrier</div>
                 <div className="col-span-1">Driver / Contact</div>
                 <div className="col-span-1">Qty / Product</div>
@@ -877,7 +876,14 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                       <div className="col-span-2 flex flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                          <span className="text-slate-900 font-black text-[10px] truncate uppercase">{trip.consignee || trip.shipToParty}</span>
+                          <div className="flex flex-col">
+                            <span className="text-slate-900 font-black text-[10px] truncate uppercase">{trip.consignee || 'N/A'}</span>
+                            {trip.shipToParty && (
+                              <span className="text-red-600 font-bold text-[8px] uppercase truncate">
+                                Ship To: {trip.shipToParty}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <span className="text-slate-400 font-bold text-[9px] pl-3.5 truncate italic">{trip.route?.split('--')[1]}</span>
                       </div>
@@ -1151,7 +1157,7 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
       return 'customerCode,customerName,customerType,city,plantCodes,gstin,pan,mobile,email,address\nC1001,Global Logistics,Consignee,Mumbai,PLNT01;PLNT02,27AAAAA0000A1Z5,ABCDE1234F,9876543210,info@global.com,Street 1';
     }
     if (registryType === 'sales_orders') {
-      return 'plantCode,saleOrder,saleOrderDate,consignor,from,consignee,shipToParty,destination,lrNo,lrDate,delayRemark\nPLNT01,SO-9001,2023-10-27,Consignor A,City A,Consignee B,Ship Party C,City C,LR123,2023-10-27,No Delay';
+      return 'plantCode,saleOrder,consignor,from,consignee,shipToParty,destination,lrNo,lrDate,delayRemark\nPLNT01,SO-9001,Consignor A,City A,Consignee B,Ship Party C,City C,LR123,2023-10-27,No Delay';
     }
     return '';
   };
@@ -1715,3 +1721,5 @@ function FormField({ label, placeholder, type = 'text', required, value, onChang
     </div>
   );
 }
+
+    
