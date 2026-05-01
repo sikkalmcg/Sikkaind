@@ -57,6 +57,7 @@
       "properties": {
         "id": { "type": "string" },
         "plantCodes": { "type": "array", "items": { "type": "string" } },
+        "plantName": { "type": "string" },
         "companyCode": { "type": "string" },
         "companyName": { "type": "string" },
         "address": { "type": "string" },

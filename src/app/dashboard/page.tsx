@@ -656,6 +656,7 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
             ))}
           </div>
         </div>
+        <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
         <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
         <FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
       </SectionGrouping>
@@ -1073,6 +1074,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
       route: trip.route,
       vehicleNumber: trip.vehicleNumber,
       carrierName: carrier,
+      cnNumber: '',
       cnDate: format(new Date(), 'yyyy-MM-dd'),
       paymentTerm: 'Paid',
       items: [{ invoice: '', ewaybill: '', product: '', unit: '', unitUom: 'BAG' }]
