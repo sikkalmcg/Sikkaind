@@ -199,7 +199,7 @@ export default function SapDashboard() {
         const publicRef = doc(db, 'public_orders', cleanSo);
         
         const totalQty = (payload.items || []).reduce((sum: number, item: any) => sum + (parseFloat(item.weight) || 0), 0);
-        const uom = payload.items?.[0]?.weightUom || 'KG';
+        const uom = payload.items?.[0]?.weightUom || 'MT';
         const routeStr = (payload.from && payload.destination) ? `${payload.from.toUpperCase()}--${payload.destination.toUpperCase()}` : '';
 
         setDocumentNonBlocking(publicRef, {
@@ -621,8 +621,8 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const newTripId = crypto.randomUUID();
     const routeStr = (selectedOrder.from && selectedOrder.destination) ? `${selectedOrder.from.toUpperCase()}--${selectedOrder.destination.toUpperCase()}` : '';
     const totalOrderWeight = (selectedOrder.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
-    const weightUom = selectedOrder.items?.[0]?.weightUom || 'KG';
-    const soNo = (selectedOrder.saleOrder || selectedOrder.saleOrderNumber || '').toString().trim().toUpperCase();
+    const weightUom = selectedOrder.items?.[0]?.weightUom || 'MT';
+    const soNo = (selectedOrder.saleOrder || selectedOrder.saleOrderNumber || 'N/A').toString().trim().toUpperCase();
     
     const tripData = {
       id: newTripId,
@@ -788,7 +788,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                 {filteredOrders?.map(order => {
                   const totalW = (order.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
                   const remaining = calculateRemainingWeight(order.id, totalW);
-                  const uom = order.items?.[0]?.weightUom || 'KG';
+                  const uom = order.items?.[0]?.weightUom || 'MT';
                   const soNo = (order.saleOrder || order.saleOrderNumber || 'N/A');
                   
                   return (
@@ -1040,7 +1040,7 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
         const publicRef = doc(db, 'public_orders', cleanSo);
 
         const totalQty = (data.items || []).reduce((sum: number, item: any) => sum + (parseFloat(item.weight) || 0), 0);
-        const uom = data.items?.[0]?.weightUom || 'KG';
+        const uom = data.weightUom || data.items?.[0]?.weightUom || 'MT';
         const routeStr = (data.from && data.destination) ? `${data.from.toUpperCase()}--${data.destination.toUpperCase()}` : '';
 
         setDocumentNonBlocking(publicRef, {
@@ -1316,7 +1316,7 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
   const addItem = () => {
     if (disabled) return;
     const current = data.items || [];
-    onChange({ ...data, items: [...current, { invoiceNumber: '', ewaybillNumber: '', product: '', unit: '', unitUom: 'Box', weight: '', weightUom: 'KG' }] });
+    onChange({ ...data, items: [...current, { invoiceNumber: '', ewaybillNumber: '', product: '', unit: '', unitUom: 'Box', weight: '', weightUom: 'MT' }] });
   };
   const updateItem = (idx: number, field: string, val: any) => {
     if (disabled) return;
@@ -1372,7 +1372,7 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
           </div>
           <FormField label="Destination" value={data.destination} disabled />
           <FormField label="Vehicle Number" placeholder="UP14-XX-0000" value={data.vehicleNumber} onChange={(e: any) => updateField('vehicleNumber', e.target.value)} disabled={disabled} />
-          <FormField label="Driver Mobile" placeholder="+91..." value={data.driverMobile} onChange={(e: any) => updateField('driverMobile', e.target.value)} disabled={disabled} />
+          <FormField label="Driver Mobile" placeholder="+91..." value={data.vehicleNumber} onChange={(e: any) => updateField('vehicleNumber', e.target.value)} disabled={disabled} />
           <FormField label="Delay Remark" placeholder="Enter delay details if any..." value={data.delayRemark} onChange={(e: any) => updateField('delayRemark', e.target.value)} disabled={disabled} />
         </div>
       </div>

@@ -93,7 +93,6 @@ export default function TrackPage() {
         setShowResult(false);
       } else {
         const data = snap.data();
-        // Include ID for fallback visibility
         setResult({ 
           found: true, 
           data: { ...data, id: snap.id },
@@ -148,7 +147,12 @@ export default function TrackPage() {
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
                 <Package className="h-3 w-3" /> Sale Order
               </div>
-              <p className="text-[11px] font-black text-blue-500">{soNo}</p>
+              <button 
+                onClick={() => handleTrack(soNo, 'sales')}
+                className="text-[11px] font-black text-blue-500 hover:underline text-left outline-none"
+              >
+                {soNo}
+              </button>
             </div>
             
             <div className="space-y-1">
@@ -232,7 +236,6 @@ export default function TrackPage() {
                   </div>
                 </div>
 
-                {/* Timeline Animation Component with Pauses */}
                 <div className="py-6 relative mb-6">
                   <div className="absolute top-1/2 left-0 w-full h-0.5 bg-white/10 -translate-y-1/2" />
                   <div 
