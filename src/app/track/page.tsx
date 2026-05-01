@@ -137,7 +137,11 @@ export default function TrackPage() {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-400">Current Status</p>
-                      <h3 className="text-2xl font-black uppercase italic tracking-tighter mt-1">{result.data.status}</h3>
+                      <h3 className="text-2xl font-black uppercase italic tracking-tighter mt-1">
+                        {result.data.status === 'PLACED' 
+                          ? `YOUR ORDER NO. '${result.data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY` 
+                          : result.data.status}
+                      </h3>
                     </div>
                     <Truck className="h-10 w-10 text-white/20" />
                   </div>
