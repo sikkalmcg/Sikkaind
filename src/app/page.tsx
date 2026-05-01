@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -6,6 +5,7 @@ import {
   CheckCircle, Truck, Warehouse, Package, BarChart3, 
   MapPin, Laptop, Users, Globe, Tag, ShieldCheck, Headphones
 } from 'lucide-react';
+import ContactForm from '@/components/website/ContactForm';
 
 export default function HomePage() {
   const solutions = [
@@ -28,8 +28,8 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white font-body">
-      {/* SOLUTIONS */}
-      <section className="py-24 bg-white">
+      {/* SOLUTIONS SECTION */}
+      <section id="services" className="py-24 bg-white">
         <div className="max-w-[1200px] mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tighter uppercase italic">
@@ -61,9 +61,15 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* WHY CHOOSE US */}
-      <section className="py-16 bg-slate-50 border-y border-slate-100">
+      {/* WHY CHOOSE US / ABOUT SECTION */}
+      <section id="about" className="py-16 bg-slate-50 border-y border-slate-100">
         <div className="max-w-[1100px] mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase italic">
+              Why Choose Sikka Industries
+            </h2>
+            <p className="text-slate-500 text-sm font-bold uppercase tracking-widest mt-2">Excellence in every node of logistics</p>
+          </div>
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             {whyChooseUs.map((item, idx) => (
               <div key={idx} className="flex items-center gap-3 p-4 rounded-xl bg-white border border-slate-100 group shadow-sm">
@@ -73,6 +79,21 @@ export default function HomePage() {
                 <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">{item.title}</span>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CONTACT SECTION */}
+      <section id="contact" className="py-24 bg-white">
+        <div className="max-w-[800px] mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tighter uppercase italic">
+              Contact Node
+            </h2>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.3em] mt-4">Registry for Enquiry and Support</p>
+          </div>
+          <div className="bg-slate-50 p-8 md:p-12 rounded-[3rem] border border-slate-100 shadow-2xl">
+             <ContactForm />
           </div>
         </div>
       </section>

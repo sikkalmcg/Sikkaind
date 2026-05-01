@@ -8,10 +8,17 @@ import placeholderData from '@/app/lib/placeholder-images.json';
 
 /**
  * @fileOverview Website Header.
- * Replicated exactly from the provided screenshot with functional Portal and Track buttons.
+ * Updated to include HOME, SERVICES, ABOUT, and CONTACT navigation links.
  */
 export default function Header() {
   const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
+
+  const navLinks = [
+    { label: 'HOME', href: '/' },
+    { label: 'SERVICES', href: '/#services' },
+    { label: 'ABOUT', href: '/#about' },
+    { label: 'CONTACT', href: '/#contact' },
+  ];
 
   return (
     <header className="bg-white sticky top-0 z-[100] border-b border-slate-100 w-full font-body">
@@ -45,6 +52,19 @@ export default function Header() {
               </div>
             </div>
           </Link>
+
+          {/* Center Navigation Links (Hidden on small mobile) */}
+          <div className="hidden lg:flex items-center gap-8 ml-12">
+            {navLinks.map((link) => (
+              <Link 
+                key={link.label}
+                href={link.href}
+                className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-[#1e3a8a] transition-colors"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
         </div>
         
         {/* Right: Action Buttons */}
