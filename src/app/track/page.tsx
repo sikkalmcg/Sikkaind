@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -65,7 +64,7 @@ export default function TrackPage() {
 
   return (
     <div className="min-h-[80vh] bg-slate-50 flex flex-col items-center justify-center p-6 py-12">
-      <div className="w-full max-w-md space-y-10 bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 animate-slide-up">
+      <div className="w-full max-w-2xl space-y-10 bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 animate-slide-up">
         <div className="flex flex-col items-center gap-6">
           <div className="p-5 bg-blue-900 rounded-[1.5rem] shadow-xl shadow-blue-900/20">
             <Radar className="h-10 w-10 text-white" />
@@ -135,15 +134,15 @@ export default function TrackPage() {
 
                 <div className="bg-slate-900 p-8 rounded-[2rem] text-white space-y-6 shadow-xl">
                   <div className="flex justify-between items-start">
-                    <div>
+                    <div className="flex-1">
                       <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-400">Current Status</p>
-                      <h3 className="text-2xl font-black uppercase italic tracking-tighter mt-1">
+                      <h3 className="text-2xl font-black uppercase italic tracking-tighter mt-1 leading-tight">
                         {result.data.status === 'PLACED' 
                           ? `YOUR ORDER NO. '${result.data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY` 
                           : result.data.status}
                       </h3>
                     </div>
-                    <Truck className="h-10 w-10 text-white/20" />
+                    <Truck className="h-10 w-10 text-white/20 ml-4 shrink-0" />
                   </div>
 
                   <div className="space-y-3.5 pt-4 border-t border-white/10">
