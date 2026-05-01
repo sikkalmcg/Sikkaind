@@ -10,7 +10,7 @@ import {
   Filter, Truck, MapPin, User, DollarSign, Activity,
   Layers, PackageCheck, Ban, Lock, Play, XCircle, Search,
   ArrowRight, Calendar, Phone, FileText, Package, Clock,
-  LayoutDashboard, Database, Settings, BarChart
+  LayoutDashboard, Database, Settings, BarChart, TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +51,13 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartConfig,
+} from '@/components/ui/chart';
+import { Bar, BarChart as RechartsBarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts';
 
 type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'TR21' | 'BULK' | 'SU01' | 'SU02' | 'SU03';
 
@@ -592,6 +599,7 @@ export default function SapDashboard() {
                            </div>
                          )}
                          {activeScreen === 'TR21' && <DripBoard orders={recentOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} />}
+                         {activeScreen === 'BULK' && <BulkDataHub orders={recentOrders} trips={allTrips} plants={allPlants} />}
                        </div>
                      </div>
                   </div>
@@ -1250,7 +1258,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
             </div>
           </TabsContent>
         ))}
-      </Tabs>
+      </div>
 
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
         <DialogContent className="max-w-2xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden font-mono">
@@ -1331,6 +1339,191 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function BulkDataHub({ orders, trips, plants }: { orders: any[] | null, trips: any[] | null, plants: any[] | null }) {
+  const chartConfig: ChartConfig = {
+    orders: {
+      label: "Mission Volume",
+      color: "#0056d2",
+    },
+  };
+
+  const chartData = React.useMemo(() => {
+    if (!plants || !orders) return [];
+    return plants.map(p => ({
+      plant: p.plantCode,
+      volume: orders.filter(o => o.plantCode === p.plantCode).length
+    })).slice(0, 10);
+  }, [plants, orders]);
+
+  const totalWeight = React.useMemo(() => {
+    return (orders || []).reduce((sum, order) => {
+      const orderWeight = (order.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
+      return sum + orderWeight;
+    }, 0);
+  }, [orders]);
+
+  return (
+    <div className="space-y-10 animate-fade-in">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {[
+          { label: 'Total Sales Orders', value: orders?.length || 0, icon: ShoppingBag, color: 'text-blue-600' },
+          { label: 'Active Trips', value: trips?.filter(t => t.status !== 'CLOSED').length || 0, icon: Truck, color: 'text-emerald-600' },
+          { label: 'Total Volume (SALT)', value: `${totalWeight.toLocaleString()} MT`, icon: Activity, color: 'text-orange-600' },
+          { label: 'Registered Plants', value: plants?.length || 0, icon: Database, color: 'text-purple-600' },
+        ].map((stat, i) => (
+          <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+             <div className={`p-3 rounded-xl bg-slate-50 ${stat.color}`}>
+                <stat.icon className="h-6 w-6" />
+             </div>
+             <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
+                <p className="text-xl font-black italic tracking-tighter text-slate-900">{stat.value}</p>
+             </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+           <div className="bg-[#1e293b] px-8 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                 <BarChart className="h-5 w-5 text-blue-400" />
+                 <h2 className="text-xs font-black uppercase text-white tracking-[0.2em] italic">Plant Volume Distribution</h2>
+              </div>
+           </div>
+           <div className="p-8 h-[350px]">
+              <ChartContainer config={chartConfig} className="h-full w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsBarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis 
+                      dataKey="plant" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b' }} 
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b' }} 
+                    />
+                    <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                    <Bar dataKey="volume" radius={[4, 4, 0, 0]} barSize={40}>
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={index % 2 === 0 ? "#0056d2" : "#1e3a8a"} />
+                      ))}
+                    </Bar>
+                  </RechartsBarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+           </div>
+        </div>
+
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden flex flex-col">
+           <div className="bg-[#1e293b] px-8 py-4">
+              <h2 className="text-xs font-black uppercase text-white tracking-[0.2em] italic">System Registry Nodes</h2>
+           </div>
+           <div className="flex-1 p-6 space-y-6 overflow-y-auto no-scrollbar">
+              {[
+                { label: 'Plant Registry', count: plants?.length || 0, icon: Database },
+                { label: 'Trip Mission Registry', count: trips?.length || 0, icon: Truck },
+                { label: 'Sales Order Registry', count: orders?.length || 0, icon: ShoppingBag },
+              ].map((node, i) => (
+                <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-blue-200 transition-colors">
+                   <div className="flex items-center gap-4">
+                      <div className="p-2 bg-white rounded-xl shadow-sm text-slate-400 group-hover:text-blue-600 transition-colors">
+                         <node.icon className="h-4 w-4" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">{node.label}</span>
+                   </div>
+                   <Badge className="bg-[#0056d2] text-white rounded-lg font-black">{node.count}</Badge>
+                </div>
+              ))}
+              <div className="pt-4 mt-auto">
+                 <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 flex flex-col items-center text-center">
+                    <TrendingUp className="h-8 w-8 text-blue-600 mb-3" />
+                    <p className="text-[9px] font-black uppercase text-blue-900 tracking-[0.2em]">Operational Health</p>
+                    <p className="text-[8px] font-bold text-blue-400 mt-1">Registry Synchronization Active</p>
+                 </div>
+              </div>
+           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FormInput({ label, value, onChange, type = "text", disabled }: any) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <Input 
+        type={type} 
+        value={value || ''} 
+        onChange={(e) => onChange(e.target.value)} 
+        disabled={disabled}
+        className="h-8 rounded-none border-slate-400 focus:ring-0 focus:border-[#0056d2] text-xs font-bold bg-white"
+      />
+    </div>
+  );
+}
+
+function FormSelect({ label, value, options, onChange, disabled }: any) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <select 
+        value={value || ''} 
+        onChange={(e) => onChange(e.target.value)} 
+        disabled={disabled}
+        className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold outline-none"
+      >
+        <option value="">Select...</option>
+        {options.map((o: string) => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function RegistryList({ screen, onSelectItem, listData }: any) {
+  const getCols = () => {
+    if (screen.startsWith('VA')) return ['SO Number', 'Name / Description', 'Type / Details', 'Date'];
+    if (screen.startsWith('SU')) return ['Username', 'Name', 'Registry ID', 'Node Active'];
+    return ['Registry ID', 'Name / Description', 'Type / Details', 'Sync Node'];
+  };
+
+  return (
+    <div className="overflow-x-auto border border-slate-300">
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="bg-[#f0f0f0] border-b border-slate-300">
+            {getCols().map(col => <th key={col} className="p-2 text-[9px] font-black uppercase text-slate-500">{col}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {listData?.map((item: any) => (
+            <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors">
+              <td className="p-2 text-[10px] font-black text-[#0056d2]">
+                {item.username || item.saleOrder || item.saleOrderNumber || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}
+              </td>
+              <td className="p-2 text-[10px] font-bold text-slate-600 uppercase">
+                {item.fullName || item.plantName || item.companyName || item.vendorName || item.customerName || `${item.consignor} → ${item.consignee || 'UNSPECIFIED'}`}
+                {item.shipToParty && item.shipToParty !== item.consignee && <span className="block text-[8px] text-red-500">Ship to: {item.shipToParty}</span>}
+              </td>
+              <td className="p-2 text-[10px] font-bold text-slate-400 uppercase italic">
+                {item.customerType || item.city || (item.from ? `${item.from} → ${item.destination}` : 'REGISTRY NODE')}
+              </td>
+              <td className="p-2 text-[10px] font-bold text-slate-400">
+                {item.saleOrderDate || item.updatedAt ? format(new Date(item.saleOrderDate || item.updatedAt), 'dd-MM-yyyy') : 'SYNC ACTIVE'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
