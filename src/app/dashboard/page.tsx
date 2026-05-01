@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -10,7 +9,8 @@ import {
   Filter, Truck, MapPin, User, DollarSign, Activity,
   Layers, PackageCheck, Ban, Lock, Play, XCircle, Search,
   ArrowRight, Calendar, Phone, FileText, Package, Clock,
-  LayoutDashboard, Database, Settings, BarChart, TrendingUp
+  LayoutDashboard, Database, Settings, BarChart, TrendingUp,
+  FileSpreadsheet, HardDriveDownload, CloudUpload
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,13 +51,6 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  ChartConfig,
-} from '@/components/ui/chart';
-import { Bar, BarChart as RechartsBarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from 'recharts';
 
 type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'TR21' | 'BULK' | 'SU01' | 'SU02' | 'SU03';
 
@@ -599,7 +592,7 @@ export default function SapDashboard() {
                            </div>
                          )}
                          {activeScreen === 'TR21' && <DripBoard orders={recentOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} />}
-                         {activeScreen === 'BULK' && <BulkDataHub orders={recentOrders} trips={allTrips} plants={allPlants} />}
+                         {activeScreen === 'BULK' && <BulkDataHub />}
                        </div>
                      </div>
                   </div>
@@ -1345,115 +1338,104 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
   );
 }
 
-function BulkDataHub({ orders, trips, plants }: { orders: any[] | null, trips: any[] | null, plants: any[] | null }) {
-  const chartConfig: ChartConfig = {
-    orders: {
-      label: "Mission Volume",
-      color: "#0056d2",
-    },
+function BulkDataHub() {
+  const { toast } = useToast();
+  
+  const handleTemplateDownload = (type: string) => {
+    toast({
+      title: "Template Request Initiated",
+      description: `Downloading standardized CSV template for ${type} registry node.`,
+    });
   };
 
-  const chartData = React.useMemo(() => {
-    if (!plants || !orders) return [];
-    return plants.map(p => ({
-      plant: p.plantCode,
-      volume: orders.filter(o => o.plantCode === p.plantCode).length
-    })).slice(0, 10);
-  }, [plants, orders]);
-
-  const totalWeight = React.useMemo(() => {
-    return (orders || []).reduce((sum, order) => {
-      const orderWeight = (order.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
-      return sum + orderWeight;
-    }, 0);
-  }, [orders]);
+  const handleBulkSync = () => {
+    toast({
+      title: "Bulk Synchronization Active",
+      description: "Establishing handshake with registry mission node. Processing file data...",
+    });
+  };
 
   return (
-    <div className="space-y-10 animate-fade-in">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {[
-          { label: 'Total Sales Orders', value: orders?.length || 0, icon: ShoppingBag, color: 'text-blue-600' },
-          { label: 'Active Trips', value: trips?.filter(t => t.status !== 'CLOSED').length || 0, icon: Truck, color: 'text-emerald-600' },
-          { label: 'Total Volume (SALT)', value: `${totalWeight.toLocaleString()} MT`, icon: Activity, color: 'text-orange-600' },
-          { label: 'Registered Plants', value: plants?.length || 0, icon: Database, color: 'text-purple-600' },
-        ].map((stat, i) => (
-          <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-             <div className={`p-3 rounded-xl bg-slate-50 ${stat.color}`}>
-                <stat.icon className="h-6 w-6" />
-             </div>
-             <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                <p className="text-xl font-black italic tracking-tighter text-slate-900">{stat.value}</p>
-             </div>
+    <div className="space-y-10 animate-fade-in max-w-6xl mx-auto py-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        {/* DOWNLOAD TEMPLATE SECTION */}
+        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl overflow-hidden flex flex-col">
+          <div className="bg-[#1e293b] px-8 py-6 flex items-center gap-4">
+            <HardDriveDownload className="h-6 w-6 text-blue-400" />
+            <h2 className="text-sm font-black uppercase text-white tracking-[0.2em] italic">Template Repository Node</h2>
           </div>
-        ))}
+          <div className="p-10 space-y-6 flex-1">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+              Download standardized CSV/Excel templates to ensure seamless synchronization with the Sikka Master Registry.
+            </p>
+            <div className="grid grid-cols-1 gap-4">
+              {[
+                { label: 'Plant Master Template', code: 'OX_MASTER' },
+                { label: 'Vendor Registry Template', code: 'XK_MASTER' },
+                { label: 'Customer Registry Template', code: 'XD_MASTER' },
+                { label: 'Sales Order Registry Template', code: 'VA_MASTER' },
+              ].map((template) => (
+                <button 
+                  key={template.code}
+                  onClick={() => handleTemplateDownload(template.label)}
+                  className="flex items-center justify-between p-5 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-blue-50 hover:border-blue-200 transition-all group"
+                >
+                  <div className="flex items-center gap-4">
+                    <FileSpreadsheet className="h-5 w-5 text-slate-400 group-hover:text-blue-600" />
+                    <span className="text-[11px] font-black uppercase text-slate-600 group-hover:text-blue-900">{template.label}</span>
+                  </div>
+                  <Download className="h-4 w-4 text-slate-300 group-hover:text-blue-600" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* BULK UPLOAD SECTION */}
+        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl overflow-hidden flex flex-col">
+          <div className="bg-[#0056d2] px-8 py-6 flex items-center gap-4">
+            <CloudUpload className="h-6 w-6 text-white" />
+            <h2 className="text-sm font-black uppercase text-white tracking-[0.2em] italic">Mission Synchronization Hub</h2>
+          </div>
+          <div className="p-10 space-y-8 flex-1 flex flex-col">
+            <div className="space-y-4">
+               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Target Registry Node *</label>
+               <select className="w-full h-12 bg-slate-50 border border-slate-200 rounded-2xl px-4 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-600">
+                  <option value="">Select Target Module...</option>
+                  <option value="OX">PLANT MASTER (OX)</option>
+                  <option value="XK">VENDOR MASTER (XK)</option>
+                  <option value="XD">CUSTOMER MASTER (XD)</option>
+                  <option value="VA">SALES ORDER (VA)</option>
+               </select>
+            </div>
+
+            <div 
+              onClick={handleBulkSync}
+              className="flex-1 border-4 border-dashed border-slate-100 rounded-[2rem] flex flex-col items-center justify-center p-10 hover:border-blue-200 hover:bg-blue-50/30 transition-all cursor-pointer group"
+            >
+               <Upload className="h-12 w-12 text-slate-200 mb-4 group-hover:text-blue-600 group-hover:scale-110 transition-all" />
+               <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 group-hover:text-blue-900">Drag & Drop Registry File</p>
+               <p className="text-[8px] font-bold text-slate-300 mt-2 uppercase">Supported: .CSV, .XLSX (Max 10MB)</p>
+            </div>
+
+            <Button 
+              onClick={handleBulkSync}
+              className="w-full h-14 bg-[#1e293b] hover:bg-black text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl transition-all active:scale-95"
+            >
+               Initiate Bulk Sync Node
+            </Button>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
-           <div className="bg-[#1e293b] px-8 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                 <BarChart className="h-5 w-5 text-blue-400" />
-                 <h2 className="text-xs font-black uppercase text-white tracking-[0.2em] italic">Plant Volume Distribution</h2>
-              </div>
-           </div>
-           <div className="p-8 h-[350px]">
-              <ChartContainer config={chartConfig} className="h-full w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsBarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="plant" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b' }} 
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fontSize: 10, fontWeight: 900, fill: '#64748b' }} 
-                    />
-                    <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                    <Bar dataKey="volume" radius={[4, 4, 0, 0]} barSize={40}>
-                      {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={index % 2 === 0 ? "#0056d2" : "#1e3a8a"} />
-                      ))}
-                    </Bar>
-                  </RechartsBarChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-           </div>
-        </div>
-
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden flex flex-col">
-           <div className="bg-[#1e293b] px-8 py-4">
-              <h2 className="text-xs font-black uppercase text-white tracking-[0.2em] italic">System Registry Nodes</h2>
-           </div>
-           <div className="flex-1 p-6 space-y-6 overflow-y-auto no-scrollbar">
-              {[
-                { label: 'Plant Registry', count: plants?.length || 0, icon: Database },
-                { label: 'Trip Mission Registry', count: trips?.length || 0, icon: Truck },
-                { label: 'Sales Order Registry', count: orders?.length || 0, icon: ShoppingBag },
-              ].map((node, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-blue-200 transition-colors">
-                   <div className="flex items-center gap-4">
-                      <div className="p-2 bg-white rounded-xl shadow-sm text-slate-400 group-hover:text-blue-600 transition-colors">
-                         <node.icon className="h-4 w-4" />
-                      </div>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">{node.label}</span>
-                   </div>
-                   <Badge className="bg-[#0056d2] text-white rounded-lg font-black">{node.count}</Badge>
-                </div>
-              ))}
-              <div className="pt-4 mt-auto">
-                 <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 flex flex-col items-center text-center">
-                    <TrendingUp className="h-8 w-8 text-blue-600 mb-3" />
-                    <p className="text-[9px] font-black uppercase text-blue-900 tracking-[0.2em]">Operational Health</p>
-                    <p className="text-[8px] font-bold text-blue-400 mt-1">Registry Synchronization Active</p>
-                 </div>
-              </div>
-           </div>
-        </div>
+      <div className="bg-blue-50/50 p-8 rounded-[3rem] border border-blue-100 flex flex-col items-center text-center max-w-2xl mx-auto">
+         <div className="p-3 bg-white rounded-2xl shadow-sm mb-4">
+            <Info className="h-6 w-6 text-blue-600" />
+         </div>
+         <p className="text-[10px] font-black uppercase text-blue-900 tracking-[0.2em]">Operational Registry Note</p>
+         <p className="text-[9px] font-bold text-blue-400 mt-2 leading-relaxed">
+            Ensure all mandatory fields are correctly mapped to the Sikka Registry schema. Incorrect mapping may cause synchronization handshake failure in the mission node.
+         </p>
       </div>
     </div>
   );
