@@ -598,6 +598,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
   const db = useFirestore();
   const [plantFilter, setPlantFilter] = React.useState('ALL');
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
+  const [viewTrip, setViewTrip] = React.useState<any>(null);
   const [assignWeight, setAssignWeight] = React.useState<string>('');
   const [vehicleNo, setVehicleNo] = React.useState('');
   const [driverMobile, setDriverMobile] = React.useState('');
@@ -829,7 +830,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
         {['LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD', 'REJECTION', 'CLOSED'].map(status => (
           <TabsContent key={status} value={status} className="mt-6">
             <div className="space-y-4">
-              {/* Table Header for Row Layout */}
               <div className="hidden lg:grid grid-cols-10 bg-slate-100 border-y border-slate-200 py-3 px-6 text-[9px] font-black uppercase tracking-widest text-slate-500">
                 <div className="col-span-1">ID / Node</div>
                 <div className="col-span-1">Date</div>
@@ -850,19 +850,16 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                 return (
                   <div key={trip.id} className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden">
                     <div className="grid grid-cols-1 lg:grid-cols-10 items-center p-4 lg:p-6 gap-4">
-                      {/* ID/Node Section */}
                       <div className="col-span-1 flex flex-col gap-1">
                         <span className="text-[#0056d2] font-black text-[11px] leading-tight">#{trip.tripId}</span>
                         <span className="text-slate-400 font-bold text-[9px]">SO: {soNo}</span>
                       </div>
 
-                      {/* Date Section */}
                       <div className="col-span-1 flex flex-col gap-1">
                         <span className="text-slate-900 font-black text-[10px]">{formattedDate}</span>
                         <span className="text-slate-400 font-bold text-[9px]">{formattedTime}</span>
                       </div>
 
-                      {/* Loading/Consignor */}
                       <div className="col-span-2 flex flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
@@ -871,7 +868,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                         <span className="text-slate-400 font-bold text-[9px] pl-3.5 truncate italic">{trip.route?.split('--')[0]}</span>
                       </div>
 
-                      {/* Unloading/Consignee */}
                       <div className="col-span-2 flex flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
@@ -880,7 +876,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                         <span className="text-slate-400 font-bold text-[9px] pl-3.5 truncate italic">{trip.route?.split('--')[1]}</span>
                       </div>
 
-                      {/* Vehicle/Carrier */}
                       <div className="col-span-1 flex flex-col gap-1">
                         <div className="flex items-center gap-1.5">
                           <Truck className="h-3 w-3 text-[#0056d2]" />
@@ -889,7 +884,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                         <span className="text-slate-400 font-bold text-[8px] leading-tight uppercase">{trip.vendorName || 'OWN FLEET'}</span>
                       </div>
 
-                      {/* Driver/Contact */}
                       <div className="col-span-1 flex flex-col gap-1">
                         <div className="flex items-center gap-1.5">
                           <Phone className="h-3 w-3 text-slate-400" />
@@ -898,7 +892,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                         <span className="text-slate-400 font-bold text-[8px] uppercase">Registry Verified</span>
                       </div>
 
-                      {/* Qty/Product */}
                       <div className="col-span-1 flex flex-col gap-1">
                         <span className="text-slate-900 font-black text-[10px]">{trip.assignWeight} {trip.weightUom || 'MT'}</span>
                         <span className="text-slate-400 font-bold text-[9px] truncate italic">{trip.product || 'SALT'}</span>
@@ -907,7 +900,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                         </div>
                       </div>
 
-                      {/* Actions */}
                       <div className="col-span-1 flex flex-col gap-2 items-center">
                         {next && (
                           <Button 
@@ -917,13 +909,16 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                             {next === 'ARRIVED' ? 'Arrived In' : next === 'POD' ? 'Upload POD' : `Move ${next}`}
                           </Button>
                         )}
-                        <Button variant="outline" className="w-full h-7 border-slate-200 text-slate-600 text-[8px] font-black uppercase tracking-widest px-2">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setViewTrip(trip)}
+                          className="w-full h-7 border-slate-200 text-slate-600 text-[8px] font-black uppercase tracking-widest px-2"
+                        >
                           View Details
                         </Button>
                       </div>
                     </div>
 
-                    {/* Footer Progress Bar for each Row */}
                     <div className="bg-slate-50 border-t border-slate-100 px-6 py-2 flex items-center justify-between">
                        <div className="flex items-center gap-6">
                           <div className="flex items-center gap-2">
@@ -1037,6 +1032,84 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!viewTrip} onOpenChange={() => setViewTrip(null)}>
+        <DialogContent className="max-w-4xl rounded-sm border border-slate-300 p-0 overflow-hidden font-mono shadow-2xl">
+          <div className="bg-[#0056d2] p-4 text-white flex justify-between items-center">
+            <div>
+              <DialogTitle className="text-lg font-black uppercase italic tracking-tighter">Mission Registry Hub</DialogTitle>
+              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-blue-200 mt-1">Registry Detail Node: {viewTrip?.tripId}</p>
+            </div>
+            <Badge className="bg-white/20 text-white border-white/40 rounded-none px-4 py-1 font-black italic uppercase text-[10px]">
+              {viewTrip?.status}
+            </Badge>
+          </div>
+
+          <div className="p-6 space-y-8 bg-[#fdfdfd]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <SectionHeader title="Consignment Context" />
+                <div className="space-y-3 px-2">
+                  <DetailRow label="Sale Order" value={viewTrip?.saleOrderNumber || viewTrip?.saleOrder} />
+                  <DetailRow label="Consignor" value={viewTrip?.consignor} />
+                  <DetailRow label="Consignee" value={viewTrip?.consignee} />
+                  <DetailRow label="Ship to Party" value={viewTrip?.shipToParty} />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <SectionHeader title="Mission Specs" />
+                <div className="space-y-3 px-2">
+                  <DetailRow label="Vehicle Number" value={viewTrip?.vehicleNumber} />
+                  <DetailRow label="Vehicle Type" value={viewTrip?.vehicleType} />
+                  <DetailRow label="Driver Contact" value={viewTrip?.driverMobile} />
+                  <DetailRow label="Carrier Node" value={viewTrip?.vendorName} />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <SectionHeader title="Route Registry" />
+                <div className="space-y-3 px-2">
+                  <DetailRow label="Planned Route" value={viewTrip?.route} />
+                  <DetailRow label="Mission Start" value={viewTrip?.createdAt ? format(new Date(viewTrip.createdAt), 'dd-MMM-yyyy HH:mm') : '--'} />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <SectionHeader title="Quantity Node" />
+                <div className="space-y-3 px-2">
+                  <DetailRow label="Product Registry" value={viewTrip?.product || 'SALT'} />
+                  <DetailRow label="Assign Weight" value={`${viewTrip?.assignWeight} ${viewTrip?.weightUom || 'MT'}`} />
+                </div>
+              </div>
+            </div>
+
+            {viewTrip?.delayRemark && (
+              <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                <p className="text-[9px] font-black uppercase text-slate-400 mb-2">Registry Observation Note</p>
+                <p className="text-xs font-bold text-slate-700 italic">"{viewTrip.delayRemark}"</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="p-4 bg-[#f0f0f0] border-t border-slate-300">
+            <Button onClick={() => setViewTrip(null)} className="bg-slate-800 hover:bg-black text-white px-8 rounded-none font-black uppercase text-[10px] h-9">
+              Close Registry
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string, value: any }) {
+  return (
+    <div className="flex items-center gap-4 text-[11px] border-b border-slate-50 pb-1.5 last:border-0">
+      <span className="w-32 font-bold text-slate-400 uppercase tracking-tighter">{label}</span>
+      <span className="flex-1 font-black text-slate-700 uppercase italic truncate">{value || '--'}</span>
     </div>
   );
 }
