@@ -89,7 +89,7 @@ export default function TrackPage() {
     return (
       <div className="min-h-screen bg-white font-mono p-4 md:p-8 animate-fade-in">
         <div className="max-w-[1400px] mx-auto space-y-8">
-          {/* Top Navigation */}
+          {/* Top Navigation - Only visible when result is shown */}
           <button 
             onClick={handleBack}
             className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 hover:text-blue-900 transition-colors mb-4"
@@ -174,40 +174,42 @@ export default function TrackPage() {
                 )}
               </div>
             ) : (
-              /* High Visibility Trip Mission Card (Dark Card from Image) */
-              <div className="bg-[#0f172a] p-10 md:p-16 rounded-[2.5rem] text-white space-y-12 shadow-2xl relative overflow-hidden w-full max-w-4xl border-t-[6px] border-blue-600">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-2">
+              /* High Visibility Trip Mission Card (Updated to match image) */
+              <div className="bg-[#0f172a] p-10 md:p-14 rounded-[2rem] text-white shadow-2xl relative overflow-hidden w-full max-w-3xl border-t-[6px] border-blue-600 animate-slide-up">
+                <div className="flex justify-between items-start mb-12">
+                  <div className="space-y-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">Current Status</p>
                     <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-none">
                       {data.status}
                     </h2>
                   </div>
-                  <Truck className="h-16 w-16 text-white/10 shrink-0" />
+                  <Truck className="h-20 w-20 text-white/5 shrink-0" />
                 </div>
 
-                <div className="space-y-6 pt-10 border-t border-white/10">
-                  <div className="flex justify-between items-center text-sm md:text-xl font-bold">
-                    <span className="text-slate-500 uppercase tracking-tighter">Vehicle No.</span>
-                    <span className="uppercase tracking-widest">{data.vehicleNumber || 'ASSIGNING...'}</span>
+                <div className="h-px bg-white/10 w-full mb-12" />
+
+                <div className="space-y-8">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 text-xs font-black uppercase tracking-[0.2em]">Vehicle No.</span>
+                    <span className="text-lg md:text-2xl font-black uppercase tracking-widest">{data.vehicleNumber || 'ASSIGNING...'}</span>
                   </div>
-                  <div className="flex justify-between items-center text-sm md:text-xl font-bold">
-                    <span className="text-slate-500 uppercase tracking-tighter">Registry ID</span>
-                    <span className="tracking-widest">{data.tripId}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 text-xs font-black uppercase tracking-[0.2em]">Registry ID</span>
+                    <span className="text-lg md:text-2xl font-black tracking-widest">{data.tripId}</span>
                   </div>
                 </div>
 
-                <div className="pt-10 flex flex-col items-center gap-8">
-                  <div className="flex items-center gap-3 text-slate-400">
+                <div className="mt-20 flex flex-col items-center gap-8">
+                  <div className="flex items-center gap-4 text-slate-400">
                     <MapPin className="h-5 w-5 text-blue-500" />
-                    <span className="text-sm md:text-lg font-black uppercase tracking-widest">
+                    <span className="text-sm md:text-lg font-black uppercase tracking-widest text-slate-300">
                       {data.route || 'TRANSIT PENDING'}
                     </span>
                   </div>
                   
                   <button 
                     onClick={handleBack}
-                    className="text-[11px] font-black uppercase tracking-[0.4em] text-blue-500 hover:text-white transition-colors"
+                    className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500 hover:text-white transition-colors"
                   >
                     BACK TO SEARCH
                   </button>
