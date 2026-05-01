@@ -539,7 +539,7 @@ export default function SapDashboard() {
                         <div 
                           key={code} 
                           onClick={() => executeTCode(code)} 
-                          className="bg-white p-8 rounded-[1.5rem] shadow-xl border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all cursor-pointer group flex flex-col min-h-[260px] max-w-[300px] w-full mx-auto"
+                          className="bg-white p-8 rounded-[1.5rem] shadow-xl border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all cursor-pointer group flex flex-col min-h-[220px] max-w-[300px] w-full mx-auto"
                         >
                           <div className="flex items-center justify-between mb-8">
                             <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1.5 font-black italic tracking-[0.15em] text-[10px] border-none shadow-sm">{code}</Badge>
@@ -1064,200 +1064,202 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-        <Filter className="h-4 w-4 text-slate-400" />
-        <span className="text-[10px] font-black uppercase text-slate-400">Plant Filter</span>
-        <select 
-          className="h-9 border-none bg-white px-4 rounded-lg font-bold text-xs outline-none shadow-sm min-w-[200px]"
-          value={plantFilter}
-          onChange={(e) => setPlantFilter(e.target.value)}
-        >
-          <option value="ALL">ALL PLANTS</option>
-          {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
-        </select>
-      </div>
+    <>
+      <div className="space-y-6">
+        <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+          <Filter className="h-4 w-4 text-slate-400" />
+          <span className="text-[10px] font-black uppercase text-slate-400">Plant Filter</span>
+          <select 
+            className="h-9 border-none bg-white px-4 rounded-lg font-bold text-xs outline-none shadow-sm min-w-[200px]"
+            value={plantFilter}
+            onChange={(e) => setPlantFilter(e.target.value)}
+          >
+            <option value="ALL">ALL PLANTS</option>
+            {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
+          </select>
+        </div>
 
-      <Tabs defaultValue="OPEN" className="w-full">
-        <TabsList className="bg-slate-100 p-1 rounded-2xl w-full justify-start overflow-x-auto no-scrollbar gap-1 h-12">
-          {['OPEN ORDER', 'LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD SECTION', 'REJECTION', 'CLOSED'].map((tab) => (
-            <TabsTrigger 
-              key={tab} 
-              value={tab.split(' ')[0]}
-              className="rounded-xl px-6 font-black text-[10px] uppercase tracking-wider data-[state=active]:bg-[#0056d2] data-[state=active]:text-white h-10"
-            >
-              {tab}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <Tabs defaultValue="OPEN" className="w-full">
+          <TabsList className="bg-slate-100 p-1 rounded-2xl w-full justify-start overflow-x-auto no-scrollbar gap-1 h-12">
+            {['OPEN ORDER', 'LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD SECTION', 'REJECTION', 'CLOSED'].map((tab) => (
+              <TabsTrigger 
+                key={tab} 
+                value={tab.split(' ')[0]}
+                className="rounded-xl px-6 font-black text-[10px] uppercase tracking-wider data-[state=active]:bg-[#0056d2] data-[state=active]:text-white h-10"
+              >
+                {tab}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-        <TabsContent value="OPEN" className="mt-6">
-          <div className="overflow-x-auto rounded-3xl border border-slate-100 shadow-xl bg-white">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-100">
-                  <th className="p-4 text-[9px] font-black uppercase text-slate-400">Order Header</th>
-                  <th className="p-4 text-[9px] font-black uppercase text-slate-400">Plant</th>
-                  <th className="p-4 text-[9px] font-black uppercase text-slate-400">Consignor</th>
-                  <th className="p-4 text-[9px] font-black uppercase text-slate-400">Consignee</th>
-                  <th className="p-4 text-[9px] font-black uppercase text-slate-400">Ship To Party</th>
-                  <th className="p-4 text-[9px] font-black uppercase text-slate-400">Route</th>
-                  <th className="p-4 text-[9px] font-black uppercase text-slate-400">Remaining Weight</th>
-                  <th className="p-4 text-[9px] font-black uppercase text-slate-400 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredOrders?.map(order => {
-                  const totalW = (order.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
-                  const remaining = calculateRemainingWeight(order.id, totalW);
-                  const uom = order.items?.[0]?.weightUom || 'MT';
-                  const soNo = (order.saleOrder || order.saleOrderNumber || 'N/A');
-                  
-                  return (
-                    <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                      <td className="p-4 font-black text-xs text-[#0056d2]">{soNo}</td>
-                      <td className="p-4 font-bold text-[10px] text-slate-600 uppercase">{order.plantCode}</td>
-                      <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.consignor}</td>
-                      <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.consignee}</td>
-                      <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.shipToParty}</td>
-                      <td className="p-4 font-bold text-[10px] uppercase text-slate-400 italic">
-                        {order.from}--{order.destination}
-                      </td>
-                      <td className="p-4 font-black text-xs">
-                        <Badge variant="outline" className="border-blue-100 text-[#0056d2] rounded-lg px-2">
-                          {remaining} {uom}
-                        </Badge>
-                      </td>
-                      <td className="p-4 text-center">
-                        <Button 
-                          onClick={() => setSelectedOrder(order)}
-                          className="bg-[#0056d2] hover:bg-black text-white h-8 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest gap-2"
-                        >
-                          <Truck className="h-3 w-3" /> Assign Vehicle
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </TabsContent>
-
-        {['LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD', 'REJECTION', 'CLOSED'].map(status => (
-          <TabsContent key={status} value={status} className="mt-6">
-            <div className="space-y-4">
-              <div className="hidden lg:grid grid-cols-10 bg-slate-100 border-y border-slate-200 py-3 px-6 text-[9px] font-black uppercase tracking-widest text-slate-500">
-                <div className="col-span-1">ID / Node</div>
-                <div className="col-span-1">Date</div>
-                <div className="col-span-2">Loading / Consignor</div>
-                <div className="col-span-2">Unloading / Consignee / Ship To</div>
-                <div className="col-span-1">Vehicle / Carrier</div>
-                <div className="col-span-1">Driver / Contact</div>
-                <div className="col-span-1">Qty / Product</div>
-                <div className="col-span-1 text-center">Actions</div>
-              </div>
-
-              {getTripsByStatus(status).map(trip => {
-                const next = getNextStatus(status);
-                const soNo = trip.saleOrderNumber || trip.saleOrder || 'N/A';
-                const formattedDate = trip.createdAt ? format(new Date(trip.createdAt), 'dd MMM').toUpperCase() : '--';
-                const formattedTime = trip.createdAt ? format(new Date(trip.createdAt), 'hh:mm a') : '--';
-                
-                return (
-                  <div key={trip.id} className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden">
-                    <div className="grid grid-cols-1 lg:grid-cols-10 items-center p-4 lg:p-6 gap-4">
-                      <div className="col-span-1 flex flex-col gap-0.5">
-                        <span className="text-[#0056d2] font-black text-[11px] leading-tight">#{trip.tripId}</span>
-                        <span className="text-slate-400 font-bold text-[8px] uppercase tracking-tighter">SO: {soNo}</span>
-                        <div className="flex flex-col mt-1">
-                          <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">LR: {trip.lrNo || '--'}</span>
-                          <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">INV: {trip.invoiceNumber || '--'}</span>
-                        </div>
-                      </div>
-
-                      <div className="col-span-1 flex flex-col gap-1">
-                        <span className="text-slate-900 font-black text-[10px]">{formattedDate}</span>
-                        <span className="text-slate-400 font-bold text-[9px]">{formattedTime}</span>
-                      </div>
-
-                      <div className="col-span-2 flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                          <span className="text-slate-900 font-black text-[10px] truncate uppercase">{trip.consignor || 'PLANT NODE'}</span>
-                        </div>
-                        <span className="text-slate-400 font-bold text-[9px] pl-3.5 truncate italic">{trip.route?.split('--')[0]}</span>
-                      </div>
-
-                      <div className="col-span-2 flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                          <div className="flex flex-col">
-                            <span className="text-slate-900 font-black text-[10px] truncate uppercase">{trip.consignee || trip.shipToParty || 'REGISTRY NODE'}</span>
-                            {trip.shipToParty && (
-                              <span className="text-red-600 font-bold text-[8px] uppercase truncate">
-                                Ship To: {trip.shipToParty}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <span className="text-slate-400 font-bold text-[9px] pl-3.5 truncate italic">{trip.route?.split('--')[1]}</span>
-                      </div>
-
-                      <div className="col-span-1 flex flex-col gap-1">
-                        <div className="flex items-center gap-1.5">
-                          <Truck className="h-3 w-3 text-[#0056d2]" />
-                          <span className="text-slate-900 font-black text-[10px] uppercase">{trip.vehicleNumber}</span>
-                        </div>
-                        <span className="text-slate-400 font-bold text-[8px] leading-tight uppercase">{trip.vendorName || 'OWN FLEET'}</span>
-                      </div>
-
-                      <div className="col-span-1 flex flex-col gap-1">
-                        <div className="flex items-center gap-1.5">
-                          <Phone className="h-3 w-3 text-slate-400" />
-                          <span className="text-slate-900 font-black text-[10px]">{trip.driverMobile}</span>
-                        </div>
-                        <span className="text-slate-400 font-bold text-[8px] uppercase">Registry Verified</span>
-                      </div>
-
-                      <div className="col-span-1 flex flex-col gap-1">
-                        <span className="text-slate-900 font-black text-[10px]">{trip.assignWeight} {trip.weightUom || 'MT'}</span>
-                        <span className="text-slate-400 font-bold text-[9px] truncate italic">{trip.product || 'SALT'}</span>
-                      </div>
-
-                      <div className="col-span-1 flex flex-col gap-2 items-center">
-                        {next && (
+          <TabsContent value="OPEN" className="mt-6">
+            <div className="overflow-x-auto rounded-3xl border border-slate-100 shadow-xl bg-white">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    <th className="p-4 text-[9px] font-black uppercase text-slate-400">Order Header</th>
+                    <th className="p-4 text-[9px] font-black uppercase text-slate-400">Plant</th>
+                    <th className="p-4 text-[9px] font-black uppercase text-slate-400">Consignor</th>
+                    <th className="p-4 text-[9px] font-black uppercase text-slate-400">Consignee</th>
+                    <th className="p-4 text-[9px] font-black uppercase text-slate-400">Ship To Party</th>
+                    <th className="p-4 text-[9px] font-black uppercase text-slate-400">Route</th>
+                    <th className="p-4 text-[9px] font-black uppercase text-slate-400">Remaining Weight</th>
+                    <th className="p-4 text-[9px] font-black uppercase text-slate-400 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredOrders?.map(order => {
+                    const totalW = (order.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
+                    const remaining = calculateRemainingWeight(order.id, totalW);
+                    const uom = order.items?.[0]?.weightUom || 'MT';
+                    const soNo = (order.saleOrder || order.saleOrderNumber || 'N/A');
+                    
+                    return (
+                      <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                        <td className="p-4 font-black text-xs text-[#0056d2]">{soNo}</td>
+                        <td className="p-4 font-bold text-[10px] text-slate-600 uppercase">{order.plantCode}</td>
+                        <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.consignor}</td>
+                        <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.consignee}</td>
+                        <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.shipToParty}</td>
+                        <td className="p-4 font-bold text-[10px] uppercase text-slate-400 italic">
+                          {order.from}--{order.destination}
+                        </td>
+                        <td className="p-4 font-black text-xs">
+                          <Badge variant="outline" className="border-blue-100 text-[#0056d2] rounded-lg px-2">
+                            {remaining} {uom}
+                          </Badge>
+                        </td>
+                        <td className="p-4 text-center">
                           <Button 
-                            onClick={() => updateTripStatus(trip, next)}
-                            className="w-full bg-[#0056d2] hover:bg-black text-white h-7 rounded-sm text-[8px] font-black uppercase tracking-widest px-2"
+                            onClick={() => setSelectedOrder(order)}
+                            className="bg-[#0056d2] hover:bg-black text-white h-8 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest gap-2"
                           >
-                            {next === 'ARRIVED' ? 'Arrived In' : next === 'POD' ? 'Upload POD' : `Move ${next}`}
+                            <Truck className="h-3 w-3" /> Assign Vehicle
                           </Button>
-                        )}
-                        <Button 
-                          variant="outline" 
-                          onClick={() => setViewTrip(trip)}
-                          className="w-full h-7 border-slate-200 text-slate-600 text-[8px] font-black uppercase tracking-widest px-2"
-                        >
-                          View Details
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="bg-slate-50 border-t border-slate-100 px-6 py-2 flex items-center justify-between">
-                       <div className="flex items-center gap-6">
-                          <div className="flex items-center gap-2">
-                             <Badge variant="outline" className="border-emerald-100 text-emerald-600 font-black text-[7px] uppercase tracking-tighter rounded-sm">On Schedule</Badge>
-                             <span className="text-slate-400 font-bold text-[8px]">{formattedDate}, {formattedTime}</span>
-                          </div>
-                       </div>
-                    </div>
-                  </div>
-                );
-              })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </TabsContent>
-        ))}
+
+          {['LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD', 'REJECTION', 'CLOSED'].map(status => (
+            <TabsContent key={status} value={status} className="mt-6">
+              <div className="space-y-4">
+                <div className="hidden lg:grid grid-cols-10 bg-slate-100 border-y border-slate-200 py-3 px-6 text-[9px] font-black uppercase tracking-widest text-slate-500">
+                  <div className="col-span-1">ID / Node</div>
+                  <div className="col-span-1">Date</div>
+                  <div className="col-span-2">Loading / Consignor</div>
+                  <div className="col-span-2">Unloading / Consignee / Ship To</div>
+                  <div className="col-span-1">Vehicle / Carrier</div>
+                  <div className="col-span-1">Driver / Contact</div>
+                  <div className="col-span-1">Qty / Product</div>
+                  <div className="col-span-1 text-center">Actions</div>
+                </div>
+
+                {getTripsByStatus(status).map(trip => {
+                  const next = getNextStatus(status);
+                  const soNo = trip.saleOrderNumber || trip.saleOrder || 'N/A';
+                  const formattedDate = trip.createdAt ? format(new Date(trip.createdAt), 'dd MMM').toUpperCase() : '--';
+                  const formattedTime = trip.createdAt ? format(new Date(trip.createdAt), 'hh:mm a') : '--';
+                  
+                  return (
+                    <div key={trip.id} className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden">
+                      <div className="grid grid-cols-1 lg:grid-cols-10 items-center p-4 lg:p-6 gap-4">
+                        <div className="col-span-1 flex flex-col gap-0.5">
+                          <span className="text-[#0056d2] font-black text-[11px] leading-tight">#{trip.tripId}</span>
+                          <span className="text-slate-400 font-bold text-[8px] uppercase tracking-tighter">SO: {soNo}</span>
+                          <div className="flex flex-col mt-1">
+                            <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">LR: {trip.lrNo || '--'}</span>
+                            <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">INV: {trip.invoiceNumber || '--'}</span>
+                          </div>
+                        </div>
+
+                        <div className="col-span-1 flex flex-col gap-1">
+                          <span className="text-slate-900 font-black text-[10px]">{formattedDate}</span>
+                          <span className="text-slate-400 font-bold text-[9px]">{formattedTime}</span>
+                        </div>
+
+                        <div className="col-span-2 flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                            <span className="text-slate-900 font-black text-[10px] truncate uppercase">{trip.consignor || 'PLANT NODE'}</span>
+                          </div>
+                          <span className="text-slate-400 font-bold text-[9px] pl-3.5 truncate italic">{trip.route?.split('--')[0]}</span>
+                        </div>
+
+                        <div className="col-span-2 flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                            <div className="flex flex-col">
+                              <span className="text-slate-900 font-black text-[10px] truncate uppercase">{trip.consignee || trip.shipToParty || 'REGISTRY NODE'}</span>
+                              {trip.shipToParty && (
+                                <span className="text-red-600 font-bold text-[8px] uppercase truncate">
+                                  Ship To: {trip.shipToParty}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-slate-400 font-bold text-[9px] pl-3.5 truncate italic">{trip.route?.split('--')[1]}</span>
+                        </div>
+
+                        <div className="col-span-1 flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <Truck className="h-3 w-3 text-[#0056d2]" />
+                            <span className="text-slate-900 font-black text-[10px] uppercase">{trip.vehicleNumber}</span>
+                          </div>
+                          <span className="text-slate-400 font-bold text-[8px] leading-tight uppercase">{trip.vendorName || 'OWN FLEET'}</span>
+                        </div>
+
+                        <div className="col-span-1 flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <Phone className="h-3 w-3 text-slate-400" />
+                            <span className="text-slate-900 font-black text-[10px]">{trip.driverMobile}</span>
+                          </div>
+                          <span className="text-slate-400 font-bold text-[8px] uppercase">Registry Verified</span>
+                        </div>
+
+                        <div className="col-span-1 flex flex-col gap-1">
+                          <span className="text-slate-900 font-black text-[10px]">{trip.assignWeight} {trip.weightUom || 'MT'}</span>
+                          <span className="text-slate-400 font-bold text-[9px] truncate italic">{trip.product || 'SALT'}</span>
+                        </div>
+
+                        <div className="col-span-1 flex flex-col gap-2 items-center">
+                          {next && (
+                            <Button 
+                              onClick={() => updateTripStatus(trip, next)}
+                              className="w-full bg-[#0056d2] hover:bg-black text-white h-7 rounded-sm text-[8px] font-black uppercase tracking-widest px-2"
+                            >
+                              {next === 'ARRIVED' ? 'Arrived In' : next === 'POD' ? 'Upload POD' : `Move ${next}`}
+                            </Button>
+                          )}
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setViewTrip(trip)}
+                            className="w-full h-7 border-slate-200 text-slate-600 text-[8px] font-black uppercase tracking-widest px-2"
+                          >
+                            View Details
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 border-t border-slate-100 px-6 py-2 flex items-center justify-between">
+                         <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-2">
+                               <Badge variant="outline" className="border-emerald-100 text-emerald-600 font-black text-[7px] uppercase tracking-tighter rounded-sm">On Schedule</Badge>
+                               <span className="text-slate-400 font-bold text-[8px]">{formattedDate}, {formattedTime}</span>
+                            </div>
+                         </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </TabsContent>
+          ))}
+        </Tabs>
       </div>
 
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
@@ -1339,7 +1341,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
 
@@ -1453,77 +1455,6 @@ function BulkDataHub({ orders, trips, plants }: { orders: any[] | null, trips: a
            </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function FormInput({ label, value, onChange, type = "text", disabled }: any) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
-      <Input 
-        type={type} 
-        value={value || ''} 
-        onChange={(e) => onChange(e.target.value)} 
-        disabled={disabled}
-        className="h-8 rounded-none border-slate-400 focus:ring-0 focus:border-[#0056d2] text-xs font-bold bg-white"
-      />
-    </div>
-  );
-}
-
-function FormSelect({ label, value, options, onChange, disabled }: any) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
-      <select 
-        value={value || ''} 
-        onChange={(e) => onChange(e.target.value)} 
-        disabled={disabled}
-        className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold outline-none"
-      >
-        <option value="">Select...</option>
-        {options.map((o: string) => <option key={o} value={o}>{o}</option>)}
-      </select>
-    </div>
-  );
-}
-
-function RegistryList({ screen, onSelectItem, listData }: any) {
-  const getCols = () => {
-    if (screen.startsWith('VA')) return ['SO Number', 'Name / Description', 'Type / Details', 'Date'];
-    if (screen.startsWith('SU')) return ['Username', 'Name', 'Registry ID', 'Node Active'];
-    return ['Registry ID', 'Name / Description', 'Type / Details', 'Sync Node'];
-  };
-
-  return (
-    <div className="overflow-x-auto border border-slate-300">
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="bg-[#f0f0f0] border-b border-slate-300">
-            {getCols().map(col => <th key={col} className="p-2 text-[9px] font-black uppercase text-slate-500">{col}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {listData?.map((item: any) => (
-            <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors">
-              <td className="p-2 text-[10px] font-black text-[#0056d2]">
-                {item.username || item.saleOrder || item.saleOrderNumber || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}
-              </td>
-              <td className="p-2 text-[10px] font-bold text-slate-600 uppercase">
-                {item.fullName || item.plantName || item.companyName || item.vendorName || item.customerName || `${item.consignor} → ${item.consignee || 'UNSPECIFIED'}`}
-                {item.shipToParty && item.shipToParty !== item.consignee && <span className="block text-[8px] text-red-500">Ship to: {item.shipToParty}</span>}
-              </td>
-              <td className="p-2 text-[10px] font-bold text-slate-400 uppercase italic">
-                {item.customerType || item.city || (item.from ? `${item.from} → ${item.destination}` : 'REGISTRY NODE')}
-              </td>
-              <td className="p-2 text-[10px] font-bold text-slate-400">
-                {item.saleOrderDate || item.updatedAt ? format(new Date(item.saleOrderDate || item.updatedAt), 'dd-MM-yyyy') : 'SYNC ACTIVE'}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
