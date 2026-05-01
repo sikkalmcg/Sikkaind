@@ -90,6 +90,7 @@ export default function SapDashboard() {
   const [formData, setFormData] = React.useState<any>({});
   const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  const [printData, setPrintData] = React.useState<any>(null);
   const tCodeRef = React.useRef<HTMLInputElement>(null);
 
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
@@ -330,6 +331,13 @@ export default function SapDashboard() {
     } else {
       setActiveScreen('HOME');
     }
+  };
+
+  const handlePrintLR = (trip: any, order: any) => {
+    setPrintData({ trip, order });
+    setTimeout(() => {
+      window.print();
+    }, 500);
   };
 
   const getScreenTitle = (code: Screen) => {
@@ -633,7 +641,7 @@ export default function SapDashboard() {
                              <RegistryList screen={activeScreen} onSelectItem={setFormData} listData={getRegistryList()} />
                            </div>
                          )}
-                         {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} />}
+                         {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} onPrintLR={handlePrintLR} />}
                          {activeScreen === 'BULK' && <BulkDataHub allPlants={rawPlants} />}
                        </div>
                      </div>
@@ -656,8 +664,101 @@ export default function SapDashboard() {
             </div>
           </SidebarInset>
         </div>
+
+        {/* PRINTABLE AREA FOR LR */}
+        <div id="printable-area" className="hidden print:block p-8 bg-white text-black font-serif border-2 border-black m-4">
+          {printData && <LRPrintTemplate trip={printData.trip} order={printData.order} />}
+        </div>
       </div>
     </SidebarProvider>
+  );
+}
+
+function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
+  const lrNo = trip.lrNo || order?.lrNo || '--';
+  const lrDate = trip.lrDate || order?.lrDate || trip.createdAt ? format(new Date(trip.lrDate || order?.lrDate || trip.createdAt), 'dd-MMM-yyyy') : '--';
+  const invNo = trip.invoiceNumber || trip.invoiceNo || order?.items?.[0]?.invoiceNumber || '--';
+  const product = trip.product || order?.items?.[0]?.product || 'SALT';
+  const weight = `${trip.assignWeight || '--'} ${trip.weightUom || order?.items?.[0]?.weightUom || 'MT'}`;
+
+  return (
+    <div className="w-full space-y-8">
+      <div className="text-center border-b-2 border-black pb-4">
+        <h1 className="text-3xl font-black uppercase tracking-widest">Lorry Receipt</h1>
+        <h2 className="text-xl font-bold uppercase mt-2">Sikka Industries & Logistics</h2>
+        <p className="text-sm font-medium">Headquarters: Ghaziabad – 201009, Uttar Pradesh, India</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <div>
+            <p className="text-[10px] font-black uppercase text-slate-500">Consignor Name & Address</p>
+            <p className="text-sm font-black uppercase mt-1">{trip.consignor || order?.consignor || '--'}</p>
+            <p className="text-[11px] font-medium leading-relaxed">{order?.from || '--'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase text-slate-500">Consignee Name & Address</p>
+            <p className="text-sm font-black uppercase mt-1">{trip.consignee || order?.consignee || '--'}</p>
+            <p className="text-[11px] font-medium leading-relaxed">{order?.destination || '--'}</p>
+          </div>
+        </div>
+
+        <div className="border-l-2 border-black pl-8 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-[10px] font-black uppercase text-slate-500">LR Number</p>
+              <p className="text-lg font-black">{lrNo}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase text-slate-500">LR Date</p>
+              <p className="text-md font-black">{lrDate}</p>
+            </div>
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase text-slate-500">Vehicle Number</p>
+            <p className="text-lg font-black uppercase">{trip.vehicleNumber || '--'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-black uppercase text-slate-500">From / To Route</p>
+            <p className="text-sm font-black uppercase">{trip.route || order?.route || '--'}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="border-2 border-black">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-100 border-b-2 border-black">
+              <th className="p-3 border-r-2 border-black text-[11px] font-black uppercase">Particulars of Goods</th>
+              <th className="p-3 border-r-2 border-black text-[11px] font-black uppercase">Invoice No</th>
+              <th className="p-3 text-[11px] font-black uppercase">Quantity / Weight</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="h-48 align-top">
+              <td className="p-4 border-r-2 border-black font-bold uppercase">{product}</td>
+              <td className="p-4 border-r-2 border-black font-bold uppercase">{invNo}</td>
+              <td className="p-4 font-black">{weight}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="grid grid-cols-2 gap-8 pt-8">
+        <div className="text-[10px] font-medium leading-relaxed">
+          <p className="font-black mb-2 uppercase">Terms & Conditions:</p>
+          <ol className="list-decimal pl-4 space-y-1">
+            <li>Goods are carried at Owner's risk.</li>
+            <li>Subject to the jurisdiction of Ghaziabad courts only.</li>
+            <li>Carrier is not responsible for leakage, breakage or shortage.</li>
+            <li>Weight recorded at the loading point shall be considered final.</li>
+          </ol>
+        </div>
+        <div className="flex flex-col items-end justify-end space-y-20 pr-4">
+          <p className="text-[10px] font-black uppercase border-t border-black pt-2 min-w-[200px] text-center">For Sikka Industries & Logistics</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1010,7 +1111,7 @@ function UserForm({ data, onChange, disabled, allPlants }: any) {
   );
 }
 
-function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | null, trips: any[] | null, onStatusUpdate: any, plants: any[] | null }) {
+function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR }: { orders: any[] | null, trips: any[] | null, onStatusUpdate: any, plants: any[] | null, onPrintLR?: any }) {
   const { user } = useUser();
   const db = useFirestore();
   const [plantFilter, setPlantFilter] = React.useState('ALL');
@@ -1137,6 +1238,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
   const resetForm = () => {
     setVehicleType('OWN FLEET');
     setAssignWeight('');
+    setVehicleNo('');
     setVehicleNo('');
     setDriverMobile('');
     setVendorName('');
@@ -1293,7 +1395,12 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                           <span className="text-[#0056d2] font-black text-[11px] leading-tight">#{trip.tripId}</span>
                           <span className="text-slate-400 font-bold text-[8px] uppercase tracking-tighter">SO: {soNo}</span>
                           <div className="flex flex-col mt-1">
-                            <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">LR: {lrNoDisplay}</span>
+                            <button 
+                              onClick={() => onPrintLR && onPrintLR(trip, parentOrder)}
+                              className="text-slate-500 font-black text-[7px] uppercase tracking-tighter hover:text-blue-600 hover:underline text-left outline-none"
+                            >
+                              LR: {lrNoDisplay}
+                            </button>
                             <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">INV: {invNoDisplay}</span>
                           </div>
                         </div>
@@ -1593,12 +1700,195 @@ function BulkDataHub({ allPlants }: { allPlants: any[] | null }) {
   );
 }
 
-function RegistryFormWrapper({ children, title }: { children: React.ReactNode, title: string }) {
+function PlantForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Plant Code" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+      <FormInput label="Plant Name" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
+      <FormInput label="City" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+      <FormInput label="State" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+      <FormInput label="Address" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+    </div>
+  );
+}
+
+function CompanyForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Company Code" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
+      <FormInput label="Company Name" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
+      <FormInput label="Address" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+    </div>
+  );
+}
+
+function VendorForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Vendor Name" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
+      <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+      <FormInput label="PAN" value={data.pan} onChange={(v: string) => onChange({...data, pan: v})} disabled={disabled} />
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+    </div>
+  );
+}
+
+function CustomerForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Customer Code" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} />
+      <FormInput label="Customer Name" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
+      <FormInput label="City" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+      <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+      <FormSelect label="Type" value={data.customerType} options={['Consignor', 'Consignee']} onChange={(v: string) => onChange({...data, customerType: v})} disabled={disabled} />
+    </div>
+  );
+}
+
+function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: any) {
+  const [time, setTime] = React.useState(new Date());
+
+  React.useEffect(() => {
+    if (!data.id) {
+      const timer = setInterval(() => setTime(new Date()), 1000);
+      return () => clearInterval(timer);
+    }
+  }, [data.id]);
+
+  const currentTimeStr = format(time, 'dd-MM-yyyy HH:mm:ss');
+
+  const plantOptions = (allPlants || []).map((p: any) => p.plantCode);
+  const consignorOptions = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignor').map((c: any) => c.customerName)));
+  const consigneeOptions = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignee').map((c: any) => c.customerName)));
+  const shipToOptions = Array.from(new Set((allCustomers || []).map((c: any) => c.customerName)));
+  const fromCityOptions = Array.from(new Set((allPlants || []).map((p: any) => p.city).filter(Boolean)));
+  const destinationCityOptions = Array.from(new Set((allCustomers || []).map((c: any) => c.city).filter(Boolean)));
+
   return (
     <div className="space-y-8">
-      <SectionHeader title={title} />
-      <div className="p-4">
-        {children}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+        <FormSelect label="Plant Code" value={data.plantCode} options={plantOptions} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormInput label="System Date/Time" value={data.id ? (data.saleOrderDate || '--') : currentTimeStr} disabled={true} />
+        <FormInput label="LR Number" value={data.lrNo} onChange={(v: string) => onChange({...data, lrNo: v})} disabled={disabled} />
+        <FormInput label="LR Date" value={data.lrDate} type="date" onChange={(v: string) => onChange({...data, lrDate: v})} disabled={disabled} />
+        <FormInput label="Sale Order No" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
+        <FormSelect label="Consignor Name" value={data.consignor} options={consignorOptions} onChange={(v: string) => onChange({...data, consignor: v})} disabled={disabled} />
+        <FormSelect label="Consignee Name" value={data.consignee} options={consigneeOptions} onChange={(v: string) => onChange({...data, consignee: v})} disabled={disabled} />
+        <FormSelect label="Ship To Party" value={data.shipToParty} options={shipToOptions} onChange={(v: string) => onChange({...data, shipToParty: v})} disabled={disabled} />
+        <FormSelect label="From City" value={data.from} options={fromCityOptions} onChange={(v: string) => onChange({...data, from: v})} disabled={disabled} />
+        <FormSelect label="Destination City" value={data.destination} options={destinationCityOptions} onChange={(v: string) => onChange({...data, destination: v})} disabled={disabled} />
+      </div>
+      
+      <div className="space-y-4">
+        <SectionHeader title="Product Item Registry" />
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse border border-slate-300">
+            <thead className="bg-[#f0f0f0]">
+              <tr>
+                <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">Product</th>
+                <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">Weight</th>
+                <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">UOM</th>
+                <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">Invoice No</th>
+                <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">Ewaybill</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data.items || [{ product: 'SALT', weight: '', weightUom: 'MT', invoiceNumber: '', ewaybillNumber: '' }]).map((item: any, idx: number) => (
+                <tr key={idx}>
+                  <td className="p-1 border border-slate-300">
+                    <input className="w-full outline-none text-[10px] p-1 font-bold" value={item.product || ''} onChange={(e) => {
+                      const items = [...(data.items || [{ product: 'SALT' }])];
+                      items[idx] = { ...items[idx], product: e.target.value };
+                      onChange({ ...data, items });
+                    }} disabled={disabled} />
+                  </td>
+                  <td className="p-1 border border-slate-300">
+                    <input className="w-full outline-none text-[10px] p-1 font-bold" value={item.weight || ''} onChange={(e) => {
+                      const items = [...(data.items || [{ product: 'SALT' }])];
+                      items[idx] = { ...items[idx], weight: e.target.value };
+                      onChange({ ...data, items });
+                    }} disabled={disabled} />
+                  </td>
+                  <td className="p-1 border border-slate-300">
+                    <select className="w-full outline-none text-[10px] p-1 font-bold" value={item.weightUom || 'MT'} onChange={(e) => {
+                      const items = [...(data.items || [{ product: 'SALT' }])];
+                      items[idx] = { ...items[idx], weightUom: e.target.value };
+                      onChange({ ...data, items });
+                    }} disabled={disabled}>
+                      <option value="MT">MT</option>
+                      <option value="KG">KG</option>
+                      <option value="PCS">PCS</option>
+                    </select>
+                  </td>
+                  <td className="p-1 border border-slate-300">
+                    <input className="w-full outline-none text-[10px] p-1 font-bold" value={item.invoiceNumber || ''} onChange={(e) => {
+                      const items = [...(data.items || [{ product: 'SALT' }])];
+                      items[idx] = { ...items[idx], invoiceNumber: e.target.value };
+                      onChange({ ...data, items });
+                    }} disabled={disabled} />
+                  </td>
+                  <td className="p-1 border border-slate-300">
+                    <input className="w-full outline-none text-[10px] p-1 font-bold" value={item.ewaybillNumber || ''} onChange={(e) => {
+                      const items = [...(data.items || [{ product: 'SALT' }])];
+                      items[idx] = { ...items[idx], ewaybillNumber: e.target.value };
+                      onChange({ ...data, items });
+                    }} disabled={disabled} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UserForm({ data, onChange, disabled, allPlants }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Full Name" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
+      <FormInput label="Username" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} />
+      <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+      <div className="space-y-2">
+        <label className="text-[10px] font-bold text-slate-500 uppercase">Authorized T-Codes</label>
+        <div className="bg-white border border-slate-400 h-32 overflow-y-auto p-2">
+          {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'BULK' || t.code === 'VA04').map(t => (
+            <div key={t.code} className="flex items-center gap-2 mb-1">
+              <Checkbox 
+                checked={data.tcodes?.includes(t.code)} 
+                onCheckedChange={(val) => {
+                  const codes = data.tcodes || [];
+                  if (val) onChange({...data, tcodes: [...codes, t.code]});
+                  else onChange({...data, tcodes: codes.filter((c: string) => c !== t.code)});
+                }}
+                disabled={disabled}
+              />
+              <span className="text-[10px] font-bold">{t.code} - {t.description}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label className="text-[10px] font-bold text-slate-500 uppercase">Authorized Plants</label>
+        <div className="bg-white border border-slate-400 h-32 overflow-y-auto p-2">
+          {allPlants?.map((p: any) => (
+            <div key={p.plantCode} className="flex items-center gap-2 mb-1">
+              <Checkbox 
+                checked={data.plants?.includes(p.plantCode)} 
+                onCheckedChange={(val) => {
+                  const plants = data.plants || [];
+                  if (val) onChange({...data, plants: [...plants, p.plantCode]});
+                  else onChange({...data, plants: plants.filter((c: string) => c !== p.plantCode)});
+                }}
+                disabled={disabled}
+              />
+              <span className="text-[10px] font-bold">{p.plantCode} - {p.plantName}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
