@@ -7,7 +7,7 @@ import {
   Printer, Save, ArrowLeft, ArrowRight, 
   RotateCcw, X, HelpCircle, LogOut, LayoutDashboard,
   ChevronRight, Building2, Check, AlertCircle, Info, PlusCircle, Trash2,
-  Grid2X2, Upload, FileText, Download
+  Grid2X2, Upload, FileText, Download, Calendar as CalendarIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +26,7 @@ import {
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 
-type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'BULK';
+type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'BULK';
 
 export default function SapDashboard() {
   const router = useRouter();
@@ -57,6 +57,7 @@ export default function SapDashboard() {
     else if (activeScreen.startsWith('FM')) collectionName = 'companies';
     else if (activeScreen.startsWith('XK')) collectionName = 'vendors';
     else if (activeScreen.startsWith('XD')) collectionName = 'customers';
+    else if (activeScreen.startsWith('VA')) collectionName = 'sales_orders';
 
     if (collectionName) {
       const docRef = doc(db, 'users', user.uid, collectionName, docId);
@@ -86,7 +87,7 @@ export default function SapDashboard() {
     const formatted = code.toUpperCase().trim();
     const cleanCode = formatted.startsWith('/N') ? formatted.slice(2) : formatted;
     
-    const validCodes = ['OX01', 'OX02', 'OX03', 'FM01', 'FM02', 'FM03', 'XK01', 'XK02', 'XK03', 'XD01', 'XD02', 'XD03', 'BULK'];
+    const validCodes = ['OX01', 'OX02', 'OX03', 'FM01', 'FM02', 'FM03', 'XK01', 'XK02', 'XK03', 'XD01', 'XD02', 'XD03', 'VA01', 'VA02', 'VA03', 'BULK'];
     
     if (validCodes.includes(cleanCode)) {
       setActiveScreen(cleanCode as Screen);
@@ -191,7 +192,7 @@ export default function SapDashboard() {
         {/* Sidebar - Auto hides when module is active */}
         {!isModuleActive && (
           <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-sm animate-fade-in print:hidden">
-             {/* Header branding as per reference image */}
+             {/* Header branding */}
              <div className="p-6 border-b border-slate-100 flex items-center gap-4">
                 <div className="bg-[#0056d2] p-2 rounded-lg flex items-center justify-center">
                    <Grid2X2 className="h-6 w-6 text-white" />
@@ -206,7 +207,7 @@ export default function SapDashboard() {
                 </div>
              </div>
              
-             {/* Favorites list as per reference image */}
+             {/* Favorites list */}
              <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar">
                 <div className="space-y-4">
                   <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 mb-6">Favorites</p>
@@ -215,6 +216,7 @@ export default function SapDashboard() {
                     { code: 'FM01', label: 'Create Company' },
                     { code: 'XK01', label: 'Create Vendor' },
                     { code: 'XD01', label: 'Create Customer' },
+                    { code: 'VA01', label: 'Create Sales Order' },
                     { code: 'BULK', label: 'Bulk Data Upload' },
                   ].map((item) => (
                     <button 
@@ -254,8 +256,8 @@ export default function SapDashboard() {
                    <Building2 className="h-16 w-16 text-slate-200 mb-4 group-hover:scale-110 transition-transform" />
                    <p className="text-xl font-black text-slate-300 uppercase tracking-tighter italic group-hover:text-[#0056d2]">Your firm image will be placed here</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-                  {['OX01', 'FM01', 'XK01', 'XD01', 'BULK'].map((code) => (
+                <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                  {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'BULK'].map((code) => (
                     <div key={code} onClick={() => executeTCode(code)} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
                       <div className="flex items-center justify-between mb-4">
                         <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1 font-black italic">{code}</Badge>
@@ -274,6 +276,7 @@ export default function SapDashboard() {
                    {activeScreen === 'FM01' && <CompanyForm data={formData} onChange={setFormData} />}
                    {activeScreen === 'XK01' && <VendorForm data={formData} onChange={setFormData} />}
                    {activeScreen === 'XD01' && <CustomerForm data={formData} onChange={setFormData} />}
+                   {activeScreen === 'VA01' && <SalesOrderForm data={formData} onChange={setFormData} />}
                    {activeScreen === 'BULK' && <BulkUploadForm setStatus={setStatusMsg} />}
                    {(activeScreen.endsWith('02') || activeScreen.endsWith('03')) && <RegistryList screen={activeScreen} />}
                  </div>
@@ -319,6 +322,9 @@ function getScreenTitle(screen: Screen): string {
     case 'XD01': return 'Create Customer Registry';
     case 'XD02': return 'Edit Customer Registry';
     case 'XD03': return 'Display Customer Registry';
+    case 'VA01': return 'Create Sales Order Registry';
+    case 'VA02': return 'Edit Sales Order Registry';
+    case 'VA03': return 'Display Sales Order Registry';
     case 'BULK': return 'Bulk Data Hub Registry';
     default: return 'Central Management Control Registry';
   }
@@ -638,6 +644,195 @@ function CustomerForm({ data, onChange }: any) {
   );
 }
 
+function SalesOrderForm({ data, onChange }: any) {
+  const { user } = useUser();
+  const db = useFirestore();
+  
+  const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
+  const customersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'customers') : null, [user, db]);
+  
+  const { data: plants } = useCollection(plantsQuery);
+  const { data: customers } = useCollection(customersQuery);
+
+  const updateField = (field: string, val: any) => {
+    let nextData = { ...data, [field]: val };
+    
+    // Auto populate city for Consignor
+    if (field === 'consignor') {
+      const selected = customers?.find(c => c.customerName === val);
+      if (selected) nextData.from = selected.city;
+    }
+    
+    // Auto populate city for Ship to Party
+    if (field === 'shipToParty') {
+      const selected = customers?.find(c => c.customerName === val);
+      if (selected) nextData.destination = selected.city;
+    }
+    
+    onChange(nextData);
+  };
+
+  const addItem = () => {
+    const current = data.items || [];
+    onChange({ ...data, items: [...current, { 
+      invoiceNumber: '', 
+      ewaybillNumber: '', 
+      product: '', 
+      unit: '', 
+      unitUom: 'Box', 
+      weight: '', 
+      weightUom: 'KG' 
+    }] });
+  };
+
+  const updateItem = (idx: number, field: string, val: any) => {
+    const nextItems = [...(data.items || [])];
+    nextItems[idx] = { ...nextItems[idx], [field]: val };
+    onChange({ ...data, items: nextItems });
+  };
+
+  const removeItem = (idx: number) => {
+    const nextItems = (data.items || []).filter((_: any, i: number) => i !== idx);
+    onChange({ ...data, items: nextItems });
+  };
+
+  return (
+    <div className="space-y-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-8">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase text-slate-400">Plant Code</label>
+          <select 
+            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none"
+            value={data.plantCode}
+            onChange={(e) => updateField('plantCode', e.target.value)}
+          >
+            <option value="">Select Plant</option>
+            {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
+          </select>
+        </div>
+        <FormField label="Sale Order" placeholder="SO-10001" value={data.saleOrder} onChange={(e: any) => updateField('saleOrder', e.target.value)} required />
+        <FormField label="Sale Order Date" type="date" value={data.saleOrderDate} onChange={(e: any) => updateField('saleOrderDate', e.target.value)} required />
+        
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase text-slate-400">Consignor</label>
+          <select 
+            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none"
+            value={data.consignor}
+            onChange={(e) => updateField('consignor', e.target.value)}
+          >
+            <option value="">Select Consignor</option>
+            {customers?.filter(c => c.customerType === 'Consignor').map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+          </select>
+        </div>
+        <FormField label="From (City)" value={data.from} disabled />
+        
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase text-slate-400">Consignee</label>
+          <select 
+            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none"
+            value={data.consignee}
+            onChange={(e) => updateField('consignee', e.target.value)}
+          >
+            <option value="">Select Consignee</option>
+            {customers?.filter(c => c.customerType === 'Consignee').map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase text-slate-400">Ship to Party</label>
+          <select 
+            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none"
+            value={data.shipToParty}
+            onChange={(e) => updateField('shipToParty', e.target.value)}
+          >
+            <option value="">Select Ship to Party</option>
+            {customers?.filter(c => c.customerType === 'Consignee').map(c => <option key={c.id} value={c.customerName}>{c.customerName}</option>)}
+          </select>
+        </div>
+        <FormField label="Destination (City)" value={data.destination} disabled />
+        
+        <FormField label="Vehicle Number" placeholder="UP14-XX-0000" value={data.vehicleNumber} onChange={(e: any) => updateField('vehicleNumber', e.target.value)} />
+        <FormField label="Driver Mobile" placeholder="+91..." value={data.driverMobile} onChange={(e: any) => updateField('driverMobile', e.target.value)} />
+      </div>
+
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest italic">Line Items Registry</h3>
+          <Button onClick={addItem} variant="outline" className="h-9 px-6 rounded-xl font-bold gap-2 text-[#0056d2] border-blue-200 bg-blue-50/50">
+            <PlusCircle className="h-4 w-4" /> Add Row Node
+          </Button>
+        </div>
+
+        <div className="overflow-x-auto rounded-3xl border border-slate-100 shadow-sm bg-slate-50/30 p-1">
+          <table className="w-full text-left border-collapse min-w-[1000px]">
+            <thead>
+              <tr className="bg-slate-100/50">
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400 border-r border-white/50">Invoice No.</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400 border-r border-white/50">Ewaybill No.</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400 border-r border-white/50">Product Node</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400 border-r border-white/50 w-48">Unit / UOM</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400 border-r border-white/50 w-48">Weight / UOM</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400 w-12 text-center">Act</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data.items || []).map((item: any, idx: number) => (
+                <tr key={idx} className="border-t border-slate-100 group">
+                  <td className="p-2 border-r border-slate-100">
+                    <Input value={item.invoiceNumber} onChange={(e) => updateItem(idx, 'invoiceNumber', e.target.value)} className="h-9 border-none bg-transparent font-bold focus:bg-white" />
+                  </td>
+                  <td className="p-2 border-r border-slate-100">
+                    <Input value={item.ewaybillNumber} onChange={(e) => updateItem(idx, 'ewaybillNumber', e.target.value)} className="h-9 border-none bg-transparent font-bold focus:bg-white" />
+                  </td>
+                  <td className="p-2 border-r border-slate-100">
+                    <Input value={item.product} onChange={(e) => updateItem(idx, 'product', e.target.value)} className="h-9 border-none bg-transparent font-bold focus:bg-white" />
+                  </td>
+                  <td className="p-2 border-r border-slate-100">
+                    <div className="flex gap-1">
+                      <Input value={item.unit} onChange={(e) => updateItem(idx, 'unit', e.target.value)} className="h-9 w-20 border-none bg-transparent font-bold focus:bg-white" />
+                      <select 
+                        value={item.unitUom} 
+                        onChange={(e) => updateItem(idx, 'unitUom', e.target.value)}
+                        className="h-9 flex-1 bg-transparent font-bold outline-none border-none text-[10px] uppercase"
+                      >
+                        {['Box', 'Bag', 'Drum', 'Pcs', 'Others'].map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                    </div>
+                  </td>
+                  <td className="p-2 border-r border-slate-100">
+                    <div className="flex gap-1">
+                      <Input value={item.weight} onChange={(e) => updateItem(idx, 'weight', e.target.value)} className="h-9 w-20 border-none bg-transparent font-bold focus:bg-white" />
+                      <select 
+                        value={item.weightUom} 
+                        onChange={(e) => updateItem(idx, 'weightUom', e.target.value)}
+                        className="h-9 flex-1 bg-transparent font-bold outline-none border-none text-[10px] uppercase"
+                      >
+                        {['KG', 'MT', 'LTR'].map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                    </div>
+                  </td>
+                  <td className="p-2 text-center">
+                    <button onClick={() => removeItem(idx)} className="text-slate-300 hover:text-red-500 transition-colors">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {(!data.items || data.items.length === 0) && (
+                <tr>
+                  <td colSpan={6} className="p-12 text-center text-slate-300 font-bold text-[10px] italic uppercase tracking-widest">
+                    No Line items registered. Click "Add Row Node" to start.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RegistryList({ screen }: { screen: string }) {
   const { user } = useUser();
   const db = useFirestore();
@@ -646,6 +841,7 @@ function RegistryList({ screen }: { screen: string }) {
   else if (screen.startsWith('FM')) collectionName = 'companies';
   else if (screen.startsWith('XK')) collectionName = 'vendors';
   else if (screen.startsWith('XD')) collectionName = 'customers';
+  else if (screen.startsWith('VA')) collectionName = 'sales_orders';
 
   const listQuery = useMemoFirebase(() => user && collectionName ? collection(db, 'users', user.uid, collectionName) : null, [user, db, collectionName]);
   const { data: list, isLoading } = useCollection(listQuery);
@@ -657,7 +853,7 @@ function RegistryList({ screen }: { screen: string }) {
       <table className="w-full text-left border-collapse">
         <thead>
           <tr className="bg-slate-50 border-y border-slate-100">
-            <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">ID</th>
+            <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">ID / Node</th>
             <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Name / Description</th>
             <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Type / Details</th>
             <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
@@ -666,10 +862,14 @@ function RegistryList({ screen }: { screen: string }) {
         <tbody>
           {list?.map((item) => (
             <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-              <td className="p-4 font-bold text-xs text-[#0056d2]">{item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}</td>
-              <td className="p-4 font-bold text-xs text-slate-600 uppercase">{item.plantName || item.companyName || item.vendorName || item.customerName}</td>
+              <td className="p-4 font-bold text-xs text-[#0056d2]">
+                {item.saleOrder || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}
+              </td>
+              <td className="p-4 font-bold text-xs text-slate-600 uppercase">
+                {item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}
+              </td>
               <td className="p-4 font-bold text-xs text-slate-400 uppercase italic">
-                {item.customerType || item.city || 'Standard Registry'}
+                {item.destination || item.customerType || item.city || 'Standard Registry'}
               </td>
               <td className="p-4">
                 <Badge className="bg-emerald-50 text-emerald-600 rounded-none uppercase text-[8px] font-black border border-emerald-100">Synchronized</Badge>

@@ -89,6 +89,40 @@
         "email": { "type": "string" }
       },
       "required": ["customerCode", "plantCodes", "customerName", "customerType", "city"]
+    },
+    "SalesOrder": {
+      "title": "SalesOrder",
+      "type": "object",
+      "description": "Sales Order registry.",
+      "properties": {
+        "id": { "type": "string" },
+        "plantCode": { "type": "string" },
+        "saleOrder": { "type": "string" },
+        "saleOrderDate": { "type": "string" },
+        "consignor": { "type": "string" },
+        "from": { "type": "string" },
+        "consignee": { "type": "string" },
+        "shipToParty": { "type": "string" },
+        "destination": { "type": "string" },
+        "vehicleNumber": { "type": "string" },
+        "driverMobile": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "invoiceNumber": { "type": "string" },
+              "ewaybillNumber": { "type": "string" },
+              "product": { "type": "string" },
+              "unit": { "type": "string" },
+              "unitUom": { "type": "string" },
+              "weight": { "type": "string" },
+              "weightUom": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["plantCode", "saleOrder", "saleOrderDate", "consignor"]
     }
   },
   "auth": {
@@ -99,6 +133,7 @@
     "/users/{userId}/plants/{plantId}": { "schema": "Plant", "description": "User-owned plants." },
     "/users/{userId}/companies/{companyId}": { "schema": "Company", "description": "User-owned companies." },
     "/users/{userId}/vendors/{vendorId}": { "schema": "Vendor", "description": "User-owned vendors." },
-    "/users/{userId}/customers/{customerId}": { "schema": "Customer", "description": "User-owned customers." }
+    "/users/{userId}/customers/{customerId}": { "schema": "Customer", "description": "User-owned customers." },
+    "/users/{userId}/sales_orders/{orderId}": { "schema": "SalesOrder", "description": "User-owned sales orders." }
   }
 }
