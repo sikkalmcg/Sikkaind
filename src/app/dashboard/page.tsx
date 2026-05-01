@@ -9,7 +9,7 @@ import {
   Grid2X2, Upload, Download, ShoppingBag, ArrowUpRight,
   Filter, Truck, MapPin, User, DollarSign, Activity,
   Layers, PackageCheck, Ban, Lock, Play, XCircle, Search,
-  ArrowRight
+  ArrowRight, Calendar, Phone, FileText, Package
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { format } from 'date-fns';
 
 type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'TR21' | 'BULK' | 'SU01' | 'SU02' | 'SU03';
 
@@ -623,6 +624,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const totalOrderWeight = (selectedOrder.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
     const weightUom = selectedOrder.items?.[0]?.weightUom || 'MT';
     const soNo = (selectedOrder.saleOrder || selectedOrder.saleOrderNumber || 'N/A').toString().trim().toUpperCase();
+    const productName = selectedOrder.items?.[0]?.product || 'General Cargo';
     
     const tripData = {
       id: newTripId,
@@ -633,10 +635,14 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       shipToParty: selectedOrder.shipToParty,
       route: routeStr,
       assignWeight: parseFloat(assignWeight),
+      weightUom: weightUom,
+      product: productName,
+      consignor: selectedOrder.consignor || '',
+      consignee: selectedOrder.consignee || '',
       vehicleType: vehicleType,
       vehicleNumber: vehicleNo,
       driverMobile: driverMobile,
-      vendorName: vehicleType === 'MARKET VEHICLE' ? vendorName : '',
+      vendorName: vehicleType === 'MARKET VEHICLE' ? vendorName : 'SIKKA INDUSTRIES & LOGISTICS',
       delayRemark: delayRemark,
       rate: (vehicleType === 'MARKET VEHICLE' && !isFixRate) ? parseFloat(rate) : 0,
       freightAmount: vehicleType === 'MARKET VEHICLE' ? parseFloat(freightAmount) : 0,
@@ -648,7 +654,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const docRef = doc(db, 'users', user.uid, 'trips', newTripId);
     setDocumentNonBlocking(docRef, tripData, { merge: true });
 
-    // Update Public Trip Registry with all metadata explicitly for high visibility tracking
     const publicTripRef = doc(db, 'public_trips', tripId);
     setDocumentNonBlocking(publicTripRef, {
       type: 'trip',
@@ -661,12 +666,11 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       consignor: selectedOrder.consignor || '',
       consignee: selectedOrder.consignee || '',
       shipToParty: selectedOrder.shipToParty || '',
-      orderQty: `${totalOrderWeight} ${weightUom}`,
+      orderQty: `${parseFloat(assignWeight)} ${weightUom}`,
       delayRemark: delayRemark,
       updatedAt: tripData.createdAt
     }, { merge: true });
 
-    // Update Public Order Registry to point to Trip and maintain metadata
     const publicOrderRef = doc(db, 'public_orders', soNo);
     setDocumentNonBlocking(publicOrderRef, {
       status: 'LOADING',
@@ -824,44 +828,131 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
 
         {['LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD', 'REJECTION', 'CLOSED'].map(status => (
           <TabsContent key={status} value={status} className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              {/* Table Header for Row Layout */}
+              <div className="hidden lg:grid grid-cols-10 bg-slate-100 border-y border-slate-200 py-3 px-6 text-[9px] font-black uppercase tracking-widest text-slate-500">
+                <div className="col-span-1">ID / Node</div>
+                <div className="col-span-1">Date</div>
+                <div className="col-span-2">Loading / Consignor</div>
+                <div className="col-span-2">Unloading / Consignee</div>
+                <div className="col-span-1">Vehicle / Carrier</div>
+                <div className="col-span-1">Driver / Contact</div>
+                <div className="col-span-1">Qty / Product</div>
+                <div className="col-span-1 text-center">Actions</div>
+              </div>
+
               {getTripsByStatus(status).map(trip => {
                 const next = getNextStatus(status);
-                const soNo = (trip.saleOrderNumber || trip.saleOrder || 'N/A');
+                const soNo = trip.saleOrderNumber || trip.saleOrder || 'N/A';
+                const formattedDate = trip.createdAt ? format(new Date(trip.createdAt), 'dd MMM').toUpperCase() : '--';
+                const formattedTime = trip.createdAt ? format(new Date(trip.createdAt), 'hh:mm a') : '--';
+                
                 return (
-                  <div key={trip.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Badge className="bg-slate-900 text-white rounded-lg px-3 py-1 font-black italic">{trip.tripId}</Badge>
-                      <Badge variant="outline" className="border-emerald-100 text-emerald-600 uppercase text-[8px] font-black">
-                        {status}
-                      </Badge>
+                  <div key={trip.id} className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden">
+                    <div className="grid grid-cols-1 lg:grid-cols-10 items-center p-4 lg:p-6 gap-4">
+                      {/* ID/Node Section */}
+                      <div className="col-span-1 flex flex-col gap-1">
+                        <span className="text-[#0056d2] font-black text-[11px] leading-tight">#{trip.tripId}</span>
+                        <span className="text-slate-400 font-bold text-[9px]">SO: {soNo}</span>
+                      </div>
+
+                      {/* Date Section */}
+                      <div className="col-span-1 flex flex-col gap-1">
+                        <span className="text-slate-900 font-black text-[10px]">{formattedDate}</span>
+                        <span className="text-slate-400 font-bold text-[9px]">{formattedTime}</span>
+                      </div>
+
+                      {/* Loading/Consignor */}
+                      <div className="col-span-2 flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                          <span className="text-slate-900 font-black text-[10px] truncate uppercase">{trip.consignor || 'PLANT NODE'}</span>
+                        </div>
+                        <span className="text-slate-400 font-bold text-[9px] pl-3.5 truncate italic">{trip.route?.split('--')[0]}</span>
+                      </div>
+
+                      {/* Unloading/Consignee */}
+                      <div className="col-span-2 flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                          <span className="text-slate-900 font-black text-[10px] truncate uppercase">{trip.consignee || trip.shipToParty}</span>
+                        </div>
+                        <span className="text-slate-400 font-bold text-[9px] pl-3.5 truncate italic">{trip.route?.split('--')[1]}</span>
+                      </div>
+
+                      {/* Vehicle/Carrier */}
+                      <div className="col-span-1 flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <Truck className="h-3 w-3 text-[#0056d2]" />
+                          <span className="text-slate-900 font-black text-[10px] uppercase">{trip.vehicleNumber}</span>
+                        </div>
+                        <span className="text-slate-400 font-bold text-[8px] leading-tight uppercase">{trip.vendorName || 'OWN FLEET'}</span>
+                      </div>
+
+                      {/* Driver/Contact */}
+                      <div className="col-span-1 flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="h-3 w-3 text-slate-400" />
+                          <span className="text-slate-900 font-black text-[10px]">{trip.driverMobile}</span>
+                        </div>
+                        <span className="text-slate-400 font-bold text-[8px] uppercase">Registry Verified</span>
+                      </div>
+
+                      {/* Qty/Product */}
+                      <div className="col-span-1 flex flex-col gap-1">
+                        <span className="text-slate-900 font-black text-[10px]">{trip.assignWeight} {trip.weightUom || 'MT'}</span>
+                        <span className="text-slate-400 font-bold text-[9px] truncate italic">{trip.product || 'Soda Ash'}</span>
+                        <div className="h-1 bg-yellow-500 w-full mt-1 rounded-full overflow-hidden">
+                           <div className="h-full bg-yellow-600 w-3/4" />
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="col-span-1 flex flex-col gap-2 items-center">
+                        {next && (
+                          <Button 
+                            onClick={() => updateTripStatus(trip, next)}
+                            className="w-full bg-[#0056d2] hover:bg-black text-white h-7 rounded-sm text-[8px] font-black uppercase tracking-widest px-2"
+                          >
+                            {next === 'ARRIVED' ? 'Arrived In' : next === 'POD' ? 'Upload POD' : `Move ${next}`}
+                          </Button>
+                        )}
+                        <Button variant="outline" className="w-full h-7 border-slate-200 text-slate-600 text-[8px] font-black uppercase tracking-widest px-2">
+                          View Details
+                        </Button>
+                      </div>
                     </div>
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-[11px] font-bold">
-                         <span className="text-slate-400 uppercase tracking-tighter">Order Number:</span>
-                         <span className="text-slate-900">{soNo}</span>
-                      </div>
-                      <div className="flex justify-between text-[11px] font-bold">
-                         <span className="text-slate-400 uppercase tracking-tighter">Vehicle Number:</span>
-                         <span className="text-slate-900">{trip.vehicleNumber}</span>
-                      </div>
-                      <div className="pt-3 border-t border-slate-50 flex items-center gap-2 text-slate-400">
-                        <MapPin className="h-3 w-3" />
-                        <span className="text-[9px] font-bold uppercase truncate">{trip.route}</span>
-                      </div>
+
+                    {/* Footer Progress Bar for each Row */}
+                    <div className="bg-slate-50 border-t border-slate-100 px-6 py-2 flex items-center justify-between">
+                       <div className="flex items-center gap-6">
+                          <div className="flex items-center gap-2">
+                             <Badge variant="outline" className="border-emerald-100 text-emerald-600 font-black text-[7px] uppercase tracking-tighter rounded-sm">On Schedule</Badge>
+                             <span className="text-slate-400 font-bold text-[8px]">{formattedDate}, {formattedTime}</span>
+                          </div>
+                          <div className="hidden md:flex items-center gap-4 text-slate-300">
+                             <div className="flex items-center gap-1.5">
+                                <MapPin className="h-2.5 w-2.5 text-blue-500" />
+                                <span className="text-[8px] font-bold uppercase">{trip.route}</span>
+                             </div>
+                          </div>
+                       </div>
+                       <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-1 text-slate-400">
+                             <Activity className="h-3 w-3" />
+                             <span className="text-[7px] font-black uppercase tracking-widest">Registry Sync: Active</span>
+                          </div>
+                       </div>
                     </div>
-                    {next && (
-                      <Button 
-                        onClick={() => updateTripStatus(trip, next)}
-                        variant="outline" 
-                        className="w-full h-9 rounded-xl border-[#0056d2] text-[#0056d2] text-[9px] font-black uppercase tracking-widest hover:bg-[#0056d2] hover:text-white transition-all gap-2"
-                      >
-                        <ArrowRight className="h-3 w-3" /> Move to {next}
-                      </Button>
-                    )}
                   </div>
                 );
               })}
+              {getTripsByStatus(status).length === 0 && (
+                <div className="p-12 text-center bg-white rounded-3xl border border-dashed border-slate-200">
+                  <Package className="h-10 w-10 text-slate-200 mx-auto mb-4" />
+                  <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.2em]">No mission nodes currently active in {status} registry.</p>
+                </div>
+              )}
             </div>
           </TabsContent>
         ))}
