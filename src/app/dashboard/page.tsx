@@ -1,27 +1,16 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { 
-  Printer, Save, RotateCcw, X, HelpCircle, LogOut,
-  ChevronRight, ChevronLeft, Check, AlertCircle, Info, PlusCircle, Trash2,
-  Grid2X2, Upload, Download, ShoppingBag, ArrowUpRight,
-  Filter, Truck, MapPin, User, Users, DollarSign, Activity,
-  Layers, PackageCheck, Ban, Lock, Play, XCircle, Search,
-  ArrowLeft, Calendar as CalendarIcon, Phone, FileText, Package, Clock,
-  LayoutDashboard, Database, Settings, BarChart, TrendingUp,
-  FileSpreadsheet, HardDriveDownload, CloudUpload, ShieldAlert,
-  AlertTriangle, Radar, Loader2, Edit3, FileDown,
-  Monitor, Share2, Copy, Eraser, Undo2, Plus, Mail, Globe,
-  Minus, Square, PlusSquare, ChevronDown
+  Printer, Save, X, Info, LogOut,
+  ChevronRight, ChevronLeft, Truck, MapPin, User, Users, ShoppingBag,
+  Grid2X2, CloudUpload, ShieldAlert, Edit3, 
+  PlusSquare, XCircle, Calendar as CalendarIcon, Package, Undo2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
-  DropdownMenuTrigger, DropdownMenuSeparator 
-} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -32,16 +21,13 @@ import {
   useMemoFirebase,
   setDocumentNonBlocking 
 } from '@/firebase';
-import { collection, doc, query, where, getDoc } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { 
   Dialog, 
   DialogContent, 
   DialogHeader, 
-  DialogTitle, 
-  DialogFooter 
+  DialogTitle 
 } from '@/components/ui/dialog';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
@@ -51,22 +37,22 @@ import placeholderData from '@/app/lib/placeholder-images.json';
 type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'BULK' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE';
 
 const MASTER_TCODES = [
-  { code: 'OX01', description: 'PLANT: CREATE', icon: Database, module: 'Master Data' },
-  { code: 'OX02', description: 'PLANT: CHANGE', icon: Edit3, module: 'Master Data' },
-  { code: 'OX03', description: 'PLANT: DISPLAY', icon: Info, module: 'Master Data' },
-  { code: 'FM01', description: 'COMPANY: CREATE', icon: Layers, module: 'Master Data' },
-  { code: 'FM02', description: 'COMPANY: CHANGE', icon: Edit3, module: 'Master Data' },
-  { code: 'FM03', description: 'COMPANY: DISPLAY', icon: Info, module: 'Master Data' },
-  { code: 'XK01', description: 'VENDOR: CREATE', icon: User, module: 'Master Data' },
-  { code: 'XK02', description: 'VENDOR: CHANGE', icon: Edit3, module: 'Master Data' },
-  { code: 'XK03', description: 'VENDOR: DISPLAY', icon: Info, module: 'Master Data' },
-  { code: 'XD01', description: 'CUSTOMER: CREATE', icon: Users, module: 'Master Data' },
-  { code: 'XD02', description: 'CUSTOMER: CHANGE', icon: Edit3, module: 'Master Data' },
-  { code: 'XD03', description: 'CUSTOMER: DISPLAY', icon: Info, module: 'Master Data' },
+  { code: 'OX01', description: 'PLANT MASTER: CREATE', icon: Package, module: 'Master Data' },
+  { code: 'OX02', description: 'PLANT MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
+  { code: 'OX03', description: 'PLANT MASTER: DISPLAY', icon: Info, module: 'Master Data' },
+  { code: 'FM01', description: 'COMPANY MASTER: CREATE', icon: Grid2X2, module: 'Master Data' },
+  { code: 'FM02', description: 'COMPANY MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
+  { code: 'FM03', description: 'COMPANY MASTER: DISPLAY', icon: Info, module: 'Master Data' },
+  { code: 'XK01', description: 'VENDOR MASTER: CREATE', icon: User, module: 'Master Data' },
+  { code: 'XK02', description: 'VENDOR MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
+  { code: 'XK03', description: 'VENDOR MASTER: DISPLAY', icon: Info, module: 'Master Data' },
+  { code: 'XD01', description: 'CUSTOMER MASTER: CREATE', icon: Users, module: 'Master Data' },
+  { code: 'XD02', description: 'CUSTOMER MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
+  { code: 'XD03', description: 'CUSTOMER MASTER: DISPLAY', icon: Info, module: 'Master Data' },
   { code: 'VA01', description: 'SALES ORDER: CREATE', icon: ShoppingBag, module: 'Logistics' },
   { code: 'VA02', description: 'SALES ORDER: CHANGE', icon: Edit3, module: 'Logistics' },
   { code: 'VA03', description: 'SALES ORDER: DISPLAY', icon: Info, module: 'Logistics' },
-  { code: 'VA04', description: 'CANCEL SALES ORDER', icon: Ban, module: 'Logistics' },
+  { code: 'VA04', description: 'CANCEL SALES ORDER', icon: XCircle, module: 'Logistics' },
   { code: 'TR21', description: 'DRIP BOARD CONTROL', icon: Truck, module: 'Logistics' },
   { code: 'BULK', description: 'BULK DATA HUB CONTROL', icon: CloudUpload, module: 'System' },
   { code: 'SU01', description: 'USER MANAGEMENT: CREATE', icon: ShieldAlert, module: 'System' },
@@ -241,7 +227,7 @@ export default function SapDashboard() {
       setStatusMsg({ text: `T-Code ${cleanCode} not found`, type: 'error' });
     }
     setTCode('');
-  }, [userProfile]);
+  }, [userProfile, isAuthorized]);
 
   const handleSearchIdEnter = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && searchId) {
@@ -340,7 +326,7 @@ export default function SapDashboard() {
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [activeScreen, handleSave, handleCancel, executeTCode, showHistory, historyIndex, history]);
+  }, [activeScreen, handleSave, handleCancel, executeTCode, showHistory, historyIndex, history, router, tCode]);
 
   const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
 
@@ -354,8 +340,8 @@ export default function SapDashboard() {
         </div>
         <div className="flex-1" />
         <div className="flex items-center h-full">
-          <button onClick={() => {}} title="Minimize" className="h-full px-2 hover:bg-white/30 transition-colors flex items-center"><Minus className="h-3.5 w-3.5" /></button>
-          <button onClick={() => {}} title="Maximize" className="h-full px-2 hover:bg-white/30 transition-colors flex items-center"><Square className="h-3 w-3" /></button>
+          <button title="Minimize" className="h-full px-2 hover:bg-white/30 transition-colors flex items-center"><PlusSquare className="h-3.5 w-3.5 opacity-30" /></button>
+          <button title="Maximize" className="h-full px-2 hover:bg-white/30 transition-colors flex items-center"><Grid2X2 className="h-3 w-3 opacity-30" /></button>
           <button onClick={() => router.push('/')} title="Close" className="h-full px-3 hover:bg-[#e81123] hover:text-white transition-colors flex items-center"><X className="h-3.5 w-3.5" /></button>
         </div>
       </div>
@@ -566,7 +552,6 @@ function PlantForm({ data, onChange, disabled }: any) {
     <div className="space-y-4">
       <SectionGrouping title="">
         <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
-        <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
       </SectionGrouping>
       <SectionGrouping title="SETTINGS / ">
         <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
@@ -734,7 +719,7 @@ function BulkDataHub({ allPlants, onStatusUpdate }: any) {
       <div className="bg-white rounded-sm shadow-xl border border-slate-300 overflow-hidden flex flex-col">
         <div className="bg-[#1e293b] p-6 text-white font-black uppercase italic text-sm tracking-widest">Template Repository</div>
         <div className="p-10 space-y-6 flex-1 bg-slate-50/30">
-          {['Customer Master', 'Sales Order Master'].map(t => <button key={t} onClick={() => onStatusUpdate({ text: `Template ${t} exported`, type: 'info' })} className="w-full flex justify-between items-center p-5 bg-white border border-slate-300 rounded-none hover:bg-blue-50 transition-colors text-[11px] font-black uppercase tracking-tight">{t} <Download className="h-5 w-5 text-[#0056d2]" /></button>)}
+          {['Customer Master', 'Sales Order Master'].map(t => <button key={t} onClick={() => onStatusUpdate({ text: `Template ${t} exported`, type: 'info' })} className="w-full flex justify-between items-center p-5 bg-white border border-slate-300 rounded-none hover:bg-blue-50 transition-colors text-[11px] font-black uppercase tracking-tight">{t} <CloudUpload className="h-5 w-5 text-[#0056d2]" /></button>)}
         </div>
       </div>
       <div className="bg-white rounded-sm shadow-xl border border-slate-300 overflow-hidden flex flex-col">
