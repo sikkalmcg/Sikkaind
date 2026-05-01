@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -15,7 +14,7 @@ import {
   FileSpreadsheet, HardDriveDownload, CloudUpload, ShieldAlert,
   AlertTriangle, Radar, Loader2, Edit3, FileDown,
   Monitor, Share2, Copy, Eraser, Undo2, Plus, Mail, Globe,
-  Minus, Square, PlusSquare
+  Minus, Square, PlusSquare, ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -648,10 +647,10 @@ export default function SapDashboard() {
                   
                   <div className="flex flex-col gap-1.5 relative group">
                     <label className="text-[10px] font-black uppercase text-slate-400">Mission Month Registry</label>
-                    <div className="flex flex-col border border-slate-400 bg-white">
-                      <div className="p-2 border-b border-slate-200 bg-slate-50 flex justify-center">
+                    <div className="flex flex-col border border-slate-300 bg-white overflow-hidden">
+                      <div className="p-2 flex justify-center items-center border-b border-slate-100">
                         <select 
-                          className="bg-transparent font-black text-xs outline-none"
+                          className="appearance-none bg-transparent font-black text-sm outline-none cursor-pointer pr-5 text-center"
                           value={homeMonthFilter.split('-')[0]}
                           onChange={(e) => {
                             const month = homeMonthFilter.split('-')[1];
@@ -662,8 +661,9 @@ export default function SapDashboard() {
                             <option key={y} value={y}>{y}</option>
                           ))}
                         </select>
+                        <ChevronDown className="-ml-4 h-3 w-3 pointer-events-none text-slate-400" />
                       </div>
-                      <div className="grid grid-cols-6 md:grid-cols-12 gap-0 border-t border-slate-200">
+                      <div className="grid grid-cols-12 divide-x divide-slate-100 border-t border-slate-100">
                         {['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'].map((m, i) => {
                           const mStr = (i + 1).toString().padStart(2, '0');
                           const year = homeMonthFilter.split('-')[0];
@@ -673,8 +673,8 @@ export default function SapDashboard() {
                               key={m}
                               onClick={() => setHomeMonthFilter(`${year}-${mStr}`)}
                               className={cn(
-                                "py-2 text-[9px] font-black border-r border-slate-100 last:border-none transition-colors",
-                                isActive ? "bg-[#0056d2] text-white" : "hover:bg-slate-100 text-slate-600"
+                                "py-2.5 text-[9px] font-black transition-colors uppercase",
+                                isActive ? "bg-[#0056d2] text-white" : "hover:bg-slate-50 text-slate-500"
                               )}
                             >
                               {m}
@@ -1432,7 +1432,7 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
       <div className="grid grid-cols-2 gap-0 border-2 border-black divide-x-2 divide-black mb-8">
         <div className="p-6 space-y-6">
           <div className="space-y-2">
-            <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Delivery Address</h4>
+            <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest">Delivery Address</h4>
             <p className="text-[11px] font-black italic uppercase leading-relaxed">{deliveryAddress || '--'}</p>
           </div>
         </div>
