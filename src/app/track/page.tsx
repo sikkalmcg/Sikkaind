@@ -4,7 +4,7 @@ import * as React from 'react';
 import { 
   Radar, Search, Package, Truck, CheckCircle, 
   AlertCircle, Loader2, MapPin, User, ArrowLeft, 
-  ShoppingCart, AlertTriangle, Circle
+  ShoppingCart, AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * @fileOverview Track Consignment page.
- * Displays mission-critical details with a dynamic status timeline animation.
+ * Strictly separates Sales Order view from Trip Tracking view with interactive state transitions.
  */
 export default function TrackPage() {
   const db = useFirestore();
@@ -30,6 +30,8 @@ export default function TrackPage() {
   const [value, setValue] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [showResult, setShowResult] = React.useState(false);
+  // viewMode tracks whether we are showing the Order confirmation or the Trip timeline
+  const [viewMode, setViewMode] = React.useState<'order' | 'trip'>('order');
   const [result, setResult] = React.useState<{
     found: boolean;
     data?: any;
@@ -62,10 +64,12 @@ export default function TrackPage() {
           found: true, 
           data: data,
         });
-        // Update type so we know if we are looking at a trip or order
-        setType(trackType);
-        // If clicking a trip link from an order search, update input field for clarity
-        if (overrideValue) setValue(overrideValue);
+        // Set the view mode based on what we just searched or were told to override to
+        setViewMode(trackType === 'sales' ? 'order' : 'trip');
+        if (overrideValue) {
+          setValue(overrideValue);
+          setType(trackType);
+        }
         setShowResult(true);
       }
     } catch (error) {
@@ -82,16 +86,15 @@ export default function TrackPage() {
     setValue('');
     setResult(null);
     setType('sales');
+    setViewMode('order');
   };
 
   if (showResult && result?.found) {
     const data = result.data;
     const formattedDate = data.updatedAt ? format(new Date(data.updatedAt), 'dd-MMM-yyyy HH:mm').toUpperCase() : 'PENDING';
-    const isSalesSearch = type === 'sales';
-    const isTripView = type === 'trip';
     const hasTrip = !!data.tripId;
 
-    // Timeline Configuration
+    // Timeline Configuration for Trip View
     const steps = ['OPEN ORDER', 'LOADING', 'IN-TRANSIT', 'ARRIVED', 'DELIVERED'];
     const getStatusIndex = (status: string) => {
       const s = status?.toUpperCase() || '';
@@ -114,7 +117,7 @@ export default function TrackPage() {
             <ArrowLeft className="h-3 w-3" /> BACK TO SEARCH
           </button>
 
-          {/* High Visibility Info Bar */}
+          {/* High Visibility Info Bar - Shared across both views */}
           <div className="bg-[#0f172a] text-white rounded-[1.5rem] md:rounded-full px-8 py-5 flex flex-wrap items-center justify-between gap-6 shadow-2xl">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
@@ -162,22 +165,37 @@ export default function TrackPage() {
           </div>
 
           <div className="flex flex-col items-center gap-6 pt-4">
-            {isSalesSearch && (
-              <div className="bg-[#f0f7ff] border-l-[6px] border-blue-600 rounded-[2rem] p-6 md:p-8 max-w-3xl w-full shadow-lg relative flex flex-col items-center text-center animate-slide-up">
-                {hasTrip ? (
-                  <h2 className="text-sm md:text-base font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
-                    YOUR TRIP ID IS <button onClick={() => handleTrack(data.tripId, 'trip')} className="text-blue-600 underline decoration-2 hover:text-black transition-colors">'{data.tripId}'</button> FOR THIS SALES ORDER NO. '{data.saleOrder}'
-                  </h2>
-                ) : (
-                  <h2 className="text-sm md:text-base font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
-                    YOUR ORDER NO. '{data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.
-                  </h2>
+            {/* Sales Order Content: Only shown if viewMode is 'order' */}
+            {viewMode === 'order' && (
+              <div className="space-y-6 w-full flex flex-col items-center">
+                <div className="bg-[#f0f7ff] border-l-[6px] border-blue-600 rounded-[2rem] p-6 md:p-8 max-w-3xl w-full shadow-lg relative flex flex-col items-center text-center animate-slide-up">
+                  {hasTrip ? (
+                    <h2 className="text-sm md:text-base font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
+                      YOUR TRIP ID IS <button onClick={() => handleTrack(data.tripId, 'trip')} className="text-blue-600 underline decoration-2 hover:text-black transition-colors">'{data.tripId}'</button> FOR THIS SALES ORDER NO. '{data.saleOrder || data.saleOrderNumber}'
+                    </h2>
+                  ) : (
+                    <h2 className="text-sm md:text-base font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
+                      YOUR ORDER NO. '{data.saleOrder || data.saleOrderNumber}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.
+                    </h2>
+                  )}
+                </div>
+
+                {data.delayRemark && (
+                  <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-2xl flex flex-col items-center animate-slide-up">
+                    <div className="flex items-center gap-2 mb-3 text-slate-400">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span className="text-[8px] font-black uppercase tracking-[0.2em]">Official Registry Note</span>
+                    </div>
+                    <p className="text-slate-700 text-sm md:text-base font-black italic text-center leading-relaxed">
+                      "{data.delayRemark}"
+                    </p>
+                  </div>
                 )}
               </div>
             )}
 
-            {/* Trip Mission Card (Only show for Trip view) */}
-            {isTripView && (
+            {/* Trip Mission Content: Only shown if viewMode is 'trip' */}
+            {viewMode === 'trip' && (
               <div className="bg-[#0f172a] p-6 md:p-8 rounded-[1.5rem] text-white shadow-2xl relative overflow-hidden w-full max-w-3xl border-t-[6px] border-blue-600 animate-slide-up">
                 <div className="flex justify-between items-start mb-6">
                   <div className="space-y-1">
@@ -230,7 +248,7 @@ export default function TrackPage() {
                     </div>
                     <div className="flex flex-col gap-0.5">
                       <span className="text-slate-500 text-[8px] font-black uppercase tracking-[0.2em]">Registry ID</span>
-                      <span className="text-sm md:text-lg font-black tracking-widest">{data.tripId || data.saleOrder}</span>
+                      <span className="text-sm md:text-lg font-black tracking-widest">{data.tripId || data.saleOrder || data.saleOrderNumber}</span>
                     </div>
                   </div>
                   
@@ -262,19 +280,6 @@ export default function TrackPage() {
                     BACK TO SEARCH
                   </button>
                 </div>
-              </div>
-            )}
-
-            {/* Delay Remark Box (Show for Sales Order search if no trip generated yet) */}
-            {isSalesSearch && data.delayRemark && (
-              <div className="mt-4 bg-white p-6 md:p-8 rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-2xl flex flex-col items-center">
-                <div className="flex items-center gap-2 mb-3 text-slate-400">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span className="text-[8px] font-black uppercase tracking-[0.2em]">Official Registry Note</span>
-                </div>
-                <p className="text-slate-700 text-sm md:text-base font-black italic text-center leading-relaxed">
-                  "{data.delayRemark}"
-                </p>
               </div>
             )}
           </div>
