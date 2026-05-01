@@ -5,7 +5,7 @@ import * as React from 'react';
 import { 
   Radar, Search, Package, Truck, CheckCircle, 
   AlertCircle, Loader2, MapPin, User, ArrowLeft, 
-  ShoppingCart, AlertTriangle 
+  ShoppingCart, AlertTriangle, Circle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,10 +19,11 @@ import {
 import { useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 /**
  * @fileOverview Track Consignment page.
- * Displays mission-critical details in a high-visibility layout matching the requested design.
+ * Displays mission-critical details with a dynamic status timeline animation.
  */
 export default function TrackPage() {
   const db = useFirestore();
@@ -86,10 +87,22 @@ export default function TrackPage() {
     const isSalesSearch = type === 'sales';
     const hasTrip = !!data.tripId;
 
+    // Timeline Configuration
+    const steps = ['OPEN ORDER', 'LOADING', 'IN-TRANSIT', 'ARRIVED', 'DELIVERED'];
+    const getStatusIndex = (status: string) => {
+      const s = status?.toUpperCase() || '';
+      if (s === 'PLACED' || s === 'OPEN ORDER') return 0;
+      if (s === 'LOADING') return 1;
+      if (s === 'IN-TRANSIT') return 2;
+      if (s === 'ARRIVED') return 3;
+      if (s === 'POD' || s === 'CLOSED' || s === 'DELIVERED') return 4;
+      return 0;
+    };
+    const currentIndex = getStatusIndex(data.status);
+
     return (
       <div className="min-h-screen bg-white font-mono p-4 md:p-8 animate-fade-in">
         <div className="max-w-[1400px] mx-auto space-y-8">
-          {/* Top Navigation - Only visible when result is shown */}
           <button 
             onClick={handleBack}
             className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 hover:text-blue-900 transition-colors mb-4"
@@ -144,23 +157,12 @@ export default function TrackPage() {
             </div>
           </div>
 
-          {/* Mission Status Content */}
           <div className="flex justify-center pt-8">
-            {isSalesSearch ? (
+            {isSalesSearch && !hasTrip ? (
               <div className="bg-[#f0f7ff] border-l-[6px] border-blue-600 rounded-[2.5rem] p-10 md:p-16 max-w-4xl w-full shadow-lg relative flex flex-col items-center text-center">
                 <h2 className="text-xl md:text-2xl font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
-                  {!hasTrip ? (
-                    <>
-                      YOUR ORDER NO. '{data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.
-                    </>
-                  ) : (
-                    <>
-                      YOUR TRIP ID IS <button onClick={() => handleTrack(data.tripId, 'trip')} className="text-blue-600 underline decoration-2 hover:text-black transition-colors">{data.tripId}</button> FOR THIS SALES ORDER NO. {data.saleOrder}
-                    </>
-                  )}
+                  YOUR ORDER NO. '{data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.
                 </h2>
-
-                {/* Delay Remark Box (White with Shadow) */}
                 {data.delayRemark && (
                   <div className="mt-12 bg-white p-10 md:p-14 rounded-[2.5rem] shadow-2xl border border-slate-100 w-full max-w-3xl flex flex-col items-center">
                     <div className="flex items-center gap-2 mb-4 text-slate-400">
@@ -174,42 +176,87 @@ export default function TrackPage() {
                 )}
               </div>
             ) : (
-              /* High Visibility Trip Mission Card (Updated to match image) */
-              <div className="bg-[#0f172a] p-10 md:p-14 rounded-[2rem] text-white shadow-2xl relative overflow-hidden w-full max-w-3xl border-t-[6px] border-blue-600 animate-slide-up">
+              /* High Visibility Trip Mission Card with Timeline Animation */
+              <div className="bg-[#0f172a] p-10 md:p-14 rounded-[2rem] text-white shadow-2xl relative overflow-hidden w-full max-w-4xl border-t-[6px] border-blue-600 animate-slide-up">
                 <div className="flex justify-between items-start mb-12">
                   <div className="space-y-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">Current Status</p>
                     <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-none">
-                      {data.status}
+                      {data.status || 'PROCESSING'}
                     </h2>
                   </div>
                   <Truck className="h-20 w-20 text-white/5 shrink-0" />
                 </div>
 
-                <div className="h-px bg-white/10 w-full mb-12" />
-
-                <div className="space-y-8">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500 text-xs font-black uppercase tracking-[0.2em]">Vehicle No.</span>
-                    <span className="text-lg md:text-2xl font-black uppercase tracking-widest">{data.vehicleNumber || 'ASSIGNING...'}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500 text-xs font-black uppercase tracking-[0.2em]">Registry ID</span>
-                    <span className="text-lg md:text-2xl font-black tracking-widest">{data.tripId}</span>
+                {/* Timeline Animation Component */}
+                <div className="py-12 relative mb-12">
+                  {/* Background Line */}
+                  <div className="absolute top-1/2 left-0 w-full h-0.5 bg-white/10 -translate-y-1/2" />
+                  {/* Progress Line */}
+                  <div 
+                    className="absolute top-1/2 left-0 h-0.5 bg-blue-500 -translate-y-1/2 transition-all duration-1000 ease-in-out" 
+                    style={{ width: `${(currentIndex / (steps.length - 1)) * 100}%` }}
+                  />
+                  
+                  <div className="relative flex justify-between">
+                    {steps.map((step, idx) => (
+                      <div key={step} className="flex flex-col items-center gap-4 group">
+                        <div className={cn(
+                          "w-4 h-4 rounded-full border-2 z-10 transition-all duration-500 flex items-center justify-center",
+                          idx <= currentIndex ? "bg-blue-500 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]" : "bg-[#0f172a] border-white/20",
+                          idx === currentIndex && "animate-pulse scale-125"
+                        )}>
+                          {idx < currentIndex && <CheckCircle className="h-3 w-3 text-white" />}
+                        </div>
+                        <span className={cn(
+                          "text-[8px] md:text-[10px] font-black uppercase tracking-widest text-center whitespace-nowrap",
+                          idx <= currentIndex ? "text-blue-400" : "text-slate-600"
+                        )}>
+                          {step}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                <div className="mt-20 flex flex-col items-center gap-8">
-                  <div className="flex items-center gap-4 text-slate-400">
-                    <MapPin className="h-5 w-5 text-blue-500" />
-                    <span className="text-sm md:text-lg font-black uppercase tracking-widest text-slate-300">
-                      {data.route || 'TRANSIT PENDING'}
-                    </span>
+                <div className="h-px bg-white/10 w-full mb-12" />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                  <div className="space-y-8">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">Vehicle No.</span>
+                      <span className="text-lg md:text-2xl font-black uppercase tracking-widest">{data.vehicleNumber || 'ASSIGNING...'}</span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">Registry ID</span>
+                      <span className="text-lg md:text-2xl font-black tracking-widest">{data.tripId || data.saleOrder}</span>
+                    </div>
                   </div>
                   
+                  <div className="flex flex-col justify-center items-end text-right space-y-4">
+                     <div className="flex items-center gap-3 text-slate-300">
+                        <MapPin className="h-5 w-5 text-blue-500" />
+                        <span className="text-sm md:text-lg font-black uppercase tracking-widest">
+                          {data.route || 'TRANSIT PENDING'}
+                        </span>
+                     </div>
+                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                        Last Registry Sync: {formattedDate}
+                     </p>
+                  </div>
+                </div>
+
+                {data.delayRemark && (
+                  <div className="mt-12 bg-white/5 p-6 rounded-2xl border border-white/10">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-blue-500 mb-2">Delay Note</p>
+                    <p className="text-slate-300 text-sm italic font-bold leading-relaxed">"{data.delayRemark}"</p>
+                  </div>
+                )}
+
+                <div className="mt-16 flex justify-center">
                   <button 
                     onClick={handleBack}
-                    className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500 hover:text-white transition-colors"
+                    className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500 hover:text-white transition-colors border-b border-transparent hover:border-white/20 pb-1"
                   >
                     BACK TO SEARCH
                   </button>
