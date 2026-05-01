@@ -48,30 +48,31 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
-type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'BULK' | 'SU01' | 'SU02' | 'SU03';
+type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'BULK' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE';
 
 const MASTER_TCODES = [
-  { code: 'OX01', description: 'PLANT MASTER: CREATE INITIAL SCREEN', icon: Database },
-  { code: 'OX02', description: 'PLANT MASTER: CHANGE REGISTRY', icon: Edit3 },
-  { code: 'OX03', description: 'PLANT MASTER: DISPLAY NODE', icon: Info },
-  { code: 'FM01', description: 'COMPANY MASTER: CREATE INITIAL SCREEN', icon: Layers },
-  { code: 'FM02', description: 'COMPANY MASTER: CHANGE REGISTRY', icon: Edit3 },
-  { code: 'FM03', description: 'COMPANY MASTER: DISPLAY NODE', icon: Info },
-  { code: 'XK01', description: 'VENDOR MASTER: CREATE INITIAL SCREEN', icon: User },
-  { code: 'XK02', description: 'VENDOR MASTER: CHANGE REGISTRY', icon: Edit3 },
-  { code: 'XK03', description: 'VENDOR MASTER: DISPLAY NODE', icon: Info },
-  { code: 'XD01', description: 'CUSTOMER MASTER: CREATE INITIAL SCREEN', icon: Users },
-  { code: 'XD02', description: 'CUSTOMER MASTER: CHANGE REGISTRY', icon: Edit3 },
-  { code: 'XD03', description: 'CUSTOMER MASTER: DISPLAY NODE', icon: Info },
-  { code: 'VA01', description: 'SALES ORDER REGISTRY: CREATE INITIAL SCREEN', icon: ShoppingBag },
-  { code: 'VA02', description: 'SALES ORDER REGISTRY: CHANGE NODE', icon: Edit3 },
-  { code: 'VA03', description: 'SALES ORDER REGISTRY: DISPLAY NODE', icon: Info },
-  { code: 'VA04', description: 'CANCEL SALES ORDER REGISTRY', icon: Ban },
-  { code: 'TR21', description: 'DRIP BOARD REGISTRY CONTROL', icon: Truck },
-  { code: 'BULK', description: 'BULK DATA HUB CONTROL', icon: CloudUpload },
-  { code: 'SU01', description: 'USER MANAGEMENT: CREATE INITIAL SCREEN', icon: ShieldAlert },
-  { code: 'SU02', description: 'USER MANAGEMENT: CHANGE REGISTRY', icon: Edit3 },
-  { code: 'SU03', description: 'USER MANAGEMENT: DISPLAY NODE', icon: Info },
+  { code: 'OX01', description: 'PLANT MASTER: CREATE INITIAL SCREEN', icon: Database, module: 'Master Data' },
+  { code: 'OX02', description: 'PLANT MASTER: CHANGE REGISTRY', icon: Edit3, module: 'Master Data' },
+  { code: 'OX03', description: 'PLANT MASTER: DISPLAY NODE', icon: Info, module: 'Master Data' },
+  { code: 'FM01', description: 'COMPANY MASTER: CREATE INITIAL SCREEN', icon: Layers, module: 'Master Data' },
+  { code: 'FM02', description: 'COMPANY MASTER: CHANGE REGISTRY', icon: Edit3, module: 'Master Data' },
+  { code: 'FM03', description: 'COMPANY MASTER: DISPLAY NODE', icon: Info, module: 'Master Data' },
+  { code: 'XK01', description: 'VENDOR MASTER: CREATE INITIAL SCREEN', icon: User, module: 'Master Data' },
+  { code: 'XK02', description: 'VENDOR MASTER: CHANGE REGISTRY', icon: Edit3, module: 'Master Data' },
+  { code: 'XK03', description: 'VENDOR MASTER: DISPLAY NODE', icon: Info, module: 'Master Data' },
+  { code: 'XD01', description: 'CUSTOMER MASTER: CREATE INITIAL SCREEN', icon: Users, module: 'Master Data' },
+  { code: 'XD02', description: 'CUSTOMER MASTER: CHANGE REGISTRY', icon: Edit3, module: 'Master Data' },
+  { code: 'XD03', description: 'CUSTOMER MASTER: DISPLAY NODE', icon: Info, module: 'Master Data' },
+  { code: 'VA01', description: 'SALES ORDER REGISTRY: CREATE INITIAL SCREEN', icon: ShoppingBag, module: 'Logistics' },
+  { code: 'VA02', description: 'SALES ORDER REGISTRY: CHANGE NODE', icon: Edit3, module: 'Logistics' },
+  { code: 'VA03', description: 'SALES ORDER REGISTRY: DISPLAY NODE', icon: Info, module: 'Logistics' },
+  { code: 'VA04', description: 'CANCEL SALES ORDER REGISTRY', icon: Ban, module: 'Logistics' },
+  { code: 'TR21', description: 'DRIP BOARD REGISTRY CONTROL', icon: Truck, module: 'Logistics' },
+  { code: 'BULK', description: 'BULK DATA HUB CONTROL', icon: CloudUpload, module: 'System' },
+  { code: 'SU01', description: 'USER MANAGEMENT: CREATE INITIAL SCREEN', icon: ShieldAlert, module: 'System' },
+  { code: 'SU02', description: 'USER MANAGEMENT: CHANGE REGISTRY', icon: Edit3, module: 'System' },
+  { code: 'SU03', description: 'USER MANAGEMENT: DISPLAY NODE', icon: Info, module: 'System' },
+  { code: 'ZCODE', description: 'SYSTEM: ALL ACTIVE T-CODES REGISTRY', icon: Grid2X2, module: 'System' },
 ];
 
 const GST_STATE_MAP: Record<string, string> = {
@@ -203,7 +204,7 @@ export default function SapDashboard() {
       return;
     }
 
-    if (activeScreen.endsWith('03')) return;
+    if (activeScreen.endsWith('03') || activeScreen === 'ZCODE') return;
 
     let collectionName = '';
     const docId = formData.id || crypto.randomUUID();
@@ -250,7 +251,7 @@ export default function SapDashboard() {
   const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
   const isReadOnly = activeScreen.endsWith('03');
 
-  const hideSidebar = activeScreen.startsWith('OX') || activeScreen.startsWith('FM');
+  const hideSidebar = activeScreen.startsWith('OX') || activeScreen.startsWith('FM') || activeScreen === 'ZCODE';
 
   const getRegistryList = () => {
     if (activeScreen.startsWith('OX')) return allPlantsList;
@@ -320,14 +321,14 @@ export default function SapDashboard() {
 
       <div className="flex-1 flex overflow-hidden">
         {!hideSidebar && (
-          <div className="w-72 bg-white border-r border-slate-300 flex flex-col overflow-y-auto no-scrollbar">
+          <div className="w-72 bg-white border-r border-slate-300 flex flex-col overflow-hidden">
             <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50">
               <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2">
                 <Grid2X2 className="h-3.5 w-3.5" /> Favorites Registry
               </h2>
             </div>
-            <div className="flex flex-col">
-              {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'BULK').map((item) => (
+            <div className="flex-1 overflow-y-auto no-scrollbar">
+              {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'BULK' || t.code === 'ZCODE').map((item) => (
                 <div 
                   key={item.code} 
                   onClick={() => executeTCode(item.code)}
@@ -350,6 +351,12 @@ export default function SapDashboard() {
                   <item.icon className={cn("h-3.5 w-3.5", activeScreen === item.code ? "text-white" : "text-slate-400")} />
                 </div>
               ))}
+            </div>
+            {/* Favorites Sidebar Footer with Circular 'N' Logo */}
+            <div className="p-4 border-t border-slate-200 bg-white">
+               <div className="w-11 h-11 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shadow-[0_4px_10px_rgba(0,0,0,0.3)] border-[2.5px] border-slate-500 transition-transform active:scale-95 cursor-pointer">
+                  <span className="text-white font-black text-xl italic tracking-tighter drop-shadow-md">N</span>
+               </div>
             </div>
           </div>
         )}
@@ -401,23 +408,36 @@ export default function SapDashboard() {
                  {showList && <RegistryList onSelectItem={setFormData} listData={getRegistryList()} />}
                  {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlantsList} onPrintLR={handlePrintLR} onPrintCN={handlePrintCN} />}
                  {activeScreen === 'BULK' && <BulkDataHub allPlants={rawPlants} />}
+                 {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               </div>
             )}
           </div>
+        </div>
+      </div>
 
-          <div className="h-6 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/70 uppercase tracking-widest shrink-0">
-            <div className="flex items-center gap-6">
-              <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.8)]" /> MISSION SYNC: ACTIVE</span>
-              <span>NODE: {activeScreen}</span>
-              <span>USER: {userProfile?.username || 'GUEST'}</span>
-              <span>{statusMsg.text !== 'Ready' && `| EVENT: ${statusMsg.text}`}</span>
-            </div>
-            <div className="flex-1" />
-            <div className="flex items-center gap-4">
-              <span>PRD</span>
-              <span>INS</span>
-            </div>
-          </div>
+      {/* Full Width Footer Black Tool Line */}
+      <div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em] shrink-0 border-t border-white/5">
+        <div className="flex items-center gap-8">
+          <span className="flex items-center gap-2.5">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse" />
+            MISSION SYNC: ACTIVE
+          </span>
+          <span className="text-slate-400">|</span>
+          <span>NODE: {activeScreen}</span>
+          <span className="text-slate-400">|</span>
+          <span>USER: {userProfile?.username || 'GUEST'}</span>
+          {statusMsg.text !== 'Ready' && (
+            <>
+              <span className="text-slate-400">|</span>
+              <span className="text-blue-400">EVENT: {statusMsg.text}</span>
+            </>
+          )}
+        </div>
+        <div className="flex-1" />
+        <div className="flex items-center gap-6 text-slate-500">
+          <span>PRD</span>
+          <span>INS</span>
+          <span className="text-white/40">V2.5.0</span>
         </div>
       </div>
 
@@ -920,6 +940,44 @@ function BulkDataHub({ allPlants }: any) {
   );
 }
 
+function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code: string) => void }) {
+  return (
+    <div className="space-y-6">
+      <div className="bg-slate-50 p-6 border-b border-slate-200">
+        <h2 className="text-sm font-black uppercase tracking-widest text-[#1e3a8a]">System Master Transaction Registry</h2>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-[#f0f0f0] border-b-2 border-slate-300">
+              <th className="p-4 text-[10px] font-black uppercase text-slate-500 w-32">T-Code Registry</th>
+              <th className="p-4 text-[10px] font-black uppercase text-slate-500">Mission Description</th>
+              <th className="p-4 text-[10px] font-black uppercase text-slate-500 w-48">Module Node</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tcodes.map((t) => (
+              <tr 
+                key={t.code} 
+                onClick={() => onExecute(t.code)}
+                className="border-b border-slate-200 hover:bg-blue-50 cursor-pointer transition-colors group"
+              >
+                <td className="p-4 font-black text-blue-600 group-hover:underline">{t.code}</td>
+                <td className="p-4 font-bold text-slate-700 uppercase">{t.description}</td>
+                <td className="p-4">
+                  <Badge variant="outline" className="rounded-none border-slate-300 text-[9px] font-black px-3 py-1 bg-white uppercase">
+                    {t.module || 'Registry'}
+                  </Badge>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any, order: any, copyType: string, deliveryAddress?: string }) {
   const items = order?.items || [{ product: trip?.product || 'SALT', weight: trip?.assignWeight || '--', weightUom: trip?.weightUom || 'MT', invoiceNumber: trip?.invoiceNumber || '--' }];
   const totalPackages = items.reduce((acc: number, item: any) => acc + (parseFloat(item.packages) || 0), 0);
@@ -1089,3 +1147,4 @@ function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
     </div>
   );
 }
+
