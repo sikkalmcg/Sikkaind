@@ -294,7 +294,7 @@ export default function SapDashboard() {
   }, [userProfile]);
 
   const handleSave = React.useCallback(() => {
-    if (!user || activeScreen === 'HOME') return;
+    if (!user || activeScreen === 'HOME' || activeScreen.endsWith('03')) return;
     
     if (activeScreen === 'VA04') {
       if (!formData.saleOrder || !formData.reason) {
@@ -313,7 +313,7 @@ export default function SapDashboard() {
       return;
     }
 
-    if (activeScreen.endsWith('03') || activeScreen === 'ZCODE') return;
+    if (activeScreen === 'ZCODE') return;
 
     let collectionName = '';
     const docId = formData.id || crypto.randomUUID();
@@ -336,7 +336,7 @@ export default function SapDashboard() {
   }, [user, activeScreen, formData, rawOrders, db]);
 
   const handleCancel = React.useCallback(() => {
-    if (activeScreen === 'HOME') return;
+    if (activeScreen === 'HOME' || activeScreen.endsWith('03')) return;
     setFormData({});
     setStatusMsg({ text: 'Operation cancelled', type: 'info' });
   }, [activeScreen]);
@@ -448,9 +448,9 @@ export default function SapDashboard() {
   if (isUserLoading) return <div className="flex h-screen items-center justify-center bg-[#f0f3f9] font-mono"><RotateCcw className="h-12 w-12 text-[#0056d2] animate-spin" /></div>;
 
   const isModuleActive = activeScreen !== 'HOME';
+  const isReadOnly = activeScreen.endsWith('03');
   const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
   const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
-  const isReadOnly = activeScreen.endsWith('03');
 
   const hideSidebar = activeScreen.startsWith('OX') || activeScreen.startsWith('FM') || activeScreen === 'ZCODE' || activeScreen === 'BULK';
 
@@ -543,9 +543,9 @@ export default function SapDashboard() {
           <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
              <button 
                 onClick={handleSave} 
-                disabled={activeScreen === 'HOME'}
+                disabled={activeScreen === 'HOME' || isReadOnly}
                 title="Save (Ctrl+S / F8)" 
-                className={cn("p-1 rounded group", activeScreen === 'HOME' ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}
+                className={cn("p-1 rounded group", (activeScreen === 'HOME' || isReadOnly) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}
              >
                <Save className="h-4 w-4 text-slate-600" />
              </button>
@@ -558,9 +558,9 @@ export default function SapDashboard() {
              </button>
              <button 
                 onClick={handleCancel} 
-                disabled={activeScreen === 'HOME'}
+                disabled={activeScreen === 'HOME' || isReadOnly}
                 title="Cancel (F12)" 
-                className={cn("p-1 rounded group", activeScreen === 'HOME' ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}
+                className={cn("p-1 rounded group", (activeScreen === 'HOME' || isReadOnly) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}
              >
                <XCircle className="h-4 w-4 text-slate-600" />
              </button>
