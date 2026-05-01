@@ -105,6 +105,23 @@ export default function SapDashboard() {
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
   const { data: userProfile } = useDoc(profileRef);
 
+  // Admin Mission Registry Upsert Handshake
+  React.useEffect(() => {
+    if (user && db) {
+      const adminNodeId = 'admin_registry_root';
+      const adminRef = doc(db, 'user_registry', adminNodeId);
+      setDocumentNonBlocking(adminRef, {
+        id: adminNodeId,
+        fullName: "Ajay Somra",
+        username: "Sikkaind",
+        password: "Sikka@lmc2105",
+        plants: ["PL01", "PL02", "PL03"],
+        tcodes: MASTER_TCODES.map(t => t.code),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    }
+  }, [user, db]);
+
   const isAuthorized = (code: string) => {
     if (code === 'HOME' || code === '') return true;
     if (!userProfile) return true; 
@@ -170,7 +187,6 @@ export default function SapDashboard() {
     const input = code.toUpperCase().trim();
     if (!input) return;
 
-    // Handle /O (New Session)
     if (input.startsWith('/O')) {
       const target = input.replace('/O', '').trim();
       const baseUrl = window.location.origin + window.location.pathname;
@@ -183,7 +199,6 @@ export default function SapDashboard() {
       return;
     }
 
-    // Handle /N or Direct (Same Session)
     const cleanCode = input.replace('/N', '').trim();
     
     if (cleanCode === 'HOME' || cleanCode === '') {
@@ -251,37 +266,26 @@ export default function SapDashboard() {
     }
   }, [user, activeScreen, formData, rawOrders, db]);
 
-  // SAP Keyboard Shortcuts Registry
   React.useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Prevent default for system F-keys
       if (['F3', 'F4', 'F8', 'F12'].includes(e.key)) {
         e.preventDefault();
       }
 
-      // F8: Execute/Save
       if (e.key === 'F8') handleSave();
-
-      // F3: Back to Home
       if (e.key === 'F3') {
         if (e.shiftKey) {
-          router.push('/'); // Shift+F3: Exit
+          router.push('/');
         } else {
           setActiveScreen('HOME');
           setFormData({});
         }
       }
-
-      // F4: Search (Focus T-Code)
       if (e.key === 'F4') tCodeRef.current?.focus();
-
-      // F12: Cancel/Clear
       if (e.key === 'F12') {
         setFormData({});
         setStatusMsg({ text: 'Operation cancelled', type: 'info' });
       }
-
-      // Ctrl + S: Save
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         handleSave();
@@ -292,7 +296,6 @@ export default function SapDashboard() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [activeScreen, formData, handleSave, router]);
 
-  // Initial T-Code handshake (for /O commands)
   React.useEffect(() => {
     const initialT = searchParams.get('tcode');
     if (initialT) {
@@ -341,7 +344,6 @@ export default function SapDashboard() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono select-none overflow-hidden">
-      {/* Top Menu Bar */}
       <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50">
         <div className="flex items-center gap-6">
           {['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(item => (
@@ -356,7 +358,6 @@ export default function SapDashboard() {
         </div>
       </div>
 
-      {/* SAP Command Toolbar */}
       <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40">
         <div className="flex items-center px-2 py-1 gap-4">
           <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">
@@ -396,7 +397,6 @@ export default function SapDashboard() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar: Favorites Registry */}
         {!hideSidebar && (
           <div className="w-72 bg-white border-r border-slate-300 flex flex-col overflow-hidden">
             <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50">
@@ -437,7 +437,6 @@ export default function SapDashboard() {
           </div>
         )}
 
-        {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden bg-[#f0f3f9]">
           {activeScreen !== 'HOME' && (
              <div className="bg-[#0056d2] text-white py-3 px-6 shadow-md flex items-center gap-4 shrink-0">
@@ -492,7 +491,6 @@ export default function SapDashboard() {
         </div>
       </div>
 
-      {/* Full Width Footer Status Bar */}
       <div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em] shrink-0 border-t border-white/5">
         <div className="flex items-center gap-8">
           <span className="flex items-center gap-2.5">
@@ -502,7 +500,7 @@ export default function SapDashboard() {
           <span className="text-slate-400">|</span>
           <span>NODE: {activeScreen}</span>
           <span className="text-slate-400">|</span>
-          <span>USER: {userProfile?.username || 'GUEST'}</span>
+          <span>USER: Ajay Somra (Sikkaind)</span>
           {statusMsg.text !== 'Ready' && (
             <>
               <span className="text-slate-400">|</span>
