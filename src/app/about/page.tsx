@@ -37,7 +37,6 @@ export default function AboutPage() {
 
     return (
         <div className="bg-white text-slate-800">
-            {/* HERO SECTION */}
             <section className="relative py-20 md:py-32 text-white overflow-hidden min-h-[450px] flex items-center">
                 {heroImg?.url && (
                     <Image
@@ -61,7 +60,6 @@ export default function AboutPage() {
                 </div>
             </section>
             
-            {/* CORE IDENTITY SECTION */}
             <section className="py-20 bg-slate-50">
                 <div className="container mx-auto px-4">
                     <div className="grid md:grid-cols-2 gap-16 items-center">
@@ -93,7 +91,6 @@ export default function AboutPage() {
                 </div>
             </section>
 
-            {/* INFRASTRUCTURE SECTION */}
             <section className="py-24 bg-white">
                 <div className="container mx-auto px-4">
                     <div className="text-center mb-16 space-y-4">
@@ -131,7 +128,6 @@ export default function AboutPage() {
                                 ))}
                             </ul>
                         </div>
-                        {/* CAPABILITIES CAROUSEL */}
                         <div className="relative aspect-video rounded-[2rem] overflow-hidden shadow-2xl border-4 md:border-8 border-white group bg-slate-200">
                             <Carousel
                                 plugins={[Autoplay({ delay: 4000 })]}
@@ -156,90 +152,6 @@ export default function AboutPage() {
                                     ))}
                                 </CarouselContent>
                             </Carousel>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* QUALITY SECTION */}
-            <section className="py-24 bg-slate-900 text-white">
-                <div className="container mx-auto px-4">
-                    <div className="grid md:grid-cols-2 gap-16 items-center">
-                        <div className="relative aspect-square max-w-sm mx-auto md:mx-0">
-                            <div className="absolute inset-0 bg-blue-600 rounded-[3rem] rotate-6 opacity-20" />
-                            <div className="absolute inset-0 bg-white/5 backdrop-blur-3xl rounded-[3rem] border border-white/10 flex flex-col items-center justify-center p-12 text-center">
-                                <ShieldCheck className="h-24 w-24 text-blue-400 mb-6" />
-                                <h3 className="text-2xl font-black uppercase tracking-tight italic">HACCP Certified</h3>
-                                <p className="text-blue-200 font-bold uppercase text-[10px] tracking-widest mt-2">Accredited Since 2007</p>
-                            </div>
-                        </div>
-                        <div className="space-y-8">
-                            <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tight">Quality Excellence</h2>
-                            <p className="text-lg text-slate-400 leading-relaxed">
-                                Hazard Analysis and Critical Control Points (HACCP) reflects our unwavering commitment to safety, hygiene, and quality assurance in packaging and export operations.
-                            </p>
-                            <p className="text-lg text-slate-400 leading-relaxed italic border-l-4 border-blue-600 pl-4">
-                                Ensuring consumers receive products that are safe, pure, and compliant with international standards.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* EXPERTISE SECTION */}
-            <section className="py-24 bg-white overflow-hidden">
-                <div className="container mx-auto px-4 space-y-32">
-                    <div className="grid md:grid-cols-2 gap-12 items-center">
-                        <div className="space-y-6 order-2 md:order-1 text-center md:text-left">
-                            <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight italic">Professional Expertise</h2>
-                            <p className="text-lg text-slate-600 leading-relaxed">
-                                Our operations are managed by a team of dynamic professionals and experienced managers with extensive expertise in freight forwarding and SCM.
-                            </p>
-                            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                <Users className="h-6 w-6 text-blue-600 shrink-0" />
-                                <span className="font-bold text-slate-700 text-sm">Nationwide network ensuring a hassle-free experience.</span>
-                            </div>
-                        </div>
-                        {/* EXPERTISE CAROUSEL */}
-                        <div className="order-1 md:order-2 flex justify-center">
-                            <div className="relative aspect-video rounded-[2rem] overflow-hidden shadow-2xl border-4 md:border-8 border-white w-full max-w-md bg-slate-200">
-                                <Carousel
-                                    plugins={[Autoplay({ delay: 4000 })]}
-                                    className="w-full h-full"
-                                >
-                                    <CarouselContent>
-                                        {expertiseSlides.map((slide, idx) => (
-                                            <CarouselItem key={idx}>
-                                                <div className="relative aspect-video w-full">
-                                                    {slide.src && (
-                                                        <Image 
-                                                            src={slide.src}
-                                                            fill 
-                                                            className="object-cover"
-                                                            alt="Expertise Slide"
-                                                            data-ai-hint={slide.hint}
-                                                            unoptimized={slide.src.startsWith('/assets/')}
-                                                        />
-                                                    )}
-                                                </div>
-                                            </CarouselItem>
-                                        ))}
-                                    </CarouselContent>
-                                </Carousel>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* FOOTER CTA */}
-                    <div className="bg-blue-900 rounded-[3rem] md:rounded-[4rem] p-10 md:p-20 text-white relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-12 opacity-10 group-hover:rotate-12 transition-transform duration-1000">
-                            <Activity className="h-48 w-48 md:h-64 md:w-64 text-white" />
-                        </div>
-                        <div className="relative z-10 max-w-3xl space-y-8">
-                            <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter">Intelligence-Driven Logistics</h2>
-                            <p className="text-xl text-blue-100 leading-relaxed opacity-90">
-                                A blend of operational intelligence, global connectivity, and expedited transportation. We don’t just move goods — we deliver reliability.
-                            </p>
                         </div>
                     </div>
                 </div>

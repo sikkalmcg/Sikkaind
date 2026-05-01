@@ -28,7 +28,6 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white font-body">
-      {/* SOLUTIONS SECTION */}
       <section id="services" className="py-24 bg-white">
         <div className="max-w-[1200px] mx-auto px-4">
           <div className="text-center mb-16">
@@ -61,7 +60,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* WHY CHOOSE US / ABOUT SECTION */}
       <section id="about" className="py-16 bg-slate-50 border-y border-slate-100">
         <div className="max-w-[1100px] mx-auto px-4">
           <div className="text-center mb-12">
@@ -83,7 +81,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CONTACT SECTION */}
       <section id="contact" className="py-24 bg-white">
         <div className="max-w-[800px] mx-auto px-6">
           <div className="text-center mb-16">

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -310,15 +309,15 @@ export default function SapDashboard() {
               <div className="px-4 py-6 text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Logistics</div>
               <SidebarMenu className="gap-2">
                 {[
-                  { code: 'OX01', label: 'PLANT MASTER' },
-                  { code: 'FM01', label: 'COMPANY MASTER' },
-                  { code: 'XK01', label: 'VENDOR MASTER' },
-                  { code: 'XD01', label: 'CUSTOMER MASTER' },
-                  { code: 'VA01', label: 'SALES ORDERS' },
-                  { code: 'VA04', label: 'CANCEL ORDER' },
-                  { code: 'TR21', label: 'DRIP BOARD' },
-                  { code: 'BULK', label: 'BULK SYNC' },
-                  { code: 'SU01', label: 'USER MANAGEMENT' },
+                  { code: 'OX01', label: 'PLANT MASTER', icon: LayoutDashboard },
+                  { code: 'FM01', label: 'COMPANY MASTER', icon: Database },
+                  { code: 'XK01', label: 'VENDOR MASTER', icon: User },
+                  { code: 'XD01', label: 'CUSTOMER MASTER', icon: Users },
+                  { code: 'VA01', label: 'SALES ORDERS', icon: ShoppingBag },
+                  { code: 'VA04', label: 'CANCEL ORDER', icon: Ban },
+                  { code: 'TR21', label: 'DRIP BOARD', icon: Truck },
+                  { code: 'BULK', label: 'BULK SYNC', icon: CloudUpload },
+                  { code: 'SU01', label: 'USER MANAGEMENT', icon: Settings },
                 ].map((item) => (
                   <SidebarMenuItem key={item.code}>
                     <SidebarMenuButton 
@@ -326,6 +325,7 @@ export default function SapDashboard() {
                       isActive={activeScreen.startsWith(item.code.slice(0,2)) || (item.code === 'BULK' && activeScreen === 'BULK')}
                       className="px-4 h-9 hover:bg-slate-100 transition-colors"
                     >
+                      <item.icon className={cn("h-4 w-4 mr-2", activeScreen.startsWith(item.code.slice(0,2)) ? "text-[#0056d2]" : "text-slate-500")} />
                       <span className={cn(
                         "text-[11px] font-black uppercase tracking-tight",
                         activeScreen.startsWith(item.code.slice(0,2)) ? "text-[#0056d2]" : "text-slate-600"
@@ -398,6 +398,7 @@ export default function SapDashboard() {
           </SidebarInset>
         </div>
 
+        {/* DIALOGS FOR PRINTING */}
         <Dialog open={showPrintPreview} onOpenChange={setShowPrintPreview}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none bg-slate-800 shadow-2xl">
             <div className="bg-slate-900 p-4 flex justify-between items-center sticky top-0 z-10 border-b border-white/10">
@@ -453,7 +454,7 @@ export default function SapDashboard() {
   );
 }
 
-// FORMS & HELPERS
+// COMPONENTS & TEMPLATES
 
 function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any, order: any, copyType: string, deliveryAddress?: string }) {
   const cnNo = trip?.cnNo || '--';
@@ -466,7 +467,6 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
 
   return (
     <div className="w-full p-8 md:p-12 font-body text-black leading-tight bg-white min-h-[297mm] flex flex-col box-border border-4 border-black/5">
-      {/* 1. TOP HEADER SECTION */}
       <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-6">
         <div className="flex gap-6 items-center">
           <div className="w-16 h-16 bg-black flex items-center justify-center rounded-xl shrink-0">
@@ -492,7 +492,6 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
         </div>
       </div>
 
-      {/* 2. VEHICLE DETAILS SECTION */}
       <div className="border-2 border-black mb-6">
         <div className="grid grid-cols-4 divide-x-2 divide-black bg-slate-50 border-b-2 border-black font-black text-[9px] uppercase">
           <div className="p-2 text-center">Vehicle Number</div>
@@ -508,7 +507,6 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
         </div>
       </div>
 
-      {/* 3. PARTY DETAILS SECTION */}
       <div className="grid grid-cols-3 gap-0 border-2 border-black divide-x-2 divide-black mb-6">
         <div className="p-4 space-y-2">
           <h3 className="text-[10px] font-black uppercase border-b border-black pb-1 mb-2 text-slate-500 tracking-widest">Consignor</h3>
@@ -532,7 +530,6 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
         </div>
       </div>
 
-      {/* 4. DOCUMENT & ITEMS TABLE */}
       <div className="border-2 border-black flex-1 flex flex-col mb-6">
         <table className="w-full text-left border-collapse table-fixed">
           <thead>
@@ -554,12 +551,10 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
                 <td className="p-3 text-right font-black">{item.weight || '--'} {item.weightUom || 'MT'}</td>
               </tr>
             ))}
-            {/* Pad empty space if needed */}
-            <tr className="flex-1 min-h-[100px]"><td colSpan={5}></td></tr>
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-black bg-slate-100 font-black text-xs">
-              <td colSpan={2} className="p-4 text-right uppercase opacity-50 text-[9px]">Registry Total Mission Payload</td>
+              <td colSpan={2} className="p-4 text-right uppercase opacity-50 text-[9px]">Total Payload Registry</td>
               <td className="p-4 border-l-2 border-black uppercase text-center">{totalPackages || '--'} PKGS</td>
               <td className="p-4 border-l-2 border-black"></td>
               <td className="p-4 border-l-2 border-black text-right">{totalWeight || '--'} {trip?.weightUom || 'MT'}</td>
@@ -568,40 +563,32 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
         </table>
       </div>
 
-      {/* 5. ACKNOWLEDGEMENT BOX */}
       <div className="grid grid-cols-2 gap-0 border-2 border-black divide-x-2 divide-black mb-6">
         <div className="p-4 space-y-4">
           <div className="space-y-1">
-            <h4 className="text-[9px] font-black uppercase text-slate-400">Final Delivery Address Node</h4>
+            <h4 className="text-[9px] font-black uppercase text-slate-400">Delivery Address Node</h4>
             <p className="text-[10px] font-black italic uppercase leading-relaxed">{deliveryAddress || '--'}</p>
-          </div>
-          <div className="pt-2">
-            <p className="text-[9px] font-black uppercase mb-1">Carrier Note Registry:</p>
-            <p className="text-[9px] italic font-medium opacity-60 leading-relaxed">Ensure safe custody and verification of seal before unloading.</p>
           </div>
         </div>
         <div className="flex flex-col">
-          <div className="p-4 border-b-2 border-black bg-slate-50 flex-1">
-            <h4 className="text-[9px] font-black uppercase text-center tracking-[0.2em] mb-4">Acknowledgement & Receiver's Seal</h4>
+          <div className="p-4 border-b-2 border-black bg-slate-50 flex-1 text-center">
+            <h4 className="text-[9px] font-black uppercase tracking-[0.2em] mb-4">Acknowledgement</h4>
             <div className="h-24"></div>
           </div>
           <div className="p-4 text-right">
              <p className="text-[9px] font-black uppercase">For Sikka Industries & Logistics</p>
              <div className="h-12"></div>
-             <p className="text-[10px] font-black uppercase underline decoration-2 underline-offset-4">Authorized Signatory Hub</p>
+             <p className="text-[10px] font-black uppercase underline decoration-2 underline-offset-4">Authorized Signatory</p>
           </div>
         </div>
       </div>
 
-      {/* 6. TERMS & CONDITIONS */}
       <div className="mb-4">
-        <h4 className="text-[8px] font-black uppercase mb-1 tracking-widest opacity-40">Standard Logistics Registry Terms</h4>
         <p className="text-[7px] text-justify leading-relaxed opacity-60 font-medium italic">
-          1. The movement is subject to the conditions of carriage as displayed on the carrier's primary management node. 2. Carrier is not responsible for damage caused by inadequate packaging at consignor end. 3. Subject to Ghaziabad jurisdiction only. 4. Detention charges applicable if unloading exceeds mission timeline. 5. This registry node is digital and tamper-evident.
+          1. Carriage subject to terms on primary management node. 2. Not responsible for packaging damage at consignor end. 3. Ghaziabad jurisdiction only.
         </p>
       </div>
 
-      {/* 7. NOTE LINE */}
       <div className="text-center pt-2 border-t border-black/10">
          <p className="text-[9px] font-black uppercase tracking-[0.3em] italic">
            Note: "This Lorry Receipt was generated digitally and is to be considered as original."
@@ -633,7 +620,6 @@ function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
         <div className="border-l-2 border-black pl-8 space-y-4">
           <div className="grid grid-cols-2 gap-4"><div><p className="text-[9px] font-black text-slate-500 uppercase">LR Number</p><p className="text-lg font-black">{lrNo}</p></div><div><p className="text-[9px] font-black text-slate-500 uppercase">LR Date</p><p className="text-md font-black">{lrDate}</p></div></div>
           <div><p className="text-[9px] font-black text-slate-500 uppercase">Vehicle Number</p><p className="text-lg font-black uppercase tracking-widest">{trip?.vehicleNumber || '--'}</p></div>
-          <div><p className="text-[9px] font-black text-slate-500 uppercase">Mission Route</p><p className="text-sm font-black uppercase italic">{trip?.route || order?.route || '--'}</p></div>
         </div>
       </div>
       <div className="border-2 border-black">
@@ -642,13 +628,12 @@ function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
           <tbody><tr className="h-40 align-top"><td className="p-4 border-r-2 border-black font-bold uppercase">{product}</td><td className="p-4 border-r-2 border-black font-bold uppercase">{invNo}</td><td className="p-4 font-black">{weight}</td></tr></tbody>
         </table>
       </div>
-      <div className="grid grid-cols-2 gap-8 pt-6">
-        <div className="text-[9px] space-y-1 opacity-80"><p className="font-black uppercase mb-1">Standard Registry Terms:</p><p>1. Carriage is entirely at Owner's risk node.</p><p>2. Subject to jurisdiction of Ghaziabad courts.</p><p>3. Carrier not responsible for shortages or leakage.</p></div>
-        <div className="flex flex-col items-center justify-end pt-12"><p className="text-[10px] font-black uppercase border-t border-black w-48 text-center pt-2">Authorized Node Signature</p></div>
-      </div>
+      <div className="flex flex-col items-center justify-end pt-12"><p className="text-[10px] font-black uppercase border-t border-black w-48 text-center pt-2">Authorized Signatory</p></div>
     </div>
   );
 }
+
+// FORM HELPERS
 
 function SectionHeader({ title }: { title: string }) {
   return <h3 className="text-[10px] font-black uppercase tracking-widest bg-[#dae4f1] border-y border-slate-300 px-4 py-1 text-[#1e3a8a]">{title}</h3>;
@@ -663,8 +648,10 @@ function FormInput({ label, value, onChange, type = "text", disabled }: any) {
 }
 
 function FormSelect({ label, value, options, onChange, disabled }: any) {
-  return <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label><select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold outline-none"><option value="">Select Registry...</option>{options.map((o: string) => <option key={o} value={o}>{o}</option>)}</select></div>;
+  return <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label><select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold outline-none"><option value="">Select...</option>{options.map((o: string) => <option key={o} value={o}>{o}</option>)}</select></div>;
 }
+
+// FORMS
 
 function PlantForm({ data, onChange, disabled }: any) {
   return <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
