@@ -143,7 +143,7 @@ export default function TrackPage() {
           <div className="flex justify-center pt-8">
             <div className="bg-[#f0f7ff] border-l-[6px] border-blue-600 rounded-[2.5rem] p-10 md:p-16 max-w-4xl w-full shadow-lg relative flex flex-col items-center text-center">
                <h2 className="text-xl md:text-2xl font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
-                SALE ORDER <span className="text-blue-700">{data.saleOrder}</span> IS BOOKED FOR DISPATCH ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>. VEHICLE WILL BE ASSIGNED SHORTLY.
+                YOUR ORDER NO. '{data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.
                </h2>
 
                {/* Delay Remark Box (White with Shadow) */}
