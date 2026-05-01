@@ -567,20 +567,43 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
   const plantOpts = (allPlants || []).map((p: any) => ({ value: p.plantCode, label: `${p.plantCode} - ${p.plantName}` }));
   return (
     <div className="space-y-4">
-      <SectionGrouping title="">
-        <FormSelect label="PLANT HUB" value={data.plantCode} options={plantOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+      <SectionGrouping title="IDENTIFICATION">
+        <FormSelect label="PLANT" value={data.plantCode} options={plantOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
         <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
         <FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
       </SectionGrouping>
+      
+      <SectionGrouping title="LOCATION DETAILS">
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+        <FormInput label="STATE" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
+        <FormInput label="STATE CODE" value={data.stateCode} onChange={(v: string) => onChange({...data, stateCode: v})} disabled={disabled} />
+      </SectionGrouping>
+
+      <SectionGrouping title="TAX & CONTACT">
+        <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+        <FormInput label="PAN" value={data.pan} onChange={(v: string) => onChange({...data, pan: v})} disabled={disabled} />
+        <FormInput label="MOBILE (COMMA SEPARATED)" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} placeholder="e.g. 9876543210, 8765432109" />
+        <FormInput label="EMAIL" value={data.email} onChange={(v: string) => onChange({...data, email: v})} disabled={disabled} />
+        <FormInput label="WEBSITE" value={data.website} onChange={(v: string) => onChange({...data, website: v})} disabled={disabled} />
+      </SectionGrouping>
+
       <SectionGrouping title="LOGO">
         <div className="col-span-2 flex items-center gap-6 p-2">
            <div className="w-24 h-24 border border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden">
              {data.logo ? <Image src={data.logo} alt="Logo" width={96} height={96} className="object-contain" unoptimized /> : <Package className="h-8 w-8 text-slate-300" />}
            </div>
-           {!disabled && <input type="file" accept="image/*" onChange={(e) => {
-             const file = e.target.files?.[0];
-             if (file) { const reader = new FileReader(); reader.onloadend = () => onChange({...data, logo: reader.result as string}); reader.readAsDataURL(file); }
-           }} className="text-[10px] uppercase font-black" />}
+           {!disabled && (
+             <div className="flex flex-col gap-2">
+               <label className="text-[10px] uppercase font-black text-blue-600 cursor-pointer hover:underline">
+                 Upload Company Logo
+                 <input type="file" accept="image/*" onChange={(e) => {
+                   const file = e.target.files?.[0];
+                   if (file) { const reader = new FileReader(); reader.onloadend = () => onChange({...data, logo: reader.result as string}); reader.readAsDataURL(file); }
+                 }} className="hidden" />
+               </label>
+             </div>
+           )}
         </div>
       </SectionGrouping>
     </div>
