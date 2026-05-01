@@ -110,7 +110,7 @@ export default function SapDashboard() {
         </div>
         <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-6">
            {[Save, ArrowLeft, ArrowRight, RotateCcw, X, Printer].map((Icon, idx) => (
-             <button key={idx} className="p-1 hover:bg-slate-200 rounded transition-colors group">
+             <button key={idx} onClick={() => Icon === X && setActiveScreen('HOME')} className="p-1 hover:bg-slate-200 rounded transition-colors group">
                <Icon className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
              </button>
            ))}
@@ -126,45 +126,47 @@ export default function SapDashboard() {
 
       {/* 3. MAIN WORK AREA */}
       <div className="flex-1 flex overflow-hidden">
-        {/* LEFT SIDEBAR / TREE */}
-        <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-sm">
-           <div className="p-4 border-b border-slate-100 flex items-center gap-3">
-              <div className="bg-[#0056d2] p-2 rounded">
-                 <LayoutDashboard className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-[12px] font-black uppercase text-[#1e3a8a] italic leading-tight">Sikka Logistics</h2>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Management Control</p>
-              </div>
-           </div>
-           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              <div className="space-y-2">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Favorites</p>
-                {[
-                  { code: 'OX01', label: 'Create Plant' },
-                  { code: 'FM01', label: 'Create Company' },
-                  { code: 'XK01', label: 'Create Vendor' },
-                ].map((item) => (
-                  <button 
-                    key={item.code} 
-                    onClick={() => setActiveScreen(item.code as Screen)}
-                    className="flex items-center gap-3 w-full text-left p-2 hover:bg-[#e8f0fe] rounded-lg group transition-all"
-                  >
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-[#0056d2]" />
-                    <span className="text-xs font-bold text-slate-600 group-hover:text-[#1e3a8a]">{item.code} - {item.label}</span>
-                  </button>
-                ))}
-              </div>
-           </div>
-           <div className="p-4 bg-slate-50 border-t border-slate-200">
-             <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">System Status: Active</span>
+        {/* LEFT SIDEBAR / TREE - Hidden when a module is active */}
+        {activeScreen === 'HOME' && (
+          <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-sm animate-fade-in">
+             <div className="p-4 border-b border-slate-100 flex items-center gap-3">
+                <div className="bg-[#0056d2] p-2 rounded">
+                   <LayoutDashboard className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-[12px] font-black uppercase text-[#1e3a8a] italic leading-tight">Sikka Logistics</h2>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Management Control</p>
+                </div>
              </div>
-           </div>
-        </div>
+             <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Favorites</p>
+                  {[
+                    { code: 'OX01', label: 'Create Plant' },
+                    { code: 'FM01', label: 'Create Company' },
+                    { code: 'XK01', label: 'Create Vendor' },
+                  ].map((item) => (
+                    <button 
+                      key={item.code} 
+                      onClick={() => setActiveScreen(item.code as Screen)}
+                      className="flex items-center gap-3 w-full text-left p-2 hover:bg-[#e8f0fe] rounded-lg group transition-all"
+                    >
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-[#0056d2]" />
+                      <span className="text-xs font-bold text-slate-600 group-hover:text-[#1e3a8a]">{item.code} - {item.label}</span>
+                    </button>
+                  ))}
+                </div>
+             </div>
+             <div className="p-4 bg-slate-50 border-t border-slate-200">
+               <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">System Status: Active</span>
+               </div>
+             </div>
+          </div>
+        )}
 
-        {/* CONTENT AREA */}
+        {/* CONTENT AREA - Always flex-1 to take available space */}
         <div className="flex-1 flex flex-col bg-[#f0f3f9] overflow-y-auto no-scrollbar">
           {/* SCREEN HEADER */}
           <div className="bg-[#0056d2] text-white p-6 shadow-lg flex items-center justify-between">
@@ -176,16 +178,11 @@ export default function SapDashboard() {
                 {activeScreen === 'HOME' ? 'Central Management Control Registry' : getScreenTitle(activeScreen)}
               </p>
             </div>
-            {activeScreen !== 'HOME' && (
-              <Button onClick={() => setActiveScreen('HOME')} variant="outline" className="bg-transparent border-white/30 text-white hover:bg-white/10 rounded-none uppercase text-[10px] font-black px-6">
-                Back to Hub
-              </Button>
-            )}
           </div>
 
-          <div className="p-8 w-full">
+          <div className="p-8 w-full max-w-7xl mx-auto">
             {activeScreen === 'HOME' && (
-              <div className="space-y-12 animate-fade-in max-w-7xl mx-auto">
+              <div className="space-y-12 animate-fade-in">
                 {/* FIRM IMAGE PLACEHOLDER */}
                 <div className="relative w-full aspect-[21/9] border-4 border-dashed border-slate-300 bg-white/50 flex flex-col items-center justify-center group hover:border-[#0056d2] transition-colors rounded-[2rem] overflow-hidden">
                    <div className="absolute inset-0 bg-gradient-to-br from-[#0056d2]/5 to-transparent opacity-50" />
