@@ -836,6 +836,27 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
   const [csvData, setCsvData] = React.useState('');
   const [isProcessing, setIsProcessing] = React.useState(false);
 
+  const getTemplate = () => {
+    if (registryType === 'customers') {
+      return 'customerCode,customerName,customerType,city,plantCodes,gstin,pan,mobile,email,address\nC1001,Global Logistics,Consignee,Mumbai,PLNT01;PLNT02,27AAAAA0000A1Z5,ABCDE1234F,9876543210,info@global.com,Street 1';
+    }
+    if (registryType === 'sales_orders') {
+      return 'plantCode,saleOrder,saleOrderDate,consignor,from,consignee,shipToParty,destination,vehicleNumber,driverMobile\nPLNT01,SO-9001,2023-10-27,Consignor A,City A,Consignee B,Ship Party C,City C,UP14-XX-0000,+919999999999';
+    }
+    return '';
+  };
+
+  const handleDownloadTemplate = () => {
+    const template = getTemplate();
+    const blob = new Blob([template], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${registryType}_template.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   const handleProcess = () => {
     if (!user || !csvData.trim()) return;
 
@@ -843,6 +864,12 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
     setStatus({ text: 'Parsing batch data...', type: 'info' });
 
     const lines = csvData.split('\n');
+    if (lines.length < 2) {
+       setIsProcessing(false);
+       setStatus({ text: 'Invalid CSV format: Missing headers or content', type: 'error' });
+       return;
+    }
+
     const headers = lines[0].split(',').map(h => h.trim());
     const rows = lines.slice(1).filter(l => l.trim() !== '');
 
@@ -867,6 +894,19 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
         id: docId,
         updatedAt: new Date().toISOString()
       }, { merge: true });
+
+      // If Sales Order, sync to public tracking registry
+      if (registryType === 'sales_orders' && data.saleOrder) {
+        const publicRef = doc(db, 'public_orders', data.saleOrder);
+        setDocumentNonBlocking(publicRef, {
+          type: 'order',
+          status: 'PLACED',
+          saleOrder: data.saleOrder,
+          consignor: data.consignor,
+          destination: data.destination,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      }
       
       successCount++;
     });
@@ -874,12 +914,6 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
     setIsProcessing(false);
     setStatus({ text: `Batch synchronization complete: ${successCount} nodes processed`, type: 'success' });
     setCsvData('');
-  };
-
-  const getTemplate = () => {
-    if (registryType === 'customers') return 'customerCode,customerName,customerType,city,plantCodes,gstin,pan,mobile,email,address\nC1001,Global Logistics,Consignee,Mumbai,PLNT01;PLNT02,27AAAAA0000A1Z5,ABCDE1234F,9876543210,info@global.com,Street 1';
-    if (registryType === 'plants') return 'plantCode,plantName,city,state,stateCode,postalCode,gstin,pan,email,website,address\nPLNT01,North Hub,Delhi,Delhi,07,110001,07AAAAA0000A1Z5,ABCDE1234F,north@sikka.com,www.sikka.com,Warehouse 1';
-    return '';
   };
 
   return (
@@ -892,15 +926,13 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
             value={registryType}
             onChange={(e) => setRegistryType(e.target.value)}
           >
-            <option value="plants">Plants Master</option>
-            <option value="companies">Company Hubs</option>
-            <option value="vendors">Vendor Nodes</option>
             <option value="customers">Customer Nodes</option>
+            <option value="sales_orders">Sales Orders</option>
           </select>
         </div>
         <div className="flex gap-4 items-end">
-          <Button onClick={() => setCsvData(getTemplate())} variant="outline" className="h-12 rounded-xl font-bold gap-2">
-            <Download className="h-4 w-4" /> Load Template
+          <Button onClick={handleDownloadTemplate} variant="outline" className="h-12 rounded-xl font-bold gap-2">
+            <Download className="h-4 w-4" /> Download Template
           </Button>
           <Button 
             disabled={isProcessing || !csvData.trim()} 
@@ -914,12 +946,12 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
       </div>
 
       <div className="space-y-2">
-        <label className="text-[10px] font-black uppercase text-slate-400">CSV Input Area (Comma Separated)</label>
+        <label className="text-[10px] font-black uppercase text-slate-400">CSV Input Area (Paste CSV Content Here)</label>
         <div className="relative">
           <textarea 
             value={csvData}
             onChange={(e) => setCsvData(e.target.value)}
-            placeholder="Header1,Header2,Header3..."
+            placeholder="Paste your CSV content here (including headers)..."
             className="w-full h-64 p-6 border border-slate-200 bg-slate-50 rounded-[2rem] font-mono text-xs outline-none focus:ring-2 focus:ring-[#0056d2] transition-all"
           />
           <div className="absolute top-4 right-4 text-[9px] font-bold text-slate-300 uppercase tracking-widest bg-white/80 px-3 py-1 rounded-full">
