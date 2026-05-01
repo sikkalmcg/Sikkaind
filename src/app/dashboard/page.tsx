@@ -274,7 +274,7 @@ export default function SapDashboard() {
       const hasNames = (vendorName || '').toString().trim().length > 0 || (vendorFirmName || '').toString().trim().length > 0;
       const hasMandatory = (mobile || '').toString().trim().length > 0 && (address || '').toString().trim().length > 0 && (route || '').toString().trim().length > 0;
       if (!hasMandatory || !hasNames) {
-        setStatusMsg({ text: 'Error: Mobile, Address, Route & (Name or Firm Name) are mandatory', type: 'error' });
+        setStatusMsg({ text: 'Error: Mobile, Address, Special Route & (Name or Firm Name) are mandatory', type: 'error' });
         return;
       }
       if (!localData.vendorCode) {
@@ -745,7 +745,7 @@ function VendorForm({ data, onChange, disabled }: any) {
       <SectionGrouping title="DETAILS">
         <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
         <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
-        <FormInput label="ROUTE" value={data.route} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="SPECIAL ROUTE" value={data.route} onChange={(v: string) => onChange({...data, route: v})} disabled={disabled} />
       </SectionGrouping>
     </div>
   );
