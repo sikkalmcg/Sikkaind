@@ -375,7 +375,7 @@ export default function SapDashboard() {
   const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
 
   return (
-    <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono select-none overflow-hidden">
+    <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
       <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50">
         <div className="flex items-center gap-6">
           {['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(item => (
@@ -477,15 +477,6 @@ export default function SapDashboard() {
         )}
 
         <div className="flex-1 flex flex-col overflow-hidden bg-[#f0f3f9]">
-          {activeScreen !== 'HOME' && (
-             <div className="bg-[#0056d2] text-white py-3 px-6 shadow-md flex items-center gap-4 shrink-0">
-                <Badge className="bg-white/20 text-white rounded-none font-black italic">{activeScreen}</Badge>
-                <h1 className="text-lg font-black italic tracking-tighter uppercase leading-none">
-                  {MASTER_TCODES.find(t => t.code === activeScreen)?.description}
-                </h1>
-             </div>
-          )}
-
           <div className="flex-1 overflow-y-auto p-4 relative">
             {activeScreen === 'HOME' ? (
               <div className="w-full h-full flex flex-col items-center justify-center p-8">
@@ -1292,4 +1283,3 @@ function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
     </div>
   );
 }
-
