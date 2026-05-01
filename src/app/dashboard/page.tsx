@@ -51,18 +51,18 @@ import placeholderData from '@/app/lib/placeholder-images.json';
 type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'BULK' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE';
 
 const MASTER_TCODES = [
-  { code: 'OX01', description: 'PLANT MASTER: CREATE', icon: Database, module: 'Master Data' },
-  { code: 'OX02', description: 'PLANT MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
-  { code: 'OX03', description: 'PLANT MASTER: DISPLAY', icon: Info, module: 'Master Data' },
-  { code: 'FM01', description: 'COMPANY MASTER: CREATE', icon: Layers, module: 'Master Data' },
-  { code: 'FM02', description: 'COMPANY MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
-  { code: 'FM03', description: 'COMPANY MASTER: DISPLAY', icon: Info, module: 'Master Data' },
-  { code: 'XK01', description: 'VENDOR MASTER: CREATE', icon: User, module: 'Master Data' },
-  { code: 'XK02', description: 'VENDOR MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
-  { code: 'XK03', description: 'VENDOR MASTER: DISPLAY', icon: Info, module: 'Master Data' },
-  { code: 'XD01', description: 'CUSTOMER MASTER: CREATE', icon: Users, module: 'Master Data' },
-  { code: 'XD02', description: 'CUSTOMER MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
-  { code: 'XD03', description: 'CUSTOMER MASTER: DISPLAY', icon: Info, module: 'Master Data' },
+  { code: 'OX01', description: 'PLANT: CREATE', icon: Database, module: 'Master Data' },
+  { code: 'OX02', description: 'PLANT: CHANGE', icon: Edit3, module: 'Master Data' },
+  { code: 'OX03', description: 'PLANT: DISPLAY', icon: Info, module: 'Master Data' },
+  { code: 'FM01', description: 'COMPANY: CREATE', icon: Layers, module: 'Master Data' },
+  { code: 'FM02', description: 'COMPANY: CHANGE', icon: Edit3, module: 'Master Data' },
+  { code: 'FM03', description: 'COMPANY: DISPLAY', icon: Info, module: 'Master Data' },
+  { code: 'XK01', description: 'VENDOR: CREATE', icon: User, module: 'Master Data' },
+  { code: 'XK02', description: 'VENDOR: CHANGE', icon: Edit3, module: 'Master Data' },
+  { code: 'XK03', description: 'VENDOR: DISPLAY', icon: Info, module: 'Master Data' },
+  { code: 'XD01', description: 'CUSTOMER: CREATE', icon: Users, module: 'Master Data' },
+  { code: 'XD02', description: 'CUSTOMER: CHANGE', icon: Edit3, module: 'Master Data' },
+  { code: 'XD03', description: 'CUSTOMER: DISPLAY', icon: Info, module: 'Master Data' },
   { code: 'VA01', description: 'SALES ORDER: CREATE', icon: ShoppingBag, module: 'Logistics' },
   { code: 'VA02', description: 'SALES ORDER: CHANGE', icon: Edit3, module: 'Logistics' },
   { code: 'VA03', description: 'SALES ORDER: DISPLAY', icon: Info, module: 'Logistics' },
@@ -75,22 +75,10 @@ const MASTER_TCODES = [
   { code: 'ZCODE', description: 'SYSTEM: ALL ACTIVE T-CODES', icon: Grid2X2, module: 'System' },
 ];
 
-const GST_STATE_MAP: Record<string, string> = {
-  "01": "Jammu & Kashmir", "02": " Himachal Pradesh", "03": "Punjab", "04": "Chandigarh",
-  "05": "Uttarakhand", "06": "Haryana", "07": "Delhi", "08": "Rajasthan", "09": "Uttar Pradesh",
-  "10": "Bihar", "11": "Sikkim", "12": "Arunachal Pradesh", "13": "Nagaland", "14": "Manipur",
-  "15": "Mizoram", "16": "Tripura", "17": "Meghalaya", "18": "Assam", "19": "West Bengal",
-  "20": "Jharkhand", "21": "Odisha", "22": "Chhattisgarh", "23": "Madhya Pradesh", "24": "Gujarat",
-  "26": "Dadra & Nagar Haveli", "27": "Maharashtra", "28": "Andhra Pradesh (Old)", "29": "Karnataka",
-  "30": "Goa", "31": "Lakshadweep", "32": "Kerala", "33": "Tamil Nadu", "34": "Puducherry",
-  "35": "Andaman & Nicobar Islands", "36": "Telangana", "37": "Andhra Pradesh (New)", "38": "Ladakh"
-};
-
 export default function SapDashboard() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { user, isUserLoading } = useUser();
+  const { user } = useUser();
   const db = useFirestore();
   
   const [tCode, setTCode] = React.useState('');
@@ -102,9 +90,7 @@ export default function SapDashboard() {
   const [searchId, setSearchId] = React.useState('');
   const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
   const [printData, setPrintData] = React.useState<any>(null);
-  const [showPrintPreview, setShowPrintPreview] = React.useState(false);
   const [cnPreviewData, setCnPreviewData] = React.useState<any>(null);
-  const [showCnPreview, setShowCnPreview] = React.useState(false);
   
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL');
   const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM'));
@@ -334,6 +320,16 @@ export default function SapDashboard() {
       if (e.key === 'F4') tCodeRef.current?.focus();
       if (e.key === 'F12') handleCancel();
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); handleSave(); }
+      
+      if (e.key === 'ArrowDown' && showHistory) {
+        e.preventDefault();
+        setHistoryIndex(prev => (prev < history.length - 1 ? prev + 1 : prev));
+      }
+      if (e.key === 'ArrowUp' && showHistory) {
+        e.preventDefault();
+        setHistoryIndex(prev => (prev > 0 ? prev - 1 : 0));
+      }
+
       if (e.key === 'Enter' && document.activeElement === tCodeRef.current) {
         if (showHistory && historyIndex >= 0) {
           const selected = history[historyIndex];
@@ -370,10 +366,19 @@ export default function SapDashboard() {
              {logoAsset && <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized />}
           </div>
           <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner relative">
-            <button onClick={() => executeTCode(tCode)} className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100 transition-colors">✓</button>
+            <button 
+              onClick={(e) => { e.preventDefault(); executeTCode(tCode); }} 
+              className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100 transition-colors"
+            >✓</button>
             <input 
               ref={tCodeRef} type="text" value={tCode}
               onChange={(e) => { setTCode(e.target.value); if (showHistory) setShowHistory(false); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  executeTCode(tCode);
+                }
+              }}
               onClick={() => history.length > 0 && setShowHistory(true)}
               onBlur={() => setTimeout(() => setShowHistory(false), 200)}
               className="w-48 outline-none text-xs px-1 font-bold tracking-wider"
@@ -408,7 +413,7 @@ export default function SapDashboard() {
               {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'BULK' || t.code === 'ZCODE').map((item) => (
                 <div key={item.code} onClick={() => executeTCode(item.code)} className={cn("flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all", activeScreen === item.code ? "bg-[#0056d2] text-white" : "text-[#1e3a8a]")}>
                   <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", activeScreen === item.code ? "bg-white" : "bg-slate-300 group-hover:bg-blue-600")} />
-                  <span className={cn("text-[10px] font-black uppercase tracking-tight", activeScreen === item.code ? "text-white" : "text-[#1e3a8a]")}>{item.code} - {item.description.split(':')[0]}</span>
+                  <span className={cn("text-[10px] font-black uppercase tracking-tight", activeScreen === item.code ? "text-white" : "text-[#1e3a8a]")}>{item.code} - {item.description}</span>
                   <div className="flex-1" />
                   <item.icon className={cn("h-3.5 w-3.5", activeScreen === item.code ? "text-white" : "text-slate-400")} />
                 </div>
@@ -661,7 +666,7 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
   );
 }
 
-function UserForm({ data, onChange, disabled, allPlants }: any) {
+function UserForm({ data, onChange, disabled }: any) {
   return (
     <div className="space-y-4">
       <SectionGrouping title="">
