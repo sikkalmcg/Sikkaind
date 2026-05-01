@@ -1673,6 +1673,9 @@ function UserForm({ data, onChange, disabled, allPlants }: any) {
 
 function RegistryList({ screen, onSelectItem, listData }: { screen: string, onSelectItem: (item: any) => void, listData: any[] | null }) {
   if (listData === null) return <div className="p-8 text-center text-slate-400 font-bold">Synchronizing Node Data...</div>;
+  
+  const isVA = screen.startsWith('VA');
+
   return (
     <div className="overflow-x-auto px-4">
       <table className="w-full text-left border-collapse border border-slate-300">
@@ -1691,11 +1694,27 @@ function RegistryList({ screen, onSelectItem, listData }: { screen: string, onSe
             const uom = item.items?.[0]?.weightUom || '';
             const soNo = (item.saleOrder || item.saleOrderNumber || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8));
             
+            // Contextual names for Sales Orders
+            const nameDescription = isVA 
+              ? `${item.consignor || 'N/A'} → ${item.consignee || 'N/A'}`
+              : (item.fullName || item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName);
+
+            const typeDetails = isVA
+              ? `${item.from || 'ORIGIN'} → ${item.destination || 'DESTINATION'}`
+              : (item.destination || item.customerType || item.city || (item.plants ? `${item.plants.length} Plants Auth` : 'Standard Registry'));
+
             return (
               <tr key={item.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => onSelectItem(item)}>
                 <td className="p-2 font-bold text-[11px] text-[#0056d2] group-hover:underline border-r border-slate-200">{soNo}</td>
-                <td className="p-2 font-bold text-[11px] text-slate-600 uppercase border-r border-slate-200">{item.fullName || item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}</td>
-                <td className="p-2 font-bold text-[11px] text-slate-400 uppercase italic border-r border-slate-200">{item.destination || item.customerType || item.city || (item.plants ? `${item.plants.length} Plants Auth` : 'Standard Registry')}</td>
+                <td className="p-2 font-bold text-[11px] text-slate-600 uppercase border-r border-slate-200">
+                  <div className="flex flex-col">
+                    <span>{nameDescription}</span>
+                    {isVA && item.shipToParty && item.shipToParty !== item.consignee && (
+                      <span className="text-[8px] text-slate-400 font-black tracking-tight">SHIP TO: {item.shipToParty}</span>
+                    )}
+                  </div>
+                </td>
+                <td className="p-2 font-bold text-[11px] text-slate-400 uppercase italic border-r border-slate-200">{typeDetails}</td>
                 <td className="p-2 font-bold text-[11px] text-slate-600 border-r border-slate-200">
                   {totalQty !== null ? `${totalQty} ${uom}` : '--'}
                 </td>
@@ -1721,5 +1740,4 @@ function FormField({ label, placeholder, type = 'text', required, value, onChang
     </div>
   );
 }
-
     
