@@ -87,7 +87,7 @@ export default function HomePage() {
             <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tighter uppercase italic">
               Contact
             </h2>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.3em] mt-4">Registry for Enquiry and Support</p>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.3em] mt-4">Enquiry and Support</p>
           </div>
           <div className="bg-slate-50 p-8 md:p-12 rounded-[3rem] border border-slate-100 shadow-2xl">
              <ContactForm />

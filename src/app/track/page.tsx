@@ -32,10 +32,6 @@ function getStatusIndex(status: string) {
   return 0;
 }
 
-/**
- * @fileOverview Track Consignment page.
- * Strictly separates Sales Order view from Trip Tracking view with interactive state transitions.
- */
 export default function TrackPage() {
   const db = useFirestore();
   const [type, setType] = React.useState('sales');
@@ -50,7 +46,6 @@ export default function TrackPage() {
     message?: string;
   } | null>(null);
 
-  // Effect to handle the stepped animation when Trip view is active
   React.useEffect(() => {
     if (showResult && viewMode === 'trip' && result?.data?.status) {
       const targetIndex = getStatusIndex(result.data.status);
@@ -87,7 +82,7 @@ export default function TrackPage() {
       if (!snap.exists()) {
         setResult({ 
           found: false, 
-          message: `No active mission found for this ${trackType === 'sales' ? 'Sales Order' : 'Trip ID'}.` 
+          message: `No active record found for this ${trackType === 'sales' ? 'Sales Order' : 'Trip ID'}.` 
         });
         setShowResult(false);
       } else {
@@ -105,7 +100,7 @@ export default function TrackPage() {
       }
     } catch (error) {
       console.error('Tracking Error:', error);
-      setResult({ found: false, message: 'System error during synchronization. Please check registry ID.' });
+      setResult({ found: false, message: 'System error during synchronization. Please check ID.' });
       setShowResult(false);
     } finally {
       setLoading(false);
@@ -124,8 +119,6 @@ export default function TrackPage() {
   if (showResult && result?.found) {
     const data = result.data;
     const formattedDate = data.updatedAt ? format(new Date(data.updatedAt), 'dd-MMM-yyyy HH:mm').toUpperCase() : 'PENDING';
-    
-    // Robust access to Sale Order Number across all search types
     const soNo = data.saleOrder || data.saleOrderNumber || (viewMode === 'order' ? data.id : 'N/A');
     const hasTrip = !!data.tripId;
     const currentRoute = data.route || 'TRANSIT PENDING';
@@ -140,7 +133,6 @@ export default function TrackPage() {
             <ArrowLeft className="h-3 w-3" /> BACK TO SEARCH
           </button>
 
-          {/* High Visibility Info Bar */}
           <div className="bg-[#0f172a] text-white rounded-[1.5rem] md:rounded-full px-8 py-5 flex flex-wrap items-center justify-between gap-6 shadow-2xl">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
@@ -211,7 +203,7 @@ export default function TrackPage() {
                   <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-2xl flex flex-col items-center animate-slide-up">
                     <div className="flex items-center gap-2 mb-3 text-slate-400">
                       <AlertTriangle className="h-4 w-4" />
-                      <span className="text-[8px] font-black uppercase tracking-[0.2em]">Official Registry Note</span>
+                      <span className="text-[8px] font-black uppercase tracking-[0.2em]">Official Note</span>
                     </div>
                     <p className="text-slate-700 text-sm md:text-base font-black italic text-center leading-relaxed">
                       "{data.delayRemark}"
@@ -272,7 +264,7 @@ export default function TrackPage() {
                       <span className="text-sm md:text-lg font-black uppercase tracking-widest">{data.vehicleNumber || 'ASSIGNING...'}</span>
                     </div>
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-slate-500 text-[8px] font-black uppercase tracking-[0.2em]">Registry ID</span>
+                      <span className="text-slate-500 text-[8px] font-black uppercase tracking-[0.2em]">ID</span>
                       <span className="text-sm md:text-lg font-black tracking-widest">{data.tripId || data.id}</span>
                     </div>
                   </div>
@@ -285,7 +277,7 @@ export default function TrackPage() {
                         </span>
                      </div>
                      <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">
-                        Last Registry Sync: {formattedDate}
+                        Last Sync: {formattedDate}
                      </p>
                   </div>
                 </div>
@@ -328,7 +320,7 @@ export default function TrackPage() {
         <div className="space-y-8">
           <div className="space-y-2.5">
             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">
-              Registry Type *
+              Type *
             </label>
             <Select value={type} onValueChange={setType}>
               <SelectContent className="rounded-2xl border-slate-100">

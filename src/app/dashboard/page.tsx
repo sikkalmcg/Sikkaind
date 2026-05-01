@@ -52,27 +52,27 @@ type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK
 
 const MASTER_TCODES = [
   { code: 'OX01', description: 'PLANT MASTER: CREATE INITIAL SCREEN', icon: Database, module: 'Master Data' },
-  { code: 'OX02', description: 'PLANT MASTER: CHANGE REGISTRY', icon: Edit3, module: 'Master Data' },
+  { code: 'OX02', description: 'PLANT MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'OX03', description: 'PLANT MASTER: DISPLAY', icon: Info, module: 'Master Data' },
   { code: 'FM01', description: 'COMPANY MASTER: CREATE INITIAL SCREEN', icon: Layers, module: 'Master Data' },
-  { code: 'FM02', description: 'COMPANY MASTER: CHANGE REGISTRY', icon: Edit3, module: 'Master Data' },
+  { code: 'FM02', description: 'COMPANY MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'FM03', description: 'COMPANY MASTER: DISPLAY', icon: Info, module: 'Master Data' },
   { code: 'XK01', description: 'VENDOR MASTER: CREATE INITIAL SCREEN', icon: User, module: 'Master Data' },
-  { code: 'XK02', description: 'VENDOR MASTER: CHANGE REGISTRY', icon: Edit3, module: 'Master Data' },
+  { code: 'XK02', description: 'VENDOR MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'XK03', description: 'VENDOR MASTER: DISPLAY', icon: Info, module: 'Master Data' },
   { code: 'XD01', description: 'CUSTOMER MASTER: CREATE INITIAL SCREEN', icon: Users, module: 'Master Data' },
-  { code: 'XD02', description: 'CUSTOMER MASTER: CHANGE REGISTRY', icon: Edit3, module: 'Master Data' },
+  { code: 'XD02', description: 'CUSTOMER MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'XD03', description: 'CUSTOMER MASTER: DISPLAY', icon: Info, module: 'Master Data' },
-  { code: 'VA01', description: 'SALES ORDER REGISTRY: CREATE INITIAL SCREEN', icon: ShoppingBag, module: 'Logistics' },
-  { code: 'VA02', description: 'SALES ORDER REGISTRY: CHANGE', icon: Edit3, module: 'Logistics' },
-  { code: 'VA03', description: 'SALES ORDER REGISTRY: DISPLAY', icon: Info, module: 'Logistics' },
-  { code: 'VA04', description: 'CANCEL SALES ORDER REGISTRY', icon: Ban, module: 'Logistics' },
-  { code: 'TR21', description: 'DRIP BOARD REGISTRY CONTROL', icon: Truck, module: 'Logistics' },
+  { code: 'VA01', description: 'SALES ORDER: CREATE INITIAL SCREEN', icon: ShoppingBag, module: 'Logistics' },
+  { code: 'VA02', description: 'SALES ORDER: CHANGE', icon: Edit3, module: 'Logistics' },
+  { code: 'VA03', description: 'SALES ORDER: DISPLAY', icon: Info, module: 'Logistics' },
+  { code: 'VA04', description: 'CANCEL SALES ORDER', icon: Ban, module: 'Logistics' },
+  { code: 'TR21', description: 'DRIP BOARD CONTROL', icon: Truck, module: 'Logistics' },
   { code: 'BULK', description: 'BULK DATA HUB CONTROL', icon: CloudUpload, module: 'System' },
   { code: 'SU01', description: 'USER MANAGEMENT: CREATE INITIAL SCREEN', icon: ShieldAlert, module: 'System' },
-  { code: 'SU02', description: 'USER MANAGEMENT: CHANGE REGISTRY', icon: Edit3, module: 'System' },
+  { code: 'SU02', description: 'USER MANAGEMENT: CHANGE', icon: Edit3, module: 'System' },
   { code: 'SU03', description: 'USER MANAGEMENT: DISPLAY', icon: Info, module: 'System' },
-  { code: 'ZCODE', description: 'SYSTEM: ALL ACTIVE T-CODES REGISTRY', icon: Grid2X2, module: 'System' },
+  { code: 'ZCODE', description: 'SYSTEM: ALL ACTIVE T-CODES', icon: Grid2X2, module: 'System' },
 ];
 
 const GST_STATE_MAP: Record<string, string> = {
@@ -104,13 +104,9 @@ export default function SapDashboard() {
   const [cnPreviewData, setCnPreviewData] = React.useState<any>(null);
   const [showCnPreview, setShowCnPreview] = React.useState(false);
   
-  // Home Dashboard Filters
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL');
   const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM'));
-
-  // Multi-session tracking
   const [sessionCount, setSessionCount] = React.useState(1);
-
   const tCodeRef = React.useRef<HTMLInputElement>(null);
 
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
@@ -132,7 +128,6 @@ export default function SapDashboard() {
     }
   }, [user, db]);
 
-  // Session tracking logic
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
     const channel = new BroadcastChannel('sap_session_hub');
@@ -221,7 +216,6 @@ export default function SapDashboard() {
     return rawCustomers?.filter(c => c.plantCodes?.some((p: string) => authPlants.includes(p)));
   }, [rawCustomers, userProfile]);
 
-  // Home Stats Calculation
   const homeStats = React.useMemo(() => {
     if (!rawOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, reject: 0, closed: 0 };
 
@@ -288,7 +282,7 @@ export default function SapDashboard() {
       setFormData({});
       setStatusMsg({ text: `Transaction ${cleanCode} executed`, type: 'info' });
     } else {
-      setStatusMsg({ text: `T-Code ${cleanCode} not found in registry`, type: 'error' });
+      setStatusMsg({ text: `T-Code ${cleanCode} not found`, type: 'error' });
     }
     setTCode('');
   }, [userProfile]);
@@ -313,8 +307,6 @@ export default function SapDashboard() {
       return;
     }
 
-    if (activeScreen === 'ZCODE') return;
-
     let collectionName = '';
     const docId = formData.id || crypto.randomUUID();
     
@@ -330,7 +322,7 @@ export default function SapDashboard() {
       const docRef = isSystemUser ? doc(db, 'user_registry', docId) : doc(db, 'users', user.uid, collectionName, docId);
       const payload = { ...formData, id: docId, updatedAt: new Date().toISOString() };
       setDocumentNonBlocking(docRef, payload, { merge: true });
-      setStatusMsg({ text: `Registry synchronized successfully`, type: 'success' });
+      setStatusMsg({ text: `Synchronized successfully`, type: 'success' });
       if (!formData.id) setFormData(payload);
     }
   }, [user, activeScreen, formData, rawOrders, db]);
@@ -356,7 +348,7 @@ export default function SapDashboard() {
   const handleMinimize = () => {
     toast({
       title: "Minimize",
-      description: "Mission registry running in background."
+      description: "Running in background."
     });
   };
 
@@ -366,7 +358,7 @@ export default function SapDashboard() {
         toast({
           variant: "destructive",
           title: "Maximize",
-          description: "Fullscreen registry handshake failed."
+          description: "Fullscreen handshake failed."
         });
       });
     } else {
@@ -377,7 +369,7 @@ export default function SapDashboard() {
   };
 
   const handleClose = () => {
-    if (confirm("Close: Terminate current mission and exit registry?")) {
+    if (confirm("Close: Terminate current mission and exit?")) {
       router.push('/');
     }
   };
@@ -447,7 +439,6 @@ export default function SapDashboard() {
 
   if (isUserLoading) return <div className="flex h-screen items-center justify-center bg-[#f0f3f9] font-mono"><RotateCcw className="h-12 w-12 text-[#0056d2] animate-spin" /></div>;
 
-  const isModuleActive = activeScreen !== 'HOME';
   const isReadOnly = activeScreen.endsWith('03');
   const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
   const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
@@ -576,7 +567,7 @@ export default function SapDashboard() {
           <div className="flex-1" />
           <div className="flex items-center gap-3 pr-4">
              <button onClick={() => tCodeRef.current?.focus()} title="Search T-Code (F4)" className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Search className="h-4 w-4" /></button>
-             <button onClick={() => window.print()} title="Print Registry" className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Printer className="h-4 w-4" /></button>
+             <button onClick={() => window.print()} title="Print" className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Printer className="h-4 w-4" /></button>
              <button onClick={handleLogout} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700">
                <LogOut className="h-3.5 w-3.5" /> Log Off
              </button>
@@ -589,7 +580,7 @@ export default function SapDashboard() {
           <div className="w-72 bg-white border-r border-slate-300 flex flex-col overflow-hidden">
             <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50">
               <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2">
-                <Grid2X2 className="h-3.5 w-3.5" /> Favorites Registry
+                <Grid2X2 className="h-3.5 w-3.5" /> Favorites
               </h2>
             </div>
             <div className="flex-1 overflow-y-auto no-scrollbar">
@@ -632,7 +623,7 @@ export default function SapDashboard() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 border border-slate-300 shadow-sm">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-black uppercase text-slate-400">Plant Registry</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400">Plant</label>
                     <select 
                       className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-600"
                       value={homePlantFilter}
@@ -646,7 +637,7 @@ export default function SapDashboard() {
                   </div>
                   
                   <div className="flex flex-col gap-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400">Mission Month Registry</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400">Month</label>
                     <div className="flex flex-col border border-slate-300 bg-white rounded-lg shadow-sm w-full max-w-[320px]">
                       <div className="flex items-center justify-between p-3 border-b border-slate-200 bg-white">
                         <button 
@@ -742,7 +733,7 @@ export default function SapDashboard() {
         <div className="flex items-center gap-8">
           <span className="flex items-center gap-2.5">
             <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse" />
-            MISSION SYNC: ACTIVE
+            SYNC: ACTIVE
           </span>
           <span className="text-slate-400">|</span>
           <span>{activeScreen}</span>
@@ -761,8 +752,8 @@ export default function SapDashboard() {
       <Dialog open={showPrintPreview} onOpenChange={setShowPrintPreview}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none bg-slate-800 shadow-2xl">
           <div className="bg-slate-900 p-4 flex justify-between items-center sticky top-0 z-10 border-b border-white/10">
-            <DialogTitle className="text-white font-black uppercase italic tracking-tighter text-sm">Registry Print Handshake: LR Preview</DialogTitle>
-            <Button onClick={handleActualPrint} className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-[10px] tracking-widest h-9 px-8 rounded-lg">Confirm & Print Mission</Button>
+            <DialogTitle className="text-white font-black uppercase italic tracking-tighter text-sm">Print Handshake: LR Preview</DialogTitle>
+            <Button onClick={handleActualPrint} className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-[10px] tracking-widest h-9 px-8 rounded-lg">Confirm & Print</Button>
           </div>
           <div className="p-12 bg-slate-200">
             <div className="bg-white p-12 shadow-2xl mx-auto max-w-[210mm] border border-slate-300">
@@ -775,7 +766,7 @@ export default function SapDashboard() {
       <Dialog open={showCnPreview} onOpenChange={setShowCnPreview}>
         <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0 border-none bg-slate-800 shadow-2xl">
           <div className="bg-slate-900 p-4 flex justify-between items-center sticky top-0 z-10 border-b border-white/10">
-            <DialogTitle className="text-white font-black uppercase italic tracking-tighter text-sm">Consignment Note: 3-Copy Registry Hub</DialogTitle>
+            <DialogTitle className="text-white font-black uppercase italic tracking-tighter text-sm">Consignment Note: 3-Copy Hub</DialogTitle>
             <div className="flex items-center gap-4">
               <div className="bg-white/5 px-4 py-1.5 rounded-lg border border-white/10">
                 <span className="text-[10px] font-black uppercase text-blue-400 mr-2">Delivery Edit:</span>
@@ -846,7 +837,7 @@ function PlantForm({ data, onChange, disabled }: any) {
         <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
         <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
       </SectionGrouping>
-      <SectionGrouping title="SETTINGS / REGISTRY">
+      <SectionGrouping title="SETTINGS">
         <FormInput label="PLANT CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
         <FormInput label="PLANT ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
         <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
@@ -901,13 +892,13 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
         <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
         <FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
       </SectionGrouping>
-      <SectionGrouping title="GSTIN / TAX REGISTRY">
+      <SectionGrouping title="GSTIN / TAX">
         <FormInput label="GSTIN NUMBER" value={data.gstin} onChange={handleGstinChange} disabled={disabled} placeholder="15 Digit GSTIN" />
         <FormInput label="PAN NUMBER (AUTO)" value={data.pan} disabled={true} />
         <FormInput label="STATE (AUTO)" value={data.state} disabled={true} />
         <FormInput label="STATE CODE (AUTO)" value={data.stateCode} disabled={true} />
       </SectionGrouping>
-      <SectionGrouping title="LOGO REGISTRY">
+      <SectionGrouping title="LOGO">
         <div className="col-span-2 flex items-center gap-6 p-2">
            <div className="w-24 h-24 border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden">
              {data.logo ? (
@@ -919,7 +910,7 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
            {!disabled && (
              <div className="flex flex-col gap-2">
                <label className="text-[10px] font-black uppercase text-blue-900 cursor-pointer hover:underline">
-                 Upload Logo Registry
+                 Upload Logo
                  <input type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
                </label>
                <span className="text-[9px] text-slate-400">Max size: 1MB (Recommended)</span>
@@ -933,7 +924,7 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
         <FormInput label="EMAIL HUB" value={data.email} onChange={(v: string) => onChange({...data, email: v})} disabled={disabled} />
         <FormInput label="WEBSITE" value={data.website} onChange={(v: string) => onChange({...data, website: v})} disabled={disabled} />
         <div className="col-span-2 space-y-4 mt-2">
-          <label className="text-[10px] font-bold text-slate-500 uppercase">MOBILE REGISTRY (MULTIPLE)</label>
+          <label className="text-[10px] font-bold text-slate-500 uppercase">MOBILE (MULTIPLE)</label>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {(data.mobileNumbers || ['']).map((m: string, i: number) => (
               <Input key={i} value={m} onChange={(e) => handleMobileChange(i, e.target.value)} disabled={disabled} className="h-9 rounded-none border-slate-400 font-bold text-xs" />
@@ -968,7 +959,7 @@ function CustomerForm({ data, onChange, disabled }: any) {
         <FormInput label="Customer Code" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} />
         <FormInput label="Customer Name" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
       </SectionGrouping>
-      <SectionGrouping title="STOCK TYPE / REGISTRY">
+      <SectionGrouping title="STOCK TYPE">
         <div className="flex flex-col gap-2">
           <label className="text-[10px] font-bold text-slate-500 uppercase">Customer Role</label>
           <RadioGroup 
@@ -1010,7 +1001,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
         <FormInput label="LR Date" value={data.lrDate} type="date" onChange={(v: string) => onChange({...data, lrDate: v})} disabled={disabled} />
         <FormInput label="Sale Order No" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
       </SectionGrouping>
-      <SectionGrouping title="MISSION COORDINATION">
+      <SectionGrouping title="COORDINATION">
         <FormSelect label="Consignor" value={data.consignor} options={consignors} onChange={(v: string) => onChange({...data, consignor: v})} disabled={disabled} />
         <FormSelect label="Consignee" value={data.consignee} options={consignees} onChange={(v: string) => onChange({...data, consignee: v})} disabled={disabled} />
         <FormSelect label="Ship To Party" value={data.shipToParty} options={shipto} onChange={(v: string) => onChange({...data, shipToParty: v})} disabled={disabled} />
@@ -1018,7 +1009,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
         <FormSelect label="Destination" value={data.destination} options={cities} onChange={(v: string) => onChange({...data, destination: v})} disabled={disabled} />
       </SectionGrouping>
       <div className="space-y-4">
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white border border-slate-200 px-3 py-1 shadow-sm">Product Registry Hub</span>
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white border border-slate-200 px-3 py-1 shadow-sm">Product Hub</span>
         <table className="w-full text-left border-collapse border border-slate-300 text-[10px] shadow-sm">
           <thead className="bg-[#f0f0f0]"><tr><th className="p-3 border border-slate-300">Product</th><th className="p-3 border border-slate-300">Weight</th><th className="p-3 border border-slate-300">Invoice No</th></tr></thead>
           <tbody>{(data.items || [{ product: 'SALT', weight: '', weightUom: 'MT', invoiceNumber: '' }]).map((item: any, idx: number) => (
@@ -1066,7 +1057,7 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
           <input className="h-12 border border-red-200 rounded-none px-4 text-sm font-black outline-none focus:ring-2 focus:ring-red-600 bg-red-50/30" placeholder="ENTER ORDER NO. & PRESS ENTER" value={data.saleOrder || ''} onChange={(e) => onChange({ ...data, saleOrder: e.target.value.toUpperCase() })} onKeyDown={handleKeyDown} />
         </div>
       </SectionGrouping>
-      <SectionGrouping title="MISSION REGISTRY OVERVIEW">
+      <SectionGrouping title="OVERVIEW">
         <DetailRow label="Consignor" value={data.consignor} />
         <DetailRow label="From" value={data.from} />
         <DetailRow label="Consignee" value={data.consignee} />
@@ -1074,7 +1065,7 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
         <DetailRow label="Product Name" value={data.productName} />
         <DetailRow label="Weight" value={data.weight} />
       </SectionGrouping>
-      <SectionGrouping title="SETTINGS / CANCELLATION REASON">
+      <SectionGrouping title="CANCELLATION REASON">
         <textarea className="w-full min-h-[120px] rounded-none border border-slate-300 p-4 font-bold text-xs outline-none focus:ring-1 focus:ring-blue-600 col-span-2" value={data.reason || ''} onChange={(e) => onChange({ ...data, reason: e.target.value })} placeholder="State mandatory cancellation reason..." />
       </SectionGrouping>
       <div className="flex justify-end gap-4">
@@ -1100,9 +1091,9 @@ function RegistryList({ onSelectItem, listData }: any) {
   return (
     <div className="overflow-x-auto border border-slate-300 shadow-sm">
       <table className="w-full text-left border-collapse">
-        <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr>{['Registry ID', 'Name / Description', 'Type / Details', 'Sync Hub'].map(c => <th key={c} className="p-3 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">{c}</th>)}</tr></thead>
+        <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr>{['ID', 'Name / Description', 'Type / Details', 'Sync Hub'].map(c => <th key={c} className="p-3 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">{c}</th>)}</tr></thead>
         <tbody>{listData?.map((item: any) => (
-          <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors"><td className="p-3 text-[11px] font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.id.slice(0, 8)}</td><td className="p-3 text-[11px] font-bold uppercase">{item.customerName || item.plantName || `${item.consignor} → ${item.consignee}`}</td><td className="p-3 text-[11px] italic text-slate-500">{item.city || item.customerType || 'REGISTRY'}</td><td className="p-3 text-[11px] font-bold text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></tr>
+          <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors"><td className="p-3 text-[11px] font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.id.slice(0, 8)}</td><td className="p-3 text-[11px] font-bold uppercase">{item.customerName || item.plantName || `${item.consignor} → ${item.consignee}`}</td><td className="p-3 text-[11px] italic text-slate-500">{item.city || item.customerType || 'DATA'}</td><td className="p-3 text-[11px] font-bold text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></tr>
         ))}</tbody>
       </table>
     </div>
@@ -1140,20 +1131,20 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
     };
     setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', newId), payload, { merge: true });
     setSelectedOrder(null);
-    onStatusUpdate({ text: `Mission ${tripId} created`, type: 'success' });
+    onStatusUpdate({ text: `${tripId} created`, type: 'success' });
   };
 
   const updateTripStatus = (tripId: string, newStatus: string) => {
     if (!user) return;
     setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', tripId), { status: newStatus, updatedAt: new Date().toISOString() }, { merge: true });
-    onStatusUpdate({ text: `Mission ${newStatus} handshake complete`, type: 'success' });
+    onStatusUpdate({ text: `${newStatus} handshake complete`, type: 'success' });
   };
 
   const handleUpdateCn = () => {
     if (!user || !editingTrip) return;
     setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', editingTrip.id), editingTrip, { merge: true });
     setEditingTrip(null);
-    onStatusUpdate({ text: `CN Registry synchronized`, type: 'success' });
+    onStatusUpdate({ text: `CN synchronized`, type: 'success' });
   };
 
   const getTripsByStatus = (status: string) => (trips || []).filter(t => t.status === status && (plantFilter === 'ALL' || t.plantCode === plantFilter));
@@ -1163,10 +1154,10 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
       <SectionGrouping title="">
         <div className="flex items-center gap-4 col-span-2">
           <select className="bg-white border border-slate-400 rounded-none h-9 px-4 font-bold text-xs outline-none flex-1 shadow-sm" value={plantFilter} onChange={(e) => setPlantFilter(e.target.value)}>
-            <option value="ALL">ALL PLANTS REGISTRY</option>
+            <option value="ALL">ALL PLANTS</option>
             {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
           </select>
-          <Button onClick={() => toast({ title: "Hub Refreshed", description: "Mission registry synchronized" })} variant="outline" className="h-9 text-[10px] font-black uppercase rounded-none px-6">Refresh Hub</Button>
+          <Button onClick={() => toast({ title: "Hub Refreshed", description: "Synchronized" })} variant="outline" className="h-9 text-[10px] font-black uppercase rounded-none px-6">Refresh Hub</Button>
         </div>
       </SectionGrouping>
 
@@ -1178,12 +1169,12 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
         </TabsList>
         <TabsContent value="OPEN" className="mt-8 bg-white border border-slate-300 shadow-xl overflow-hidden rounded-sm">
           <table className="w-full text-left">
-            <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr><th className="p-4 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">Order</th><th className="p-4 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">Registry Details</th><th className="p-4 text-[10px] font-black uppercase text-slate-500 text-center">Action</th></tr></thead>
+            <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr><th className="p-4 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">Order</th><th className="p-4 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">Details</th><th className="p-4 text-[10px] font-black uppercase text-slate-500 text-center">Action</th></tr></thead>
             <tbody>{orders?.filter(o => (plantFilter === 'ALL' || o.plantCode === plantFilter) && o.status !== 'CANCELLED').map(o => (
               <tr key={o.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
                 <td className="p-4 font-black text-[11px] text-[#0056d2]">{o.saleOrder || o.id.slice(0,8)}</td>
                 <td className="p-4 font-bold text-[11px] uppercase">{o.consignor} → {o.consignee}</td>
-                <td className="p-4 text-center"><Button onClick={() => setSelectedOrder(o)} className="bg-[#0056d2] text-white h-9 px-6 text-[10px] font-black uppercase rounded-none hover:bg-black shadow-md">Assign Mission</Button></td>
+                <td className="p-4 text-center"><Button onClick={() => setSelectedOrder(o)} className="bg-[#0056d2] text-white h-9 px-6 text-[10px] font-black uppercase rounded-none hover:bg-black shadow-md">Assign</Button></td>
               </tr>
             ))}</tbody>
           </table>
@@ -1198,8 +1189,8 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
               return (
                 <div key={t.id} className="bg-white border border-slate-300 rounded-none p-8 shadow-sm flex flex-col lg:flex-row gap-8 items-center border-l-8 border-l-[#0056d2]">
                   <div className="flex flex-col gap-1 min-w-[160px]">
-                    <span className="text-[#0056d2] font-black text-sm tracking-tighter">MISSION #{t.tripId}</span>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">SO REG: {t.saleOrder || 'N/A'}</span>
+                    <span className="text-[#0056d2] font-black text-sm tracking-tighter">#{t.tripId}</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">SO: {t.saleOrder || 'N/A'}</span>
                     <button onClick={() => onPrintLR(t, parentOrder)} className="text-[#0056d2] font-black text-[10px] uppercase hover:underline text-left mt-2">LR: {lrVal}</button>
                     <span className="text-[10px] font-black text-slate-400 uppercase">INV: {invVal}</span>
                     <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100">
@@ -1222,7 +1213,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
                     {s === 'LOADING' && <Button onClick={() => updateTripStatus(t.id, 'IN-TRANSIT')} className="h-10 text-[10px] font-black uppercase rounded-none bg-emerald-600 hover:bg-emerald-700 text-white px-8 shadow-lg">Start Transit</Button>}
                     {s === 'IN-TRANSIT' && <Button onClick={() => updateTripStatus(t.id, 'ARRIVED')} className="h-10 text-[10px] font-black uppercase rounded-none bg-blue-600 hover:bg-blue-700 text-white px-8 shadow-lg">Mark Arrived</Button>}
                     {s === 'ARRIVED' && <Button onClick={() => updateTripStatus(t.id, 'POD')} className="h-10 text-[10px] font-black uppercase rounded-none bg-indigo-600 hover:bg-indigo-700 text-white px-8 shadow-lg">Mark POD</Button>}
-                    {s === 'POD' && <Button onClick={() => updateTripStatus(t.id, 'CLOSED')} className="h-10 text-[10px] font-black uppercase rounded-none bg-slate-900 hover:bg-black text-white px-8 shadow-lg">Close Mission</Button>}
+                    {s === 'POD' && <Button onClick={() => updateTripStatus(t.id, 'CLOSED')} className="h-10 text-[10px] font-black uppercase rounded-none bg-slate-900 hover:bg-black text-white px-8 shadow-lg">Close</Button>}
                     <Button onClick={() => setViewTrip(t)} variant="outline" className="h-10 text-[10px] font-black uppercase rounded-none border-slate-300 hover:bg-slate-50 px-8 shadow-sm">Details</Button>
                   </div>
                 </div>
@@ -1234,15 +1225,15 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
 
       <Dialog open={!!editingTrip} onOpenChange={() => setEditingTrip(null)}>
         <DialogContent className="max-w-md rounded-none border-none shadow-2xl p-0 font-mono">
-          <div className="bg-[#1e3a8a] p-6 text-white text-center"><DialogTitle className="text-lg font-black uppercase italic tracking-tighter">Edit CN Registry</DialogTitle></div>
+          <div className="bg-[#1e3a8a] p-6 text-white text-center"><DialogTitle className="text-lg font-black uppercase italic tracking-tighter">Edit CN</DialogTitle></div>
           <div className="p-10 space-y-6">
-            <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-slate-400">CN Number Registry</label><Input value={editingTrip?.cnNo || ''} onChange={(e) => setEditingTrip({ ...editingTrip, cnNo: e.target.value.toUpperCase() })} placeholder="CN-XXXXXX" className="h-11 rounded-none border-slate-400 font-bold text-xs" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-slate-400">CN Date Registry</label><Input type="date" value={editingTrip?.cnDate || ''} onChange={(e) => setEditingTrip({ ...editingTrip, cnDate: e.target.value })} className="h-11 rounded-none border-slate-400 font-bold text-xs" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-slate-400">CN Number</label><Input value={editingTrip?.cnNo || ''} onChange={(e) => setEditingTrip({ ...editingTrip, cnNo: e.target.value.toUpperCase() })} placeholder="CN-XXXXXX" className="h-11 rounded-none border-slate-400 font-bold text-xs" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-slate-400">CN Date</label><Input type="date" value={editingTrip?.cnDate || ''} onChange={(e) => setEditingTrip({ ...editingTrip, cnDate: e.target.value })} className="h-11 rounded-none border-slate-400 font-bold text-xs" /></div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-black uppercase text-slate-400">Payment Mode Hub</label>
               <select className="w-full h-11 border border-slate-400 rounded-none px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-600" value={editingTrip?.paymentMode || 'To Pay'} onChange={(e) => setEditingTrip({ ...editingTrip, paymentMode: e.target.value })}>
-                <option value="Paid">Paid Registry</option>
-                <option value="To Pay">To Pay Registry</option>
+                <option value="Paid">Paid</option>
+                <option value="To Pay">To Pay</option>
               </select>
             </div>
           </div>
@@ -1252,13 +1243,13 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
 
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
         <DialogContent className="max-w-xl rounded-none border-none shadow-2xl p-0 font-mono">
-          <div className="bg-[#0056d2] p-6 text-white text-center"><DialogTitle className="text-lg font-black uppercase italic tracking-tighter">Assign Mission Vehicle Registry</DialogTitle></div>
+          <div className="bg-[#0056d2] p-6 text-white text-center"><DialogTitle className="text-lg font-black uppercase italic tracking-tighter">Assign Vehicle</DialogTitle></div>
           <div className="p-10 space-y-6">
-            <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Vehicle No. Registry</label><Input value={vehicleNo} onChange={(e) => setVehicleNo(e.target.value.toUpperCase())} placeholder="UP14-XX-0000" className="h-12 rounded-none border-slate-400 font-black text-sm" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Vehicle No.</label><Input value={vehicleNo} onChange={(e) => setVehicleNo(e.target.value.toUpperCase())} placeholder="UP14-XX-0000" className="h-12 rounded-none border-slate-400 font-black text-sm" /></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Payload Quantity Hub</label><Input value={assignWeight} onChange={(e) => setAssignWeight(e.target.value)} placeholder="0.00" className="h-12 rounded-none border-slate-400 font-black text-sm" /></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Driver Contact Hub</label><Input value={driverMobile} onChange={(e) => setDriverMobile(e.target.value)} placeholder="+91-XXXXX-XXXXX" className="h-12 rounded-none border-slate-400 font-black text-sm" /></div>
           </div>
-          <DialogFooter className="p-8 border-t border-slate-100"><Button onClick={handleAssign} className="w-full bg-[#0056d2] hover:bg-black text-white px-8 h-14 rounded-none font-black uppercase text-[11px] tracking-widest shadow-lg">Initiate Mission</Button></DialogFooter>
+          <DialogFooter className="p-8 border-t border-slate-100"><Button onClick={handleAssign} className="w-full bg-[#0056d2] hover:bg-black text-white px-8 h-14 rounded-none font-black uppercase text-[11px] tracking-widest shadow-lg">Initiate</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
@@ -1274,27 +1265,27 @@ function BulkDataHub({ allPlants }: any) {
       <div className="bg-white rounded-sm shadow-xl border border-slate-300 overflow-hidden flex flex-col">
         <div className="bg-[#1e293b] p-6 text-white font-black uppercase italic text-sm tracking-widest">Template Repository Hub</div>
         <div className="p-10 space-y-6 flex-1 bg-slate-50/30">
-          {['Customer Master Registry', 'Sales Order Master Registry'].map(t => <button key={t} onClick={() => toast({ title: "Download", description: `Template ${t} exported` })} className="w-full flex justify-between items-center p-5 bg-white border border-slate-300 rounded-none hover:bg-blue-50 transition-colors text-[11px] font-black uppercase tracking-tight">{t} <Download className="h-5 w-5 text-[#0056d2]" /></button>)}
+          {['Customer Master', 'Sales Order Master'].map(t => <button key={t} onClick={() => toast({ title: "Download", description: `Template ${t} exported` })} className="w-full flex justify-between items-center p-5 bg-white border border-slate-300 rounded-none hover:bg-blue-50 transition-colors text-[11px] font-black uppercase tracking-tight">{t} <Download className="h-5 w-5 text-[#0056d2]" /></button>)}
         </div>
       </div>
       <div className="bg-white rounded-sm shadow-xl border border-slate-300 overflow-hidden flex flex-col">
-        <div className="bg-[#0056d2] p-6 text-white font-black uppercase italic text-sm tracking-widest">Mission Sync Control</div>
+        <div className="bg-[#0056d2] p-6 text-white font-black uppercase italic text-sm tracking-widest">Sync Control</div>
         <div className="p-10 space-y-8 flex-1">
           <SectionGrouping title="">
             <select className="w-full h-12 bg-white border border-slate-400 rounded-none px-4 text-[11px] font-black uppercase outline-none focus:ring-1 focus:ring-blue-600 shadow-sm col-span-2" value={mod} onChange={(e) => setMod(e.target.value)}>
-              <option value="">Select Registry Type...</option><option value="XD">CUSTOMER MASTER REGISTRY</option><option value="VA">SALES ORDER MASTER REGISTRY</option>
+              <option value="">Select Type...</option><option value="XD">CUSTOMER MASTER</option><option value="VA">SALES ORDER MASTER</option>
             </select>
           </SectionGrouping>
           {mod === 'VA' && (
-            <SectionGrouping title="SETTINGS / TARGET">
+            <SectionGrouping title="TARGET">
               <select className="w-full h-12 bg-white border border-slate-400 rounded-none px-4 text-[11px] font-black uppercase outline-none focus:ring-1 focus:ring-blue-600 shadow-sm col-span-2" value={plant} onChange={(e) => setPlant(e.target.value)}>
                 <option value="">Select Target Plant...</option>
                 {allPlants?.map((p: any) => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
               </select>
             </SectionGrouping>
           )}
-          <div onClick={() => toast({ title: "Upload", description: "Registry file selected" })} className="flex-1 border-4 border-dashed border-slate-200 rounded-none flex flex-col items-center justify-center p-14 hover:bg-blue-50/50 transition-all cursor-pointer group shadow-inner"><Upload className="h-14 w-14 text-slate-200 mb-4 group-hover:text-[#0056d2] transition-colors" /><p className="text-[11px] font-black uppercase text-slate-400 group-hover:text-blue-600">Drag & Drop Master Registry File</p></div>
-          <Button onClick={() => toast({ title: "Syncing", description: "Bulk registry mission started" })} className="w-full h-16 bg-blue-900 hover:bg-black text-white font-black uppercase text-[11px] tracking-[0.3em] rounded-none shadow-xl">Initiate Bulk Registry Sync</Button>
+          <div onClick={() => toast({ title: "Upload", description: "File selected" })} className="flex-1 border-4 border-dashed border-slate-200 rounded-none flex flex-col items-center justify-center p-14 hover:bg-blue-50/50 transition-all cursor-pointer group shadow-inner"><Upload className="h-14 w-14 text-slate-200 mb-4 group-hover:text-[#0056d2] transition-colors" /><p className="text-[11px] font-black uppercase text-slate-400 group-hover:text-blue-600">Drag & Drop Master File</p></div>
+          <Button onClick={() => toast({ title: "Syncing", description: "Bulk started" })} className="w-full h-16 bg-blue-900 hover:bg-black text-white font-black uppercase text-[11px] tracking-[0.3em] rounded-none shadow-xl">Initiate Bulk Sync</Button>
         </div>
       </div>
     </div>
@@ -1305,14 +1296,14 @@ function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code:
   return (
     <div className="space-y-6">
       <div className="bg-slate-50 p-6 border-b border-slate-200">
-        <h2 className="text-sm font-black uppercase tracking-widest text-[#1e3a8a]">System Master Transaction Registry</h2>
+        <h2 className="text-sm font-black uppercase tracking-widest text-[#1e3a8a]">System Master Transaction</h2>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-[#f0f0f0] border-b-2 border-slate-300">
-              <th className="p-4 text-[10px] font-black uppercase text-slate-500 w-32">T-Code Registry</th>
-              <th className="p-4 text-[10px] font-black uppercase text-slate-500">Mission Description</th>
+              <th className="p-4 text-[10px] font-black uppercase text-slate-500 w-32">T-Code</th>
+              <th className="p-4 text-[10px] font-black uppercase text-slate-500">Description</th>
               <th className="p-4 text-[10px] font-black uppercase text-slate-500 w-48">Module</th>
             </tr>
           </thead>
@@ -1327,7 +1318,7 @@ function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code:
                 <td className="p-4 font-bold text-slate-700 uppercase">{t.description}</td>
                 <td className="p-4">
                   <Badge variant="outline" className="rounded-none border-slate-300 text-[9px] font-black px-3 py-1 bg-white uppercase">
-                    {t.module || 'Registry'}
+                    {t.module || 'DATA'}
                   </Badge>
                 </td>
               </tr>
@@ -1363,7 +1354,7 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
             <p className="text-[11px] font-black uppercase text-slate-400">CN Number</p>
             <p className="text-2xl font-black tracking-widest">{trip?.cnNo || '--'}</p>
             <div className="flex justify-end gap-6 pt-2">
-               <div className="text-right"><p className="text-[9px] font-black text-slate-400 uppercase">Registry Date</p><p className="text-xs font-black">{trip?.cnDate || '--'}</p></div>
+               <div className="text-right"><p className="text-[9px] font-black text-slate-400 uppercase">Date</p><p className="text-xs font-black">{trip?.cnDate || '--'}</p></div>
                <div className="text-right"><p className="text-[9px] font-black text-slate-400 uppercase">Origin</p><p className="text-xs font-black uppercase italic">{order?.from || '--'}</p></div>
                <div className="text-right"><p className="text-[9px] font-black text-slate-400 uppercase">Destination</p><p className="text-xs font-black uppercase italic">{order?.destination || '--'}</p></div>
             </div>
@@ -1375,8 +1366,8 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
         <div className="grid grid-cols-4 divide-x-2 divide-black bg-slate-50 border-b-2 border-black font-black text-[10px] uppercase">
           <div className="p-3 text-center">Vehicle Number Hub</div>
           <div className="p-3 text-center">Driver Mobile</div>
-          <div className="p-3 text-center">Payment Term Registry</div>
-          <div className="p-3 text-center">Trip ID Registry</div>
+          <div className="p-3 text-center">Payment Term</div>
+          <div className="p-3 text-center">Trip ID</div>
         </div>
         <div className="grid grid-cols-4 divide-x-2 divide-black text-sm font-black uppercase">
           <div className="p-4 text-center">{trip?.vehicleNumber || '--'}</div>
@@ -1388,12 +1379,12 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
 
       <div className="grid grid-cols-3 gap-0 border-2 border-black divide-x-2 divide-black mb-8">
         <div className="p-6 space-y-3">
-          <h3 className="text-[11px] font-black uppercase border-b border-black pb-2 mb-3 text-slate-500 tracking-[0.2em]">Consignor Registry</h3>
+          <h3 className="text-[11px] font-black uppercase border-b border-black pb-2 mb-3 text-slate-500 tracking-[0.2em]">Consignor</h3>
           <p className="text-sm font-black uppercase leading-tight">{trip?.consignor || '--'}</p>
           <p className="text-[10px] font-medium text-slate-600">{order?.from || '--'}</p>
         </div>
         <div className="p-6 space-y-3">
-          <h3 className="text-[11px] font-black uppercase border-b border-black pb-2 mb-3 text-slate-500 tracking-[0.2em]">Consignee Registry</h3>
+          <h3 className="text-[11px] font-black uppercase border-b border-black pb-2 mb-3 text-slate-500 tracking-[0.2em]">Consignee</h3>
           <p className="text-sm font-black uppercase leading-tight">{trip?.consignee || '--'}</p>
           <p className="text-[10px] font-medium text-slate-600">{order?.destination || '--'}</p>
         </div>
@@ -1410,7 +1401,7 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
         <table className="w-full text-left border-collapse table-fixed">
           <thead>
             <tr className="bg-black text-white font-black text-[10px] uppercase tracking-widest">
-              <th className="p-4 border-r border-white/20 w-[20%]">Invoice Registry</th>
+              <th className="p-4 border-r border-white/20 w-[20%]">Invoice</th>
               <th className="p-4 border-r border-white/20 w-[20%]">E-waybill</th>
               <th className="p-4 border-r border-white/20 w-[15%]">Package Unit</th>
               <th className="p-3 border-r border-white/20 w-[30%]">Description of Goods Hub</th>
@@ -1430,7 +1421,7 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-black bg-slate-100 font-black text-sm">
-              <td colSpan={2} className="p-5 text-right uppercase opacity-50 text-[10px]">Total Mission Payload Registry</td>
+              <td colSpan={2} className="p-5 text-right uppercase opacity-50 text-[10px]">Total Payload</td>
               <td className="p-5 border-l-2 border-black uppercase text-center">{totalPackages || '--'} PKGS</td>
               <td className="p-5 border-l-2 border-black"></td>
               <td className="p-5 border-l-2 border-black text-right">{totalWeight || '--'} {trip?.weightUom || 'MT'}</td>
@@ -1452,16 +1443,16 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
             <div className="h-32"></div>
           </div>
           <div className="p-6 text-right">
-             <p className="text-[10px] font-black uppercase tracking-widest">For Sikka Industries & Logistics Registry</p>
+             <p className="text-[10px] font-black uppercase tracking-widest">For Sikka Industries & Logistics</p>
              <div className="h-16"></div>
-             <p className="text-[11px] font-black uppercase underline decoration-2 underline-offset-8">Authorized Registry Signatory</p>
+             <p className="text-[11px] font-black uppercase underline decoration-2 underline-offset-8">Authorized Signatory</p>
           </div>
         </div>
       </div>
 
       <div className="mb-6">
         <p className="text-[8px] text-justify leading-relaxed opacity-60 font-medium italic">
-          1. Carriage subject to terms on primary carrier management registry. 2. Not responsible for packaging damage at consignor end. 3. All disputes subject to Ghaziabad jurisdiction registry only.
+          1. Carriage subject to terms on primary carrier management. 2. Not responsible for packaging damage at consignor end. 3. All disputes subject to Ghaziabad jurisdiction only.
         </p>
       </div>
 
@@ -1484,27 +1475,27 @@ function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
   return (
     <div className="w-full space-y-12 font-serif text-black leading-tight p-4">
       <div className="text-center border-b-4 border-black pb-8">
-        <h1 className="text-4xl font-black uppercase tracking-[0.3em]">Lorry Receipt Registry</h1>
+        <h1 className="text-4xl font-black uppercase tracking-[0.3em]">Lorry Receipt</h1>
         <h2 className="text-2xl font-bold uppercase mt-4 italic">Sikka Industries & Logistics</h2>
         <p className="text-xs font-medium mt-2 tracking-widest uppercase">Headquarters HUB: Ghaziabad – 201009, Uttar Pradesh, India</p>
       </div>
       <div className="grid grid-cols-2 gap-20 pt-10">
         <div className="space-y-10">
-          <div><p className="text-[11px] font-black uppercase text-slate-500 mb-2 tracking-widest">Consignor Registry</p><p className="text-lg font-black uppercase">{trip?.consignor || order?.consignor || '--'}</p><p className="text-sm mt-2 italic">{order?.from || '--'}</p></div>
-          <div><p className="text-[11px] font-black uppercase text-slate-500 mb-2 tracking-widest">Consignee Registry</p><p className="text-lg font-black uppercase">{trip?.consignee || order?.consignee || '--'}</p><p className="text-sm mt-2 italic">{order?.destination || '--'}</p></div>
+          <div><p className="text-[11px] font-black uppercase text-slate-500 mb-2 tracking-widest">Consignor</p><p className="text-lg font-black uppercase">{trip?.consignor || order?.consignor || '--'}</p><p className="text-sm mt-2 italic">{order?.from || '--'}</p></div>
+          <div><p className="text-[11px] font-black uppercase text-slate-500 mb-2 tracking-widest">Consignee</p><p className="text-lg font-black uppercase">{trip?.consignee || order?.consignee || '--'}</p><p className="text-sm mt-2 italic">{order?.destination || '--'}</p></div>
         </div>
         <div className="border-l-4 border-black pl-12 space-y-8">
-          <div className="grid grid-cols-2 gap-8"><div><p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">LR Registry No</p><p className="text-2xl font-black tracking-widest">{lrNo}</p></div><div><p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Registry Date</p><p className="text-xl font-black">{lrDate}</p></div></div>
-          <div><p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Vehicle Registry Hub</p><p className="text-2xl font-black uppercase tracking-[0.2em]">{trip?.vehicleNumber || '--'}</p></div>
+          <div className="grid grid-cols-2 gap-8"><div><p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">LR No</p><p className="text-2xl font-black tracking-widest">{lrNo}</p></div><div><p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Date</p><p className="text-xl font-black">{lrDate}</p></div></div>
+          <div><p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Vehicle Hub</p><p className="text-2xl font-black uppercase tracking-[0.2em]">{trip?.vehicleNumber || '--'}</p></div>
         </div>
       </div>
       <div className="border-4 border-black mt-10">
         <table className="w-full text-left border-collapse">
-          <thead><tr className="bg-slate-100 border-b-4 border-black"><th className="p-5 border-r-4 border-black text-xs font-black uppercase tracking-widest">Consignment Hub Particulars</th><th className="p-5 border-r-4 border-black text-xs font-black uppercase tracking-widest">Invoice Registry</th><th className="p-5 text-xs font-black uppercase tracking-widest">Mission Payload Qty</th></tr></thead>
+          <thead><tr className="bg-slate-100 border-b-4 border-black"><th className="p-5 border-r-4 border-black text-xs font-black uppercase tracking-widest">Consignment Hub Particulars</th><th className="p-5 border-r-4 border-black text-xs font-black uppercase tracking-widest">Invoice</th><th className="p-5 text-xs font-black uppercase tracking-widest">Payload Qty</th></tr></thead>
           <tbody><tr className="h-64 align-top"><td className="p-6 border-r-4 border-black font-bold uppercase text-lg italic">{product}</td><td className="p-6 border-r-4 border-black font-bold uppercase text-lg">{invNo}</td><td className="p-6 font-black text-2xl">{weight}</td></tr></tbody>
         </table>
       </div>
-      <div className="flex flex-col items-center justify-end pt-24"><p className="text-xs font-black uppercase tracking-[0.4em] border-t-4 border-black w-72 text-center pt-4 italic">Authorized Registry Signatory</p></div>
+      <div className="flex flex-col items-center justify-end pt-24"><p className="text-xs font-black uppercase tracking-[0.4em] border-t-4 border-black w-72 text-center pt-4 italic">Authorized Signatory</p></div>
     </div>
   );
 }
