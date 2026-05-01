@@ -80,9 +80,10 @@ export default function TrackPage() {
     setResult(null);
   };
 
-  if (showResult && result?.found && type === 'sales') {
+  if (showResult && result?.found) {
     const data = result.data;
     const formattedDate = data.updatedAt ? format(new Date(data.updatedAt), 'dd-MMM-yyyy HH:mm').toUpperCase() : 'PENDING';
+    const isSalesSearch = type === 'sales';
     const hasTrip = !!data.tripId;
 
     return (
@@ -102,7 +103,7 @@ export default function TrackPage() {
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
                 <Package className="h-3 w-3" /> Sale Order
               </div>
-              <p className="text-[12px] font-black text-blue-500">{data.saleOrder}</p>
+              <p className="text-[12px] font-black text-blue-500">{data.saleOrder || data.saleOrderNumber || 'N/A'}</p>
             </div>
             
             <div className="space-y-1">
@@ -145,22 +146,23 @@ export default function TrackPage() {
 
           {/* Mission Status Content */}
           <div className="flex justify-center pt-8">
-            <div className="bg-[#f0f7ff] border-l-[6px] border-blue-600 rounded-[2.5rem] p-10 md:p-16 max-w-4xl w-full shadow-lg relative flex flex-col items-center text-center">
-               <h2 className="text-xl md:text-2xl font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
-                {!hasTrip ? (
-                  <>
-                    YOUR ORDER NO. '{data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.
-                  </>
-                ) : (
-                  <>
-                    YOUR TRIP ID IS <button onClick={() => handleTrack(data.tripId, 'trip')} className="text-blue-600 underline decoration-2 hover:text-black transition-colors">{data.tripId}</button> FOR THIS SALES ORDER NO. {data.saleOrder}
-                  </>
-                )}
-               </h2>
+            {isSalesSearch ? (
+              <div className="bg-[#f0f7ff] border-l-[6px] border-blue-600 rounded-[2.5rem] p-10 md:p-16 max-w-4xl w-full shadow-lg relative flex flex-col items-center text-center">
+                <h2 className="text-xl md:text-2xl font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
+                  {!hasTrip ? (
+                    <>
+                      YOUR ORDER NO. '{data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.
+                    </>
+                  ) : (
+                    <>
+                      YOUR TRIP ID IS <button onClick={() => handleTrack(data.tripId, 'trip')} className="text-blue-600 underline decoration-2 hover:text-black transition-colors">{data.tripId}</button> FOR THIS SALES ORDER NO. {data.saleOrder}
+                    </>
+                  )}
+                </h2>
 
-               {/* Delay Remark Box (White with Shadow) */}
-               {data.delayRemark && (
-                 <div className="mt-12 bg-white p-10 md:p-14 rounded-[2.5rem] shadow-2xl border border-slate-100 w-full max-w-3xl flex flex-col items-center">
+                {/* Delay Remark Box (White with Shadow) */}
+                {data.delayRemark && (
+                  <div className="mt-12 bg-white p-10 md:p-14 rounded-[2.5rem] shadow-2xl border border-slate-100 w-full max-w-3xl flex flex-col items-center">
                     <div className="flex items-center gap-2 mb-4 text-slate-400">
                       <AlertTriangle className="h-4 w-4" />
                       <span className="text-[9px] font-black uppercase tracking-[0.2em]">Official Registry Note</span>
@@ -168,9 +170,50 @@ export default function TrackPage() {
                     <p className="text-slate-700 text-sm md:text-lg font-black italic text-center leading-relaxed">
                       "{data.delayRemark}"
                     </p>
-                 </div>
-               )}
-            </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* High Visibility Trip Mission Card (Dark Card from Image) */
+              <div className="bg-[#0f172a] p-10 md:p-16 rounded-[2.5rem] text-white space-y-12 shadow-2xl relative overflow-hidden w-full max-w-4xl border-t-[6px] border-blue-600">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">Current Status</p>
+                    <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-none">
+                      {data.status}
+                    </h2>
+                  </div>
+                  <Truck className="h-16 w-16 text-white/10 shrink-0" />
+                </div>
+
+                <div className="space-y-6 pt-10 border-t border-white/10">
+                  <div className="flex justify-between items-center text-sm md:text-xl font-bold">
+                    <span className="text-slate-500 uppercase tracking-tighter">Vehicle No.</span>
+                    <span className="uppercase tracking-widest">{data.vehicleNumber || 'ASSIGNING...'}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm md:text-xl font-bold">
+                    <span className="text-slate-500 uppercase tracking-tighter">Registry ID</span>
+                    <span className="tracking-widest">{data.tripId}</span>
+                  </div>
+                </div>
+
+                <div className="pt-10 flex flex-col items-center gap-8">
+                  <div className="flex items-center gap-3 text-slate-400">
+                    <MapPin className="h-5 w-5 text-blue-500" />
+                    <span className="text-sm md:text-lg font-black uppercase tracking-widest">
+                      {data.route || 'TRANSIT PENDING'}
+                    </span>
+                  </div>
+                  
+                  <button 
+                    onClick={handleBack}
+                    className="text-[11px] font-black uppercase tracking-[0.4em] text-blue-500 hover:text-white transition-colors"
+                  >
+                    BACK TO SEARCH
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -237,39 +280,6 @@ export default function TrackPage() {
               </p>
             </div>
           </div>
-        )}
-
-        {result && result.found && type === 'trip' && (
-           <div className="animate-fade-in border-t border-slate-100 pt-8 mt-8">
-              <div className="bg-slate-900 p-8 rounded-[2rem] text-white space-y-6 shadow-xl relative overflow-hidden">
-                <div className="flex justify-between items-start relative z-10">
-                  <div className="flex-1">
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-400">Current Status</p>
-                    <h3 className="text-2xl font-black uppercase italic tracking-tighter mt-1 leading-tight">
-                      {result.data.status}
-                    </h3>
-                  </div>
-                  <Truck className="h-10 w-10 text-white/20 ml-4 shrink-0" />
-                </div>
-                <div className="space-y-3.5 pt-4 border-t border-white/10 relative z-10">
-                  <div className="flex justify-between text-[11px] font-bold">
-                    <span className="text-slate-400 uppercase tracking-tighter">Vehicle No.</span>
-                    <span className="uppercase">{result.data.vehicleNumber || 'ASSIGNING...'}</span>
-                  </div>
-                  <div className="flex justify-between text-[11px] font-bold">
-                    <span className="text-slate-400 uppercase tracking-tighter">Registry ID</span>
-                    <span>{result.data.tripId}</span>
-                  </div>
-                  <div className="flex items-center gap-2 pt-3 border-t border-white/5">
-                    <MapPin className="h-3 w-3 text-blue-400" />
-                    <span className="text-[9px] font-black uppercase truncate text-slate-400 tracking-tight">
-                      {result.data.route || 'TRANSIT PENDING'}
-                    </span>
-                  </div>
-                </div>
-                <Button onClick={handleBack} variant="ghost" className="w-full text-[10px] font-black uppercase text-blue-400 mt-4 hover:bg-white/5">Back to Search</Button>
-              </div>
-           </div>
         )}
       </div>
     </div>

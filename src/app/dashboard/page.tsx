@@ -208,7 +208,7 @@ export default function SapDashboard() {
           consignor: payload.consignor || '',
           consignee: payload.consignee || '',
           shipToParty: payload.shipToParty || '',
-          route: `${payload.from || ''} - ${payload.destination || ''}`,
+          route: `${(payload.from || '').toUpperCase()}--${(payload.destination || '').toUpperCase()}`,
           orderQty: `${totalQty} ${uom}`,
           destination: payload.destination || '',
           delayRemark: payload.delayRemark || '',
@@ -617,6 +617,9 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
     const newTripId = crypto.randomUUID();
+    const routeStr = `${(selectedOrder.from || '').toUpperCase()}--${(selectedOrder.destination || '').toUpperCase()}`;
+    const totalOrderWeight = (selectedOrder.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
+    const weightUom = selectedOrder.items?.[0]?.weightUom || 'KG';
     
     const tripData = {
       id: newTripId,
@@ -625,7 +628,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       saleOrderNumber: selectedOrder.saleOrder,
       plantCode: selectedOrder.plantCode,
       shipToParty: selectedOrder.shipToParty,
-      route: `${selectedOrder.from} - ${selectedOrder.destination}`,
+      route: routeStr,
       assignWeight: parseFloat(assignWeight),
       vehicleType: vehicleType,
       vehicleNumber: vehicleNo,
@@ -642,16 +645,13 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const docRef = doc(db, 'users', user.uid, 'trips', newTripId);
     setDocumentNonBlocking(docRef, tripData, { merge: true });
 
-    const totalOrderWeight = (selectedOrder.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
-    const weightUom = selectedOrder.items?.[0]?.weightUom || 'KG';
-
     const publicTripRef = doc(db, 'public_trips', tripId);
     setDocumentNonBlocking(publicTripRef, {
       type: 'trip',
       status: 'LOADING',
       tripId: tripId,
       vehicleNumber: vehicleNo,
-      route: tripData.route,
+      route: routeStr,
       consignor: selectedOrder.consignor || '',
       consignee: selectedOrder.consignee || '',
       shipToParty: selectedOrder.shipToParty || '',
@@ -669,7 +669,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       consignor: selectedOrder.consignor || '',
       consignee: selectedOrder.consignee || '',
       shipToParty: selectedOrder.shipToParty || '',
-      route: tripData.route,
+      route: routeStr,
       orderQty: `${totalOrderWeight} ${weightUom}`,
       delayRemark: delayRemark,
       updatedAt: tripData.createdAt
@@ -790,7 +790,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                       <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.consignee}</td>
                       <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.shipToParty}</td>
                       <td className="p-4 font-bold text-[10px] uppercase text-slate-400 italic">
-                        {order.from} - {order.destination}
+                        {order.from}--{order.destination}
                       </td>
                       <td className="p-4 font-black text-xs">
                         <Badge variant="outline" className="border-blue-100 text-[#0056d2] rounded-lg px-2">
@@ -866,7 +866,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
               <span>•</span>
               <span>To: {selectedOrder?.shipToParty}</span>
               <span>•</span>
-              <span>Route: {selectedOrder?.from} - {selectedOrder?.destination}</span>
+              <span>Route: {selectedOrder?.from}--{selectedOrder?.destination}</span>
             </div>
           </div>
           
@@ -1039,7 +1039,7 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
           consignor: data.consignor || '',
           consignee: data.consignee || '',
           shipToParty: data.shipToParty || '',
-          route: `${data.from || ''} - ${data.destination || ''}`,
+          route: `${(data.from || '').toUpperCase()}--${(data.destination || '').toUpperCase()}`,
           orderQty: `${totalQty} ${uom}`,
           destination: data.destination || '',
           delayRemark: data.delayRemark || '',
