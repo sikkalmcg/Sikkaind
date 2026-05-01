@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -103,6 +104,11 @@ export default function SapDashboard() {
   const [showPrintPreview, setShowPrintPreview] = React.useState(false);
   const [cnPreviewData, setCnPreviewData] = React.useState<any>(null);
   const [showCnPreview, setShowCnPreview] = React.useState(false);
+  
+  // Home Dashboard Filters
+  const [homePlantFilter, setHomePlantFilter] = React.useState('ALL');
+  const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM'));
+
   const tCodeRef = React.useRef<HTMLInputElement>(null);
 
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
@@ -185,11 +191,34 @@ export default function SapDashboard() {
     return rawCustomers?.filter(c => c.plantCodes?.some((p: string) => authPlants.includes(p)));
   }, [rawCustomers, userProfile]);
 
+  // Home Stats Calculation
+  const homeStats = React.useMemo(() => {
+    if (!rawOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, reject: 0, closed: 0 };
+
+    const filterFn = (item: any) => {
+      const matchesPlant = homePlantFilter === 'ALL' || item.plantCode === homePlantFilter;
+      const itemDate = item.createdAt || item.updatedAt || item.lrDate || item.saleOrderDate;
+      const matchesMonth = !homeMonthFilter || (itemDate && itemDate.startsWith(homeMonthFilter));
+      return matchesPlant && matchesMonth;
+    };
+
+    const filteredOrders = rawOrders.filter(o => o.status !== 'CANCELLED' && filterFn(o));
+    const filteredTrips = allTrips.filter(filterFn);
+
+    return {
+      open: filteredOrders.length,
+      loading: filteredTrips.filter(t => t.status === 'LOADING').length,
+      transit: filteredTrips.filter(t => t.status === 'IN-TRANSIT').length,
+      arrived: filteredTrips.filter(t => t.status === 'ARRIVED').length,
+      reject: filteredTrips.filter(t => t.status === 'REJECTION').length,
+      closed: filteredTrips.filter(t => t.status === 'CLOSED').length,
+    };
+  }, [rawOrders, allTrips, homePlantFilter, homeMonthFilter]);
+
   const executeTCode = React.useCallback((code: string) => {
     const input = code.toUpperCase().trim();
     if (!input) return;
 
-    // Update history - last 7 unique
     setHistory(prev => {
       const filtered = prev.filter(h => h !== input);
       return [input, ...filtered].slice(0, 7);
@@ -472,7 +501,7 @@ export default function SapDashboard() {
           <div className="flex-1" />
           <div className="flex items-center gap-3 pr-4">
              <button onClick={() => tCodeRef.current?.focus()} title="Search T-Code (F4)" className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Search className="h-4 w-4" /></button>
-             <button onClick={() => window.print()} title="Print Node" className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Printer className="h-4 w-4" /></button>
+             <button onClick={() => window.print()} title="Print Registry" className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Printer className="h-4 w-4" /></button>
              <button onClick={handleLogout} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700">
                <LogOut className="h-3.5 w-3.5" /> Log Off
              </button>
@@ -513,31 +542,88 @@ export default function SapDashboard() {
                 </div>
               ))}
             </div>
-            <div className="p-4 border-t border-slate-200 bg-white">
-               <div className="w-11 h-11 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shadow-[0_4px_10px_rgba(0,0,0,0.3)] border-[2.5px] border-slate-500 transition-transform active:scale-95 cursor-pointer">
-                  <span className="text-white font-black text-xl italic tracking-tighter drop-shadow-md">N</span>
-               </div>
-            </div>
           </div>
         )}
 
         <div className="flex-1 flex flex-col overflow-hidden bg-[#f0f3f9]">
           <div className="flex-1 overflow-y-auto p-4 relative">
             {activeScreen === 'HOME' ? (
-              <div className="w-full h-full flex flex-col items-center justify-center p-8">
-                <div className="relative w-full max-w-[1100px] aspect-video shadow-2xl rounded-sm overflow-hidden border-8 border-white group">
-                   <Image 
-                    src="https://picsum.photos/seed/sikka-team/1200/800" 
-                    alt="Sikka Logistics Hub" 
-                    fill 
-                    className="object-cover transition-transform duration-1000 group-hover:scale-105"
-                    data-ai-hint="logistics operations"
-                    unoptimized
-                   />
-                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-12">
-                      <h2 className="text-white text-5xl font-black italic tracking-tighter uppercase leading-none mb-2">Sikka Logistics Hub</h2>
-                      <p className="text-white/80 font-bold uppercase tracking-[0.4em] text-xs">Mission Operations & Registry Control</p>
-                   </div>
+              <div className="w-full h-full flex flex-col p-4 space-y-8 animate-fade-in">
+                <div className="flex flex-col gap-2">
+                  <h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter">
+                    Sikka Logistics Management control
+                  </h1>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 border border-slate-300 shadow-sm">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Plant Registry</label>
+                    <select 
+                      className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-600"
+                      value={homePlantFilter}
+                      onChange={(e) => setHomePlantFilter(e.target.value)}
+                    >
+                      <option value="ALL">ALL AUTHORIZED PLANTS</option>
+                      {allPlantsList?.map(p => (
+                        <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div className="flex flex-col gap-1.5 relative group">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Mission Month Registry</label>
+                    <div className="flex flex-col border border-slate-400 bg-white">
+                      <div className="p-2 border-b border-slate-200 bg-slate-50 flex justify-center">
+                        <select 
+                          className="bg-transparent font-black text-xs outline-none"
+                          value={homeMonthFilter.split('-')[0]}
+                          onChange={(e) => {
+                            const month = homeMonthFilter.split('-')[1];
+                            setHomeMonthFilter(`${e.target.value}-${month}`);
+                          }}
+                        >
+                          {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
+                            <option key={y} value={y}>{y}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-6 md:grid-cols-12 gap-0 border-t border-slate-200">
+                        {['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'].map((m, i) => {
+                          const mStr = (i + 1).toString().padStart(2, '0');
+                          const year = homeMonthFilter.split('-')[0];
+                          const isActive = homeMonthFilter === `${year}-${mStr}`;
+                          return (
+                            <button
+                              key={m}
+                              onClick={() => setHomeMonthFilter(`${year}-${mStr}`)}
+                              className={cn(
+                                "py-2 text-[9px] font-black border-r border-slate-100 last:border-none transition-colors",
+                                isActive ? "bg-[#0056d2] text-white" : "hover:bg-slate-100 text-slate-600"
+                              )}
+                            >
+                              {m}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  {[
+                    { label: 'OPEN ORDER', count: homeStats.open, color: 'text-blue-600', bg: 'bg-blue-50' },
+                    { label: 'LOADING', count: homeStats.loading, color: 'text-orange-600', bg: 'bg-orange-50' },
+                    { label: 'IN-TRANSIT', count: homeStats.transit, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                    { label: 'ARRIVED', count: homeStats.arrived, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                    { label: 'REJECT', count: homeStats.reject, color: 'text-red-600', bg: 'bg-red-50' },
+                    { label: 'CLOSED', count: homeStats.closed, color: 'text-slate-600', bg: 'bg-slate-50' },
+                  ].map((widget) => (
+                    <div key={widget.label} className={cn("p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-2 transition-transform hover:-translate-y-1 bg-white")}>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{widget.label}</span>
+                      <span className={cn("text-4xl font-black italic tracking-tighter", widget.color)}>{widget.count}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : (
@@ -928,7 +1014,7 @@ function RegistryList({ onSelectItem, listData }: any) {
   return (
     <div className="overflow-x-auto border border-slate-300 shadow-sm">
       <table className="w-full text-left border-collapse">
-        <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr>{['Registry ID', 'Name / Description', 'Type / Details', 'Sync Node'].map(c => <th key={c} className="p-3 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">{c}</th>)}</tr></thead>
+        <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr>{['Registry ID', 'Name / Description', 'Type / Details', 'Sync Hub'].map(c => <th key={c} className="p-3 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">{c}</th>)}</tr></thead>
         <tbody>{listData?.map((item: any) => (
           <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors"><td className="p-3 text-[11px] font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.id.slice(0, 8)}</td><td className="p-3 text-[11px] font-bold uppercase">{item.customerName || item.plantName || `${item.consignor} → ${item.consignee}`}</td><td className="p-3 text-[11px] italic text-slate-500">{item.city || item.customerType || 'REGISTRY'}</td><td className="p-3 text-[11px] font-bold text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></tr>
         ))}</tbody>
@@ -1084,7 +1170,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
           <div className="p-10 space-y-6">
             <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Vehicle No. Registry</label><Input value={vehicleNo} onChange={(e) => setVehicleNo(e.target.value.toUpperCase())} placeholder="UP14-XX-0000" className="h-12 rounded-none border-slate-400 font-black text-sm" /></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Payload Quantity Hub</label><Input value={assignWeight} onChange={(e) => setAssignWeight(e.target.value)} placeholder="0.00" className="h-12 rounded-none border-slate-400 font-black text-sm" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Driver Contact Node</label><Input value={driverMobile} onChange={(e) => setDriverMobile(e.target.value)} placeholder="+91-XXXXX-XXXXX" className="h-12 rounded-none border-slate-400 font-black text-sm" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Driver Contact Hub</label><Input value={driverMobile} onChange={(e) => setDriverMobile(e.target.value)} placeholder="+91-XXXXX-XXXXX" className="h-12 rounded-none border-slate-400 font-black text-sm" /></div>
           </div>
           <DialogFooter className="p-8 border-t border-slate-100"><Button onClick={handleAssign} className="w-full bg-[#0056d2] hover:bg-black text-white px-8 h-14 rounded-none font-black uppercase text-[11px] tracking-widest shadow-lg">Initiate Mission</Button></DialogFooter>
         </DialogContent>
@@ -1099,13 +1185,13 @@ function BulkDataHub({ allPlants }: any) {
   const { toast } = useToast();
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-7xl mx-auto p-4">
-      <div className="bg-white rounded-none shadow-xl border border-slate-300 overflow-hidden flex flex-col">
+      <div className="bg-white rounded-sm shadow-xl border border-slate-300 overflow-hidden flex flex-col">
         <div className="bg-[#1e293b] p-6 text-white font-black uppercase italic text-sm tracking-widest">Template Repository Hub</div>
         <div className="p-10 space-y-6 flex-1 bg-slate-50/30">
           {['Customer Master Registry', 'Sales Order Master Registry'].map(t => <button key={t} onClick={() => toast({ title: "Download", description: `Template ${t} exported` })} className="w-full flex justify-between items-center p-5 bg-white border border-slate-300 rounded-none hover:bg-blue-50 transition-colors text-[11px] font-black uppercase tracking-tight">{t} <Download className="h-5 w-5 text-[#0056d2]" /></button>)}
         </div>
       </div>
-      <div className="bg-white rounded-none shadow-xl border border-slate-300 overflow-hidden flex flex-col">
+      <div className="bg-white rounded-sm shadow-xl border border-slate-300 overflow-hidden flex flex-col">
         <div className="bg-[#0056d2] p-6 text-white font-black uppercase italic text-sm tracking-widest">Mission Sync Control</div>
         <div className="p-10 space-y-8 flex-1">
           <SectionGrouping title="">
