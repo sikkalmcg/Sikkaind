@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -939,7 +938,7 @@ function RegistryList({ onSelectItem, listData }: any) {
 }
 
 function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN }: { orders: any[] | null, trips: any[] | null, onStatusUpdate: any, plants: any[] | null, onPrintLR: any, onPrintCN: any }) {
-  const { user } = userUser ? useUser() : { user: null };
+  const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
   const [plantFilter, setPlantFilter] = React.useState('ALL');
