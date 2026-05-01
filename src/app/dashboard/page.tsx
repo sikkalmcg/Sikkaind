@@ -6,7 +6,7 @@ import {
   Printer, Save, RotateCcw, X, HelpCircle, LogOut,
   ChevronRight, Check, AlertCircle, Info, PlusCircle, Trash2,
   Grid2X2, Upload, Download, ShoppingBag, ArrowUpRight,
-  Filter, Truck, MapPin, User, DollarSign, Activity,
+  Filter, Truck, MapPin, User, Users, DollarSign, Activity,
   Layers, PackageCheck, Ban, Lock, Play, XCircle, Search,
   ArrowRight, Calendar, Phone, FileText, Package, Clock,
   LayoutDashboard, Database, Settings, BarChart, TrendingUp,
