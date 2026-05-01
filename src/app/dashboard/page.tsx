@@ -200,6 +200,7 @@ export default function SapDashboard() {
         
         const totalQty = (payload.items || []).reduce((sum: number, item: any) => sum + (parseFloat(item.weight) || 0), 0);
         const uom = payload.items?.[0]?.weightUom || 'KG';
+        const routeStr = (payload.from && payload.destination) ? `${payload.from.toUpperCase()}--${payload.destination.toUpperCase()}` : '';
 
         setDocumentNonBlocking(publicRef, {
           type: 'order',
@@ -209,7 +210,7 @@ export default function SapDashboard() {
           consignor: payload.consignor || '',
           consignee: payload.consignee || '',
           shipToParty: payload.shipToParty || '',
-          route: `${(payload.from || '').toUpperCase()}--${(payload.destination || '').toUpperCase()}`,
+          route: routeStr,
           orderQty: `${totalQty} ${uom}`,
           destination: payload.destination || '',
           delayRemark: payload.delayRemark || '',
@@ -618,7 +619,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
     const newTripId = crypto.randomUUID();
-    const routeStr = `${(selectedOrder.from || '').toUpperCase()}--${(selectedOrder.destination || '').toUpperCase()}`;
+    const routeStr = (selectedOrder.from && selectedOrder.destination) ? `${selectedOrder.from.toUpperCase()}--${selectedOrder.destination.toUpperCase()}` : '';
     const totalOrderWeight = (selectedOrder.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
     const weightUom = selectedOrder.items?.[0]?.weightUom || 'KG';
     const soNo = (selectedOrder.saleOrder || selectedOrder.saleOrderNumber || '').toString().trim().toUpperCase();
@@ -1040,6 +1041,7 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
 
         const totalQty = (data.items || []).reduce((sum: number, item: any) => sum + (parseFloat(item.weight) || 0), 0);
         const uom = data.items?.[0]?.weightUom || 'KG';
+        const routeStr = (data.from && data.destination) ? `${data.from.toUpperCase()}--${data.destination.toUpperCase()}` : '';
 
         setDocumentNonBlocking(publicRef, {
           type: 'order',
@@ -1049,7 +1051,7 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
           consignor: data.consignor || '',
           consignee: data.consignee || '',
           shipToParty: data.shipToParty || '',
-          route: `${(data.from || '').toUpperCase()}--${(data.destination || '').toUpperCase()}`,
+          route: routeStr,
           orderQty: `${totalQty} ${uom}`,
           destination: data.destination || '',
           delayRemark: data.delayRemark || '',

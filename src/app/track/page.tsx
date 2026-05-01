@@ -125,8 +125,9 @@ export default function TrackPage() {
   if (showResult && result?.found) {
     const data = result.data;
     const formattedDate = data.updatedAt ? format(new Date(data.updatedAt), 'dd-MMM-yyyy HH:mm').toUpperCase() : 'PENDING';
-    const soNo = data.saleOrder || data.saleOrderNumber || 'N/A';
+    const soNo = data.saleOrder || data.saleOrderNumber || data.id || 'N/A';
     const hasTrip = !!data.tripId;
+    const currentRoute = data.route || 'TRANSIT PENDING';
 
     return (
       <div className="min-h-screen bg-white font-mono p-4 md:p-8 animate-fade-in">
@@ -180,7 +181,7 @@ export default function TrackPage() {
                 <Truck className="h-3 w-3" /> Route
               </div>
               <p className="text-[9px] font-black uppercase text-blue-300">
-                {data.route || 'TRANSIT PENDING'}
+                {currentRoute}
               </p>
             </div>
           </div>
@@ -275,7 +276,7 @@ export default function TrackPage() {
                      <div className="flex items-center gap-2 text-slate-300">
                         <MapPin className="h-3 w-3 text-blue-500" />
                         <span className="text-xs md:text-sm font-black uppercase tracking-widest">
-                          {data.route || 'TRANSIT PENDING'}
+                          {currentRoute}
                         </span>
                      </div>
                      <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">
