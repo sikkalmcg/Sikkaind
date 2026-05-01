@@ -417,29 +417,29 @@ export default function SapDashboard() {
                 
                 <div className="px-4 py-3 mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden opacity-60">Master Data</div>
                 {[
-                  { icon: Database, label: "Plant Master", code: "OX01" },
-                  { icon: Database, label: "Company Master", code: "FM01" },
-                  { icon: User, label: "Vendor Master", code: "XK01" },
-                  { icon: User, label: "Customer Master", code: "XD01" },
+                  { icon: Database, label: "Plant Master (OX01)", code: "OX01" },
+                  { icon: Database, label: "Company Master (FM01)", code: "FM01" },
+                  { icon: User, label: "Vendor Master (XK01)", code: "XK01" },
+                  { icon: User, label: "Customer Master (XD01)", code: "XD01" },
                 ].map((item) => (
                   <SidebarMenuItem key={item.code}>
                     <SidebarMenuButton onClick={() => executeTCode(item.code)} isActive={activeScreen.startsWith(item.code.slice(0, 2))}>
                       <item.icon className="h-4 w-4" />
-                      <span>{item.label} ({item.code})</span>
+                      <span>{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
 
                 <div className="px-4 py-3 mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden opacity-60">Logistics</div>
                 {[
-                  { icon: ShoppingBag, label: "Sales Orders", code: "VA01" },
-                  { icon: Truck, label: "Drip Board", code: "TR21" },
-                  { icon: BarChart, label: "Bulk Data Hub", code: "BULK" },
+                  { icon: ShoppingBag, label: "Sales Orders (VA01)", code: "VA01" },
+                  { icon: Truck, label: "Drip Board (TR21)", code: "TR21" },
+                  { icon: BarChart, label: "Bulk Data Hub (BULK)", code: "BULK" },
                 ].map((item) => (
                   <SidebarMenuItem key={item.code}>
                     <SidebarMenuButton onClick={() => executeTCode(item.code)} isActive={activeScreen === item.code}>
                       <item.icon className="h-4 w-4" />
-                      <span>{item.label} ({item.code})</span>
+                      <span>{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -519,19 +519,19 @@ export default function SapDashboard() {
                     </div>
 
                     {/* T-CODE CARDS GRID - 3 COLUMNS PER REQUEST */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-10">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-10">
                       {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'TR21', 'SU01'].map((code) => (
                         <div 
                           key={code} 
                           onClick={() => executeTCode(code)} 
-                          className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer group flex flex-col min-h-[300px]"
+                          className="bg-white p-6 rounded-[1.5rem] shadow-lg border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group flex flex-col min-h-[220px]"
                         >
-                          <div className="flex items-center justify-between mb-8">
-                            <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-6 py-2 font-black italic tracking-widest text-[11px] border-none shadow-sm">{code}</Badge>
-                            <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-[#0056d2] group-hover:translate-x-1 transition-all" />
+                          <div className="flex items-center justify-between mb-6">
+                            <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1.5 font-black italic tracking-widest text-[10px] border-none shadow-sm">{code}</Badge>
+                            <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-[#0056d2] group-hover:translate-x-1 transition-all" />
                           </div>
                           <div className="flex-1 flex flex-col justify-start">
-                             <h3 className="text-[14px] font-black text-[#1e3a8a] leading-[1.8] uppercase tracking-wider">
+                             <h3 className="text-[12px] font-black text-[#1e3a8a] leading-[1.6] uppercase tracking-wider">
                                {getScreenTitle(code as Screen).split(' ').map((word, i) => (
                                  <span key={i} className="block">{word}</span>
                                ))}
