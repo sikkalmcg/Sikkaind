@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { 
   Printer, Save, RotateCcw, X, HelpCircle, LogOut,
-  ChevronRight, Check, AlertCircle, Info, PlusCircle, Trash2,
+  ChevronRight, ChevronLeft, Check, AlertCircle, Info, PlusCircle, Trash2,
   Grid2X2, Upload, Download, ShoppingBag, ArrowUpRight,
   Filter, Truck, MapPin, User, Users, DollarSign, Activity,
   Layers, PackageCheck, Ban, Lock, Play, XCircle, Search,
@@ -645,26 +645,34 @@ export default function SapDashboard() {
                     </select>
                   </div>
                   
-                  <div className="flex flex-col gap-1.5 relative group">
+                  <div className="flex flex-col gap-2">
                     <label className="text-[10px] font-black uppercase text-slate-400">Mission Month Registry</label>
-                    <div className="flex flex-col border border-slate-300 bg-white overflow-hidden">
-                      <div className="p-2 flex justify-center items-center border-b border-slate-100">
-                        <select 
-                          className="appearance-none bg-transparent font-black text-sm outline-none cursor-pointer pr-5 text-center"
-                          value={homeMonthFilter.split('-')[0]}
-                          onChange={(e) => {
-                            const month = homeMonthFilter.split('-')[1];
-                            setHomeMonthFilter(`${e.target.value}-${month}`);
+                    <div className="flex flex-col border border-slate-300 bg-white rounded-lg shadow-sm w-full max-w-[320px]">
+                      <div className="flex items-center justify-between p-3 border-b border-slate-200 bg-white">
+                        <button 
+                          onClick={() => {
+                            const [y, m] = homeMonthFilter.split('-');
+                            setHomeMonthFilter(`${parseInt(y) - 1}-${m}`);
                           }}
+                          className="p-1.5 hover:bg-slate-50 rounded-md border border-slate-200 transition-colors"
                         >
-                          {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
-                            <option key={y} value={y}>{y}</option>
-                          ))}
-                        </select>
-                        <ChevronDown className="-ml-4 h-3 w-3 pointer-events-none text-slate-400" />
+                          <ChevronLeft className="h-4 w-4 text-slate-600" />
+                        </button>
+                        <span className="text-sm font-black text-slate-800 tracking-tight">
+                          {homeMonthFilter.split('-')[0]}
+                        </span>
+                        <button 
+                          onClick={() => {
+                            const [y, m] = homeMonthFilter.split('-');
+                            setHomeMonthFilter(`${parseInt(y) + 1}-${m}`);
+                          }}
+                          className="p-1.5 hover:bg-slate-50 rounded-md border border-slate-200 transition-colors"
+                        >
+                          <ChevronRight className="h-4 w-4 text-slate-600" />
+                        </button>
                       </div>
-                      <div className="grid grid-cols-12 divide-x divide-slate-100 border-t border-slate-100">
-                        {['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'].map((m, i) => {
+                      <div className="grid grid-cols-4 gap-2 p-3 bg-white">
+                        {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => {
                           const mStr = (i + 1).toString().padStart(2, '0');
                           const year = homeMonthFilter.split('-')[0];
                           const isActive = homeMonthFilter === `${year}-${mStr}`;
@@ -673,8 +681,10 @@ export default function SapDashboard() {
                               key={m}
                               onClick={() => setHomeMonthFilter(`${year}-${mStr}`)}
                               className={cn(
-                                "py-2.5 text-[9px] font-black transition-colors uppercase",
-                                isActive ? "bg-[#0056d2] text-white" : "hover:bg-slate-50 text-slate-500"
+                                "py-2 text-[10px] font-black transition-all border rounded-md uppercase tracking-tight",
+                                isActive 
+                                  ? "bg-[#0056d2] text-white border-[#0056d2] shadow-sm" 
+                                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                               )}
                             >
                               {m}
