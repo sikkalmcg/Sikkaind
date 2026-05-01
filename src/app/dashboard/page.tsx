@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { 
   Printer, Save, ArrowLeft, ArrowRight, 
   RotateCcw, X, HelpCircle, LogOut, LayoutDashboard,
-  ChevronRight, Building2, Check, AlertCircle, Info, PlusCircle, Trash2
+  ChevronRight, Building2, Check, AlertCircle, Info, PlusCircle, Trash2,
+  Grid2X2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -190,18 +191,25 @@ export default function SapDashboard() {
         {/* Sidebar - Auto hides when module is active */}
         {!isModuleActive && (
           <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-sm animate-fade-in print:hidden">
-             <div className="p-4 border-b border-slate-100 flex items-center gap-3">
-                <div className="bg-[#0056d2] p-2 rounded">
-                   <LayoutDashboard className="h-5 w-5 text-white" />
+             {/* Header branding as per reference image */}
+             <div className="p-6 border-b border-slate-100 flex items-center gap-4">
+                <div className="bg-[#0056d2] p-2 rounded-lg flex items-center justify-center">
+                   <Grid2X2 className="h-6 w-6 text-white" />
                 </div>
-                <div>
-                  <h2 className="text-[12px] font-black uppercase text-[#1e3a8a] italic leading-tight">Sikka Logistics</h2>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Registry Control</p>
+                <div className="flex flex-col">
+                  <h2 className="text-[13px] font-black uppercase text-[#1e3a8a] italic tracking-tight leading-none">
+                    Sikka Logistics
+                  </h2>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                    Registry Control
+                  </span>
                 </div>
              </div>
-             <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
-                <div className="space-y-2">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Favorites</p>
+             
+             {/* Favorites list as per reference image */}
+             <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar">
+                <div className="space-y-4">
+                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 mb-6">Favorites</p>
                   {[
                     { code: 'OX01', label: 'Create Plant' },
                     { code: 'FM01', label: 'Create Company' },
@@ -211,10 +219,14 @@ export default function SapDashboard() {
                     <button 
                       key={item.code} 
                       onClick={() => executeTCode(item.code)}
-                      className="flex items-center gap-3 w-full text-left p-2 hover:bg-[#e8f0fe] rounded-lg group transition-all"
+                      className="flex items-center gap-4 w-full text-left py-2 px-2 hover:bg-[#f0f3f9] rounded-lg group transition-all"
                     >
-                      <div className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-[#0056d2]" />
-                      <span className="text-xs font-bold text-slate-600 group-hover:text-[#1e3a8a]">{item.code} - {item.label}</span>
+                      <div className="w-2 h-2 rounded-full bg-slate-300 group-hover:bg-[#0056d2] shrink-0" />
+                      <span className="text-[12px] font-bold text-slate-600 group-hover:text-[#1e3a8a] flex items-center gap-2">
+                        <span className="text-[#1e3a8a]">{item.code}</span>
+                        <span className="text-slate-300">-</span>
+                        <span>{item.label}</span>
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -224,7 +236,7 @@ export default function SapDashboard() {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col bg-[#f0f3f9] overflow-y-auto no-scrollbar">
-          {/* Centered Title Bar - 50% Height Reduction */}
+          {/* Centered Title Bar */}
           <div className="bg-[#0056d2] text-white py-1.5 px-6 shadow-lg print:bg-white print:text-black print:shadow-none flex flex-col items-center justify-center min-h-[50px]">
             <h1 className="text-xl font-black italic tracking-tighter uppercase leading-none text-center">
               {activeScreen === 'HOME' ? 'Sikka Logistics Hub' : activeScreen}
