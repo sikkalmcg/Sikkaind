@@ -10,7 +10,7 @@ import {
   Layers, PackageCheck, Ban, Lock, Play, XCircle, Search,
   ArrowRight, Calendar, Phone, FileText, Package, Clock,
   LayoutDashboard, Database, Settings, BarChart, TrendingUp,
-  FileSpreadsheet, HardDriveDownload, CloudUpload
+  FileSpreadsheet, HardDriveDownload, CloudUpload, ShieldAlert
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,7 +52,7 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 
-type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'TR21' | 'BULK' | 'SU01' | 'SU02' | 'SU03';
+type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'BULK' | 'SU01' | 'SU02' | 'SU03';
 
 const MASTER_TCODES = [
   { code: 'OX01', description: 'PLANT MASTER: CREATE INITIAL SCREEN' },
@@ -70,6 +70,7 @@ const MASTER_TCODES = [
   { code: 'VA01', description: 'SALES ORDER REGISTRY: CREATE INITIAL SCREEN' },
   { code: 'VA02', description: 'SALES ORDER REGISTRY: CHANGE NODE' },
   { code: 'VA03', description: 'SALES ORDER REGISTRY: DISPLAY NODE' },
+  { code: 'VA04', description: 'SALES ORDER REGISTRY: CANCEL NODE' },
   { code: 'TR21', description: 'DRIP BOARD REGISTRY CONTROL' },
   { code: 'BULK', description: 'BULK DATA HUB CONTROL' },
   { code: 'SU01', description: 'USER MANAGEMENT: CREATE INITIAL SCREEN' },
@@ -118,8 +119,9 @@ export default function SapDashboard() {
 
   const recentOrders = React.useMemo(() => {
     const authPlants = getAuthorizedPlants();
-    if (!authPlants.length) return rawOrders;
-    return rawOrders?.filter(o => authPlants.includes(o.plantCode));
+    const activeOrders = rawOrders?.filter(o => o.status !== 'CANCELLED');
+    if (!authPlants.length) return activeOrders;
+    return activeOrders?.filter(o => authPlants.includes(o.plantCode));
   }, [rawOrders, userProfile]);
 
   const allTrips = React.useMemo(() => {
@@ -166,6 +168,41 @@ export default function SapDashboard() {
       return;
     }
     
+    if (activeScreen === 'VA04') {
+      if (!formData.saleOrder) {
+        setStatusMsg({ text: 'Error: Sales Order ID is mandatory', type: 'error' });
+        return;
+      }
+      if (!formData.reason || formData.reason.trim() === '') {
+        setStatusMsg({ text: 'Error: Cancellation Reason is mandatory', type: 'error' });
+        return;
+      }
+
+      const orderToCancel = rawOrders?.find(o => (o.saleOrder || o.saleOrderNumber)?.toString().toUpperCase() === formData.saleOrder.toString().toUpperCase());
+      if (!orderToCancel) {
+        setStatusMsg({ text: `Error: Sales Order ${formData.saleOrder} not found in registry`, type: 'error' });
+        return;
+      }
+
+      const docRef = doc(db, 'users', user.uid, 'sales_orders', orderToCancel.id);
+      const publicRef = doc(db, 'public_orders', (orderToCancel.saleOrder || orderToCancel.saleOrderNumber).toString().toUpperCase());
+
+      const cancellationPayload = {
+        status: 'CANCELLED',
+        cancellationReason: formData.reason,
+        cancelledAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      setDocumentNonBlocking(docRef, cancellationPayload, { merge: true });
+      setDocumentNonBlocking(publicRef, cancellationPayload, { merge: true });
+
+      setStatusMsg({ text: `Success: Sales Order ${formData.saleOrder} marked as CANCELLED`, type: 'success' });
+      toast({ title: "Order Cancelled", description: `Sales Order ${formData.saleOrder} has been removed from active nodes.` });
+      setFormData({});
+      return;
+    }
+
     const isDisplayOnly = activeScreen.endsWith('03');
     if (isDisplayOnly) {
       setStatusMsg({ text: 'Display mode: Changes not allowed', type: 'info' });
@@ -286,7 +323,8 @@ export default function SapDashboard() {
 
   const handleCancel = () => {
     setFormData({});
-    if (activeScreen.endsWith('02') || activeScreen.endsWith('03')) {
+    if (activeScreen.endsWith('02') || activeScreen.endsWith('03') || activeScreen === 'VA04') {
+      setStatusMsg({ text: 'Transaction reset', type: 'info' });
     } else {
       setActiveScreen('HOME');
     }
@@ -326,7 +364,7 @@ export default function SapDashboard() {
 
   const isModuleActive = activeScreen !== 'HOME';
   const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
-  const showForm = activeScreen.endsWith('01') || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
+  const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
   const isReadOnly = activeScreen.endsWith('03');
 
   const getRegistryList = () => {
@@ -351,7 +389,7 @@ export default function SapDashboard() {
             <DropdownMenuContent className="bg-white rounded-none border-slate-300 shadow-xl text-[11px] p-0 min-w-[150px]">
               <DropdownMenuItem onClick={() => setActiveScreen('HOME')} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Home Hub (/n)</DropdownMenuItem>
               <DropdownMenuSeparator className="m-0 bg-slate-200" />
-              <DropdownMenuItem onClick={handleSave} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Save (Ctrl+S)</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSave} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">{activeScreen === 'VA04' ? 'Post (Ctrl+S)' : 'Save (Ctrl+S)'}</DropdownMenuItem>
               <DropdownMenuSeparator className="m-0 bg-slate-200" />
               <DropdownMenuItem onClick={handleLogout} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4 text-red-600">Log Off</DropdownMenuItem>
             </DropdownMenuContent>
@@ -387,13 +425,13 @@ export default function SapDashboard() {
               />
             </div>
             <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-6">
-               <button onClick={handleSave} title="Save (Ctrl+S)" className="p-1 hover:bg-slate-200 rounded group transition-all">
+               <button onClick={handleSave} title={activeScreen === 'VA04' ? 'Post (Ctrl+S)' : 'Save (Ctrl+S)'} className="p-1 hover:bg-slate-200 rounded group transition-all">
                  <Save className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
                </button>
                <button onClick={() => setActiveScreen('HOME')} title="Exit" className="p-1 hover:bg-slate-200 rounded group transition-all">
                  <X className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
                </button>
-               <button onClick={() => setFormData({})} title="Refresh/Reset" className="p-1 hover:bg-slate-200 rounded group transition-all">
+               <button onClick={handleCancel} title="Refresh/Reset" className="p-1 hover:bg-slate-200 rounded group transition-all">
                  <RotateCcw className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
                </button>
                <button onClick={() => window.print()} title="Print" className="p-1 hover:bg-slate-200 rounded group transition-all">
@@ -444,6 +482,7 @@ export default function SapDashboard() {
                 <div className="px-4 py-3 mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden opacity-60">Logistics</div>
                 {[
                   { icon: ShoppingBag, label: "Sales Orders (VA01)", code: "VA01" },
+                  { icon: XCircle, label: "Cancel Order (VA04)", code: "VA04" },
                   { icon: Truck, label: "Drip Board (TR21)", code: "TR21" },
                   { icon: BarChart, label: "Bulk Data Hub (BULK)", code: "BULK" },
                 ].map((item) => (
@@ -528,7 +567,7 @@ export default function SapDashboard() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 pb-10">
-                      {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'TR21', 'SU01'].map((code) => (
+                      {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'VA04', 'TR21', 'SU01'].map((code) => (
                         <div 
                           key={code} 
                           onClick={() => executeTCode(code)} 
@@ -581,7 +620,8 @@ export default function SapDashboard() {
                              {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
                              {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
                              {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                             {activeScreen.startsWith('VA') && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} allCustomers={rawCustomers} />}
+                             {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} allCustomers={rawCustomers} />}
+                             {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={rawOrders} onPost={handleSave} onCancel={handleCancel} />}
                              {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
                            </>
                          )}
@@ -782,6 +822,73 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
   );
 }
 
+function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && data.saleOrder) {
+      const order = allOrders?.find((o: any) => (o.saleOrder || o.saleOrderNumber)?.toString().toUpperCase() === data.saleOrder.toString().toUpperCase());
+      if (order) {
+        onChange({
+          ...data,
+          consignor: order.consignor,
+          from: order.from,
+          consignee: order.consignee,
+          shipToParty: order.shipToParty,
+          destination: order.destination,
+          product: order.items?.[0]?.product || 'SALT',
+          weight: `${order.items?.[0]?.weight || '0'} ${order.items?.[0]?.weightUom || 'MT'}`
+        });
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-10">
+      <div className="flex items-center gap-4 bg-red-50 p-6 rounded-2xl border border-red-100 shadow-inner">
+        <ShieldAlert className="h-6 w-6 text-red-600" />
+        <div className="flex-1">
+          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-600 mb-2 block">Sales Order Number *</label>
+          <input 
+            className="w-full h-12 bg-white border border-red-200 rounded-xl px-4 text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
+            placeholder="ENTER ORDER NO. & PRESS ENTER"
+            value={data.saleOrder || ''}
+            onChange={(e) => onChange({ ...data, saleOrder: e.target.value.toUpperCase() })}
+            onKeyDown={handleKeyDown}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 bg-slate-50 p-8 rounded-[2.5rem] border border-slate-200">
+        <DetailRow label="Consignor" value={data.consignor} />
+        <DetailRow label="From" value={data.from} />
+        <DetailRow label="Consignee" value={data.consignee} />
+        <DetailRow label="Ship To Party" value={data.shipToParty} />
+        <DetailRow label="Destination" value={data.destination} />
+        <DetailRow label="Product Name" value={data.product} />
+        <DetailRow label="Weight + UOM" value={data.weight} />
+      </div>
+
+      <div className="space-y-4">
+        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Cancellation Reason *</label>
+        <textarea 
+          className="w-full min-h-[120px] rounded-3xl border border-slate-200 p-6 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-600 shadow-sm resize-none"
+          placeholder="ENTER MANDATORY REASON FOR CANCELLATION..."
+          value={data.reason || ''}
+          onChange={(e) => onChange({ ...data, reason: e.target.value })}
+        />
+      </div>
+
+      <div className="flex items-center justify-end gap-6 pt-6 border-t border-slate-100">
+        <Button onClick={onCancel} variant="ghost" className="h-12 px-8 rounded-xl font-black uppercase text-[10px] tracking-widest text-slate-400 hover:text-slate-600 transition-all">
+          <X className="h-4 w-4 mr-2" /> Cancel Node
+        </Button>
+        <Button onClick={onPost} className="h-14 px-12 bg-red-600 hover:bg-black text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.4em] shadow-xl shadow-red-600/20 transition-all active:scale-95">
+          <Check className="h-4 w-4 mr-2" /> Post Cancellation
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function UserForm({ data, onChange, disabled, allPlants }: any) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
@@ -791,7 +898,7 @@ function UserForm({ data, onChange, disabled, allPlants }: any) {
       <div className="space-y-2">
         <label className="text-[10px] font-bold text-slate-500 uppercase">Authorized T-Codes</label>
         <div className="bg-white border border-slate-400 h-32 overflow-y-auto p-2">
-          {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'BULK').map(t => (
+          {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'BULK' || t.code === 'VA04').map(t => (
             <div key={t.code} className="flex items-center gap-2 mb-1">
               <Checkbox 
                 checked={data.tcodes?.includes(t.code)} 
@@ -1045,6 +1152,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
   };
 
   const filteredOrders = orders?.filter(o => {
+    if (o.status === 'CANCELLED') return false;
     const totalW = (o.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
     const remaining = calculateRemainingWeight(o.id, totalW);
     const matchesPlant = plantFilter === 'ALL' || o.plantCode === plantFilter;
