@@ -203,8 +203,9 @@ export default function SapDashboard() {
 
         setDocumentNonBlocking(publicRef, {
           type: 'order',
-          status: 'PLACED',
+          status: payload.status || 'PLACED',
           saleOrder: cleanSo,
+          saleOrderNumber: cleanSo,
           consignor: payload.consignor || '',
           consignee: payload.consignee || '',
           shipToParty: payload.shipToParty || '',
@@ -620,12 +621,13 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const routeStr = `${(selectedOrder.from || '').toUpperCase()}--${(selectedOrder.destination || '').toUpperCase()}`;
     const totalOrderWeight = (selectedOrder.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
     const weightUom = selectedOrder.items?.[0]?.weightUom || 'KG';
+    const soNo = (selectedOrder.saleOrder || selectedOrder.saleOrderNumber || '').toString().trim().toUpperCase();
     
     const tripData = {
       id: newTripId,
       tripId: tripId,
       saleOrderId: selectedOrder.id,
-      saleOrderNumber: selectedOrder.saleOrder,
+      saleOrderNumber: soNo,
       plantCode: selectedOrder.plantCode,
       shipToParty: selectedOrder.shipToParty,
       route: routeStr,
@@ -645,12 +647,14 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const docRef = doc(db, 'users', user.uid, 'trips', newTripId);
     setDocumentNonBlocking(docRef, tripData, { merge: true });
 
+    // Update Public Trip Registry with all metadata
     const publicTripRef = doc(db, 'public_trips', tripId);
     setDocumentNonBlocking(publicTripRef, {
       type: 'trip',
       status: 'LOADING',
       tripId: tripId,
-      saleOrder: selectedOrder.saleOrder, // Ensure Sale Order number is saved for Trip Registry
+      saleOrder: soNo,
+      saleOrderNumber: soNo,
       vehicleNumber: vehicleNo,
       route: routeStr,
       consignor: selectedOrder.consignor || '',
@@ -661,8 +665,8 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       updatedAt: tripData.createdAt
     }, { merge: true });
 
-    const cleanSo = selectedOrder.saleOrder.toString().trim().toUpperCase();
-    const publicOrderRef = doc(db, 'public_orders', cleanSo);
+    // Update Public Order Registry to point to Trip
+    const publicOrderRef = doc(db, 'public_orders', soNo);
     setDocumentNonBlocking(publicOrderRef, {
       status: 'LOADING',
       vehicleNumber: vehicleNo,
@@ -673,7 +677,9 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       route: routeStr,
       orderQty: `${totalOrderWeight} ${weightUom}`,
       delayRemark: delayRemark,
-      updatedAt: tripData.createdAt
+      updatedAt: tripData.createdAt,
+      saleOrder: soNo,
+      saleOrderNumber: soNo
     }, { merge: true });
 
     onStatusUpdate({ text: `Trip ${tripId} registered successfully`, type: 'success' });
@@ -689,8 +695,8 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const publicTripRef = doc(db, 'public_trips', trip.tripId);
     setDocumentNonBlocking(publicTripRef, { status: nextStatus, updatedAt: new Date().toISOString() }, { merge: true });
 
-    const cleanSo = trip.saleOrderNumber.toString().trim().toUpperCase();
-    const publicOrderRef = doc(db, 'public_orders', cleanSo);
+    const soNo = (trip.saleOrderNumber || trip.saleOrder || '').toString().trim().toUpperCase();
+    const publicOrderRef = doc(db, 'public_orders', soNo);
     setDocumentNonBlocking(publicOrderRef, { status: nextStatus, updatedAt: new Date().toISOString() }, { merge: true });
 
     onStatusUpdate({ text: `Mission ${trip.tripId} moved to ${nextStatus}`, type: 'success' });
@@ -782,10 +788,11 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                   const totalW = (order.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
                   const remaining = calculateRemainingWeight(order.id, totalW);
                   const uom = order.items?.[0]?.weightUom || 'KG';
+                  const soNo = (order.saleOrder || order.saleOrderNumber || 'N/A');
                   
                   return (
                     <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                      <td className="p-4 font-black text-xs text-[#0056d2]">{order.saleOrder}</td>
+                      <td className="p-4 font-black text-xs text-[#0056d2]">{soNo}</td>
                       <td className="p-4 font-bold text-[10px] text-slate-600 uppercase">{order.plantCode}</td>
                       <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.consignor}</td>
                       <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.consignee}</td>
@@ -819,6 +826,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {getTripsByStatus(status).map(trip => {
                 const next = getNextStatus(status);
+                const soNo = (trip.saleOrderNumber || trip.saleOrder || 'N/A');
                 return (
                   <div key={trip.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-xl space-y-4">
                     <div className="flex items-center justify-between">
@@ -830,7 +838,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                     <div className="space-y-3">
                       <div className="flex justify-between text-[11px] font-bold">
                          <span className="text-slate-400 uppercase tracking-tighter">Order Number:</span>
-                         <span className="text-slate-900">{trip.saleOrderNumber}</span>
+                         <span className="text-slate-900">{soNo}</span>
                       </div>
                       <div className="flex justify-between text-[11px] font-bold">
                          <span className="text-slate-400 uppercase tracking-tighter">Vehicle Number:</span>
@@ -863,7 +871,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
           <div className="bg-[#0056d2] p-6 text-white flex flex-col items-center">
             <DialogTitle className="text-xl font-black uppercase italic tracking-tighter">Assign Mission Vehicle</DialogTitle>
             <div className="flex gap-4 mt-3 opacity-80 text-[10px] font-bold uppercase tracking-widest">
-              <span>SO: {selectedOrder?.saleOrder}</span>
+              <span>SO: {selectedOrder?.saleOrder || selectedOrder?.saleOrderNumber}</span>
               <span>•</span>
               <span>To: {selectedOrder?.shipToParty}</span>
               <span>•</span>
@@ -1037,6 +1045,7 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
           type: 'order',
           status: 'PLACED',
           saleOrder: cleanSo,
+          saleOrderNumber: cleanSo,
           consignor: data.consignor || '',
           consignee: data.consignee || '',
           shipToParty: data.shipToParty || '',
@@ -1336,7 +1345,7 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
       <div>
         <SectionHeader title="Consignment Data" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
-          <FormField label="Sale Order No" placeholder="SO-10001" value={data.saleOrder} onChange={(e: any) => updateField('saleOrder', e.target.value)} required disabled={disabled} />
+          <FormField label="Sale Order No" placeholder="SO-10001" value={data.saleOrder || data.saleOrderNumber} onChange={(e: any) => updateField('saleOrder', e.target.value)} required disabled={disabled} />
           <div className="flex items-center gap-6">
             <label className="text-xs font-bold text-slate-600 w-48">Consignor</label>
             <select disabled={disabled} className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none" value={data.consignor} onChange={(e) => updateField('consignor', e.target.value)}>
@@ -1361,7 +1370,7 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
           </div>
           <FormField label="Destination" value={data.destination} disabled />
           <FormField label="Vehicle Number" placeholder="UP14-XX-0000" value={data.vehicleNumber} onChange={(e: any) => updateField('vehicleNumber', e.target.value)} disabled={disabled} />
-          <FormField label="Driver Mobile" placeholder="+91..." value={data.vehicleNumber} onChange={(e: any) => updateField('driverMobile', e.target.value)} disabled={disabled} />
+          <FormField label="Driver Mobile" placeholder="+91..." value={data.driverMobile} onChange={(e: any) => updateField('driverMobile', e.target.value)} disabled={disabled} />
           <FormField label="Delay Remark" placeholder="Enter delay details if any..." value={data.delayRemark} onChange={(e: any) => updateField('delayRemark', e.target.value)} disabled={disabled} />
         </div>
       </div>
@@ -1465,10 +1474,11 @@ function RegistryList({ screen, onSelectItem, listData }: { screen: string, onSe
           {listData?.map((item) => {
             const totalQty = item.items ? item.items.reduce((sum: number, i: any) => sum + (parseFloat(i.weight) || 0), 0) : null;
             const uom = item.items?.[0]?.weightUom || '';
+            const soNo = (item.saleOrder || item.saleOrderNumber || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8));
             
             return (
               <tr key={item.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => onSelectItem(item)}>
-                <td className="p-2 font-bold text-[11px] text-[#0056d2] group-hover:underline border-r border-slate-200">{item.username || item.saleOrder || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}</td>
+                <td className="p-2 font-bold text-[11px] text-[#0056d2] group-hover:underline border-r border-slate-200">{soNo}</td>
                 <td className="p-2 font-bold text-[11px] text-slate-600 uppercase border-r border-slate-200">{item.fullName || item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}</td>
                 <td className="p-2 font-bold text-[11px] text-slate-400 uppercase italic border-r border-slate-200">{item.destination || item.customerType || item.city || (item.plants ? `${item.plants.length} Plants Auth` : 'Standard Registry')}</td>
                 <td className="p-2 font-bold text-[11px] text-slate-600 border-r border-slate-200">

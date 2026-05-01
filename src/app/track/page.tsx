@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -64,7 +65,7 @@ export default function TrackPage() {
         } else {
           clearInterval(timer);
         }
-      }, 2000); // 2 second pause at each stop as requested
+      }, 2000); 
 
       return () => clearInterval(timer);
     }
@@ -124,6 +125,7 @@ export default function TrackPage() {
   if (showResult && result?.found) {
     const data = result.data;
     const formattedDate = data.updatedAt ? format(new Date(data.updatedAt), 'dd-MMM-yyyy HH:mm').toUpperCase() : 'PENDING';
+    const soNo = data.saleOrder || data.saleOrderNumber || 'N/A';
     const hasTrip = !!data.tripId;
 
     return (
@@ -142,7 +144,7 @@ export default function TrackPage() {
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
                 <Package className="h-3 w-3" /> Sale Order
               </div>
-              <p className="text-[11px] font-black text-blue-500">{data.saleOrder || data.saleOrderNumber || 'N/A'}</p>
+              <p className="text-[11px] font-black text-blue-500">{soNo}</p>
             </div>
             
             <div className="space-y-1">
@@ -189,11 +191,11 @@ export default function TrackPage() {
                 <div className="bg-[#f0f7ff] border-l-[6px] border-blue-600 rounded-[2rem] p-6 md:p-8 max-w-3xl w-full shadow-lg relative flex flex-col items-center text-center animate-slide-up">
                   {hasTrip ? (
                     <h2 className="text-sm md:text-base font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
-                      YOUR TRIP ID IS <button onClick={() => handleTrack(data.tripId, 'trip')} className="text-blue-600 underline decoration-2 hover:text-black transition-colors">'{data.tripId}'</button> FOR THIS SALES ORDER NO. '{data.saleOrder || data.saleOrderNumber}'
+                      YOUR TRIP ID IS <button onClick={() => handleTrack(data.tripId, 'trip')} className="text-blue-600 underline decoration-2 hover:text-black transition-colors">'{data.tripId}'</button> FOR THIS SALES ORDER NO. '{soNo}'
                     </h2>
                   ) : (
                     <h2 className="text-sm md:text-base font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
-                      YOUR ORDER NO. '{data.saleOrder || data.saleOrderNumber}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.
+                      YOUR ORDER NO. '{soNo}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.
                     </h2>
                   )}
                 </div>
@@ -265,7 +267,7 @@ export default function TrackPage() {
                     </div>
                     <div className="flex flex-col gap-0.5">
                       <span className="text-slate-500 text-[8px] font-black uppercase tracking-[0.2em]">Registry ID</span>
-                      <span className="text-sm md:text-lg font-black tracking-widest">{data.tripId || data.saleOrder || data.saleOrderNumber}</span>
+                      <span className="text-sm md:text-lg font-black tracking-widest">{data.tripId || soNo}</span>
                     </div>
                   </div>
                   
