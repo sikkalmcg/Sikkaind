@@ -10,7 +10,8 @@ import {
   Layers, PackageCheck, Ban, Lock, Play, XCircle, Search,
   ArrowRight, Calendar, Phone, FileText, Package, Clock,
   LayoutDashboard, Database, Settings, BarChart, TrendingUp,
-  FileSpreadsheet, HardDriveDownload, CloudUpload, ShieldAlert
+  FileSpreadsheet, HardDriveDownload, CloudUpload, ShieldAlert,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +52,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
+import { cn } from '@/lib/utils';
 
 type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'BULK' | 'SU01' | 'SU02' | 'SU03';
 
@@ -627,7 +629,7 @@ export default function SapDashboard() {
                          )}
                          {showList && (
                            <div className="space-y-4">
-                             <h3 className="text-[10px] font-bold uppercase bg-[#dae4f1] px-4 py-1 border-y border-slate-300 text-[#1e3a8a]">Selection List</h3>
+                             <SectionHeader title="Selection List" />
                              <RegistryList screen={activeScreen} onSelectItem={setFormData} listData={getRegistryList()} />
                            </div>
                          )}
@@ -676,15 +678,86 @@ function DetailRow({ label, value }: { label: string, value?: string | number })
   );
 }
 
+function FormInput({ label, value, onChange, type = "text", disabled }: any) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <Input 
+        type={type} 
+        value={value || ''} 
+        onChange={(e) => onChange(e.target.value)} 
+        disabled={disabled}
+        className="h-8 rounded-none border-slate-400 focus:ring-0 focus:border-[#0056d2] text-xs font-bold bg-white"
+      />
+    </div>
+  );
+}
+
+function FormSelect({ label, value, options, onChange, disabled }: any) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <select 
+        value={value || ''} 
+        onChange={(e) => onChange(e.target.value)} 
+        disabled={disabled}
+        className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold outline-none"
+      >
+        <option value="">Select...</option>
+        {options.map((o: string) => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function RegistryList({ screen, onSelectItem, listData }: any) {
+  const getCols = () => {
+    if (screen.startsWith('VA')) return ['SO Number', 'Name / Description', 'Type / Details', 'Date'];
+    if (screen.startsWith('SU')) return ['Username', 'Name', 'Registry ID', 'Node Active'];
+    return ['Registry ID', 'Name / Description', 'Type / Details', 'Sync Node'];
+  };
+
+  return (
+    <div className="overflow-x-auto border border-slate-300">
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="bg-[#f0f0f0] border-b border-slate-300">
+            {getCols().map(col => <th key={col} className="p-2 text-[9px] font-black uppercase text-slate-500">{col}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {listData?.map((item: any) => (
+            <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors">
+              <td className="p-2 text-[10px] font-black text-[#0056d2]">
+                {item.username || item.saleOrder || item.saleOrderNumber || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}
+              </td>
+              <td className="p-2 text-[10px] font-bold text-slate-600 uppercase">
+                {item.fullName || item.plantName || item.companyName || item.vendorName || item.customerName || `${item.consignor} → ${item.consignee || 'UNSPECIFIED'}`}
+                {item.shipToParty && item.shipToParty !== item.consignee && <span className="block text-[8px] text-red-500">Ship to: {item.shipToParty}</span>}
+              </td>
+              <td className="p-2 text-[10px] font-bold text-slate-400 uppercase italic">
+                {item.customerType || item.city || (item.from ? `${item.from} → ${item.destination}` : 'REGISTRY NODE')}
+              </td>
+              <td className="p-2 text-[10px] font-bold text-slate-400">
+                {item.saleOrderDate || item.updatedAt ? format(new Date(item.saleOrderDate || item.updatedAt), 'dd-MM-yyyy') : 'SYNC ACTIVE'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function PlantForm({ data, onChange, disabled }: any) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-      <FormInput label="Plant Code" value={data.plantCode} onChange={(v) => onChange({...data, plantCode: v})} disabled={disabled} />
-      <FormInput label="Plant Name" value={data.plantName} onChange={(v) => onChange({...data, plantName: v})} disabled={disabled} />
-      <FormInput label="City" value={data.city} onChange={(v) => onChange({...data, city: v})} disabled={disabled} />
-      <FormInput label="State" value={data.state} onChange={(v) => onChange({...data, state: v})} disabled={disabled} />
-      <FormInput label="GSTIN" value={data.gstin} onChange={(v) => onChange({...data, gstin: v})} disabled={disabled} />
-      <FormInput label="Address" value={data.address} onChange={(v) => onChange({...data, address: v})} disabled={disabled} />
+      <FormInput label="Plant Code" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+      <FormInput label="Plant Name" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
+      <FormInput label="City" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+      <FormInput label="State" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+      <FormInput label="Address" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
     </div>
   );
 }
@@ -692,10 +765,10 @@ function PlantForm({ data, onChange, disabled }: any) {
 function CompanyForm({ data, onChange, disabled }: any) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-      <FormInput label="Company Code" value={data.companyCode} onChange={(v) => onChange({...data, companyCode: v})} disabled={disabled} />
-      <FormInput label="Company Name" value={data.companyName} onChange={(v) => onChange({...data, companyName: v})} disabled={disabled} />
-      <FormInput label="Address" value={data.address} onChange={(v) => onChange({...data, address: v})} disabled={disabled} />
-      <FormInput label="GSTIN" value={data.gstin} onChange={(v) => onChange({...data, gstin: v})} disabled={disabled} />
+      <FormInput label="Company Code" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
+      <FormInput label="Company Name" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
+      <FormInput label="Address" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
     </div>
   );
 }
@@ -703,10 +776,10 @@ function CompanyForm({ data, onChange, disabled }: any) {
 function VendorForm({ data, onChange, disabled }: any) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-      <FormInput label="Vendor Name" value={data.vendorName} onChange={(v) => onChange({...data, vendorName: v})} disabled={disabled} />
-      <FormInput label="Mobile" value={data.mobile} onChange={(v) => onChange({...data, mobile: v})} disabled={disabled} />
-      <FormInput label="PAN" value={data.pan} onChange={(v) => onChange({...data, pan: v})} disabled={disabled} />
-      <FormInput label="GSTIN" value={data.gstin} onChange={(v) => onChange({...data, gstin: v})} disabled={disabled} />
+      <FormInput label="Vendor Name" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
+      <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+      <FormInput label="PAN" value={data.pan} onChange={(v: string) => onChange({...data, pan: v})} disabled={disabled} />
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
     </div>
   );
 }
@@ -714,11 +787,11 @@ function VendorForm({ data, onChange, disabled }: any) {
 function CustomerForm({ data, onChange, disabled }: any) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-      <FormInput label="Customer Code" value={data.customerCode} onChange={(v) => onChange({...data, customerCode: v})} disabled={disabled} />
-      <FormInput label="Customer Name" value={data.customerName} onChange={(v) => onChange({...data, customerName: v})} disabled={disabled} />
-      <FormInput label="City" value={data.city} onChange={(v) => onChange({...data, city: v})} disabled={disabled} />
-      <FormInput label="Mobile" value={data.mobile} onChange={(v) => onChange({...data, mobile: v})} disabled={disabled} />
-      <FormSelect label="Type" value={data.customerType} options={['Consignor', 'Consignee']} onChange={(v) => onChange({...data, customerType: v})} disabled={disabled} />
+      <FormInput label="Customer Code" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} />
+      <FormInput label="Customer Name" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
+      <FormInput label="City" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+      <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+      <FormSelect label="Type" value={data.customerType} options={['Consignor', 'Consignee']} onChange={(v: string) => onChange({...data, customerType: v})} disabled={disabled} />
     </div>
   );
 }
@@ -892,9 +965,9 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
 function UserForm({ data, onChange, disabled, allPlants }: any) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-      <FormInput label="Full Name" value={data.fullName} onChange={(v) => onChange({...data, fullName: v})} disabled={disabled} />
-      <FormInput label="Username" value={data.username} onChange={(v) => onChange({...data, username: v})} disabled={disabled} />
-      <FormInput label="Mobile" value={data.mobile} onChange={(v) => onChange({...data, mobile: v})} disabled={disabled} />
+      <FormInput label="Full Name" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
+      <FormInput label="Username" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} />
+      <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
       <div className="space-y-2">
         <label className="text-[10px] font-bold text-slate-500 uppercase">Authorized T-Codes</label>
         <div className="bg-white border border-slate-400 h-32 overflow-y-auto p-2">
@@ -933,77 +1006,6 @@ function UserForm({ data, onChange, disabled, allPlants }: any) {
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-function FormInput({ label, value, onChange, type = "text", disabled }: any) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
-      <Input 
-        type={type} 
-        value={value || ''} 
-        onChange={(e) => onChange(e.target.value)} 
-        disabled={disabled}
-        className="h-8 rounded-none border-slate-400 focus:ring-0 focus:border-[#0056d2] text-xs font-bold bg-white"
-      />
-    </div>
-  );
-}
-
-function FormSelect({ label, value, options, onChange, disabled }: any) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
-      <select 
-        value={value || ''} 
-        onChange={(e) => onChange(e.target.value)} 
-        disabled={disabled}
-        className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold outline-none"
-      >
-        <option value="">Select...</option>
-        {options.map((o: string) => <option key={o} value={o}>{o}</option>)}
-      </select>
-    </div>
-  );
-}
-
-function RegistryList({ screen, onSelectItem, listData }: any) {
-  const getCols = () => {
-    if (screen.startsWith('VA')) return ['SO Number', 'Name / Description', 'Type / Details', 'Date'];
-    if (screen.startsWith('SU')) return ['Username', 'Name', 'Registry ID', 'Node Active'];
-    return ['Registry ID', 'Name / Description', 'Type / Details', 'Sync Node'];
-  };
-
-  return (
-    <div className="overflow-x-auto border border-slate-300">
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="bg-[#f0f0f0] border-b border-slate-300">
-            {getCols().map(col => <th key={col} className="p-2 text-[9px] font-black uppercase text-slate-500">{col}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {listData?.map((item: any) => (
-            <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors">
-              <td className="p-2 text-[10px] font-black text-[#0056d2]">
-                {item.username || item.saleOrder || item.saleOrderNumber || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}
-              </td>
-              <td className="p-2 text-[10px] font-bold text-slate-600 uppercase">
-                {item.fullName || item.plantName || item.companyName || item.vendorName || item.customerName || `${item.consignor} → ${item.consignee || 'UNSPECIFIED'}`}
-                {item.shipToParty && item.shipToParty !== item.consignee && <span className="block text-[8px] text-red-500">Ship to: {item.shipToParty}</span>}
-              </td>
-              <td className="p-2 text-[10px] font-bold text-slate-400 uppercase italic">
-                {item.customerType || item.city || (item.from ? `${item.from} → ${item.destination}` : 'REGISTRY NODE')}
-              </td>
-              <td className="p-2 text-[10px] font-bold text-slate-400">
-                {item.saleOrderDate || item.updatedAt ? format(new Date(item.saleOrderDate || item.updatedAt), 'dd-MM-yyyy') : 'SYNC ACTIVE'}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
@@ -1133,9 +1135,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
   };
 
   const resetForm = () => {
-    setVehicleType('OWN FLEET');
-    setAssignWeight('');
-    setVehicleNo('');
     setVehicleType('OWN FLEET');
     setAssignWeight('');
     setVehicleNo('');
@@ -1497,7 +1496,6 @@ function BulkDataHub({ allPlants }: { allPlants: any[] | null }) {
   return (
     <div className="space-y-10 animate-fade-in max-w-6xl mx-auto py-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-        {/* DOWNLOAD TEMPLATE SECTION */}
         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl overflow-hidden flex flex-col">
           <div className="bg-[#1e293b] px-8 py-6 flex items-center gap-4">
             <HardDriveDownload className="h-6 w-6 text-blue-400" />
@@ -1528,7 +1526,6 @@ function BulkDataHub({ allPlants }: { allPlants: any[] | null }) {
           </div>
         </div>
 
-        {/* BULK UPLOAD SECTION */}
         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl overflow-hidden flex flex-col">
           <div className="bg-[#0056d2] px-8 py-6 flex items-center gap-4">
             <CloudUpload className="h-6 w-6 text-white" />
@@ -1603,53 +1600,6 @@ function RegistryFormWrapper({ children, title }: { children: React.ReactNode, t
       <div className="p-4">
         {children}
       </div>
-    </div>
-  );
-}
-
-function PlantForm({ data, onChange, disabled }: any) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-      <FormInput label="Plant Code" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
-      <FormInput label="Plant Name" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
-      <FormInput label="City" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
-      <FormInput label="State" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
-      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
-      <FormInput label="Address" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
-    </div>
-  );
-}
-
-function CompanyForm({ data, onChange, disabled }: any) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-      <FormInput label="Company Code" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
-      <FormInput label="Company Name" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
-      <FormInput label="Address" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
-      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
-    </div>
-  );
-}
-
-function VendorForm({ data, onChange, disabled }: any) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-      <FormInput label="Vendor Name" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
-      <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
-      <FormInput label="PAN" value={data.pan} onChange={(v: string) => onChange({...data, pan: v})} disabled={disabled} />
-      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
-    </div>
-  );
-}
-
-function CustomerForm({ data, onChange, disabled }: any) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-      <FormInput label="Customer Code" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} />
-      <FormInput label="Customer Name" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
-      <FormInput label="City" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
-      <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
-      <FormSelect label="Type" value={data.customerType} options={['Consignor', 'Consignee']} onChange={(v: string) => onChange({...data, customerType: v})} disabled={disabled} />
     </div>
   );
 }
