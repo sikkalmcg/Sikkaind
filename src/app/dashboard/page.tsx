@@ -38,7 +38,6 @@ export default function SapDashboard() {
   const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
   const tCodeRef = React.useRef<HTMLInputElement>(null);
 
-  // SAP style logic for form submission from header
   const handleSave = () => {
     if (!user) {
       setStatusMsg({ text: 'Session error: Please log in again', type: 'error' });
@@ -67,7 +66,6 @@ export default function SapDashboard() {
       
       setDocumentNonBlocking(docRef, payload, { merge: true });
       
-      // Update local state so subsequent saves use the same ID
       if (!formData.id) {
         setFormData(payload);
       }
@@ -88,7 +86,7 @@ export default function SapDashboard() {
     
     if (['OX01', 'OX02', 'OX03', 'FM01', 'FM02', 'FM03', 'XK01', 'XK02', 'XK03'].includes(cleanCode)) {
       setActiveScreen(cleanCode as Screen);
-      setFormData({}); // Reset form when switching
+      setFormData({});
       setStatusMsg({ text: `Transaction ${cleanCode} started`, type: 'info' });
     } else if (cleanCode === 'HOME' || cleanCode === '') {
       setActiveScreen('HOME');
@@ -127,7 +125,6 @@ export default function SapDashboard() {
 
   return (
     <div className="flex flex-col h-screen bg-[#d9e1f2] text-[#333] font-mono select-none overflow-hidden">
-      {/* 1. TOP MENU BAR */}
       <div className="flex items-center bg-[#f0f0f0] border-b border-white/50 px-2 h-7 text-[11px] font-semibold">
         {['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map((item) => (
           <DropdownMenu key={item}>
@@ -150,7 +147,6 @@ export default function SapDashboard() {
         </div>
       </div>
 
-      {/* 2. COMMAND BAR */}
       <div className="flex items-center bg-[#f0f0f0] border-b border-slate-300 px-2 py-1 gap-2 shadow-sm">
         <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner">
           <div className="px-1 text-[#008000] font-black text-xs">✓</div>
@@ -189,7 +185,6 @@ export default function SapDashboard() {
         </div>
       </div>
 
-      {/* 3. MAIN WORK AREA */}
       <div className="flex-1 flex overflow-hidden">
         {activeScreen === 'HOME' && (
           <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-sm animate-fade-in print:hidden">
@@ -225,11 +220,11 @@ export default function SapDashboard() {
         )}
 
         <div className="flex-1 flex flex-col bg-[#f0f3f9] overflow-y-auto no-scrollbar">
-          <div className="bg-[#0056d2] text-white p-6 shadow-lg print:bg-white print:text-black print:shadow-none">
-            <h1 className="text-3xl font-black italic tracking-tighter uppercase leading-none">
+          <div className="bg-[#0056d2] text-white py-3 px-6 shadow-lg print:bg-white print:text-black print:shadow-none flex flex-col items-center justify-center">
+            <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none">
               {activeScreen === 'HOME' ? 'Sikka Logistics Hub' : activeScreen}
             </h1>
-            <p className="text-[10px] font-bold uppercase tracking-[0.4em] opacity-80">
+            <p className="text-[9px] font-bold uppercase tracking-[0.4em] opacity-80 mt-1">
               {getScreenTitle(activeScreen)}
             </p>
           </div>
@@ -268,7 +263,6 @@ export default function SapDashboard() {
         </div>
       </div>
 
-      {/* 4. SAP STATUS BAR */}
       <div className="h-6 bg-[#f0f0f0] border-t border-slate-300 flex items-center px-4 gap-6 text-[10px] font-bold text-slate-600 print:hidden">
         <div className="flex items-center gap-2 pr-6 border-r border-slate-200 min-w-[200px]">
           {statusMsg.type === 'success' && <Check className="h-3 w-3 text-emerald-500" />}
@@ -332,7 +326,6 @@ function CompanyForm({ data, onChange }: any) {
 
   const updateField = (field: string, val: any) => {
     let newData = { ...data, [field]: val };
-    // SAP logic: Auto-calculate PAN and State from GSTIN
     if (field === 'gstin' && val.length >= 2) {
       if (val.startsWith('09')) {
         newData.state = 'Uttar Pradesh';
