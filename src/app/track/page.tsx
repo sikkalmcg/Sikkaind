@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -12,11 +13,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useFirestore } from '@/firebase';
-import { collectionGroup, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 
 /**
  * @fileOverview Track Consignment page.
- * Allows users to track shipments via Trip ID or Sales Order Number.
+ * Uses optimized direct document lookups to resolve index errors.
  */
 export default function TrackPage() {
   const db = useFirestore();
@@ -25,64 +26,38 @@ export default function TrackPage() {
   const [loading, setLoading] = React.useState(false);
   const [result, setResult] = React.useState<{
     found: boolean;
-    order?: any;
-    trip?: any;
+    data?: any;
     message?: string;
   } | null>(null);
 
   const handleTrack = async () => {
-    if (!value.trim()) return;
+    const cleanValue = value.trim().toUpperCase();
+    if (!cleanValue) return;
     
     setLoading(true);
     setResult(null);
 
     try {
-      if (type === 'sales') {
-        // 1. Search for Sales Order
-        const ordersRef = collectionGroup(db, 'sales_orders');
-        const qOrder = query(ordersRef, where('saleOrder', '==', value.trim()), limit(1));
-        const orderSnap = await getDocs(qOrder);
+      const collectionName = type === 'sales' ? 'public_orders' : 'public_trips';
+      const docRef = doc(db, collectionName, cleanValue);
+      const snap = await getDoc(docRef);
 
-        if (orderSnap.empty) {
-          setResult({ found: false, message: 'No such registry node found for this Sales Order.' });
-        } else {
-          const orderDoc = orderSnap.docs[0].data();
-          const orderId = orderSnap.docs[0].id;
-
-          // 2. Search for associated Trip
-          const tripsRef = collectionGroup(db, 'trips');
-          const qTrip = query(tripsRef, where('saleOrderId', '==', orderId), limit(1));
-          const tripSnap = await getDocs(qTrip);
-
-          if (tripSnap.empty) {
-            setResult({ 
-              found: true, 
-              order: orderDoc, 
-              message: 'Order Placed - Vehicle will be assigned shortly.' 
-            });
-          } else {
-            setResult({ 
-              found: true, 
-              order: orderDoc, 
-              trip: tripSnap.docs[0].data() 
-            });
-          }
-        }
+      if (!snap.exists()) {
+        setResult({ 
+          found: false, 
+          message: `No active mission node found for this ${type === 'sales' ? 'Sales Order' : 'Trip ID'}.` 
+        });
       } else {
-        // 1. Search for Trip ID directly
-        const tripsRef = collectionGroup(db, 'trips');
-        const qTrip = query(tripsRef, where('tripId', '==', value.trim()), limit(1));
-        const tripSnap = await getDocs(qTrip);
-
-        if (tripSnap.empty) {
-          setResult({ found: false, message: 'No such registry node found for this Trip ID.' });
-        } else {
-          setResult({ found: true, trip: tripSnap.docs[0].data() });
-        }
+        const data = snap.data();
+        setResult({ 
+          found: true, 
+          data: data,
+          message: data.status === 'PLACED' ? 'Order Placed - Vehicle will be assigned shortly.' : undefined
+        });
       }
     } catch (error) {
       console.error('Tracking Error:', error);
-      setResult({ found: false, message: 'System error during synchronization. Please try again.' });
+      setResult({ found: false, message: 'System error during synchronization. Please check registry ID.' });
     } finally {
       setLoading(false);
     }
@@ -112,8 +87,8 @@ export default function TrackPage() {
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-100">
-                <SelectItem value="trip" className="font-bold py-3 uppercase">Trip ID</SelectItem>
                 <SelectItem value="sales" className="font-bold py-3 uppercase">Sales Order No.</SelectItem>
+                <SelectItem value="trip" className="font-bold py-3 uppercase">Trip ID</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -161,12 +136,12 @@ export default function TrackPage() {
                   <CheckCircle className="h-4 w-4 text-emerald-500" />
                 </div>
 
-                {result.trip ? (
+                {result.data.status !== 'PLACED' ? (
                   <div className="bg-slate-900 p-8 rounded-[2rem] text-white space-y-6 shadow-xl">
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-400">Current Status</p>
-                        <h3 className="text-2xl font-black uppercase italic tracking-tighter mt-1">{result.trip.status}</h3>
+                        <h3 className="text-2xl font-black uppercase italic tracking-tighter mt-1">{result.data.status}</h3>
                       </div>
                       <Truck className="h-10 w-10 text-white/20" />
                     </div>
@@ -174,15 +149,15 @@ export default function TrackPage() {
                     <div className="space-y-4 pt-4 border-t border-white/10">
                       <div className="flex justify-between text-[11px] font-bold">
                         <span className="text-slate-400 uppercase">Vehicle No.</span>
-                        <span className="uppercase">{result.trip.vehicleNumber}</span>
+                        <span className="uppercase">{result.data.vehicleNumber || 'ASSIGNING...'}</span>
                       </div>
                       <div className="flex justify-between text-[11px] font-bold">
                         <span className="text-slate-400 uppercase">Trip Registry</span>
-                        <span>{result.trip.tripId}</span>
+                        <span>{result.data.tripId || 'N/A'}</span>
                       </div>
                       <div className="flex items-center gap-2 pt-2">
                         <MapPin className="h-3 w-3 text-blue-400" />
-                        <span className="text-[9px] font-bold uppercase truncate text-slate-400">{result.trip.route}</span>
+                        <span className="text-[9px] font-bold uppercase truncate text-slate-400">{result.data.route || 'TRANSIT PENDING'}</span>
                       </div>
                     </div>
                   </div>
@@ -194,7 +169,7 @@ export default function TrackPage() {
                     </p>
                     <div className="pt-2">
                       <p className="text-[9px] font-bold uppercase text-slate-400 tracking-widest">
-                        Registry: {result.order.saleOrder}
+                        Registry: {result.data.saleOrder}
                       </p>
                     </div>
                   </div>

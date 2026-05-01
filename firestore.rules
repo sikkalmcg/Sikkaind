@@ -9,17 +9,16 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
-    // Comprehensive rule for all user-owned registries
     match /users/{userId}/{collectionName}/{docId} {
       allow read, write: if isOwner(userId);
     }
 
-    // Public tracking access via collection group queries
-    // Specifically allows read access for sales_orders and trips if they are accessed correctly
-    match /{path=**}/sales_orders/{orderId} {
-      allow read: if true; 
+    // Public tracking access via optimized dedicated collections
+    // No collection group indexes required for this structure
+    match /public_orders/{orderNo} {
+      allow read: if true;
     }
-    match /{path=**}/trips/{tripId} {
+    match /public_trips/{tripId} {
       allow read: if true;
     }
   }

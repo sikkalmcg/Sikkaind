@@ -147,6 +147,18 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["tripId", "saleOrderId", "vehicleNumber", "status"]
+    },
+    "PublicTracking": {
+      "title": "PublicTracking",
+      "type": "object",
+      "description": "Simplified node for public tracking queries.",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["order", "trip"] },
+        "status": { "type": "string" },
+        "reference": { "type": "string" },
+        "details": { "type": "object" }
+      }
     }
   },
   "auth": {
@@ -159,6 +171,8 @@
     "/users/{userId}/vendors/{vendorId}": { "schema": "Vendor", "description": "User-owned vendors." },
     "/users/{userId}/customers/{customerId}": { "schema": "Customer", "description": "User-owned customers." },
     "/users/{userId}/sales_orders/{orderId}": { "schema": "SalesOrder", "description": "User-owned sales orders." },
-    "/users/{userId}/trips/{tripId}": { "schema": "Trip", "description": "User-owned trip registries." }
+    "/users/{userId}/trips/{tripId}": { "schema": "Trip", "description": "User-owned trip registries." },
+    "/public_orders/{orderNo}": { "schema": "PublicTracking", "description": "Public searchable order nodes." },
+    "/public_trips/{tripId}": { "schema": "PublicTracking", "description": "Public searchable trip nodes." }
   }
 }

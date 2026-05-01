@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -99,6 +100,19 @@ export default function SapDashboard() {
       
       setDocumentNonBlocking(docRef, payload, { merge: true });
       
+      // Sync to public tracking if it's a Sales Order
+      if (collectionName === 'sales_orders' && payload.saleOrder) {
+        const publicRef = doc(db, 'public_orders', payload.saleOrder);
+        setDocumentNonBlocking(publicRef, {
+          type: 'order',
+          status: 'PLACED',
+          saleOrder: payload.saleOrder,
+          consignor: payload.consignor,
+          destination: payload.destination,
+          updatedAt: payload.updatedAt
+        }, { merge: true });
+      }
+
       if (!formData.id) {
         setFormData(payload);
       }
@@ -185,26 +199,24 @@ export default function SapDashboard() {
     <div className="flex flex-col h-screen bg-[#d9e1f2] text-[#333] font-mono select-none overflow-hidden">
       {/* Menu Bar */}
       <div className="flex items-center bg-[#f0f0f0] border-b border-white/50 px-2 h-7 text-[11px] font-semibold">
-        {['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map((item) => (
-          <DropdownMenu key={item}>
-            <DropdownMenuTrigger 
-              onClick={() => item === 'Menu' && setActiveScreen('HOME')}
-              className="px-3 hover:bg-[#0056d2] hover:text-white outline-none transition-colors h-full flex items-center"
-            >
-              {item}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-white rounded-none border-slate-300 shadow-xl text-[11px] p-0 min-w-[150px]">
-              {item === 'Menu' && (
-                <>
-                  <DropdownMenuItem onClick={() => setActiveScreen('HOME')} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Home (/n)</DropdownMenuItem>
-                  <DropdownMenuSeparator className="m-0 bg-slate-200" />
-                </>
-              )}
-              <DropdownMenuItem onClick={handleSave} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Save (Ctrl+S)</DropdownMenuItem>
-              <DropdownMenuSeparator className="m-0 bg-slate-200" />
-              <DropdownMenuItem onClick={handleLogout} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4 text-red-600">Log Off</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger 
+            className="px-3 hover:bg-[#0056d2] hover:text-white outline-none transition-colors h-full flex items-center"
+          >
+            Menu
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-white rounded-none border-slate-300 shadow-xl text-[11px] p-0 min-w-[150px]">
+            <DropdownMenuItem onClick={() => setActiveScreen('HOME')} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Home (/n)</DropdownMenuItem>
+            <DropdownMenuSeparator className="m-0 bg-slate-200" />
+            <DropdownMenuItem onClick={handleSave} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Save (Ctrl+S)</DropdownMenuItem>
+            <DropdownMenuSeparator className="m-0 bg-slate-200" />
+            <DropdownMenuItem onClick={handleLogout} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4 text-red-600">Log Off</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {['Edit', 'Favorites', 'Extras', 'System', 'Help'].map((item) => (
+          <div key={item} className="px-3 hover:bg-[#0056d2] hover:text-white transition-colors h-full flex items-center cursor-pointer">
+            {item}
+          </div>
         ))}
         <div className="ml-auto flex items-center gap-2 pr-4 text-[10px] text-slate-500 font-bold uppercase">
           <span>S4P (1) 100</span>
@@ -518,6 +530,26 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
 
     const docRef = doc(db, 'users', user.uid, 'trips', newTripId);
     setDocumentNonBlocking(docRef, tripData, { merge: true });
+
+    // Sync to public tracking
+    const publicTripRef = doc(db, 'public_trips', tripId);
+    setDocumentNonBlocking(publicTripRef, {
+      type: 'trip',
+      status: 'LOADING',
+      tripId: tripId,
+      vehicleNumber: vehicleNo,
+      route: tripData.route,
+      updatedAt: tripData.createdAt
+    }, { merge: true });
+
+    // Update public order tracking too
+    const publicOrderRef = doc(db, 'public_orders', selectedOrder.saleOrder);
+    setDocumentNonBlocking(publicOrderRef, {
+      status: 'LOADING',
+      vehicleNumber: vehicleNo,
+      tripId: tripId,
+      updatedAt: tripData.createdAt
+    }, { merge: true });
 
     onStatusUpdate({ text: `Trip ${tripId} registered successfully`, type: 'success' });
     setSelectedOrder(null);
@@ -1215,7 +1247,7 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
           </div>
           <FormField label="Destination" value={data.destination} disabled />
           <FormField label="Vehicle Number" placeholder="UP14-XX-0000" value={data.vehicleNumber} onChange={(e: any) => updateField('vehicleNumber', e.target.value)} disabled={disabled} />
-          <FormField label="Driver Mobile" placeholder="+91..." value={data.driverMobile} onChange={(e: any) => updateField('driverMobile', e.target.value)} disabled={disabled} />
+          <FormField label="Driver Mobile" placeholder="+91..." value={data.vehicleNumber} onChange={(e: any) => updateField('driverMobile', e.target.value)} disabled={disabled} />
         </div>
       </div>
 
