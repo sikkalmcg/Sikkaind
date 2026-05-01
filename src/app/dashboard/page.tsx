@@ -295,9 +295,9 @@ export default function SapDashboard() {
     }
 
     if (activeScreen.startsWith('XD')) {
-      const exists = rawCustomers?.some((c: any) => c.id !== localData.id && c.customerCode?.toString().toUpperCase() === localData.customerCode?.toString().toUpperCase());
+      const exists = rawCustomers?.some((c: any) => c.id !== localData.id && (c.customerCode || c.id)?.toString().toUpperCase() === (localData.customerCode || localData.id)?.toString().toUpperCase());
       if (exists) {
-        setStatusMsg({ text: `ID/Number ${localData.customerCode} Already exists, duplicate not allowed`, type: 'error' });
+        setStatusMsg({ text: `ID/Number ${localData.customerCode || localData.id} Already exists, duplicate not allowed`, type: 'error' });
         return;
       }
     }
@@ -1440,18 +1440,6 @@ function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code:
            </div>
         </div>
       ))}
-    </div>
-  );
-}
-
-function FormSelect({ label, value, options, onChange, disabled }: any) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
-      <select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-9 border border-slate-400 bg-white px-2 text-xs font-bold outline-none shadow-sm">
-        <option value="">Select...</option>
-        {options.map((o: any, idx: number) => typeof o === 'string' ? <option key={`${o}-${idx}`} value={o}>{o}</option> : <option key={`${o.value}-${idx}`} value={o.value}>{o.label}</option>)}
-      </select>
     </div>
   );
 }
