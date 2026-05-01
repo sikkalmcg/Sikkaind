@@ -307,7 +307,7 @@ export default function SapDashboard() {
               <DropdownMenuContent className="w-56 text-xs font-mono">
                 {MASTER_TCODES.map(t => (
                   <DropdownMenuItem key={t.code} onClick={() => executeTCode(t.code)}>
-                    {t.code} - {t.description.slice(0, 30)}...
+                    {t.code} - {t.description.split(':')[0]}...
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -337,21 +337,20 @@ export default function SapDashboard() {
         <div className="w-72 bg-white border-r border-slate-300 flex flex-col overflow-y-auto no-scrollbar">
           <div className="flex flex-col">
             {activeScreen === 'HOME' && (
-               <div className="p-4 space-y-2">
-                 <div className="h-px bg-slate-100" />
+               <div className="bg-white">
+                 <div className="h-4 border-b border-slate-50" />
                  {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04').map((item, idx) => (
                    <div 
                     key={item.code} 
                     onClick={() => executeTCode(item.code)}
-                    className="flex items-center gap-3 px-3 py-1.5 hover:bg-blue-50 cursor-pointer group border-b border-slate-50 last:border-none"
+                    className="flex items-center gap-5 px-6 py-5 hover:bg-blue-50/30 cursor-pointer group border-b border-slate-50"
                    >
-                     <div className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-blue-600 shrink-0" />
-                     <span className="text-[11px] font-bold text-slate-600 group-hover:text-blue-800 uppercase tracking-tight">
+                     <div className="w-2 h-2 rounded-full bg-slate-200 group-hover:bg-blue-600 transition-colors shrink-0" />
+                     <span className="text-[11px] font-bold text-[#1e3a8a] group-hover:text-blue-700 uppercase tracking-tighter">
                        {item.code} - {item.description.split(':')[0]}
                      </span>
                    </div>
                  ))}
-                 <div className="h-px bg-slate-100 pt-4" />
                </div>
             )}
             {activeScreen !== 'HOME' && (
