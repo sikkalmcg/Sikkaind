@@ -19,11 +19,14 @@ service cloud.firestore {
     }
 
     // Public tracking access via optimized dedicated collections
+    // Allow read for everyone, but only signed-in employees can update tracking info
     match /public_orders/{orderNo} {
       allow read: if true;
+      allow write: if isSignedIn();
     }
     match /public_trips/{tripId} {
       allow read: if true;
+      allow write: if isSignedIn();
     }
   }
 }

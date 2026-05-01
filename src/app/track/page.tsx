@@ -162,15 +162,25 @@ export default function TrackPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-blue-50 p-8 rounded-[2rem] border border-blue-100 space-y-4 text-center">
-                    <Package className="h-10 w-10 text-blue-900 mx-auto opacity-20" />
-                    <p className="text-sm font-black uppercase text-blue-900 tracking-tight">
-                      {result.message}
-                    </p>
-                    <div className="pt-2">
-                      <p className="text-[9px] font-bold uppercase text-slate-400 tracking-widest">
-                        Registry: {result.data.saleOrder}
-                      </p>
+                  <div className="bg-white p-8 rounded-[2rem] border-2 border-dashed border-blue-100 space-y-6 text-center shadow-sm">
+                    <div className="flex justify-center">
+                      <div className="p-4 bg-blue-50 rounded-full">
+                        <Package className="h-8 w-8 text-blue-600" />
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black uppercase text-blue-900 tracking-tight">Order Placed</h3>
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Vehicle assignment in progress</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
+                      <div className="text-left">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Consignor</p>
+                        <p className="text-[10px] font-bold text-slate-700 uppercase truncate">{result.data.consignor || 'N/A'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Destination</p>
+                        <p className="text-[10px] font-bold text-slate-700 uppercase truncate">{result.data.destination || 'N/A'}</p>
+                      </div>
                     </div>
                   </div>
                 )}
