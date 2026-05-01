@@ -165,7 +165,7 @@ export default function SapDashboard() {
         </div>
 
         {/* CONTENT AREA */}
-        <div className="flex-1 flex flex-col bg-[#f0f3f9] overflow-y-auto custom-scrollbar">
+        <div className="flex-1 flex flex-col bg-[#f0f3f9] overflow-y-auto no-scrollbar">
           {/* SCREEN HEADER */}
           <div className="bg-[#0056d2] text-white p-6 shadow-lg flex items-center justify-between">
             <div className="space-y-1">
@@ -183,9 +183,9 @@ export default function SapDashboard() {
             )}
           </div>
 
-          <div className="p-8 max-w-5xl">
+          <div className="p-8 w-full">
             {activeScreen === 'HOME' && (
-              <div className="space-y-12 animate-fade-in">
+              <div className="space-y-12 animate-fade-in max-w-7xl mx-auto">
                 {/* FIRM IMAGE PLACEHOLDER */}
                 <div className="relative w-full aspect-[21/9] border-4 border-dashed border-slate-300 bg-white/50 flex flex-col items-center justify-center group hover:border-[#0056d2] transition-colors rounded-[2rem] overflow-hidden">
                    <div className="absolute inset-0 bg-gradient-to-br from-[#0056d2]/5 to-transparent opacity-50" />
@@ -211,7 +211,7 @@ export default function SapDashboard() {
 
             {/* FORM SCREENS */}
             {(activeScreen === 'OX01' || activeScreen === 'FM01' || activeScreen === 'XK01') && (
-              <div className="bg-white shadow-2xl rounded-[2.5rem] border border-slate-100 overflow-hidden animate-slide-up">
+              <div className="bg-white shadow-2xl rounded-[2.5rem] border border-slate-100 overflow-hidden animate-slide-up w-full">
                  <div className="h-2 bg-yellow-500 w-full" />
                  <div className="p-10 space-y-10">
                    {activeScreen === 'OX01' && <PlantForm />}
@@ -223,7 +223,7 @@ export default function SapDashboard() {
 
             {/* LIST SCREENS */}
             {(activeScreen === 'OX02' || activeScreen === 'FM02' || activeScreen === 'XK02' || activeScreen === 'OX03' || activeScreen === 'FM03' || activeScreen === 'XK03') && (
-              <div className="bg-white shadow-2xl rounded-[2.5rem] border border-slate-100 p-8 animate-slide-up">
+              <div className="bg-white shadow-2xl rounded-[2.5rem] border border-slate-100 p-8 animate-slide-up w-full">
                  <h2 className="text-xl font-black uppercase italic text-[#1e3a8a] mb-6 flex items-center gap-3">
                    <FileText className="h-6 w-6" /> Node Registry Entries
                  </h2>
@@ -293,14 +293,65 @@ function getScreenTitle(screen: Screen): string {
 }
 
 function PlantForm() {
+  const [mobiles, setMobiles] = React.useState(['']);
+
+  const addMobile = () => setMobiles([...mobiles, '']);
+  const updateMobile = (index: number, val: string) => {
+    const newMobiles = [...mobiles];
+    newMobiles[index] = val;
+    setMobiles(newMobiles);
+  };
+  const removeMobile = (index: number) => {
+    if (mobiles.length > 1) {
+      setMobiles(mobiles.filter((_, i) => i !== index));
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
       <FormField label="Plant Code" placeholder="E.G. PLNT01" required />
-      <FormField label="Plant Name" placeholder="Sikka Logistics Hub 01" required />
+      <FormField label="Plant Name" placeholder="Sikka Industries Hub" required />
       <FormField label="City" placeholder="Ghaziabad" />
       <FormField label="State" placeholder="Uttar Pradesh" />
       <FormField label="State Code" placeholder="UP09" />
       <FormField label="Postal Code" placeholder="201009" />
+      <FormField label="GSTIN" placeholder="09AAAAA0000A1Z5" />
+      <FormField label="PAN" placeholder="ABCDE1234F" />
+      <FormField label="Email ID" placeholder="plant@sikka.com" />
+      <FormField label="Website" placeholder="www.sikka.com" />
+      
+      {/* Multiple Mobile Numbers */}
+      <div className="md:col-span-2 space-y-2">
+        <label className="text-[10px] font-black uppercase text-slate-400">Mobile Numbers</label>
+        <div className="space-y-3">
+          {mobiles.map((m, idx) => (
+            <div key={idx} className="flex gap-2">
+              <Input 
+                value={m} 
+                onChange={(e) => updateMobile(idx, e.target.value)} 
+                placeholder={`Mobile No. ${idx + 1}`}
+                className="h-11 border-slate-200 bg-slate-50 px-4 rounded-xl font-bold"
+              />
+              <button 
+                type="button" 
+                onClick={() => removeMobile(idx)}
+                className="rounded-xl px-3 border border-slate-200 text-slate-400 hover:text-red-500 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+          <Button 
+            type="button" 
+            variant="ghost" 
+            onClick={addMobile}
+            className="text-[10px] font-black uppercase text-[#0056d2] hover:bg-blue-50"
+          >
+            <PlusCircle className="h-3 w-3 mr-1" /> Add Mobile
+          </Button>
+        </div>
+      </div>
+
       <div className="md:col-span-2">
         <FormField label="Address" placeholder="Full Address Node Details" type="textarea" />
       </div>
@@ -391,4 +442,3 @@ function FormField({ label, placeholder, type = 'text', required, value, onChang
     </div>
   );
 }
-
