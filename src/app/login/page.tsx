@@ -4,7 +4,8 @@
 import * as React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Eye, ShieldCheck } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import placeholderData from '@/app/lib/placeholder-images.json';
@@ -14,8 +15,15 @@ import placeholderData from '@/app/lib/placeholder-images.json';
  * Replicates the legacy ERP-style login interface provided in the design.
  */
 export default function LoginPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = React.useState(false);
   const officeImg = placeholderData.placeholderImages.find(p => p.id === 'login-office');
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    // In a real app, validation would happen here
+    router.push('/dashboard');
+  };
 
   return (
     <div className="min-h-screen bg-slate-200 flex items-center justify-center p-4 font-body">
@@ -55,12 +63,13 @@ export default function LoginPage() {
               Sikka Industries
             </h1>
 
-            <div className="space-y-8">
+            <form onSubmit={handleLogin} className="space-y-8">
               <div className="flex items-center gap-6">
                 <label className="w-32 text-xs font-black text-blue-900 uppercase tracking-widest flex items-center gap-1">
                   User <span className="text-red-500">*</span>
                 </label>
                 <Input 
+                  required
                   className="h-10 border-slate-300 rounded-none focus:ring-0 focus:border-blue-900"
                 />
               </div>
@@ -71,10 +80,12 @@ export default function LoginPage() {
                 </label>
                 <div className="relative flex-1">
                   <Input 
+                    required
                     type={showPassword ? "text" : "password"}
                     className="h-10 border-slate-300 rounded-none pr-10 focus:ring-0 focus:border-blue-900"
                   />
                   <button 
+                    type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-900"
                   >
@@ -86,15 +97,15 @@ export default function LoginPage() {
               <div className="flex items-center gap-6 pt-4">
                 <div className="w-32" />
                 <div className="flex items-center gap-6">
-                  <Button className="bg-white hover:bg-slate-50 text-black border border-slate-800 rounded-none px-10 h-10 font-black uppercase text-[10px] tracking-widest shadow-sm">
+                  <Button type="submit" className="bg-white hover:bg-slate-50 text-black border border-slate-800 rounded-none px-10 h-10 font-black uppercase text-[10px] tracking-widest shadow-sm">
                     Log On
                   </Button>
-                  <button className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-900 transition-colors">
+                  <button type="button" className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-900 transition-colors">
                     Initialize
                   </button>
                 </div>
               </div>
-            </div>
+            </form>
           </div>
         </div>
 
