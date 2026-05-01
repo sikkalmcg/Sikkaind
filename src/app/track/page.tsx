@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -87,6 +86,10 @@ export default function TrackPage() {
     const isSalesSearch = type === 'sales';
     const hasTrip = !!data.tripId;
 
+    // Show Trip Card if trip exists or if searched by trip
+    const showTripCard = (type === 'trip') || (isSalesSearch && hasTrip);
+    const showBookingBox = (isSalesSearch && !hasTrip);
+
     // Timeline Configuration
     const steps = ['OPEN ORDER', 'LOADING', 'IN-TRANSIT', 'ARRIVED', 'DELIVERED'];
     const getStatusIndex = (status: string) => {
@@ -102,101 +105,95 @@ export default function TrackPage() {
 
     return (
       <div className="min-h-screen bg-white font-mono p-4 md:p-8 animate-fade-in">
-        <div className="max-w-[1400px] mx-auto space-y-8">
+        <div className="max-w-[1400px] mx-auto space-y-6">
           <button 
             onClick={handleBack}
-            className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 hover:text-blue-900 transition-colors mb-4"
+            className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 hover:text-blue-900 transition-colors mb-2"
           >
             <ArrowLeft className="h-3 w-3" /> BACK TO SEARCH
           </button>
 
           {/* High Visibility Info Bar */}
-          <div className="bg-[#0f172a] text-white rounded-[1.5rem] md:rounded-full px-8 py-6 flex flex-wrap items-center justify-between gap-8 shadow-2xl">
+          <div className="bg-[#0f172a] text-white rounded-[1.5rem] md:rounded-full px-8 py-5 flex flex-wrap items-center justify-between gap-6 shadow-2xl">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
                 <Package className="h-3 w-3" /> Sale Order
               </div>
-              <p className="text-[12px] font-black text-blue-500">{data.saleOrder || data.saleOrderNumber || 'N/A'}</p>
+              <p className="text-[11px] font-black text-blue-500">{data.saleOrder || data.saleOrderNumber || 'N/A'}</p>
             </div>
             
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
                 <User className="h-3 w-3" /> Consignor
               </div>
-              <p className="text-[10px] font-black uppercase text-slate-100">{data.consignor || 'N/A'}</p>
+              <p className="text-[9px] font-black uppercase text-slate-100">{data.consignor || 'N/A'}</p>
             </div>
 
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
                 <User className="h-3 w-3" /> Consignee
               </div>
-              <p className="text-[10px] font-black uppercase text-slate-100">{data.consignee || 'N/A'}</p>
+              <p className="text-[9px] font-black uppercase text-slate-100">{data.consignee || 'N/A'}</p>
             </div>
 
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
                 <MapPin className="h-3 w-3" /> Ship to Party
               </div>
-              <p className="text-[10px] font-black uppercase text-slate-100">{data.shipToParty || 'N/A'}</p>
+              <p className="text-[9px] font-black uppercase text-slate-100">{data.shipToParty || 'N/A'}</p>
             </div>
 
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
                 <ShoppingCart className="h-3 w-3" /> Order Quantity
               </div>
-              <p className="text-[10px] font-black text-emerald-500">{data.orderQty || '0 MT'}</p>
+              <p className="text-[9px] font-black text-emerald-500">{data.orderQty || '0 MT'}</p>
             </div>
 
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
                 <Truck className="h-3 w-3" /> Route
               </div>
-              <p className="text-[10px] font-black uppercase text-blue-300">
+              <p className="text-[9px] font-black uppercase text-blue-300">
                 {data.route || 'TRANSIT PENDING'}
               </p>
             </div>
           </div>
 
-          <div className="flex justify-center pt-8">
-            {isSalesSearch && !hasTrip ? (
-              <div className="bg-[#f0f7ff] border-l-[6px] border-blue-600 rounded-[2.5rem] p-10 md:p-16 max-w-4xl w-full shadow-lg relative flex flex-col items-center text-center">
-                <h2 className="text-xl md:text-2xl font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
-                  {hasTrip ? (
-                    <>YOUR TRIP ID IS <button onClick={() => handleTrack(data.tripId, 'trip')} className="text-blue-600 underline decoration-2">{data.tripId}</button> FOR THIS SALES ORDER NO. {data.saleOrder}</>
-                  ) : (
-                    <>YOUR ORDER NO. '{data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.</>
-                  )}
+          <div className="flex justify-center pt-4">
+            {showBookingBox ? (
+              <div className="bg-[#f0f7ff] border-l-[6px] border-blue-600 rounded-[2rem] p-8 md:p-12 max-w-3xl w-full shadow-lg relative flex flex-col items-center text-center animate-slide-up">
+                <h2 className="text-lg md:text-xl font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
+                  YOUR ORDER NO. '{data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.
                 </h2>
                 {data.delayRemark && (
-                  <div className="mt-12 bg-white p-10 md:p-14 rounded-[2.5rem] shadow-2xl border border-slate-100 w-full max-w-3xl flex flex-col items-center">
-                    <div className="flex items-center gap-2 mb-4 text-slate-400">
+                  <div className="mt-8 bg-white p-8 md:p-10 rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-2xl flex flex-col items-center">
+                    <div className="flex items-center gap-2 mb-3 text-slate-400">
                       <AlertTriangle className="h-4 w-4" />
-                      <span className="text-[9px] font-black uppercase tracking-[0.2em]">Official Registry Note</span>
+                      <span className="text-[8px] font-black uppercase tracking-[0.2em]">Official Registry Note</span>
                     </div>
-                    <p className="text-slate-700 text-sm md:text-lg font-black italic text-center leading-relaxed">
+                    <p className="text-slate-700 text-sm md:text-base font-black italic text-center leading-relaxed">
                       "{data.delayRemark}"
                     </p>
                   </div>
                 )}
               </div>
-            ) : (
-              /* High Visibility Trip Mission Card with Timeline Animation */
-              <div className="bg-[#0f172a] p-6 md:p-10 rounded-[1.5rem] text-white shadow-2xl relative overflow-hidden w-full max-w-3xl border-t-[6px] border-blue-600 animate-slide-up">
-                <div className="flex justify-between items-start mb-8">
-                  <div className="space-y-2">
-                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-blue-500">Current Status</p>
-                    <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter leading-none">
+            ) : showTripCard && (
+              /* High Visibility Trip Mission Card (Compact) */
+              <div className="bg-[#0f172a] p-6 md:p-8 rounded-[1.5rem] text-white shadow-2xl relative overflow-hidden w-full max-w-3xl border-t-[6px] border-blue-600 animate-slide-up">
+                <div className="flex justify-between items-start mb-6">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-500">Current Status</p>
+                    <h2 className="text-2xl md:text-4xl font-black italic uppercase tracking-tighter leading-none">
                       {data.status || 'PROCESSING'}
                     </h2>
                   </div>
-                  <Truck className="h-16 w-16 text-white/5 shrink-0" />
+                  <Truck className="h-12 w-12 text-white/5 shrink-0" />
                 </div>
 
                 {/* Timeline Animation Component */}
-                <div className="py-8 relative mb-8">
-                  {/* Background Line */}
+                <div className="py-6 relative mb-6">
                   <div className="absolute top-1/2 left-0 w-full h-0.5 bg-white/10 -translate-y-1/2" />
-                  {/* Progress Line */}
                   <div 
                     className="absolute top-1/2 left-0 h-0.5 bg-blue-500 -translate-y-1/2 transition-all duration-1000 ease-in-out" 
                     style={{ width: `${(currentIndex / (steps.length - 1)) * 100}%` }}
@@ -204,16 +201,16 @@ export default function TrackPage() {
                   
                   <div className="relative flex justify-between">
                     {steps.map((step, idx) => (
-                      <div key={step} className="flex flex-col items-center gap-3 group">
+                      <div key={step} className="flex flex-col items-center gap-2 group">
                         <div className={cn(
-                          "w-3.5 h-3.5 rounded-full border-2 z-10 transition-all duration-500 flex items-center justify-center",
-                          idx <= currentIndex ? "bg-blue-500 border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]" : "bg-[#0f172a] border-white/20",
-                          idx === currentIndex && "animate-pulse scale-125"
+                          "w-3 h-3 rounded-full border-2 z-10 transition-all duration-500 flex items-center justify-center",
+                          idx <= currentIndex ? "bg-blue-500 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" : "bg-[#0f172a] border-white/20",
+                          idx === currentIndex && "animate-pulse scale-110"
                         )}>
-                          {idx < currentIndex && <CheckCircle className="h-2.5 w-2.5 text-white" />}
+                          {idx < currentIndex && <CheckCircle className="h-2 w-2 text-white" />}
                         </div>
                         <span className={cn(
-                          "text-[7px] md:text-[9px] font-black uppercase tracking-widest text-center whitespace-nowrap",
+                          "text-[6px] md:text-[8px] font-black uppercase tracking-widest text-center whitespace-nowrap",
                           idx <= currentIndex ? "text-blue-400" : "text-slate-600"
                         )}>
                           {step}
@@ -223,44 +220,44 @@ export default function TrackPage() {
                   </div>
                 </div>
 
-                <div className="h-px bg-white/10 w-full mb-8" />
+                <div className="h-px bg-white/10 w-full mb-6" />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-6">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-slate-500 text-[9px] font-black uppercase tracking-[0.2em]">Vehicle No.</span>
-                      <span className="text-base md:text-xl font-black uppercase tracking-widest">{data.vehicleNumber || 'ASSIGNING...'}</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-slate-500 text-[8px] font-black uppercase tracking-[0.2em]">Vehicle No.</span>
+                      <span className="text-sm md:text-lg font-black uppercase tracking-widest">{data.vehicleNumber || 'ASSIGNING...'}</span>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-slate-500 text-[9px] font-black uppercase tracking-[0.2em]">Registry ID</span>
-                      <span className="text-base md:text-xl font-black tracking-widest">{data.tripId || data.saleOrder}</span>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-slate-500 text-[8px] font-black uppercase tracking-[0.2em]">Registry ID</span>
+                      <span className="text-sm md:text-lg font-black tracking-widest">{data.tripId || data.saleOrder}</span>
                     </div>
                   </div>
                   
-                  <div className="flex flex-col justify-center items-end text-right space-y-3">
-                     <div className="flex items-center gap-2.5 text-slate-300">
-                        <MapPin className="h-4 w-4 text-blue-500" />
-                        <span className="text-xs md:text-base font-black uppercase tracking-widest">
+                  <div className="flex flex-col justify-center items-end text-right space-y-2">
+                     <div className="flex items-center gap-2 text-slate-300">
+                        <MapPin className="h-3 w-3 text-blue-500" />
+                        <span className="text-xs md:text-sm font-black uppercase tracking-widest">
                           {data.route || 'TRANSIT PENDING'}
                         </span>
                      </div>
-                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">
+                     <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">
                         Last Registry Sync: {formattedDate}
                      </p>
                   </div>
                 </div>
 
                 {data.delayRemark && (
-                  <div className="mt-8 bg-white/5 p-5 rounded-xl border border-white/10">
-                    <p className="text-[8px] font-black uppercase tracking-widest text-blue-500 mb-1.5">Delay Note</p>
-                    <p className="text-slate-300 text-xs italic font-bold leading-relaxed">"{data.delayRemark}"</p>
+                  <div className="mt-6 bg-white/5 p-4 rounded-xl border border-white/10">
+                    <p className="text-[7px] font-black uppercase tracking-widest text-blue-500 mb-1">Delay Note</p>
+                    <p className="text-slate-300 text-[11px] italic font-bold leading-relaxed">"{data.delayRemark}"</p>
                   </div>
                 )}
 
-                <div className="mt-10 flex justify-center">
+                <div className="mt-8 flex justify-center">
                   <button 
                     onClick={handleBack}
-                    className="text-[9px] font-black uppercase tracking-[0.4em] text-blue-500 hover:text-white transition-colors border-b border-transparent hover:border-white/20 pb-1"
+                    className="text-[8px] font-black uppercase tracking-[0.4em] text-blue-500 hover:text-white transition-colors"
                   >
                     BACK TO SEARCH
                   </button>
