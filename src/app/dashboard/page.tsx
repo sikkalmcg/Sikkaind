@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -393,30 +392,30 @@ export default function SapDashboard() {
         </div>
 
         <div className="flex-1 flex overflow-hidden">
-          {/* DASHBOARD SIDEBAR */}
-          <Sidebar collapsible="icon" className="border-r border-slate-300">
+          {/* DASHBOARD SIDEBAR - THEMED TO MATCH REFERENCE */}
+          <Sidebar collapsible="icon" className="border-r border-slate-300 bg-sidebar">
             <SidebarHeader className="bg-[#1e293b] text-white p-4">
               <div className="flex items-center gap-3 overflow-hidden">
                 <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center shrink-0">
                   <span className="font-black text-lg italic">S</span>
                 </div>
                 <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-                  <span className="text-[10px] font-black uppercase tracking-tighter">Sikka Hub</span>
+                  <span className="text-[10px] font-black uppercase tracking-tighter text-white">Sikka Hub</span>
                   <span className="text-[8px] font-bold text-slate-400 uppercase">Registry V2.5</span>
                 </div>
               </div>
             </SidebarHeader>
-            <SidebarContent className="bg-[#f8fafc] custom-scrollbar">
+            <SidebarContent className="custom-scrollbar">
               <SidebarMenu>
-                <div className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden">Main Registry</div>
+                <div className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden opacity-60">Main Registry</div>
                 <SidebarMenuItem>
                   <SidebarMenuButton onClick={() => setActiveScreen('HOME')} isActive={activeScreen === 'HOME'}>
                     <LayoutDashboard className="h-4 w-4" />
-                    <span>Home Hub</span>
+                    <span>Home Hub (/n)</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 
-                <div className="px-4 py-2 mt-4 text-[9px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden">Master Data</div>
+                <div className="px-4 py-3 mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden opacity-60">Master Data</div>
                 {[
                   { icon: Database, label: "Plant Master", code: "OX01" },
                   { icon: Database, label: "Company Master", code: "FM01" },
@@ -426,12 +425,12 @@ export default function SapDashboard() {
                   <SidebarMenuItem key={item.code}>
                     <SidebarMenuButton onClick={() => executeTCode(item.code)} isActive={activeScreen.startsWith(item.code.slice(0, 2))}>
                       <item.icon className="h-4 w-4" />
-                      <span>{item.label}</span>
+                      <span>{item.label} ({item.code})</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
 
-                <div className="px-4 py-2 mt-4 text-[9px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden">Logistics</div>
+                <div className="px-4 py-3 mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden opacity-60">Logistics</div>
                 {[
                   { icon: ShoppingBag, label: "Sales Orders", code: "VA01" },
                   { icon: Truck, label: "Drip Board", code: "TR21" },
@@ -440,21 +439,21 @@ export default function SapDashboard() {
                   <SidebarMenuItem key={item.code}>
                     <SidebarMenuButton onClick={() => executeTCode(item.code)} isActive={activeScreen === item.code}>
                       <item.icon className="h-4 w-4" />
-                      <span>{item.label}</span>
+                      <span>{item.label} ({item.code})</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
 
-                <div className="px-4 py-2 mt-4 text-[9px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden">System</div>
+                <div className="px-4 py-3 mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden opacity-60">System</div>
                 <SidebarMenuItem>
                   <SidebarMenuButton onClick={() => executeTCode("SU01")} isActive={activeScreen.startsWith("SU")}>
                     <Settings className="h-4 w-4" />
-                    <span>User Registry</span>
+                    <span>User Registry (SU01)</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarContent>
-            <SidebarFooter className="bg-[#f1f5f9] border-t border-slate-200">
+            <SidebarFooter className="bg-slate-50 border-t border-slate-200">
                <div className="p-2 group-data-[collapsible=icon]:p-0">
                   <Button onClick={handleLogout} variant="ghost" className="w-full justify-start gap-3 h-9 text-red-600 hover:text-red-700 hover:bg-red-50 group-data-[collapsible=icon]:px-2">
                     <LogOut className="h-4 w-4 shrink-0" />
@@ -519,7 +518,7 @@ export default function SapDashboard() {
                        </div>
                     </div>
 
-                    {/* T-CODE CARDS GRID - UPDATED TO 3 COLUMNS */}
+                    {/* T-CODE CARDS GRID - 3 COLUMNS PER REQUEST */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-10">
                       {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'TR21', 'SU01'].map((code) => (
                         <div 
@@ -717,7 +716,7 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
               </tr>
             </thead>
             <tbody>
-              {(data.items || [{}]).map((item: any, idx: number) => (
+              {(data.items || [{ product: 'SALT', weight: '', weightUom: 'MT', ewaybillNumber: '' }]).map((item: any, idx: number) => (
                 <tr key={idx}>
                   <td className="p-1 border border-slate-300">
                     <input className="w-full outline-none text-[10px] p-1 font-bold" value={item.product || ''} onChange={(e) => {
