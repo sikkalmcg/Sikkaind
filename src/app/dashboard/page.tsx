@@ -644,22 +644,6 @@ function FormInput({ label, value, onChange, type = "text", disabled, placeholde
   );
 }
 
-function FormSelect({ label, value, options, onChange, disabled }: any) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
-      <select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-9 border border-slate-400 bg-white px-2 text-xs font-bold outline-none shadow-sm">
-        <option value="">Select...</option>
-        {options.map((o: any, idx: number) => {
-          const optValue = typeof o === 'string' ? o : o.value;
-          const optLabel = typeof o === 'string' ? o : o.label;
-          return <option key={`${optValue}-${idx}`} value={optValue}>{optLabel}</option>;
-        })}
-      </select>
-    </div>
-  );
-}
-
 function PlantForm({ data, onChange, disabled }: any) {
   return (
     <div className="space-y-4">
@@ -863,7 +847,11 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
     return (allCustomers || []).filter((c: any) => c.plantCodes?.includes(data.plantCode));
   }, [allCustomers, data.plantCode]);
 
+  // Consignor dropdown -> Must display only records saved as Consignor (from XD03)
   const consignors = plantFilteredCustomers.filter((c: any) => c.customerType === 'Consignor');
+  
+  // Consignee dropdown -> Must display only records saved as Consignee – Ship to Party (from XD03)
+  // Ship to Party dropdown -> Must display records saved as Consignee – Ship to Party (from XD03)
   const shipToParties = plantFilteredCustomers.filter((c: any) => c.customerType === 'Consignee - Ship to Party');
 
   const items = data.items || [{ invoice: '', ewaybill: '', product: '', weight: '', weightUom: 'MT' }];
@@ -907,7 +895,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
         <FormSelect 
           label="CONSIGNEE" 
           value={data.consignee} 
-          options={plantFilteredCustomers.map((c: any) => c.customerName)} 
+          options={shipToParties.map((c: any) => c.customerName)} 
           onChange={(v: string) => onChange({...data, consignee: v})} 
           disabled={disabled} 
         />
@@ -974,6 +962,22 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function FormSelect({ label, value, options, onChange, disabled }: any) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-9 border border-slate-400 bg-white px-2 text-xs font-bold outline-none shadow-sm">
+        <option value="">Select...</option>
+        {options.map((o: any, idx: number) => {
+          const optValue = typeof o === 'string' ? o : o.value;
+          const optLabel = typeof o === 'string' ? o : o.label;
+          return <option key={`${optValue}-${idx}`} value={optValue}>{optLabel}</option>;
+        })}
+      </select>
     </div>
   );
 }
@@ -1340,7 +1344,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
             <div className="border border-slate-300 rounded-sm overflow-hidden">
               <div className="bg-[#dae4f1]/50 p-2.5 border-b border-slate-300 flex justify-between items-center"><span className="text-[9px] font-black uppercase tracking-widest text-slate-500">DOCUMENT ITEMS</span><button onClick={() => setCnData({...cnData, items: [...(cnData.items || []), { invoice: '', ewaybill: '', product: '', unit: '', unitUom: 'BAG' }]})} className="h-6 px-3 bg-[#1e3a8a] text-white font-black text-[8px] uppercase tracking-tighter">Add Row</button></div>
               <table className="w-full text-left border-collapse text-[10px]">
-                <thead className="bg-[#f8fafc] border-b border-slate-300"><tr>{['Invoice', 'E-waybill', 'Product', 'Unit', 'Unit UOM', ''].map(h => <th key={h} className="p-2 font-black uppercase text-slate-400 border-r border-slate-200">{h}</th>)}</tr></thead>
+                <thead className="bg-[#f8fafc] border-b border-slate-300"><tr>{['Invoice', 'E-waybill', 'Product', 'Quantity'].map(h => <th key={h} className="p-2 font-black uppercase text-slate-400 border-r border-slate-200">{h}</th>)}</tr></thead>
                 <tbody>{(cnData.items || []).map((it: any, idx: number) => (
                   <tr key={idx} className="border-b border-slate-100"><td className="p-1 border-r border-slate-100"><input value={it.invoice} onChange={e => { const items = [...cnData.items]; items[idx].invoice = e.target.value; setCnData({...cnData, items}); }} className="w-full h-7 outline-none px-2 font-bold focus:bg-[#ffffcc]" /></td><td className="p-1 border-r border-slate-100"><input value={it.ewaybill} onChange={e => { const items = [...cnData.items]; items[idx].ewaybill = e.target.value; setCnData({...cnData, items}); }} className="w-full h-7 outline-none px-2 font-bold focus:bg-[#ffffcc]" /></td><td className="p-1 border-r border-slate-100"><input value={it.product} onChange={e => { const items = [...cnData.items]; items[idx].product = e.target.value; setCnData({...cnData, items}); }} className="w-full h-7 outline-none px-2 font-bold focus:bg-[#ffffcc]" /></td><td className="p-1 border-r border-slate-100"><input value={it.unit} onChange={e => { const items = [...cnData.items]; items[idx].unit = e.target.value; setCnData({...cnData, items}); }} className="w-full h-7 outline-none px-2 font-bold focus:bg-[#ffffcc]" /></td><td className="p-1 border-r border-slate-100"><select value={it.unitUom} onChange={e => { const items = [...cnData.items]; items[idx].unitUom = e.target.value; setCnData({...cnData, items}); }} className="w-full h-7 outline-none bg-white font-bold">{['BAG', 'BOX', 'DRUM', 'Pieces'].map(u => <option key={u} value={u}>{u}</option>)}</select></td><td className="p-1 text-center"><button onClick={() => { const items = cnData.items.filter((_:any, i:number) => i !== idx); setCnData({...cnData, items}); }} className="text-red-400"><Trash2 className="h-3 w-3" /></button></td></tr>
                 ))}</tbody>
@@ -1437,25 +1441,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code: string) => void }) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
-      {tcodes.map((item) => (
-        <div key={item.code} onClick={() => onExecute(item.code)} className="bg-white border border-slate-200 p-6 rounded-xl shadow-md hover:shadow-xl transition-all cursor-pointer group flex items-start gap-5">
-           <div className="p-3 bg-blue-50 text-[#0056d2] rounded-lg group-hover:bg-[#0056d2] group-hover:text-white transition-colors">
-              <item.icon className="h-6 w-6" />
-           </div>
-           <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{item.module}</p>
-              <h3 className="text-sm font-black text-slate-800 uppercase leading-tight mb-2">{item.code}</h3>
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">{item.description}</p>
-           </div>
-        </div>
-      ))}
     </div>
   );
 }
