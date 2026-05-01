@@ -264,7 +264,6 @@ export default function SapDashboard() {
         </div>
         <div className="flex-1" />
         <div className="flex items-center gap-2 text-[10px] text-slate-700 font-bold pr-4">
-          <ChevronRight className="h-3 w-3" /> <span>S4P (1) 100</span>
           <div className="flex items-center gap-1.5 ml-4">
             <Monitor className="h-3 w-3" />
             <Share2 className="h-3 w-3" />
@@ -395,7 +394,7 @@ export default function SapDashboard() {
                    </div>
                  )}
                  {showList && <RegistryList onSelectItem={setFormData} listData={getRegistryList()} />}
-                 {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} onPrintLR={handlePrintLR} onPrintCN={handlePrintCN} />}
+                 {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlantsList} onPrintLR={handlePrintLR} onPrintCN={handlePrintCN} />}
                  {activeScreen === 'BULK' && <BulkDataHub allPlants={rawPlants} />}
               </div>
             )}
@@ -1035,3 +1034,4 @@ function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
     </div>
   );
 }
+
