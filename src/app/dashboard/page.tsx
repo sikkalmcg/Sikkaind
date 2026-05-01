@@ -15,7 +15,7 @@ import {
   FileSpreadsheet, HardDriveDownload, CloudUpload, ShieldAlert,
   AlertTriangle, Radar, Loader2, Edit3, FileDown,
   Monitor, Share2, Copy, Eraser, Undo2, Plus, Mail, Globe,
-  Minus, Square
+  Minus, Square, PlusSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -109,6 +109,9 @@ export default function SapDashboard() {
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL');
   const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM'));
 
+  // Multi-session tracking
+  const [sessionCount, setSessionCount] = React.useState(1);
+
   const tCodeRef = React.useRef<HTMLInputElement>(null);
 
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
@@ -129,6 +132,34 @@ export default function SapDashboard() {
       }, { merge: true });
     }
   }, [user, db]);
+
+  // Session tracking logic
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const channel = new BroadcastChannel('sap_session_hub');
+    const myId = Math.random().toString(36).substring(7);
+    const activeNodes = new Set<string>();
+
+    const handleMessage = (msg: MessageEvent) => {
+      if (msg.data.type === 'PING') {
+        channel.postMessage({ type: 'PONG', id: myId });
+      } else if (msg.data.type === 'PONG') {
+        activeNodes.add(msg.data.id);
+        setSessionCount(activeNodes.size + 1);
+      }
+    };
+
+    channel.onmessage = handleMessage;
+    const interval = setInterval(() => {
+      activeNodes.clear();
+      channel.postMessage({ type: 'PING' });
+    }, 1500);
+
+    return () => {
+      clearInterval(interval);
+      channel.close();
+    };
+  }, []);
 
   const isAuthorized = (code: string) => {
     if (code === 'HOME' || code === '') return true;
@@ -305,6 +336,24 @@ export default function SapDashboard() {
     }
   }, [user, activeScreen, formData, rawOrders, db]);
 
+  const handleCancel = React.useCallback(() => {
+    if (activeScreen === 'HOME') return;
+    setFormData({});
+    setStatusMsg({ text: 'Operation cancelled', type: 'info' });
+  }, [activeScreen]);
+
+  const handleNewSession = React.useCallback(() => {
+    if (sessionCount < 3) {
+      window.open(window.location.href, '_blank');
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Session Limit",
+        description: "Maximum 3 active sessions allowed at a time."
+      });
+    }
+  }, [sessionCount, toast]);
+
   const handleMinimize = () => {
     toast({
       title: "Minimize",
@@ -351,8 +400,7 @@ export default function SapDashboard() {
       }
       if (e.key === 'F4') tCodeRef.current?.focus();
       if (e.key === 'F12') {
-        setFormData({});
-        setStatusMsg({ text: 'Operation cancelled', type: 'info' });
+        handleCancel();
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
@@ -371,7 +419,7 @@ export default function SapDashboard() {
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [activeScreen, formData, handleSave, router, tCode, executeTCode, showHistory, historyIndex, history]);
+  }, [activeScreen, handleSave, handleCancel, executeTCode, showHistory, historyIndex, history]);
 
   React.useEffect(() => {
     const initialT = searchParams.get('tcode');
@@ -494,9 +542,37 @@ export default function SapDashboard() {
             )}
           </div>
           <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
-             <button onClick={handleSave} title="Save (Ctrl+S / F8)" className="p-1 hover:bg-slate-200 rounded group"><Save className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={() => executeTCode('/n')} title="Back (F3)" className="p-1 hover:bg-slate-200 rounded group"><Undo2 className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={() => setFormData({})} title="Clear Form (F12)" className="p-1 hover:bg-slate-200 rounded group"><Eraser className="h-4 w-4 text-slate-600" /></button>
+             <button 
+                onClick={handleSave} 
+                disabled={activeScreen === 'HOME'}
+                title="Save (Ctrl+S / F8)" 
+                className={cn("p-1 rounded group", activeScreen === 'HOME' ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}
+             >
+               <Save className="h-4 w-4 text-slate-600" />
+             </button>
+             <button 
+                onClick={() => executeTCode('/n')} 
+                title="Back (F3)" 
+                className="p-1 hover:bg-slate-200 rounded group"
+             >
+               <Undo2 className="h-4 w-4 text-slate-600" />
+             </button>
+             <button 
+                onClick={handleCancel} 
+                disabled={activeScreen === 'HOME'}
+                title="Cancel (F12)" 
+                className={cn("p-1 rounded group", activeScreen === 'HOME' ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}
+             >
+               <XCircle className="h-4 w-4 text-slate-600" />
+             </button>
+             <button 
+                onClick={handleNewSession} 
+                disabled={sessionCount >= 3}
+                title="Create New Session" 
+                className={cn("p-1 rounded group", sessionCount >= 3 ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}
+             >
+               <PlusSquare className="h-4 w-4 text-slate-600" />
+             </button>
           </div>
           <div className="flex-1" />
           <div className="flex items-center gap-3 pr-4">
