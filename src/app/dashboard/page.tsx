@@ -581,7 +581,7 @@ export default function SapDashboard() {
                              {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
                              {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
                              {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                             {activeScreen.startsWith('VA') && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                             {activeScreen.startsWith('VA') && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} allCustomers={rawCustomers} />}
                              {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
                            </>
                          )}
@@ -683,7 +683,7 @@ function CustomerForm({ data, onChange, disabled }: any) {
   );
 }
 
-function SalesOrderForm({ data, onChange, disabled }: any) {
+function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: any) {
   const [time, setTime] = React.useState(new Date());
 
   React.useEffect(() => {
@@ -695,19 +695,26 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
 
   const currentTimeStr = format(time, 'dd-MM-yyyy HH:mm:ss');
 
+  const plantOptions = (allPlants || []).map((p: any) => p.plantCode);
+  const consignorOptions = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignor').map((c: any) => c.customerName)));
+  const consigneeOptions = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignee').map((c: any) => c.customerName)));
+  const shipToOptions = Array.from(new Set((allCustomers || []).map((c: any) => c.customerName)));
+  const fromCityOptions = Array.from(new Set((allPlants || []).map((p: any) => p.city).filter(Boolean)));
+  const destinationCityOptions = Array.from(new Set((allCustomers || []).map((c: any) => c.city).filter(Boolean)));
+
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-        <FormInput label="Plant Code" value={data.plantCode} onChange={(v) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormSelect label="Plant Code" value={data.plantCode} options={plantOptions} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
         <FormInput label="System Date/Time" value={data.id ? (data.saleOrderDate || '--') : currentTimeStr} disabled={true} />
-        <FormInput label="LR Number" value={data.lrNo} onChange={(v) => onChange({...data, lrNo: v})} disabled={disabled} />
-        <FormInput label="LR Date" value={data.lrDate} type="date" onChange={(v) => onChange({...data, lrDate: v})} disabled={disabled} />
-        <FormInput label="Sale Order No" value={data.saleOrder} onChange={(v) => onChange({...data, saleOrder: v})} disabled={disabled} />
-        <FormInput label="Consignor Name" value={data.consignor} onChange={(v) => onChange({...data, consignor: v})} disabled={disabled} />
-        <FormInput label="Consignee Name" value={data.consignee} onChange={(v) => onChange({...data, consignee: v})} disabled={disabled} />
-        <FormInput label="Ship To Party" value={data.shipToParty} onChange={(v) => onChange({...data, shipToParty: v})} disabled={disabled} />
-        <FormInput label="From City" value={data.from} onChange={(v) => onChange({...data, from: v})} disabled={disabled} />
-        <FormInput label="Destination City" value={data.destination} onChange={(v) => onChange({...data, destination: v})} disabled={disabled} />
+        <FormInput label="LR Number" value={data.lrNo} onChange={(v: string) => onChange({...data, lrNo: v})} disabled={disabled} />
+        <FormInput label="LR Date" value={data.lrDate} type="date" onChange={(v: string) => onChange({...data, lrDate: v})} disabled={disabled} />
+        <FormInput label="Sale Order No" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
+        <FormSelect label="Consignor Name" value={data.consignor} options={consignorOptions} onChange={(v: string) => onChange({...data, consignor: v})} disabled={disabled} />
+        <FormSelect label="Consignee Name" value={data.consignee} options={consigneeOptions} onChange={(v: string) => onChange({...data, consignee: v})} disabled={disabled} />
+        <FormSelect label="Ship To Party" value={data.shipToParty} options={shipToOptions} onChange={(v: string) => onChange({...data, shipToParty: v})} disabled={disabled} />
+        <FormSelect label="From City" value={data.from} options={fromCityOptions} onChange={(v: string) => onChange({...data, from: v})} disabled={disabled} />
+        <FormSelect label="Destination City" value={data.destination} options={destinationCityOptions} onChange={(v: string) => onChange({...data, destination: v})} disabled={disabled} />
       </div>
       
       <div className="space-y-4">
@@ -1078,7 +1085,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
               <TabsTrigger 
                 key={tab} 
                 value={tab.split(' ')[0]}
-                className="rounded-xl px-6 font-black text-[10px] uppercase tracking-wider data-[state=active]:bg-[#0056d2] data-[state=active]:text-white h-10"
+                className="rounded-xl px-6 font-black text-[10px] uppercase tracking-wider data-[state=active]:bg-[#0056d2] text-white h-10"
               >
                 {tab}
               </TabsTrigger>
