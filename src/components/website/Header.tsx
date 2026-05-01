@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -44,8 +43,8 @@ export default function Header() {
             </Link>
           </Button>
 
-          <Button asChild variant="outline" className="hidden md:flex font-black uppercase text-[10px] tracking-widest rounded-xl px-6 border-slate-200 shadow-sm hover:bg-slate-50">
-            <Link href="/" className="flex items-center gap-2">
+          <Button asChild variant="outline" className="flex font-black uppercase text-[10px] tracking-widest rounded-xl px-6 border-slate-200 shadow-sm hover:bg-slate-50 transition-colors">
+            <Link href="/track" className="flex items-center gap-2">
               <Radar className="h-4 w-4 text-blue-600" /> Track
             </Link>
           </Button>
