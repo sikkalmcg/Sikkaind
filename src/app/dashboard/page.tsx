@@ -152,7 +152,6 @@ export default function SapDashboard() {
     return rawCustomers?.filter(c => c.plantCodes?.some((p: string) => authPlants.includes(p)));
   }, [rawCustomers, userProfile]);
 
-  // Sidebar control effect
   React.useEffect(() => {
     if (activeScreen === 'HOME') {
       setSidebarOpen(true);
@@ -403,7 +402,6 @@ export default function SapDashboard() {
         </div>
 
         <div className="flex-1 flex overflow-hidden">
-          {/* DASHBOARD SIDEBAR - THEMED TO MATCH REFERENCE */}
           <Sidebar collapsible="icon" className="border-r border-slate-300 bg-sidebar">
             <SidebarHeader className="bg-[#1e293b] text-white p-4">
               <div className="flex items-center gap-3 overflow-hidden">
@@ -474,9 +472,7 @@ export default function SapDashboard() {
             </SidebarFooter>
           </Sidebar>
 
-          {/* MAIN CONTENT AREA */}
           <SidebarInset className="flex flex-col overflow-hidden bg-[#f0f3f9]">
-            {/* DYNAMIC HEADER BASED ON TRANSACTION CODE */}
             <div className="bg-[#0056d2] text-white py-2 px-6 shadow-lg flex flex-col items-center justify-center min-h-[60px] shrink-0">
               <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none text-center">
                 {activeScreen === 'HOME' ? 'Sikka Logistics Hub' : getScreenTitle(activeScreen)}
@@ -490,7 +486,6 @@ export default function SapDashboard() {
               <div className={`p-8 w-full ${isModuleActive ? 'max-w-none' : 'max-w-[1400px]'} mx-auto`}>
                 {activeScreen === 'HOME' ? (
                   <div className="space-y-12 animate-fade-in">
-                    {/* RECENT SALES ORDER REGISTRY */}
                     <div className="bg-white rounded-[3rem] border border-slate-200 shadow-2xl overflow-hidden">
                        <div className="bg-[#1e293b] px-10 py-6 flex items-center justify-between">
                           <div className="flex items-center gap-4">
@@ -530,20 +525,19 @@ export default function SapDashboard() {
                        </div>
                     </div>
 
-                    {/* T-CODE CARDS GRID - 3 COLUMNS PER REQUEST */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-10">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 pb-10">
                       {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'TR21', 'SU01'].map((code) => (
                         <div 
                           key={code} 
                           onClick={() => executeTCode(code)} 
-                          className="bg-white p-6 rounded-[1.5rem] shadow-lg border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group flex flex-col min-h-[220px]"
+                          className="bg-white p-8 rounded-[1.5rem] shadow-xl border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all cursor-pointer group flex flex-col min-h-[260px] max-w-[300px] w-full mx-auto"
                         >
-                          <div className="flex items-center justify-between mb-6">
-                            <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1.5 font-black italic tracking-widest text-[10px] border-none shadow-sm">{code}</Badge>
-                            <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-[#0056d2] group-hover:translate-x-1 transition-all" />
+                          <div className="flex items-center justify-between mb-8">
+                            <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1.5 font-black italic tracking-[0.15em] text-[10px] border-none shadow-sm">{code}</Badge>
+                            <ChevronRight className="h-4 w-4 text-slate-200 group-hover:text-[#0056d2] group-hover:translate-x-1 transition-all" />
                           </div>
                           <div className="flex-1 flex flex-col justify-start">
-                             <h3 className="text-[12px] font-black text-[#1e3a8a] leading-[1.6] uppercase tracking-wider">
+                             <h3 className="text-[13px] font-black text-[#1e3a8a] leading-[1.8] uppercase tracking-[0.1em]">
                                {getScreenTitle(code as Screen).split(' ').map((word, i) => (
                                  <span key={i} className="block">{word}</span>
                                ))}
@@ -603,7 +597,6 @@ export default function SapDashboard() {
               </div>
             </div>
 
-            {/* STATUS FOOTER BAR */}
             <div className="h-6 bg-[#f0f0f0] border-t border-slate-300 flex items-center px-4 gap-6 text-[10px] font-bold text-slate-600 print:hidden shrink-0">
               <div className="flex items-center gap-2 pr-6 border-r border-slate-200 min-w-[250px]">
                 {statusMsg.type === 'success' && <Check className="h-3 w-3 text-emerald-500" />}
@@ -623,7 +616,6 @@ export default function SapDashboard() {
   );
 }
 
-// Helper components...
 function SectionHeader({ title }: { title: string }) {
   return (
     <h3 className="text-[10px] font-black uppercase tracking-widest bg-[#dae4f1] border-y border-slate-300 px-4 py-1 text-[#1e3a8a]">
