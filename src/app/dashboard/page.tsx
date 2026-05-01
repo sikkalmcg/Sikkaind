@@ -9,7 +9,8 @@ import {
   Grid2X2, Upload, Download, ShoppingBag, ArrowUpRight,
   Filter, Truck, MapPin, User, DollarSign, Activity,
   Layers, PackageCheck, Ban, Lock, Play, XCircle, Search,
-  ArrowRight, Calendar, Phone, FileText, Package, Clock
+  ArrowRight, Calendar, Phone, FileText, Package, Clock,
+  LayoutDashboard, Database, Settings, BarChart
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +39,18 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  SidebarInset,
+} from "@/components/ui/sidebar";
 
 type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'TR21' | 'BULK' | 'SU01' | 'SU02' | 'SU03';
 
@@ -316,210 +329,290 @@ export default function SapDashboard() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#d9e1f2] text-[#333] font-mono select-none overflow-hidden">
-      <div className="flex items-center bg-[#f0f0f0] border-b border-white/50 px-2 h-7 text-[11px] font-semibold">
-        <DropdownMenu>
-          <DropdownMenuTrigger className="px-3 hover:bg-[#0056d2] hover:text-white outline-none transition-colors h-full flex items-center">
-            Menu
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="bg-white rounded-none border-slate-300 shadow-xl text-[11px] p-0 min-w-[150px]">
-            <DropdownMenuItem onClick={() => setActiveScreen('HOME')} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Home (/n)</DropdownMenuItem>
-            <DropdownMenuSeparator className="m-0 bg-slate-200" />
-            <DropdownMenuItem onClick={handleSave} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Save (Ctrl+S)</DropdownMenuItem>
-            <DropdownMenuSeparator className="m-0 bg-slate-200" />
-            <DropdownMenuItem onClick={handleLogout} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4 text-red-600">Log Off</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {['Edit', 'Favorites', 'Extras', 'System', 'Help'].map((item) => (
-          <div key={item} className="px-3 hover:bg-[#0056d2] hover:text-white transition-colors h-full flex items-center cursor-pointer">
-            {item}
-          </div>
-        ))}
-        <div className="ml-auto flex items-center gap-2 pr-4 text-[10px] text-slate-500 font-bold uppercase">
-          <span>S4P (1) 100</span>
-          <div className="flex items-center gap-1 ml-4 text-[#0056d2] cursor-pointer" onClick={handleLogout}>
-             <LogOut className="h-3 w-3" />
-             <span>Log Off</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm">
-        <div className="flex items-center px-2 py-1 gap-2">
-          <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner">
-            <div className="px-1 text-[#008000] font-black text-xs">✓</div>
-            <input 
-              ref={tCodeRef}
-              type="text" 
-              value={tCode}
-              onChange={(e) => setTCode(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && executeTCode(tCode)}
-              className="w-48 outline-none text-xs px-1 font-bold tracking-wider"
-              placeholder="/n..."
-            />
-          </div>
-          <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-6">
-             <button onClick={handleSave} title="Save (Ctrl+S)" className="p-1 hover:bg-slate-200 rounded group transition-all">
-               <Save className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
-             </button>
-             <button onClick={() => setActiveScreen('HOME')} title="Exit" className="p-1 hover:bg-slate-200 rounded group transition-all">
-               <X className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
-             </button>
-             <button onClick={() => setFormData({})} title="Refresh/Reset" className="p-1 hover:bg-slate-200 rounded group transition-all">
-               <RotateCcw className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
-             </button>
-             <button onClick={() => window.print()} title="Print" className="p-1 hover:bg-slate-200 rounded group transition-all">
-               <Printer className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
-             </button>
+    <SidebarProvider>
+      <div className="flex flex-col h-screen w-full bg-[#d9e1f2] text-[#333] font-mono select-none overflow-hidden">
+        {/* TOP BAR */}
+        <div className="flex items-center bg-[#f0f0f0] border-b border-white/50 px-2 h-7 text-[11px] font-semibold z-50">
+          <DropdownMenu>
+            <DropdownMenuTrigger className="px-3 hover:bg-[#0056d2] hover:text-white outline-none transition-colors h-full flex items-center">
+              Menu
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="bg-white rounded-none border-slate-300 shadow-xl text-[11px] p-0 min-w-[150px]">
+              <DropdownMenuItem onClick={() => setActiveScreen('HOME')} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Home (/n)</DropdownMenuItem>
+              <DropdownMenuSeparator className="m-0 bg-slate-200" />
+              <DropdownMenuItem onClick={handleSave} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Save (Ctrl+S)</DropdownMenuItem>
+              <DropdownMenuSeparator className="m-0 bg-slate-200" />
+              <DropdownMenuItem onClick={handleLogout} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4 text-red-600">Log Off</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {['Edit', 'Favorites', 'Extras', 'System', 'Help'].map((item) => (
+            <div key={item} className="px-3 hover:bg-[#0056d2] hover:text-white transition-colors h-full flex items-center cursor-pointer">
+              {item}
+            </div>
+          ))}
+          <div className="ml-auto flex items-center gap-2 pr-4 text-[10px] text-slate-500 font-bold uppercase">
+            <span>S4P (1) 100</span>
+            <div className="flex items-center gap-1 ml-4 text-[#0056d2] cursor-pointer" onClick={handleLogout}>
+               <LogOut className="h-3 w-3" />
+               <span>Log Off</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 flex flex-col bg-[#f0f3f9] overflow-y-auto no-scrollbar">
-          <div className="bg-[#0056d2] text-white py-2 px-6 shadow-lg flex flex-col items-center justify-center min-h-[60px]">
-            <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none text-center">
-              Sikka Logistics Hub
-            </h1>
-            <p className="text-[10px] font-bold uppercase tracking-[0.4em] mt-1 text-center text-blue-100">
-              Central Management Hub
-            </p>
+        {/* T-CODE COMMAND BAR */}
+        <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40">
+          <div className="flex items-center px-2 py-1 gap-2">
+            <SidebarTrigger className="h-6 w-6 text-slate-600 hover:bg-slate-200 rounded" />
+            <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner">
+              <div className="px-1 text-[#008000] font-black text-xs">✓</div>
+              <input 
+                ref={tCodeRef}
+                type="text" 
+                value={tCode}
+                onChange={(e) => setTCode(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && executeTCode(tCode)}
+                className="w-48 outline-none text-xs px-1 font-bold tracking-wider"
+                placeholder="/n..."
+              />
+            </div>
+            <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-6">
+               <button onClick={handleSave} title="Save (Ctrl+S)" className="p-1 hover:bg-slate-200 rounded group transition-all">
+                 <Save className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
+               </button>
+               <button onClick={() => setActiveScreen('HOME')} title="Exit" className="p-1 hover:bg-slate-200 rounded group transition-all">
+                 <X className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
+               </button>
+               <button onClick={() => setFormData({})} title="Refresh/Reset" className="p-1 hover:bg-slate-200 rounded group transition-all">
+                 <RotateCcw className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
+               </button>
+               <button onClick={() => window.print()} title="Print" className="p-1 hover:bg-slate-200 rounded group transition-all">
+                 <Printer className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
+               </button>
+            </div>
           </div>
+        </div>
 
-          <div className={`p-8 w-full ${isModuleActive ? 'max-w-none' : 'max-w-[1400px]'} mx-auto`}>
-            {activeScreen === 'HOME' ? (
-              <div className="space-y-12 animate-fade-in">
-                {/* RECENT SALES ORDER REGISTRY */}
-                <div className="bg-white rounded-[3rem] border border-slate-200 shadow-2xl overflow-hidden">
-                   <div className="bg-[#1e293b] px-10 py-6 flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <ShoppingBag className="h-6 w-6 text-blue-400" />
-                        <h2 className="text-sm font-black uppercase text-white tracking-[0.2em] italic">Recent Sales Order Registry</h2>
-                      </div>
-                      <Badge className="bg-[#0056d2] text-white border-none rounded-lg px-6 py-1.5 font-black italic tracking-widest text-[10px]">NODE ACTIVITY</Badge>
-                   </div>
-                   <div className="overflow-x-auto p-4">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b-2 border-slate-100">
-                            <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">SO Number</th>
-                            <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Consignor</th>
-                            <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Destination</th>
-                            <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Date</th>
-                            <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {recentOrders?.slice(0, 5).map((order) => (
-                            <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { setFormData(order); setActiveScreen('VA03'); }}>
-                              <td className="p-6 font-black text-sm text-[#0056d2]">{order.saleOrder || order.saleOrderNumber}</td>
-                              <td className="p-6 font-bold text-[11px] text-slate-600 uppercase tracking-tight">{order.consignor}</td>
-                              <td className="p-6 font-black italic text-[11px] text-[#64748b] uppercase">{order.destination}</td>
-                              <td className="p-6 font-bold text-[11px] text-slate-400">{order.saleOrderDate ? format(new Date(order.saleOrderDate), 'dd-MM-yyyy') : '--'}</td>
-                              <td className="p-6 text-center">
-                                <div className="flex items-center justify-center gap-2 text-emerald-500">
-                                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                   <span className="text-[10px] font-black uppercase tracking-widest">Active</span>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                   </div>
+        <div className="flex-1 flex overflow-hidden">
+          {/* DASHBOARD SIDEBAR */}
+          <Sidebar collapsible="icon" className="border-r border-slate-300">
+            <SidebarHeader className="bg-[#1e293b] text-white p-4">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center shrink-0">
+                  <span className="font-black text-lg italic">S</span>
                 </div>
-
-                {/* T-CODE CARDS GRID */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 pb-10">
-                  {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'TR21', 'SU01'].map((code) => (
-                    <div 
-                      key={code} 
-                      onClick={() => executeTCode(code)} 
-                      className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer group flex flex-col min-h-[300px]"
-                    >
-                      <div className="flex items-center justify-between mb-8">
-                        <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-6 py-2 font-black italic tracking-widest text-[11px] border-none shadow-sm">{code}</Badge>
-                        <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-[#0056d2] group-hover:translate-x-1 transition-all" />
-                      </div>
-                      <div className="flex-1 flex flex-col justify-start">
-                         <h3 className="text-[13px] font-black text-[#1e3a8a] leading-[1.6] uppercase tracking-wider">
-                           {getScreenTitle(code as Screen).split(' ').map((word, i) => (
-                             <span key={i} className="block">{word}</span>
-                           ))}
-                         </h3>
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex flex-col group-data-[collapsible=icon]:hidden">
+                  <span className="text-[10px] font-black uppercase tracking-tighter">Sikka Hub</span>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase">Registry V2.5</span>
                 </div>
               </div>
-            ) : (
-              <div className="bg-white shadow-2xl rounded-sm border border-slate-300 overflow-hidden animate-slide-up w-full">
-                 <div className="h-1 bg-yellow-500 w-full" />
-                 <div className="p-1 min-h-[600px] bg-[#fdfdfd] flex flex-col">
-                   {showList && (
-                     <div className="bg-[#e9f0f8] p-4 border-b border-slate-300 mb-6">
-                        <div className="flex items-center gap-6 max-w-2xl">
-                           <label className="text-xs font-bold text-slate-600 w-32">Selection Registry</label>
-                           <select 
-                            className="flex-1 h-8 bg-white border border-slate-400 px-2 text-xs outline-none"
-                            onChange={(e) => {
-                              const selected = getRegistryList()?.find(i => i.id === e.target.value);
-                              if (selected) setFormData(selected);
-                            }}
-                           >
-                            <option value="">Select Registry Item...</option>
-                            {getRegistryList()?.map(item => (
-                              <option key={item.id} value={item.id}>
-                                {item.username || item.saleOrder || item.saleOrderNumber || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)} - {item.fullName || item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}
-                              </option>
-                            ))}
-                           </select>
-                        </div>
-                     </div>
-                   )}
-                   <div className="p-4 space-y-6">
-                     {showForm && (
-                       <>
-                         {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                         {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                         {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                         {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                         {activeScreen.startsWith('VA') && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                         {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
-                       </>
-                     )}
-                     {showList && (
-                       <div className="space-y-4">
-                         <h3 className="text-[10px] font-bold uppercase bg-[#dae4f1] px-4 py-1 border-y border-slate-300 text-[#1e3a8a]">Selection List</h3>
-                         <RegistryList screen={activeScreen} onSelectItem={setFormData} listData={getRegistryList()} />
+            </SidebarHeader>
+            <SidebarContent className="bg-[#f8fafc] custom-scrollbar">
+              <SidebarMenu>
+                <div className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden">Main Registry</div>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => setActiveScreen('HOME')} isActive={activeScreen === 'HOME'}>
+                    <LayoutDashboard className="h-4 w-4" />
+                    <span>Home Hub</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                
+                <div className="px-4 py-2 mt-4 text-[9px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden">Master Data</div>
+                {[
+                  { icon: Database, label: "Plant Master", code: "OX01" },
+                  { icon: Database, label: "Company Master", code: "FM01" },
+                  { icon: User, label: "Vendor Master", code: "XK01" },
+                  { icon: User, label: "Customer Master", code: "XD01" },
+                ].map((item) => (
+                  <SidebarMenuItem key={item.code}>
+                    <SidebarMenuButton onClick={() => executeTCode(item.code)} isActive={activeScreen.startsWith(item.code.slice(0, 2))}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+
+                <div className="px-4 py-2 mt-4 text-[9px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden">Logistics</div>
+                {[
+                  { icon: ShoppingBag, label: "Sales Orders", code: "VA01" },
+                  { icon: Truck, label: "Drip Board", code: "TR21" },
+                  { icon: BarChart, label: "Bulk Data Hub", code: "BULK" },
+                ].map((item) => (
+                  <SidebarMenuItem key={item.code}>
+                    <SidebarMenuButton onClick={() => executeTCode(item.code)} isActive={activeScreen === item.code}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+
+                <div className="px-4 py-2 mt-4 text-[9px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden">System</div>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => executeTCode("SU01")} isActive={activeScreen.startsWith("SU")}>
+                    <Settings className="h-4 w-4" />
+                    <span>User Registry</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarContent>
+            <SidebarFooter className="bg-[#f1f5f9] border-t border-slate-200">
+               <div className="p-2 group-data-[collapsible=icon]:p-0">
+                  <Button onClick={handleLogout} variant="ghost" className="w-full justify-start gap-3 h-9 text-red-600 hover:text-red-700 hover:bg-red-50 group-data-[collapsible=icon]:px-2">
+                    <LogOut className="h-4 w-4 shrink-0" />
+                    <span className="group-data-[collapsible=icon]:hidden text-[10px] font-black uppercase">Sign Out</span>
+                  </Button>
+               </div>
+            </SidebarFooter>
+          </Sidebar>
+
+          {/* MAIN CONTENT AREA */}
+          <SidebarInset className="flex flex-col overflow-hidden bg-[#f0f3f9]">
+            <div className="bg-[#0056d2] text-white py-2 px-6 shadow-lg flex flex-col items-center justify-center min-h-[60px] shrink-0">
+              <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none text-center">
+                Sikka Logistics Hub
+              </h1>
+              <p className="text-[10px] font-bold uppercase tracking-[0.4em] mt-1 text-center text-blue-100">
+                Central Management Hub
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto no-scrollbar">
+              <div className={`p-8 w-full ${isModuleActive ? 'max-w-none' : 'max-w-[1400px]'} mx-auto`}>
+                {activeScreen === 'HOME' ? (
+                  <div className="space-y-12 animate-fade-in">
+                    {/* RECENT SALES ORDER REGISTRY */}
+                    <div className="bg-white rounded-[3rem] border border-slate-200 shadow-2xl overflow-hidden">
+                       <div className="bg-[#1e293b] px-10 py-6 flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <ShoppingBag className="h-6 w-6 text-blue-400" />
+                            <h2 className="text-sm font-black uppercase text-white tracking-[0.2em] italic">Recent Sales Order Registry</h2>
+                          </div>
+                          <Badge className="bg-[#0056d2] text-white border-none rounded-lg px-6 py-1.5 font-black italic tracking-widest text-[10px]">NODE ACTIVITY</Badge>
                        </div>
-                     )}
-                     {activeScreen === 'TR21' && <DripBoard orders={recentOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} />}
-                   </div>
-                 </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+                       <div className="overflow-x-auto p-4">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b-2 border-slate-100">
+                                <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">SO Number</th>
+                                <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Consignor</th>
+                                <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Destination</th>
+                                <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Date</th>
+                                <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {recentOrders?.slice(0, 5).map((order) => (
+                                <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { setFormData(order); setActiveScreen('VA03'); }}>
+                                  <td className="p-6 font-black text-sm text-[#0056d2]">{order.saleOrder || order.saleOrderNumber}</td>
+                                  <td className="p-6 font-bold text-[11px] text-slate-600 uppercase tracking-tight">{order.consignor}</td>
+                                  <td className="p-6 font-black italic text-[11px] text-[#64748b] uppercase">{order.destination}</td>
+                                  <td className="p-6 font-bold text-[11px] text-slate-400">{order.saleOrderDate ? format(new Date(order.saleOrderDate), 'dd-MM-yyyy') : '--'}</td>
+                                  <td className="p-6 text-center">
+                                    <div className="flex items-center justify-center gap-2 text-emerald-500">
+                                       <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                       <span className="text-[10px] font-black uppercase tracking-widest">Active</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                       </div>
+                    </div>
 
-      <div className="h-6 bg-[#f0f0f0] border-t border-slate-300 flex items-center px-4 gap-6 text-[10px] font-bold text-slate-600 print:hidden">
-        <div className="flex items-center gap-2 pr-6 border-r border-slate-200 min-w-[250px]">
-          {statusMsg.type === 'success' && <Check className="h-3 w-3 text-emerald-500" />}
-          {statusMsg.type === 'error' && <AlertCircle className="h-3 w-3 text-red-500" />}
-          {statusMsg.type === 'info' && <Info className="h-3 w-3 text-blue-500" />}
-          <span className={statusMsg.type === 'error' ? 'text-red-600' : ''}>{statusMsg.text}</span>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[9px] uppercase tracking-widest text-emerald-600">Synced</span>
+                    {/* T-CODE CARDS GRID - UPDATED TO 3 COLUMNS */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-10">
+                      {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'TR21', 'SU01'].map((code) => (
+                        <div 
+                          key={code} 
+                          onClick={() => executeTCode(code)} 
+                          className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 hover:shadow-2xl hover:-translate-y-2 transition-all cursor-pointer group flex flex-col min-h-[300px]"
+                        >
+                          <div className="flex items-center justify-between mb-8">
+                            <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-6 py-2 font-black italic tracking-widest text-[11px] border-none shadow-sm">{code}</Badge>
+                            <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-[#0056d2] group-hover:translate-x-1 transition-all" />
+                          </div>
+                          <div className="flex-1 flex flex-col justify-start">
+                             <h3 className="text-[14px] font-black text-[#1e3a8a] leading-[1.8] uppercase tracking-wider">
+                               {getScreenTitle(code as Screen).split(' ').map((word, i) => (
+                                 <span key={i} className="block">{word}</span>
+                               ))}
+                             </h3>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white shadow-2xl rounded-sm border border-slate-300 overflow-hidden animate-slide-up w-full">
+                     <div className="h-1 bg-yellow-500 w-full" />
+                     <div className="p-1 min-h-[600px] bg-[#fdfdfd] flex flex-col">
+                       {showList && (
+                         <div className="bg-[#e9f0f8] p-4 border-b border-slate-300 mb-6">
+                            <div className="flex items-center gap-6 max-w-2xl">
+                               <label className="text-xs font-bold text-slate-600 w-32">Selection Registry</label>
+                               <select 
+                                className="flex-1 h-8 bg-white border border-slate-400 px-2 text-xs outline-none"
+                                onChange={(e) => {
+                                  const selected = getRegistryList()?.find(i => i.id === e.target.value);
+                                  if (selected) setFormData(selected);
+                                }}
+                               >
+                                <option value="">Select Registry Item...</option>
+                                {getRegistryList()?.map(item => (
+                                  <option key={item.id} value={item.id}>
+                                    {item.username || item.saleOrder || item.saleOrderNumber || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)} - {item.fullName || item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}
+                                  </option>
+                                ))}
+                               </select>
+                            </div>
+                         </div>
+                       )}
+                       <div className="p-4 space-y-6">
+                         {showForm && (
+                           <>
+                             {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                             {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                             {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                             {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                             {activeScreen.startsWith('VA') && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                             {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
+                           </>
+                         )}
+                         {showList && (
+                           <div className="space-y-4">
+                             <h3 className="text-[10px] font-bold uppercase bg-[#dae4f1] px-4 py-1 border-y border-slate-300 text-[#1e3a8a]">Selection List</h3>
+                             <RegistryList screen={activeScreen} onSelectItem={setFormData} listData={getRegistryList()} />
+                           </div>
+                         )}
+                         {activeScreen === 'TR21' && <DripBoard orders={recentOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} />}
+                       </div>
+                     </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* STATUS FOOTER BAR */}
+            <div className="h-6 bg-[#f0f0f0] border-t border-slate-300 flex items-center px-4 gap-6 text-[10px] font-bold text-slate-600 print:hidden shrink-0">
+              <div className="flex items-center gap-2 pr-6 border-r border-slate-200 min-w-[250px]">
+                {statusMsg.type === 'success' && <Check className="h-3 w-3 text-emerald-500" />}
+                {statusMsg.type === 'error' && <AlertCircle className="h-3 w-3 text-red-500" />}
+                {statusMsg.type === 'info' && <Info className="h-3 w-3 text-blue-500" />}
+                <span className={statusMsg.type === 'error' ? 'text-red-600' : ''}>{statusMsg.text}</span>
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[9px] uppercase tracking-widest text-emerald-600">Synced</span>
+              </div>
+            </div>
+          </SidebarInset>
         </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }
 
-// Re-implementing helper components and forms here to ensure complete file...
+// Helper components remain the same
 function SectionHeader({ title }: { title: string }) {
   return (
     <h3 className="text-[10px] font-black uppercase tracking-widest bg-[#dae4f1] border-y border-slate-300 px-4 py-1 text-[#1e3a8a]">
