@@ -244,7 +244,6 @@ export default function SapDashboard() {
         (i.plantCode || i.customerCode || i.companyCode || i.saleOrder || i.username || i.id || i.vendorCode).toString().toUpperCase() === searchId.toUpperCase()
       );
       
-      // Fallback for XD transactions if filters are active and specific ID entry is needed
       if (!item && activeScreen.startsWith('XD')) {
         item = (rawCustomers || []).find((i: any) => 
           (i.customerCode || i.id).toString().toUpperCase() === searchId.toUpperCase()
@@ -266,13 +265,11 @@ export default function SapDashboard() {
 
     let localData = { ...formData };
 
-    if (activeScreen.startsWith('VA')) {
-      const { plantCode, saleOrder, consignor, from, consignee, shipToParty, destination, items } = localData;
-      const hasHeader = plantCode && saleOrder && consignor && from && consignee && shipToParty && destination;
-      const hasItems = items && items.length > 0 && items.every((it: any) => it.weight && it.weightUom);
-      
-      if (!hasHeader || !hasItems) {
-        setStatusMsg({ text: 'Error: Mandatory header fields and item weight/UOM are required', type: 'error' });
+    // Strict Uniqueness Validation
+    if (activeScreen.startsWith('FM')) {
+      const exists = rawCompanies?.some((c: any) => c.id !== localData.id && c.companyCode?.toString().toUpperCase() === localData.companyCode?.toString().toUpperCase());
+      if (exists) {
+        setStatusMsg({ text: `ID/Number ${localData.companyCode} Already exists, duplicate not allowed`, type: 'error' });
         return;
       }
     }
@@ -289,6 +286,30 @@ export default function SapDashboard() {
         const prefix = (vendorFirmName || vendorName || 'V').toString().charAt(0).toUpperCase();
         const num = Math.floor(10000 + Math.random() * 90000);
         localData.vendorCode = `${prefix}${num}`;
+      }
+      const exists = rawVendors?.some((v: any) => v.id !== localData.id && v.vendorCode?.toString().toUpperCase() === localData.vendorCode?.toString().toUpperCase());
+      if (exists) {
+        setStatusMsg({ text: `ID/Number ${localData.vendorCode} Already exists, duplicate not allowed`, type: 'error' });
+        return;
+      }
+    }
+
+    if (activeScreen.startsWith('XD')) {
+      const exists = rawCustomers?.some((c: any) => c.id !== localData.id && c.customerCode?.toString().toUpperCase() === localData.customerCode?.toString().toUpperCase());
+      if (exists) {
+        setStatusMsg({ text: `ID/Number ${localData.customerCode} Already exists, duplicate not allowed`, type: 'error' });
+        return;
+      }
+    }
+
+    if (activeScreen.startsWith('VA')) {
+      const { plantCode, saleOrder, consignor, from, consignee, shipToParty, destination, items } = localData;
+      const hasHeader = plantCode && saleOrder && consignor && from && consignee && shipToParty && destination;
+      const hasItems = items && items.length > 0 && items.every((it: any) => it.weight && it.weightUom);
+      
+      if (!hasHeader || !hasItems) {
+        setStatusMsg({ text: 'Error: Mandatory header fields and item weight/UOM are required', type: 'error' });
+        return;
       }
     }
 
@@ -326,7 +347,7 @@ export default function SapDashboard() {
       setStatusMsg({ text: `Synchronized successfully`, type: 'success' });
       if (!formData.id) setFormData(payload);
     }
-  }, [user, activeScreen, formData, rawOrders, db]);
+  }, [user, activeScreen, formData, rawOrders, rawVendors, rawCustomers, rawCompanies, db]);
 
   const handleCancel = React.useCallback(() => {
     if (activeScreen === 'HOME' || activeScreen.endsWith('03')) return;
@@ -996,7 +1017,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
   const [vendorSearch, setVendorSearch] = React.useState('');
   const [showVendorSuggestions, setShowVendorSuggestions] = React.useState(false);
 
-  // New CN/Vehicle states
   const [cnPopup, setCnPopup] = React.useState<{ isOpen: boolean, trip: any | null, isEdit: boolean }>({ isOpen: false, trip: null, isEdit: false });
   const [cnData, setCnData] = React.useState<any>({});
   const [cnPreview, setCnPreview] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null });
@@ -1051,6 +1071,13 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
   const handlePost = () => {
     if (!user || !selectedOrder) return;
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
+    
+    const exists = trips?.some((t: any) => t.tripId === tripId);
+    if (exists) {
+       onStatusUpdate({ text: `ID/Number ${tripId} Already exists, duplicate not allowed`, type: 'error' });
+       return;
+    }
+
     const newId = crypto.randomUUID();
     const payload = { 
       id: newId, 
@@ -1102,6 +1129,13 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
 
   const handlePostCN = () => {
     if (!user || !cnPopup.trip) return;
+    
+    const exists = trips?.some((t: any) => t.id !== cnPopup.trip.id && t.cnNumber?.toString().toUpperCase() === cnData.cnNumber?.toString().toUpperCase());
+    if (exists) {
+      onStatusUpdate({ text: `ID/Number ${cnData.cnNumber} Already exists, duplicate not allowed`, type: 'error' });
+      return;
+    }
+
     const docRef = doc(db, 'users', user.uid, 'trips', cnPopup.trip.id);
     setDocumentNonBlocking(docRef, { ...cnData, cnPosted: true, updatedAt: new Date().toISOString() }, { merge: true });
     setCnPopup({ isOpen: false, trip: null, isEdit: false });
@@ -1266,7 +1300,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
         </DialogContent>
       </Dialog>
 
-      {/* CN Creation / Edit Popup */}
       <Dialog open={cnPopup.isOpen} onOpenChange={(val) => setCnPopup({...cnPopup, isOpen: val})}>
         <DialogContent className="max-w-4xl p-0 border-none rounded-none shadow-2xl bg-[#f0f3f9]">
           <div className="bg-[#1e3a8a] text-white px-6 py-4 flex justify-between items-center">
@@ -1302,7 +1335,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
         </DialogContent>
       </Dialog>
 
-      {/* CN Preview Popup */}
       <Dialog open={cnPreview.isOpen} onOpenChange={(val) => setCnPreview({...cnPreview, isOpen: val})}>
         <DialogContent className="max-w-4xl p-0 border-none rounded-none shadow-2xl bg-white">
           <div className="bg-[#1e3a8a] text-white px-6 py-4 flex justify-between items-center no-print">
@@ -1349,7 +1381,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
         </DialogContent>
       </Dialog>
 
-      {/* Vehicle Out Confirmation */}
       <Dialog open={vehicleOutPopup.isOpen} onOpenChange={(val) => setVehicleOutPopup({...vehicleOutPopup, isOpen: val})}>
         <DialogContent className="max-w-md p-0 border-none rounded-none shadow-2xl bg-[#f0f3f9]">
           <div className="bg-emerald-600 text-white px-6 py-4 flex justify-between items-center">
@@ -1374,7 +1405,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
         </DialogContent>
       </Dialog>
 
-      {/* Vehicle Edit Popup */}
       <Dialog open={vehicleEditPopup.isOpen} onOpenChange={(val) => setVehicleEditPopup({...vehicleEditPopup, isOpen: val})}>
         <DialogContent className="max-w-md p-0 border-none rounded-none shadow-2xl bg-[#f0f3f9]">
           <div className="bg-[#1e3a8a] text-white px-6 py-4 flex justify-between items-center">
@@ -1410,6 +1440,18 @@ function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code:
            </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function FormSelect({ label, value, options, onChange, disabled }: any) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-9 border border-slate-400 bg-white px-2 text-xs font-bold outline-none shadow-sm">
+        <option value="">Select...</option>
+        {options.map((o: any, idx: number) => typeof o === 'string' ? <option key={`${o}-${idx}`} value={o}>{o}</option> : <option key={`${o.value}-${idx}`} value={o.value}>{o.label}</option>)}
+      </select>
     </div>
   );
 }
