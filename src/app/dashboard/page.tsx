@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -334,6 +335,14 @@ export default function SapDashboard() {
       return;
     }
 
+    if (activeScreen.startsWith('SU')) {
+      const { fullName, username, password, plants, tcodes } = localData;
+      if (!fullName || !username || !password || !plants?.length || !tcodes?.length) {
+        setStatusMsg({ text: 'Error: Name, Username, Password, Plants and T-Codes are mandatory', type: 'error' });
+        return;
+      }
+    }
+
     let collectionName = '';
     const docId = localData.id || crypto.randomUUID();
     if (activeScreen.startsWith('OX')) collectionName = 'plants';
@@ -349,7 +358,11 @@ export default function SapDashboard() {
       const payload = { ...localData, id: docId, updatedAt: new Date().toISOString() };
       setDocumentNonBlocking(docRef, payload, { merge: true });
       setStatusMsg({ text: `Synchronized successfully`, type: 'success' });
-      if (!formData.id) setFormData(payload);
+      if (activeScreen.startsWith('SU')) {
+        setFormData({});
+      } else {
+        if (!formData.id) setFormData(payload);
+      }
     }
   }, [user, activeScreen, formData, rawOrders, rawVendors, rawCustomers, rawCompanies, db]);
 
@@ -596,7 +609,7 @@ export default function SapDashboard() {
                            ) : (
                              <div className="col-span-4 flex items-center gap-4">
                                <input 
-                                 className="h-11 w-full max-w-md border border-slate-400 px-4 text-xs font-black outline-none focus:ring-1 focus:ring-blue-600 bg-white"
+                                 className="h-11 w-full max-md border border-slate-400 px-4 text-xs font-black outline-none focus:ring-1 focus:ring-blue-600 bg-white"
                                  value={searchId} onChange={(e) => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE & PRESS ENTER..."
                                />
                              </div>
@@ -639,7 +652,7 @@ function FormInput({ label, value, onChange, type = "text", disabled, placeholde
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
-      <Input type={type} value={value || ''} onChange={(v: string) => onChange(v)} disabled={disabled} placeholder={placeholder} className="h-9 rounded-none border-slate-400 text-xs font-bold bg-white focus:ring-1 focus:ring-blue-600 shadow-sm" />
+      <Input type={type} value={value || ''} onChange={(e: any) => onChange(e.target.value)} disabled={disabled} placeholder={placeholder} className="h-9 rounded-none border-slate-400 text-xs font-bold bg-white focus:ring-1 focus:ring-blue-600 shadow-sm" />
     </div>
   );
 }
@@ -841,17 +854,12 @@ function CustomerForm({ data, onChange, disabled, allPlants }: any) {
 function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: any) {
   const plantOpts = (allPlants || []).map((p: any) => p.plantCode);
   
-  // Filter customers based on selected plant strictly
   const plantFilteredCustomers = React.useMemo(() => {
     if (!data.plantCode) return [];
     return (allCustomers || []).filter((c: any) => c.plantCodes?.includes(data.plantCode));
   }, [allCustomers, data.plantCode]);
 
-  // Consignor dropdown -> Must display only records saved as Consignor (from XD03)
   const consignors = plantFilteredCustomers.filter((c: any) => c.customerType === 'Consignor');
-  
-  // Consignee dropdown -> Must display only records saved as Consignee – Ship to Party (from XD03)
-  // Ship to Party dropdown -> Must display records saved as Consignee – Ship to Party (from XD03)
   const shipToParties = plantFilteredCustomers.filter((c: any) => c.customerType === 'Consignee - Ship to Party');
 
   const items = data.items || [{ invoice: '', ewaybill: '', product: '', weight: '', weightUom: 'MT' }];
@@ -966,6 +974,70 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
   );
 }
 
+function UserForm({ data, onChange, disabled, allPlants }: any) {
+  const plants = (allPlants || []).map((p: any) => p.plantCode);
+  const handlePlantToggle = (plant: string) => {
+    if (disabled) return;
+    const current = data.plants || [];
+    const updated = current.includes(plant) ? current.filter((p: string) => p !== plant) : [...current, plant];
+    onChange({...data, plants: updated});
+  };
+
+  const handleTCodeToggle = (code: string) => {
+    if (disabled) return;
+    const current = data.tcodes || [];
+    const updated = current.includes(code) ? current.filter((c: string) => c !== code) : [...current, code];
+    onChange({...data, tcodes: updated});
+  };
+
+  return (
+    <div className="space-y-6">
+      <SectionGrouping title="USER IDENTIFICATION">
+        <FormInput label="NAME" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
+        <FormInput label="USERNAME" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} />
+        <FormInput label="PASSWORD" type="password" value={data.password} onChange={(v: string) => onChange({...data, password: v})} disabled={disabled} />
+        <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+      </SectionGrouping>
+
+      <SectionGrouping title="AUTHORIZED PLANTS (MULTI-SELECT)">
+        <div className="col-span-2 flex flex-wrap gap-2">
+          {plants.map((p: string) => (
+            <button
+              key={p}
+              onClick={() => handlePlantToggle(p)}
+              disabled={disabled}
+              className={cn(
+                "px-3 py-1.5 text-[10px] font-black border uppercase transition-all",
+                data.plants?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-600 border-slate-300"
+              )}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </SectionGrouping>
+
+      <SectionGrouping title="T-CODE AUTHORIZATION (AUTO-UPDATING LIST)">
+        <div className="col-span-2 flex flex-wrap gap-2">
+          {MASTER_TCODES.map((t) => (
+            <button
+              key={t.code}
+              onClick={() => handleTCodeToggle(t.code)}
+              disabled={disabled}
+              className={cn(
+                "px-3 py-1.5 text-[10px] font-black border uppercase transition-all",
+                data.tcodes?.includes(t.code) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-600 border-slate-300"
+              )}
+            >
+              {t.code}
+            </button>
+          ))}
+        </div>
+      </SectionGrouping>
+    </div>
+  );
+}
+
 function FormSelect({ label, value, options, onChange, disabled }: any) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -998,17 +1070,6 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
   );
 }
 
-function UserForm({ data, onChange, disabled }: any) {
-  return (
-    <div className="space-y-4">
-      <SectionGrouping title="USER ACCESS">
-        <FormInput label="FULL NAME" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
-        <FormInput label="USERNAME" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} />
-      </SectionGrouping>
-    </div>
-  );
-}
-
 function RegistryList({ onSelectItem, listData }: any) {
   return (
     <div className="overflow-x-auto border border-slate-300 shadow-sm">
@@ -1017,7 +1078,7 @@ function RegistryList({ onSelectItem, listData }: any) {
         <tbody>{listData?.map((item: any) => (
           <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors">
             <td className="p-3 text-[11px] font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.vendorCode || item.companyCode || item.id.slice(0, 8)}</td>
-            <td className="p-3 text-[11px] font-bold uppercase">{item.customerName || item.plantName || item.vendorName || item.companyName || `${item.consignor} → ${item.consignee}`}</td>
+            <td className="p-3 text-[11px] font-bold uppercase">{item.customerName || item.plantName || item.vendorName || item.companyName || item.fullName || item.username || `${item.consignor} → ${item.consignee}`}</td>
             <td className="p-3 text-[11px] italic text-slate-500">{item.city || item.customerType || item.vendorCode || 'DATA'}</td>
             <td className="p-3 text-[11px] font-bold text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td>
           </tr>
@@ -1033,14 +1094,14 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
   const [activeTab, setActiveTab] = React.useState('Open Orders');
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [isPopupOpen, setIsPopupOpen] = React.useState(false);
-  const [assignData, setAssignData] = React.useState<any>({ fleetType: 'Own Vehicle', isFixedRate: false });
+  const [assignData, setAssignData] = React.setAssignData<any>({ fleetType: 'Own Vehicle', isFixedRate: false });
   const [vendorSearch, setVendorSearch] = React.useState('');
   const [showVendorSuggestions, setShowVendorSuggestions] = React.useState(false);
 
   const [cnPopup, setCnPopup] = React.useState<{ isOpen: boolean, trip: any | null, isEdit: boolean }>({ isOpen: false, trip: null, isEdit: false });
   const [cnData, setCnData] = React.useState<any>({});
   const [cnPreview, setCnPreview] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null });
-  const [vehicleEditPopup, setVehicleEditPopup] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: boolean, trip: null });
+  const [vehicleEditPopup, setVehicleEditPopup] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null });
   const [vehicleEditData, setVehicleEditData] = React.useState<any>({});
   const [vehicleOutPopup, setVehicleOutPopup] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null });
   const [vehicleOutData, setVehicleOutData] = React.useState<any>({});
