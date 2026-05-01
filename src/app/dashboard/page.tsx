@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { 
   Printer, Save, ArrowLeft, ArrowRight, 
   RotateCcw, X, HelpCircle, LogOut, LayoutDashboard, PlusCircle,
-  ChevronRight, FileText, Building2
+  ChevronRight, FileText, Building2, Check, AlertCircle, Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,19 +30,28 @@ type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK
 export default function SapDashboard() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const [tCode, setTCode] = React.useState('');
   const [activeScreen, setActiveScreen] = React.useState<Screen>('HOME');
   const [formData, setFormData] = React.useState<any>({});
+  const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
   const tCodeRef = React.useRef<HTMLInputElement>(null);
 
   // SAP style logic for form submission from header
   const handleSave = () => {
-    if (!user || activeScreen === 'HOME') return;
+    if (!user) {
+      setStatusMsg({ text: 'Session error: Please log in again', type: 'error' });
+      return;
+    }
+    
+    if (activeScreen === 'HOME') {
+      setStatusMsg({ text: 'No active transaction to save', type: 'info' });
+      return;
+    }
 
     let collectionName = '';
-    let docId = formData.id || crypto.randomUUID();
+    const docId = formData.id || crypto.randomUUID();
     
     if (activeScreen.startsWith('OX')) collectionName = 'plants';
     else if (activeScreen.startsWith('FM')) collectionName = 'companies';
@@ -50,11 +59,25 @@ export default function SapDashboard() {
 
     if (collectionName) {
       const docRef = doc(db, 'users', user.uid, collectionName, docId);
-      setDocumentNonBlocking(docRef, { ...formData, id: docId, updatedAt: new Date().toISOString() }, { merge: true });
+      const payload = { 
+        ...formData, 
+        id: docId, 
+        updatedAt: new Date().toISOString() 
+      };
+      
+      setDocumentNonBlocking(docRef, payload, { merge: true });
+      
+      // Update local state so subsequent saves use the same ID
+      if (!formData.id) {
+        setFormData(payload);
+      }
+      
+      const msg = `Registry ${docId.slice(0, 8)} synchronized successfully`;
+      setStatusMsg({ text: msg, type: 'success' });
       
       toast({
         title: "Registry Updated",
-        description: `Changes for ${activeScreen} have been synchronized with Firestore.`,
+        description: msg,
       });
     }
   };
@@ -66,39 +89,41 @@ export default function SapDashboard() {
     if (['OX01', 'OX02', 'OX03', 'FM01', 'FM02', 'FM03', 'XK01', 'XK02', 'XK03'].includes(cleanCode)) {
       setActiveScreen(cleanCode as Screen);
       setFormData({}); // Reset form when switching
+      setStatusMsg({ text: `Transaction ${cleanCode} started`, type: 'info' });
     } else if (cleanCode === 'HOME' || cleanCode === '') {
       setActiveScreen('HOME');
+      setStatusMsg({ text: 'Main Hub', type: 'none' });
     }
     setTCode('');
   };
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey) {
-        switch (e.key.toLowerCase()) {
-          case 'm': e.preventDefault(); break;
-          case 'e': e.preventDefault(); break;
-          case 'f': e.preventDefault(); break;
-        }
-      }
-      if (e.ctrlKey && (e.key === 'q' || e.key === 'l')) {
+      if (e.ctrlKey && e.key === 's') {
         e.preventDefault();
-        router.push('/login');
+        handleSave();
       }
       if (e.key === '/' || (e.ctrlKey && e.key === 't')) {
         e.preventDefault();
         tCodeRef.current?.focus();
       }
-      if (e.ctrlKey && e.key === 's') {
-        e.preventDefault();
-        handleSave();
-      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [router, activeScreen, formData]);
+  }, [user, activeScreen, formData]);
 
   const handleLogout = () => router.push('/login');
+
+  if (isUserLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#d9e1f2] font-mono">
+        <div className="text-center space-y-4">
+          <RotateCcw className="h-12 w-12 text-[#0056d2] animate-spin mx-auto" />
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Synchronizing Session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-[#d9e1f2] text-[#333] font-mono select-none overflow-hidden">
@@ -110,7 +135,7 @@ export default function SapDashboard() {
               {item}
             </DropdownMenuTrigger>
             <DropdownMenuContent className="bg-white rounded-none border-slate-300 shadow-xl text-[11px] p-0 min-w-[150px]">
-              <DropdownMenuItem onClick={handleSave} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Save</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSave} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Save (Ctrl+S)</DropdownMenuItem>
               <DropdownMenuSeparator className="m-0 bg-slate-200" />
               <DropdownMenuItem onClick={handleLogout} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4 text-red-600">Log Off</DropdownMenuItem>
             </DropdownMenuContent>
@@ -136,25 +161,26 @@ export default function SapDashboard() {
             onChange={(e) => setTCode(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && executeTCode(tCode)}
             className="w-48 outline-none text-xs px-1 font-bold tracking-wider"
+            placeholder="/n..."
           />
         </div>
         <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-6">
-           <button onClick={handleSave} title="Save (Ctrl+S)" className="p-1 hover:bg-slate-200 rounded group">
+           <button onClick={handleSave} title="Save (Ctrl+S)" className="p-1 hover:bg-slate-200 rounded group transition-all">
              <Save className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
            </button>
-           <button onClick={() => setActiveScreen('HOME')} title="Back" className="p-1 hover:bg-slate-200 rounded group">
+           <button onClick={() => setActiveScreen('HOME')} title="Back" className="p-1 hover:bg-slate-200 rounded group transition-all">
              <ArrowLeft className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
            </button>
-           <button className="p-1 hover:bg-slate-200 rounded group">
+           <button className="p-1 hover:bg-slate-200 rounded group transition-all">
              <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
            </button>
-           <button className="p-1 hover:bg-slate-200 rounded group">
+           <button onClick={() => setFormData({})} title="Refresh/Reset" className="p-1 hover:bg-slate-200 rounded group transition-all">
              <RotateCcw className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
            </button>
-           <button onClick={() => setActiveScreen('HOME')} title="Exit" className="p-1 hover:bg-slate-200 rounded group">
+           <button onClick={() => setActiveScreen('HOME')} title="Exit" className="p-1 hover:bg-slate-200 rounded group transition-all">
              <X className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
            </button>
-           <button className="p-1 hover:bg-slate-200 rounded group">
+           <button onClick={() => window.print()} title="Print" className="p-1 hover:bg-slate-200 rounded group transition-all">
              <Printer className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
            </button>
         </div>
@@ -166,7 +192,7 @@ export default function SapDashboard() {
       {/* 3. MAIN WORK AREA */}
       <div className="flex-1 flex overflow-hidden">
         {activeScreen === 'HOME' && (
-          <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-sm animate-fade-in">
+          <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-sm animate-fade-in print:hidden">
              <div className="p-4 border-b border-slate-100 flex items-center gap-3">
                 <div className="bg-[#0056d2] p-2 rounded">
                    <LayoutDashboard className="h-5 w-5 text-white" />
@@ -199,7 +225,7 @@ export default function SapDashboard() {
         )}
 
         <div className="flex-1 flex flex-col bg-[#f0f3f9] overflow-y-auto no-scrollbar">
-          <div className="bg-[#0056d2] text-white p-6 shadow-lg">
+          <div className="bg-[#0056d2] text-white p-6 shadow-lg print:bg-white print:text-black print:shadow-none">
             <h1 className="text-3xl font-black italic tracking-tighter uppercase leading-none">
               {activeScreen === 'HOME' ? 'Sikka Logistics Hub' : activeScreen}
             </h1>
@@ -208,10 +234,10 @@ export default function SapDashboard() {
             </p>
           </div>
 
-          <div className="p-8 w-full max-w-7xl mx-auto">
+          <div id="printable-area" className="p-8 w-full max-w-7xl mx-auto">
             {activeScreen === 'HOME' ? (
               <div className="space-y-12 animate-fade-in">
-                <div className="relative w-full aspect-[21/9] border-4 border-dashed border-slate-300 bg-white/50 flex flex-col items-center justify-center rounded-[2rem] overflow-hidden group hover:border-[#0056d2]">
+                <div className="relative w-full aspect-[21/9] border-4 border-dashed border-slate-300 bg-white/50 flex flex-col items-center justify-center rounded-[2rem] overflow-hidden group hover:border-[#0056d2] transition-colors">
                    <Building2 className="h-16 w-16 text-slate-200 mb-4 group-hover:scale-110 transition-transform" />
                    <p className="text-xl font-black text-slate-300 uppercase tracking-tighter italic group-hover:text-[#0056d2]">Your firm image will be placed here</p>
                 </div>
@@ -228,8 +254,8 @@ export default function SapDashboard() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white shadow-2xl rounded-[2.5rem] border border-slate-100 overflow-hidden animate-slide-up w-full">
-                 <div className="h-2 bg-yellow-500 w-full" />
+              <div className="bg-white shadow-2xl rounded-[2.5rem] border border-slate-100 overflow-hidden animate-slide-up w-full print:shadow-none print:border-none print:rounded-none">
+                 <div className="h-2 bg-yellow-500 w-full print:hidden" />
                  <div className="p-10 space-y-10">
                    {activeScreen === 'OX01' && <PlantForm data={formData} onChange={setFormData} />}
                    {activeScreen === 'FM01' && <CompanyForm data={formData} onChange={setFormData} />}
@@ -239,6 +265,25 @@ export default function SapDashboard() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* 4. SAP STATUS BAR */}
+      <div className="h-6 bg-[#f0f0f0] border-t border-slate-300 flex items-center px-4 gap-6 text-[10px] font-bold text-slate-600 print:hidden">
+        <div className="flex items-center gap-2 pr-6 border-r border-slate-200 min-w-[200px]">
+          {statusMsg.type === 'success' && <Check className="h-3 w-3 text-emerald-500" />}
+          {statusMsg.type === 'error' && <AlertCircle className="h-3 w-3 text-red-500" />}
+          {statusMsg.type === 'info' && <Info className="h-3 w-3 text-blue-500" />}
+          <span className={statusMsg.type === 'error' ? 'text-red-600' : ''}>{statusMsg.text}</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="text-slate-400">System: <span className="text-slate-600">S4P</span></span>
+          <span className="text-slate-400">Client: <span className="text-slate-600">100</span></span>
+          <span className="text-slate-400">User: <span className="text-slate-600">{user?.uid.slice(0, 8).toUpperCase()}</span></span>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[9px] uppercase tracking-widest text-emerald-600">Synced</span>
         </div>
       </div>
     </div>
@@ -267,8 +312,9 @@ function PlantForm({ data, onChange }: any) {
       <FormField label="Plant Name" placeholder="Sikka Industries Hub" value={data.plantName} onChange={(e: any) => updateField('plantName', e.target.value)} required />
       <FormField label="City" placeholder="Ghaziabad" value={data.city} onChange={(e: any) => updateField('city', e.target.value)} />
       <FormField label="State" placeholder="Uttar Pradesh" value={data.state} onChange={(e: any) => updateField('state', e.target.value)} />
-      <FormField label="State Code" placeholder="UP09" value={data.stateCode} onChange={(e: any) => updateField('stateCode', e.target.value)} />
-      <FormField label="GSTIN" placeholder="09AAAAA0000A1Z5" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} />
+      <FormField label="State Code" placeholder="09" value={data.stateCode} onChange={(e: any) => updateField('stateCode', e.target.value)} />
+      <FormField label="GSTIN" placeholder="07AAAAA0000A1Z5" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} />
+      <FormField label="PAN" placeholder="ABCDE1234F" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} />
       <FormField label="Email ID" placeholder="plant@sikka.com" value={data.email} onChange={(e: any) => updateField('email', e.target.value)} />
       <FormField label="Website" placeholder="www.sikka.com" value={data.website} onChange={(e: any) => updateField('website', e.target.value)} />
       <div className="md:col-span-2">
