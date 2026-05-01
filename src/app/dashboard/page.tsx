@@ -9,7 +9,7 @@ import {
   Grid2X2, Upload, Download, ShoppingBag, ArrowUpRight,
   Filter, Truck, MapPin, User, DollarSign, Activity,
   Layers, PackageCheck, Ban, Lock, Play, XCircle, Search,
-  ArrowRight, Calendar, Phone, FileText, Package
+  ArrowRight, Calendar, Phone, FileText, Package, Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -176,6 +176,11 @@ export default function SapDashboard() {
         id: docId, 
         updatedAt: new Date().toISOString() 
       };
+
+      // Ensure VA01/02 saves current time if not present
+      if (activeScreen.startsWith('VA') && !payload.saleOrderDate) {
+        payload.saleOrderDate = new Date().toISOString();
+      }
 
       if (isSystemUser) {
         const tcodes = payload.tcodes || [];
@@ -484,7 +489,7 @@ export default function SapDashboard() {
                               <td className="p-4 font-black text-xs text-[#0056d2]">{order.saleOrder || order.saleOrderNumber}</td>
                               <td className="p-4 font-bold text-xs text-slate-600 uppercase">{order.consignor}</td>
                               <td className="p-4 font-bold text-xs text-slate-400 uppercase italic">{order.destination}</td>
-                              <td className="p-4 font-bold text-[10px] text-slate-400">{order.saleOrderDate}</td>
+                              <td className="p-4 font-bold text-[10px] text-slate-400">{order.saleOrderDate ? format(new Date(order.saleOrderDate), 'dd-MM-yyyy') : '--'}</td>
                               <td className="p-4 text-center">
                                 <div className="flex items-center justify-center gap-1 text-emerald-500">
                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -1146,7 +1151,7 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
       return 'customerCode,customerName,customerType,city,plantCodes,gstin,pan,mobile,email,address\nC1001,Global Logistics,Consignee,Mumbai,PLNT01;PLNT02,27AAAAA0000A1Z5,ABCDE1234F,9876543210,info@global.com,Street 1';
     }
     if (registryType === 'sales_orders') {
-      return 'plantCode,saleOrder,saleOrderDate,consignor,from,consignee,shipToParty,destination,vehicleNumber,driverMobile,delayRemark\nPLNT01,SO-9001,2023-10-27,Consignor A,City A,Consignee B,Ship Party C,City C,UP14-XX-0000,+919999999999,No Delay';
+      return 'plantCode,saleOrder,saleOrderDate,consignor,from,consignee,shipToParty,destination,lrNo,lrDate,delayRemark\nPLNT01,SO-9001,2023-10-27,Consignor A,City A,Consignee B,Ship Party C,City C,LR123,2023-10-27,No Delay';
     }
     return '';
   };
@@ -1295,7 +1300,7 @@ function PlantForm({ data, onChange, disabled }: any) {
         <SectionHeader title="Plant Master Data" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
           <FormField label="Plant Code" placeholder="PLNT01" value={data.plantCode} onChange={(e: any) => updateField('plantCode', e.target.value)} required disabled={disabled} />
-          <FormField label="Plant Name" placeholder="Sikka Industries Hub" value={data.plantName} onChange={(e: any) => updateField('plantName', e.target.value)} required disabled={disabled} />
+          <PlantNameField label="Plant Name" placeholder="Sikka Industries Hub" value={data.plantName} onChange={(e: any) => updateField('plantName', e.target.value)} required disabled={disabled} />
           <FormField label="City" placeholder="Ghaziabad" value={data.city} onChange={(e: any) => updateField('city', e.target.value)} disabled={disabled} />
           <FormField label="State" placeholder="Uttar Pradesh" value={data.state} onChange={(e: any) => updateField('state', e.target.value)} disabled={disabled} />
         </div>
@@ -1315,6 +1320,22 @@ function PlantForm({ data, onChange, disabled }: any) {
            <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} disabled={disabled} />
         </div>
       </div>
+    </div>
+  );
+}
+
+function PlantNameField({ label, placeholder, value, onChange, required, disabled }: any) {
+  return (
+    <div className="flex items-center gap-6 w-full">
+      <label className="text-xs font-bold text-slate-600 w-48 shrink-0">{label} {required && <span className="text-red-500">*</span>}</label>
+      <input 
+        type="text" 
+        value={value || ''} 
+        onChange={onChange} 
+        placeholder={placeholder} 
+        disabled={disabled} 
+        className="flex-1 h-8 border border-slate-400 bg-white px-2 text-xs outline-none disabled:bg-slate-50 disabled:text-slate-500" 
+      />
     </div>
   );
 }
@@ -1461,10 +1482,19 @@ function CustomerForm({ data, onChange, disabled }: any) {
 function SalesOrderForm({ data, onChange, disabled }: any) {
   const { user } = useUser();
   const db = useFirestore();
+  const [realTime, setRealTime] = React.useState(new Date());
+
+  React.useEffect(() => {
+    if (disabled) return;
+    const timer = setInterval(() => setRealTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, [disabled]);
+
   const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
   const customersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'customers') : null, [user, db]);
   const { data: plants } = useCollection(plantsQuery);
   const { data: customers } = useCollection(customersQuery);
+
   const updateField = (field: string, val: any) => {
     if (disabled) return;
     let nextData = { ...data, [field]: val };
@@ -1478,6 +1508,7 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
     }
     onChange(nextData);
   };
+
   const addItem = () => {
     if (disabled) return;
     const current = data.items || [];
@@ -1494,6 +1525,9 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
     const nextItems = (data.items || []).filter((_: any, i: number) => i !== idx);
     onChange({ ...data, items: nextItems });
   };
+
+  const displayTime = data.saleOrderDate ? format(new Date(data.saleOrderDate), 'dd-MM-yyyy HH:mm:ss') : format(realTime, 'dd-MM-yyyy HH:mm:ss');
+
   return (
     <div className="space-y-8">
       <div>
@@ -1506,7 +1540,13 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
                 {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
               </select>
            </div>
-           <FormField label="Sale Order Date" type="date" value={data.saleOrderDate} onChange={(e: any) => updateField('saleOrderDate', e.target.value)} required disabled={disabled} />
+           <div className="flex items-center gap-6">
+              <label className="text-xs font-bold text-slate-600 w-48 shrink-0">System Date/Time <span className="text-red-500">*</span></label>
+              <div className="flex-1 h-8 border border-slate-400 bg-slate-100 px-2 text-xs flex items-center gap-2 text-slate-600 font-bold">
+                <Clock className="h-3 w-3" />
+                {displayTime}
+              </div>
+           </div>
         </div>
       </div>
       <div>
@@ -1536,9 +1576,11 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
             </select>
           </div>
           <FormField label="Destination" value={data.destination} disabled />
-          <FormField label="Vehicle Number" placeholder="UP14-XX-0000" value={data.vehicleNumber} onChange={(e: any) => updateField('vehicleNumber', e.target.value)} disabled={disabled} />
-          <FormField label="Driver Mobile" placeholder="+91..." value={data.vehicleNumber} onChange={(e: any) => updateField('vehicleNumber', e.target.value)} disabled={disabled} />
-          <FormField label="Delay Remark" placeholder="Enter delay details if any..." value={data.delayRemark} onChange={(e: any) => updateField('delayRemark', e.target.value)} disabled={disabled} />
+          <FormField label="LR No." placeholder="Enter LR Number" value={data.lrNo} onChange={(e: any) => updateField('lrNo', e.target.value)} disabled={disabled} />
+          <FormField label="LR Date" type="date" value={data.lrDate} onChange={(e: any) => updateField('lrDate', e.target.value)} disabled={disabled} />
+          <div className="md:col-span-2">
+            <FormField label="Delay Remark" placeholder="Enter delay details if any..." value={data.delayRemark} onChange={(e: any) => updateField('delayRemark', e.target.value)} disabled={disabled} />
+          </div>
         </div>
       </div>
       <div>
