@@ -9,7 +9,7 @@ import {
   ChevronRight, ChevronLeft, Truck, MapPin, User, Users, ShoppingBag,
   Grid2X2, CloudUpload, ShieldAlert, Edit3, 
   PlusSquare, XCircle, Calendar as CalendarIcon, Package, Undo2,
-  FileText, UploadCloud
+  FileText, UploadCloud, Trash2, Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -262,6 +262,17 @@ export default function SapDashboard() {
 
     let localData = { ...formData };
 
+    if (activeScreen.startsWith('VA')) {
+      const { plantCode, saleOrder, consignor, from, consignee, shipToParty, destination, items } = localData;
+      const hasHeader = plantCode && saleOrder && consignor && from && consignee && shipToParty && destination;
+      const hasItems = items && items.length > 0 && items.every((it: any) => it.weight && it.weightUom);
+      
+      if (!hasHeader || !hasItems) {
+        setStatusMsg({ text: 'Error: Mandatory header fields and item weight/UOM are required', type: 'error' });
+        return;
+      }
+    }
+
     if (activeScreen.startsWith('XK')) {
       const { vendorName, vendorFirmName, mobile, address, route } = localData;
       const hasNames = (vendorName || '').toString().trim().length > 0 || (vendorFirmName || '').toString().trim().length > 0;
@@ -321,7 +332,6 @@ export default function SapDashboard() {
   }, [activeScreen]);
 
   const handleBulkUpload = () => {
-    // Simulated Bulk Upload
     const success = Math.floor(Math.random() * 50) + 10;
     const failed = Math.floor(Math.random() * 5);
     setStatusMsg({ 
@@ -391,7 +401,7 @@ export default function SapDashboard() {
           <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">
              {logoAsset && <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized />}
           </div>
-          <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner relative">
+          <div className="flex items-center bg white border border-slate-400 p-0.5 shadow-inner relative">
             <button 
               onClick={(e) => { e.preventDefault(); executeTCode(tCode); }} 
               className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100 transition-colors"
@@ -755,20 +765,118 @@ function CustomerForm({ data, onChange, disabled, allPlants }: any) {
 
 function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: any) {
   const plantOpts = (allPlants || []).map((p: any) => p.plantCode);
-  const consignors = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignor').map((c: any) => c.customerName)));
-  const consignees = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignee' || c.customerType === 'Consignee - Ship to Party').map((c: any) => c.customerName)));
+  const consignors = (allCustomers || []).filter((c: any) => c.customerType === 'Consignor');
+  const consignees = (allCustomers || []).filter((c: any) => c.customerType === 'Consignee' || c.customerType === 'Consignee - Ship to Party');
+  const shipToParties = (allCustomers || []).filter((c: any) => c.customerType === 'Consignee - Ship to Party');
+
+  const items = data.items || [{ invoice: '', ewaybill: '', product: '', weight: '', weightUom: 'MT' }];
+
+  const handleAddItem = () => {
+    onChange({ ...data, items: [...items, { invoice: '', ewaybill: '', product: '', weight: '', weightUom: 'MT' }] });
+  };
+
+  const handleUpdateItem = (index: number, field: string, value: any) => {
+    const newItems = [...items];
+    newItems[index] = { ...newItems[index], [field]: value };
+    onChange({ ...data, items: newItems });
+  };
+
+  const handleRemoveItem = (index: number) => {
+    if (items.length <= 1) return;
+    const newItems = items.filter((_, i) => i !== index);
+    onChange({ ...data, items: newItems });
+  };
+
   return (
     <div className="space-y-4">
-      <SectionGrouping title="BASIC DETAILS">
-        <FormSelect label="PLANT CODE" value={data.plantCode} options={plantOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+      <SectionGrouping title="SALES ORDER HEADER">
+        <FormSelect label="PLANT" value={data.plantCode} options={plantOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
         <FormInput label="SALE ORDER NO" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
-        <FormInput label="LR NO" value={data.lrNo} onChange={(v: string) => onChange({...data, lrNo: v})} disabled={disabled} />
-        <FormInput label="LR DATE" value={data.lrDate} type="date" onChange={(v: string) => onChange({...data, lrDate: v})} disabled={disabled} />
       </SectionGrouping>
-      <SectionGrouping title="COORDINATION">
-        <FormSelect label="CONSIGNOR" value={data.consignor} options={consignors} onChange={(v: string) => onChange({...data, consignor: v})} disabled={disabled} />
-        <FormSelect label="CONSIGNEE" value={data.consignee} options={consignees} onChange={(v: string) => onChange({...data, consignee: v})} disabled={disabled} />
+
+      <SectionGrouping title="LOGISTICS COORDINATION">
+        <FormSelect 
+          label="CONSIGNOR" 
+          value={data.consignor} 
+          options={consignors.map(c => c.customerName)} 
+          onChange={(v: string) => {
+            const cust = consignors.find(c => c.customerName === v);
+            onChange({...data, consignor: v, from: cust?.city || ''});
+          }} 
+          disabled={disabled} 
+        />
+        <FormInput label="FROM" value={data.from} disabled={true} placeholder="AUTO-FILLED FROM CONSIGNOR" />
+        
+        <FormSelect 
+          label="CONSIGNEE" 
+          value={data.consignee} 
+          options={consignees.map(c => c.customerName)} 
+          onChange={(v: string) => onChange({...data, consignee: v})} 
+          disabled={disabled} 
+        />
+        <FormSelect 
+          label="SHIP TO PARTY" 
+          value={data.shipToParty} 
+          options={shipToParties.map(c => c.customerName)} 
+          onChange={(v: string) => {
+            const cust = shipToParties.find(c => c.customerName === v);
+            onChange({...data, shipToParty: v, destination: cust?.city || ''});
+          }} 
+          disabled={disabled} 
+        />
+        <FormInput label="DESTINATION" value={data.destination} disabled={true} placeholder="AUTO-FILLED FROM SHIP TO PARTY" />
       </SectionGrouping>
+
+      <div className="border border-slate-300 rounded-sm overflow-hidden">
+        <div className="bg-[#dae4f1]/50 p-3 border-b border-slate-300 flex justify-between items-center">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">ITEM REGISTRY</span>
+          {!disabled && (
+            <Button onClick={handleAddItem} size="sm" variant="outline" className="h-7 rounded-none border-blue-600 text-blue-600 font-black text-[9px] uppercase tracking-tighter hover:bg-blue-50">
+              <Plus className="h-3 w-3 mr-1" /> Add Row
+            </Button>
+          )}
+        </div>
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-[#f8fafc] border-b border-slate-300">
+            <tr>
+              {['Invoice', 'Ewaybill', 'Product', 'Weight', 'Weight UOM', ''].map(h => (
+                <th key={h} className="p-2 text-[9px] font-black uppercase text-slate-400 border-r border-slate-200">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item: any, idx: number) => (
+              <tr key={idx} className="border-b border-slate-200 bg-white">
+                <td className="p-1 border-r border-slate-100">
+                  <input value={item.invoice} onChange={e => handleUpdateItem(idx, 'invoice', e.target.value)} disabled={disabled} className="w-full h-8 outline-none px-2 text-[11px] font-bold focus:bg-[#ffffcc]" />
+                </td>
+                <td className="p-1 border-r border-slate-100">
+                  <input value={item.ewaybill} onChange={e => handleUpdateItem(idx, 'ewaybill', e.target.value)} disabled={disabled} className="w-full h-8 outline-none px-2 text-[11px] font-bold focus:bg-[#ffffcc]" />
+                </td>
+                <td className="p-1 border-r border-slate-100">
+                  <input value={item.product} onChange={e => handleUpdateItem(idx, 'product', e.target.value)} disabled={disabled} className="w-full h-8 outline-none px-2 text-[11px] font-bold focus:bg-[#ffffcc]" />
+                </td>
+                <td className="p-1 border-r border-slate-100">
+                  <input value={item.weight} onChange={e => handleUpdateItem(idx, 'weight', e.target.value)} disabled={disabled} className="w-full h-8 outline-none px-2 text-[11px] font-bold focus:bg-[#ffffcc]" />
+                </td>
+                <td className="p-1 border-r border-slate-100">
+                  <select value={item.weightUom} onChange={e => handleUpdateItem(idx, 'weightUom', e.target.value)} disabled={disabled} className="w-full h-8 outline-none px-2 text-[11px] font-bold bg-white focus:bg-[#ffffcc]">
+                    <option value="MT">MT</option>
+                    <option value="LTR">LTR</option>
+                  </select>
+                </td>
+                <td className="p-1 text-center">
+                  {!disabled && (
+                    <button onClick={() => handleRemoveItem(idx)} className="text-red-400 hover:text-red-600 transition-colors">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
