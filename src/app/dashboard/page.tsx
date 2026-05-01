@@ -592,7 +592,7 @@ export default function SapDashboard() {
                            </div>
                          )}
                          {activeScreen === 'TR21' && <DripBoard orders={recentOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} />}
-                         {activeScreen === 'BULK' && <BulkDataHub />}
+                         {activeScreen === 'BULK' && <BulkDataHub allPlants={rawPlants} />}
                        </div>
                      </div>
                   </div>
@@ -1345,8 +1345,10 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
   );
 }
 
-function BulkDataHub() {
+function BulkDataHub({ allPlants }: { allPlants: any[] | null }) {
   const { toast } = useToast();
+  const [selectedModule, setSelectedModule] = React.useState('');
+  const [selectedPlant, setSelectedPlant] = React.useState('');
   
   const handleTemplateDownload = (type: string) => {
     toast({
@@ -1356,6 +1358,14 @@ function BulkDataHub() {
   };
 
   const handleBulkSync = () => {
+    if (selectedModule === 'VA' && !selectedPlant) {
+      toast({
+        variant: "destructive",
+        title: "Registry Handshake Failed",
+        description: "Please select a Target Plant Registry node before initiating sync.",
+      });
+      return;
+    }
     toast({
       title: "Bulk Synchronization Active",
       description: "Establishing handshake with registry mission node. Processing file data...",
@@ -1377,8 +1387,6 @@ function BulkDataHub() {
             </p>
             <div className="grid grid-cols-1 gap-4">
               {[
-                { label: 'Plant Master Template', code: 'OX_MASTER' },
-                { label: 'Vendor Registry Template', code: 'XK_MASTER' },
                 { label: 'Customer Registry Template', code: 'XD_MASTER' },
                 { label: 'Sales Order Registry Template', code: 'VA_MASTER' },
               ].map((template) => (
@@ -1407,14 +1415,32 @@ function BulkDataHub() {
           <div className="p-10 space-y-8 flex-1 flex flex-col">
             <div className="space-y-4">
                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Target Registry Node *</label>
-               <select className="w-full h-12 bg-slate-50 border border-slate-200 rounded-2xl px-4 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-600">
+               <select 
+                 value={selectedModule}
+                 onChange={(e) => setSelectedModule(e.target.value)}
+                 className="w-full h-12 bg-slate-50 border border-slate-200 rounded-2xl px-4 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-600"
+               >
                   <option value="">Select Target Module...</option>
-                  <option value="OX">PLANT MASTER (OX)</option>
-                  <option value="XK">VENDOR MASTER (XK)</option>
-                  <option value="XD">CUSTOMER MASTER (XD)</option>
-                  <option value="VA">SALES ORDER (VA)</option>
+                  <option value="XD">CUSTOMER REGISTRY</option>
+                  <option value="VA">SALES ORDER REGISTRY</option>
                </select>
             </div>
+
+            {selectedModule === 'VA' && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Target Plant Registry *</label>
+                 <select 
+                   value={selectedPlant}
+                   onChange={(e) => setSelectedPlant(e.target.value)}
+                   className="w-full h-12 bg-slate-50 border border-slate-200 rounded-2xl px-4 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-600"
+                 >
+                    <option value="">Select Plant Node...</option>
+                    {allPlants?.map(p => (
+                      <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>
+                    ))}
+                 </select>
+              </div>
+            )}
 
             <div 
               onClick={handleBulkSync}
@@ -1427,7 +1453,7 @@ function BulkDataHub() {
 
             <Button 
               onClick={handleBulkSync}
-              className="w-full h-14 bg-[#1e293b] hover:bg-black text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl transition-all active:scale-95"
+              className="w-full h-14 bg-blue-900 hover:bg-black text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl transition-all active:scale-95"
             >
                Initiate Bulk Sync Node
             </Button>
