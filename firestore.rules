@@ -9,12 +9,16 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
+    // User Registry: Allow users to access their own authorization profile
+    match /user_registry/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
     match /users/{userId}/{collectionName}/{docId} {
       allow read, write: if isOwner(userId);
     }
 
     // Public tracking access via optimized dedicated collections
-    // No collection group indexes required for this structure
     match /public_orders/{orderNo} {
       allow read: if true;
     }
