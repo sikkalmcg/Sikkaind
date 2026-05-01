@@ -240,7 +240,7 @@ export default function SapDashboard() {
   const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
   const isReadOnly = activeScreen.endsWith('03');
 
-  // Logic to hide favorites registry/sidebar for OX01, OX02, OX03
+  // Logic to hide favorites registry/sidebar for OX01, OX02, OX03 to show in full width
   const hideSidebar = activeScreen.startsWith('OX');
 
   const getRegistryList = () => {
@@ -315,7 +315,7 @@ export default function SapDashboard() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* SIDEBAR FAVORITES - Hidden for OX01/02/03 */}
+        {/* SIDEBAR FAVORITES - Hidden for OX01/02/03 for full width display */}
         {!hideSidebar && (
           <div className="w-72 bg-white border-r border-slate-300 flex flex-col overflow-y-auto no-scrollbar">
             <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50">
@@ -479,7 +479,7 @@ export default function SapDashboard() {
 
 function SectionGrouping({ title, children }: { title: string, children: React.ReactNode }) {
   return (
-    <div className="border border-slate-300 p-5 pt-4 relative bg-slate-50/30 rounded-sm mb-6">
+    <div className="border border-slate-300 p-5 pt-4 relative bg-white rounded-sm mb-6">
       <span className="absolute -top-3 left-4 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 border border-slate-200 shadow-sm">
         {title}
       </span>
@@ -505,13 +505,15 @@ function FormSelect({ label, value, options, onChange, disabled }: any) {
 function PlantForm({ data, onChange, disabled }: any) {
   return (
     <div className="space-y-4">
-      <SectionGrouping title="Database Selection Node">
-        <FormInput label="Plant Code" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
-        <FormInput label="Plant Name" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
+      <SectionGrouping title="DATABASE SELECTION NODE">
+        <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
       </SectionGrouping>
-      <SectionGrouping title="Settings / Registry Node">
-        <FormInput label="City" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
-        <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+      <SectionGrouping title="SETTINGS / REGISTRY NODE">
+        <FormInput label="PLANT CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+        <FormInput label="PLANT ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
+        <FormInput label="STATE" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
       </SectionGrouping>
     </div>
   );
@@ -1041,6 +1043,562 @@ function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
         </table>
       </div>
       <div className="flex flex-col items-center justify-end pt-24"><p className="text-xs font-black uppercase tracking-[0.4em] border-t-4 border-black w-72 text-center pt-4 italic">Authorized Registry Signatory</p></div>
+    </div>
+  );
+}
+
+function SapDashboardWrapper() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
+  const db = useFirestore();
+  const [tCode, setTCode] = React.useState('');
+  const [activeScreen, setActiveScreen] = React.useState<Screen>('HOME');
+  const [formData, setFormData] = React.useState<any>({});
+  const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
+  const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  const [printData, setPrintData] = React.useState<any>(null);
+  const [showPrintPreview, setShowPrintPreview] = React.useState(false);
+  const [cnPreviewData, setCnPreviewData] = React.useState<any>(null);
+  const [showCnPreview, setShowCnPreview] = React.useState(false);
+  const tCodeRef = React.useRef<HTMLInputElement>(null);
+
+  const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
+  const { data: userProfile } = useDoc(profileRef);
+
+  const isAuthorized = (code: string) => {
+    if (code === 'HOME' || code === '') return true;
+    if (!userProfile) return true; 
+    return userProfile.tcodes?.includes(code);
+  };
+
+  const getAuthorizedPlants = () => userProfile?.plants || [];
+
+  const ordersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'sales_orders') : null, [user, db]);
+  const tripsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'trips') : null, [user, db]);
+  const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
+  const companiesQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'companies') : null, [user, db]);
+  const vendorsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'vendors') : null, [user, db]);
+  const customersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'customers') : null, [user, db]);
+  const usersQuery = useMemoFirebase(() => collection(db, 'user_registry'), [db]);
+  
+  const { data: rawOrders } = useCollection(ordersQuery);
+  const { data: rawTrips } = useCollection(tripsQuery);
+  const { data: rawPlants } = useCollection(plantsQuery);
+  const { data: rawCompanies } = useCollection(companiesQuery);
+  const { data: rawVendors } = useCollection(vendorsQuery);
+  const { data: rawCustomers } = useCollection(customersQuery);
+  const { data: allUsers } = useCollection(usersQuery);
+
+  const recentOrders = React.useMemo(() => {
+    const authPlants = getAuthorizedPlants();
+    const activeOrders = rawOrders?.filter(o => o.status !== 'CANCELLED');
+    if (!authPlants.length) return activeOrders;
+    return activeOrders?.filter(o => authPlants.includes(o.plantCode));
+  }, [rawOrders, userProfile]);
+
+  const allTrips = React.useMemo(() => {
+    const authPlants = getAuthorizedPlants();
+    if (!authPlants.length) return rawTrips;
+    return rawTrips?.filter(t => authPlants.includes(t.plantCode));
+  }, [rawTrips, userProfile]);
+
+  const allPlantsList = React.useMemo(() => {
+    const authPlants = getAuthorizedPlants();
+    if (!authPlants.length) return rawPlants;
+    return rawPlants?.filter(p => authPlants.includes(p.plantCode));
+  }, [rawPlants, userProfile]);
+
+  const allCompaniesList = React.useMemo(() => {
+    const authPlants = getAuthorizedPlants();
+    if (!authPlants.length) return rawCompanies;
+    return rawCompanies?.filter(c => authPlants.includes(c.plantCode));
+  }, [rawCompanies, userProfile]);
+
+  const allVendorsList = React.useMemo(() => {
+    const authPlants = getAuthorizedPlants();
+    if (!authPlants.length) return rawVendors;
+    return rawVendors?.filter(v => v.plantCodes?.some((p: string) => authPlants.includes(p)));
+  }, [rawVendors, userProfile]);
+
+  const allCustomersList = React.useMemo(() => {
+    const authPlants = getAuthorizedPlants();
+    if (!authPlants.length) return rawCustomers;
+    return rawCustomers?.filter(c => c.plantCodes?.some((p: string) => authPlants.includes(p)));
+  }, [rawCustomers, userProfile]);
+
+  const executeTCode = (code: string) => {
+    const cleanCode = code.toUpperCase().trim().replace(/^\/N/, '');
+    if (cleanCode === 'HOME' || cleanCode === '') {
+      setActiveScreen('HOME');
+      setTCode('');
+      return;
+    }
+    if (!isAuthorized(cleanCode)) {
+      setStatusMsg({ text: `Authorization failed for ${cleanCode}`, type: 'error' });
+      setTCode('');
+      return;
+    }
+    if (MASTER_TCODES.some(t => t.code === cleanCode)) {
+      setActiveScreen(cleanCode as Screen);
+      setFormData({});
+    }
+    setTCode('');
+  };
+
+  const handleSave = () => {
+    if (!user) return;
+    
+    if (activeScreen === 'VA04') {
+      if (!formData.saleOrder || !formData.reason) {
+        setStatusMsg({ text: 'Error: Sales Order & Reason are mandatory', type: 'error' });
+        return;
+      }
+      const orderToCancel = rawOrders?.find(o => (o.saleOrder || o.id)?.toString().toUpperCase() === formData.saleOrder.toString().toUpperCase());
+      if (!orderToCancel) {
+        setStatusMsg({ text: `Error: Order ${formData.saleOrder} not found`, type: 'error' });
+        return;
+      }
+      const docRef = doc(db, 'users', user.uid, 'sales_orders', orderToCancel.id);
+      setDocumentNonBlocking(docRef, { status: 'CANCELLED', cancellationReason: formData.reason, updatedAt: new Date().toISOString() }, { merge: true });
+      setStatusMsg({ text: `Success: Order ${formData.saleOrder} CANCELLED`, type: 'success' });
+      setFormData({});
+      return;
+    }
+
+    if (activeScreen.endsWith('03')) return;
+
+    let collectionName = '';
+    const docId = formData.id || crypto.randomUUID();
+    
+    if (activeScreen.startsWith('OX')) collectionName = 'plants';
+    else if (activeScreen.startsWith('FM')) collectionName = 'companies';
+    else if (activeScreen.startsWith('XK')) collectionName = 'vendors';
+    else if (activeScreen.startsWith('XD')) collectionName = 'customers';
+    else if (activeScreen.startsWith('VA')) collectionName = 'sales_orders';
+    else if (activeScreen.startsWith('SU')) collectionName = 'user_registry';
+
+    if (collectionName) {
+      const isSystemUser = collectionName === 'user_registry';
+      const docRef = isSystemUser ? doc(db, 'user_registry', docId) : doc(db, 'users', user.uid, collectionName, docId);
+      const payload = { ...formData, id: docId, updatedAt: new Date().toISOString() };
+      setDocumentNonBlocking(docRef, payload, { merge: true });
+      setStatusMsg({ text: `Registry synchronized successfully`, type: 'success' });
+      if (!formData.id) setFormData(payload);
+    }
+  };
+
+  const handlePrintLR = (trip: any, order: any) => {
+    setPrintData({ trip, order });
+    setShowPrintPreview(true);
+  };
+
+  const handlePrintCN = (trip: any, order: any) => {
+    setCnPreviewData({ trip, order, deliveryAddress: trip.deliveryAddress || order.destination || '' });
+    setShowCnPreview(true);
+  };
+
+  const handleActualPrint = () => {
+    window.print();
+    setShowPrintPreview(false);
+    setShowCnPreview(false);
+  };
+
+  const handleLogout = () => router.push('/login');
+
+  if (isUserLoading) return <div className="flex h-screen items-center justify-center bg-[#d9e1f2] font-mono"><RotateCcw className="h-12 w-12 text-[#0056d2] animate-spin" /></div>;
+
+  const isModuleActive = activeScreen !== 'HOME';
+  const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
+  const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
+  const isReadOnly = activeScreen.endsWith('03');
+
+  // Logic to hide favorites registry/sidebar for OX01, OX02, OX03 to show in full width
+  const hideSidebar = activeScreen.startsWith('OX');
+
+  const getRegistryList = () => {
+    if (activeScreen.startsWith('OX')) return allPlantsList;
+    if (activeScreen.startsWith('FM')) return allCompaniesList;
+    if (activeScreen.startsWith('XK')) return allVendorsList;
+    if (activeScreen.startsWith('XD')) return allCustomersList;
+    if (activeScreen.startsWith('VA')) return recentOrders;
+    if (activeScreen.startsWith('SU')) return allUsers;
+    return [];
+  };
+
+  const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
+
+  return (
+    <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono select-none overflow-hidden">
+      {/* SAP TOP MENU BAR */}
+      <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50">
+        <div className="flex items-center gap-6">
+          {['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(item => (
+            <button key={item} className="hover:text-blue-800 transition-colors uppercase">{item}</button>
+          ))}
+        </div>
+        <div className="flex-1" />
+        <div className="flex items-center gap-2 text-[10px] text-slate-700 font-bold pr-4">
+          <ChevronRight className="h-3 w-3" /> <span>S4P (1) 100</span>
+          <div className="flex items-center gap-1.5 ml-4">
+            <Monitor className="h-3 w-3" />
+            <Share2 className="h-3 w-3" />
+            <Copy className="h-3 w-3" />
+          </div>
+        </div>
+      </div>
+
+      {/* SAP COMMAND BAR */}
+      <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40">
+        <div className="flex items-center px-2 py-1 gap-4">
+          <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">
+             {logoAsset && (
+               <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized />
+             )}
+          </div>
+          <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner">
+            <button onClick={() => executeTCode(tCode)} className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100 transition-colors">✓</button>
+            <input 
+              ref={tCodeRef}
+              type="text" 
+              value={tCode}
+              onChange={(e) => setTCode(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && executeTCode(tCode)}
+              className="w-48 outline-none text-xs px-1 font-bold tracking-wider"
+              placeholder="/n..."
+            />
+          </div>
+          <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
+             <button onClick={handleSave} className="p-1 hover:bg-slate-200 rounded group"><Save className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={() => setTCode('')} className="p-1 hover:bg-slate-200 rounded group"><Undo2 className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={() => setFormData({})} className="p-1 hover:bg-slate-200 rounded group"><Eraser className="h-4 w-4 text-slate-600" /></button>
+             <button className="p-1 hover:bg-slate-200 rounded group ml-4"><Filter className="h-4 w-4 text-slate-600" /></button>
+             <button className="p-1 hover:bg-slate-200 rounded group"><Database className="h-4 w-4 text-slate-600" /></button>
+             <button className="p-1 hover:bg-slate-200 rounded group"><Activity className="h-4 w-4 text-slate-600" /></button>
+          </div>
+          <div className="flex-1" />
+          <div className="flex items-center gap-3 pr-4">
+             <button className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Search className="h-4 w-4" /></button>
+             <button className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Printer className="h-4 w-4" /></button>
+             <button onClick={handleLogout} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700">
+               <LogOut className="h-3.5 w-3.5" /> Log Off
+             </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* SIDEBAR FAVORITES - Hidden for OX01/02/03 for full width display */}
+        {!hideSidebar && (
+          <div className="w-72 bg-white border-r border-slate-300 flex flex-col overflow-y-auto no-scrollbar">
+            <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2">
+                <Grid2X2 className="h-3.5 w-3.5" /> Favorites Registry
+              </h2>
+            </div>
+            <div className="flex flex-col">
+              {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'BULK').map((item) => (
+                <div 
+                  key={item.code} 
+                  onClick={() => executeTCode(item.code)}
+                  className={cn(
+                    "flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-50 transition-all",
+                    activeScreen === item.code ? "bg-[#0056d2] text-white" : "text-[#1e3a8a]"
+                  )}
+                >
+                  <div className={cn(
+                    "w-1.5 h-1.5 rounded-full shrink-0",
+                    activeScreen === item.code ? "bg-white" : "bg-slate-300 group-hover:bg-blue-600"
+                  )} />
+                  <span className={cn(
+                    "text-[10px] font-black uppercase tracking-tight",
+                    activeScreen === item.code ? "text-white" : "text-[#1e3a8a]"
+                  )}>
+                    {item.code} - {item.description.split(':')[0]}
+                  </span>
+                  <div className="flex-1" />
+                  <item.icon className={cn("h-3.5 w-3.5", activeScreen === item.code ? "text-white" : "text-slate-400")} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* MAIN CONTENT AREA */}
+        <div className="flex-1 flex flex-col overflow-hidden bg-[#f0f3f9]">
+          {activeScreen !== 'HOME' && (
+             <div className="bg-[#0056d2] text-white py-3 px-6 shadow-md flex items-center gap-4 shrink-0">
+                <Badge className="bg-white/20 text-white rounded-none font-black italic">{activeScreen}</Badge>
+                <h1 className="text-lg font-black italic tracking-tighter uppercase leading-none">
+                  {MASTER_TCODES.find(t => t.code === activeScreen)?.description}
+                </h1>
+             </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto p-4 relative">
+            {activeScreen === 'HOME' ? (
+              <div className="w-full h-full flex flex-col items-center justify-center p-8">
+                <div className="relative w-full max-w-[1100px] aspect-video shadow-2xl rounded-sm overflow-hidden border-8 border-white group">
+                   <Image 
+                    src="https://picsum.photos/seed/sikka-team/1200/800" 
+                    alt="Sikka Logistics Hub" 
+                    fill 
+                    className="object-cover transition-transform duration-1000 group-hover:scale-105"
+                    data-ai-hint="logistics operations"
+                    unoptimized
+                   />
+                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-12">
+                      <h2 className="text-white text-5xl font-black italic tracking-tighter uppercase leading-none mb-2">Sikka Logistics Hub</h2>
+                      <p className="text-white/80 font-bold uppercase tracking-[0.4em] text-xs">Mission Operations & Registry Control</p>
+                   </div>
+                </div>
+              </div>
+            ) : (
+              <div className={cn(
+                "bg-white shadow-xl rounded-sm border border-slate-300 overflow-hidden animate-slide-up min-h-[600px] p-6 mx-auto",
+                hideSidebar ? "w-full max-w-full" : "w-full max-w-[1400px]"
+              )}>
+                 {showForm && (
+                   <div className="space-y-6">
+                     {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                     {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                     {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                     {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                     {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} allCustomers={rawCustomers} />}
+                     {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={rawOrders} onPost={handleSave} onCancel={() => setFormData({})} />}
+                     {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
+                   </div>
+                 )}
+                 {showList && <RegistryList onSelectItem={setFormData} listData={getRegistryList()} />}
+                 {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} onPrintLR={handlePrintLR} onPrintCN={handlePrintCN} />}
+                 {activeScreen === 'BULK' && <BulkDataHub allPlants={rawPlants} />}
+              </div>
+            )}
+          </div>
+
+          {/* SAP STATUS BAR */}
+          <div className="h-6 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/70 uppercase tracking-widest shrink-0">
+            <div className="flex items-center gap-6">
+              <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.8)]" /> MISSION SYNC: ACTIVE</span>
+              <span>NODE: {activeScreen}</span>
+              <span>USER: {userProfile?.username || 'GUEST'}</span>
+              <span>{statusMsg.text !== 'Ready' && `| EVENT: ${statusMsg.text}`}</span>
+            </div>
+            <div className="flex-1" />
+            <div className="flex items-center gap-4">
+              <span>PRD</span>
+              <span>INS</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* DIALOGS FOR PRINTING */}
+      <Dialog open={showPrintPreview} onOpenChange={setShowPrintPreview}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none bg-slate-800 shadow-2xl">
+          <div className="bg-slate-900 p-4 flex justify-between items-center sticky top-0 z-10 border-b border-white/10">
+            <DialogTitle className="text-white font-black uppercase italic tracking-tighter text-sm">Registry Print Handshake: LR Preview</DialogTitle>
+            <Button onClick={handleActualPrint} className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-[10px] tracking-widest h-9 px-8 rounded-lg">Confirm & Print Mission Node</Button>
+          </div>
+          <div className="p-12 bg-slate-200">
+            <div className="bg-white p-12 shadow-2xl mx-auto max-w-[210mm] border border-slate-300">
+              {printData && <LRPrintTemplate trip={printData.trip} order={printData.order} />}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCnPreview} onOpenChange={setShowCnPreview}>
+        <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0 border-none bg-slate-800 shadow-2xl">
+          <div className="bg-slate-900 p-4 flex justify-between items-center sticky top-0 z-10 border-b border-white/10">
+            <DialogTitle className="text-white font-black uppercase italic tracking-tighter text-sm">Consignment Note: 3-Copy Registry Hub</DialogTitle>
+            <div className="flex items-center gap-4">
+              <div className="bg-white/5 px-4 py-1.5 rounded-lg border border-white/10">
+                <span className="text-[10px] font-black uppercase text-blue-400 mr-2">Delivery Node Edit:</span>
+                <input 
+                  className="bg-transparent text-white text-xs outline-none border-b border-white/20 focus:border-blue-400 w-48"
+                  value={cnPreviewData?.deliveryAddress || ''}
+                  onChange={(e) => setCnPreviewData({ ...cnPreviewData, deliveryAddress: e.target.value })}
+                />
+              </div>
+              <Button onClick={handleActualPrint} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase text-[10px] tracking-widest h-9 px-8 rounded-lg flex items-center gap-2">
+                <Printer className="h-3 w-3" /> PRINT ALL COPIES
+              </Button>
+            </div>
+          </div>
+          <div className="p-8 bg-slate-200 space-y-12">
+            {cnPreviewData && ["CONSIGNEE COPY", "DRIVER COPY", "CONSIGNOR COPY"].map((copyType) => (
+              <div key={copyType} className="bg-white shadow-2xl mx-auto max-w-[210mm] min-h-[297mm] print:shadow-none print:m-0 page-break-after-always">
+                <CNPrintTemplate trip={cnPreviewData.trip} order={cnPreviewData.order} copyType={copyType} deliveryAddress={cnPreviewData.deliveryAddress} />
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      <div id="printable-area" className="hidden print:block p-0 m-0">
+        {printData && <LRPrintTemplate trip={printData.trip} order={printData.order} />}
+        {cnPreviewData && ["CONSIGNEE COPY", "DRIVER COPY", "CONSIGNOR COPY"].map((copyType) => (
+           <div key={copyType} className="page-break-after-always">
+              <CNPrintTemplate trip={cnPreviewData.trip} order={cnPreviewData.order} copyType={copyType} deliveryAddress={cnPreviewData.deliveryAddress} />
+           </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function SapDashboard() {
+  return <SapDashboardWrapper />;
+}
+
+// SAP COMPONENT ABSTRACTIONS
+
+function SectionGrouping({ title, children }: { title: string, children: React.ReactNode }) {
+  return (
+    <div className="border border-slate-300 p-5 pt-4 relative bg-white rounded-sm mb-6">
+      <span className="absolute -top-3 left-4 bg-white px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 border border-slate-200 shadow-sm">
+        {title}
+      </span>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string, value?: string | number }) {
+  return <div className="grid grid-cols-3 gap-4 py-2 border-b border-slate-100 last:border-none"><span className="text-[9px] font-black uppercase text-slate-400">{label}</span><span className="col-span-2 text-[10px] font-bold text-slate-700 uppercase">{value || '--'}</span></div>;
+}
+
+function FormInput({ label, value, onChange, type = "text", disabled }: any) {
+  return <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label><Input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-9 rounded-none border-slate-400 text-xs font-bold bg-white focus:ring-1 focus:ring-blue-600 shadow-sm" /></div>;
+}
+
+function FormSelect({ label, value, options, onChange, disabled }: any) {
+  return <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label><select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-9 border border-slate-400 bg-white px-2 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-600 shadow-sm"><option value="">Select...</option>{options.map((o: string) => <option key={o} value={o}>{o}</option>)}</select></div>;
+}
+
+function PlantForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="space-y-4">
+      <SectionGrouping title="DATABASE SELECTION NODE">
+        <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="SETTINGS / REGISTRY NODE">
+        <FormInput label="PLANT CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+        <FormInput label="PLANT ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
+        <FormInput label="STATE" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
+      </SectionGrouping>
+    </div>
+  );
+}
+
+function CompanyForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="space-y-8">
+      <SectionGrouping title="Database Selection Node">
+        <FormInput label="Company Code" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
+        <FormInput label="Company Name" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
+      </SectionGrouping>
+    </div>
+  );
+}
+
+function VendorForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="space-y-8">
+      <SectionGrouping title="Database Selection Node">
+        <FormInput label="Vendor Name" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
+        <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+      </SectionGrouping>
+    </div>
+  );
+}
+
+function CustomerForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="space-y-8">
+      <SectionGrouping title="Database Selection Node">
+        <FormInput label="Customer Code" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} />
+        <FormInput label="Customer Name" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="Stock Type / Registry">
+        <div className="flex flex-col gap-2">
+          <label className="text-[10px] font-bold text-slate-500 uppercase">Customer Role</label>
+          <RadioGroup 
+            value={data.customerType || 'Consignor'} 
+            onValueChange={(v) => onChange({...data, customerType: v})}
+            disabled={disabled}
+            className="flex gap-6 mt-1"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="Consignor" id="consignor" />
+              <Label htmlFor="consignor" className="text-[11px] font-bold uppercase">Consignor</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="Consignee" id="consignee" />
+              <Label htmlFor="consignee" className="text-[11px] font-bold uppercase">Consignee</Label>
+            </div>
+          </RadioGroup>
+        </div>
+      </SectionGrouping>
+    </div>
+  );
+}
+
+function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: any) {
+  const plantOpts = (allPlants || []).map((p: any) => p.plantCode);
+  const consignors = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignor').map((c: any) => c.customerName)));
+  const consignees = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignee').map((c: any) => c.customerName)));
+  const shipto = Array.from(new Set((allCustomers || []).map((c: any) => c.customerName)));
+  const cities = Array.from(new Set([
+    ...(allPlants || []).map((p: any) => p.city),
+    ...(allCustomers || []).map((c: any) => c.city)
+  ].filter(Boolean)));
+
+  return (
+    <div className="space-y-10">
+      <SectionGrouping title="Database Selection Node">
+        <FormSelect label="Plant Code" value={data.plantCode} options={plantOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormInput label="LR Number" value={data.lrNo} onChange={(v: string) => onChange({...data, lrNo: v})} disabled={disabled} />
+        <FormInput label="LR Date" value={data.lrDate} type="date" onChange={(v: string) => onChange({...data, lrDate: v})} disabled={disabled} />
+        <FormInput label="Sale Order No" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="Mission Coordination Node">
+        <FormSelect label="Consignor" value={data.consignor} options={consignors} onChange={(v: string) => onChange({...data, consignor: v})} disabled={disabled} />
+        <FormSelect label="Consignee" value={data.consignee} options={consignees} onChange={(v: string) => onChange({...data, consignee: v})} disabled={disabled} />
+        <FormSelect label="Ship To Party" value={data.shipToParty} options={shipto} onChange={(v: string) => onChange({...data, shipToParty: v})} disabled={disabled} />
+        <FormSelect label="From City" value={data.from} options={cities} onChange={(v: string) => onChange({...data, from: v})} disabled={disabled} />
+        <FormSelect label="Destination" value={data.destination} options={cities} onChange={(v: string) => onChange({...data, destination: v})} disabled={disabled} />
+      </SectionGrouping>
+      <div className="space-y-4">
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white border border-slate-200 px-3 py-1 shadow-sm">Product Registry Hub</span>
+        <table className="w-full text-left border-collapse border border-slate-300 text-[10px] shadow-sm">
+          <thead className="bg-[#f0f0f0]"><tr><th className="p-3 border border-slate-300">Product</th><th className="p-3 border border-slate-300">Weight</th><th className="p-3 border border-slate-300">Invoice No</th></tr></thead>
+          <tbody>{(data.items || [{ product: 'SALT', weight: '', weightUom: 'MT', invoiceNumber: '' }]).map((item: any, idx: number) => (
+            <tr key={idx}>
+              <td className="p-2 border border-slate-300"><input className="w-full outline-none p-1 font-bold" value={item.product || ''} onChange={(e) => {
+                const items = [...(data.items || [{ product: 'SALT' }])];
+                items[idx] = { ...items[idx], product: e.target.value };
+                onChange({ ...data, items });
+              }} disabled={disabled} /></td>
+              <td className="p-2 border border-slate-300"><input className="w-full outline-none p-1 font-bold" value={item.weight || ''} onChange={(e) => {
+                const items = [...(data.items || [{ product: 'SALT' }])];
+                items[idx] = { ...items[idx], weight: e.target.value };
+                onChange({ ...data, items });
+              }} disabled={disabled} /></td>
+              <td className="p-2 border border-slate-300"><input className="w-full outline-none p-1 font-bold" value={item.invoiceNumber || ''} onChange={(e) => {
+                const items = [...(data.items || [{ product: 'SALT' }])];
+                items[idx] = { ...items[idx], invoiceNumber: e.target.value };
+                onChange({ ...data, items });
+              }} disabled={disabled} /></td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
     </div>
   );
 }
