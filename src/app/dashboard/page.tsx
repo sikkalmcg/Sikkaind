@@ -7,8 +7,8 @@ import {
   Printer, Save, RotateCcw, X, HelpCircle, LogOut,
   ChevronRight, Check, AlertCircle, Info, PlusCircle, Trash2,
   Grid2X2, Upload, Download, ShoppingBag, ArrowUpRight,
-  Filter, Truck, Calendar, MapPin, User, DollarSign, Activity,
-  Layers, PackageCheck, Ban, Lock, Play, XCircle
+  Filter, Truck, MapPin, User, DollarSign, Activity,
+  Layers, PackageCheck, Ban, Lock, Play, XCircle, Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -195,12 +195,18 @@ export default function SapDashboard() {
     return [];
   };
 
+  const handleMenuClick = () => {
+    setActiveScreen('HOME');
+    setStatusMsg({ text: 'Main Hub', type: 'none' });
+  };
+
   return (
     <div className="flex flex-col h-screen bg-[#d9e1f2] text-[#333] font-mono select-none overflow-hidden">
       {/* Menu Bar */}
       <div className="flex items-center bg-[#f0f0f0] border-b border-white/50 px-2 h-7 text-[11px] font-semibold">
         <DropdownMenu>
           <DropdownMenuTrigger 
+            onClick={handleMenuClick}
             className="px-3 hover:bg-[#0056d2] hover:text-white outline-none transition-colors h-full flex items-center"
           >
             Menu
@@ -567,19 +573,24 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
   };
 
   const calculateRemainingWeight = (orderId: string, totalWeight: number) => {
-    const assigned = trips?.filter(t => t.saleOrderId === orderId).reduce((sum, t) => sum + (t.assignWeight || 0), 0) || 0;
+    const assigned = (trips || [])
+      .filter(t => t.saleOrderId === orderId)
+      .reduce((sum, t) => sum + (parseFloat(t.assignWeight) || 0), 0);
     return totalWeight - assigned;
   };
 
   const filteredOrders = orders?.filter(o => {
-    const totalW = o.items?.reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0) || 0;
+    const totalW = (o.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
     const remaining = calculateRemainingWeight(o.id, totalW);
     const matchesPlant = plantFilter === 'ALL' || o.plantCode === plantFilter;
-    return remaining > 0 && matchesPlant;
+    
+    // Show order if it has remaining weight OR it was just created and has no trips yet
+    const hasNoTrips = !(trips || []).some(t => t.saleOrderId === o.id);
+    return matchesPlant && (remaining > 0 || (totalW > 0 && hasNoTrips) || (totalW === 0 && hasNoTrips));
   });
 
   const getTripsByStatus = (status: string) => {
-    return trips?.filter(t => t.status === status && (plantFilter === 'ALL' || t.plantCode === plantFilter)) || [];
+    return (trips || []).filter(t => t.status === status && (plantFilter === 'ALL' || t.plantCode === plantFilter)) || [];
   };
 
   return (
@@ -626,7 +637,7 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
               </thead>
               <tbody>
                 {filteredOrders?.map(order => {
-                  const totalW = order.items?.reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0) || 0;
+                  const totalW = (order.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
                   const remaining = calculateRemainingWeight(order.id, totalW);
                   const uom = order.items?.[0]?.weightUom || 'KG';
                   
@@ -655,6 +666,13 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
                     </tr>
                   );
                 })}
+                {(!filteredOrders || filteredOrders.length === 0) && (
+                  <tr>
+                    <td colSpan={7} className="p-12 text-center text-slate-300 font-bold text-[10px] uppercase italic tracking-widest">
+                      No open orders found for this registry node.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -691,6 +709,11 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
                   </div>
                 </div>
               ))}
+              {getTripsByStatus(status).length === 0 && (
+                <div className="col-span-full p-12 bg-white rounded-[2rem] border border-slate-100 text-center text-slate-300 font-bold text-[10px] uppercase italic tracking-widest">
+                  No missions currently in {status} phase.
+                </div>
+              )}
             </div>
           </TabsContent>
         ))}
