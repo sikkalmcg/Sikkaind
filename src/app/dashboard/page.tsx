@@ -14,7 +14,8 @@ import {
   LayoutDashboard, Database, Settings, BarChart, TrendingUp,
   FileSpreadsheet, HardDriveDownload, CloudUpload, ShieldAlert,
   AlertTriangle, Radar, Loader2, Edit3, FileDown,
-  Monitor, Share2, Copy, Eraser, Undo2, Plus, Mail, Globe
+  Monitor, Share2, Copy, Eraser, Undo2, Plus, Mail, Globe,
+  Minus, Square
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -105,7 +106,6 @@ export default function SapDashboard() {
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
   const { data: userProfile } = useDoc(profileRef);
 
-  // Admin Mission Registry Upsert Handshake
   React.useEffect(() => {
     if (user && db) {
       const adminNodeId = 'admin_registry_root';
@@ -266,6 +266,35 @@ export default function SapDashboard() {
     }
   }, [user, activeScreen, formData, rawOrders, db]);
 
+  const handleMinimize = () => {
+    toast({
+      title: "Minimize",
+      description: "Mission registry running in background node."
+    });
+  };
+
+  const handleMaximize = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {
+        toast({
+          variant: "destructive",
+          title: "Maximize",
+          description: "Fullscreen registry handshake failed."
+        });
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
+  const handleClose = () => {
+    if (confirm("Close: Terminate current mission and exit registry?")) {
+      router.push('/');
+    }
+  };
+
   React.useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (['F3', 'F4', 'F8', 'F12'].includes(e.key)) {
@@ -290,11 +319,14 @@ export default function SapDashboard() {
         e.preventDefault();
         handleSave();
       }
+      if (e.key === 'Enter' && document.activeElement === tCodeRef.current) {
+        executeTCode(tCode);
+      }
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [activeScreen, formData, handleSave, router]);
+  }, [activeScreen, formData, handleSave, router, tCode, executeTCode]);
 
   React.useEffect(() => {
     const initialT = searchParams.get('tcode');
@@ -351,10 +383,17 @@ export default function SapDashboard() {
           ))}
         </div>
         <div className="flex-1" />
-        <div className="flex items-center gap-1.5 ml-4">
-          <Monitor className="h-3 w-3" />
-          <Share2 className="h-3 w-3" />
-          <Copy className="h-3 w-3" />
+        <div className="flex items-center gap-2 ml-4 h-full">
+          <div className="flex items-center gap-1.5 pr-4 border-r border-slate-400 h-full">
+            <Monitor className="h-3 w-3" />
+            <Share2 className="h-3 w-3" />
+            <Copy className="h-3 w-3" />
+          </div>
+          <div className="flex items-center h-full">
+            <button onClick={handleMinimize} title="Minimize" className="h-full px-2 hover:bg-white/30 transition-colors flex items-center"><Minus className="h-3.5 w-3.5" /></button>
+            <button onClick={handleMaximize} title="Maximize" className="h-full px-2 hover:bg-white/30 transition-colors flex items-center"><Square className="h-3 w-3" /></button>
+            <button onClick={handleClose} title="Close" className="h-full px-3 hover:bg-[#e81123] hover:text-white transition-colors flex items-center"><X className="h-3.5 w-3.5" /></button>
+          </div>
         </div>
       </div>
 
@@ -378,7 +417,7 @@ export default function SapDashboard() {
             />
           </div>
           <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
-             <button onClick={handleSave} title="Save (F8)" className="p-1 hover:bg-slate-200 rounded group"><Save className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={handleSave} title="Save (Ctrl+S / F8)" className="p-1 hover:bg-slate-200 rounded group"><Save className="h-4 w-4 text-slate-600" /></button>
              <button onClick={() => executeTCode('/n')} title="Back (F3)" className="p-1 hover:bg-slate-200 rounded group"><Undo2 className="h-4 w-4 text-slate-600" /></button>
              <button onClick={() => setFormData({})} title="Clear Form (F12)" className="p-1 hover:bg-slate-200 rounded group"><Eraser className="h-4 w-4 text-slate-600" /></button>
              <button onClick={() => toast({ title: "Filter", description: "Filter Registry Node Activated" })} title="Filter" className="p-1 hover:bg-slate-200 rounded group ml-4"><Filter className="h-4 w-4 text-slate-600" /></button>
@@ -1253,3 +1292,4 @@ function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
     </div>
   );
 }
+
