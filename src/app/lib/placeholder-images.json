@@ -1,3 +1,4 @@
+
 {
   "placeholderImages": [
     {
@@ -6,13 +7,6 @@
       "width": 200,
       "height": 100,
       "description": "Sikka Industries Logo"
-    },
-    {
-      "id": "hero-logistics",
-      "url": "https://picsum.photos/seed/logistics-hero/1200/800",
-      "width": 1200,
-      "height": 800,
-      "description": "Modern Logistics Operations"
     }
   ]
 }

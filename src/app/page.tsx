@@ -1,16 +1,13 @@
+
 'use client';
 
 import * as React from 'react';
-import Image from 'next/image';
 import { 
   CheckCircle, Truck, Warehouse, Package, BarChart3, 
   MapPin, Laptop, Users, Globe, Tag, ShieldCheck, Headphones
 } from 'lucide-react';
-import placeholderData from '@/app/lib/placeholder-images.json';
 
 export default function HomePage() {
-  const heroImg = placeholderData.placeholderImages.find(p => p.id === 'hero-logistics');
-
   const solutions = [
     { title: 'Transportation Services', icon: Truck, points: ['Full Truck Load (FTL)', 'Dedicated Fleet Services', 'Pan-India Delivery', 'Real-time Tracking'] },
     { title: 'Warehousing Solutions', icon: Warehouse, points: ['Modern Infrastructure', 'Inventory Management', 'Stock Handling', 'System-Based Control'] },
@@ -31,29 +28,6 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white font-body">
-      {/* HERO SECTION */}
-      <section className="relative py-32 md:py-48 bg-slate-900 text-white overflow-hidden">
-        {heroImg?.url && (
-          <Image
-            src={heroImg.url}
-            alt="Logistics Background"
-            fill
-            priority
-            className="object-cover opacity-20"
-            unoptimized={true}
-            data-ai-hint="logistics warehouse"
-          />
-        )}
-        <div className="max-w-[1200px] mx-auto px-4 relative z-10 text-center space-y-8">
-          <h1 className="text-5xl md:text-8xl font-black tracking-tighter uppercase italic leading-none">
-            Intelligence-Driven <br /> <span className="text-blue-500">Logistics</span>
-          </h1>
-          <p className="text-lg md:text-2xl text-slate-300 max-w-2xl mx-auto font-medium">
-            Sikka Industries & Logistics provides world-class innovative supply chain solutions across the nation.
-          </p>
-        </div>
-      </section>
-
       {/* SOLUTIONS */}
       <section className="py-24 bg-white">
         <div className="max-w-[1200px] mx-auto px-4">
