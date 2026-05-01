@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -8,7 +9,7 @@ import {
   ChevronRight, ChevronLeft, Truck, MapPin, User, Users, ShoppingBag,
   Grid2X2, ShieldAlert, Edit3, 
   PlusSquare, XCircle, Calendar as CalendarIcon, Package, Undo2,
-  FileText, UploadCloud, Trash2, Plus
+  FileText, UploadCloud, Trash2, Plus, CheckCircle as CheckCircleIcon, Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,7 @@ import {
   DialogHeader, 
   DialogTitle 
 } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import placeholderData from '@/app/lib/placeholder-images.json';
@@ -73,8 +75,6 @@ export default function SapDashboard() {
   const [formData, setFormData] = React.useState<any>({});
   const [searchId, setSearchId] = React.useState('');
   const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
-  const [printData, setPrintData] = React.useState<any>(null);
-  const [cnPreviewData, setCnPreviewData] = React.useState<any>(null);
   
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL');
   const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM'));
@@ -561,7 +561,7 @@ export default function SapDashboard() {
                      <RegistryList onSelectItem={setFormData} listData={getRegistryList()} />
                    </div>
                  )}
-                 {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={rawPlants} onPrintLR={setPrintData} onPrintCN={setCnPreviewData} />}
+                 {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} vendors={rawVendors} plants={rawPlants} onStatusUpdate={setStatusMsg} />}
                  {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               </div>
             )}
@@ -577,13 +577,6 @@ export default function SapDashboard() {
           {statusMsg.text !== 'Ready' && <><span className="text-slate-400">|</span><span className={cn(statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span></>}
         </div>
       </div>
-
-      <Dialog open={!!printData} onOpenChange={() => setPrintData(null)}>
-        <DialogContent className="max-w-4xl p-0 border-none bg-slate-800"><LRPrintTemplate trip={printData?.trip} order={printData?.order} onPrint={() => { window.print(); setPrintData(null); }} /></DialogContent>
-      </Dialog>
-      <Dialog open={!!cnPreviewData} onOpenChange={() => setCnPreviewData(null)}>
-        <DialogContent className="max-w-5xl p-0 border-none bg-slate-800"><CNPrintTemplate trip={cnPreviewData?.trip} order={cnPreviewData?.order} onPrint={() => { window.print(); setCnPreviewData(null); }} /></DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -910,39 +903,293 @@ function RegistryList({ onSelectItem, listData }: any) {
   );
 }
 
-function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN }: { orders: any[] | null, trips: any[] | null, onStatusUpdate: any, plants: any[] | null, onPrintLR: any, onPrintCN: any }) {
+function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: { orders: any[] | null, trips: any[] | null, vendors: any[] | null, plants: any[] | null, onStatusUpdate: any }) {
   const { user } = useUser();
   const db = useFirestore();
-  const [plantFilter, setPlantFilter] = React.useState('ALL');
+  const [activeTab, setActiveTab] = React.useState('Open Orders');
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
+  const [isPopupOpen, setIsPopupOpen] = React.useState(false);
+  const [assignData, setAssignData] = React.useState<any>({ fleetType: 'Own Vehicle', isFixedRate: false });
+  const [vendorSearch, setVendorSearch] = React.useState('');
+  const [showVendorSuggestions, setShowVendorSuggestions] = React.useState(false);
 
-  const handleAssign = (vehicleNo: string, weight: string) => {
+  const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
+
+  const getOrderStats = (order: any) => {
+    const totalOrderQty = order.items?.reduce((acc: number, item: any) => acc + (parseFloat(item.weight) || 0), 0) || 0;
+    const assignedQty = trips?.filter(t => t.saleOrderId === order.id && t.status !== 'CANCELLED').reduce((acc: number, t: any) => acc + (t.assignWeight || 0), 0) || 0;
+    const balanceQty = totalOrderQty - assignedQty;
+    const uom = order.items?.[0]?.weightUom || 'MT';
+    return { totalOrderQty, assignedQty, balanceQty, uom };
+  };
+
+  const filteredOrders = React.useMemo(() => {
+    if (!orders) return [];
+    return orders.filter(o => o.status !== 'CANCELLED').map(o => ({ ...o, ...getOrderStats(o) })).filter(o => o.balanceQty > 0);
+  }, [orders, trips]);
+
+  const filteredTrips = React.useMemo(() => {
+    if (!trips) return [];
+    const statusMap: any = {
+      'Loading': 'LOADING',
+      'In-Transit': 'IN-TRANSIT',
+      'Arrived': 'ARRIVED',
+      'Reject': 'REJECTION',
+      'POD Verify': 'POD',
+      'Closed': 'CLOSED'
+    };
+    return trips.filter(t => t.status === statusMap[activeTab]);
+  }, [trips, activeTab]);
+
+  const handleAssignClick = (order: any) => {
+    setSelectedOrder(order);
+    setAssignData({ 
+      plantCode: order.plantCode,
+      consignee: order.consignee,
+      shipToParty: order.shipToParty,
+      route: order.route || '',
+      orderQty: `${order.balanceQty} ${order.uom}`,
+      fleetType: 'Own Vehicle',
+      isFixedRate: false,
+      assignWeight: order.balanceQty
+    });
+    setIsPopupOpen(true);
+  };
+
+  const handlePost = () => {
     if (!user || !selectedOrder) return;
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
     const newId = crypto.randomUUID();
-    const payload = { id: newId, tripId, saleOrderId: selectedOrder.id, saleOrder: selectedOrder.saleOrder, plantCode: selectedOrder.plantCode, vehicleNumber: vehicleNo, assignWeight: parseFloat(weight), status: 'LOADING', createdAt: new Date().toISOString() };
+    const payload = { 
+      id: newId, 
+      tripId, 
+      saleOrderId: selectedOrder.id, 
+      saleOrderNumber: selectedOrder.saleOrder, 
+      plantCode: assignData.plantCode, 
+      shipToParty: assignData.shipToParty,
+      route: assignData.route,
+      vehicleNumber: assignData.vehicleNumber, 
+      driverMobile: assignData.driverMobile,
+      fleetType: assignData.fleetType,
+      vendorName: assignData.vendorName,
+      vendorMobile: assignData.vendorMobile,
+      rate: parseFloat(assignData.rate || 0),
+      isFixedRate: assignData.isFixedRate,
+      freightAmount: parseFloat(assignData.freightAmount || 0),
+      assignWeight: parseFloat(assignData.assignWeight || 0), 
+      status: 'LOADING', 
+      createdAt: new Date().toISOString() 
+    };
+
     setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', newId), payload, { merge: true });
+    setIsPopupOpen(false);
     setSelectedOrder(null);
-    onStatusUpdate({ text: `${tripId} created`, type: 'success' });
+    onStatusUpdate({ text: `Trip ${tripId} posted to Loading`, type: 'success' });
   };
 
+  const matchingVendors = vendors?.filter(v => v.vendorName?.toUpperCase().includes(vendorSearch.toUpperCase()));
+
   return (
-    <div className="space-y-8">
-      <div className="flex items-center gap-4"><select className="bg-white border border-slate-400 h-9 px-4 font-bold text-xs outline-none shadow-sm" value={plantFilter} onChange={(e) => setPlantFilter(e.target.value)}><option value="ALL">ALL PLANTS</option>{plants?.map((p: any) => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div>
-      <div className="bg-white border border-slate-300 p-8 shadow-sm">
-        <h3 className="text-sm font-black uppercase text-[#1e3a8a] mb-6">Active Trips Hub</h3>
-        <div className="space-y-4">
-          {trips?.filter((t: any) => plantFilter === 'ALL' || t.plantCode === plantFilter).map((t: any) => (
-            <div key={t.id} className="flex justify-between items-center p-4 border border-slate-200 bg-slate-50">
-              <span className="font-black text-xs text-[#0056d2]">#{t.tripId}</span>
-              <span className="text-[10px] font-bold uppercase">{t.vehicleNumber}</span>
-              <Badge className="bg-blue-600 text-white font-black uppercase text-[8px]">{t.status}</Badge>
-            </div>
-          ))}
-        </div>
+    <div className="flex flex-col h-full space-y-4">
+      <div className="flex border-b border-slate-300 bg-[#dae4f1]/30">
+        {TABS.map(tab => (
+          <button 
+            key={tab} 
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              "px-6 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all",
+              activeTab === tab ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
-      <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent className="p-8"><DialogTitle>Assign Vehicle</DialogTitle><Button onClick={() => handleAssign('UP14-TEST', '20')} className="bg-[#0056d2] text-white font-black uppercase text-[10px] px-8 h-12 rounded-none shadow-lg">Initiate</Button></DialogContent>
+
+      <div className="flex-1 overflow-auto bg-white border border-slate-300 shadow-sm">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-[#f8fafc] border-b border-slate-300 sticky top-0 z-10">
+            {activeTab === 'Open Orders' ? (
+              <tr>
+                {['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => (
+                  <th key={h} className="p-3 text-[9px] font-black uppercase text-slate-500 border-r border-slate-200">{h}</th>
+                ))}
+              </tr>
+            ) : (
+              <tr>
+                {['Trip ID', 'Vehicle No', 'Plant', 'Consignee', 'Ship to Party', 'Route', 'Weight', 'Status', 'Sync Hub'].map(h => (
+                  <th key={h} className="p-3 text-[9px] font-black uppercase text-slate-500 border-r border-slate-200">{h}</th>
+                ))}
+              </tr>
+            )}
+          </thead>
+          <tbody>
+            {activeTab === 'Open Orders' ? (
+              filteredOrders.map(order => (
+                <tr key={order.id} className="border-b border-slate-100 hover:bg-blue-50/50 transition-colors">
+                  <td className="p-3 text-[11px] font-bold">{order.plantCode}</td>
+                  <td className="p-3 text-[11px] font-black text-[#0056d2]">{order.saleOrder}</td>
+                  <td className="p-3 text-[11px] font-bold uppercase truncate max-w-[120px]">{order.consignor}</td>
+                  <td className="p-3 text-[11px] font-bold uppercase truncate max-w-[120px]">{order.consignee}</td>
+                  <td className="p-3 text-[11px] font-bold uppercase truncate max-w-[120px]">{order.shipToParty}</td>
+                  <td className="p-3 text-[11px] font-bold uppercase">{order.route}</td>
+                  <td className="p-3 text-[11px] font-black text-slate-700">{order.totalOrderQty} {order.uom}</td>
+                  <td className="p-3 text-[11px] font-bold text-emerald-600">{order.assignedQty} {order.uom}</td>
+                  <td className="p-3 text-[11px] font-black text-red-600">{order.balanceQty} {order.uom}</td>
+                  <td className="p-3">
+                    <Button onClick={() => handleAssignClick(order)} size="sm" className="h-7 rounded-none bg-[#0056d2] hover:bg-blue-800 text-white font-black text-[9px] uppercase tracking-tighter shadow-md">Assign Vehicle</Button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              filteredTrips.map(trip => (
+                <tr key={trip.id} className="border-b border-slate-100 hover:bg-blue-50/50 transition-colors">
+                  <td className="p-3 text-[11px] font-black text-[#0056d2]">#{trip.tripId}</td>
+                  <td className="p-3 text-[11px] font-black uppercase">{trip.vehicleNumber}</td>
+                  <td className="p-3 text-[11px] font-bold">{trip.plantCode}</td>
+                  <td className="p-3 text-[11px] font-bold uppercase truncate max-w-[150px]">{trip.consignee || 'N/A'}</td>
+                  <td className="p-3 text-[11px] font-bold uppercase truncate max-w-[150px]">{trip.shipToParty}</td>
+                  <td className="p-3 text-[11px] font-bold uppercase">{trip.route}</td>
+                  <td className="p-3 text-[11px] font-black text-emerald-600">{trip.assignWeight} MT</td>
+                  <td className="p-3"><Badge className="bg-blue-100 text-[#0056d2] border-blue-200 text-[8px] font-black">{trip.status}</Badge></td>
+                  <td className="p-3 text-[10px] text-slate-400 font-bold">{format(new Date(trip.createdAt), 'dd-MM HH:mm')}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
+        <DialogContent className="max-w-3xl p-0 border-none rounded-none shadow-2xl bg-[#f0f3f9]">
+          <div className="bg-[#1e3a8a] text-white px-6 py-4 flex justify-between items-center">
+            <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2"><Truck className="h-4 w-4" /> Vehicle Assignment Hub</h2>
+            <button onClick={() => setIsPopupOpen(false)} className="hover:bg-white/10 p-1 rounded transition-colors"><X className="h-4 w-4" /></button>
+          </div>
+          
+          <div className="p-8 space-y-8 overflow-y-auto max-h-[85vh] green-scrollbar">
+            {/* Header Info */}
+            <div className="grid grid-cols-5 gap-4 bg-white p-5 border border-slate-200 shadow-sm rounded-sm">
+              {[
+                { label: 'Plant', val: assignData.plantCode },
+                { label: 'Consignee', val: assignData.consignee },
+                { label: 'Ship To', val: assignData.shipToParty },
+                { label: 'Route', val: assignData.route },
+                { label: 'Order Qty', val: assignData.orderQty }
+              ].map(item => (
+                <div key={item.label} className="space-y-1">
+                  <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest">{item.label}</p>
+                  <p className="text-[10px] font-black text-[#1e3a8a] truncate">{item.val}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Centre Fields */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-500">Vehicle Number *</label>
+                <input value={assignData.vehicleNumber || ''} onChange={e => setAssignData({...assignData, vehicleNumber: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black outline-none focus:bg-[#ffffcc] bg-white shadow-sm" placeholder="E.G. UP14-BT-1234" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-500">Driver Mobile *</label>
+                <input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black outline-none focus:bg-[#ffffcc] bg-white shadow-sm" placeholder="ENTER 10 DIGITS" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-500">Assign Qty *</label>
+                <input type="number" value={assignData.assignWeight || ''} onChange={e => {
+                  const val = e.target.value;
+                  const freight = assignData.isFixedRate ? (assignData.freightAmount || 0) : (parseFloat(assignData.rate || 0) * parseFloat(val || 0));
+                  setAssignData({...assignData, assignWeight: val, freightAmount: freight});
+                }} className="h-10 border border-slate-400 px-3 text-xs font-black outline-none focus:bg-[#ffffcc] bg-white shadow-sm" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black uppercase text-slate-500">Fleet Type *</label>
+                <select value={assignData.fleetType} onChange={e => setAssignData({...assignData, fleetType: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black outline-none bg-white shadow-sm">
+                  {['Own Vehicle', 'Contract Vehicle', 'Market Vehicle', 'Arrange by Party'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Market Vehicle Section */}
+            {assignData.fleetType === 'Market Vehicle' && (
+              <div className="p-6 bg-[#dae4f1]/20 border-l-4 border-blue-600 space-y-6 rounded-r-sm animate-fade-in shadow-inner">
+                <div className="grid grid-cols-2 gap-6 relative">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-black uppercase text-slate-500">Vendor *</label>
+                    <div className="relative">
+                      <input 
+                        value={vendorSearch} 
+                        onChange={e => { setVendorSearch(e.target.value); setShowVendorSuggestions(true); }}
+                        onFocus={() => setShowVendorSuggestions(true)}
+                        className="h-10 w-full border border-slate-400 px-3 text-xs font-black outline-none focus:bg-[#ffffcc] bg-white shadow-sm" 
+                        placeholder="TYPE VENDOR NAME..." 
+                      />
+                      {showVendorSuggestions && matchingVendors && matchingVendors.length > 0 && (
+                        <div className="absolute top-full left-0 w-full bg-white border border-slate-300 shadow-xl z-20 mt-1 max-h-40 overflow-y-auto">
+                          {matchingVendors.map(v => (
+                            <div 
+                              key={v.id} 
+                              onClick={() => {
+                                setVendorSearch(v.vendorName);
+                                setAssignData({...assignData, vendorName: v.vendorName, vendorMobile: v.mobile});
+                                setShowVendorSuggestions(false);
+                              }}
+                              className="px-4 py-2.5 text-[11px] font-bold hover:bg-blue-50 cursor-pointer border-b border-slate-100 flex justify-between"
+                            >
+                              <span>{v.vendorName}</span>
+                              <span className="text-slate-400 italic">{v.vendorCode}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-black uppercase text-slate-500">Vendor Mobile</label>
+                    <input value={assignData.vendorMobile || ''} disabled className="h-10 border border-slate-300 px-3 text-xs font-bold bg-slate-100 outline-none text-slate-500" placeholder="AUTO-FILLED" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-6 items-end">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-black uppercase text-slate-500">Rate (Per UOM)</label>
+                    <input 
+                      type="number" 
+                      disabled={assignData.isFixedRate}
+                      value={assignData.rate || ''} 
+                      onChange={e => {
+                        const val = e.target.value;
+                        const freight = parseFloat(val || 0) * parseFloat(assignData.assignWeight || 0);
+                        setAssignData({...assignData, rate: val, freightAmount: freight});
+                      }}
+                      className={cn("h-10 border border-slate-400 px-3 text-xs font-black outline-none shadow-sm", assignData.isFixedRate ? "bg-slate-100" : "bg-white focus:bg-[#ffffcc]")} 
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 h-10 px-4 bg-white border border-slate-400 shadow-sm">
+                    <Checkbox id="isFixed" checked={assignData.isFixedRate} onCheckedChange={checked => setAssignData({...assignData, isFixedRate: !!checked, rate: !!checked ? '' : assignData.rate})} />
+                    <label htmlFor="isFixed" className="text-[10px] font-black uppercase text-slate-700 cursor-pointer">Fix Rate Logic</label>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-black uppercase text-slate-500">Total Freight Amount</label>
+                    <input 
+                      type="number" 
+                      disabled={!assignData.isFixedRate}
+                      value={assignData.freightAmount || ''} 
+                      onChange={e => setAssignData({...assignData, freightAmount: e.target.value})}
+                      className={cn("h-10 border border-slate-400 px-3 text-xs font-black outline-none shadow-sm", !assignData.isFixedRate ? "bg-slate-100" : "bg-white focus:bg-[#ffffcc]")} 
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Footer Buttons */}
+            <div className="flex justify-end gap-4 pt-4 border-t border-slate-200">
+              <Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-11 px-8 rounded-none border-red-200 text-red-600 font-black text-[10px] uppercase tracking-widest hover:bg-red-50">Cancel</Button>
+              <Button onClick={handlePost} className="h-11 px-12 rounded-none bg-[#0056d2] hover:bg-blue-800 text-white font-black text-[10px] uppercase tracking-widest shadow-lg">Post to Loading</Button>
+            </div>
+          </div>
+        </DialogContent>
       </Dialog>
     </div>
   );
@@ -963,37 +1210,6 @@ function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code:
             </tr>
           ))}</tbody>
         </table>
-      </div>
-    </div>
-  );
-}
-
-function CNPrintTemplate({ trip, order, onPrint }: any) {
-  return (
-    <div className="w-full p-12 bg-white min-h-[297mm] flex flex-col box-border border-4 border-black/5">
-      <div className="flex justify-between items-start border-b-2 border-black pb-8 mb-8">
-        <h1 className="text-3xl font-black uppercase italic">Consignment Note</h1>
-        <Button onClick={onPrint} className="bg-blue-600 text-white font-black uppercase text-[10px]">Confirm & Print</Button>
-      </div>
-      <div className="p-8 border-2 border-black space-y-4">
-        <p className="font-black">Trip ID: {trip?.tripId || 'N/A'}</p>
-        <p className="font-black">Consignor: {trip?.consignor || 'N/A'}</p>
-        <p className="font-black">Consignee: {trip?.consignee || 'N/A'}</p>
-      </div>
-    </div>
-  );
-}
-
-function LRPrintTemplate({ trip, order, onPrint }: any) {
-  return (
-    <div className="w-full p-12 bg-white min-h-[297mm] flex flex-col box-border border-4 border-black/5">
-      <div className="flex justify-between items-start border-b-2 border-black pb-8 mb-8">
-        <h1 className="text-3xl font-black uppercase italic">Lorry Receipt</h1>
-        <Button onClick={onPrint} className="bg-blue-600 text-white font-black uppercase text-[10px]">Confirm & Print</Button>
-      </div>
-      <div className="p-8 border-2 border-black space-y-4">
-        <p className="font-black">LR No: {trip?.lrNo || 'N/A'}</p>
-        <p className="font-black">Vehicle: {trip?.vehicleNumber || 'N/A'}</p>
       </div>
     </div>
   );
