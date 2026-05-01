@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -93,6 +94,9 @@ export default function SapDashboard() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const [tCode, setTCode] = React.useState('');
+  const [history, setHistory] = React.useState<string[]>([]);
+  const [showHistory, setShowHistory] = React.useState(false);
+  const [historyIndex, setHistoryIndex] = React.useState(-1);
   const [activeScreen, setActiveScreen] = React.useState<Screen>('HOME');
   const [formData, setFormData] = React.useState<any>({});
   const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
@@ -185,6 +189,14 @@ export default function SapDashboard() {
   const executeTCode = React.useCallback((code: string) => {
     const input = code.toUpperCase().trim();
     if (!input) return;
+
+    // Update history - last 7 unique
+    setHistory(prev => {
+      const filtered = prev.filter(h => h !== input);
+      return [input, ...filtered].slice(0, 7);
+    });
+    setShowHistory(false);
+    setHistoryIndex(-1);
 
     if (input.startsWith('/O')) {
       const target = input.replace('/O', '').trim();
@@ -319,13 +331,19 @@ export default function SapDashboard() {
         handleSave();
       }
       if (e.key === 'Enter' && document.activeElement === tCodeRef.current) {
-        executeTCode(tCode);
+        if (showHistory && historyIndex >= 0) {
+          const selected = history[historyIndex];
+          setTCode(selected);
+          executeTCode(selected);
+        } else {
+          executeTCode(tCode);
+        }
       }
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [activeScreen, formData, handleSave, router, tCode, executeTCode]);
+  }, [activeScreen, formData, handleSave, router, tCode, executeTCode, showHistory, historyIndex, history]);
 
   React.useEffect(() => {
     const initialT = searchParams.get('tcode');
@@ -403,17 +421,49 @@ export default function SapDashboard() {
                <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized />
              )}
           </div>
-          <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner">
+          <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner relative">
             <button onClick={() => executeTCode(tCode)} className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100 transition-colors">✓</button>
             <input 
               ref={tCodeRef}
               type="text" 
               value={tCode}
-              onChange={(e) => setTCode(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && executeTCode(tCode)}
+              onChange={(e) => {
+                setTCode(e.target.value);
+                if (showHistory) setShowHistory(false);
+              }}
+              onClick={() => history.length > 0 && setShowHistory(true)}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown' && history.length > 0) {
+                  if (!showHistory) setShowHistory(true);
+                  setHistoryIndex(prev => (prev < history.length - 1 ? prev + 1 : prev));
+                } else if (e.key === 'ArrowUp') {
+                  setHistoryIndex(prev => (prev > 0 ? prev - 1 : -1));
+                } else if (e.key === 'Escape') {
+                  setShowHistory(false);
+                }
+              }}
+              onBlur={() => setTimeout(() => setShowHistory(false), 200)}
               className="w-48 outline-none text-xs px-1 font-bold tracking-wider"
-              placeholder="/n..."
             />
+            {showHistory && history.length > 0 && (
+              <div className="absolute top-full left-0 w-full bg-white border border-slate-400 shadow-md z-[60] mt-0.5">
+                {history.map((h, i) => (
+                  <div 
+                    key={i}
+                    onClick={() => {
+                      setTCode(h);
+                      executeTCode(h);
+                    }}
+                    className={cn(
+                      "px-4 py-1.5 text-xs font-bold cursor-pointer hover:bg-blue-50 transition-colors",
+                      i === historyIndex ? "bg-blue-100" : ""
+                    )}
+                  >
+                    {h}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
              <button onClick={handleSave} title="Save (Ctrl+S / F8)" className="p-1 hover:bg-slate-200 rounded group"><Save className="h-4 w-4 text-slate-600" /></button>
@@ -1284,6 +1334,23 @@ function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
         </table>
       </div>
       <div className="flex flex-col items-center justify-end pt-24"><p className="text-xs font-black uppercase tracking-[0.4em] border-t-4 border-black w-72 text-center pt-4 italic">Authorized Registry Signatory</p></div>
+    </div>
+  );
+}
+
+function PlantForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="space-y-4">
+      <SectionGrouping title="">
+        <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="SETTINGS / REGISTRY">
+        <FormInput label="PLANT CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+        <FormInput label="PLANT ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
+        <FormInput label="STATE" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
+      </SectionGrouping>
     </div>
   );
 }
