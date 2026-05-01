@@ -197,12 +197,21 @@ export default function SapDashboard() {
       if (collectionName === 'sales_orders' && payload.saleOrder) {
         const cleanSo = payload.saleOrder.toString().trim().toUpperCase();
         const publicRef = doc(db, 'public_orders', cleanSo);
+        
+        // Calculate total order quantity for public view
+        const totalQty = (payload.items || []).reduce((sum: number, item: any) => sum + (parseFloat(item.weight) || 0), 0);
+        const uom = payload.items?.[0]?.weightUom || 'KG';
+
         setDocumentNonBlocking(publicRef, {
           type: 'order',
           status: 'PLACED',
           saleOrder: cleanSo,
-          consignor: payload.consignor,
-          destination: payload.destination,
+          consignor: payload.consignor || '',
+          consignee: payload.consignee || '',
+          shipToParty: payload.shipToParty || '',
+          route: `${payload.from || ''} - ${payload.destination || ''}`,
+          orderQty: `${totalQty} ${uom}`,
+          destination: payload.destination || '',
           updatedAt: payload.updatedAt
         }, { merge: true });
       }
@@ -638,6 +647,10 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       tripId: tripId,
       vehicleNumber: vehicleNo,
       route: tripData.route,
+      consignor: selectedOrder.consignor || '',
+      consignee: selectedOrder.consignee || '',
+      shipToParty: selectedOrder.shipToParty || '',
+      orderQty: `${tripData.assignWeight} ${selectedOrder.items?.[0]?.weightUom || 'KG'}`,
       updatedAt: tripData.createdAt
     }, { merge: true });
 
@@ -998,12 +1011,20 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
       if (registryType === 'sales_orders' && data.saleOrder) {
         const cleanSo = data.saleOrder.toString().trim().toUpperCase();
         const publicRef = doc(db, 'public_orders', cleanSo);
+
+        const totalQty = (data.items || []).reduce((sum: number, item: any) => sum + (parseFloat(item.weight) || 0), 0);
+        const uom = data.items?.[0]?.weightUom || 'KG';
+
         setDocumentNonBlocking(publicRef, {
           type: 'order',
           status: 'PLACED',
           saleOrder: cleanSo,
-          consignor: data.consignor,
-          destination: data.destination,
+          consignor: data.consignor || '',
+          consignee: data.consignee || '',
+          shipToParty: data.shipToParty || '',
+          route: `${data.from || ''} - ${data.destination || ''}`,
+          orderQty: `${totalQty} ${uom}`,
+          destination: data.destination || '',
           updatedAt: new Date().toISOString()
         }, { merge: true });
       }
@@ -1321,7 +1342,7 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
           </div>
           <FormField label="Destination" value={data.destination} disabled />
           <FormField label="Vehicle Number" placeholder="UP14-XX-0000" value={data.vehicleNumber} onChange={(e: any) => updateField('vehicleNumber', e.target.value)} disabled={disabled} />
-          <FormField label="Driver Mobile" placeholder="+91..." value={data.driverMobile} onChange={(e: any) => updateField('driverMobile', e.target.value)} disabled={disabled} />
+          <FormField label="Driver Mobile" placeholder="+91..." value={data.vehicleNumber} onChange={(e: any) => updateField('driverMobile', e.target.value)} disabled={disabled} />
         </div>
       </div>
       <div>

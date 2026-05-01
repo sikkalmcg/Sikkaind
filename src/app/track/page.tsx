@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { Radar, Search, Package, Truck, CheckCircle, AlertCircle, Loader2, MapPin } from 'lucide-react';
+import { Radar, Search, Package, Truck, CheckCircle, AlertCircle, Loader2, MapPin, User, ArrowRightLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -17,7 +17,7 @@ import { doc, getDoc } from 'firebase/firestore';
 
 /**
  * @fileOverview Track Consignment page.
- * Uses optimized direct document lookups to resolve synchronization gaps.
+ * Displays mission-critical details including Consignor, Consignee, Ship-to-party, Route, and Order Qty.
  */
 export default function TrackPage() {
   const db = useFirestore();
@@ -142,18 +142,38 @@ export default function TrackPage() {
                     <Truck className="h-10 w-10 text-white/20" />
                   </div>
 
-                  <div className="space-y-4 pt-4 border-t border-white/10">
+                  <div className="space-y-3.5 pt-4 border-t border-white/10">
                     <div className="flex justify-between text-[11px] font-bold">
-                      <span className="text-slate-400 uppercase">Vehicle No.</span>
+                      <span className="text-slate-400 uppercase tracking-tighter">Vehicle No.</span>
                       <span className="uppercase">{result.data.vehicleNumber || 'ASSIGNING...'}</span>
                     </div>
                     <div className="flex justify-between text-[11px] font-bold">
-                      <span className="text-slate-400 uppercase">Registry ID</span>
+                      <span className="text-slate-400 uppercase tracking-tighter">Registry ID</span>
                       <span>{result.data.saleOrder || result.data.tripId || 'N/A'}</span>
                     </div>
-                    <div className="flex items-center gap-2 pt-2">
+                    
+                    <div className="flex justify-between text-[11px] font-bold">
+                      <span className="text-slate-400 uppercase tracking-tighter">Consignor</span>
+                      <span className="uppercase text-right ml-4">{result.data.consignor || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px] font-bold">
+                      <span className="text-slate-400 uppercase tracking-tighter">Consignee</span>
+                      <span className="uppercase text-right ml-4">{result.data.consignee || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px] font-bold">
+                      <span className="text-slate-400 uppercase tracking-tighter">Ship-to-Party</span>
+                      <span className="uppercase text-right ml-4">{result.data.shipToParty || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px] font-bold">
+                      <span className="text-slate-400 uppercase tracking-tighter">Order Qty.</span>
+                      <span className="text-blue-400">{result.data.orderQty || 'N/A'}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-3 border-t border-white/5">
                       <MapPin className="h-3 w-3 text-blue-400" />
-                      <span className="text-[9px] font-bold uppercase truncate text-slate-400">{result.data.route || result.data.destination || 'TRANSIT PENDING'}</span>
+                      <span className="text-[9px] font-bold uppercase truncate text-slate-400 tracking-tight">
+                        {result.data.route || result.data.destination || 'TRANSIT PENDING'}
+                      </span>
                     </div>
                   </div>
                 </div>
