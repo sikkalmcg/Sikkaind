@@ -30,7 +30,7 @@ import {
   useMemoFirebase,
   setDocumentNonBlocking 
 } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { collection, doc, query, where, getDoc } from 'firebase/firestore';
 import { 
   Dialog, 
   DialogContent, 
@@ -316,8 +316,22 @@ export default function SapDashboard() {
               <SidebarMenu>
                 <SidebarMenuItem><SidebarMenuButton onClick={() => setActiveScreen('HOME')} isActive={activeScreen === 'HOME'}><LayoutDashboard className="h-4 w-4" /><span>Home Hub</span></SidebarMenuButton></SidebarMenuItem>
                 <div className="px-4 py-3 mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-60">Logistics</div>
-                {[{ icon: Database, label: "Plant Master", code: "OX01" }, { icon: User, label: "Vendor Master", code: "XK01" }, { icon: ShoppingBag, label: "Sales Orders", code: "VA01" }, { icon: XCircle, label: "Cancel Order", code: "VA04" }, { icon: Truck, label: "Drip Board", code: "TR21" }, { icon: BarChart, label: "Bulk Sync", code: "BULK" }].map((item) => (
-                  <SidebarMenuItem key={item.code}><SidebarMenuButton onClick={() => executeTCode(item.code)} isActive={activeScreen.startsWith(item.code.slice(0,2))}><item.icon className="h-4 w-4" /><span>{item.label}</span></SidebarMenuButton></SidebarMenuItem>
+                {[
+                  { label: "Plant Master", code: "OX01" }, 
+                  { label: "Vendor Master", code: "XK01" }, 
+                  { label: "Sales Orders", code: "VA01" }, 
+                  { label: "Cancel Order", code: "VA04" }, 
+                  { label: "Drip Board", code: "TR21" }, 
+                  { label: "Bulk Sync", code: "BULK" }
+                ].map((item) => (
+                  <SidebarMenuItem key={item.code}>
+                    <SidebarMenuButton 
+                      onClick={() => executeTCode(item.code)} 
+                      isActive={activeScreen.startsWith(item.code.slice(0,2))}
+                    >
+                      <span className="text-[11px] font-black uppercase tracking-tight">{item.code} - {item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 ))}
               </SidebarMenu>
             </SidebarContent>
