@@ -606,7 +606,7 @@ function FormSelect({ label, value, options, onChange, disabled }: any) {
       <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
       <select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-9 border border-slate-400 bg-white px-2 text-xs font-bold outline-none shadow-sm">
         <option value="">Select...</option>
-        {options.map((o: any) => typeof o === 'string' ? <option key={o} value={o}>{o}</option> : <option key={o.value} value={o.value}>{o.label}</option>)}
+        {options.map((o: any, idx: number) => typeof o === 'string' ? <option key={`${o}-${idx}`} value={o}>{o}</option> : <option key={`${o.value}-${idx}`} value={o.value}>{o.label}</option>)}
       </select>
     </div>
   );
