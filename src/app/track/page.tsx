@@ -86,10 +86,6 @@ export default function TrackPage() {
     const isSalesSearch = type === 'sales';
     const hasTrip = !!data.tripId;
 
-    // Show Trip Card if trip exists or if searched by trip
-    const showTripCard = (type === 'trip') || (isSalesSearch && hasTrip);
-    const showBookingBox = (isSalesSearch && !hasTrip);
-
     // Timeline Configuration
     const steps = ['OPEN ORDER', 'LOADING', 'IN-TRANSIT', 'ARRIVED', 'DELIVERED'];
     const getStatusIndex = (status: string) => {
@@ -126,21 +122,21 @@ export default function TrackPage() {
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
                 <User className="h-3 w-3" /> Consignor
               </div>
-              <p className="text-[9px] font-black uppercase text-slate-100">{data.consignor || 'N/A'}</p>
+              <p className="text-[9px] font-black uppercase text-slate-100 truncate max-w-[150px]">{data.consignor || 'N/A'}</p>
             </div>
 
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
                 <User className="h-3 w-3" /> Consignee
               </div>
-              <p className="text-[9px] font-black uppercase text-slate-100">{data.consignee || 'N/A'}</p>
+              <p className="text-[9px] font-black uppercase text-slate-100 truncate max-w-[150px]">{data.consignee || 'N/A'}</p>
             </div>
 
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
                 <MapPin className="h-3 w-3" /> Ship to Party
               </div>
-              <p className="text-[9px] font-black uppercase text-slate-100">{data.shipToParty || 'N/A'}</p>
+              <p className="text-[9px] font-black uppercase text-slate-100 truncate max-w-[150px]">{data.shipToParty || 'N/A'}</p>
             </div>
 
             <div className="space-y-1">
@@ -160,26 +156,23 @@ export default function TrackPage() {
             </div>
           </div>
 
-          <div className="flex justify-center pt-4">
-            {showBookingBox ? (
-              <div className="bg-[#f0f7ff] border-l-[6px] border-blue-600 rounded-[2rem] p-8 md:p-12 max-w-3xl w-full shadow-lg relative flex flex-col items-center text-center animate-slide-up">
-                <h2 className="text-lg md:text-xl font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
-                  YOUR ORDER NO. '{data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.
-                </h2>
-                {data.delayRemark && (
-                  <div className="mt-8 bg-white p-8 md:p-10 rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-2xl flex flex-col items-center">
-                    <div className="flex items-center gap-2 mb-3 text-slate-400">
-                      <AlertTriangle className="h-4 w-4" />
-                      <span className="text-[8px] font-black uppercase tracking-[0.2em]">Official Registry Note</span>
-                    </div>
-                    <p className="text-slate-700 text-sm md:text-base font-black italic text-center leading-relaxed">
-                      "{data.delayRemark}"
-                    </p>
-                  </div>
+          <div className="flex flex-col items-center gap-6 pt-4">
+            {isSalesSearch && (
+              <div className="bg-[#f0f7ff] border-l-[6px] border-blue-600 rounded-[2rem] p-6 md:p-8 max-w-3xl w-full shadow-lg relative flex flex-col items-center text-center animate-slide-up">
+                {hasTrip ? (
+                  <h2 className="text-sm md:text-base font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
+                    YOUR TRIP ID IS <button onClick={() => handleTrack(data.tripId, 'trip')} className="text-blue-600 underline decoration-2 hover:text-black transition-colors">'{data.tripId}'</button> FOR THIS SALES ORDER NO. '{data.saleOrder}'
+                  </h2>
+                ) : (
+                  <h2 className="text-sm md:text-base font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
+                    YOUR ORDER NO. '{data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.
+                  </h2>
                 )}
               </div>
-            ) : showTripCard && (
-              /* High Visibility Trip Mission Card (Compact) */
+            )}
+
+            {/* Trip Mission Card (Show if trip exists) */}
+            {(type === 'trip' || (isSalesSearch && hasTrip)) && (
               <div className="bg-[#0f172a] p-6 md:p-8 rounded-[1.5rem] text-white shadow-2xl relative overflow-hidden w-full max-w-3xl border-t-[6px] border-blue-600 animate-slide-up">
                 <div className="flex justify-between items-start mb-6">
                   <div className="space-y-1">
@@ -188,7 +181,7 @@ export default function TrackPage() {
                       {data.status || 'PROCESSING'}
                     </h2>
                   </div>
-                  <Truck className="h-12 w-12 text-white/5 shrink-0" />
+                  <Truck className="h-10 w-10 text-white/5 shrink-0" />
                 </div>
 
                 {/* Timeline Animation Component */}
@@ -262,6 +255,19 @@ export default function TrackPage() {
                     BACK TO SEARCH
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Delay Remark Box (Show only if no trip exists for Sales Order) */}
+            {isSalesSearch && !hasTrip && data.delayRemark && (
+              <div className="mt-4 bg-white p-6 md:p-8 rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-2xl flex flex-col items-center">
+                <div className="flex items-center gap-2 mb-3 text-slate-400">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="text-[8px] font-black uppercase tracking-[0.2em]">Official Registry Note</span>
+                </div>
+                <p className="text-slate-700 text-sm md:text-base font-black italic text-center leading-relaxed">
+                  "{data.delayRemark}"
+                </p>
               </div>
             )}
           </div>
