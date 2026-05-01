@@ -9,9 +9,9 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
-    // User Registry: Allow users to access their own authorization profile
+    // User Registry: Allow signed-in users to read/list and manage registry for SU01/02/03 modules
     match /user_registry/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isSignedIn();
     }
 
     match /users/{userId}/{collectionName}/{docId} {
