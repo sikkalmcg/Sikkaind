@@ -7,7 +7,7 @@ import {
   Printer, Save, ArrowLeft, ArrowRight, 
   RotateCcw, X, HelpCircle, LogOut, LayoutDashboard,
   ChevronRight, Building2, Check, AlertCircle, Info, PlusCircle, Trash2,
-  Grid2X2
+  Grid2X2, Upload, FileText, Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +26,7 @@ import {
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 
-type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03';
+type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'BULK';
 
 export default function SapDashboard() {
   const router = useRouter();
@@ -45,7 +45,7 @@ export default function SapDashboard() {
       return;
     }
     
-    if (activeScreen === 'HOME' || activeScreen.endsWith('02') || activeScreen.endsWith('03')) {
+    if (activeScreen === 'HOME' || activeScreen === 'BULK' || activeScreen.endsWith('02') || activeScreen.endsWith('03')) {
       setStatusMsg({ text: 'No active transaction to save', type: 'info' });
       return;
     }
@@ -86,7 +86,7 @@ export default function SapDashboard() {
     const formatted = code.toUpperCase().trim();
     const cleanCode = formatted.startsWith('/N') ? formatted.slice(2) : formatted;
     
-    const validCodes = ['OX01', 'OX02', 'OX03', 'FM01', 'FM02', 'FM03', 'XK01', 'XK02', 'XK03', 'XD01', 'XD02', 'XD03'];
+    const validCodes = ['OX01', 'OX02', 'OX03', 'FM01', 'FM02', 'FM03', 'XK01', 'XK02', 'XK03', 'XD01', 'XD02', 'XD03', 'BULK'];
     
     if (validCodes.includes(cleanCode)) {
       setActiveScreen(cleanCode as Screen);
@@ -215,6 +215,7 @@ export default function SapDashboard() {
                     { code: 'FM01', label: 'Create Company' },
                     { code: 'XK01', label: 'Create Vendor' },
                     { code: 'XD01', label: 'Create Customer' },
+                    { code: 'BULK', label: 'Bulk Data Upload' },
                   ].map((item) => (
                     <button 
                       key={item.code} 
@@ -253,8 +254,8 @@ export default function SapDashboard() {
                    <Building2 className="h-16 w-16 text-slate-200 mb-4 group-hover:scale-110 transition-transform" />
                    <p className="text-xl font-black text-slate-300 uppercase tracking-tighter italic group-hover:text-[#0056d2]">Your firm image will be placed here</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                  {['OX01', 'FM01', 'XK01', 'XD01'].map((code) => (
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
+                  {['OX01', 'FM01', 'XK01', 'XD01', 'BULK'].map((code) => (
                     <div key={code} onClick={() => executeTCode(code)} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
                       <div className="flex items-center justify-between mb-4">
                         <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1 font-black italic">{code}</Badge>
@@ -273,6 +274,7 @@ export default function SapDashboard() {
                    {activeScreen === 'FM01' && <CompanyForm data={formData} onChange={setFormData} />}
                    {activeScreen === 'XK01' && <VendorForm data={formData} onChange={setFormData} />}
                    {activeScreen === 'XD01' && <CustomerForm data={formData} onChange={setFormData} />}
+                   {activeScreen === 'BULK' && <BulkUploadForm setStatus={setStatusMsg} />}
                    {(activeScreen.endsWith('02') || activeScreen.endsWith('03')) && <RegistryList screen={activeScreen} />}
                  </div>
               </div>
@@ -317,8 +319,118 @@ function getScreenTitle(screen: Screen): string {
     case 'XD01': return 'Create Customer Registry';
     case 'XD02': return 'Edit Customer Registry';
     case 'XD03': return 'Display Customer Registry';
+    case 'BULK': return 'Bulk Data Hub Registry';
     default: return 'Central Management Control Registry';
   }
+}
+
+function BulkUploadForm({ setStatus }: { setStatus: any }) {
+  const { user } = useUser();
+  const db = useFirestore();
+  const [registryType, setRegistryType] = React.useState('customers');
+  const [csvData, setCsvData] = React.useState('');
+  const [isProcessing, setIsProcessing] = React.useState(false);
+
+  const handleProcess = () => {
+    if (!user || !csvData.trim()) return;
+
+    setIsProcessing(true);
+    setStatus({ text: 'Parsing batch data...', type: 'info' });
+
+    const lines = csvData.split('\n');
+    const headers = lines[0].split(',').map(h => h.trim());
+    const rows = lines.slice(1).filter(l => l.trim() !== '');
+
+    let successCount = 0;
+    
+    rows.forEach((row) => {
+      const values = row.split(',').map(v => v.trim());
+      const data: any = {};
+      headers.forEach((header, index) => {
+        if (header === 'plantCodes') {
+          data[header] = values[index] ? values[index].split(';') : [];
+        } else {
+          data[header] = values[index];
+        }
+      });
+
+      const docId = data.id || crypto.randomUUID();
+      const docRef = doc(db, 'users', user.uid, registryType, docId);
+      
+      setDocumentNonBlocking(docRef, {
+        ...data,
+        id: docId,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      
+      successCount++;
+    });
+
+    setIsProcessing(false);
+    setStatus({ text: `Batch synchronization complete: ${successCount} nodes processed`, type: 'success' });
+    setCsvData('');
+  };
+
+  const getTemplate = () => {
+    if (registryType === 'customers') return 'customerCode,customerName,customerType,city,plantCodes,gstin,pan,mobile,email,address\nC1001,Global Logistics,Consignee,Mumbai,PLNT01;PLNT02,27AAAAA0000A1Z5,ABCDE1234F,9876543210,info@global.com,Street 1';
+    if (registryType === 'plants') return 'plantCode,plantName,city,state,stateCode,postalCode,gstin,pan,email,website,address\nPLNT01,North Hub,Delhi,Delhi,07,110001,07AAAAA0000A1Z5,ABCDE1234F,north@sikka.com,www.sikka.com,Warehouse 1';
+    return '';
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center gap-8 bg-slate-50 p-6 rounded-3xl border border-slate-100">
+        <div className="space-y-2 flex-1">
+          <label className="text-[10px] font-black uppercase text-slate-400">Target Registry Node</label>
+          <select 
+            className="w-full h-12 border border-slate-200 bg-white px-4 rounded-xl font-bold outline-none"
+            value={registryType}
+            onChange={(e) => setRegistryType(e.target.value)}
+          >
+            <option value="plants">Plants Master</option>
+            <option value="companies">Company Hubs</option>
+            <option value="vendors">Vendor Nodes</option>
+            <option value="customers">Customer Nodes</option>
+          </select>
+        </div>
+        <div className="flex gap-4 items-end">
+          <Button onClick={() => setCsvData(getTemplate())} variant="outline" className="h-12 rounded-xl font-bold gap-2">
+            <Download className="h-4 w-4" /> Load Template
+          </Button>
+          <Button 
+            disabled={isProcessing || !csvData.trim()} 
+            onClick={handleProcess}
+            className="h-12 bg-[#0056d2] hover:bg-[#0044a8] text-white rounded-xl font-bold px-8 gap-2"
+          >
+            {isProcessing ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            Execute Bulk Upload
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-[10px] font-black uppercase text-slate-400">CSV Input Area (Comma Separated)</label>
+        <div className="relative">
+          <textarea 
+            value={csvData}
+            onChange={(e) => setCsvData(e.target.value)}
+            placeholder="Header1,Header2,Header3..."
+            className="w-full h-64 p-6 border border-slate-200 bg-slate-50 rounded-[2rem] font-mono text-xs outline-none focus:ring-2 focus:ring-[#0056d2] transition-all"
+          />
+          <div className="absolute top-4 right-4 text-[9px] font-bold text-slate-300 uppercase tracking-widest bg-white/80 px-3 py-1 rounded-full">
+            Raw Node Input
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6 bg-blue-50 border border-blue-100 rounded-2xl flex gap-4">
+        <Info className="h-5 w-5 text-blue-500 shrink-0" />
+        <div className="text-[11px] text-blue-700 leading-relaxed font-bold italic">
+          Tip: Ensure the first line contains exact field names from the registry schema. For multi-selection fields (like Plant Codes), use a semicolon (;) to separate values within the cell.
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function PlantForm({ data, onChange }: any) {
