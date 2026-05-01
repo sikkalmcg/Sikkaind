@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -7,7 +6,8 @@ import {
   Printer, Save, ArrowLeft, ArrowRight, 
   RotateCcw, X, HelpCircle, LogOut, LayoutDashboard,
   ChevronRight, Building2, Check, AlertCircle, Info, PlusCircle, Trash2,
-  Grid2X2, Upload, FileText, Download, Calendar as CalendarIcon
+  Grid2X2, Upload, FileText, Download, Calendar as CalendarIcon,
+  ShoppingBag, ArrowUpRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +38,10 @@ export default function SapDashboard() {
   const [formData, setFormData] = React.useState<any>({});
   const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
   const tCodeRef = React.useRef<HTMLInputElement>(null);
+
+  // Memoize sales order query for the Home Screen summary
+  const ordersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'sales_orders') : null, [user, db]);
+  const { data: recentOrders } = useCollection(ordersQuery);
 
   const handleSave = () => {
     if (!user) {
@@ -260,11 +264,62 @@ export default function SapDashboard() {
 
           <div id="printable-area" className={`p-8 w-full ${isModuleActive ? 'max-w-none' : 'max-w-7xl'} mx-auto`}>
             {activeScreen === 'HOME' ? (
-              <div className="space-y-12 animate-fade-in">
-                <div className="relative w-full aspect-[21/9] border-4 border-dashed border-slate-300 bg-white/50 flex flex-col items-center justify-center rounded-[2rem] overflow-hidden group hover:border-[#0056d2] transition-colors">
-                   <Building2 className="h-16 w-16 text-slate-200 mb-4 group-hover:scale-110 transition-transform" />
-                   <p className="text-xl font-black text-slate-300 uppercase tracking-tighter italic group-hover:text-[#0056d2]">Your firm image will be placed here</p>
+              <div className="space-y-8 animate-fade-in">
+                {/* Recent Orders Overview replacing the firm image placeholder */}
+                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl overflow-hidden">
+                   <div className="bg-slate-900 px-8 py-5 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <ShoppingBag className="h-5 w-5 text-blue-400" />
+                        <h2 className="text-[13px] font-black uppercase text-white tracking-widest italic">Recent Sales Order Registry</h2>
+                      </div>
+                      <Badge className="bg-blue-600 text-white border-none rounded-lg px-4 font-black italic">NODE ACTIVITY</Badge>
+                   </div>
+                   <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-100">
+                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400">SO Number</th>
+                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400">Consignor</th>
+                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400">Destination</th>
+                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400">Date</th>
+                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {recentOrders?.slice(0, 5).map((order) => (
+                            <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { setFormData(order); setActiveScreen('VA03'); }}>
+                              <td className="p-4 font-black text-xs text-[#0056d2]">{order.saleOrder}</td>
+                              <td className="p-4 font-bold text-xs text-slate-600 uppercase">{order.consignor}</td>
+                              <td className="p-4 font-bold text-xs text-slate-400 uppercase italic">{order.destination}</td>
+                              <td className="p-4 font-bold text-[10px] text-slate-400">{order.saleOrderDate}</td>
+                              <td className="p-4 text-center">
+                                <div className="flex items-center justify-center gap-1 text-emerald-500">
+                                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                   <span className="text-[8px] font-black uppercase">Active</span>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                          {(!recentOrders || recentOrders.length === 0) && (
+                            <tr>
+                              <td colSpan={5} className="p-12 text-center">
+                                <p className="text-slate-300 font-bold text-xs italic uppercase tracking-[0.2em]">No recent order registry nodes found.</p>
+                                <Button onClick={() => executeTCode('VA01')} variant="outline" className="mt-4 border-dashed border-slate-300 text-slate-400 rounded-xl font-bold uppercase text-[10px]">Create Initial Order Registry</Button>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                   </div>
+                   {recentOrders && recentOrders.length > 5 && (
+                     <div className="p-4 border-t border-slate-50 text-center">
+                       <button onClick={() => executeTCode('VA03')} className="text-[10px] font-black text-[#0056d2] uppercase tracking-widest hover:underline flex items-center justify-center gap-2 mx-auto">
+                         View Complete Order Registry <ArrowUpRight className="h-3 w-3" />
+                       </button>
+                     </div>
+                   )}
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6">
                   {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'BULK'].map((code) => (
                     <div key={code} onClick={() => executeTCode(code)} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
