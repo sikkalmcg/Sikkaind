@@ -617,6 +617,7 @@ function PlantForm({ data, onChange, disabled }: any) {
     <div className="space-y-4">
       <SectionGrouping title="DATA">
         <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
       </SectionGrouping>
       <SectionGrouping title="SETTINGS">
         <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
@@ -656,7 +657,6 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
             ))}
           </div>
         </div>
-        <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
         <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
         <FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
       </SectionGrouping>
@@ -745,7 +745,7 @@ function VendorForm({ data, onChange, disabled }: any) {
       <SectionGrouping title="DETAILS">
         <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
         <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
-        <FormInput label="ROUTE" value={data.route} onChange={(v: string) => onChange({...data, route: v})} disabled={disabled} />
+        <FormInput label="ROUTE" value={data.route} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
       </SectionGrouping>
     </div>
   );
@@ -1373,6 +1373,25 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code: string) => void }) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+      {tcodes.map((item) => (
+        <div key={item.code} onClick={() => onExecute(item.code)} className="bg-white border border-slate-200 p-6 rounded-xl shadow-md hover:shadow-xl transition-all cursor-pointer group flex items-start gap-5">
+           <div className="p-3 bg-blue-50 text-[#0056d2] rounded-lg group-hover:bg-[#0056d2] group-hover:text-white transition-colors">
+              <item.icon className="h-6 w-6" />
+           </div>
+           <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{item.module}</p>
+              <h3 className="text-sm font-black text-slate-800 uppercase leading-tight mb-2">{item.code}</h3>
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">{item.description}</p>
+           </div>
+        </div>
+      ))}
     </div>
   );
 }

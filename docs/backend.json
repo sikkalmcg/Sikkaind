@@ -37,6 +37,7 @@
       "properties": {
         "id": { "type": "string" },
         "plantCode": { "type": "string" },
+        "plantName": { "type": "string" },
         "city": { "type": "string" },
         "state": { "type": "string" },
         "stateCode": { "type": "string" },
@@ -57,7 +58,6 @@
       "properties": {
         "id": { "type": "string" },
         "plantCodes": { "type": "array", "items": { "type": "string" } },
-        "plantName": { "type": "string" },
         "companyCode": { "type": "string" },
         "companyName": { "type": "string" },
         "address": { "type": "string" },
