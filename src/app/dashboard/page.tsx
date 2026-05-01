@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -85,6 +86,7 @@ export default function SapDashboard() {
   const [activeScreen, setActiveScreen] = React.useState<Screen>('HOME');
   const [formData, setFormData] = React.useState<any>({});
   const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
+  const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const tCodeRef = React.useRef<HTMLInputElement>(null);
 
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
@@ -149,6 +151,15 @@ export default function SapDashboard() {
     if (!authPlants.length) return rawCustomers;
     return rawCustomers?.filter(c => c.plantCodes?.some((p: string) => authPlants.includes(p)));
   }, [rawCustomers, userProfile]);
+
+  // Sidebar control effect
+  React.useEffect(() => {
+    if (activeScreen === 'HOME') {
+      setSidebarOpen(true);
+    } else {
+      setSidebarOpen(false);
+    }
+  }, [activeScreen]);
 
   const handleSave = () => {
     if (!user) {
@@ -281,7 +292,7 @@ export default function SapDashboard() {
   };
 
   const getScreenTitle = (code: Screen) => {
-    return MASTER_TCODES.find(t => t.code === code)?.description || '';
+    return MASTER_TCODES.find(t => t.code === code)?.description || 'Sikka Logistics Hub';
   };
 
   React.useEffect(() => {
@@ -328,7 +339,7 @@ export default function SapDashboard() {
   };
 
   return (
-    <SidebarProvider>
+    <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <div className="flex flex-col h-screen w-full bg-[#d9e1f2] text-[#333] font-mono select-none overflow-hidden">
         {/* TOP BAR */}
         <div className="flex items-center bg-[#f0f0f0] border-b border-white/50 px-2 h-7 text-[11px] font-semibold z-50">
@@ -337,7 +348,7 @@ export default function SapDashboard() {
               Menu
             </DropdownMenuTrigger>
             <DropdownMenuContent className="bg-white rounded-none border-slate-300 shadow-xl text-[11px] p-0 min-w-[150px]">
-              <DropdownMenuItem onClick={() => setActiveScreen('HOME')} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Home (/n)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setActiveScreen('HOME')} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Home Hub (/n)</DropdownMenuItem>
               <DropdownMenuSeparator className="m-0 bg-slate-200" />
               <DropdownMenuItem onClick={handleSave} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Save (Ctrl+S)</DropdownMenuItem>
               <DropdownMenuSeparator className="m-0 bg-slate-200" />
@@ -465,12 +476,13 @@ export default function SapDashboard() {
 
           {/* MAIN CONTENT AREA */}
           <SidebarInset className="flex flex-col overflow-hidden bg-[#f0f3f9]">
+            {/* DYNAMIC HEADER BASED ON TRANSACTION CODE */}
             <div className="bg-[#0056d2] text-white py-2 px-6 shadow-lg flex flex-col items-center justify-center min-h-[60px] shrink-0">
               <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none text-center">
-                Sikka Logistics Hub
+                {activeScreen === 'HOME' ? 'Sikka Logistics Hub' : getScreenTitle(activeScreen)}
               </h1>
               <p className="text-[10px] font-bold uppercase tracking-[0.4em] mt-1 text-center text-blue-100">
-                Central Management Hub
+                {activeScreen === 'HOME' ? 'Central Management Hub' : `Transaction Node: ${activeScreen}`}
               </p>
             </div>
 
@@ -611,7 +623,7 @@ export default function SapDashboard() {
   );
 }
 
-// Helper components remain the same
+// Helper components...
 function SectionHeader({ title }: { title: string }) {
   return (
     <h3 className="text-[10px] font-black uppercase tracking-widest bg-[#dae4f1] border-y border-slate-300 px-4 py-1 text-[#1e3a8a]">
