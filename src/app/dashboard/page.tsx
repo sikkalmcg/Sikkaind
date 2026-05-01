@@ -2,12 +2,11 @@
 'use client';
 
 import * as React from 'react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { 
-  Menu as MenuIcon, Search, Printer, Save, ArrowLeft, ArrowRight, 
+  Printer, Save, ArrowLeft, ArrowRight, 
   RotateCcw, X, HelpCircle, LogOut, LayoutDashboard, PlusCircle,
-  Settings, User, ChevronRight, FileText, Building2, Truck
+  ChevronRight, FileText, Building2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,51 +15,70 @@ import {
   DropdownMenuTrigger, DropdownMenuSeparator 
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import placeholderData from '@/app/lib/placeholder-images.json';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  useFirestore, 
+  useUser, 
+  useCollection, 
+  useMemoFirebase,
+  setDocumentNonBlocking 
+} from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 
 type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03';
 
 export default function SapDashboard() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useUser();
+  const db = useFirestore();
   const [tCode, setTCode] = React.useState('');
   const [activeScreen, setActiveScreen] = React.useState<Screen>('HOME');
+  const [formData, setFormData] = React.useState<any>({});
   const tCodeRef = React.useRef<HTMLInputElement>(null);
 
-  // Handle T-Code Execution
+  // SAP style logic for form submission from header
+  const handleSave = () => {
+    if (!user || activeScreen === 'HOME') return;
+
+    let collectionName = '';
+    let docId = formData.id || crypto.randomUUID();
+    
+    if (activeScreen.startsWith('OX')) collectionName = 'plants';
+    else if (activeScreen.startsWith('FM')) collectionName = 'companies';
+    else if (activeScreen.startsWith('XK')) collectionName = 'vendors';
+
+    if (collectionName) {
+      const docRef = doc(db, 'users', user.uid, collectionName, docId);
+      setDocumentNonBlocking(docRef, { ...formData, id: docId, updatedAt: new Date().toISOString() }, { merge: true });
+      
+      toast({
+        title: "Registry Updated",
+        description: `Changes for ${activeScreen} have been synchronized with Firestore.`,
+      });
+    }
+  };
+
   const executeTCode = (code: string) => {
     const formatted = code.toUpperCase().trim();
     const cleanCode = formatted.startsWith('/N') ? formatted.slice(2) : formatted;
     
     if (['OX01', 'OX02', 'OX03', 'FM01', 'FM02', 'FM03', 'XK01', 'XK02', 'XK03'].includes(cleanCode)) {
       setActiveScreen(cleanCode as Screen);
+      setFormData({}); // Reset form when switching
     } else if (cleanCode === 'HOME' || cleanCode === '') {
       setActiveScreen('HOME');
     }
     setTCode('');
   };
 
-  const handleSave = () => {
-    if (activeScreen !== 'HOME') {
-      toast({
-        title: "Registry Updated",
-        description: `Changes for ${activeScreen} have been synchronized.`,
-      });
-    }
-  };
-
-  // Keyboard Shortcuts
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.altKey) {
         switch (e.key.toLowerCase()) {
-          case 'm': e.preventDefault(); break; // Menu
-          case 'e': e.preventDefault(); break; // Edit
-          case 'f': e.preventDefault(); break; // Favorites
-          case 'x': e.preventDefault(); break; // Extras
-          case 'y': e.preventDefault(); break; // System
-          case 'h': e.preventDefault(); break; // Help
+          case 'm': e.preventDefault(); break;
+          case 'e': e.preventDefault(); break;
+          case 'f': e.preventDefault(); break;
         }
       }
       if (e.ctrlKey && (e.key === 'q' || e.key === 'l')) {
@@ -78,7 +96,7 @@ export default function SapDashboard() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [router, activeScreen]);
+  }, [router, activeScreen, formData]);
 
   const handleLogout = () => router.push('/login');
 
@@ -92,9 +110,7 @@ export default function SapDashboard() {
               {item}
             </DropdownMenuTrigger>
             <DropdownMenuContent className="bg-white rounded-none border-slate-300 shadow-xl text-[11px] p-0 min-w-[150px]">
-              <DropdownMenuItem className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4" onClick={() => handleSave()}>Save</DropdownMenuItem>
-              <DropdownMenuItem className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Execute T-Code</DropdownMenuItem>
-              <DropdownMenuItem className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Create Window</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSave} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Save</DropdownMenuItem>
               <DropdownMenuSeparator className="m-0 bg-slate-200" />
               <DropdownMenuItem onClick={handleLogout} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4 text-red-600">Log Off</DropdownMenuItem>
             </DropdownMenuContent>
@@ -109,7 +125,7 @@ export default function SapDashboard() {
         </div>
       </div>
 
-      {/* 2. COMMAND BAR / T-CODE BAR */}
+      {/* 2. COMMAND BAR */}
       <div className="flex items-center bg-[#f0f0f0] border-b border-slate-300 px-2 py-1 gap-2 shadow-sm">
         <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner">
           <div className="px-1 text-[#008000] font-black text-xs">✓</div>
@@ -120,41 +136,35 @@ export default function SapDashboard() {
             onChange={(e) => setTCode(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && executeTCode(tCode)}
             className="w-48 outline-none text-xs px-1 font-bold tracking-wider"
-            placeholder=""
           />
         </div>
         <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-6">
-           <button onClick={handleSave} title="Save (Ctrl+S)" className="p-1 hover:bg-slate-200 rounded transition-colors group">
+           <button onClick={handleSave} title="Save (Ctrl+S)" className="p-1 hover:bg-slate-200 rounded group">
              <Save className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
            </button>
-           <button onClick={() => setActiveScreen('HOME')} title="Back" className="p-1 hover:bg-slate-200 rounded transition-colors group">
+           <button onClick={() => setActiveScreen('HOME')} title="Back" className="p-1 hover:bg-slate-200 rounded group">
              <ArrowLeft className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
            </button>
-           <button className="p-1 hover:bg-slate-200 rounded transition-colors group">
+           <button className="p-1 hover:bg-slate-200 rounded group">
              <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
            </button>
-           <button className="p-1 hover:bg-slate-200 rounded transition-colors group">
+           <button className="p-1 hover:bg-slate-200 rounded group">
              <RotateCcw className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
            </button>
-           <button onClick={() => setActiveScreen('HOME')} title="Exit" className="p-1 hover:bg-slate-200 rounded transition-colors group">
+           <button onClick={() => setActiveScreen('HOME')} title="Exit" className="p-1 hover:bg-slate-200 rounded group">
              <X className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
            </button>
-           <button className="p-1 hover:bg-slate-200 rounded transition-colors group">
+           <button className="p-1 hover:bg-slate-200 rounded group">
              <Printer className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
            </button>
         </div>
         <div className="flex items-center gap-2 ml-auto">
-           {[Search, HelpCircle].map((Icon, idx) => (
-             <button key={idx} className="p-1 hover:bg-slate-200 rounded transition-colors">
-               <Icon className="h-4 w-4 text-slate-600" />
-             </button>
-           ))}
+           <HelpCircle className="h-4 w-4 text-slate-600" />
         </div>
       </div>
 
       {/* 3. MAIN WORK AREA */}
       <div className="flex-1 flex overflow-hidden">
-        {/* LEFT SIDEBAR / TREE - Hidden when a module is active */}
         {activeScreen === 'HOME' && (
           <div className="w-80 bg-white border-r border-slate-300 flex flex-col shadow-sm animate-fade-in">
              <div className="p-4 border-b border-slate-100 flex items-center gap-3">
@@ -163,7 +173,7 @@ export default function SapDashboard() {
                 </div>
                 <div>
                   <h2 className="text-[12px] font-black uppercase text-[#1e3a8a] italic leading-tight">Sikka Logistics</h2>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Management Control</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Registry Control</p>
                 </div>
              </div>
              <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
@@ -176,7 +186,7 @@ export default function SapDashboard() {
                   ].map((item) => (
                     <button 
                       key={item.code} 
-                      onClick={() => setActiveScreen(item.code as Screen)}
+                      onClick={() => executeTCode(item.code)}
                       className="flex items-center gap-3 w-full text-left p-2 hover:bg-[#e8f0fe] rounded-lg group transition-all"
                     >
                       <div className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-[#0056d2]" />
@@ -185,118 +195,50 @@ export default function SapDashboard() {
                   ))}
                 </div>
              </div>
-             <div className="p-4 bg-slate-50 border-t border-slate-200">
-               <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">System Status: Active</span>
-               </div>
-             </div>
           </div>
         )}
 
-        {/* CONTENT AREA - Always flex-1 to take available space */}
         <div className="flex-1 flex flex-col bg-[#f0f3f9] overflow-y-auto no-scrollbar">
-          {/* SCREEN HEADER */}
-          <div className="bg-[#0056d2] text-white p-6 shadow-lg flex items-center justify-between">
-            <div className="space-y-1">
-              <h1 className="text-3xl font-black italic tracking-tighter uppercase leading-none">
-                {activeScreen === 'HOME' ? 'Sikka Logistics Hub' : activeScreen}
-              </h1>
-              <p className="text-[10px] font-bold uppercase tracking-[0.4em] opacity-80">
-                {activeScreen === 'HOME' ? 'Central Management Control Registry' : getScreenTitle(activeScreen)}
-              </p>
-            </div>
+          <div className="bg-[#0056d2] text-white p-6 shadow-lg">
+            <h1 className="text-3xl font-black italic tracking-tighter uppercase leading-none">
+              {activeScreen === 'HOME' ? 'Sikka Logistics Hub' : activeScreen}
+            </h1>
+            <p className="text-[10px] font-bold uppercase tracking-[0.4em] opacity-80">
+              {getScreenTitle(activeScreen)}
+            </p>
           </div>
 
           <div className="p-8 w-full max-w-7xl mx-auto">
-            {activeScreen === 'HOME' && (
+            {activeScreen === 'HOME' ? (
               <div className="space-y-12 animate-fade-in">
-                {/* FIRM IMAGE PLACEHOLDER */}
-                <div className="relative w-full aspect-[21/9] border-4 border-dashed border-slate-300 bg-white/50 flex flex-col items-center justify-center group hover:border-[#0056d2] transition-colors rounded-[2rem] overflow-hidden">
-                   <div className="absolute inset-0 bg-gradient-to-br from-[#0056d2]/5 to-transparent opacity-50" />
+                <div className="relative w-full aspect-[21/9] border-4 border-dashed border-slate-300 bg-white/50 flex flex-col items-center justify-center rounded-[2rem] overflow-hidden group hover:border-[#0056d2]">
                    <Building2 className="h-16 w-16 text-slate-200 mb-4 group-hover:scale-110 transition-transform" />
                    <p className="text-xl font-black text-slate-300 uppercase tracking-tighter italic group-hover:text-[#0056d2]">Your firm image will be placed here</p>
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Replace in DashboardPage.tsx</p>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   {['OX01', 'FM01', 'XK01'].map((code) => (
                     <div key={code} onClick={() => executeTCode(code)} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
                       <div className="flex items-center justify-between mb-4">
-                        <Badge className="bg-[#e8f0fe] text-[#0056d2] hover:bg-[#e8f0fe] rounded-none px-4 py-1 font-black italic">{code}</Badge>
-                        <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-[#0056d2] transition-colors" />
+                        <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1 font-black italic">{code}</Badge>
+                        <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-[#0056d2]" />
                       </div>
                       <h3 className="text-sm font-black uppercase text-[#1e3a8a]">{getScreenTitle(code as Screen)}</h3>
-                      <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-tight">Access Registry Mission Node</p>
                     </div>
                   ))}
                 </div>
               </div>
-            )}
-
-            {/* FORM SCREENS */}
-            {(activeScreen === 'OX01' || activeScreen === 'FM01' || activeScreen === 'XK01') && (
+            ) : (
               <div className="bg-white shadow-2xl rounded-[2.5rem] border border-slate-100 overflow-hidden animate-slide-up w-full">
                  <div className="h-2 bg-yellow-500 w-full" />
                  <div className="p-10 space-y-10">
-                   {activeScreen === 'OX01' && <PlantForm />}
-                   {activeScreen === 'FM01' && <CompanyForm />}
-                   {activeScreen === 'XK01' && <VendorForm />}
-                 </div>
-              </div>
-            )}
-
-            {/* LIST SCREENS */}
-            {(activeScreen === 'OX02' || activeScreen === 'FM02' || activeScreen === 'XK02' || activeScreen === 'OX03' || activeScreen === 'FM03' || activeScreen === 'XK03') && (
-              <div className="bg-white shadow-2xl rounded-[2.5rem] border border-slate-100 p-8 animate-slide-up w-full">
-                 <h2 className="text-xl font-black uppercase italic text-[#1e3a8a] mb-6 flex items-center gap-3">
-                   <FileText className="h-6 w-6" /> Node Registry Entries
-                 </h2>
-                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 border-y border-slate-100">
-                          <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Entry ID</th>
-                          <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Node Description</th>
-                          <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
-                          <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                         {[1,2,3].map((i) => (
-                           <tr key={i} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                              <td className="p-4 font-bold text-xs text-[#0056d2]">ND-00{i}</td>
-                              <td className="p-4 font-bold text-xs text-slate-600 uppercase">Sikka Node Integration Layer</td>
-                              <td className="p-4">
-                                <Badge className="bg-emerald-50 text-emerald-600 rounded-none uppercase text-[8px] font-black border border-emerald-100">Synchronized</Badge>
-                              </td>
-                              <td className="p-4 font-bold text-[10px] uppercase text-blue-500 cursor-pointer">View Node</td>
-                           </tr>
-                         ))}
-                      </tbody>
-                    </table>
+                   {activeScreen === 'OX01' && <PlantForm data={formData} onChange={setFormData} />}
+                   {activeScreen === 'FM01' && <CompanyForm data={formData} onChange={setFormData} />}
+                   {activeScreen === 'XK01' && <VendorForm data={formData} onChange={setFormData} />}
+                   {(activeScreen.endsWith('02') || activeScreen.endsWith('03')) && <RegistryList screen={activeScreen} />}
                  </div>
               </div>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* 4. SHORTCUT HELP BAR */}
-      <div className="bg-[#f0f0f0] border-t border-slate-300 px-4 h-6 flex items-center gap-6 text-[9px] font-bold text-slate-500">
-        <div className="flex gap-3">
-          <span>ALT+M MENU</span>
-          <span>ALT+E EDIT</span>
-          <span>ALT+Y SYSTEM</span>
-          <span>CTRL+T COMMAND</span>
-          <span>CTRL+L LOGOFF</span>
-          <span>CTRL+S SAVE</span>
-        </div>
-        <div className="ml-auto flex items-center gap-4">
-           <span>INS</span>
-           <span>CAPS</span>
-           <span>S4P (1) 100</span>
-           <span className="text-emerald-600 uppercase">Sikka.Local: Synchronized</span>
         </div>
       </div>
     </div>
@@ -312,124 +254,143 @@ function getScreenTitle(screen: Screen): string {
     case 'FM02': return 'Edit Company Registry';
     case 'FM03': return 'Display Company Node';
     case 'XK01': return 'Create Vendor Registry';
-    case 'XK02': return 'Edit Vendor Registry';
-    case 'XK03': return 'Display Vendor Registry';
-    default: return '';
+    default: return 'Central Management Control Registry';
   }
 }
 
-function PlantForm() {
-  const [mobiles, setMobiles] = React.useState(['']);
-
-  const addMobile = () => setMobiles([...mobiles, '']);
-  const updateMobile = (index: number, val: string) => {
-    const newMobiles = [...mobiles];
-    newMobiles[index] = val;
-    setMobiles(newMobiles);
-  };
-  const removeMobile = (index: number) => {
-    if (mobiles.length > 1) {
-      setMobiles(mobiles.filter((_, i) => i !== index));
-    }
-  };
+function PlantForm({ data, onChange }: any) {
+  const updateField = (field: string, val: any) => onChange({ ...data, [field]: val });
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-      <FormField label="Plant Code" placeholder="E.G. PLNT01" required />
-      <FormField label="Plant Name" placeholder="Sikka Industries Hub" required />
-      <FormField label="City" placeholder="Ghaziabad" />
-      <FormField label="State" placeholder="Uttar Pradesh" />
-      <FormField label="State Code" placeholder="UP09" />
-      <FormField label="Postal Code" placeholder="201009" />
-      <FormField label="GSTIN" placeholder="09AAAAA0000A1Z5" />
-      <FormField label="PAN" placeholder="ABCDE1234F" />
-      <FormField label="Email ID" placeholder="plant@sikka.com" />
-      <FormField label="Website" placeholder="www.sikka.com" />
-      
-      {/* Multiple Mobile Numbers */}
-      <div className="md:col-span-2 space-y-2">
-        <label className="text-[10px] font-black uppercase text-slate-400">Mobile Numbers</label>
-        <div className="space-y-3">
-          {mobiles.map((m, idx) => (
-            <div key={idx} className="flex gap-2">
-              <Input 
-                value={m} 
-                onChange={(e) => updateMobile(idx, e.target.value)} 
-                placeholder={`Mobile No. ${idx + 1}`}
-                className="h-11 border-slate-200 bg-slate-50 px-4 rounded-xl font-bold"
-              />
-              <button 
-                type="button" 
-                onClick={() => removeMobile(idx)}
-                className="rounded-xl px-3 border border-slate-200 text-slate-400 hover:text-red-500 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
-          <Button 
-            type="button" 
-            variant="ghost" 
-            onClick={addMobile}
-            className="text-[10px] font-black uppercase text-[#0056d2] hover:bg-blue-50"
-          >
-            <PlusCircle className="h-3 w-3 mr-1" /> Add Mobile
-          </Button>
-        </div>
-      </div>
-
+      <FormField label="Plant Code" placeholder="PLNT01" value={data.plantCode} onChange={(e: any) => updateField('plantCode', e.target.value)} required />
+      <FormField label="Plant Name" placeholder="Sikka Industries Hub" value={data.plantName} onChange={(e: any) => updateField('plantName', e.target.value)} required />
+      <FormField label="City" placeholder="Ghaziabad" value={data.city} onChange={(e: any) => updateField('city', e.target.value)} />
+      <FormField label="State" placeholder="Uttar Pradesh" value={data.state} onChange={(e: any) => updateField('state', e.target.value)} />
+      <FormField label="State Code" placeholder="UP09" value={data.stateCode} onChange={(e: any) => updateField('stateCode', e.target.value)} />
+      <FormField label="GSTIN" placeholder="09AAAAA0000A1Z5" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} />
+      <FormField label="Email ID" placeholder="plant@sikka.com" value={data.email} onChange={(e: any) => updateField('email', e.target.value)} />
+      <FormField label="Website" placeholder="www.sikka.com" value={data.website} onChange={(e: any) => updateField('website', e.target.value)} />
       <div className="md:col-span-2">
-        <FormField label="Address" placeholder="Full Address Node Details" type="textarea" />
+        <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} />
       </div>
     </div>
   );
 }
 
-function CompanyForm() {
-  const [gstin, setGstin] = React.useState('');
-  
+function CompanyForm({ data, onChange }: any) {
+  const { user } = useUser();
+  const db = useFirestore();
+  const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
+  const { data: plants } = useCollection(plantsQuery);
+
+  const updateField = (field: string, val: any) => {
+    let newData = { ...data, [field]: val };
+    // SAP logic: Auto-calculate PAN and State from GSTIN
+    if (field === 'gstin' && val.length >= 2) {
+      if (val.startsWith('09')) {
+        newData.state = 'Uttar Pradesh';
+        newData.stateCode = '09';
+      }
+      if (val.length >= 12) {
+        newData.pan = val.slice(2, 12);
+      }
+    }
+    onChange(newData);
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
       <div className="space-y-2">
         <label className="text-[10px] font-black uppercase text-slate-400">Plant Code (Select Node)</label>
-        <select className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none focus:ring-1 focus:ring-[#0056d2]">
-          <option>PLNT01 - HUB 01</option>
-          <option>PLNT02 - HUB 02</option>
+        <select 
+          className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none"
+          value={data.plantCode}
+          onChange={(e) => updateField('plantCode', e.target.value)}
+        >
+          <option value="">Select Plant</option>
+          {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
         </select>
       </div>
-      <FormField label="Company Code" value="10000" disabled />
-      <FormField label="Company Name" placeholder="Sikka Industries" required />
-      <FormField label="GSTIN" value={gstin} onChange={(e: any) => setGstin(e.target.value)} placeholder="09AAAAA0000A1Z5" required />
-      <FormField label="PAN" value={gstin.length >= 10 ? gstin.slice(2, 12) : ''} disabled />
-      <FormField label="State" value={gstin.startsWith('09') ? 'Uttar Pradesh' : ''} placeholder="Auto via GSTIN" disabled />
-      <FormField label="State Code" value={gstin.startsWith('09') ? '09' : ''} placeholder="Auto via GSTIN" disabled />
-      <FormField label="Mobile Number" placeholder="+91 0000000000" />
-      <FormField label="Email ID" placeholder="registry@sikka.com" />
-      <FormField label="Website" placeholder="www.sikka.com" />
+      <FormField label="Company Code" value={data.companyCode || '10000'} onChange={(e: any) => updateField('companyCode', e.target.value)} required />
+      <FormField label="Company Name" placeholder="Sikka Industries" value={data.companyName} onChange={(e: any) => updateField('companyName', e.target.value)} required />
+      <FormField label="GSTIN" placeholder="09AAAAA0000A1Z5" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} required />
+      <FormField label="PAN" value={data.pan} disabled />
+      <FormField label="State" value={data.state} disabled />
+      <FormField label="Mobile Number" value={data.mobileNumber} onChange={(e: any) => updateField('mobileNumber', e.target.value)} />
     </div>
   );
 }
 
-function VendorForm() {
+function VendorForm({ data, onChange }: any) {
+  const { user } = useUser();
+  const db = useFirestore();
+  const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
+  const { data: plants } = useCollection(plantsQuery);
+
+  const updateField = (field: string, val: any) => onChange({ ...data, [field]: val });
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
       <div className="md:col-span-2 space-y-2">
         <label className="text-[10px] font-black uppercase text-slate-400">Select Plants (Multi-Node Selection)</label>
         <div className="flex flex-wrap gap-2 p-4 bg-slate-50 border border-slate-200 rounded-2xl min-h-[60px]">
-          {['PLNT01', 'PLNT02', 'PLNT03'].map(p => (
-            <Badge key={p} className="bg-white border-slate-200 text-slate-600 rounded-lg py-1.5 px-3 hover:bg-[#e8f0fe] hover:text-[#0056d2] transition-colors">
-              {p}
+          {plants?.map(p => (
+            <Badge 
+              key={p.id} 
+              onClick={() => {
+                const current = data.plantCodes || [];
+                const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode];
+                updateField('plantCodes', next);
+              }}
+              className={`cursor-pointer rounded-lg py-1.5 px-3 transition-colors ${data.plantCodes?.includes(p.plantCode) ? 'bg-[#0056d2] text-white' : 'bg-white border-slate-200 text-slate-600'}`}
+            >
+              {p.plantCode}
             </Badge>
           ))}
         </div>
       </div>
-      <FormField label="Vendor Name" placeholder="Legacy Supplier Node" required />
-      <FormField label="Mobile" placeholder="+91 0000000000" />
-      <FormField label="GSTIN" placeholder="09AAAAA0000A1Z5" />
-      <FormField label="PAN" placeholder="ABCDE1234F" />
-      <div className="md:col-span-2">
-        <FormField label="Address" placeholder="Vendor Mission Address" type="textarea" />
-      </div>
+      <FormField label="Vendor Name" value={data.vendorName} onChange={(e: any) => updateField('vendorName', e.target.value)} required />
+      <FormField label="GSTIN" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} />
+    </div>
+  );
+}
+
+function RegistryList({ screen }: { screen: string }) {
+  const { user } = useUser();
+  const db = useFirestore();
+  let collectionName = '';
+  if (screen.startsWith('OX')) collectionName = 'plants';
+  else if (screen.startsWith('FM')) collectionName = 'companies';
+  else if (screen.startsWith('XK')) collectionName = 'vendors';
+
+  const listQuery = useMemoFirebase(() => user && collectionName ? collection(db, 'users', user.uid, collectionName) : null, [user, db, collectionName]);
+  const { data: list, isLoading } = useCollection(listQuery);
+
+  if (isLoading) return <div className="p-8 text-center text-slate-400 font-bold">Synchronizing Node Data...</div>;
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="bg-slate-50 border-y border-slate-100">
+            <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">ID</th>
+            <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Name / Description</th>
+            <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list?.map((item) => (
+            <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+              <td className="p-4 font-bold text-xs text-[#0056d2]">{item.plantCode || item.companyCode || item.id.slice(0, 8)}</td>
+              <td className="p-4 font-bold text-xs text-slate-600 uppercase">{item.plantName || item.companyName || item.vendorName}</td>
+              <td className="p-4">
+                <Badge className="bg-emerald-50 text-emerald-600 rounded-none uppercase text-[8px] font-black border border-emerald-100">Synchronized</Badge>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -442,18 +403,20 @@ function FormField({ label, placeholder, type = 'text', required, value, onChang
       </label>
       {type === 'textarea' ? (
         <textarea 
+          value={value || ''}
+          onChange={onChange}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full p-4 border border-slate-200 bg-slate-50 rounded-2xl font-bold min-h-[100px] outline-none focus:ring-1 focus:ring-[#0056d2] disabled:opacity-50"
+          className="w-full p-4 border border-slate-200 bg-slate-50 rounded-2xl font-bold min-h-[100px] outline-none disabled:opacity-50"
         />
       ) : (
         <Input 
           type={type}
-          value={value}
+          value={value || ''}
           onChange={onChange}
           placeholder={placeholder}
           disabled={disabled}
-          className="h-11 border-slate-200 bg-slate-50 px-4 rounded-xl font-bold focus:ring-[#0056d2] disabled:opacity-50"
+          className="h-11 border-slate-200 bg-slate-50 px-4 rounded-xl font-bold disabled:opacity-50"
         />
       )}
     </div>
