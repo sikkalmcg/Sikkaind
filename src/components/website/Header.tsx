@@ -8,7 +8,7 @@ import placeholderData from '@/app/lib/placeholder-images.json';
 
 /**
  * @fileOverview Website Header.
- * Updated to include HOME, SERVICES, ABOUT, and CONTACT navigation links.
+ * Centers navigation links between the brand and action buttons.
  */
 export default function Header() {
   const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
@@ -23,8 +23,8 @@ export default function Header() {
   return (
     <header className="bg-white sticky top-0 z-[100] border-b border-slate-100 w-full font-body">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-12" aria-label="Global">
-        {/* Left: Logo and Brand */}
-        <div className="flex items-center">
+        {/* Left Section: Logo and Brand */}
+        <div className="flex flex-1 items-center justify-start">
           <Link href="/" className="flex items-center group">
             <div className="flex items-center gap-4">
               {logoAsset?.url && (
@@ -52,23 +52,23 @@ export default function Header() {
               </div>
             </div>
           </Link>
+        </div>
 
-          {/* Center Navigation Links (Hidden on small mobile) */}
-          <div className="hidden lg:flex items-center gap-8 ml-12">
-            {navLinks.map((link) => (
-              <Link 
-                key={link.label}
-                href={link.href}
-                className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-[#1e3a8a] transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
+        {/* Center Section: Navigation Links (Hidden on small mobile) */}
+        <div className="hidden lg:flex flex-1 items-center justify-center gap-8">
+          {navLinks.map((link) => (
+            <Link 
+              key={link.label}
+              href={link.href}
+              className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-[#1e3a8a] transition-colors"
+            >
+              {link.label}
+            </Link>
+          ))}
         </div>
         
-        {/* Right: Action Buttons */}
-        <div className="flex items-center gap-3 md:gap-4">
+        {/* Right Section: Action Buttons */}
+        <div className="flex flex-1 items-center justify-end gap-3 md:gap-4">
           <Button 
             asChild 
             className="bg-[#1e3a8a] hover:bg-[#162a63] text-white font-black uppercase text-[10px] tracking-widest rounded-xl px-5 md:px-7 h-11 shadow-[0_4px_12px_rgba(30,58,138,0.25)] border-none flex items-center gap-2"
