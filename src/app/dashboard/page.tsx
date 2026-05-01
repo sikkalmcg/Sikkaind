@@ -136,10 +136,19 @@ export default function SapDashboard() {
       <div className="flex items-center bg-[#f0f0f0] border-b border-white/50 px-2 h-7 text-[11px] font-semibold">
         {['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map((item) => (
           <DropdownMenu key={item}>
-            <DropdownMenuTrigger className="px-3 hover:bg-[#0056d2] hover:text-white outline-none transition-colors h-full flex items-center">
+            <DropdownMenuTrigger 
+              onClick={() => item === 'Menu' && setActiveScreen('HOME')}
+              className="px-3 hover:bg-[#0056d2] hover:text-white outline-none transition-colors h-full flex items-center"
+            >
               {item}
             </DropdownMenuTrigger>
             <DropdownMenuContent className="bg-white rounded-none border-slate-300 shadow-xl text-[11px] p-0 min-w-[150px]">
+              {item === 'Menu' && (
+                <>
+                  <DropdownMenuItem onClick={() => setActiveScreen('HOME')} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Home (/n)</DropdownMenuItem>
+                  <DropdownMenuSeparator className="m-0 bg-slate-200" />
+                </>
+              )}
               <DropdownMenuItem onClick={handleSave} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Save (Ctrl+S)</DropdownMenuItem>
               <DropdownMenuSeparator className="m-0 bg-slate-200" />
               <DropdownMenuItem onClick={handleLogout} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4 text-red-600">Log Off</DropdownMenuItem>
