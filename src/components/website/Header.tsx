@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -16,7 +15,7 @@ export default function Header() {
 
   const navLinks = [
     { label: 'HOME', href: '/' },
-    { label: 'SERVICES', href: '/#services' },
+    { label: 'SERVICES', href: '/services' },
     { label: 'ABOUT', href: '/about' },
     { label: 'CONTACT', href: '/#contact' },
   ];
@@ -75,7 +74,7 @@ export default function Header() {
             className="bg-[#1e3a8a] hover:bg-[#162a63] text-white font-black uppercase text-[10px] tracking-widest rounded-xl px-5 md:px-7 h-11 shadow-[0_4px_12px_rgba(30,58,138,0.25)] border-none flex items-center gap-2"
           >
             <Link href="/login">
-              <Lock className="h-3.5 w-3.5" /> PORTAL
+              <Lock className="h-3.5 w-3.5" /> PORTAL LOGIN
             </Link>
           </Button>
 
@@ -85,7 +84,7 @@ export default function Header() {
             className="bg-white hover:bg-slate-50 text-slate-900 font-black uppercase text-[10px] tracking-widest rounded-xl px-5 md:px-7 h-11 border-slate-200 shadow-sm flex items-center gap-2"
           >
             <Link href="/track">
-              <Radar className="h-4 w-4 text-blue-600" /> TRACK
+              <Radar className="h-4 w-4 text-blue-600" /> TRACK MISSION
             </Link>
           </Button>
         </div>
