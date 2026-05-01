@@ -101,6 +101,14 @@
     font-style: var(--font-style);
     font-size: var(--font-size-base);
   }
+
+  /* Custom SAP UI behavior: Highlight focused columns in light yellow */
+  input:focus, 
+  textarea:focus, 
+  select:focus {
+    background-color: #ffffcc !important;
+    outline: none !important;
+  }
 }
 
 @layer utilities {
