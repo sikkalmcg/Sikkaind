@@ -22,10 +22,11 @@ import {
   useFirestore, 
   useUser, 
   useCollection, 
+  useDoc,
   useMemoFirebase,
   setDocumentNonBlocking 
 } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, query, where } from 'firebase/firestore';
 import { 
   Dialog, 
   DialogContent, 
@@ -36,7 +37,30 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 
-type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'TR21' | 'BULK';
+type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'TR21' | 'BULK' | 'SU01' | 'SU02' | 'SU03';
+
+const MASTER_TCODES = [
+  { code: 'OX01', description: 'Create Plant Master' },
+  { code: 'OX02', description: 'Change Plant Master' },
+  { code: 'OX03', description: 'Display Plant Master' },
+  { code: 'FM01', description: 'Create Company Hub' },
+  { code: 'FM02', description: 'Change Company Hub' },
+  { code: 'FM03', description: 'Display Company Hub' },
+  { code: 'XK01', description: 'Create Vendor Master' },
+  { code: 'XK02', description: 'Change Vendor Master' },
+  { code: 'XK03', description: 'Display Vendor Master' },
+  { code: 'XD01', description: 'Create Customer Registry' },
+  { code: 'XD02', description: 'Change Customer Registry' },
+  { code: 'XD03', description: 'Display Customer Registry' },
+  { code: 'VA01', description: 'Create Sales Order' },
+  { code: 'VA02', description: 'Change Sales Order' },
+  { code: 'VA03', description: 'Display Sales Order' },
+  { code: 'TR21', description: 'Drip Board Control' },
+  { code: 'BULK', description: 'Bulk Data Upload' },
+  { code: 'SU01', description: 'Create User Management' },
+  { code: 'SU02', description: 'Change User Management' },
+  { code: 'SU03', description: 'Display User Management' },
+];
 
 export default function SapDashboard() {
   const router = useRouter();
@@ -49,20 +73,74 @@ export default function SapDashboard() {
   const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
   const tCodeRef = React.useRef<HTMLInputElement>(null);
 
-  // Memoize data for various contexts
+  // Authorization Profile for current user
+  const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
+  const { data: userProfile } = useDoc(profileRef);
+
+  // Authorized filtering
+  const isAuthorized = (code: string) => {
+    if (code === 'HOME' || code === '') return true;
+    // If no profile exists yet (e.g. initial superuser), allow everything
+    if (!userProfile) return true; 
+    return userProfile.tcodes?.includes(code);
+  };
+
+  const getAuthorizedPlants = () => userProfile?.plants || [];
+
+  // Data Queries with Plant Authorization
   const ordersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'sales_orders') : null, [user, db]);
   const tripsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'trips') : null, [user, db]);
   const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
   const companiesQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'companies') : null, [user, db]);
   const vendorsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'vendors') : null, [user, db]);
   const customersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'customers') : null, [user, db]);
+  const usersQuery = useMemoFirebase(() => collection(db, 'user_registry'), [db]);
   
-  const { data: recentOrders } = useCollection(ordersQuery);
-  const { data: allTrips } = useCollection(tripsQuery);
-  const { data: allPlants } = useCollection(plantsQuery);
-  const { data: allCompanies } = useCollection(companiesQuery);
-  const { data: allVendors } = useCollection(vendorsQuery);
-  const { data: allCustomers } = useCollection(customersQuery);
+  const { data: rawOrders } = useCollection(ordersQuery);
+  const { data: rawTrips } = useCollection(tripsQuery);
+  const { data: rawPlants } = useCollection(plantsQuery);
+  const { data: rawCompanies } = useCollection(companiesQuery);
+  const { data: rawVendors } = useCollection(vendorsQuery);
+  const { data: rawCustomers } = useCollection(customersQuery);
+  const { data: allUsers } = useCollection(usersQuery);
+
+  // Filtered data based on Plant Authorization
+  const recentOrders = React.useMemo(() => {
+    const authPlants = getAuthorizedPlants();
+    if (!authPlants.length) return rawOrders;
+    return rawOrders?.filter(o => authPlants.includes(o.plantCode));
+  }, [rawOrders, userProfile]);
+
+  const allTrips = React.useMemo(() => {
+    const authPlants = getAuthorizedPlants();
+    if (!authPlants.length) return rawTrips;
+    return rawTrips?.filter(t => authPlants.includes(t.plantCode));
+  }, [rawTrips, userProfile]);
+
+  const allPlants = React.useMemo(() => {
+    const authPlants = getAuthorizedPlants();
+    if (!authPlants.length) return rawPlants;
+    return rawPlants?.filter(p => authPlants.includes(p.plantCode));
+  }, [rawPlants, userProfile]);
+
+  const allCompanies = React.useMemo(() => {
+    const authPlants = getAuthorizedPlants();
+    if (!authPlants.length) return rawCompanies;
+    return rawCompanies?.filter(c => authPlants.includes(c.plantCode));
+  }, [rawCompanies, userProfile]);
+
+  const allVendors = React.useMemo(() => {
+    const authPlants = getAuthorizedPlants();
+    if (!authPlants.length) return rawVendors;
+    // Vendor logic: vendor has many plants. If ANY of its plants are authorized, show it.
+    return rawVendors?.filter(v => v.plantCodes?.some((p: string) => authPlants.includes(p)));
+  }, [rawVendors, userProfile]);
+
+  const allCustomers = React.useMemo(() => {
+    const authPlants = getAuthorizedPlants();
+    if (!authPlants.length) return rawCustomers;
+    return rawCustomers?.filter(c => c.plantCodes?.some((p: string) => authPlants.includes(p)));
+  }, [rawCustomers, userProfile]);
 
   const handleSave = () => {
     if (!user) {
@@ -89,14 +167,36 @@ export default function SapDashboard() {
     else if (activeScreen.startsWith('XK')) collectionName = 'vendors';
     else if (activeScreen.startsWith('XD')) collectionName = 'customers';
     else if (activeScreen.startsWith('VA')) collectionName = 'sales_orders';
+    else if (activeScreen.startsWith('SU')) collectionName = 'user_registry';
 
     if (collectionName) {
-      const docRef = doc(db, 'users', user.uid, collectionName, docId);
+      const isSystemUser = collectionName === 'user_registry';
+      const docRef = isSystemUser 
+        ? doc(db, 'user_registry', docId)
+        : doc(db, 'users', user.uid, collectionName, docId);
+
       const payload = { 
         ...formData, 
         id: docId, 
         updatedAt: new Date().toISOString() 
       };
+
+      // SU01/02 Auto Mapping logic
+      if (isSystemUser) {
+        const tcodes = payload.tcodes || [];
+        const expandedTcodes = [...tcodes];
+        tcodes.forEach((code: string) => {
+          if (code.endsWith('01')) {
+            const prefix = code.slice(0, 2);
+            ['02', '03'].forEach(suffix => {
+              if (!expandedTcodes.includes(prefix + suffix)) {
+                expandedTcodes.push(prefix + suffix);
+              }
+            });
+          }
+        });
+        payload.tcodes = Array.from(new Set(expandedTcodes));
+      }
       
       setDocumentNonBlocking(docRef, payload, { merge: true });
       
@@ -131,15 +231,25 @@ export default function SapDashboard() {
     const formatted = code.toUpperCase().trim();
     const cleanCode = formatted.startsWith('/N') ? formatted.slice(2) : formatted;
     
-    const validCodes = ['OX01', 'OX02', 'OX03', 'FM01', 'FM02', 'FM03', 'XK01', 'XK02', 'XK03', 'XD01', 'XD02', 'XD03', 'VA01', 'VA02', 'VA03', 'TR21', 'BULK'];
+    if (cleanCode === 'HOME' || cleanCode === '') {
+      setActiveScreen('HOME');
+      setStatusMsg({ text: 'Main Hub', type: 'none' });
+      setTCode('');
+      return;
+    }
+
+    if (!isAuthorized(cleanCode)) {
+      setStatusMsg({ text: `You have not authorized for access T code ${cleanCode}`, type: 'error' });
+      setTCode('');
+      return;
+    }
+
+    const validCodes = MASTER_TCODES.map(t => t.code);
     
     if (validCodes.includes(cleanCode)) {
       setActiveScreen(cleanCode as Screen);
       setFormData({});
       setStatusMsg({ text: `Transaction ${cleanCode} started`, type: 'info' });
-    } else if (cleanCode === 'HOME' || cleanCode === '') {
-      setActiveScreen('HOME');
-      setStatusMsg({ text: 'Main Hub', type: 'none' });
     }
     setTCode('');
   };
@@ -192,6 +302,7 @@ export default function SapDashboard() {
     if (activeScreen.startsWith('XK')) return allVendors;
     if (activeScreen.startsWith('XD')) return allCustomers;
     if (activeScreen.startsWith('VA')) return recentOrders;
+    if (activeScreen.startsWith('SU')) return allUsers;
     return [];
   };
 
@@ -314,6 +425,7 @@ export default function SapDashboard() {
                     { code: 'VA01', label: 'Create Sales Order' },
                     { code: 'TR21', label: 'Drip Board Control' },
                     { code: 'BULK', label: 'Bulk Data Upload' },
+                    { code: 'SU01', label: 'User Management' },
                   ].map((item) => (
                     <button 
                       key={item.code} 
@@ -395,7 +507,7 @@ export default function SapDashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                  {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'TR21'].map((code) => (
+                  {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'TR21', 'SU01'].map((code) => (
                     <div key={code} onClick={() => executeTCode(code)} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
                       <div className="flex items-center justify-between mb-4">
                         <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1 font-black italic">{code}</Badge>
@@ -427,7 +539,7 @@ export default function SapDashboard() {
                             <option value="">Select Registry Item...</option>
                             {getRegistryList()?.map(item => (
                               <option key={item.id} value={item.id}>
-                                {item.saleOrder || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)} - {item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}
+                                {item.username || item.saleOrder || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)} - {item.fullName || item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}
                               </option>
                             ))}
                            </select>
@@ -444,15 +556,16 @@ export default function SapDashboard() {
                          {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
                          {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
                          {activeScreen.startsWith('VA') && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                         {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
                        </>
                      )}
                      {showList && (
                        <div className="space-y-4">
                          <h3 className="text-[10px] font-bold uppercase bg-[#dae4f1] px-4 py-1 border-y border-slate-300 text-[#1e3a8a]">Selection List</h3>
-                         <RegistryList screen={activeScreen} onSelectItem={setFormData} />
+                         <RegistryList screen={activeScreen} onSelectItem={setFormData} listData={getRegistryList()} />
                        </div>
                      )}
-                     {activeScreen === 'TR21' && <DripBoard orders={recentOrders} trips={allTrips} onStatusUpdate={setStatusMsg} />}
+                     {activeScreen === 'TR21' && <DripBoard orders={recentOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} />}
                      {activeScreen === 'BULK' && <BulkUploadForm setStatus={setStatusMsg} />}
                    </div>
                  </div>
@@ -484,7 +597,7 @@ export default function SapDashboard() {
   );
 }
 
-function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, trips: any[] | null, onStatusUpdate: any }) {
+function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | null, trips: any[] | null, onStatusUpdate: any, plants: any[] | null }) {
   const { user } = useUser();
   const db = useFirestore();
   const [plantFilter, setPlantFilter] = React.useState('ALL');
@@ -497,10 +610,6 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
   const [freightAmount, setFreightAmount] = React.useState<string>('');
   const [isFixRate, setIsFixRate] = React.useState(false);
   const [vehicleType, setVehicleType] = React.useState('OWN FLEET');
-
-  // Fetch plants for filter
-  const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
-  const { data: plants } = useCollection(plantsQuery);
 
   // Auto calculate freight
   React.useEffect(() => {
@@ -630,6 +739,7 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
                   <th className="p-4 text-[9px] font-black uppercase text-slate-400">Order Header</th>
+                  <th className="p-4 text-[9px] font-black uppercase text-slate-400">Plant</th>
                   <th className="p-4 text-[9px] font-black uppercase text-slate-400">Consignor</th>
                   <th className="p-4 text-[9px] font-black uppercase text-slate-400">Consignee</th>
                   <th className="p-4 text-[9px] font-black uppercase text-slate-400">Ship To Party</th>
@@ -647,6 +757,7 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
                   return (
                     <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                       <td className="p-4 font-black text-xs text-[#0056d2]">{order.saleOrder}</td>
+                      <td className="p-4 font-bold text-[10px] text-slate-600 uppercase">{order.plantCode}</td>
                       <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.consignor}</td>
                       <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.consignee}</td>
                       <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.shipToParty}</td>
@@ -671,7 +782,7 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
                 })}
                 {(!filteredOrders || filteredOrders.length === 0) && (
                   <tr>
-                    <td colSpan={7} className="p-12 text-center text-slate-300 font-bold text-[10px] uppercase italic tracking-widest">
+                    <td colSpan={8} className="p-12 text-center text-slate-300 font-bold text-[10px] uppercase italic tracking-widest">
                       No open orders found for this registry node.
                     </td>
                   </tr>
@@ -731,6 +842,8 @@ function DripBoard({ orders, trips, onStatusUpdate }: { orders: any[] | null, tr
               <span>SO: {selectedOrder?.saleOrder}</span>
               <span>•</span>
               <span>To: {selectedOrder?.shipToParty}</span>
+              <span>•</span>
+              <span>Route: {selectedOrder?.from} - {selectedOrder?.destination}</span>
             </div>
           </div>
           
@@ -844,6 +957,7 @@ function getScreenTitle(screen: Screen): string {
     case 'VA01': case 'VA02': case 'VA03': return 'SALES ORDER REGISTRY' + suffix;
     case 'TR21': return 'DRIP BOARD REGISTRY CONTROL';
     case 'BULK': return 'BULK DATA HUB REGISTRY';
+    case 'SU01': case 'SU02': case 'SU03': return 'USER MANAGEMENT' + suffix;
     default: return 'CENTRAL MANAGEMENT HUB';
   }
 }
@@ -1391,18 +1505,80 @@ function SalesOrderForm({ data, onChange, disabled }: any) {
   );
 }
 
-function RegistryList({ screen, onSelectItem }: { screen: string, onSelectItem: (item: any) => void }) {
-  const { user } = useUser();
-  const db = useFirestore();
-  let collectionName = '';
-  if (screen.startsWith('OX')) collectionName = 'plants';
-  else if (screen.startsWith('FM')) collectionName = 'companies';
-  else if (screen.startsWith('XK')) collectionName = 'vendors';
-  else if (screen.startsWith('XD')) collectionName = 'customers';
-  else if (screen.startsWith('VA')) collectionName = 'sales_orders';
+function UserForm({ data, onChange, disabled, allPlants }: any) {
+  const updateField = (field: string, val: any) => !disabled && onChange({ ...data, [field]: val });
 
-  const listQuery = useMemoFirebase(() => user && collectionName ? collection(db, 'users', user.uid, collectionName) : null, [user, db, collectionName]);
-  const { data: list, isLoading } = useCollection(listQuery);
+  return (
+    <div className="space-y-8">
+      <div>
+        <SectionHeader title="User Identity Registry" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 px-4">
+          <FormField label="Full Name" placeholder="John Doe" value={data.fullName} onChange={(e: any) => updateField('fullName', e.target.value)} required disabled={disabled} />
+          <FormField label="Username" placeholder="johndoe" value={data.username} onChange={(e: any) => updateField('username', e.target.value)} required disabled={disabled} />
+          <FormField label="Password" type="password" value={data.password} onChange={(e: any) => updateField('password', e.target.value)} required disabled={disabled} />
+          <FormField label="Mobile Number" placeholder="+91..." value={data.mobile} onChange={(e: any) => updateField('mobile', e.target.value)} disabled={disabled} />
+        </div>
+      </div>
+
+      <div>
+        <SectionHeader title="Plant Node Authorization (Multi-Select)" />
+        <div className="px-4">
+          <div className="flex flex-wrap gap-2 p-3 bg-slate-50 border border-slate-300 min-h-[48px] rounded-lg">
+            {allPlants?.map((p: any) => (
+              <Badge 
+                key={p.id} 
+                onClick={() => {
+                  if (disabled) return;
+                  const current = data.plants || [];
+                  const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode];
+                  updateField('plants', next);
+                }}
+                className={`cursor-pointer rounded-lg border-slate-300 text-[10px] font-bold py-1 px-3 transition-all ${data.plants?.includes(p.plantCode) ? 'bg-[#0056d2] text-white shadow-md' : 'bg-white text-slate-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {p.plantCode} - {p.plantName}
+              </Badge>
+            ))}
+            {(!allPlants || allPlants.length === 0) && <span className="text-[10px] text-slate-400 italic">No plants available in registry hub.</span>}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <SectionHeader title="T-Code Authorization Hub (Dynamic Mapping)" />
+        <div className="px-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4 bg-slate-50 border border-slate-300 rounded-lg max-h-[300px] overflow-y-auto custom-scrollbar">
+            {MASTER_TCODES.map((t) => (
+              <div 
+                key={t.code} 
+                className={`flex items-center gap-3 p-2 rounded-lg border border-slate-200 bg-white transition-all ${disabled ? 'opacity-70' : 'cursor-pointer hover:border-[#0056d2] hover:bg-blue-50'}`}
+                onClick={() => {
+                  if (disabled) return;
+                  const current = data.tcodes || [];
+                  const next = current.includes(t.code) ? current.filter((c: string) => c !== t.code) : [...current, t.code];
+                  updateField('tcodes', next);
+                }}
+              >
+                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${data.tcodes?.includes(t.code) ? 'bg-[#0056d2] border-[#0056d2]' : 'border-slate-300'}`}>
+                  {data.tcodes?.includes(t.code) && <Check className="h-3 w-3 text-white" />}
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-black text-[#1e3a8a]">{t.code}</span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">{t.description}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-[9px] font-bold text-blue-600 mt-3 px-1 italic">
+            * Note: Selecting a 'Create' T-code (01) will automatically authorize related Change (02) and Display (03) modes upon execution.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RegistryList({ screen, onSelectItem, listData }: { screen: string, onSelectItem: (item: any) => void, listData: any[] | null }) {
+  const isLoading = listData === null;
 
   if (isLoading) return <div className="p-8 text-center text-slate-400 font-bold">Synchronizing Node Data...</div>;
 
@@ -1418,27 +1594,27 @@ function RegistryList({ screen, onSelectItem }: { screen: string, onSelectItem: 
           </tr>
         </thead>
         <tbody>
-          {list?.map((item) => (
+          {listData?.map((item) => (
             <tr 
               key={item.id} 
               className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer group"
               onClick={() => onSelectItem(item)}
             >
               <td className="p-2 font-bold text-[11px] text-[#0056d2] group-hover:underline border-r border-slate-200">
-                {item.saleOrder || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}
+                {item.username || item.saleOrder || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}
               </td>
               <td className="p-2 font-bold text-[11px] text-slate-600 uppercase border-r border-slate-200">
-                {item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}
+                {item.fullName || item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}
               </td>
               <td className="p-2 font-bold text-[11px] text-slate-400 uppercase italic border-r border-slate-200">
-                {item.destination || item.customerType || item.city || 'Standard Registry'}
+                {item.destination || item.customerType || item.city || (item.plants ? `${item.plants.length} Plants Auth` : 'Standard Registry')}
               </td>
               <td className="p-2">
                 <Badge className="bg-emerald-50 text-emerald-600 rounded-none uppercase text-[8px] font-black border border-emerald-100">Synchronized</Badge>
               </td>
             </tr>
           ))}
-          {(!list || list.length === 0) && (
+          {(!listData || listData.length === 0) && (
             <tr>
               <td colSpan={4} className="p-12 text-center text-slate-300 font-bold text-[10px] uppercase italic tracking-widest">
                 No records found in this registry hub.

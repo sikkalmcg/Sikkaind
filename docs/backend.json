@@ -14,6 +14,22 @@
       },
       "required": ["id", "email", "firstName", "lastName", "createdAt", "updatedAt"]
     },
+    "UserRegistry": {
+      "title": "UserRegistry",
+      "type": "object",
+      "description": "System User Management Registry.",
+      "properties": {
+        "id": { "type": "string" },
+        "fullName": { "type": "string" },
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "mobile": { "type": "string" },
+        "plants": { "type": "array", "items": { "type": "string" } },
+        "tcodes": { "type": "array", "items": { "type": "string" } },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fullName", "username", "password", "plants", "tcodes"]
+    },
     "Plant": {
       "title": "Plant",
       "type": "object",
@@ -167,6 +183,7 @@
   },
   "firestore": {
     "/user_profiles/{userId}": { "schema": "UserProfile", "description": "User profile data." },
+    "/user_registry/{userId}": { "schema": "UserRegistry", "description": "System Authorization Registry." },
     "/users/{userId}/plants/{plantId}": { "schema": "Plant", "description": "User-owned plants." },
     "/users/{userId}/companies/{companyId}": { "schema": "Company", "description": "User-owned companies." },
     "/users/{userId}/vendors/{vendorId}": { "schema": "Vendor", "description": "User-owned vendors." },
