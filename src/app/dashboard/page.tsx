@@ -631,7 +631,7 @@ export default function SapDashboard() {
                              <RegistryList screen={activeScreen} onSelectItem={setFormData} listData={getRegistryList()} />
                            </div>
                          )}
-                         {activeScreen === 'TR21' && <DripBoard orders={recentOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} />}
+                         {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} />}
                          {activeScreen === 'BULK' && <BulkDataHub allPlants={rawPlants} />}
                        </div>
                      </div>
@@ -1136,6 +1136,9 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     setVehicleType('OWN FLEET');
     setAssignWeight('');
     setVehicleNo('');
+    setVehicleType('OWN FLEET');
+    setAssignWeight('');
+    setVehicleNo('');
     setDriverMobile('');
     setVendorName('');
     setDelayRemark('');
@@ -1189,13 +1192,21 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
 
         <Tabs defaultValue="OPEN" className="w-full">
           <TabsList className="bg-slate-100 p-1 rounded-2xl w-full justify-start overflow-x-auto no-scrollbar gap-1 h-12">
-            {['OPEN ORDER', 'LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD SECTION', 'REJECTION', 'CLOSED'].map((tab) => (
+            {[
+              { label: 'OPEN ORDER', count: filteredOrders?.length || 0 },
+              { label: 'LOADING', count: getTripsByStatus('LOADING').length },
+              { label: 'IN-TRANSIT', count: getTripsByStatus('IN-TRANSIT').length },
+              { label: 'ARRIVED', count: getTripsByStatus('ARRIVED').length },
+              { label: 'POD', count: getTripsByStatus('POD').length },
+              { label: 'REJECTION', count: getTripsByStatus('REJECTION').length },
+              { label: 'CLOSED', count: getTripsByStatus('CLOSED').length },
+            ].map((tab) => (
               <TabsTrigger 
-                key={tab} 
-                value={tab.split(' ')[0]}
-                className="rounded-xl px-6 font-black text-[10px] uppercase tracking-wider data-[state=active]:bg-[#0056d2] data-[state=active]:text-white text-slate-500 h-10 transition-all hover:bg-slate-200"
+                key={tab.label} 
+                value={tab.label.split(' ')[0]}
+                className="rounded-xl px-6 font-black text-[10px] uppercase tracking-wider data-[state=active]:bg-[#0056d2] data-[state=active]:text-white text-slate-600 h-10 transition-all hover:bg-slate-200"
               >
-                {tab}
+                {tab.label} ({tab.count})
               </TabsTrigger>
             ))}
           </TabsList>
@@ -1269,7 +1280,10 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
 
                 {getTripsByStatus(status).map(trip => {
                   const next = getNextStatus(status);
-                  const soNo = trip.saleOrderNumber || trip.saleOrder || 'N/A';
+                  const parentOrder = orders?.find(o => o.id === trip.saleOrderId);
+                  const soNo = trip.saleOrderNumber || trip.saleOrder || parentOrder?.saleOrder || 'N/A';
+                  const lrNoDisplay = trip.lrNo || parentOrder?.lrNo || '--';
+                  const invNoDisplay = trip.invoiceNumber || trip.invoiceNo || parentOrder?.items?.[0]?.invoiceNumber || '--';
                   const formattedDate = trip.createdAt ? format(new Date(trip.createdAt), 'dd MMM').toUpperCase() : '--';
                   const formattedTime = trip.createdAt ? format(new Date(trip.createdAt), 'hh:mm a') : '--';
                   
@@ -1280,8 +1294,8 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                           <span className="text-[#0056d2] font-black text-[11px] leading-tight">#{trip.tripId}</span>
                           <span className="text-slate-400 font-bold text-[8px] uppercase tracking-tighter">SO: {soNo}</span>
                           <div className="flex flex-col mt-1">
-                            <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">LR: {trip.lrNo || '--'}</span>
-                            <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">INV: {trip.invoiceNumber || trip.invoiceNo || '--'}</span>
+                            <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">LR: {lrNoDisplay}</span>
+                            <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">INV: {invNoDisplay}</span>
                           </div>
                         </div>
 
@@ -1428,8 +1442,8 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                 <SectionHeader title="Consignment Context" />
                 <div className="space-y-3 px-2">
                   <DetailRow label="Sale Order" value={viewTrip?.saleOrderNumber || viewTrip?.saleOrder} />
-                  <DetailRow label="LR Number" value={viewTrip?.lrNo} />
-                  <DetailRow label="Invoice" value={viewTrip?.invoiceNumber || viewTrip?.invoiceNo} />
+                  <DetailRow label="LR Number" value={viewTrip?.lrNo || orders?.find(o => o.id === viewTrip?.saleOrderId)?.lrNo} />
+                  <DetailRow label="Invoice" value={viewTrip?.invoiceNumber || viewTrip?.invoiceNo || orders?.find(o => o.id === viewTrip?.saleOrderId)?.items?.[0]?.invoiceNumber} />
                   <DetailRow label="Consignor" value={viewTrip?.consignor} />
                   <DetailRow label="Consignee" value={viewTrip?.consignee} />
                 </div>
@@ -1589,6 +1603,53 @@ function RegistryFormWrapper({ children, title }: { children: React.ReactNode, t
       <div className="p-4">
         {children}
       </div>
+    </div>
+  );
+}
+
+function PlantForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Plant Code" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+      <FormInput label="Plant Name" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
+      <FormInput label="City" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+      <FormInput label="State" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+      <FormInput label="Address" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+    </div>
+  );
+}
+
+function CompanyForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Company Code" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
+      <FormInput label="Company Name" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
+      <FormInput label="Address" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+    </div>
+  );
+}
+
+function VendorForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Vendor Name" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
+      <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+      <FormInput label="PAN" value={data.pan} onChange={(v: string) => onChange({...data, pan: v})} disabled={disabled} />
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+    </div>
+  );
+}
+
+function CustomerForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Customer Code" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} />
+      <FormInput label="Customer Name" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
+      <FormInput label="City" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+      <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+      <FormSelect label="Type" value={data.customerType} options={['Consignor', 'Consignee']} onChange={(v: string) => onChange({...data, customerType: v})} disabled={disabled} />
     </div>
   );
 }
