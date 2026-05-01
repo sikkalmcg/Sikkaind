@@ -20,6 +20,18 @@ import { doc, getDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
+const STEPS = ['OPEN ORDER', 'LOADING', 'IN-TRANSIT', 'ARRIVED', 'DELIVERED'];
+
+function getStatusIndex(status: string) {
+  const s = status?.toUpperCase() || '';
+  if (s === 'PLACED' || s === 'OPEN ORDER') return 0;
+  if (s === 'LOADING') return 1;
+  if (s === 'IN-TRANSIT') return 2;
+  if (s === 'ARRIVED') return 3;
+  if (s === 'POD' || s === 'CLOSED' || s === 'DELIVERED') return 4;
+  return 0;
+}
+
 /**
  * @fileOverview Track Consignment page.
  * Strictly separates Sales Order view from Trip Tracking view with interactive state transitions.
@@ -30,13 +42,33 @@ export default function TrackPage() {
   const [value, setValue] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [showResult, setShowResult] = React.useState(false);
-  // viewMode tracks whether we are showing the Order confirmation or the Trip timeline
   const [viewMode, setViewMode] = React.useState<'order' | 'trip'>('order');
+  const [animatedIndex, setAnimatedIndex] = React.useState(0);
   const [result, setResult] = React.useState<{
     found: boolean;
     data?: any;
     message?: string;
   } | null>(null);
+
+  // Effect to handle the stepped animation when Trip view is active
+  React.useEffect(() => {
+    if (showResult && viewMode === 'trip' && result?.data?.status) {
+      const targetIndex = getStatusIndex(result.data.status);
+      let current = 0;
+      setAnimatedIndex(0);
+
+      const timer = setInterval(() => {
+        if (current < targetIndex) {
+          current += 1;
+          setAnimatedIndex(current);
+        } else {
+          clearInterval(timer);
+        }
+      }, 2000); // 2 second pause at each stop as requested
+
+      return () => clearInterval(timer);
+    }
+  }, [showResult, viewMode, result?.data?.status]);
 
   const handleTrack = async (overrideValue?: string, overrideType?: string) => {
     const trackValue = (overrideValue || value).trim().toUpperCase();
@@ -64,7 +96,6 @@ export default function TrackPage() {
           found: true, 
           data: data,
         });
-        // Set the view mode based on what we just searched or were told to override to
         setViewMode(trackType === 'sales' ? 'order' : 'trip');
         if (overrideValue) {
           setValue(overrideValue);
@@ -87,25 +118,13 @@ export default function TrackPage() {
     setResult(null);
     setType('sales');
     setViewMode('order');
+    setAnimatedIndex(0);
   };
 
   if (showResult && result?.found) {
     const data = result.data;
     const formattedDate = data.updatedAt ? format(new Date(data.updatedAt), 'dd-MMM-yyyy HH:mm').toUpperCase() : 'PENDING';
     const hasTrip = !!data.tripId;
-
-    // Timeline Configuration for Trip View
-    const steps = ['OPEN ORDER', 'LOADING', 'IN-TRANSIT', 'ARRIVED', 'DELIVERED'];
-    const getStatusIndex = (status: string) => {
-      const s = status?.toUpperCase() || '';
-      if (s === 'PLACED' || s === 'OPEN ORDER') return 0;
-      if (s === 'LOADING') return 1;
-      if (s === 'IN-TRANSIT') return 2;
-      if (s === 'ARRIVED') return 3;
-      if (s === 'POD' || s === 'CLOSED' || s === 'DELIVERED') return 4;
-      return 0;
-    };
-    const currentIndex = getStatusIndex(data.status);
 
     return (
       <div className="min-h-screen bg-white font-mono p-4 md:p-8 animate-fade-in">
@@ -117,7 +136,7 @@ export default function TrackPage() {
             <ArrowLeft className="h-3 w-3" /> BACK TO SEARCH
           </button>
 
-          {/* High Visibility Info Bar - Shared across both views */}
+          {/* High Visibility Info Bar */}
           <div className="bg-[#0f172a] text-white rounded-[1.5rem] md:rounded-full px-8 py-5 flex flex-wrap items-center justify-between gap-6 shadow-2xl">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
@@ -165,7 +184,6 @@ export default function TrackPage() {
           </div>
 
           <div className="flex flex-col items-center gap-6 pt-4">
-            {/* Sales Order Content: Only shown if viewMode is 'order' */}
             {viewMode === 'order' && (
               <div className="space-y-6 w-full flex flex-col items-center">
                 <div className="bg-[#f0f7ff] border-l-[6px] border-blue-600 rounded-[2rem] p-6 md:p-8 max-w-3xl w-full shadow-lg relative flex flex-col items-center text-center animate-slide-up">
@@ -194,14 +212,13 @@ export default function TrackPage() {
               </div>
             )}
 
-            {/* Trip Mission Content: Only shown if viewMode is 'trip' */}
             {viewMode === 'trip' && (
               <div className="bg-[#0f172a] p-6 md:p-8 rounded-[1.5rem] text-white shadow-2xl relative overflow-hidden w-full max-w-3xl border-t-[6px] border-blue-600 animate-slide-up">
                 <div className="flex justify-between items-start mb-6">
                   <div className="space-y-1">
                     <p className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-500">Current Status</p>
                     <h2 className="text-2xl md:text-4xl font-black italic uppercase tracking-tighter leading-none">
-                      {data.status || 'PROCESSING'}
+                      {STEPS[animatedIndex] || data.status || 'PROCESSING'}
                     </h2>
                   </div>
                   <div className="opacity-[0.05] absolute top-6 right-6">
@@ -209,27 +226,27 @@ export default function TrackPage() {
                   </div>
                 </div>
 
-                {/* Timeline Animation Component */}
+                {/* Timeline Animation Component with Pauses */}
                 <div className="py-6 relative mb-6">
                   <div className="absolute top-1/2 left-0 w-full h-0.5 bg-white/10 -translate-y-1/2" />
                   <div 
                     className="absolute top-1/2 left-0 h-0.5 bg-blue-500 -translate-y-1/2 transition-all duration-1000 ease-in-out" 
-                    style={{ width: `${(currentIndex / (steps.length - 1)) * 100}%` }}
+                    style={{ width: `${(animatedIndex / (STEPS.length - 1)) * 100}%` }}
                   />
                   
                   <div className="relative flex justify-between">
-                    {steps.map((step, idx) => (
+                    {STEPS.map((step, idx) => (
                       <div key={step} className="flex flex-col items-center gap-2 group">
                         <div className={cn(
                           "w-3 h-3 rounded-full border-2 z-10 transition-all duration-500 flex items-center justify-center",
-                          idx <= currentIndex ? "bg-blue-500 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" : "bg-[#0f172a] border-white/20",
-                          idx === currentIndex && "animate-pulse scale-110"
+                          idx <= animatedIndex ? "bg-blue-500 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" : "bg-[#0f172a] border-white/20",
+                          idx === animatedIndex && idx < getStatusIndex(data.status) && "animate-pulse scale-110"
                         )}>
-                          {idx < currentIndex && <CheckCircle className="h-2 w-2 text-white" />}
+                          {idx < animatedIndex && <CheckCircle className="h-2 w-2 text-white" />}
                         </div>
                         <span className={cn(
                           "text-[6px] md:text-[8px] font-black uppercase tracking-widest text-center whitespace-nowrap",
-                          idx <= currentIndex ? "text-blue-400" : "text-slate-600"
+                          idx <= animatedIndex ? "text-blue-400" : "text-slate-600"
                         )}>
                           {step}
                         </span>
