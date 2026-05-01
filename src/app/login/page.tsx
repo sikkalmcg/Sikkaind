@@ -60,31 +60,33 @@ export default function LoginPage() {
 
         {/* Right Column: Form */}
         <div className="w-full md:w-[55%] p-8 md:p-16 lg:p-24 flex flex-col justify-center bg-white">
-          <div className="max-w-md mx-auto w-full space-y-12 md:space-y-16">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-[#1e3a8a] uppercase italic tracking-tighter text-center md:text-left">
+          <div className="max-w-xl mx-auto w-full space-y-12 md:space-y-16">
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-[#1e3a8a] uppercase italic tracking-tighter text-center md:text-left whitespace-nowrap">
               Sikka Industries & Logistics
             </h1>
 
             <form onSubmit={handleLogin} className="space-y-10">
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
-                <label className="w-full sm:w-32 text-[11px] md:text-xs font-black text-[#1e3a8a] uppercase tracking-widest">
-                  User <span className="text-red-500">*</span>
+                <label className="w-full sm:w-40 text-[11px] md:text-xs font-black text-[#1e3a8a] uppercase tracking-widest shrink-0">
+                  Username <span className="text-red-500">*</span>
                 </label>
-                <Input 
-                  required
-                  className="h-11 border-slate-300 rounded-none bg-slate-50 focus:ring-1 focus:ring-blue-900 transition-all text-sm font-bold"
-                />
+                <div className="flex-1">
+                  <Input 
+                    required
+                    className="h-11 w-full border-slate-300 rounded-none bg-slate-50 focus:ring-1 focus:ring-blue-900 transition-all text-sm font-bold"
+                  />
+                </div>
               </div>
 
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
-                <label className="w-full sm:w-32 text-[11px] md:text-xs font-black text-[#1e3a8a] uppercase tracking-widest">
+                <label className="w-full sm:w-40 text-[11px] md:text-xs font-black text-[#1e3a8a] uppercase tracking-widest shrink-0">
                   Password <span className="text-red-500">*</span>
                 </label>
                 <div className="relative flex-1">
                   <Input 
                     required
                     type={showPassword ? "text" : "password"}
-                    className="h-11 border-slate-300 rounded-none bg-slate-50 pr-10 focus:ring-1 focus:ring-blue-900 transition-all text-sm font-bold"
+                    className="h-11 w-full border-slate-300 rounded-none bg-slate-50 pr-10 focus:ring-1 focus:ring-blue-900 transition-all text-sm font-bold"
                   />
                   <button 
                     type="button"
@@ -97,7 +99,7 @@ export default function LoginPage() {
               </div>
 
               <div className="flex flex-col sm:flex-row items-center gap-6 pt-6">
-                <div className="hidden sm:block w-32" />
+                <div className="hidden sm:block w-40" />
                 <div className="flex items-center gap-8 w-full sm:w-auto">
                   <Button 
                     type="submit" 
@@ -105,12 +107,6 @@ export default function LoginPage() {
                   >
                     Log On
                   </Button>
-                  <button 
-                    type="button" 
-                    className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-900 transition-colors"
-                  >
-                    Initialize
-                  </button>
                 </div>
               </div>
             </form>
