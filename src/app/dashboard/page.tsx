@@ -62,7 +62,13 @@ export default function SapDashboard() {
       return;
     }
     
-    if (activeScreen === 'HOME' || activeScreen === 'BULK' || activeScreen === 'TR21' || activeScreen.endsWith('02') || activeScreen.endsWith('03')) {
+    const isDisplayOnly = activeScreen.endsWith('03');
+    if (isDisplayOnly) {
+      setStatusMsg({ text: 'Display mode: Changes not allowed', type: 'info' });
+      return;
+    }
+
+    if (activeScreen === 'HOME' || activeScreen === 'BULK' || activeScreen === 'TR21' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id)) {
       setStatusMsg({ text: 'No active transaction to save', type: 'info' });
       return;
     }
@@ -146,6 +152,9 @@ export default function SapDashboard() {
   }
 
   const isModuleActive = activeScreen !== 'HOME';
+  const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
+  const showForm = activeScreen.endsWith('01') || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
+  const isReadOnly = activeScreen.endsWith('03');
 
   return (
     <div className="flex flex-col h-screen bg-[#d9e1f2] text-[#333] font-mono select-none overflow-hidden">
@@ -338,14 +347,18 @@ export default function SapDashboard() {
               <div className="bg-white shadow-2xl rounded-[2.5rem] border border-slate-100 overflow-hidden animate-slide-up w-full print:shadow-none print:border-none print:rounded-none">
                  <div className="h-2 bg-yellow-500 w-full print:hidden" />
                  <div className="p-10 space-y-10">
-                   {activeScreen === 'OX01' && <PlantForm data={formData} onChange={setFormData} />}
-                   {activeScreen === 'FM01' && <CompanyForm data={formData} onChange={setFormData} />}
-                   {activeScreen === 'XK01' && <VendorForm data={formData} onChange={setFormData} />}
-                   {activeScreen === 'XD01' && <CustomerForm data={formData} onChange={setFormData} />}
-                   {activeScreen === 'VA01' && <SalesOrderForm data={formData} onChange={setFormData} />}
+                   {showForm && (
+                     <>
+                       {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                       {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                       {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                       {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                       {activeScreen.startsWith('VA') && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                     </>
+                   )}
+                   {showList && <RegistryList screen={activeScreen} onSelectItem={setFormData} />}
                    {activeScreen === 'TR21' && <DripBoard orders={recentOrders} trips={allTrips} onStatusUpdate={setStatusMsg} />}
                    {activeScreen === 'BULK' && <BulkUploadForm setStatus={setStatusMsg} />}
-                   {(activeScreen.endsWith('02') || activeScreen.endsWith('03')) && <RegistryList screen={activeScreen} />}
                  </div>
               </div>
             )}
@@ -790,44 +803,49 @@ function BulkUploadForm({ setStatus }: { setStatus: any }) {
   );
 }
 
-function PlantForm({ data, onChange }: any) {
-  const updateField = (field: string, val: any) => onChange({ ...data, [field]: val });
+function PlantForm({ data, onChange, disabled }: any) {
+  const updateField = (field: string, val: any) => !disabled && onChange({ ...data, [field]: val });
 
   const addMobile = () => {
+    if (disabled) return;
     const current = data.mobileNumbers || [];
     onChange({ ...data, mobileNumbers: [...current, ''] });
   };
 
   const updateMobile = (idx: number, val: string) => {
+    if (disabled) return;
     const current = [...(data.mobileNumbers || [])];
     current[idx] = val;
     onChange({ ...data, mobileNumbers: current });
   };
 
   const removeMobile = (idx: number) => {
+    if (disabled) return;
     const current = (data.mobileNumbers || []).filter((_: any, i: number) => i !== idx);
     onChange({ ...data, mobileNumbers: current });
   };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-      <FormField label="Plant Code" placeholder="PLNT01" value={data.plantCode} onChange={(e: any) => updateField('plantCode', e.target.value)} required />
-      <FormField label="Plant Name" placeholder="Sikka Industries Hub" value={data.plantName} onChange={(e: any) => updateField('plantName', e.target.value)} required />
-      <FormField label="City" placeholder="Ghaziabad" value={data.city} onChange={(e: any) => updateField('city', e.target.value)} />
-      <FormField label="State" placeholder="Uttar Pradesh" value={data.state} onChange={(e: any) => updateField('state', e.target.value)} />
-      <FormField label="State Code" placeholder="09" value={data.stateCode} onChange={(e: any) => updateField('stateCode', e.target.value)} />
-      <FormField label="Postal Code" placeholder="201009" value={data.postalCode} onChange={(e: any) => updateField('postalCode', e.target.value)} />
-      <FormField label="GSTIN" placeholder="07AAAAA0000A1Z5" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} />
-      <FormField label="PAN" placeholder="ABCDE1234F" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} />
-      <FormField label="Email ID" placeholder="plant@sikka.com" value={data.email} onChange={(e: any) => updateField('email', e.target.value)} />
-      <FormField label="Website" placeholder="www.sikka.com" value={data.website} onChange={(e: any) => updateField('website', e.target.value)} />
+      <FormField label="Plant Code" placeholder="PLNT01" value={data.plantCode} onChange={(e: any) => updateField('plantCode', e.target.value)} required disabled={disabled} />
+      <FormField label="Plant Name" placeholder="Sikka Industries Hub" value={data.plantName} onChange={(e: any) => updateField('plantName', e.target.value)} required disabled={disabled} />
+      <FormField label="City" placeholder="Ghaziabad" value={data.city} onChange={(e: any) => updateField('city', e.target.value)} disabled={disabled} />
+      <FormField label="State" placeholder="Uttar Pradesh" value={data.state} onChange={(e: any) => updateField('state', e.target.value)} disabled={disabled} />
+      <FormField label="State Code" placeholder="09" value={data.stateCode} onChange={(e: any) => updateField('stateCode', e.target.value)} disabled={disabled} />
+      <FormField label="Postal Code" placeholder="201009" value={data.postalCode} onChange={(e: any) => updateField('postalCode', e.target.value)} disabled={disabled} />
+      <FormField label="GSTIN" placeholder="07AAAAA0000A1Z5" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} disabled={disabled} />
+      <FormField label="PAN" placeholder="ABCDE1234F" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} disabled={disabled} />
+      <FormField label="Email ID" placeholder="plant@sikka.com" value={data.email} onChange={(e: any) => updateField('email', e.target.value)} disabled={disabled} />
+      <FormField label="Website" placeholder="www.sikka.com" value={data.website} onChange={(e: any) => updateField('website', e.target.value)} disabled={disabled} />
       
       <div className="space-y-3">
         <label className="text-[10px] font-black uppercase text-slate-400 flex items-center justify-between">
           Mobile Numbers
-          <button onClick={addMobile} className="text-[#0056d2] hover:underline flex items-center gap-1">
-            <PlusCircle className="h-3 w-3" /> Add Multiple
-          </button>
+          {!disabled && (
+            <button onClick={addMobile} className="text-[#0056d2] hover:underline flex items-center gap-1">
+              <PlusCircle className="h-3 w-3" /> Add Multiple
+            </button>
+          )}
         </label>
         <div className="space-y-2">
           {(data.mobileNumbers || ['']).map((num: string, idx: number) => (
@@ -836,9 +854,10 @@ function PlantForm({ data, onChange }: any) {
                 value={num} 
                 onChange={(e) => updateMobile(idx, e.target.value)}
                 placeholder="+91..."
+                disabled={disabled}
                 className="h-9 border-slate-200 bg-slate-50 px-3 rounded-lg font-bold"
               />
-              {idx > 0 && (
+              {idx > 0 && !disabled && (
                 <button onClick={() => removeMobile(idx)} className="text-red-400 hover:text-red-600">
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -849,19 +868,20 @@ function PlantForm({ data, onChange }: any) {
       </div>
 
       <div className="md:col-span-2">
-        <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} />
+        <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} disabled={disabled} />
       </div>
     </div>
   );
 }
 
-function CompanyForm({ data, onChange }: any) {
+function CompanyForm({ data, onChange, disabled }: any) {
   const { user } = useUser();
   const db = useFirestore();
   const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
   const { data: plants } = useCollection(plantsQuery);
 
   const updateField = (field: string, val: any) => {
+    if (disabled) return;
     let newData = { ...data, [field]: val };
     if (field === 'gstin' && val.length >= 2) {
       if (val.startsWith('09')) {
@@ -880,7 +900,8 @@ function CompanyForm({ data, onChange }: any) {
       <div className="space-y-2">
         <label className="text-[10px] font-black uppercase text-slate-400">Plant Code (Select Node)</label>
         <select 
-          className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none"
+          disabled={disabled}
+          className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none disabled:opacity-50"
           value={data.plantCode}
           onChange={(e) => updateField('plantCode', e.target.value)}
         >
@@ -888,23 +909,23 @@ function CompanyForm({ data, onChange }: any) {
           {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
         </select>
       </div>
-      <FormField label="Company Code" value={data.companyCode || '10000'} onChange={(e: any) => updateField('companyCode', e.target.value)} required />
-      <FormField label="Company Name" placeholder="Sikka Industries" value={data.companyName} onChange={(e: any) => updateField('companyName', e.target.value)} required />
-      <FormField label="GSTIN" placeholder="09AAAAA0000A1Z5" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} required />
+      <FormField label="Company Code" value={data.companyCode || '10000'} onChange={(e: any) => updateField('companyCode', e.target.value)} required disabled={disabled} />
+      <FormField label="Company Name" placeholder="Sikka Industries" value={data.companyName} onChange={(e: any) => updateField('companyName', e.target.value)} required disabled={disabled} />
+      <FormField label="GSTIN" placeholder="09AAAAA0000A1Z5" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} required disabled={disabled} />
       <FormField label="PAN" value={data.pan} disabled />
       <FormField label="State" value={data.state} disabled />
-      <FormField label="Mobile Number" value={data.mobileNumber} onChange={(e: any) => updateField('mobileNumber', e.target.value)} />
+      <FormField label="Mobile Number" value={data.mobileNumber} onChange={(e: any) => updateField('mobileNumber', e.target.value)} disabled={disabled} />
     </div>
   );
 }
 
-function VendorForm({ data, onChange }: any) {
+function VendorForm({ data, onChange, disabled }: any) {
   const { user } = useUser();
   const db = useFirestore();
   const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
   const { data: plants } = useCollection(plantsQuery);
 
-  const updateField = (field: string, val: any) => onChange({ ...data, [field]: val });
+  const updateField = (field: string, val: any) => !disabled && onChange({ ...data, [field]: val });
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
@@ -915,40 +936,41 @@ function VendorForm({ data, onChange }: any) {
             <Badge 
               key={p.id} 
               onClick={() => {
+                if (disabled) return;
                 const current = data.plantCodes || [];
                 const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode];
                 updateField('plantCodes', next);
               }}
-              className={`cursor-pointer rounded-lg py-1.5 px-3 transition-colors ${data.plantCodes?.includes(p.plantCode) ? 'bg-[#0056d2] text-white' : 'bg-white border-slate-200 text-slate-600'}`}
+              className={`cursor-pointer rounded-lg py-1.5 px-3 transition-colors ${data.plantCodes?.includes(p.plantCode) ? 'bg-[#0056d2] text-white' : 'bg-white border-slate-200 text-slate-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {p.plantCode}
             </Badge>
           ))}
         </div>
       </div>
-      <FormField label="Vendor Name" value={data.vendorName} onChange={(e: any) => updateField('vendorName', e.target.value)} required />
-      <FormField label="GSTIN" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} />
-      <FormField label="PAN" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} />
-      <FormField label="Mobile" value={data.mobile} onChange={(e: any) => updateField('mobile', e.target.value)} />
+      <FormField label="Vendor Name" value={data.vendorName} onChange={(e: any) => updateField('vendorName', e.target.value)} required disabled={disabled} />
+      <FormField label="GSTIN" value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} disabled={disabled} />
+      <FormField label="PAN" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} disabled={disabled} />
+      <FormField label="Mobile" value={data.mobile} onChange={(e: any) => updateField('mobile', e.target.value)} disabled={disabled} />
       <div className="md:col-span-2">
-        <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} />
+        <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} disabled={disabled} />
       </div>
     </div>
   );
 }
 
-function CustomerForm({ data, onChange }: any) {
+function CustomerForm({ data, onChange, disabled }: any) {
   const { user } = useUser();
   const db = useFirestore();
   const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
   const { data: plants } = useCollection(plantsQuery);
 
-  const updateField = (field: string, val: any) => onChange({ ...data, [field]: val });
+  const updateField = (field: string, val: any) => !disabled && onChange({ ...data, [field]: val });
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-      <FormField label="Customer Code" placeholder="CUST1000" value={data.customerCode} onChange={(e: any) => updateField('customerCode', e.target.value)} required />
-      <FormField label="Customer Name" placeholder="ABC Logistics" value={data.customerName} onChange={(e: any) => updateField('customerName', e.target.value)} required />
+      <FormField label="Customer Code" placeholder="CUST1000" value={data.customerCode} onChange={(e: any) => updateField('customerCode', e.target.value)} required disabled={disabled} />
+      <FormField label="Customer Name" placeholder="ABC Logistics" value={data.customerName} onChange={(e: any) => updateField('customerName', e.target.value)} required disabled={disabled} />
       
       <div className="md:col-span-2 space-y-2">
         <label className="text-[10px] font-black uppercase text-slate-400">Plant Code (Select Multiple) <span className="text-red-500">*</span></label>
@@ -957,11 +979,12 @@ function CustomerForm({ data, onChange }: any) {
             <Badge 
               key={p.id} 
               onClick={() => {
+                if (disabled) return;
                 const current = data.plantCodes || [];
                 const next = current.includes(p.plantCode) ? current.filter((c: string) => c !== p.plantCode) : [...current, p.plantCode];
                 updateField('plantCodes', next);
               }}
-              className={`cursor-pointer rounded-lg py-1.5 px-3 transition-colors ${data.plantCodes?.includes(p.plantCode) ? 'bg-[#0056d2] text-white' : 'bg-white border-slate-200 text-slate-600'}`}
+              className={`cursor-pointer rounded-lg py-1.5 px-3 transition-colors ${data.plantCodes?.includes(p.plantCode) ? 'bg-[#0056d2] text-white' : 'bg-white border-slate-200 text-slate-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {p.plantCode}
             </Badge>
@@ -972,7 +995,8 @@ function CustomerForm({ data, onChange }: any) {
       <div className="space-y-2">
         <label className="text-[10px] font-black uppercase text-slate-400">Customer Type <span className="text-red-500">*</span></label>
         <select 
-          className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none"
+          disabled={disabled}
+          className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none disabled:opacity-50"
           value={data.customerType}
           onChange={(e) => updateField('customerType', e.target.value)}
         >
@@ -982,20 +1006,20 @@ function CustomerForm({ data, onChange }: any) {
         </select>
       </div>
       
-      <FormField label="City" placeholder="Noida" value={data.city} onChange={(e: any) => updateField('city', e.target.value)} required />
-      <FormField label="GSTIN" placeholder="09XXXX..." value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} />
-      <FormField label="PAN" placeholder="ABCDE1234F" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} />
-      <FormField label="Mobile" value={data.mobile} onChange={(e: any) => updateField('mobile', e.target.value)} />
-      <FormField label="Email" value={data.email} onChange={(e: any) => updateField('email', e.target.value)} />
+      <FormField label="City" placeholder="Noida" value={data.city} onChange={(e: any) => updateField('city', e.target.value)} required disabled={disabled} />
+      <FormField label="GSTIN" placeholder="09XXXX..." value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} disabled={disabled} />
+      <FormField label="PAN" placeholder="ABCDE1234F" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} disabled={disabled} />
+      <FormField label="Mobile" value={data.mobile} onChange={(e: any) => updateField('mobile', e.target.value)} disabled={disabled} />
+      <FormField label="Email" value={data.email} onChange={(e: any) => updateField('email', e.target.value)} disabled={disabled} />
       
       <div className="md:col-span-2">
-        <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} />
+        <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} disabled={disabled} />
       </div>
     </div>
   );
 }
 
-function SalesOrderForm({ data, onChange }: any) {
+function SalesOrderForm({ data, onChange, disabled }: any) {
   const { user } = useUser();
   const db = useFirestore();
   
@@ -1006,6 +1030,7 @@ function SalesOrderForm({ data, onChange }: any) {
   const { data: customers } = useCollection(customersQuery);
 
   const updateField = (field: string, val: any) => {
+    if (disabled) return;
     let nextData = { ...data, [field]: val };
     
     if (field === 'consignor') {
@@ -1022,6 +1047,7 @@ function SalesOrderForm({ data, onChange }: any) {
   };
 
   const addItem = () => {
+    if (disabled) return;
     const current = data.items || [];
     onChange({ ...data, items: [...current, { 
       invoiceNumber: '', 
@@ -1035,12 +1061,14 @@ function SalesOrderForm({ data, onChange }: any) {
   };
 
   const updateItem = (idx: number, field: string, val: any) => {
+    if (disabled) return;
     const nextItems = [...(data.items || [])];
     nextItems[idx] = { ...nextItems[idx], [field]: val };
     onChange({ ...data, items: nextItems });
   };
 
   const removeItem = (idx: number) => {
+    if (disabled) return;
     const nextItems = (data.items || []).filter((_: any, i: number) => i !== idx);
     onChange({ ...data, items: nextItems });
   };
@@ -1051,7 +1079,8 @@ function SalesOrderForm({ data, onChange }: any) {
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase text-slate-400">Plant Code</label>
           <select 
-            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none"
+            disabled={disabled}
+            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none disabled:opacity-50"
             value={data.plantCode}
             onChange={(e) => updateField('plantCode', e.target.value)}
           >
@@ -1059,13 +1088,14 @@ function SalesOrderForm({ data, onChange }: any) {
             {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
           </select>
         </div>
-        <FormField label="Sale Order" placeholder="SO-10001" value={data.saleOrder} onChange={(e: any) => updateField('saleOrder', e.target.value)} required />
-        <FormField label="Sale Order Date" type="date" value={data.saleOrderDate} onChange={(e: any) => updateField('saleOrderDate', e.target.value)} required />
+        <FormField label="Sale Order" placeholder="SO-10001" value={data.saleOrder} onChange={(e: any) => updateField('saleOrder', e.target.value)} required disabled={disabled} />
+        <FormField label="Sale Order Date" type="date" value={data.saleOrderDate} onChange={(e: any) => updateField('saleOrderDate', e.target.value)} required disabled={disabled} />
         
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase text-slate-400">Consignor</label>
           <select 
-            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none"
+            disabled={disabled}
+            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none disabled:opacity-50"
             value={data.consignor}
             onChange={(e) => updateField('consignor', e.target.value)}
           >
@@ -1078,7 +1108,8 @@ function SalesOrderForm({ data, onChange }: any) {
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase text-slate-400">Consignee</label>
           <select 
-            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none"
+            disabled={disabled}
+            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none disabled:opacity-50"
             value={data.consignee}
             onChange={(e) => updateField('consignee', e.target.value)}
           >
@@ -1090,7 +1121,8 @@ function SalesOrderForm({ data, onChange }: any) {
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase text-slate-400">Ship to Party</label>
           <select 
-            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none"
+            disabled={disabled}
+            className="w-full h-11 border border-slate-200 bg-slate-50 px-4 rounded-xl font-bold outline-none disabled:opacity-50"
             value={data.shipToParty}
             onChange={(e) => updateField('shipToParty', e.target.value)}
           >
@@ -1100,16 +1132,18 @@ function SalesOrderForm({ data, onChange }: any) {
         </div>
         <FormField label="Destination (City)" value={data.destination} disabled />
         
-        <FormField label="Vehicle Number" placeholder="UP14-XX-0000" value={data.vehicleNumber} onChange={(e: any) => updateField('vehicleNumber', e.target.value)} />
-        <FormField label="Driver Mobile" placeholder="+91..." value={data.driverMobile} onChange={(e: any) => updateField('driverMobile', e.target.value)} />
+        <FormField label="Vehicle Number" placeholder="UP14-XX-0000" value={data.vehicleNumber} onChange={(e: any) => updateField('vehicleNumber', e.target.value)} disabled={disabled} />
+        <FormField label="Driver Mobile" placeholder="+91..." value={data.driverMobile} onChange={(e: any) => updateField('driverMobile', e.target.value)} disabled={disabled} />
       </div>
 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest italic">Line Items Registry</h3>
-          <Button onClick={addItem} variant="outline" className="h-9 px-6 rounded-xl font-bold gap-2 text-[#0056d2] border-blue-200 bg-blue-50/50">
-            <PlusCircle className="h-4 w-4" /> Add Row Node
-          </Button>
+          {!disabled && (
+            <Button onClick={addItem} variant="outline" className="h-9 px-6 rounded-xl font-bold gap-2 text-[#0056d2] border-blue-200 bg-blue-50/50">
+              <PlusCircle className="h-4 w-4" /> Add Row Node
+            </Button>
+          )}
         </div>
 
         <div className="overflow-x-auto rounded-3xl border border-slate-100 shadow-sm bg-slate-50/30 p-1">
@@ -1128,21 +1162,22 @@ function SalesOrderForm({ data, onChange }: any) {
               {(data.items || []).map((item: any, idx: number) => (
                 <tr key={idx} className="border-t border-slate-100 group">
                   <td className="p-2 border-r border-slate-100">
-                    <Input value={item.invoiceNumber} onChange={(e) => updateItem(idx, 'invoiceNumber', e.target.value)} className="h-9 border-none bg-transparent font-bold focus:bg-white" />
+                    <Input disabled={disabled} value={item.invoiceNumber} onChange={(e) => updateItem(idx, 'invoiceNumber', e.target.value)} className="h-9 border-none bg-transparent font-bold focus:bg-white" />
                   </td>
                   <td className="p-2 border-r border-slate-100">
-                    <Input value={item.ewaybillNumber} onChange={(e) => updateItem(idx, 'ewaybillNumber', e.target.value)} className="h-9 border-none bg-transparent font-bold focus:bg-white" />
+                    <Input disabled={disabled} value={item.ewaybillNumber} onChange={(e) => updateItem(idx, 'ewaybillNumber', e.target.value)} className="h-9 border-none bg-transparent font-bold focus:bg-white" />
                   </td>
                   <td className="p-2 border-r border-slate-100">
-                    <Input value={item.product} onChange={(e) => updateItem(idx, 'product', e.target.value)} className="h-9 border-none bg-transparent font-bold focus:bg-white" />
+                    <Input disabled={disabled} value={item.product} onChange={(e) => updateItem(idx, 'product', e.target.value)} className="h-9 border-none bg-transparent font-bold focus:bg-white" />
                   </td>
                   <td className="p-2 border-r border-slate-100">
                     <div className="flex gap-1">
-                      <Input value={item.unit} onChange={(e) => updateItem(idx, 'unit', e.target.value)} className="h-9 w-20 border-none bg-transparent font-bold focus:bg-white" />
+                      <Input disabled={disabled} value={item.unit} onChange={(e) => updateItem(idx, 'unit', e.target.value)} className="h-9 w-20 border-none bg-transparent font-bold focus:bg-white" />
                       <select 
+                        disabled={disabled}
                         value={item.unitUom} 
                         onChange={(e) => updateItem(idx, 'unitUom', e.target.value)}
-                        className="h-9 flex-1 bg-transparent font-bold outline-none border-none text-[10px] uppercase"
+                        className="h-9 flex-1 bg-transparent font-bold outline-none border-none text-[10px] uppercase disabled:opacity-50"
                       >
                         {['Box', 'Bag', 'Drum', 'Pcs', 'Others'].map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
@@ -1150,20 +1185,23 @@ function SalesOrderForm({ data, onChange }: any) {
                   </td>
                   <td className="p-2 border-r border-slate-100">
                     <div className="flex gap-1">
-                      <Input value={item.weight} onChange={(e) => updateItem(idx, 'weight', e.target.value)} className="h-9 w-20 border-none bg-transparent font-bold focus:bg-white" />
+                      <Input disabled={disabled} value={item.weight} onChange={(e) => updateItem(idx, 'weight', e.target.value)} className="h-9 w-20 border-none bg-transparent font-bold focus:bg-white" />
                       <select 
+                        disabled={disabled}
                         value={item.weightUom} 
                         onChange={(e) => updateItem(idx, 'weightUom', e.target.value)}
-                        className="h-9 flex-1 bg-transparent font-bold outline-none border-none text-[10px] uppercase"
+                        className="h-9 flex-1 bg-transparent font-bold outline-none border-none text-[10px] uppercase disabled:opacity-50"
                       >
                         {['KG', 'MT', 'LTR'].map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
                     </div>
                   </td>
                   <td className="p-2 text-center">
-                    <button onClick={() => removeItem(idx)} className="text-slate-300 hover:text-red-500 transition-colors">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {!disabled && (
+                      <button onClick={() => removeItem(idx)} className="text-slate-300 hover:text-red-500 transition-colors">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1175,7 +1213,7 @@ function SalesOrderForm({ data, onChange }: any) {
   );
 }
 
-function RegistryList({ screen }: { screen: string }) {
+function RegistryList({ screen, onSelectItem }: { screen: string, onSelectItem: (item: any) => void }) {
   const { user } = useUser();
   const db = useFirestore();
   let collectionName = '';
@@ -1203,8 +1241,12 @@ function RegistryList({ screen }: { screen: string }) {
         </thead>
         <tbody>
           {list?.map((item) => (
-            <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-              <td className="p-4 font-bold text-xs text-[#0056d2]">
+            <tr 
+              key={item.id} 
+              className="border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer group"
+              onClick={() => onSelectItem(item)}
+            >
+              <td className="p-4 font-bold text-xs text-[#0056d2] group-hover:underline">
                 {item.saleOrder || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}
               </td>
               <td className="p-4 font-bold text-xs text-slate-600 uppercase">
@@ -1218,6 +1260,13 @@ function RegistryList({ screen }: { screen: string }) {
               </td>
             </tr>
           ))}
+          {(!list || list.length === 0) && (
+            <tr>
+              <td colSpan={4} className="p-12 text-center text-slate-300 font-bold text-xs uppercase italic tracking-widest">
+                No records found in this registry hub.
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
