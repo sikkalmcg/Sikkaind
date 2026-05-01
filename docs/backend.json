@@ -79,6 +79,7 @@
       "description": "Vendor master data registry.",
       "properties": {
         "id": { "type": "string" },
+        "vendorCode": { "type": "string" },
         "plantCodes": { "type": "array", "items": { "type": "string" } },
         "vendorName": { "type": "string" },
         "vendorFirmName": { "type": "string" },

@@ -234,7 +234,7 @@ export default function SapDashboard() {
     if (e.key === 'Enter' && searchId) {
       const list = getRegistryList();
       const item = list.find((i: any) => 
-        (i.plantCode || i.customerCode || i.companyCode || i.saleOrder || i.username || i.id).toString().toUpperCase() === searchId.toUpperCase()
+        (i.plantCode || i.customerCode || i.companyCode || i.saleOrder || i.username || i.id || i.vendorCode).toString().toUpperCase() === searchId.toUpperCase()
       );
       if (item) {
         setFormData(item);
@@ -249,9 +249,10 @@ export default function SapDashboard() {
   const handleSave = React.useCallback(() => {
     if (!user || activeScreen === 'HOME' || activeScreen.endsWith('03')) return;
 
-    // XK Validation (Vendor Master)
+    let localData = { ...formData };
+
     if (activeScreen.startsWith('XK')) {
-      const { vendorName, vendorFirmName, mobile, address, route } = formData;
+      const { vendorName, vendorFirmName, mobile, address, route } = localData;
       const nameVal = (vendorName || '').toString().trim();
       const firmVal = (vendorFirmName || '').toString().trim();
       const mobileVal = (mobile || '').toString().trim();
@@ -268,27 +269,42 @@ export default function SapDashboard() {
         });
         return;
       }
+
+      // Auto-generate Vendor Code if not present
+      if (!localData.vendorCode) {
+        const getFirstAlpha = (val: any) => {
+          if (!val) return '';
+          const s = String(val);
+          const match = s.match(/[a-zA-Z]/);
+          return match ? match[0].toUpperCase() : '';
+        };
+        let prefix = getFirstAlpha(vendorFirmName);
+        if (!prefix) prefix = getFirstAlpha(vendorName);
+        if (!prefix) prefix = 'V';
+        const num = Math.floor(10000 + Math.random() * 90000);
+        localData.vendorCode = `${prefix}${num}`;
+      }
     }
 
     if (activeScreen === 'VA04') {
-      if (!formData.saleOrder || !formData.reason) {
+      if (!localData.saleOrder || !localData.reason) {
         setStatusMsg({ text: 'Error: Sales Order & Reason are mandatory', type: 'error' });
         return;
       }
-      const orderToCancel = rawOrders?.find(o => (o.saleOrder || o.id)?.toString().toUpperCase() === formData.saleOrder.toString().toUpperCase());
+      const orderToCancel = rawOrders?.find(o => (o.saleOrder || o.id)?.toString().toUpperCase() === localData.saleOrder.toString().toUpperCase());
       if (!orderToCancel) {
-        setStatusMsg({ text: `Error: Order ${formData.saleOrder} not found`, type: 'error' });
+        setStatusMsg({ text: `Error: Order ${localData.saleOrder} not found`, type: 'error' });
         return;
       }
       const docRef = doc(db, 'users', user.uid, 'sales_orders', orderToCancel.id);
-      setDocumentNonBlocking(docRef, { status: 'CANCELLED', cancellationReason: formData.reason, updatedAt: new Date().toISOString() }, { merge: true });
-      setStatusMsg({ text: `Success: Order ${formData.saleOrder} CANCELLED`, type: 'success' });
+      setDocumentNonBlocking(docRef, { status: 'CANCELLED', cancellationReason: localData.reason, updatedAt: new Date().toISOString() }, { merge: true });
+      setStatusMsg({ text: `Success: Order ${localData.saleOrder} CANCELLED`, type: 'success' });
       setFormData({});
       return;
     }
 
     let collectionName = '';
-    const docId = formData.id || crypto.randomUUID();
+    const docId = localData.id || crypto.randomUUID();
     if (activeScreen.startsWith('OX')) collectionName = 'plants';
     else if (activeScreen.startsWith('FM')) collectionName = 'companies';
     else if (activeScreen.startsWith('XK')) collectionName = 'vendors';
@@ -299,7 +315,7 @@ export default function SapDashboard() {
     if (collectionName) {
       const isSystemUser = collectionName === 'user_registry';
       const docRef = isSystemUser ? doc(db, 'user_registry', docId) : doc(db, 'users', user.uid, collectionName, docId);
-      const payload = { ...formData, id: docId, updatedAt: new Date().toISOString() };
+      const payload = { ...localData, id: docId, updatedAt: new Date().toISOString() };
       setDocumentNonBlocking(docRef, payload, { merge: true });
       setStatusMsg({ text: `Synchronized successfully`, type: 'success' });
       if (!formData.id) setFormData(payload);
@@ -637,6 +653,7 @@ function VendorForm({ data, onChange, disabled }: any) {
   return (
     <div className="space-y-4">
       <SectionGrouping title="IDENTIFICATION">
+        <FormInput label="VENDOR CODE" value={data.vendorCode} disabled={true} placeholder="AUTO-GENERATED" />
         <FormInput label="VENDOR NAME" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
         <FormInput label="VENDOR FIRM NAME" value={data.vendorFirmName} onChange={(v: string) => onChange({...data, vendorFirmName: v})} disabled={disabled} />
       </SectionGrouping>
@@ -719,7 +736,7 @@ function RegistryList({ onSelectItem, listData }: any) {
       <table className="w-full text-left border-collapse">
         <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr>{['ID', 'Name / Description', 'Type / Details', 'Sync Hub'].map(c => <th key={c} className="p-3 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">{c}</th>)}</tr></thead>
         <tbody>{listData?.map((item: any) => (
-          <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors"><td className="p-3 text-[11px] font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.id.slice(0, 8)}</td><td className="p-3 text-[11px] font-bold uppercase">{item.customerName || item.plantName || `${item.consignor} → ${item.consignee}`}</td><td className="p-3 text-[11px] italic text-slate-500">{item.city || item.customerType || 'DATA'}</td><td className="p-3 text-[11px] font-bold text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></tr>
+          <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors"><td className="p-3 text-[11px] font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.vendorCode || item.id.slice(0, 8)}</td><td className="p-3 text-[11px] font-bold uppercase">{item.customerName || item.plantName || item.vendorName || `${item.consignor} → ${item.consignee}`}</td><td className="p-3 text-[11px] italic text-slate-500">{item.city || item.customerType || item.vendorCode || 'DATA'}</td><td className="p-3 text-[11px] font-bold text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></tr>
         ))}</tbody>
       </table>
     </div>
