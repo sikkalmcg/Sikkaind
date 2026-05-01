@@ -642,6 +642,7 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
         <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
         <FormInput label="STATE" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
         <FormInput label="STATE CODE" value={data.stateCode} onChange={(v: string) => onChange({...data, stateCode: v})} disabled={disabled} />
+        <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
       </SectionGrouping>
 
       <SectionGrouping title="TAX & CONTACT">
@@ -650,6 +651,41 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
         <FormInput label="MOBILE (COMMA SEPARATED)" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} placeholder="e.g. 9876543210, 8765432109" />
         <FormInput label="EMAIL" value={data.email} onChange={(v: string) => onChange({...data, email: v})} disabled={disabled} />
         <FormInput label="WEBSITE" value={data.website} onChange={(v: string) => onChange({...data, website: v})} disabled={disabled} />
+      </SectionGrouping>
+
+      <SectionGrouping title="TERMS & CONDITIONS">
+        <div className="col-span-2 space-y-3">
+          {(data.termsAndConditions || ['']).map((term: string, idx: number) => (
+            <div key={idx} className="flex gap-2">
+              <span className="w-6 text-[10px] font-black text-slate-400 mt-2.5">0{idx + 1}</span>
+              <input
+                value={term}
+                onChange={(e) => {
+                  const newTerms = [...(data.termsAndConditions || [''])];
+                  newTerms[idx] = e.target.value;
+                  onChange({...data, termsAndConditions: newTerms});
+                }}
+                disabled={disabled}
+                className="flex-1 h-9 border border-slate-400 px-3 text-xs font-bold outline-none focus:bg-[#ffffcc]"
+                placeholder={`TERM ${idx + 1}...`}
+              />
+              {!disabled && (data.termsAndConditions?.length || 1) > 1 && (
+                 <button onClick={() => {
+                   const newTerms = data.termsAndConditions.filter((_:any, i:number) => i !== idx);
+                   onChange({...data, termsAndConditions: newTerms});
+                 }} className="text-red-400 p-2"><Trash2 className="h-4 w-4" /></button>
+              )}
+            </div>
+          ))}
+          {!disabled && (data.termsAndConditions?.length || 1) < 8 && (
+            <button
+              onClick={() => onChange({...data, termsAndConditions: [...(data.termsAndConditions || ['']), '']})}
+              className="text-[9px] font-black uppercase text-blue-600 hover:underline flex items-center gap-1"
+            >
+              <Plus className="h-3 w-3" /> Add New Term
+            </button>
+          )}
+        </div>
       </SectionGrouping>
 
       <SectionGrouping title="MEDIA">

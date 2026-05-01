@@ -17,7 +17,7 @@
     "UserRegistry": {
       "title": "UserRegistry",
       "type": "object",
-      "description": "System User Management Registry. Admin: Ajay Somra (Sikkaind).",
+      "description": "System User Management. Admin: Ajay Somra (Sikkaind).",
       "properties": {
         "id": { "type": "string" },
         "fullName": { "type": "string" },
@@ -33,11 +33,10 @@
     "Plant": {
       "title": "Plant",
       "type": "object",
-      "description": "Plant master data registry.",
+      "description": "Plant master data.",
       "properties": {
         "id": { "type": "string" },
         "plantCode": { "type": "string" },
-        "plantName": { "type": "string" },
         "city": { "type": "string" },
         "state": { "type": "string" },
         "stateCode": { "type": "string" },
@@ -54,7 +53,7 @@
     "Company": {
       "title": "Company",
       "type": "object",
-      "description": "Company hub registry.",
+      "description": "Company hub.",
       "properties": {
         "id": { "type": "string" },
         "plantCode": { "type": "string" },
@@ -70,14 +69,15 @@
         "mobile": { "type": "string" },
         "email": { "type": "string" },
         "website": { "type": "string" },
-        "logo": { "type": "string" }
+        "logo": { "type": "string" },
+        "termsAndConditions": { "type": "array", "items": { "type": "string" }, "maxItems": 8 }
       },
       "required": ["companyCode", "companyName"]
     },
     "Vendor": {
       "title": "Vendor",
       "type": "object",
-      "description": "Vendor master data registry.",
+      "description": "Vendor master data.",
       "properties": {
         "id": { "type": "string" },
         "vendorCode": { "type": "string" },
@@ -95,7 +95,7 @@
     "Customer": {
       "title": "Customer",
       "type": "object",
-      "description": "Customer registry (Consignor/Consignee).",
+      "description": "Customer (Consignor/Consignee).",
       "properties": {
         "id": { "type": "string" },
         "customerCode": { "type": "string" },
@@ -115,7 +115,7 @@
     "SalesOrder": {
       "title": "SalesOrder",
       "type": "object",
-      "description": "Sales Order registry.",
+      "description": "Sales Order.",
       "properties": {
         "id": { "type": "string" },
         "plantCode": { "type": "string" },
@@ -152,7 +152,7 @@
     "Trip": {
       "title": "Trip",
       "type": "object",
-      "description": "Logistics Trip Registry.",
+      "description": "Logistics Trip.",
       "properties": {
         "id": { "type": "string" },
         "tripId": { "type": "string" },
@@ -194,13 +194,13 @@
   },
   "firestore": {
     "/user_profiles/{userId}": { "schema": "UserProfile", "description": "User profile data." },
-    "/user_registry/{userId}": { "schema": "UserRegistry", "description": "System Authorization Registry." },
+    "/user_registry/{userId}": { "schema": "UserRegistry", "description": "System Authorization." },
     "/users/{userId}/plants/{plantId}": { "schema": "Plant", "description": "User-owned plants." },
     "/users/{userId}/companies/{companyId}": { "schema": "Company", "description": "User-owned companies." },
     "/users/{userId}/vendors/{vendorId}": { "schema": "Vendor", "description": "User-owned vendors." },
     "/users/{userId}/customers/{customerId}": { "schema": "Customer", "description": "User-owned customers." },
     "/users/{userId}/sales_orders/{orderId}": { "schema": "SalesOrder", "description": "User-owned sales orders." },
-    "/users/{userId}/trips/{tripId}": { "schema": "Trip", "description": "User-owned trip registries." },
+    "/users/{userId}/trips/{tripId}": { "schema": "Trip", "description": "User-owned trip." },
     "/public_orders/{orderNo}": { "schema": "PublicTracking", "description": "Public searchable order nodes." },
     "/public_trips/{tripId}": { "schema": "PublicTracking", "description": "Public searchable trip nodes." }
   }
