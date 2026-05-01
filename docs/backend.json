@@ -77,6 +77,7 @@
       "description": "Customer registry (Consignor/Consignee).",
       "properties": {
         "id": { "type": "string" },
+        "customerCode": { "type": "string" },
         "plantCodes": { "type": "array", "items": { "type": "string" } },
         "customerType": { "type": "string", "enum": ["Consignor", "Consignee"] },
         "customerName": { "type": "string" },
@@ -87,7 +88,7 @@
         "mobile": { "type": "string" },
         "email": { "type": "string" }
       },
-      "required": ["plantCodes", "customerName", "customerType", "city"]
+      "required": ["customerCode", "plantCodes", "customerName", "customerType", "city"]
     }
   },
   "auth": {

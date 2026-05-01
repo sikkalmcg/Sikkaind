@@ -478,6 +478,9 @@ function CustomerForm({ data, onChange }: any) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+      <FormField label="Customer Code" placeholder="CUST1000" value={data.customerCode} onChange={(e: any) => updateField('customerCode', e.target.value)} required />
+      <FormField label="Customer Name" placeholder="ABC Logistics" value={data.customerName} onChange={(e: any) => updateField('customerName', e.target.value)} required />
+      
       <div className="md:col-span-2 space-y-2">
         <label className="text-[10px] font-black uppercase text-slate-400">Plant Code (Select Multiple) <span className="text-red-500">*</span></label>
         <div className="flex flex-wrap gap-2 p-4 bg-slate-50 border border-slate-200 rounded-2xl min-h-[60px]">
@@ -496,6 +499,7 @@ function CustomerForm({ data, onChange }: any) {
           ))}
         </div>
       </div>
+      
       <div className="space-y-2">
         <label className="text-[10px] font-black uppercase text-slate-400">Customer Type <span className="text-red-500">*</span></label>
         <select 
@@ -508,12 +512,13 @@ function CustomerForm({ data, onChange }: any) {
           <option value="Consignee">Consignee – Ship to Party</option>
         </select>
       </div>
-      <FormField label="Customer Name" placeholder="ABC Logistics" value={data.customerName} onChange={(e: any) => updateField('customerName', e.target.value)} required />
+      
       <FormField label="City" placeholder="Noida" value={data.city} onChange={(e: any) => updateField('city', e.target.value)} required />
       <FormField label="GSTIN" placeholder="09XXXX..." value={data.gstin} onChange={(e: any) => updateField('gstin', e.target.value)} />
       <FormField label="PAN" placeholder="ABCDE1234F" value={data.pan} onChange={(e: any) => updateField('pan', e.target.value)} />
       <FormField label="Mobile" value={data.mobile} onChange={(e: any) => updateField('mobile', e.target.value)} />
       <FormField label="Email" value={data.email} onChange={(e: any) => updateField('email', e.target.value)} />
+      
       <div className="md:col-span-2">
         <FormField label="Address" type="textarea" value={data.address} onChange={(e: any) => updateField('address', e.target.value)} />
       </div>
@@ -549,7 +554,7 @@ function RegistryList({ screen }: { screen: string }) {
         <tbody>
           {list?.map((item) => (
             <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-              <td className="p-4 font-bold text-xs text-[#0056d2]">{item.plantCode || item.companyCode || item.id.slice(0, 8)}</td>
+              <td className="p-4 font-bold text-xs text-[#0056d2]">{item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}</td>
               <td className="p-4 font-bold text-xs text-slate-600 uppercase">{item.plantName || item.companyName || item.vendorName || item.customerName}</td>
               <td className="p-4 font-bold text-xs text-slate-400 uppercase italic">
                 {item.customerType || item.city || 'Standard Registry'}
