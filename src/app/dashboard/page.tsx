@@ -198,7 +198,6 @@ export default function SapDashboard() {
         const cleanSo = payload.saleOrder.toString().trim().toUpperCase();
         const publicRef = doc(db, 'public_orders', cleanSo);
         
-        // Calculate total order quantity for public view
         const totalQty = (payload.items || []).reduce((sum: number, item: any) => sum + (parseFloat(item.weight) || 0), 0);
         const uom = payload.items?.[0]?.weightUom || 'KG';
 
@@ -640,7 +639,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const docRef = doc(db, 'users', user.uid, 'trips', newTripId);
     setDocumentNonBlocking(docRef, tripData, { merge: true });
 
-    // Enforce full metadata synchronization for the mission
     const totalOrderWeight = (selectedOrder.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
     const weightUom = selectedOrder.items?.[0]?.weightUom || 'KG';
 
@@ -1442,17 +1440,31 @@ function RegistryList({ screen, onSelectItem, listData }: { screen: string, onSe
     <div className="overflow-x-auto px-4">
       <table className="w-full text-left border-collapse border border-slate-300">
         <thead className="bg-[#f0f3f9] border-b border-slate-300">
-          <tr><th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">ID / Node</th><th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">Name / Description</th><th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">Type / Details</th><th className="p-2 text-[10px] font-bold text-slate-600">Status</th></tr>
+          <tr>
+            <th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">ID / Node</th>
+            <th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">Name / Description</th>
+            <th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">Type / Details</th>
+            <th className="p-2 text-[10px] font-bold text-slate-600 border-r border-slate-300">Order Qty / UOM</th>
+            <th className="p-2 text-[10px] font-bold text-slate-600">Status</th>
+          </tr>
         </thead>
         <tbody>
-          {listData?.map((item) => (
-            <tr key={item.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => onSelectItem(item)}>
-              <td className="p-2 font-bold text-[11px] text-[#0056d2] group-hover:underline border-r border-slate-200">{item.username || item.saleOrder || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}</td>
-              <td className="p-2 font-bold text-[11px] text-slate-600 uppercase border-r border-slate-200">{item.fullName || item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}</td>
-              <td className="p-2 font-bold text-[11px] text-slate-400 uppercase italic border-r border-slate-200">{item.destination || item.customerType || item.city || (item.plants ? `${item.plants.length} Plants Auth` : 'Standard Registry')}</td>
-              <td className="p-2"><Badge className="bg-emerald-50 text-emerald-600 rounded-none uppercase text-[8px] font-black border border-emerald-100">Synchronized</Badge></td>
-            </tr>
-          ))}
+          {listData?.map((item) => {
+            const totalQty = item.items ? item.items.reduce((sum: number, i: any) => sum + (parseFloat(i.weight) || 0), 0) : null;
+            const uom = item.items?.[0]?.weightUom || '';
+            
+            return (
+              <tr key={item.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => onSelectItem(item)}>
+                <td className="p-2 font-bold text-[11px] text-[#0056d2] group-hover:underline border-r border-slate-200">{item.username || item.saleOrder || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}</td>
+                <td className="p-2 font-bold text-[11px] text-slate-600 uppercase border-r border-slate-200">{item.fullName || item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}</td>
+                <td className="p-2 font-bold text-[11px] text-slate-400 uppercase italic border-r border-slate-200">{item.destination || item.customerType || item.city || (item.plants ? `${item.plants.length} Plants Auth` : 'Standard Registry')}</td>
+                <td className="p-2 font-bold text-[11px] text-slate-600 border-r border-slate-200">
+                  {totalQty !== null ? `${totalQty} ${uom}` : '--'}
+                </td>
+                <td className="p-2"><Badge className="bg-emerald-50 text-emerald-600 rounded-none uppercase text-[8px] font-black border border-emerald-100">Synchronized</Badge></td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
