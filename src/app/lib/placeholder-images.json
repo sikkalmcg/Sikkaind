@@ -1,0 +1,23 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "cargo-ship",
+      "description": "Cargo ship at sea",
+      "imageUrl": "https://picsum.photos/seed/cargo1/800/400",
+      "imageHint": "cargo ship"
+    },
+    {
+      "id": "delivery-truck",
+      "description": "Logistics delivery truck",
+      "imageUrl": "https://picsum.photos/seed/truck1/800/400",
+      "imageHint": "delivery truck"
+    },
+    {
+      "id": "warehouse",
+      "description": "Modern logistics warehouse",
+      "imageUrl": "https://picsum.photos/seed/warehouse1/800/400",
+      "imageHint": "warehouse logistics"
+    }
+  ]
+}

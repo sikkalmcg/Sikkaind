@@ -1,3 +1,7 @@
+
+import { redirect } from "next/navigation";
+
 export default function Home() {
-  return <></>;
+  // Simple entry point redirect
+  redirect("/auth/login");
 }
