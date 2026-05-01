@@ -1,0 +1,403 @@
+{
+  "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Stores user-specific profile information, linked to an external authentication system. Contains personal details and contact information for the user managing shipments.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserProfile entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address, primarily used for communication. (Relationship: UserProfile 1:N Shipment)",
+          "format": "email"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the user."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the user."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The user's contact phone number."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the user profile was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the user profile was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "firstName",
+        "lastName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Address": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Address",
+      "type": "object",
+      "description": "Represents a physical address, used for shipment origins, destinations, and potentially current locations. Includes detailed location information and optional geographical coordinates.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Address entity."
+        },
+        "street": {
+          "type": "string",
+          "description": "The street address, including building number and street name."
+        },
+        "city": {
+          "type": "string",
+          "description": "The city of the address."
+        },
+        "stateProvince": {
+          "type": "string",
+          "description": "The state or province of the address."
+        },
+        "postalCode": {
+          "type": "string",
+          "description": "The postal code or ZIP code of the address."
+        },
+        "country": {
+          "type": "string",
+          "description": "The country of the address."
+        },
+        "latitude": {
+          "type": "number",
+          "description": "The geographical latitude coordinate of the address."
+        },
+        "longitude": {
+          "type": "number",
+          "description": "The geographical longitude coordinate of the address."
+        }
+      },
+      "required": [
+        "id",
+        "street",
+        "city",
+        "stateProvince",
+        "postalCode",
+        "country"
+      ]
+    },
+    "Shipment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Shipment",
+      "type": "object",
+      "description": "The central entity representing a logistics shipment, containing all details from origin to destination, item specifics, current status, and references to associated routes and tracking updates.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Shipment entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the UserProfile who created or owns this shipment. (Relationship: UserProfile 1:N Shipment)"
+        },
+        "originAddressId": {
+          "type": "string",
+          "description": "Reference to the Address entity for the shipment's origin location. (Relationship: Address 1:N Shipment)"
+        },
+        "destinationAddressId": {
+          "type": "string",
+          "description": "Reference to the Address entity for the shipment's final destination. (Relationship: Address 1:N Shipment)"
+        },
+        "itemDescription": {
+          "type": "string",
+          "description": "A detailed description of the items being shipped."
+        },
+        "weightKg": {
+          "type": "number",
+          "description": "The total weight of the shipment in kilograms."
+        },
+        "lengthCm": {
+          "type": "number",
+          "description": "The length of the shipment in centimeters."
+        },
+        "widthCm": {
+          "type": "number",
+          "description": "The width of the shipment in centimeters."
+        },
+        "heightCm": {
+          "type": "number",
+          "description": "The height of the shipment in centimeters."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the shipment (e.g., 'Pending', 'In Transit', 'Delivered', 'Canceled')."
+        },
+        "currentLocationLatitude": {
+          "type": "number",
+          "description": "The geographical latitude coordinate of the shipment's most recent known live location."
+        },
+        "currentLocationLongitude": {
+          "type": "number",
+          "description": "The geographical longitude coordinate of the shipment's most recent known live location."
+        },
+        "currentLocationDescription": {
+          "type": "string",
+          "description": "A textual description of the shipment's most recent known live location (e.g., 'En route to City B', 'At distribution center')."
+        },
+        "estimatedDeliveryDate": {
+          "type": "string",
+          "description": "The estimated date and time for delivery of the shipment.",
+          "format": "date-time"
+        },
+        "actualDeliveryDate": {
+          "type": "string",
+          "description": "The actual date and time the shipment was delivered. Null if not yet delivered.",
+          "format": "date-time"
+        },
+        "routeId": {
+          "type": "string",
+          "description": "Reference to the optimized Route entity generated for this shipment. (Relationship: Shipment 1:1 Route)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the shipment was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the shipment details were last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "originAddressId",
+        "destinationAddressId",
+        "itemDescription",
+        "weightKg",
+        "lengthCm",
+        "widthCm",
+        "heightCm",
+        "status",
+        "currentLocationLatitude",
+        "currentLocationLongitude",
+        "currentLocationDescription",
+        "estimatedDeliveryDate",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Route": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Route",
+      "type": "object",
+      "description": "Represents an optimized route for a specific shipment, often generated by an AI tool. Contains the path details, estimated distance, and transit time.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Route entity."
+        },
+        "shipmentId": {
+          "type": "string",
+          "description": "Reference to the Shipment entity this route belongs to. (Relationship: Route 1:1 Shipment)"
+        },
+        "optimizedPolyline": {
+          "type": "string",
+          "description": "An encoded polyline string representing the optimized geographical path (e.g., Google Maps Encoded Polyline Format)."
+        },
+        "estimatedDistanceKm": {
+          "type": "number",
+          "description": "The estimated total distance of the route in kilometers."
+        },
+        "estimatedTransitTimeHours": {
+          "type": "number",
+          "description": "The estimated total transit time of the route in hours."
+        },
+        "generatedAt": {
+          "type": "string",
+          "description": "Timestamp when this route was generated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "shipmentId",
+        "optimizedPolyline",
+        "estimatedDistanceKm",
+        "estimatedTransitTimeHours",
+        "generatedAt"
+      ]
+    },
+    "TrackingUpdate": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TrackingUpdate",
+      "type": "object",
+      "description": "Records a specific status or location update for a shipment. These updates form the history and provide real-time tracking information.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the TrackingUpdate entity."
+        },
+        "shipmentId": {
+          "type": "string",
+          "description": "Reference to the Shipment entity this update belongs to. (Relationship: Shipment 1:N TrackingUpdate)"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The date and time when this tracking update was recorded.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The specific status reported in this update (e.g., 'Departed Origin', 'Arrived at Hub', 'Out for Delivery', 'Delivered')."
+        },
+        "locationDescription": {
+          "type": "string",
+          "description": "A textual description of the location where this update occurred (e.g., 'Departure from warehouse', 'Arrival at sorting facility')."
+        },
+        "latitude": {
+          "type": "number",
+          "description": "The geographical latitude coordinate of the location where this update occurred."
+        },
+        "longitude": {
+          "type": "number",
+          "description": "The geographical longitude coordinate of the location where this update occurred."
+        }
+      },
+      "required": [
+        "id",
+        "shipmentId",
+        "timestamp",
+        "status",
+        "locationDescription",
+        "latitude",
+        "longitude"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/user_profiles/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user-specific profile information. The document ID (`userId`) must match `request.auth.uid`. This collection is top-level for direct user profile access.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the authenticated user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/addresses/{addressId}",
+        "definition": {
+          "entityName": "Address",
+          "schema": {
+            "$ref": "#/backend/entities/Address"
+          },
+          "description": "User-specific addresses for shipment origins and destinations. Each address document is owned by the `userId` in the path, ensuring private access.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns this address."
+            },
+            {
+              "name": "addressId",
+              "description": "The unique identifier for the address document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/shipments/{shipmentId}",
+        "definition": {
+          "entityName": "Shipment",
+          "schema": {
+            "$ref": "#/backend/entities/Shipment"
+          },
+          "description": "The central entity for a user's logistics shipments. The `userId` in the path denotes ownership. Includes denormalized `userId` field for robust ownership checks, supporting Authorization Independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns this shipment."
+            },
+            {
+              "name": "shipmentId",
+              "description": "The unique identifier for the shipment document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/shipments/{shipmentId}/routes/{routeId}",
+        "definition": {
+          "entityName": "Route",
+          "schema": {
+            "$ref": "#/backend/entities/Route"
+          },
+          "description": "Optimized route details for a specific shipment. Authorization is inherited from the parent shipment's user via the hierarchical path, supporting Authorization Independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns the parent shipment."
+            },
+            {
+              "name": "shipmentId",
+              "description": "The unique identifier for the parent shipment."
+            },
+            {
+              "name": "routeId",
+              "description": "The unique identifier for the route document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/shipments/{shipmentId}/tracking_updates/{trackingUpdateId}",
+        "definition": {
+          "entityName": "TrackingUpdate",
+          "schema": {
+            "$ref": "#/backend/entities/TrackingUpdate"
+          },
+          "description": "Individual tracking events for a shipment. Authorization is inherited from the parent shipment's user via the hierarchical path, supporting Authorization Independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns the parent shipment."
+            },
+            {
+              "name": "shipmentId",
+              "description": "The unique identifier for the parent shipment."
+            },
+            {
+              "name": "trackingUpdateId",
+              "description": "The unique identifier for the tracking update document."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure for CargoFlow prioritizes secure, scalable, and debuggable access control by strictly adhering to the core design principles. The primary strategy employed is **Authorization Independence via Denormalization** combined with **Structural Segregation** and **Path-Based Ownership**.\n\n**Authorization Independence:** Every piece of data is placed under a path that explicitly defines its owner or context. For instance, `UserProfile` documents are at `/user_profiles/{userId}`, and all user-specific data like `Address`, `Shipment`, `Route`, and `TrackingUpdate` are nested under `/users/{userId}/...`. This design ensures that security rules do not require `get()` operations to check ownership or parent document attributes. The `request.auth.uid` can be directly compared against the `{userId}` wildcard in the path. For example, to read a shipment, the rule would simply be `allow read: if request.auth.uid == userId;`. This makes rules atomic, highly performant, and easy to debug. Furthermore, the `Shipment` entity explicitly includes a `userId` field, denormalizing the ownership directly into the document, providing an additional layer of explicit ownership verification and supporting consistent data invariants.\n\n**QAPs (Rules are not Filters):** This structure naturally supports Queryable Access Patterns (QAPs). By placing all user-specific data under `/users/{userId}/...`, any `list` operation a user performs on their shipments (`/users/{userId}/shipments`), addresses (`/users/{userId}/addresses`), or related subcollections will automatically be scoped to their data. The security rules will only permit access to documents where the `{userId}` in the path matches `request.auth.uid`, thus guaranteeing that no unauthorized data is ever returned. This eliminates the need for complex server-side filtering logic within security rules, ensuring that queries are efficient and secure by design.\n\n**Structural Segregation:** Each collection (`user_profiles`, `addresses`, `shipments`, `routes`, `tracking_updates`) maintains a homogeneous security posture. All documents within `/users/{userId}/shipments` are owned by that specific user, simplifying rules drastically. There's no mixing of public, private, or shared data within the same collection, which prevents security vulnerabilities arising from complex conditional logic.\n\n**Access Modeling & Hierarchical Paths:** The design utilizes **Path-Based Ownership** extensively. `UserProfile` is top-level user data. `Address` is user-owned. `Shipment` is user-owned. `Route` and `TrackingUpdate` are direct children of `Shipment`, inheriting their security context from the parent `Shipment` and ultimately from the owning `User`. This hierarchical design (`/users/{userId}/shipments/{shipmentId}/routes/{routeId}`) provides clear ownership and simplifies authorization rules across related entities."
+  }
+}

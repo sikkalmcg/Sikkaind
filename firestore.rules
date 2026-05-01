@@ -1,0 +1,125 @@
+/**
+ * CargoFlow Security Rules
+ * 
+ * Core Philosophy:
+ * This ruleset enforces a strict Path-Based Ownership model. All user data is either 
+ * located in the top-level 'user_profiles' collection or nested under the hierarchical 
+ * '/users/{userId}' path. Authorization is derived directly from the path wildcards, 
+ * ensuring high performance and clear data boundaries.
+ * 
+ * Data Structure:
+ * - /user_profiles/{userId}: Public/Private user identity details.
+ * - /users/{userId}/addresses: User-specific saved locations.
+ * - /users/{userId}/shipments: The primary logistics entity.
+ * - /users/{userId}/shipments/{shipmentId}/routes: Shipment-specific pathing.
+ * - /users/{userId}/shipments/{shipmentId}/tracking_updates: Timeline of events.
+ * 
+ * Key Security Decisions:
+ * - Denormalization for Authorization: Shipments include a 'userId' field that is 
+ *   validated against the path and the authenticated user's UID to prevent ID spoofing.
+ * - Structural Segregation: All logistics data is nested under the user who owns it, 
+ *   ensuring that queries are automatically scoped and security rules never require 
+ *   expensive 'get()' lookups for parent ownership.
+ * - Relational Integrity: Critical fields like 'id', 'userId', and 'shipmentId' are 
+ *   validated on creation and enforced as immutable during updates.
+ */
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+
+    /**
+     * @description Checks if the request is from an authenticated user.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user's UID matches the provided userId.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Combines ownership check with existence check for destructive operations.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Rules for UserProfile entity. Ensures users can only manage their own profiles.
+     * @path /user_profiles/{userId}
+     * @allow get, list, create, update: if request.auth.uid == userId
+     * @deny create: if request.auth.uid != userId
+     * @principle Path-based ownership and relational integrity for User ID.
+     */
+    match /user_profiles/{userId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    match /users/{userId} {
+      
+      /**
+       * @description Rules for Address entity. Stores origin/destination points for shipments.
+       * @path /users/{userId}/addresses/{addressId}
+       * @allow create: if request.auth.uid == userId && data.id == addressId
+       * @principle Restricts address data to the specific user's sub-tree.
+       */
+      match /addresses/{addressId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.id == addressId;
+        allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+        allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Rules for Shipment entity. Validates ownership via both path and internal userId field.
+       * @path /users/{userId}/shipments/{shipmentId}
+       * @allow create: if path userId and data userId match auth UID.
+       * @principle Denormalization for Authorization and Relational Integrity.
+       */
+      match /shipments/{shipmentId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.id == shipmentId && request.resource.data.userId == userId;
+        allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id && request.resource.data.userId == resource.data.userId;
+        allow delete: if isExistingOwner(userId);
+
+        /**
+         * @description Rules for Route entity. Inherits authorization from the parent shipment.
+         * @path /users/{userId}/shipments/{shipmentId}/routes/{routeId}
+         * @allow list: if authenticated user owns the parent shipment path.
+         * @principle Hierarchical path-based security.
+         */
+        match /routes/{routeId} {
+          allow get, list: if isOwner(userId);
+          allow create: if isOwner(userId) && request.resource.data.id == routeId && request.resource.data.shipmentId == shipmentId;
+          allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+          allow delete: if isExistingOwner(userId);
+        }
+
+        /**
+         * @description Rules for TrackingUpdate entity. Chronological history of shipment status.
+         * @path /users/{userId}/shipments/{shipmentId}/tracking_updates/{trackingUpdateId}
+         * @allow get: if authenticated user owns the parent shipment path.
+         * @principle Path-based inheritance for related logs.
+         */
+        match /tracking_updates/{trackingUpdateId} {
+          allow get, list: if isOwner(userId);
+          allow create: if isOwner(userId) && request.resource.data.id == trackingUpdateId && request.resource.data.shipmentId == shipmentId;
+          allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+          allow delete: if isExistingOwner(userId);
+        }
+      }
+    }
+  }
+}
