@@ -12,45 +12,44 @@ import placeholderData from '@/app/lib/placeholder-images.json';
 
 /**
  * @fileOverview Portal Login page.
- * Replicates the legacy ERP-style login interface provided in the design.
+ * Replicates the legacy ERP-style login interface with enhanced responsiveness.
  */
 export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = React.useState(false);
-  const officeImg = placeholderData.placeholderImages.find(p => p.id === 'login-office');
+  const loginImg = placeholderData.placeholderImages.find(p => p.id === 'login-hero');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, validation would happen here
     router.push('/dashboard');
   };
 
   return (
-    <div className="min-h-screen bg-slate-200 flex items-center justify-center p-4 font-body">
-      <div className="w-full max-w-5xl bg-white shadow-2xl relative overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-0 md:p-8 font-body">
+      <div className="w-full max-w-7xl bg-white shadow-2xl relative overflow-hidden flex flex-col min-h-screen md:min-h-0">
         {/* Top Yellow Border */}
-        <div className="h-1.5 w-full bg-yellow-500" />
+        <div className="h-2 w-full bg-yellow-500" />
 
-        <div className="flex flex-col md:flex-row min-h-[500px]">
-          {/* Left Column: Image */}
-          <div className="w-full md:w-1/2 p-10 flex items-center justify-center">
-            <div className="relative w-full aspect-[3/4] shadow-inner border border-slate-100 overflow-hidden">
-              {officeImg && (
+        <div className="flex flex-col md:flex-row flex-1">
+          {/* Left Column: Image (Hidden on small mobile if needed, but here we make it responsive) */}
+          <div className="w-full md:w-[45%] p-4 md:p-12 flex items-center justify-center bg-white">
+            <div className="relative w-full aspect-[4/5] md:aspect-[3/4] shadow-xl overflow-hidden group">
+              {loginImg && (
                 <Image
-                  src={officeImg.url}
-                  alt={officeImg.description}
+                  src={loginImg.url}
+                  alt="Login Hero"
                   fill
-                  className="object-cover"
+                  className="object-cover transition-transform duration-700 group-hover:scale-105"
                   unoptimized
-                  data-ai-hint="modern office"
+                  data-ai-hint="statue logistics"
                 />
               )}
-              {/* Overlay Logo for the visual effect */}
-              <div className="absolute top-1/4 left-1/2 -translate-x-1/2 bg-white/90 p-4 rounded shadow-lg flex flex-col items-center">
-                 <div className="w-12 h-12 bg-blue-900 flex items-center justify-center mb-1">
-                    <span className="text-white font-black text-2xl italic">S</span>
+              {/* Overlay Logo Card */}
+              <div className="absolute top-1/4 left-1/2 -translate-x-1/2 bg-white/95 p-4 md:p-6 shadow-2xl flex flex-col items-center min-w-[140px] md:min-w-[180px]">
+                 <div className="w-10 h-10 md:w-14 md:h-14 bg-[#1e3a8a] flex items-center justify-center mb-2">
+                    <span className="text-white font-black text-xl md:text-3xl italic">S</span>
                  </div>
-                 <div className="text-[10px] font-black text-blue-900 uppercase leading-tight text-center">
+                 <div className="text-[8px] md:text-[11px] font-black text-[#1e3a8a] uppercase leading-tight text-center tracking-tighter">
                     Sikka Industries<br/>& Logistics
                  </div>
               </div>
@@ -58,74 +57,79 @@ export default function LoginPage() {
           </div>
 
           {/* Right Column: Form */}
-          <div className="w-full md:w-1/2 p-10 md:p-20 flex flex-col justify-center space-y-12">
-            <h1 className="text-3xl md:text-4xl font-black text-yellow-500 uppercase italic tracking-tighter">
-              Sikka Industries
-            </h1>
+          <div className="w-full md:w-[55%] p-8 md:p-16 lg:p-24 flex flex-col justify-center">
+            <div className="max-w-md mx-auto w-full space-y-12 md:space-y-16">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-yellow-500 uppercase italic tracking-tighter text-center md:text-left">
+                Sikka Industries
+              </h1>
 
-            <form onSubmit={handleLogin} className="space-y-8">
-              <div className="flex items-center gap-6">
-                <label className="w-32 text-xs font-black text-blue-900 uppercase tracking-widest flex items-center gap-1">
-                  User <span className="text-red-500">*</span>
-                </label>
-                <Input 
-                  required
-                  className="h-10 border-slate-300 rounded-none focus:ring-0 focus:border-blue-900"
-                />
-              </div>
-
-              <div className="flex items-center gap-6">
-                <label className="w-32 text-xs font-black text-blue-900 uppercase tracking-widest flex items-center gap-1">
-                  Password <span className="text-red-500">*</span>
-                </label>
-                <div className="relative flex-1">
+              <form onSubmit={handleLogin} className="space-y-10">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+                  <label className="w-full sm:w-32 text-[11px] md:text-xs font-black text-blue-900 uppercase tracking-widest">
+                    User <span className="text-red-500">*</span>
+                  </label>
                   <Input 
                     required
-                    type={showPassword ? "text" : "password"}
-                    className="h-10 border-slate-300 rounded-none pr-10 focus:ring-0 focus:border-blue-900"
+                    className="h-11 border-slate-300 rounded-none bg-slate-50 focus:ring-1 focus:ring-blue-900 transition-all text-sm font-bold"
                   />
-                  <button 
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-900"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </button>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-6 pt-4">
-                <div className="w-32" />
-                <div className="flex items-center gap-6">
-                  <Button type="submit" className="bg-white hover:bg-slate-50 text-black border border-slate-800 rounded-none px-10 h-10 font-black uppercase text-[10px] tracking-widest shadow-sm">
-                    Log On
-                  </Button>
-                  <button type="button" className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-900 transition-colors">
-                    Initialize
-                  </button>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+                  <label className="w-full sm:w-32 text-[11px] md:text-xs font-black text-blue-900 uppercase tracking-widest">
+                    Password <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative flex-1">
+                    <Input 
+                      required
+                      type={showPassword ? "text" : "password"}
+                      className="h-11 border-slate-300 rounded-none bg-slate-50 pr-10 focus:ring-1 focus:ring-blue-900 transition-all text-sm font-bold"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-900"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </form>
+
+                <div className="flex flex-col sm:flex-row items-center gap-6 pt-6">
+                  <div className="hidden sm:block w-32" />
+                  <div className="flex items-center gap-8 w-full sm:w-auto">
+                    <Button 
+                      type="submit" 
+                      className="flex-1 sm:flex-none bg-white hover:bg-slate-50 text-black border-2 border-slate-800 rounded-none px-12 h-11 font-black uppercase text-[11px] tracking-widest shadow-md transition-all active:scale-95"
+                    >
+                      Log On
+                    </Button>
+                    <button 
+                      type="button" 
+                      className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-900 transition-colors"
+                    >
+                      Initialize
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
 
         {/* Footer Bar */}
-        <div className="p-6 bg-white border-t border-slate-100 flex items-center justify-between">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+        <div className="px-6 py-4 md:px-12 md:py-6 bg-white border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center sm:text-left">
             © Sikka Industries & Logistics. Registry V2.5
           </p>
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full border border-slate-100 bg-slate-50">
-            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Sync Node: Safe</span>
+          <div className="flex items-center gap-3 px-4 py-1.5 rounded-full border border-slate-100 bg-slate-50 shadow-sm">
+            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Sync Node: Safe</span>
           </div>
         </div>
-
-        {/* Bottom Yellow Border */}
-        <div className="h-1.5 w-full bg-yellow-500" />
       </div>
       
-      {/* Back to Home Link */}
-      <Link href="/" className="fixed bottom-4 right-4 text-[10px] font-black uppercase text-slate-400 hover:text-blue-900">
+      {/* Back Link */}
+      <Link href="/" className="fixed bottom-4 right-4 md:bottom-8 md:right-8 text-[10px] font-black uppercase text-slate-400 hover:text-blue-900 bg-white/80 backdrop-blur-sm p-2 rounded px-4 shadow-sm border border-slate-100">
         Exit to Website
       </Link>
     </div>
