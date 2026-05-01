@@ -161,7 +161,11 @@ export default function TrackPage() {
             {isSalesSearch && !hasTrip ? (
               <div className="bg-[#f0f7ff] border-l-[6px] border-blue-600 rounded-[2.5rem] p-10 md:p-16 max-w-4xl w-full shadow-lg relative flex flex-col items-center text-center">
                 <h2 className="text-xl md:text-2xl font-black italic text-slate-800 uppercase leading-relaxed tracking-tight">
-                  YOUR ORDER NO. '{data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.
+                  {hasTrip ? (
+                    <>YOUR TRIP ID IS <button onClick={() => handleTrack(data.tripId, 'trip')} className="text-blue-600 underline decoration-2">{data.tripId}</button> FOR THIS SALES ORDER NO. {data.saleOrder}</>
+                  ) : (
+                    <>YOUR ORDER NO. '{data.saleOrder}' HAS BEEN BOOKED FOR DELIVERY. TRIP ID WILL BE SHARED SHORTLY ON <span className="text-blue-600 underline decoration-2">{formattedDate}</span>.</>
+                  )}
                 </h2>
                 {data.delayRemark && (
                   <div className="mt-12 bg-white p-10 md:p-14 rounded-[2.5rem] shadow-2xl border border-slate-100 w-full max-w-3xl flex flex-col items-center">
@@ -177,19 +181,19 @@ export default function TrackPage() {
               </div>
             ) : (
               /* High Visibility Trip Mission Card with Timeline Animation */
-              <div className="bg-[#0f172a] p-10 md:p-14 rounded-[2rem] text-white shadow-2xl relative overflow-hidden w-full max-w-4xl border-t-[6px] border-blue-600 animate-slide-up">
-                <div className="flex justify-between items-start mb-12">
-                  <div className="space-y-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500">Current Status</p>
-                    <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-none">
+              <div className="bg-[#0f172a] p-6 md:p-10 rounded-[1.5rem] text-white shadow-2xl relative overflow-hidden w-full max-w-3xl border-t-[6px] border-blue-600 animate-slide-up">
+                <div className="flex justify-between items-start mb-8">
+                  <div className="space-y-2">
+                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-blue-500">Current Status</p>
+                    <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter leading-none">
                       {data.status || 'PROCESSING'}
                     </h2>
                   </div>
-                  <Truck className="h-20 w-20 text-white/5 shrink-0" />
+                  <Truck className="h-16 w-16 text-white/5 shrink-0" />
                 </div>
 
                 {/* Timeline Animation Component */}
-                <div className="py-12 relative mb-12">
+                <div className="py-8 relative mb-8">
                   {/* Background Line */}
                   <div className="absolute top-1/2 left-0 w-full h-0.5 bg-white/10 -translate-y-1/2" />
                   {/* Progress Line */}
@@ -200,16 +204,16 @@ export default function TrackPage() {
                   
                   <div className="relative flex justify-between">
                     {steps.map((step, idx) => (
-                      <div key={step} className="flex flex-col items-center gap-4 group">
+                      <div key={step} className="flex flex-col items-center gap-3 group">
                         <div className={cn(
-                          "w-4 h-4 rounded-full border-2 z-10 transition-all duration-500 flex items-center justify-center",
-                          idx <= currentIndex ? "bg-blue-500 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]" : "bg-[#0f172a] border-white/20",
+                          "w-3.5 h-3.5 rounded-full border-2 z-10 transition-all duration-500 flex items-center justify-center",
+                          idx <= currentIndex ? "bg-blue-500 border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]" : "bg-[#0f172a] border-white/20",
                           idx === currentIndex && "animate-pulse scale-125"
                         )}>
-                          {idx < currentIndex && <CheckCircle className="h-3 w-3 text-white" />}
+                          {idx < currentIndex && <CheckCircle className="h-2.5 w-2.5 text-white" />}
                         </div>
                         <span className={cn(
-                          "text-[8px] md:text-[10px] font-black uppercase tracking-widest text-center whitespace-nowrap",
+                          "text-[7px] md:text-[9px] font-black uppercase tracking-widest text-center whitespace-nowrap",
                           idx <= currentIndex ? "text-blue-400" : "text-slate-600"
                         )}>
                           {step}
@@ -219,44 +223,44 @@ export default function TrackPage() {
                   </div>
                 </div>
 
-                <div className="h-px bg-white/10 w-full mb-12" />
+                <div className="h-px bg-white/10 w-full mb-8" />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                  <div className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-6">
                     <div className="flex flex-col gap-1">
-                      <span className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">Vehicle No.</span>
-                      <span className="text-lg md:text-2xl font-black uppercase tracking-widest">{data.vehicleNumber || 'ASSIGNING...'}</span>
+                      <span className="text-slate-500 text-[9px] font-black uppercase tracking-[0.2em]">Vehicle No.</span>
+                      <span className="text-base md:text-xl font-black uppercase tracking-widest">{data.vehicleNumber || 'ASSIGNING...'}</span>
                     </div>
                     <div className="flex flex-col gap-1">
-                      <span className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">Registry ID</span>
-                      <span className="text-lg md:text-2xl font-black tracking-widest">{data.tripId || data.saleOrder}</span>
+                      <span className="text-slate-500 text-[9px] font-black uppercase tracking-[0.2em]">Registry ID</span>
+                      <span className="text-base md:text-xl font-black tracking-widest">{data.tripId || data.saleOrder}</span>
                     </div>
                   </div>
                   
-                  <div className="flex flex-col justify-center items-end text-right space-y-4">
-                     <div className="flex items-center gap-3 text-slate-300">
-                        <MapPin className="h-5 w-5 text-blue-500" />
-                        <span className="text-sm md:text-lg font-black uppercase tracking-widest">
+                  <div className="flex flex-col justify-center items-end text-right space-y-3">
+                     <div className="flex items-center gap-2.5 text-slate-300">
+                        <MapPin className="h-4 w-4 text-blue-500" />
+                        <span className="text-xs md:text-base font-black uppercase tracking-widest">
                           {data.route || 'TRANSIT PENDING'}
                         </span>
                      </div>
-                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">
                         Last Registry Sync: {formattedDate}
                      </p>
                   </div>
                 </div>
 
                 {data.delayRemark && (
-                  <div className="mt-12 bg-white/5 p-6 rounded-2xl border border-white/10">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-blue-500 mb-2">Delay Note</p>
-                    <p className="text-slate-300 text-sm italic font-bold leading-relaxed">"{data.delayRemark}"</p>
+                  <div className="mt-8 bg-white/5 p-5 rounded-xl border border-white/10">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-blue-500 mb-1.5">Delay Note</p>
+                    <p className="text-slate-300 text-xs italic font-bold leading-relaxed">"{data.delayRemark}"</p>
                   </div>
                 )}
 
-                <div className="mt-16 flex justify-center">
+                <div className="mt-10 flex justify-center">
                   <button 
                     onClick={handleBack}
-                    className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500 hover:text-white transition-colors border-b border-transparent hover:border-white/20 pb-1"
+                    className="text-[9px] font-black uppercase tracking-[0.4em] text-blue-500 hover:text-white transition-colors border-b border-transparent hover:border-white/20 pb-1"
                   >
                     BACK TO SEARCH
                   </button>
@@ -287,13 +291,13 @@ export default function TrackPage() {
               Registry Node Type *
             </label>
             <Select value={type} onValueChange={setType}>
-              <SelectTrigger className="h-14 rounded-2xl font-bold bg-slate-50 border-slate-100 focus:ring-blue-600 focus:ring-offset-0 transition-all text-slate-600">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-100">
                 <SelectItem value="sales" className="font-bold py-3 uppercase">Sales Order No.</SelectItem>
                 <SelectItem value="trip" className="font-bold py-3 uppercase">Trip ID</SelectItem>
               </SelectContent>
+              <SelectTrigger className="h-14 rounded-2xl font-bold bg-slate-50 border-slate-100 focus:ring-blue-600 focus:ring-offset-0 transition-all text-slate-600">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
             </Select>
           </div>
 
