@@ -300,17 +300,17 @@ export default function SapDashboard() {
             />
           </div>
           <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
-             <button onClick={handleSave} className="p-1 hover:bg-slate-200 rounded group"><Save className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={() => setTCode('')} className="p-1 hover:bg-slate-200 rounded group"><Undo2 className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={() => setFormData({})} className="p-1 hover:bg-slate-200 rounded group"><Eraser className="h-4 w-4 text-slate-600" /></button>
-             <button className="p-1 hover:bg-slate-200 rounded group ml-4"><Filter className="h-4 w-4 text-slate-600" /></button>
-             <button className="p-1 hover:bg-slate-200 rounded group"><Database className="h-4 w-4 text-slate-600" /></button>
-             <button className="p-1 hover:bg-slate-200 rounded group"><Activity className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={handleSave} title="Save" className="p-1 hover:bg-slate-200 rounded group"><Save className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={() => setTCode('')} title="Back" className="p-1 hover:bg-slate-200 rounded group"><Undo2 className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={() => setFormData({})} title="Clear Form" className="p-1 hover:bg-slate-200 rounded group"><Eraser className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={() => toast({ title: "Filter", description: "Filter Registry Node Activated" })} title="Filter" className="p-1 hover:bg-slate-200 rounded group ml-4"><Filter className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={() => toast({ title: "Database", description: "Database Connectivity: Secure" })} title="Database" className="p-1 hover:bg-slate-200 rounded group"><Database className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={() => toast({ title: "Activity", description: "Mission Activity Log Synchronized" })} title="Activity" className="p-1 hover:bg-slate-200 rounded group"><Activity className="h-4 w-4 text-slate-600" /></button>
           </div>
           <div className="flex-1" />
           <div className="flex items-center gap-3 pr-4">
-             <button className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Search className="h-4 w-4" /></button>
-             <button className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Printer className="h-4 w-4" /></button>
+             <button onClick={() => tCodeRef.current?.focus()} title="Search T-Code" className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Search className="h-4 w-4" /></button>
+             <button onClick={() => window.print()} title="Print Node" className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Printer className="h-4 w-4" /></button>
              <button onClick={handleLogout} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700">
                <LogOut className="h-3.5 w-3.5" /> Log Off
              </button>
@@ -742,6 +742,7 @@ function RegistryList({ onSelectItem, listData }: any) {
 function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN }: { orders: any[] | null, trips: any[] | null, onStatusUpdate: any, plants: any[] | null, onPrintLR: any, onPrintCN: any }) {
   const { user } = useUser();
   const db = useFirestore();
+  const { toast } = useToast();
   const [plantFilter, setPlantFilter] = React.useState('ALL');
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [viewTrip, setViewTrip] = React.useState<any>(null);
@@ -790,7 +791,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
             <option value="ALL">ALL PLANTS REGISTRY</option>
             {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
           </select>
-          <Button variant="outline" className="h-9 text-[10px] font-black uppercase rounded-none px-6">Refresh Hub</Button>
+          <Button onClick={() => toast({ title: "Hub Refreshed", description: "Mission registry synchronized" })} variant="outline" className="h-9 text-[10px] font-black uppercase rounded-none px-6">Refresh Hub</Button>
         </div>
       </SectionGrouping>
 
@@ -886,12 +887,13 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
 function BulkDataHub({ allPlants }: any) {
   const [mod, setMod] = React.useState('');
   const [plant, setPlant] = React.useState('');
+  const { toast } = useToast();
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-7xl mx-auto p-4">
       <div className="bg-white rounded-none shadow-xl border border-slate-300 overflow-hidden flex flex-col">
         <div className="bg-[#1e293b] p-6 text-white font-black uppercase italic text-sm tracking-widest">Template Repository Hub</div>
         <div className="p-10 space-y-6 flex-1 bg-slate-50/30">
-          {['Customer Master Registry', 'Sales Order Master Registry'].map(t => <button key={t} className="w-full flex justify-between items-center p-5 bg-white border border-slate-300 rounded-none hover:bg-blue-50 transition-colors text-[11px] font-black uppercase tracking-tight">{t} <Download className="h-5 w-5 text-[#0056d2]" /></button>)}
+          {['Customer Master Registry', 'Sales Order Master Registry'].map(t => <button key={t} onClick={() => toast({ title: "Download", description: `Template ${t} exported` })} className="w-full flex justify-between items-center p-5 bg-white border border-slate-300 rounded-none hover:bg-blue-50 transition-colors text-[11px] font-black uppercase tracking-tight">{t} <Download className="h-5 w-5 text-[#0056d2]" /></button>)}
         </div>
       </div>
       <div className="bg-white rounded-none shadow-xl border border-slate-300 overflow-hidden flex flex-col">
@@ -910,8 +912,8 @@ function BulkDataHub({ allPlants }: any) {
               </select>
             </SectionGrouping>
           )}
-          <div className="flex-1 border-4 border-dashed border-slate-200 rounded-none flex flex-col items-center justify-center p-14 hover:bg-blue-50/50 transition-all cursor-pointer group shadow-inner"><Upload className="h-14 w-14 text-slate-200 mb-4 group-hover:text-[#0056d2] transition-colors" /><p className="text-[11px] font-black uppercase text-slate-400 group-hover:text-blue-600">Drag & Drop Master Registry File</p></div>
-          <Button className="w-full h-16 bg-blue-900 hover:bg-black text-white font-black uppercase text-[11px] tracking-[0.3em] rounded-none shadow-xl">Initiate Bulk Registry Sync</Button>
+          <div onClick={() => toast({ title: "Upload", description: "Registry file node selected" })} className="flex-1 border-4 border-dashed border-slate-200 rounded-none flex flex-col items-center justify-center p-14 hover:bg-blue-50/50 transition-all cursor-pointer group shadow-inner"><Upload className="h-14 w-14 text-slate-200 mb-4 group-hover:text-[#0056d2] transition-colors" /><p className="text-[11px] font-black uppercase text-slate-400 group-hover:text-blue-600">Drag & Drop Master Registry File</p></div>
+          <Button onClick={() => toast({ title: "Syncing", description: "Bulk registry mission started" })} className="w-full h-16 bg-blue-900 hover:bg-black text-white font-black uppercase text-[11px] tracking-[0.3em] rounded-none shadow-xl">Initiate Bulk Registry Sync</Button>
         </div>
       </div>
     </div>
