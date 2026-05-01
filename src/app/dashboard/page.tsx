@@ -929,7 +929,7 @@ function RegistryList({ onSelectItem, listData }: any) {
   return (
     <div className="overflow-x-auto border border-slate-300 shadow-sm">
       <table className="w-full text-left border-collapse">
-        <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr>{['Registry ID', 'Name / Node Description', 'Type / Details', 'Sync Node'].map(c => <th key={c} className="p-3 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">{c}</th>)}</tr></thead>
+        <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr>{['Registry ID', 'Name / Description', 'Type / Details', 'Sync Node'].map(c => <th key={c} className="p-3 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">{c}</th>)}</tr></thead>
         <tbody>{listData?.map((item: any) => (
           <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors"><td className="p-3 text-[11px] font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.id.slice(0, 8)}</td><td className="p-3 text-[11px] font-bold uppercase">{item.customerName || item.plantName || `${item.consignor} → ${item.consignee}`}</td><td className="p-3 text-[11px] italic text-slate-500">{item.city || item.customerType || 'REGISTRY'}</td><td className="p-3 text-[11px] font-bold text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></tr>
         ))}</tbody>
@@ -939,7 +939,7 @@ function RegistryList({ onSelectItem, listData }: any) {
 }
 
 function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN }: { orders: any[] | null, trips: any[] | null, onStatusUpdate: any, plants: any[] | null, onPrintLR: any, onPrintCN: any }) {
-  const { user } = useUser();
+  const { user } = userUser ? useUser() : { user: null };
   const db = useFirestore();
   const { toast } = useToast();
   const [plantFilter, setPlantFilter] = React.useState('ALL');
@@ -982,7 +982,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
     if (!user || !editingTrip) return;
     setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', editingTrip.id), editingTrip, { merge: true });
     setEditingTrip(null);
-    onStatusUpdate({ text: `CN Registry Node synchronized`, type: 'success' });
+    onStatusUpdate({ text: `CN Registry synchronized`, type: 'success' });
   };
 
   const getTripsByStatus = (status: string) => (trips || []).filter(t => t.status === status && (plantFilter === 'ALL' || t.plantCode === plantFilter));
@@ -1007,7 +1007,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
         </TabsList>
         <TabsContent value="OPEN" className="mt-8 bg-white border border-slate-300 shadow-xl overflow-hidden rounded-sm">
           <table className="w-full text-left">
-            <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr><th className="p-4 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">Order Node</th><th className="p-4 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">Registry Details</th><th className="p-4 text-[10px] font-black uppercase text-slate-500 text-center">Action</th></tr></thead>
+            <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr><th className="p-4 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">Order</th><th className="p-4 text-[10px] font-black uppercase text-slate-500 border-r border-slate-200">Registry Details</th><th className="p-4 text-[10px] font-black uppercase text-slate-500 text-center">Action</th></tr></thead>
             <tbody>{orders?.filter(o => (plantFilter === 'ALL' || o.plantCode === plantFilter) && o.status !== 'CANCELLED').map(o => (
               <tr key={o.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
                 <td className="p-4 font-black text-[11px] text-[#0056d2]">{o.saleOrder || o.id.slice(0,8)}</td>
@@ -1122,7 +1122,7 @@ function BulkDataHub({ allPlants }: any) {
               </select>
             </SectionGrouping>
           )}
-          <div onClick={() => toast({ title: "Upload", description: "Registry file node selected" })} className="flex-1 border-4 border-dashed border-slate-200 rounded-none flex flex-col items-center justify-center p-14 hover:bg-blue-50/50 transition-all cursor-pointer group shadow-inner"><Upload className="h-14 w-14 text-slate-200 mb-4 group-hover:text-[#0056d2] transition-colors" /><p className="text-[11px] font-black uppercase text-slate-400 group-hover:text-blue-600">Drag & Drop Master Registry File</p></div>
+          <div onClick={() => toast({ title: "Upload", description: "Registry file selected" })} className="flex-1 border-4 border-dashed border-slate-200 rounded-none flex flex-col items-center justify-center p-14 hover:bg-blue-50/50 transition-all cursor-pointer group shadow-inner"><Upload className="h-14 w-14 text-slate-200 mb-4 group-hover:text-[#0056d2] transition-colors" /><p className="text-[11px] font-black uppercase text-slate-400 group-hover:text-blue-600">Drag & Drop Master Registry File</p></div>
           <Button onClick={() => toast({ title: "Syncing", description: "Bulk registry mission started" })} className="w-full h-16 bg-blue-900 hover:bg-black text-white font-black uppercase text-[11px] tracking-[0.3em] rounded-none shadow-xl">Initiate Bulk Registry Sync</Button>
         </div>
       </div>
@@ -1203,7 +1203,7 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
       <div className="border-2 border-black mb-8">
         <div className="grid grid-cols-4 divide-x-2 divide-black bg-slate-50 border-b-2 border-black font-black text-[10px] uppercase">
           <div className="p-3 text-center">Vehicle Number Hub</div>
-          <div className="p-3 text-center">Driver Mobile Node</div>
+          <div className="p-3 text-center">Driver Mobile</div>
           <div className="p-3 text-center">Payment Term Registry</div>
           <div className="p-3 text-center">Trip ID Registry</div>
         </div>
@@ -1290,7 +1290,7 @@ function CNPrintTemplate({ trip, order, copyType, deliveryAddress }: { trip: any
 
       <div className="mb-6">
         <p className="text-[8px] text-justify leading-relaxed opacity-60 font-medium italic">
-          1. Carriage subject to terms on primary carrier management registry node. 2. Not responsible for packaging damage at consignor end. 3. All disputes subject to Ghaziabad jurisdiction registry only.
+          1. Carriage subject to terms on primary carrier management registry. 2. Not responsible for packaging damage at consignor end. 3. All disputes subject to Ghaziabad jurisdiction registry only.
         </p>
       </div>
 
@@ -1334,23 +1334,6 @@ function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
         </table>
       </div>
       <div className="flex flex-col items-center justify-end pt-24"><p className="text-xs font-black uppercase tracking-[0.4em] border-t-4 border-black w-72 text-center pt-4 italic">Authorized Registry Signatory</p></div>
-    </div>
-  );
-}
-
-function PlantForm({ data, onChange, disabled }: any) {
-  return (
-    <div className="space-y-4">
-      <SectionGrouping title="">
-        <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
-        <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
-      </SectionGrouping>
-      <SectionGrouping title="SETTINGS / REGISTRY">
-        <FormInput label="PLANT CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
-        <FormInput label="PLANT ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
-        <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
-        <FormInput label="STATE" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
-      </SectionGrouping>
     </div>
   );
 }
