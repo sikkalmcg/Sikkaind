@@ -178,14 +178,14 @@ export default function SapDashboard() {
         return;
       }
 
-      const orderToCancel = rawOrders?.find(o => (o.saleOrder || o.saleOrderNumber)?.toString().toUpperCase() === formData.saleOrder.toString().toUpperCase());
+      const orderToCancel = rawOrders?.find(o => (o.saleOrder || o.saleOrderNumber || o.id)?.toString().toUpperCase() === formData.saleOrder.toString().toUpperCase());
       if (!orderToCancel) {
         setStatusMsg({ text: `Error: Sales Order ${formData.saleOrder} not found in registry`, type: 'error' });
         return;
       }
 
       const docRef = doc(db, 'users', user.uid, 'sales_orders', orderToCancel.id);
-      const publicRef = doc(db, 'public_orders', (orderToCancel.saleOrder || orderToCancel.saleOrderNumber).toString().toUpperCase());
+      const publicRef = doc(db, 'public_orders', (orderToCancel.saleOrder || orderToCancel.saleOrderNumber || orderToCancel.id).toString().toUpperCase());
 
       const cancellationPayload = {
         status: 'CANCELLED',
@@ -549,7 +549,7 @@ export default function SapDashboard() {
                             <tbody>
                               {recentOrders?.slice(0, 5).map((order) => (
                                 <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { setFormData(order); setActiveScreen('VA03'); }}>
-                                  <td className="p-6 font-black text-sm text-[#0056d2]">{order.saleOrder || order.saleOrderNumber}</td>
+                                  <td className="p-6 font-black text-sm text-[#0056d2]">{order.saleOrder || order.saleOrderNumber || order.id.slice(0, 8)}</td>
                                   <td className="p-6 font-bold text-[11px] text-slate-600 uppercase tracking-tight">{order.consignor}</td>
                                   <td className="p-6 font-black italic text-[11px] text-[#64748b] uppercase">{order.destination}</td>
                                   <td className="p-6 font-bold text-[11px] text-slate-400">{order.saleOrderDate ? format(new Date(order.saleOrderDate), 'dd-MM-yyyy') : '--'}</td>
@@ -825,7 +825,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
 function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && data.saleOrder) {
-      const order = allOrders?.find((o: any) => (o.saleOrder || o.saleOrderNumber)?.toString().toUpperCase() === data.saleOrder.toString().toUpperCase());
+      const order = allOrders?.find((o: any) => (o.saleOrder || o.saleOrderNumber || o.id)?.toString().toUpperCase() === data.saleOrder.toString().toUpperCase());
       if (order) {
         onChange({
           ...data,
@@ -1039,7 +1039,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const routeStr = (selectedOrder.from && selectedOrder.destination) ? `${selectedOrder.from.toUpperCase()}--${selectedOrder.destination.toUpperCase()}` : '';
     const totalOrderWeight = (selectedOrder.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
     const weightUom = selectedOrder.items?.[0]?.weightUom || 'MT';
-    const soNo = (selectedOrder.saleOrder || selectedOrder.saleOrderNumber || 'N/A').toString().trim().toUpperCase();
+    const soNo = (selectedOrder.saleOrder || selectedOrder.saleOrderNumber || selectedOrder.id).toString().trim().toUpperCase();
     const productName = selectedOrder.items?.[0]?.product || 'SALT';
     const invoiceNo = selectedOrder.items?.[0]?.invoiceNumber || '';
     
@@ -1193,7 +1193,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
               <TabsTrigger 
                 key={tab} 
                 value={tab.split(' ')[0]}
-                className="rounded-xl px-6 font-black text-[10px] uppercase tracking-wider data-[state=active]:bg-[#0056d2] text-white h-10"
+                className="rounded-xl px-6 font-black text-[10px] uppercase tracking-wider data-[state=active]:bg-[#0056d2] data-[state=active]:text-white text-slate-500 h-10 transition-all hover:bg-slate-200"
               >
                 {tab}
               </TabsTrigger>
@@ -1220,7 +1220,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                     const totalW = (order.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
                     const remaining = calculateRemainingWeight(order.id, totalW);
                     const uom = order.items?.[0]?.weightUom || 'MT';
-                    const soNo = (order.saleOrder || order.saleOrderNumber || 'N/A');
+                    const soNo = (order.saleOrder || order.saleOrderNumber || order.id.slice(0, 8));
                     
                     return (
                       <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
@@ -1281,7 +1281,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
                           <span className="text-slate-400 font-bold text-[8px] uppercase tracking-tighter">SO: {soNo}</span>
                           <div className="flex flex-col mt-1">
                             <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">LR: {trip.lrNo || '--'}</span>
-                            <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">INV: {trip.invoiceNumber || '--'}</span>
+                            <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">INV: {trip.invoiceNumber || trip.invoiceNo || '--'}</span>
                           </div>
                         </div>
 
@@ -1427,9 +1427,9 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
               <div className="space-y-4">
                 <SectionHeader title="Consignment Context" />
                 <div className="space-y-3 px-2">
-                  <DetailRow label="Sale Order" value={viewTrip?.saleOrderNumber} />
+                  <DetailRow label="Sale Order" value={viewTrip?.saleOrderNumber || viewTrip?.saleOrder} />
                   <DetailRow label="LR Number" value={viewTrip?.lrNo} />
-                  <DetailRow label="Invoice" value={viewTrip?.invoiceNumber} />
+                  <DetailRow label="Invoice" value={viewTrip?.invoiceNumber || viewTrip?.invoiceNo} />
                   <DetailRow label="Consignor" value={viewTrip?.consignor} />
                   <DetailRow label="Consignee" value={viewTrip?.consignee} />
                 </div>
@@ -1578,6 +1578,183 @@ function BulkDataHub({ allPlants }: { allPlants: any[] | null }) {
             Ensure all mandatory fields are correctly mapped to the Sikka Registry schema. Incorrect mapping may cause synchronization handshake failure in the mission node.
          </p>
       </div>
+    </div>
+  );
+}
+
+function RegistryFormWrapper({ children, title }: { children: React.ReactNode, title: string }) {
+  return (
+    <div className="space-y-8">
+      <SectionHeader title={title} />
+      <div className="p-4">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function PlantForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Plant Code" value={data.plantCode} onChange={(v) => onChange({...data, plantCode: v})} disabled={disabled} />
+      <FormInput label="Plant Name" value={data.plantName} onChange={(v) => onChange({...data, plantName: v})} disabled={disabled} />
+      <FormInput label="City" value={data.city} onChange={(v) => onChange({...data, city: v})} disabled={disabled} />
+      <FormInput label="State" value={data.state} onChange={(v) => onChange({...data, state: v})} disabled={disabled} />
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v) => onChange({...data, gstin: v})} disabled={disabled} />
+      <FormInput label="Address" value={data.address} onChange={(v) => onChange({...data, address: v})} disabled={disabled} />
+    </div>
+  );
+}
+
+function CompanyForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Company Code" value={data.companyCode} onChange={(v) => onChange({...data, companyCode: v})} disabled={disabled} />
+      <FormInput label="Company Name" value={data.companyName} onChange={(v) => onChange({...data, companyName: v})} disabled={disabled} />
+      <FormInput label="Address" value={data.address} onChange={(v) => onChange({...data, address: v})} disabled={disabled} />
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v) => onChange({...data, gstin: v})} disabled={disabled} />
+    </div>
+  );
+}
+
+function VendorForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Vendor Name" value={data.vendorName} onChange={(v) => onChange({...data, vendorName: v})} disabled={disabled} />
+      <FormInput label="Mobile" value={data.mobile} onChange={(v) => onChange({...data, mobile: v})} disabled={disabled} />
+      <FormInput label="PAN" value={data.pan} onChange={(v) => onChange({...data, pan: v})} disabled={disabled} />
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v) => onChange({...data, gstin: v})} disabled={disabled} />
+    </div>
+  );
+}
+
+function CustomerForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Customer Code" value={data.customerCode} onChange={(v) => onChange({...data, customerCode: v})} disabled={disabled} />
+      <FormInput label="Customer Name" value={data.customerName} onChange={(v) => onChange({...data, customerName: v})} disabled={disabled} />
+      <FormInput label="City" value={data.city} onChange={(v) => onChange({...data, city: v})} disabled={disabled} />
+      <FormInput label="Mobile" value={data.mobile} onChange={(v) => onChange({...data, mobile: v})} disabled={disabled} />
+      <FormSelect label="Type" value={data.customerType} options={['Consignor', 'Consignee']} onChange={(v) => onChange({...data, customerType: v})} disabled={disabled} />
+    </div>
+  );
+}
+
+function UserForm({ data, onChange, disabled, allPlants }: any) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormInput label="Full Name" value={data.fullName} onChange={(v) => onChange({...data, fullName: v})} disabled={disabled} />
+      <FormInput label="Username" value={data.username} onChange={(v) => onChange({...data, username: v})} disabled={disabled} />
+      <FormInput label="Mobile" value={data.mobile} onChange={(v) => onChange({...data, mobile: v})} disabled={disabled} />
+      <div className="space-y-2">
+        <label className="text-[10px] font-bold text-slate-500 uppercase">Authorized T-Codes</label>
+        <div className="bg-white border border-slate-400 h-32 overflow-y-auto p-2">
+          {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'BULK' || t.code === 'VA04').map(t => (
+            <div key={t.code} className="flex items-center gap-2 mb-1">
+              <Checkbox 
+                checked={data.tcodes?.includes(t.code)} 
+                onCheckedChange={(val) => {
+                  const codes = data.tcodes || [];
+                  if (val) onChange({...data, tcodes: [...codes, t.code]});
+                  else onChange({...data, tcodes: codes.filter((c: string) => c !== t.code)});
+                }}
+                disabled={disabled}
+              />
+              <span className="text-[10px] font-bold">{t.code} - {t.description}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label className="text-[10px] font-bold text-slate-500 uppercase">Authorized Plants</label>
+        <div className="bg-white border border-slate-400 h-32 overflow-y-auto p-2">
+          {allPlants?.map((p: any) => (
+            <div key={p.plantCode} className="flex items-center gap-2 mb-1">
+              <Checkbox 
+                checked={data.plants?.includes(p.plantCode)} 
+                onCheckedChange={(val) => {
+                  const plants = data.plants || [];
+                  if (val) onChange({...data, plants: [...plants, p.plantCode]});
+                  else onChange({...data, plants: plants.filter((c: string) => c !== p.plantCode)});
+                }}
+                disabled={disabled}
+              />
+              <span className="text-[10px] font-bold">{p.plantCode} - {p.plantName}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FormInput({ label, value, onChange, type = "text", disabled }: any) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <Input 
+        type={type} 
+        value={value || ''} 
+        onChange={(e) => onChange(e.target.value)} 
+        disabled={disabled}
+        className="h-8 rounded-none border-slate-400 focus:ring-0 focus:border-[#0056d2] text-xs font-bold bg-white"
+      />
+    </div>
+  );
+}
+
+function FormSelect({ label, value, options, onChange, disabled }: any) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <select 
+        value={value || ''} 
+        onChange={(e) => onChange(e.target.value)} 
+        disabled={disabled}
+        className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold outline-none"
+      >
+        <option value="">Select...</option>
+        {options.map((o: string) => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function RegistryList({ screen, onSelectItem, listData }: any) {
+  const getCols = () => {
+    if (screen.startsWith('VA')) return ['SO Number', 'Name / Description', 'Type / Details', 'Date'];
+    if (screen.startsWith('SU')) return ['Username', 'Name', 'Registry ID', 'Node Active'];
+    return ['Registry ID', 'Name / Description', 'Type / Details', 'Sync Node'];
+  };
+
+  return (
+    <div className="overflow-x-auto border border-slate-300">
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="bg-[#f0f0f0] border-b border-slate-300">
+            {getCols().map(col => <th key={col} className="p-2 text-[9px] font-black uppercase text-slate-500">{col}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {listData?.map((item: any) => (
+            <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors">
+              <td className="p-2 text-[10px] font-black text-[#0056d2]">
+                {item.username || item.saleOrder || item.saleOrderNumber || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}
+              </td>
+              <td className="p-2 text-[10px] font-bold text-slate-600 uppercase">
+                {item.fullName || item.plantName || item.companyName || item.vendorName || item.customerName || `${item.consignor} → ${item.consignee || 'UNSPECIFIED'}`}
+                {item.shipToParty && item.shipToParty !== item.consignee && <span className="block text-[8px] text-red-500">Ship to: {item.shipToParty}</span>}
+              </td>
+              <td className="p-2 text-[10px] font-bold text-slate-400 uppercase italic">
+                {item.customerType || item.city || (item.from ? `${item.from} → ${item.destination}` : 'REGISTRY NODE')}
+              </td>
+              <td className="p-2 text-[10px] font-bold text-slate-400">
+                {item.saleOrderDate || item.updatedAt ? format(new Date(item.saleOrderDate || item.updatedAt), 'dd-MM-yyyy') : 'SYNC ACTIVE'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
