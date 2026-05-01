@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -7,7 +6,7 @@ import Image from 'next/image';
 import { 
   Printer, Save, X, Info, LogOut,
   ChevronRight, ChevronLeft, Truck, MapPin, User, Users, ShoppingBag,
-  Grid2X2, CloudUpload, ShieldAlert, Edit3, 
+  Grid2X2, ShieldAlert, Edit3, 
   PlusSquare, XCircle, Calendar as CalendarIcon, Package, Undo2,
   FileText, UploadCloud, Trash2, Plus
 } from 'lucide-react';
@@ -30,13 +29,11 @@ import {
   DialogHeader, 
   DialogTitle 
 } from '@/components/ui/dialog';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
-type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'BULK' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE';
+type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE';
 
 const MASTER_TCODES = [
   { code: 'OX01', description: 'PLANT MASTER: CREATE', icon: Package, module: 'Master Data' },
@@ -56,7 +53,6 @@ const MASTER_TCODES = [
   { code: 'VA03', description: 'SALES ORDER: DISPLAY', icon: Info, module: 'Logistics' },
   { code: 'VA04', description: 'CANCEL SALES ORDER', icon: XCircle, module: 'Logistics' },
   { code: 'TR21', description: 'DRIP BOARD CONTROL', icon: Truck, module: 'Logistics' },
-  { code: 'BULK', description: 'BULK DATA HUB CONTROL', icon: CloudUpload, module: 'System' },
   { code: 'SU01', description: 'USER MANAGEMENT: CREATE', icon: ShieldAlert, module: 'System' },
   { code: 'SU02', description: 'USER MANAGEMENT: CHANGE', icon: Edit3, module: 'System' },
   { code: 'SU03', description: 'USER MANAGEMENT: DISPLAY', icon: Info, module: 'System' },
@@ -87,7 +83,6 @@ export default function SapDashboard() {
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const monthRef = React.useRef<HTMLDivElement>(null);
 
-  // XD02 Search State
   const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '' });
 
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
@@ -331,19 +326,10 @@ export default function SapDashboard() {
     setStatusMsg({ text: 'Operation cancelled', type: 'info' });
   }, [activeScreen]);
 
-  const handleBulkUpload = () => {
-    const success = Math.floor(Math.random() * 50) + 10;
-    const failed = Math.floor(Math.random() * 5);
-    setStatusMsg({ 
-      text: `Bulk Processing Complete: ${success} SUCCESSFUL, ${failed} FAILED`, 
-      type: success > 0 ? 'success' : 'error' 
-    });
-  };
-
   const isReadOnly = activeScreen.endsWith('03');
   const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
   const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
-  const hideSidebar = activeScreen.startsWith('OX') || activeScreen.startsWith('FM') || activeScreen === 'ZCODE' || activeScreen === 'BULK';
+  const hideSidebar = activeScreen.startsWith('OX') || activeScreen.startsWith('FM') || activeScreen === 'ZCODE';
 
   React.useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -401,7 +387,7 @@ export default function SapDashboard() {
           <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">
              {logoAsset && <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized />}
           </div>
-          <div className="flex items-center bg white border border-slate-400 p-0.5 shadow-inner relative">
+          <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner relative">
             <button 
               onClick={(e) => { e.preventDefault(); executeTCode(tCode); }} 
               className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100 transition-colors"
@@ -438,7 +424,11 @@ export default function SapDashboard() {
              {activeScreen === 'XD01' && (
                <div className="flex items-center gap-2 mr-4">
                  <button onClick={() => setStatusMsg({ text: 'Template Exported Successfully', type: 'success' })} className="flex items-center gap-1.5 px-3 h-7 bg-white border border-slate-300 hover:bg-slate-50 rounded text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]"><FileText className="h-3.5 w-3.5" /> Template</button>
-                 <button onClick={handleBulkUpload} className="flex items-center gap-1.5 px-3 h-7 bg-[#1e3a8a] hover:bg-blue-900 text-white rounded text-[9px] font-black uppercase tracking-widest"><UploadCloud className="h-3.5 w-3.5" /> Bulk Upload</button>
+                 <button onClick={() => {
+                   const success = Math.floor(Math.random() * 50) + 10;
+                   const failed = Math.floor(Math.random() * 5);
+                   setStatusMsg({ text: `Bulk Processing Complete: ${success} SUCCESSFUL, ${failed} FAILED`, type: 'success' });
+                 }} className="flex items-center gap-1.5 px-3 h-7 bg-[#1e3a8a] hover:bg-blue-900 text-white rounded text-[9px] font-black uppercase tracking-widest"><UploadCloud className="h-3.5 w-3.5" /> Bulk Upload</button>
                </div>
              )}
              <button onClick={() => window.print()} className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Printer className="h-4 w-4" /></button>
@@ -452,7 +442,7 @@ export default function SapDashboard() {
           <div className="w-72 bg-white border-r border-slate-300 flex flex-col overflow-hidden">
             <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div>
             <div className="flex-1 overflow-y-auto green-scrollbar">
-              {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'BULK' || t.code === 'ZCODE').map((item) => (
+              {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'ZCODE').map((item) => (
                 <div key={item.code} onClick={() => executeTCode(item.code)} className={cn("flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all", activeScreen === item.code ? "bg-[#0056d2] text-white" : "text-[#1e3a8a]")}>
                   <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", activeScreen === item.code ? "bg-white" : "bg-slate-300 group-hover:bg-blue-600")} />
                   <span className={cn("text-[10px] font-black uppercase tracking-tight", activeScreen === item.code ? "text-white" : "text-[#1e3a8a]")}>{item.code} - {item.description}</span>
@@ -474,7 +464,7 @@ export default function SapDashboard() {
                     <label className="text-[10px] font-black uppercase text-slate-400">Plant</label>
                     <select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none shadow-sm" value={homePlantFilter} onChange={(e) => setHomePlantFilter(e.target.value)}>
                       <option value="ALL">ALL AUTHORIZED PLANTS</option>
-                      {rawPlants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
+                      {rawPlants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
                     </select>
                   </div>
                   <div className="flex flex-col gap-2 relative" ref={monthRef}>
@@ -572,7 +562,6 @@ export default function SapDashboard() {
                    </div>
                  )}
                  {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={rawPlants} onPrintLR={setPrintData} onPrintCN={setCnPreviewData} />}
-                 {activeScreen === 'BULK' && <BulkDataHub allPlants={rawPlants} onStatusUpdate={setStatusMsg} />}
                  {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               </div>
             )}
@@ -632,7 +621,7 @@ function FormSelect({ label, value, options, onChange, disabled }: any) {
 function PlantForm({ data, onChange, disabled }: any) {
   return (
     <div className="space-y-4">
-      <SectionGrouping title="MASTER DATA">
+      <SectionGrouping title="DATA">
         <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
       </SectionGrouping>
       <SectionGrouping title="SETTINGS">
@@ -646,7 +635,7 @@ function PlantForm({ data, onChange, disabled }: any) {
 }
 
 function CompanyForm({ data, onChange, disabled, allPlants }: any) {
-  const plantOpts = (allPlants || []).map((p: any) => ({ value: p.plantCode, label: `${p.plantCode} - ${p.plantName}` }));
+  const plantOpts = (allPlants || []).map((p: any) => ({ value: p.plantCode, label: `${p.plantCode}` }));
   return (
     <div className="space-y-4">
       <SectionGrouping title="IDENTIFICATION">
@@ -767,7 +756,6 @@ function CustomerForm({ data, onChange, disabled, allPlants }: any) {
 function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: any) {
   const plantOpts = (allPlants || []).map((p: any) => p.plantCode);
   const consignors = (allCustomers || []).filter((c: any) => c.customerType === 'Consignor');
-  const consignees = (allCustomers || []).filter((c: any) => c.customerType === 'Consignee' || c.customerType === 'Consignee - Ship to Party');
   const shipToParties = (allCustomers || []).filter((c: any) => c.customerType === 'Consignee - Ship to Party');
 
   const items = data.items || [{ invoice: '', ewaybill: '', product: '', weight: '', weightUom: 'MT' }];
@@ -790,12 +778,12 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
 
   return (
     <div className="space-y-4">
-      <SectionGrouping title="SALES ORDER HEADER">
+      <SectionGrouping title="HEADER">
         <FormSelect label="PLANT" value={data.plantCode} options={plantOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
         <FormInput label="SALE ORDER NO" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
       </SectionGrouping>
 
-      <SectionGrouping title="LOGISTICS COORDINATION">
+      <SectionGrouping title="COORDINATION">
         <FormSelect 
           label="CONSIGNOR" 
           value={data.consignor} 
@@ -806,12 +794,12 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
           }} 
           disabled={disabled} 
         />
-        <FormInput label="FROM" value={data.from} disabled={true} placeholder="AUTO-FILLED FROM CONSIGNOR" />
+        <FormInput label="FROM" value={data.from} disabled={true} placeholder="AUTO-FILLED" />
         
         <FormSelect 
           label="CONSIGNEE" 
           value={data.consignee} 
-          options={consignees.map(c => c.customerName)} 
+          options={(allCustomers || []).map((c: any) => c.customerName)} 
           onChange={(v: string) => onChange({...data, consignee: v})} 
           disabled={disabled} 
         />
@@ -825,12 +813,12 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
           }} 
           disabled={disabled} 
         />
-        <FormInput label="DESTINATION" value={data.destination} disabled={true} placeholder="AUTO-FILLED FROM SHIP TO PARTY" />
+        <FormInput label="DESTINATION" value={data.destination} disabled={true} placeholder="AUTO-FILLED" />
       </SectionGrouping>
 
       <div className="border border-slate-300 rounded-sm overflow-hidden">
         <div className="bg-[#dae4f1]/50 p-3 border-b border-slate-300 flex justify-between items-center">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">ITEM REGISTRY</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">ITEM</span>
           {!disabled && (
             <Button onClick={handleAddItem} size="sm" variant="outline" className="h-7 rounded-none border-blue-600 text-blue-600 font-black text-[9px] uppercase tracking-tighter hover:bg-blue-50">
               <Plus className="h-3 w-3 mr-1" /> Add Row
@@ -940,7 +928,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-4"><select className="bg-white border border-slate-400 h-9 px-4 font-bold text-xs outline-none shadow-sm" value={plantFilter} onChange={(e) => setPlantFilter(e.target.value)}><option value="ALL">ALL PLANTS</option>{plants?.map((p: any) => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}</select></div>
+      <div className="flex items-center gap-4"><select className="bg-white border border-slate-400 h-9 px-4 font-bold text-xs outline-none shadow-sm" value={plantFilter} onChange={(e) => setPlantFilter(e.target.value)}><option value="ALL">ALL PLANTS</option>{plants?.map((p: any) => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div>
       <div className="bg-white border border-slate-300 p-8 shadow-sm">
         <h3 className="text-sm font-black uppercase text-[#1e3a8a] mb-6">Active Trips Hub</h3>
         <div className="space-y-4">
@@ -956,25 +944,6 @@ function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR, onPrintCN
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
         <DialogContent className="p-8"><DialogTitle>Assign Vehicle</DialogTitle><Button onClick={() => handleAssign('UP14-TEST', '20')} className="bg-[#0056d2] text-white font-black uppercase text-[10px] px-8 h-12 rounded-none shadow-lg">Initiate</Button></DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function BulkDataHub({ allPlants, onStatusUpdate }: { allPlants: any[] | null, onStatusUpdate: any }) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-7xl mx-auto p-4">
-      <div className="bg-white rounded-sm shadow-xl border border-slate-300 overflow-hidden flex flex-col">
-        <div className="bg-[#1e293b] p-6 text-white font-black uppercase italic text-sm tracking-widest">Template Repository</div>
-        <div className="p-10 space-y-6 flex-1 bg-slate-50/30">
-          {['Customer Master', 'Sales Order Master'].map(t => <button key={t} onClick={() => onStatusUpdate({ text: `Template ${t} exported`, type: 'info' })} className="w-full flex justify-between items-center p-5 bg-white border border-slate-300 rounded-none hover:bg-blue-50 transition-colors text-[11px] font-black uppercase tracking-tight">{t} <CloudUpload className="h-5 w-5 text-[#0056d2]" /></button>)}
-        </div>
-      </div>
-      <div className="bg-white rounded-sm shadow-xl border border-slate-300 overflow-hidden flex flex-col">
-        <div className="bg-[#0056d2] p-6 text-white font-black uppercase italic text-sm tracking-widest">Sync Control</div>
-        <div className="p-10 space-y-8 flex-1">
-          <Button onClick={() => onStatusUpdate({ text: "Bulk Sync started", type: 'info' })} className="w-full h-16 bg-blue-900 text-white font-black uppercase text-[11px] tracking-[0.3em] rounded-none shadow-xl">Initiate Bulk Sync</Button>
-        </div>
-      </div>
     </div>
   );
 }
