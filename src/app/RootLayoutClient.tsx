@@ -8,7 +8,7 @@ import Footer from '@/components/website/Footer';
 
 /**
  * @fileOverview Client-side Root Layout Wrapper.
- * Simplified to focus only on the homepage content and essential UI components.
+ * Manages global visibility for Header and Footer based on routing nodes.
  */
 export default function RootLayoutClient({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -18,17 +18,17 @@ export default function RootLayoutClient({ children }: { children: ReactNode }) 
     setMounted(true);
   }, []);
 
-  // Only show header/footer on public website pages
-  const isWebsitePage = !pathname || (
-                        !pathname.startsWith('/login') && 
-                        !pathname.startsWith('/dashboard'));
+  // Show header/footer on website pages including /track
+  // Hide only on login and dashboard pages
+  const isDashboardOrLogin = pathname?.startsWith('/login') || pathname?.startsWith('/dashboard');
+  const showHeaderFooter = mounted && !isDashboardOrLogin;
 
   return (
     <>
       <Suspense fallback={null}>
-        {mounted && isWebsitePage && <Header />}
-        <main className={mounted && isWebsitePage ? 'block' : 'contents'}>{children}</main>
-        {mounted && isWebsitePage && <Footer />}
+        {showHeaderFooter && <Header />}
+        <main className={showHeaderFooter ? 'block' : 'contents'}>{children}</main>
+        {showHeaderFooter && <Footer />}
       </Suspense>
       <Toaster />
     </>
