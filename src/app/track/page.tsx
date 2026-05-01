@@ -62,7 +62,10 @@ export default function TrackPage() {
           found: true, 
           data: data,
         });
+        // Update type so we know if we are looking at a trip or order
         setType(trackType);
+        // If clicking a trip link from an order search, update input field for clarity
+        if (overrideValue) setValue(overrideValue);
         setShowResult(true);
       }
     } catch (error) {
@@ -78,12 +81,14 @@ export default function TrackPage() {
     setShowResult(false);
     setValue('');
     setResult(null);
+    setType('sales');
   };
 
   if (showResult && result?.found) {
     const data = result.data;
     const formattedDate = data.updatedAt ? format(new Date(data.updatedAt), 'dd-MMM-yyyy HH:mm').toUpperCase() : 'PENDING';
     const isSalesSearch = type === 'sales';
+    const isTripView = type === 'trip';
     const hasTrip = !!data.tripId;
 
     // Timeline Configuration
@@ -171,8 +176,8 @@ export default function TrackPage() {
               </div>
             )}
 
-            {/* Trip Mission Card (Show if trip exists) */}
-            {(type === 'trip' || (isSalesSearch && hasTrip)) && (
+            {/* Trip Mission Card (Only show for Trip view) */}
+            {isTripView && (
               <div className="bg-[#0f172a] p-6 md:p-8 rounded-[1.5rem] text-white shadow-2xl relative overflow-hidden w-full max-w-3xl border-t-[6px] border-blue-600 animate-slide-up">
                 <div className="flex justify-between items-start mb-6">
                   <div className="space-y-1">
@@ -181,7 +186,9 @@ export default function TrackPage() {
                       {data.status || 'PROCESSING'}
                     </h2>
                   </div>
-                  <Truck className="h-10 w-10 text-white/5 shrink-0" />
+                  <div className="opacity-[0.05] absolute top-6 right-6">
+                    <Truck className="h-16 w-16 text-white" />
+                  </div>
                 </div>
 
                 {/* Timeline Animation Component */}
@@ -258,8 +265,8 @@ export default function TrackPage() {
               </div>
             )}
 
-            {/* Delay Remark Box (Show only if no trip exists for Sales Order) */}
-            {isSalesSearch && !hasTrip && data.delayRemark && (
+            {/* Delay Remark Box (Show for Sales Order search if no trip generated yet) */}
+            {isSalesSearch && data.delayRemark && (
               <div className="mt-4 bg-white p-6 md:p-8 rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-2xl flex flex-col items-center">
                 <div className="flex items-center gap-2 mb-3 text-slate-400">
                   <AlertTriangle className="h-4 w-4" />
