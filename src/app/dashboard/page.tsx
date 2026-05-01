@@ -9,7 +9,7 @@ import {
   Grid2X2, Upload, Download, ShoppingBag, ArrowUpRight,
   Filter, Truck, MapPin, User, Users, DollarSign, Activity,
   Layers, PackageCheck, Ban, Lock, Play, XCircle, Search,
-  ArrowLeft, Calendar, Phone, FileText, Package, Clock,
+  ArrowLeft, Calendar as CalendarIcon, Phone, FileText, Package, Clock,
   LayoutDashboard, Database, Settings, BarChart, TrendingUp,
   FileSpreadsheet, HardDriveDownload, CloudUpload, ShieldAlert,
   AlertTriangle, Radar, Loader2, Edit3, FileDown,
@@ -51,25 +51,25 @@ import placeholderData from '@/app/lib/placeholder-images.json';
 type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'BULK' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE';
 
 const MASTER_TCODES = [
-  { code: 'OX01', description: 'PLANT MASTER: CREATE INITIAL SCREEN', icon: Database, module: 'Master Data' },
+  { code: 'OX01', description: 'PLANT MASTER: CREATE', icon: Database, module: 'Master Data' },
   { code: 'OX02', description: 'PLANT MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'OX03', description: 'PLANT MASTER: DISPLAY', icon: Info, module: 'Master Data' },
-  { code: 'FM01', description: 'COMPANY MASTER: CREATE INITIAL SCREEN', icon: Layers, module: 'Master Data' },
+  { code: 'FM01', description: 'COMPANY MASTER: CREATE', icon: Layers, module: 'Master Data' },
   { code: 'FM02', description: 'COMPANY MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'FM03', description: 'COMPANY MASTER: DISPLAY', icon: Info, module: 'Master Data' },
-  { code: 'XK01', description: 'VENDOR MASTER: CREATE INITIAL SCREEN', icon: User, module: 'Master Data' },
+  { code: 'XK01', description: 'VENDOR MASTER: CREATE', icon: User, module: 'Master Data' },
   { code: 'XK02', description: 'VENDOR MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'XK03', description: 'VENDOR MASTER: DISPLAY', icon: Info, module: 'Master Data' },
-  { code: 'XD01', description: 'CUSTOMER MASTER: CREATE INITIAL SCREEN', icon: Users, module: 'Master Data' },
+  { code: 'XD01', description: 'CUSTOMER MASTER: CREATE', icon: Users, module: 'Master Data' },
   { code: 'XD02', description: 'CUSTOMER MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'XD03', description: 'CUSTOMER MASTER: DISPLAY', icon: Info, module: 'Master Data' },
-  { code: 'VA01', description: 'SALES ORDER: CREATE INITIAL SCREEN', icon: ShoppingBag, module: 'Logistics' },
+  { code: 'VA01', description: 'SALES ORDER: CREATE', icon: ShoppingBag, module: 'Logistics' },
   { code: 'VA02', description: 'SALES ORDER: CHANGE', icon: Edit3, module: 'Logistics' },
   { code: 'VA03', description: 'SALES ORDER: DISPLAY', icon: Info, module: 'Logistics' },
   { code: 'VA04', description: 'CANCEL SALES ORDER', icon: Ban, module: 'Logistics' },
   { code: 'TR21', description: 'DRIP BOARD CONTROL', icon: Truck, module: 'Logistics' },
   { code: 'BULK', description: 'BULK DATA HUB CONTROL', icon: CloudUpload, module: 'System' },
-  { code: 'SU01', description: 'USER MANAGEMENT: CREATE INITIAL SCREEN', icon: ShieldAlert, module: 'System' },
+  { code: 'SU01', description: 'USER MANAGEMENT: CREATE', icon: ShieldAlert, module: 'System' },
   { code: 'SU02', description: 'USER MANAGEMENT: CHANGE', icon: Edit3, module: 'System' },
   { code: 'SU03', description: 'USER MANAGEMENT: DISPLAY', icon: Info, module: 'System' },
   { code: 'ZCODE', description: 'SYSTEM: ALL ACTIVE T-CODES', icon: Grid2X2, module: 'System' },
@@ -106,11 +106,23 @@ export default function SapDashboard() {
   
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL');
   const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM'));
+  const [showMonthCalendar, setShowMonthCalendar] = React.useState(false);
   const [sessionCount, setSessionCount] = React.useState(1);
   const tCodeRef = React.useRef<HTMLInputElement>(null);
+  const monthRef = React.useRef<HTMLDivElement>(null);
 
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
   const { data: userProfile } = useDoc(profileRef);
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (monthRef.current && !monthRef.current.contains(event.target as Node)) {
+        setShowMonthCalendar(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   React.useEffect(() => {
     if (user && db) {
@@ -583,7 +595,7 @@ export default function SapDashboard() {
                 <Grid2X2 className="h-3.5 w-3.5" /> Favorites
               </h2>
             </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar">
+            <div className="flex-1 overflow-y-auto green-scrollbar">
               {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'BULK' || t.code === 'ZCODE').map((item) => (
                 <div 
                   key={item.code} 
@@ -625,7 +637,7 @@ export default function SapDashboard() {
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] font-black uppercase text-slate-400">Plant</label>
                     <select 
-                      className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-600"
+                      className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-600 shadow-sm"
                       value={homePlantFilter}
                       onChange={(e) => setHomePlantFilter(e.target.value)}
                     >
@@ -636,54 +648,72 @@ export default function SapDashboard() {
                     </select>
                   </div>
                   
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 relative" ref={monthRef}>
                     <label className="text-[10px] font-black uppercase text-slate-400">Month</label>
-                    <div className="flex flex-col border border-slate-300 bg-white rounded-lg shadow-sm w-full max-w-[320px]">
-                      <div className="flex items-center justify-between p-3 border-b border-slate-200 bg-white">
-                        <button 
-                          onClick={() => {
-                            const [y, m] = homeMonthFilter.split('-');
-                            setHomeMonthFilter(`${parseInt(y) - 1}-${m}`);
-                          }}
-                          className="p-1.5 hover:bg-slate-50 rounded-md border border-slate-200 transition-colors"
-                        >
-                          <ChevronLeft className="h-4 w-4 text-slate-600" />
-                        </button>
-                        <span className="text-sm font-black text-slate-800 tracking-tight">
-                          {homeMonthFilter.split('-')[0]}
-                        </span>
-                        <button 
-                          onClick={() => {
-                            const [y, m] = homeMonthFilter.split('-');
-                            setHomeMonthFilter(`${parseInt(y) + 1}-${m}`);
-                          }}
-                          className="p-1.5 hover:bg-slate-50 rounded-md border border-slate-200 transition-colors"
-                        >
-                          <ChevronRight className="h-4 w-4 text-slate-600" />
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-4 gap-2 p-3 bg-white">
-                        {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => {
-                          const mStr = (i + 1).toString().padStart(2, '0');
-                          const year = homeMonthFilter.split('-')[0];
-                          const isActive = homeMonthFilter === `${year}-${mStr}`;
-                          return (
-                            <button
-                              key={m}
-                              onClick={() => setHomeMonthFilter(`${year}-${mStr}`)}
-                              className={cn(
-                                "py-2 text-[10px] font-black transition-all border rounded-md uppercase tracking-tight",
-                                isActive 
-                                  ? "bg-[#0056d2] text-white border-[#0056d2] shadow-sm" 
-                                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                              )}
-                            >
-                              {m}
-                            </button>
-                          );
-                        })}
-                      </div>
+                    <div 
+                      onClick={() => setShowMonthCalendar(!showMonthCalendar)}
+                      className="h-10 border border-slate-400 bg-white px-3 flex items-center justify-between cursor-pointer shadow-sm"
+                    >
+                      <span className="text-xs font-bold text-slate-700 uppercase">
+                        {format(new Date(homeMonthFilter + '-01'), 'MMMM yyyy')}
+                      </span>
+                      <CalendarIcon className="h-4 w-4 text-slate-400" />
                     </div>
+                    
+                    {showMonthCalendar && (
+                      <div className="absolute top-full left-0 mt-1 z-[60] flex flex-col border border-slate-300 bg-white rounded-lg shadow-2xl w-full max-w-[320px] animate-slide-down">
+                        <div className="flex items-center justify-between p-3 border-b border-slate-200 bg-white">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const [y, m] = homeMonthFilter.split('-');
+                              setHomeMonthFilter(`${parseInt(y) - 1}-${m}`);
+                            }}
+                            className="p-1.5 hover:bg-slate-50 rounded-md border border-slate-200 transition-colors"
+                          >
+                            <ChevronLeft className="h-4 w-4 text-slate-600" />
+                          </button>
+                          <span className="text-sm font-black text-slate-800 tracking-tight">
+                            {homeMonthFilter.split('-')[0]}
+                          </span>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const [y, m] = homeMonthFilter.split('-');
+                              setHomeMonthFilter(`${parseInt(y) + 1}-${m}`);
+                            }}
+                            className="p-1.5 hover:bg-slate-50 rounded-md border border-slate-200 transition-colors"
+                          >
+                            <ChevronRight className="h-4 w-4 text-slate-600" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2 p-3 bg-white">
+                          {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => {
+                            const mStr = (i + 1).toString().padStart(2, '0');
+                            const year = homeMonthFilter.split('-')[0];
+                            const isActive = homeMonthFilter === `${year}-${mStr}`;
+                            return (
+                              <button
+                                key={m}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setHomeMonthFilter(`${year}-${mStr}`);
+                                  setShowMonthCalendar(false);
+                                }}
+                                className={cn(
+                                  "py-2 text-[10px] font-black transition-all border rounded-md uppercase tracking-tight",
+                                  isActive 
+                                    ? "bg-[#0056d2] text-white border-[#0056d2] shadow-sm" 
+                                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                )}
+                              >
+                                {m}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -837,7 +867,7 @@ function PlantForm({ data, onChange, disabled }: any) {
         <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
         <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
       </SectionGrouping>
-      <SectionGrouping title="SETTINGS">
+      <SectionGrouping title="SETTINGS / ">
         <FormInput label="PLANT CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
         <FormInput label="PLANT ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
         <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />

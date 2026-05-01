@@ -122,6 +122,22 @@
     scrollbar-width: none;
   }
 
+  /* Custom Green Scrollbar for Sidebar */
+  .green-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .green-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .green-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #22c55e;
+    border-radius: 10px;
+  }
+  .green-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #22c55e transparent;
+  }
+
   /* Subtle professional scrollbar */
   .custom-scrollbar::-webkit-scrollbar {
     width: 5px;
