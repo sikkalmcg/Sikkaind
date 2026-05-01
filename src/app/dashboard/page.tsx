@@ -309,7 +309,7 @@ export default function SapDashboard() {
               <div className="px-4 py-6 text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Logistics</div>
               <SidebarMenu className="gap-2">
                 {[
-                  { code: 'OX01', label: 'PLANT MASTER', icon: LayoutDashboard },
+                  { code: 'OX01', label: 'PLANT MASTER', icon: Database },
                   { code: 'FM01', label: 'COMPANY MASTER', icon: Database },
                   { code: 'XK01', label: 'VENDOR MASTER', icon: User },
                   { code: 'XD01', label: 'CUSTOMER MASTER', icon: Users },
