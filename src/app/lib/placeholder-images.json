@@ -7,6 +7,13 @@
       "width": 200,
       "height": 100,
       "description": "Sikka Industries Logo"
+    },
+    {
+      "id": "login-office",
+      "url": "https://picsum.photos/seed/sikka-office/600/800",
+      "width": 600,
+      "height": 800,
+      "description": "Sikka Industries Office Environment"
     }
   ]
 }

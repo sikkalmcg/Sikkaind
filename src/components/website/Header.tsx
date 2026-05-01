@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -38,7 +39,7 @@ export default function Header() {
         
         <div className="flex flex-1 justify-end gap-4">
           <Button asChild className="bg-blue-900 hover:bg-black text-white font-black uppercase text-[10px] tracking-widest rounded-xl px-6 shadow-lg shadow-blue-900/20 transition-all border-none">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/login" className="flex items-center gap-2">
               <Lock className="h-3.5 w-3.5" /> Portal
             </Link>
           </Button>
