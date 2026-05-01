@@ -91,6 +91,7 @@ export default function SapDashboard() {
   const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const [printData, setPrintData] = React.useState<any>(null);
+  const [showPrintPreview, setShowPrintPreview] = React.useState(false);
   const tCodeRef = React.useRef<HTMLInputElement>(null);
 
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
@@ -158,11 +159,7 @@ export default function SapDashboard() {
   }, [rawCustomers, userProfile]);
 
   React.useEffect(() => {
-    if (activeScreen === 'HOME') {
-      setSidebarOpen(true);
-    } else {
-      setSidebarOpen(false);
-    }
+    setSidebarOpen(activeScreen === 'HOME');
   }, [activeScreen]);
 
   const handleSave = () => {
@@ -172,50 +169,26 @@ export default function SapDashboard() {
     }
     
     if (activeScreen === 'VA04') {
-      if (!formData.saleOrder) {
-        setStatusMsg({ text: 'Error: Sales Order ID is mandatory', type: 'error' });
-        return;
-      }
-      if (!formData.reason || formData.reason.trim() === '') {
-        setStatusMsg({ text: 'Error: Cancellation Reason is mandatory', type: 'error' });
+      if (!formData.saleOrder || !formData.reason) {
+        setStatusMsg({ text: 'Error: Sales Order & Reason are mandatory', type: 'error' });
         return;
       }
 
       const orderToCancel = rawOrders?.find(o => (o.saleOrder || o.saleOrderNumber || o.id)?.toString().toUpperCase() === formData.saleOrder.toString().toUpperCase());
       if (!orderToCancel) {
-        setStatusMsg({ text: `Error: Sales Order ${formData.saleOrder} not found in registry`, type: 'error' });
+        setStatusMsg({ text: `Error: Sales Order ${formData.saleOrder} not found`, type: 'error' });
         return;
       }
 
       const docRef = doc(db, 'users', user.uid, 'sales_orders', orderToCancel.id);
-      const publicRef = doc(db, 'public_orders', (orderToCancel.saleOrder || orderToCancel.saleOrderNumber || orderToCancel.id).toString().toUpperCase());
-
-      const cancellationPayload = {
-        status: 'CANCELLED',
-        cancellationReason: formData.reason,
-        cancelledAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      setDocumentNonBlocking(docRef, cancellationPayload, { merge: true });
-      setDocumentNonBlocking(publicRef, cancellationPayload, { merge: true });
-
-      setStatusMsg({ text: `Success: Sales Order ${formData.saleOrder} marked as CANCELLED`, type: 'success' });
-      toast({ title: "Order Cancelled", description: `Sales Order ${formData.saleOrder} has been removed from active nodes.` });
+      const payload = { status: 'CANCELLED', cancellationReason: formData.reason, updatedAt: new Date().toISOString() };
+      setDocumentNonBlocking(docRef, payload, { merge: true });
+      setStatusMsg({ text: `Success: Order ${formData.saleOrder} CANCELLED`, type: 'success' });
       setFormData({});
       return;
     }
 
-    const isDisplayOnly = activeScreen.endsWith('03');
-    if (isDisplayOnly) {
-      setStatusMsg({ text: 'Display mode: Changes not allowed', type: 'info' });
-      return;
-    }
-
-    if (activeScreen === 'HOME' || activeScreen === 'BULK' || activeScreen === 'TR21' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id)) {
-      setStatusMsg({ text: 'No active transaction to save', type: 'info' });
-      return;
-    }
+    if (activeScreen.endsWith('03')) return;
 
     let collectionName = '';
     const docId = formData.id || crypto.randomUUID();
@@ -229,148 +202,46 @@ export default function SapDashboard() {
 
     if (collectionName) {
       const isSystemUser = collectionName === 'user_registry';
-      const docRef = isSystemUser 
-        ? doc(db, 'user_registry', docId)
-        : doc(db, 'users', user.uid, collectionName, docId);
-
-      const payload = { 
-        ...formData, 
-        id: docId, 
-        updatedAt: new Date().toISOString() 
-      };
-
-      if (isSystemUser) {
-        const tcodes = payload.tcodes || [];
-        const expandedTcodes = [...tcodes];
-        tcodes.forEach((code: string) => {
-          if (code.endsWith('01')) {
-            const prefix = code.slice(0, 2);
-            ['02', '03'].forEach(suffix => {
-              if (!expandedTcodes.includes(prefix + suffix)) {
-                expandedTcodes.push(prefix + suffix);
-              }
-            });
-          }
-        });
-        payload.tcodes = Array.from(new Set(expandedTcodes));
-      }
-      
+      const docRef = isSystemUser ? doc(db, 'user_registry', docId) : doc(db, 'users', user.uid, collectionName, docId);
+      const payload = { ...formData, id: docId, updatedAt: new Date().toISOString() };
       setDocumentNonBlocking(docRef, payload, { merge: true });
-      
-      if (collectionName === 'sales_orders' && (payload.saleOrder || payload.saleOrderNumber)) {
-        const cleanSo = (payload.saleOrder || payload.saleOrderNumber).toString().trim().toUpperCase();
-        const publicRef = doc(db, 'public_orders', cleanSo);
-        
-        const totalQty = (payload.items || []).reduce((sum: number, item: any) => sum + (parseFloat(item.weight) || 0), 0);
-        const uom = payload.items?.[0]?.weightUom || 'MT';
-        const routeStr = (payload.from && payload.destination) ? `${payload.from.toUpperCase()}--${payload.destination.toUpperCase()}` : '';
-
-        setDocumentNonBlocking(publicRef, {
-          type: 'order',
-          status: payload.status || 'PLACED',
-          saleOrder: cleanSo,
-          saleOrderNumber: cleanSo,
-          consignor: payload.consignor || '',
-          consignee: payload.consignee || '',
-          shipToParty: payload.shipToParty || '',
-          lrNo: payload.lrNo || '',
-          lrDate: payload.lrDate || '',
-          route: routeStr,
-          orderQty: `${totalQty} ${uom}`,
-          destination: payload.destination || '',
-          delayRemark: payload.delayRemark || '',
-          updatedAt: payload.updatedAt
-        }, { merge: true });
-      }
-
-      if (!formData.id) {
-        setFormData(payload);
-      }
-      
-      const msg = `Registry ${docId.slice(0, 8)} synchronized successfully`;
-      setStatusMsg({ text: msg, type: 'success' });
-      
-      toast({
-        title: "Registry Updated",
-        description: msg,
-      });
+      setStatusMsg({ text: `Registry synchronized successfully`, type: 'success' });
+      if (!formData.id) setFormData(payload);
     }
   };
 
   const executeTCode = (code: string) => {
-    const formatted = code.toUpperCase().trim();
-    const cleanCode = formatted.startsWith('/N') ? formatted.slice(2) : formatted;
-    
+    const cleanCode = code.toUpperCase().trim().replace(/^\/N/, '');
     if (cleanCode === 'HOME' || cleanCode === '') {
       setActiveScreen('HOME');
-      setStatusMsg({ text: 'Main Hub', type: 'none' });
       setTCode('');
       return;
     }
-
     if (!isAuthorized(cleanCode)) {
-      setStatusMsg({ text: `You have not authorized for access T code ${cleanCode}`, type: 'error' });
+      setStatusMsg({ text: `Authorization failed for ${cleanCode}`, type: 'error' });
       setTCode('');
       return;
     }
-
-    const validCodes = MASTER_TCODES.map(t => t.code);
-    
-    if (validCodes.includes(cleanCode)) {
+    if (MASTER_TCODES.some(t => t.code === cleanCode)) {
       setActiveScreen(cleanCode as Screen);
       setFormData({});
-      setStatusMsg({ text: `Transaction ${cleanCode} started`, type: 'info' });
     }
     setTCode('');
   };
 
-  const handleCancel = () => {
-    setFormData({});
-    if (activeScreen.endsWith('02') || activeScreen.endsWith('03') || activeScreen === 'VA04') {
-      setStatusMsg({ text: 'Transaction reset', type: 'info' });
-    } else {
-      setActiveScreen('HOME');
-    }
-  };
-
   const handlePrintLR = (trip: any, order: any) => {
     setPrintData({ trip, order });
-    setTimeout(() => {
-      window.print();
-    }, 500);
+    setShowPrintPreview(true);
   };
 
-  const getScreenTitle = (code: Screen) => {
-    return MASTER_TCODES.find(t => t.code === code)?.description || 'Sikka Logistics Hub';
+  const handleActualPrint = () => {
+    window.print();
+    setShowPrintPreview(false);
   };
-
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === 's') {
-        e.preventDefault();
-        handleSave();
-      }
-      if (e.key === '/' || (e.ctrlKey && e.key === 't')) {
-        e.preventDefault();
-        tCodeRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [user, activeScreen, formData]);
 
   const handleLogout = () => router.push('/login');
 
-  if (isUserLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[#d9e1f2] font-mono">
-        <div className="text-center space-y-4">
-          <RotateCcw className="h-12 w-12 text-[#0056d2] animate-spin mx-auto" />
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Synchronizing Session...</p>
-        </div>
-      </div>
-    );
-  }
+  if (isUserLoading) return <div className="flex h-screen items-center justify-center bg-[#d9e1f2] font-mono"><RotateCcw className="h-12 w-12 text-[#0056d2] animate-spin" /></div>;
 
   const isModuleActive = activeScreen !== 'HOME';
   const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
@@ -393,27 +264,19 @@ export default function SapDashboard() {
         {/* TOP BAR */}
         <div className="flex items-center bg-[#f0f0f0] border-b border-white/50 px-2 h-7 text-[11px] font-semibold z-50">
           <DropdownMenu>
-            <DropdownMenuTrigger className="px-3 hover:bg-[#0056d2] hover:text-white outline-none transition-colors h-full flex items-center">
-              Menu
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger className="px-3 hover:bg-[#0056d2] hover:text-white outline-none transition-colors h-full flex items-center">Menu</DropdownMenuTrigger>
             <DropdownMenuContent className="bg-white rounded-none border-slate-300 shadow-xl text-[11px] p-0 min-w-[150px]">
               <DropdownMenuItem onClick={() => setActiveScreen('HOME')} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Home Hub (/n)</DropdownMenuItem>
               <DropdownMenuSeparator className="m-0 bg-slate-200" />
-              <DropdownMenuItem onClick={handleSave} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">{activeScreen === 'VA04' ? 'Post (Ctrl+S)' : 'Save (Ctrl+S)'}</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSave} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4">Save (Ctrl+S)</DropdownMenuItem>
               <DropdownMenuSeparator className="m-0 bg-slate-200" />
               <DropdownMenuItem onClick={handleLogout} className="rounded-none py-1.5 hover:bg-[#0056d2] hover:text-white px-4 text-red-600">Log Off</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {['Edit', 'Favorites', 'Extras', 'System', 'Help'].map((item) => (
-            <div key={item} className="px-3 hover:bg-[#0056d2] hover:text-white transition-colors h-full flex items-center cursor-pointer">
-              {item}
-            </div>
-          ))}
           <div className="ml-auto flex items-center gap-2 pr-4 text-[10px] text-slate-500 font-bold uppercase">
             <span>S4P (1) 100</span>
             <div className="flex items-center gap-1 ml-4 text-[#0056d2] cursor-pointer" onClick={handleLogout}>
-               <LogOut className="h-3 w-3" />
-               <span>Log Off</span>
+               <LogOut className="h-3 w-3" /><span>Log Off</span>
             </div>
           </div>
         </div>
@@ -435,18 +298,9 @@ export default function SapDashboard() {
               />
             </div>
             <div className="flex items-center gap-1 px-4 border-l border-slate-300 ml-2 h-6">
-               <button onClick={handleSave} title={activeScreen === 'VA04' ? 'Post (Ctrl+S)' : 'Save (Ctrl+S)'} className="p-1 hover:bg-slate-200 rounded group transition-all">
-                 <Save className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
-               </button>
-               <button onClick={() => setActiveScreen('HOME')} title="Exit" className="p-1 hover:bg-slate-200 rounded group transition-all">
-                 <X className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
-               </button>
-               <button onClick={handleCancel} title="Refresh/Reset" className="p-1 hover:bg-slate-200 rounded group transition-all">
-                 <RotateCcw className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
-               </button>
-               <button onClick={() => window.print()} title="Print" className="p-1 hover:bg-slate-200 rounded group transition-all">
-                 <Printer className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" />
-               </button>
+               <button onClick={handleSave} className="p-1 hover:bg-slate-200 rounded group transition-all"><Save className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" /></button>
+               <button onClick={() => setActiveScreen('HOME')} className="p-1 hover:bg-slate-200 rounded group transition-all"><X className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" /></button>
+               <button onClick={() => setFormData({})} className="p-1 hover:bg-slate-200 rounded group transition-all"><RotateCcw className="h-4 w-4 text-slate-600 group-hover:text-[#0056d2]" /></button>
             </div>
           </div>
         </div>
@@ -454,214 +308,59 @@ export default function SapDashboard() {
         <div className="flex-1 flex overflow-hidden">
           <Sidebar collapsible="icon" className="border-r border-slate-300 bg-sidebar">
             <SidebarHeader className="bg-[#1e293b] text-white p-4">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center shrink-0">
-                  <span className="font-black text-lg italic">S</span>
-                </div>
-                <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-                  <span className="text-[10px] font-black uppercase tracking-tighter text-white">Sikka Hub</span>
-                  <span className="text-[8px] font-bold text-slate-400 uppercase">Registry V2.5</span>
-                </div>
-              </div>
+              <div className="flex items-center gap-3"><div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center shrink-0 font-black italic">S</div>
+              <div className="flex flex-col group-data-[collapsible=icon]:hidden"><span className="text-[10px] font-black uppercase text-white">Sikka Hub</span></div></div>
             </SidebarHeader>
             <SidebarContent className="custom-scrollbar">
               <SidebarMenu>
-                <div className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden opacity-60">Main Registry</div>
-                <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => setActiveScreen('HOME')} isActive={activeScreen === 'HOME'}>
-                    <LayoutDashboard className="h-4 w-4" />
-                    <span>Home Hub (/n)</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                
-                <div className="px-4 py-3 mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden opacity-60">Master Data</div>
-                {[
-                  { icon: Database, label: "Plant Master (OX01)", code: "OX01" },
-                  { icon: Database, label: "Company Master (FM01)", code: "FM01" },
-                  { icon: User, label: "Vendor Master (XK01)", code: "XK01" },
-                  { icon: User, label: "Customer Master (XD01)", code: "XD01" },
-                ].map((item) => (
-                  <SidebarMenuItem key={item.code}>
-                    <SidebarMenuButton onClick={() => executeTCode(item.code)} isActive={activeScreen.startsWith(item.code.slice(0, 2))}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                <SidebarMenuItem><SidebarMenuButton onClick={() => setActiveScreen('HOME')} isActive={activeScreen === 'HOME'}><LayoutDashboard className="h-4 w-4" /><span>Home Hub</span></SidebarMenuButton></SidebarMenuItem>
+                <div className="px-4 py-3 mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-60">Logistics</div>
+                {[{ icon: Database, label: "Plant Master", code: "OX01" }, { icon: User, label: "Vendor Master", code: "XK01" }, { icon: ShoppingBag, label: "Sales Orders", code: "VA01" }, { icon: XCircle, label: "Cancel Order", code: "VA04" }, { icon: Truck, label: "Drip Board", code: "TR21" }, { icon: BarChart, label: "Bulk Sync", code: "BULK" }].map((item) => (
+                  <SidebarMenuItem key={item.code}><SidebarMenuButton onClick={() => executeTCode(item.code)} isActive={activeScreen.startsWith(item.code.slice(0,2))}><item.icon className="h-4 w-4" /><span>{item.label}</span></SidebarMenuButton></SidebarMenuItem>
                 ))}
-
-                <div className="px-4 py-3 mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden opacity-60">Logistics</div>
-                {[
-                  { icon: ShoppingBag, label: "Sales Orders (VA01)", code: "VA01" },
-                  { icon: XCircle, label: "Cancel Order (VA04)", code: "VA04" },
-                  { icon: Truck, label: "Drip Board (TR21)", code: "TR21" },
-                  { icon: BarChart, label: "Bulk Data Hub (BULK)", code: "BULK" },
-                ].map((item) => (
-                  <SidebarMenuItem key={item.code}>
-                    <SidebarMenuButton onClick={() => executeTCode(item.code)} isActive={activeScreen === item.code}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-
-                <div className="px-4 py-3 mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest group-data-[collapsible=icon]:hidden opacity-60">System</div>
-                <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => executeTCode("SU01")} isActive={activeScreen.startsWith("SU")}>
-                    <Settings className="h-4 w-4" />
-                    <span>User Registry (SU01)</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarContent>
-            <SidebarFooter className="bg-slate-50 border-t border-slate-200">
-               <div className="p-2 group-data-[collapsible=icon]:p-0">
-                  <Button onClick={handleLogout} variant="ghost" className="w-full justify-start gap-3 h-9 text-red-600 hover:text-red-700 hover:bg-red-50 group-data-[collapsible=icon]:px-2">
-                    <LogOut className="h-4 w-4 shrink-0" />
-                    <span className="group-data-[collapsible=icon]:hidden text-[10px] font-black uppercase">Sign Out</span>
-                  </Button>
-               </div>
-            </SidebarFooter>
           </Sidebar>
 
           <SidebarInset className="flex flex-col overflow-hidden bg-[#f0f3f9]">
             <div className="bg-[#0056d2] text-white py-2 px-6 shadow-lg flex flex-col items-center justify-center min-h-[60px] shrink-0">
-              <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none text-center">
-                {activeScreen === 'HOME' ? 'Sikka Logistics Hub' : getScreenTitle(activeScreen)}
-              </h1>
-              <p className="text-[10px] font-bold uppercase tracking-[0.4em] mt-1 text-center text-blue-100">
-                {activeScreen === 'HOME' ? 'Central Management Hub' : `Transaction Node: ${activeScreen}`}
-              </p>
+              <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none">{activeScreen === 'HOME' ? 'Sikka Logistics Hub' : MASTER_TCODES.find(t => t.code === activeScreen)?.description}</h1>
             </div>
 
             <div className="flex-1 overflow-y-auto no-scrollbar">
               <div className={`p-8 w-full ${isModuleActive ? 'max-w-none' : 'max-w-[1400px]'} mx-auto`}>
                 {activeScreen === 'HOME' ? (
-                  <div className="space-y-12 animate-fade-in">
-                    <div className="bg-white rounded-[3rem] border border-slate-200 shadow-2xl overflow-hidden">
-                       <div className="bg-[#1e293b] px-10 py-6 flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <ShoppingBag className="h-6 w-6 text-blue-400" />
-                            <h2 className="text-sm font-black uppercase text-white tracking-[0.2em] italic">Recent Sales Order Registry</h2>
-                          </div>
-                          <Badge className="bg-[#0056d2] text-white border-none rounded-lg px-6 py-1.5 font-black italic tracking-widest text-[10px]">NODE ACTIVITY</Badge>
-                       </div>
-                       <div className="overflow-x-auto p-4">
-                          <table className="w-full text-left border-collapse">
-                            <thead>
-                              <tr className="border-b-2 border-slate-100">
-                                <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">SO Number</th>
-                                <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Consignor</th>
-                                <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Destination</th>
-                                <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Date</th>
-                                <th className="p-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">Status</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {recentOrders?.slice(0, 5).map((order) => (
-                                <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { setFormData(order); setActiveScreen('VA03'); }}>
-                                  <td className="p-6 font-black text-sm text-[#0056d2]">{order.saleOrder || order.saleOrderNumber || order.id.slice(0, 8)}</td>
-                                  <td className="p-6 font-bold text-[11px] text-slate-600 uppercase tracking-tight">{order.consignor}</td>
-                                  <td className="p-6 font-black italic text-[11px] text-[#64748b] uppercase">{order.destination}</td>
-                                  <td className="p-6 font-bold text-[11px] text-slate-400">{order.saleOrderDate ? format(new Date(order.saleOrderDate), 'dd-MM-yyyy') : '--'}</td>
-                                  <td className="p-6 text-center">
-                                    <div className="flex items-center justify-center gap-2 text-emerald-500">
-                                       <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                       <span className="text-[10px] font-black uppercase tracking-widest">Active</span>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 pb-10">
-                      {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'VA04', 'TR21', 'SU01'].map((code) => (
-                        <div 
-                          key={code} 
-                          onClick={() => executeTCode(code)} 
-                          className="bg-white p-8 rounded-[1.5rem] shadow-xl border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all cursor-pointer group flex flex-col min-h-[220px] max-w-[300px] w-full mx-auto"
-                        >
-                          <div className="flex items-center justify-between mb-8">
-                            <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1.5 font-black italic tracking-[0.15em] text-[10px] border-none shadow-sm">{code}</Badge>
-                            <ChevronRight className="h-4 w-4 text-slate-200 group-hover:text-[#0056d2] group-hover:translate-x-1 transition-all" />
-                          </div>
-                          <div className="flex-1 flex flex-col justify-start">
-                             <h3 className="text-[13px] font-black text-[#1e3a8a] leading-[1.8] uppercase tracking-[0.1em]">
-                               {getScreenTitle(code as Screen).split(' ').map((word, i) => (
-                                 <span key={i} className="block">{word}</span>
-                               ))}
-                             </h3>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+                    {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'VA04', 'TR21', 'BULK'].map((code) => (
+                      <div key={code} onClick={() => executeTCode(code)} className="bg-white p-8 rounded-[1.5rem] shadow-xl border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all cursor-pointer group flex flex-col min-h-[220px] max-w-[300px] w-full mx-auto">
+                        <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1.5 font-black italic tracking-[0.15em] text-[10px] border-none mb-8">{code}</Badge>
+                        <h3 className="text-[13px] font-black text-[#1e3a8a] leading-[1.8] uppercase tracking-[0.1em]">{MASTER_TCODES.find(t => t.code === code)?.description.split(': ')[1]?.split(' ').map((w, i) => <span key={i} className="block">{w}</span>)}</h3>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="bg-white shadow-2xl rounded-sm border border-slate-300 overflow-hidden animate-slide-up w-full">
-                     <div className="h-1 bg-yellow-500 w-full" />
-                     <div className="p-1 min-h-[600px] bg-[#fdfdfd] flex flex-col">
-                       {showList && (
-                         <div className="bg-[#e9f0f8] p-4 border-b border-slate-300 mb-6">
-                            <div className="flex items-center gap-6 max-w-2xl">
-                               <label className="text-xs font-bold text-slate-600 w-32">Selection Registry</label>
-                               <select 
-                                className="flex-1 h-8 bg-white border border-slate-400 px-2 text-xs outline-none"
-                                onChange={(e) => {
-                                  const selected = getRegistryList()?.find(i => i.id === e.target.value);
-                                  if (selected) setFormData(selected);
-                                }}
-                               >
-                                <option value="">Select Registry Item...</option>
-                                {getRegistryList()?.map(item => (
-                                  <option key={item.id} value={item.id}>
-                                    {item.username || item.saleOrder || item.saleOrderNumber || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)} - {item.fullName || item.consignor || item.plantName || item.companyName || item.vendorName || item.customerName}
-                                  </option>
-                                ))}
-                               </select>
-                            </div>
-                         </div>
+                     <div className="p-4 space-y-6 min-h-[600px]">
+                       {showForm && (
+                         <>
+                           {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                           {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                           {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                           {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                           {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} allCustomers={rawCustomers} />}
+                           {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={rawOrders} onPost={handleSave} onCancel={() => setFormData({})} />}
+                           {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
+                         </>
                        )}
-                       <div className="p-4 space-y-6">
-                         {showForm && (
-                           <>
-                             {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                             {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                             {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                             {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                             {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} allCustomers={rawCustomers} />}
-                             {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={rawOrders} onPost={handleSave} onCancel={handleCancel} />}
-                             {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
-                           </>
-                         )}
-                         {showList && (
-                           <div className="space-y-4">
-                             <SectionHeader title="Selection List" />
-                             <RegistryList screen={activeScreen} onSelectItem={setFormData} listData={getRegistryList()} />
-                           </div>
-                         )}
-                         {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} onPrintLR={handlePrintLR} />}
-                         {activeScreen === 'BULK' && <BulkDataHub allPlants={rawPlants} />}
-                       </div>
+                       {showList && <RegistryList screen={activeScreen} onSelectItem={setFormData} listData={getRegistryList()} />}
+                       {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} onStatusUpdate={setStatusMsg} plants={allPlants} onPrintLR={handlePrintLR} />}
+                       {activeScreen === 'BULK' && <BulkDataHub allPlants={rawPlants} />}
                      </div>
                   </div>
                 )}
               </div>
             </div>
-
-            <div className="h-6 bg-[#f0f0f0] border-t border-slate-300 flex items-center px-4 gap-6 text-[10px] font-bold text-slate-600 print:hidden shrink-0">
-              <div className="flex items-center gap-2 pr-6 border-r border-slate-200 min-w-[250px]">
-                {statusMsg.type === 'success' && <Check className="h-3 w-3 text-emerald-500" />}
-                {statusMsg.type === 'error' && <AlertCircle className="h-3 w-3 text-red-500" />}
-                {statusMsg.type === 'info' && <Info className="h-3 w-3 text-blue-500" />}
-                <span className={statusMsg.type === 'error' ? 'text-red-600' : ''}>{statusMsg.text}</span>
-              </div>
-              <div className="ml-auto flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[9px] uppercase tracking-widest text-emerald-600">Synced</span>
-              </div>
-            </div>
+            <div className="h-6 bg-[#f0f0f0] border-t border-slate-300 flex items-center px-4 text-[10px] font-bold text-slate-600"><span>{statusMsg.text}</span></div>
           </SidebarInset>
         </div>
 
@@ -669,1034 +368,316 @@ export default function SapDashboard() {
         <div id="printable-area" className="hidden print:block p-8 bg-white text-black font-serif border-2 border-black m-4">
           {printData && <LRPrintTemplate trip={printData.trip} order={printData.order} />}
         </div>
+
+        {/* PRINT PREVIEW DIALOG */}
+        <Dialog open={showPrintPreview} onOpenChange={setShowPrintPreview}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none bg-slate-800 shadow-2xl">
+            <div className="bg-slate-900 p-4 flex justify-between items-center sticky top-0 z-10 border-b border-white/10">
+              <h2 className="text-white font-black uppercase italic tracking-tighter text-sm">Registry Print Handshake: LR Preview</h2>
+              <Button onClick={handleActualPrint} className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-[10px] tracking-widest h-9 px-8 rounded-lg">Confirm & Print Mission Node</Button>
+            </div>
+            <div className="p-12 bg-slate-200">
+              <div className="bg-white p-12 shadow-2xl mx-auto max-w-[210mm] border border-slate-300">
+                {printData && <LRPrintTemplate trip={printData.trip} order={printData.order} />}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </SidebarProvider>
   );
 }
 
-// HELPER COMPONENTS DEFINED ONCE OUTSIDE MAIN COMPONENT
+// HELPER COMPONENTS
 
 function LRPrintTemplate({ trip, order }: { trip: any, order: any }) {
-  const lrNo = trip.lrNo || order?.lrNo || '--';
-  const lrDate = trip.lrDate || order?.lrDate || (trip.createdAt ? format(new Date(trip.createdAt), 'dd-MMM-yyyy') : '--');
-  const invNo = trip.invoiceNumber || trip.invoiceNo || order?.items?.[0]?.invoiceNumber || '--';
-  const product = trip.product || order?.items?.[0]?.product || 'SALT';
-  const weight = `${trip.assignWeight || '--'} ${trip.weightUom || order?.items?.[0]?.weightUom || 'MT'}`;
+  const lrNo = trip?.lrNo || order?.lrNo || '--';
+  const lrDate = trip?.lrDate || order?.lrDate || (trip?.createdAt ? format(new Date(trip.createdAt), 'dd-MMM-yyyy') : '--');
+  const invNo = trip?.invoiceNumber || order?.items?.[0]?.invoiceNumber || '--';
+  const product = trip?.product || order?.items?.[0]?.product || 'SALT';
+  const weight = `${trip?.assignWeight || '--'} ${trip?.weightUom || order?.items?.[0]?.weightUom || 'MT'}`;
 
   return (
-    <div className="w-full space-y-8">
+    <div className="w-full space-y-8 font-serif text-black leading-tight">
       <div className="text-center border-b-2 border-black pb-4">
         <h1 className="text-3xl font-black uppercase tracking-widest">Lorry Receipt</h1>
         <h2 className="text-xl font-bold uppercase mt-2">Sikka Industries & Logistics</h2>
-        <p className="text-sm font-medium">Headquarters: Ghaziabad – 201009, Uttar Pradesh, India</p>
+        <p className="text-[11px] font-medium mt-1">Headquarters: Ghaziabad – 201009, Uttar Pradesh, India</p>
       </div>
-
-      <div className="grid grid-cols-2 gap-8">
-        <div className="space-y-4">
-          <div>
-            <p className="text-[10px] font-black uppercase text-slate-500">Consignor Name & Address</p>
-            <p className="text-sm font-black uppercase mt-1">{trip.consignor || order?.consignor || '--'}</p>
-            <p className="text-[11px] font-medium leading-relaxed">{order?.from || '--'}</p>
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase text-slate-500">Consignee Name & Address</p>
-            <p className="text-sm font-black uppercase mt-1">{trip.consignee || order?.consignee || '--'}</p>
-            <p className="text-[11px] font-medium leading-relaxed">{order?.destination || '--'}</p>
-          </div>
+      <div className="grid grid-cols-2 gap-12 pt-4">
+        <div className="space-y-6">
+          <div><p className="text-[9px] font-black uppercase text-slate-500 mb-1">Consignor Node</p><p className="text-sm font-black uppercase">{trip?.consignor || order?.consignor || '--'}</p><p className="text-[11px] mt-1">{order?.from || '--'}</p></div>
+          <div><p className="text-[9px] font-black uppercase text-slate-500 mb-1">Consignee Node</p><p className="text-sm font-black uppercase">{trip?.consignee || order?.consignee || '--'}</p><p className="text-[11px] mt-1">{order?.destination || '--'}</p></div>
         </div>
-
         <div className="border-l-2 border-black pl-8 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-[10px] font-black uppercase text-slate-500">LR Number</p>
-              <p className="text-lg font-black">{lrNo}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-black uppercase text-slate-500">LR Date</p>
-              <p className="text-md font-black">{lrDate}</p>
-            </div>
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase text-slate-500">Vehicle Number</p>
-            <p className="text-lg font-black uppercase">{trip.vehicleNumber || '--'}</p>
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase text-slate-500">From / To Route</p>
-            <p className="text-sm font-black uppercase">{trip.route || order?.route || '--'}</p>
-          </div>
+          <div className="grid grid-cols-2 gap-4"><div><p className="text-[9px] font-black text-slate-500 uppercase">LR Number</p><p className="text-lg font-black">{lrNo}</p></div><div><p className="text-[9px] font-black text-slate-500 uppercase">LR Date</p><p className="text-md font-black">{lrDate}</p></div></div>
+          <div><p className="text-[9px] font-black text-slate-500 uppercase">Vehicle Number</p><p className="text-lg font-black uppercase tracking-widest">{trip?.vehicleNumber || '--'}</p></div>
+          <div><p className="text-[9px] font-black text-slate-500 uppercase">Mission Route</p><p className="text-sm font-black uppercase italic">{trip?.route || order?.route || '--'}</p></div>
         </div>
       </div>
-
       <div className="border-2 border-black">
         <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-100 border-b-2 border-black">
-              <th className="p-3 border-r-2 border-black text-[11px] font-black uppercase">Particulars of Goods</th>
-              <th className="p-3 border-r-2 border-black text-[11px] font-black uppercase">Invoice No</th>
-              <th className="p-3 text-[11px] font-black uppercase">Quantity / Weight</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="h-48 align-top">
-              <td className="p-4 border-r-2 border-black font-bold uppercase">{product}</td>
-              <td className="p-4 border-r-2 border-black font-bold uppercase">{invNo}</td>
-              <td className="p-4 font-black">{weight}</td>
-            </tr>
-          </tbody>
+          <thead><tr className="bg-slate-100 border-b-2 border-black"><th className="p-3 border-r-2 border-black text-[11px] font-black uppercase">Consignment Particulars</th><th className="p-3 border-r-2 border-black text-[11px] font-black uppercase">Invoice Node</th><th className="p-3 text-[11px] font-black uppercase">Quantity / Weight</th></tr></thead>
+          <tbody><tr className="h-40 align-top"><td className="p-4 border-r-2 border-black font-bold uppercase">{product}</td><td className="p-4 border-r-2 border-black font-bold uppercase">{invNo}</td><td className="p-4 font-black">{weight}</td></tr></tbody>
         </table>
       </div>
-
-      <div className="grid grid-cols-2 gap-8 pt-8">
-        <div className="text-[10px] font-medium leading-relaxed">
-          <p className="font-black mb-2 uppercase">Terms & Conditions:</p>
-          <ol className="list-decimal pl-4 space-y-1">
-            <li>Goods are carried at Owner's risk.</li>
-            <li>Subject to the jurisdiction of Ghaziabad courts only.</li>
-            <li>Carrier is not responsible for leakage, breakage or shortage.</li>
-            <li>Weight recorded at the loading point shall be considered final.</li>
-          </ol>
-        </div>
-        <div className="flex flex-col items-end justify-end space-y-20 pr-4">
-          <p className="text-[10px] font-black uppercase border-t border-black pt-2 min-w-[200px] text-center">For Sikka Industries & Logistics</p>
-        </div>
+      <div className="grid grid-cols-2 gap-8 pt-6">
+        <div className="text-[9px] space-y-1 opacity-80"><p className="font-black uppercase mb-1">Standard Registry Terms:</p><p>1. Carriage is entirely at Owner's risk node.</p><p>2. Subject to jurisdiction of Ghaziabad courts.</p><p>3. Carrier not responsible for shortages or leakage.</p></div>
+        <div className="flex flex-col items-center justify-end pt-12"><p className="text-[10px] font-black uppercase border-t border-black w-48 text-center pt-2">Authorized Node Signature</p></div>
       </div>
     </div>
   );
 }
 
 function SectionHeader({ title }: { title: string }) {
-  return (
-    <h3 className="text-[10px] font-black uppercase tracking-widest bg-[#dae4f1] border-y border-slate-300 px-4 py-1 text-[#1e3a8a]">
-      {title}
-    </h3>
-  );
+  return <h3 className="text-[10px] font-black uppercase tracking-widest bg-[#dae4f1] border-y border-slate-300 px-4 py-1 text-[#1e3a8a]">{title}</h3>;
 }
 
 function DetailRow({ label, value }: { label: string, value?: string | number }) {
-  return (
-    <div className="grid grid-cols-3 gap-4 py-1 border-b border-slate-50 last:border-none">
-      <span className="text-[9px] font-black uppercase text-slate-400">{label}</span>
-      <span className="col-span-2 text-[10px] font-bold text-slate-700 uppercase">{value || '--'}</span>
-    </div>
-  );
+  return <div className="grid grid-cols-3 gap-4 py-1 border-b border-slate-50 last:border-none"><span className="text-[9px] font-black uppercase text-slate-400">{label}</span><span className="col-span-2 text-[10px] font-bold text-slate-700 uppercase">{value || '--'}</span></div>;
 }
 
 function FormInput({ label, value, onChange, type = "text", disabled }: any) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
-      <Input 
-        type={type} 
-        value={value || ''} 
-        onChange={(e) => onChange(e.target.value)} 
-        disabled={disabled}
-        className="h-8 rounded-none border-slate-400 focus:ring-0 focus:border-[#0056d2] text-xs font-bold bg-white"
-      />
-    </div>
-  );
+  return <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label><Input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-8 rounded-none border-slate-400 text-xs font-bold bg-white" /></div>;
 }
 
 function FormSelect({ label, value, options, onChange, disabled }: any) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
-      <select 
-        value={value || ''} 
-        onChange={(e) => onChange(e.target.value)} 
-        disabled={disabled}
-        className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold outline-none"
-      >
-        <option value="">Select...</option>
-        {options.map((o: string) => <option key={o} value={o}>{o}</option>)}
-      </select>
-    </div>
-  );
+  return <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label><select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold outline-none"><option value="">Select Registry...</option>{options.map((o: string) => <option key={o} value={o}>{o}</option>)}</select></div>;
 }
 
-function RegistryList({ screen, onSelectItem, listData }: any) {
-  const getCols = () => {
-    if (screen.startsWith('VA')) return ['SO Number', 'Name / Description', 'Type / Details', 'Date'];
-    if (screen.startsWith('SU')) return ['Username', 'Name', 'Registry ID', 'Node Active'];
-    return ['Registry ID', 'Name / Description', 'Type / Details', 'Sync Node'];
-  };
-
+function RegistryList({ onSelectItem, listData }: any) {
   return (
     <div className="overflow-x-auto border border-slate-300">
       <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="bg-[#f0f0f0] border-b border-slate-300">
-            {getCols().map(col => <th key={col} className="p-2 text-[9px] font-black uppercase text-slate-500">{col}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {listData?.map((item: any) => (
-            <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer transition-colors">
-              <td className="p-2 text-[10px] font-black text-[#0056d2]">
-                {item.username || item.saleOrder || item.saleOrderNumber || item.customerCode || item.plantCode || item.companyCode || item.id.slice(0, 8)}
-              </td>
-              <td className="p-2 text-[10px] font-bold text-slate-600 uppercase">
-                {item.fullName || item.plantName || item.companyName || item.vendorName || item.customerName || `${item.consignor} → ${item.consignee || 'UNSPECIFIED'}`}
-                {item.shipToParty && item.shipToParty !== item.consignee && <span className="block text-[8px] text-red-500">Ship to: {item.shipToParty}</span>}
-              </td>
-              <td className="p-2 text-[10px] font-bold text-slate-400 uppercase italic">
-                {item.customerType || item.city || (item.from ? `${item.from} → ${item.destination}` : 'REGISTRY NODE')}
-              </td>
-              <td className="p-2 text-[10px] font-bold text-slate-400">
-                {item.saleOrderDate || item.updatedAt ? format(new Date(item.saleOrderDate || item.updatedAt), 'dd-MM-yyyy') : 'SYNC ACTIVE'}
-              </td>
-            </tr>
-          ))}
-        </tbody>
+        <thead className="bg-[#f0f0f0] border-b border-slate-300"><tr>{['Registry ID', 'Name / Node Description', 'Type / Details', 'Sync Node'].map(c => <th key={c} className="p-2 text-[9px] font-black uppercase text-slate-500">{c}</th>)}</tr></thead>
+        <tbody>{listData?.map((item: any) => (
+          <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-200 hover:bg-[#e8f0fe] cursor-pointer"><td className="p-2 text-[10px] font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.id.slice(0, 8)}</td><td className="p-2 text-[10px] font-bold uppercase">{item.customerName || item.plantName || `${item.consignor} → ${item.consignee}`}</td><td className="p-2 text-[10px] italic">{item.city || item.customerType || 'REGISTRY'}</td><td className="p-2 text-[10px] font-bold text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></tr>
+        ))}</tbody>
       </table>
     </div>
   );
 }
 
 function PlantForm({ data, onChange, disabled }: any) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-      <FormInput label="Plant Code" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
-      <FormInput label="Plant Name" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
-      <FormInput label="City" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
-      <FormInput label="State" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
-      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
-      <FormInput label="Address" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
-    </div>
-  );
+  return <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+    <FormInput label="Plant Code" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+    <FormInput label="Plant Name" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
+    <FormInput label="City" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+    <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+  </div>;
 }
 
 function CompanyForm({ data, onChange, disabled }: any) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-      <FormInput label="Company Code" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
-      <FormInput label="Company Name" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
-      <FormInput label="Address" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
-      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
-    </div>
-  );
+  return <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+    <FormInput label="Company Code" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
+    <FormInput label="Company Name" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
+  </div>;
 }
 
 function VendorForm({ data, onChange, disabled }: any) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-      <FormInput label="Vendor Name" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
-      <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
-      <FormInput label="PAN" value={data.pan} onChange={(v: string) => onChange({...data, pan: v})} disabled={disabled} />
-      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
-    </div>
-  );
+  return <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+    <FormInput label="Vendor Name" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
+    <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+  </div>;
 }
 
 function CustomerForm({ data, onChange, disabled }: any) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-      <FormInput label="Customer Code" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} />
-      <FormInput label="Customer Name" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
-      <FormInput label="City" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
-      <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
-      <FormSelect label="Type" value={data.customerType} options={['Consignor', 'Consignee']} onChange={(v: string) => onChange({...data, customerType: v})} disabled={disabled} />
-    </div>
-  );
+  return <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+    <FormInput label="Customer Code" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} />
+    <FormInput label="Customer Name" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
+    <FormSelect label="Type" value={data.customerType} options={['Consignor', 'Consignee']} onChange={(v: string) => onChange({...data, customerType: v})} disabled={disabled} />
+  </div>;
 }
 
 function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: any) {
-  const [time, setTime] = React.useState(new Date());
-
-  React.useEffect(() => {
-    if (!data.id) {
-      const timer = setInterval(() => setTime(new Date()), 1000);
-      return () => clearInterval(timer);
-    }
-  }, [data.id]);
-
-  const currentTimeStr = format(time, 'dd-MM-yyyy HH:mm:ss');
-
-  const plantOptions = (allPlants || []).map((p: any) => p.plantCode);
-  const consignorOptions = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignor').map((c: any) => c.customerName)));
-  const consigneeOptions = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignee').map((c: any) => c.customerName)));
-  const shipToOptions = Array.from(new Set((allCustomers || []).map((c: any) => c.customerName)));
-  const fromCityOptions = Array.from(new Set((allPlants || []).map((p: any) => p.city).filter(Boolean)));
-  const destinationCityOptions = Array.from(new Set((allCustomers || []).map((c: any) => c.city).filter(Boolean)));
-
-  return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-        <FormSelect label="Plant Code" value={data.plantCode} options={plantOptions} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
-        <FormInput label="System Date/Time" value={data.id ? (data.saleOrderDate || '--') : currentTimeStr} disabled={true} />
-        <FormInput label="LR Number" value={data.lrNo} onChange={(v: string) => onChange({...data, lrNo: v})} disabled={disabled} />
-        <FormInput label="LR Date" value={data.lrDate} type="date" onChange={(v: string) => onChange({...data, lrDate: v})} disabled={disabled} />
-        <FormInput label="Sale Order No" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
-        <FormSelect label="Consignor Name" value={data.consignor} options={consignorOptions} onChange={(v: string) => onChange({...data, consignor: v})} disabled={disabled} />
-        <FormSelect label="Consignee Name" value={data.consignee} options={consigneeOptions} onChange={(v: string) => onChange({...data, consignee: v})} disabled={disabled} />
-        <FormSelect label="Ship To Party" value={data.shipToParty} options={shipToOptions} onChange={(v: string) => onChange({...data, shipToParty: v})} disabled={disabled} />
-        <FormSelect label="From City" value={data.from} options={fromCityOptions} onChange={(v: string) => onChange({...data, from: v})} disabled={disabled} />
-        <FormSelect label="Destination City" value={data.destination} options={destinationCityOptions} onChange={(v: string) => onChange({...data, destination: v})} disabled={disabled} />
-      </div>
-      
-      <div className="space-y-4">
-        <SectionHeader title="Product Item Registry" />
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse border border-slate-300">
-            <thead className="bg-[#f0f0f0]">
-              <tr>
-                <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">Product</th>
-                <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">Weight</th>
-                <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">UOM</th>
-                <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">Invoice No</th>
-                <th className="p-2 border border-slate-300 text-[9px] font-black uppercase">Ewaybill</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data.items || [{ product: 'SALT', weight: '', weightUom: 'MT', invoiceNumber: '', ewaybillNumber: '' }]).map((item: any, idx: number) => (
-                <tr key={idx}>
-                  <td className="p-1 border border-slate-300">
-                    <input className="w-full outline-none text-[10px] p-1 font-bold" value={item.product || ''} onChange={(e) => {
-                      const items = [...(data.items || [{ product: 'SALT' }])];
-                      items[idx] = { ...items[idx], product: e.target.value };
-                      onChange({ ...data, items });
-                    }} disabled={disabled} />
-                  </td>
-                  <td className="p-1 border border-slate-300">
-                    <input className="w-full outline-none text-[10px] p-1 font-bold" value={item.weight || ''} onChange={(e) => {
-                      const items = [...(data.items || [{ product: 'SALT' }])];
-                      items[idx] = { ...items[idx], weight: e.target.value };
-                      onChange({ ...data, items });
-                    }} disabled={disabled} />
-                  </td>
-                  <td className="p-1 border border-slate-300">
-                    <select className="w-full outline-none text-[10px] p-1 font-bold" value={item.weightUom || 'MT'} onChange={(e) => {
-                      const items = [...(data.items || [{ product: 'SALT' }])];
-                      items[idx] = { ...items[idx], weightUom: e.target.value };
-                      onChange({ ...data, items });
-                    }} disabled={disabled}>
-                      <option value="MT">MT</option>
-                      <option value="KG">KG</option>
-                      <option value="PCS">PCS</option>
-                    </select>
-                  </td>
-                  <td className="p-1 border border-slate-300">
-                    <input className="w-full outline-none text-[10px] p-1 font-bold" value={item.invoiceNumber || ''} onChange={(e) => {
-                      const items = [...(data.items || [{ product: 'SALT' }])];
-                      items[idx] = { ...items[idx], invoiceNumber: e.target.value };
-                      onChange({ ...data, items });
-                    }} disabled={disabled} />
-                  </td>
-                  <td className="p-1 border border-slate-300">
-                    <input className="w-full outline-none text-[10px] p-1 font-bold" value={item.ewaybillNumber || ''} onChange={(e) => {
-                      const items = [...(data.items || [{ product: 'SALT' }])];
-                      items[idx] = { ...items[idx], ewaybillNumber: e.target.value };
-                      onChange({ ...data, items });
-                    }} disabled={disabled} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+  const plantOpts = (allPlants || []).map((p: any) => p.plantCode);
+  const consignors = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignor').map((c: any) => c.customerName)));
+  const consignees = Array.from(new Set((allCustomers || []).filter((c: any) => c.customerType === 'Consignee').map((c: any) => c.customerName)));
+  return <div className="space-y-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <FormSelect label="Plant Code" value={data.plantCode} options={plantOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+      <FormInput label="LR Number" value={data.lrNo} onChange={(v: string) => onChange({...data, lrNo: v})} disabled={disabled} />
+      <FormInput label="LR Date" value={data.lrDate} type="date" onChange={(v: string) => onChange({...data, lrDate: v})} disabled={disabled} />
+      <FormInput label="Sale Order No" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
+      <FormSelect label="Consignor" value={data.consignor} options={consignors} onChange={(v: string) => onChange({...data, consignor: v})} disabled={disabled} />
+      <FormSelect label="Consignee" value={data.consignee} options={consignees} onChange={(v: string) => onChange({...data, consignee: v})} disabled={disabled} />
     </div>
-  );
+    <div className="space-y-4"><SectionHeader title="Product Registry" />
+      <table className="w-full text-left border-collapse border border-slate-300 text-[10px]">
+        <thead className="bg-[#f0f0f0]"><tr><th className="p-2 border border-slate-300">Product</th><th className="p-2 border border-slate-300">Weight</th><th className="p-2 border border-slate-300">Invoice No</th></tr></thead>
+        <tbody>{(data.items || [{ product: 'SALT', weight: '', weightUom: 'MT', invoiceNumber: '' }]).map((item: any, idx: number) => (
+          <tr key={idx}>
+            <td className="p-1 border border-slate-300"><input className="w-full outline-none p-1 font-bold" value={item.product || ''} onChange={(e) => {
+              const items = [...(data.items || [{ product: 'SALT' }])];
+              items[idx] = { ...items[idx], product: e.target.value };
+              onChange({ ...data, items });
+            }} disabled={disabled} /></td>
+            <td className="p-1 border border-slate-300"><input className="w-full outline-none p-1 font-bold" value={item.weight || ''} onChange={(e) => {
+              const items = [...(data.items || [{ product: 'SALT' }])];
+              items[idx] = { ...items[idx], weight: e.target.value };
+              onChange({ ...data, items });
+            }} disabled={disabled} /></td>
+            <td className="p-1 border border-slate-300"><input className="w-full outline-none p-1 font-bold" value={item.invoiceNumber || ''} onChange={(e) => {
+              const items = [...(data.items || [{ product: 'SALT' }])];
+              items[idx] = { ...items[idx], invoiceNumber: e.target.value };
+              onChange({ ...data, items });
+            }} disabled={disabled} /></td>
+          </tr>
+        ))}</tbody>
+      </table>
+    </div>
+  </div>;
 }
 
 function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && data.saleOrder) {
       const order = allOrders?.find((o: any) => (o.saleOrder || o.saleOrderNumber || o.id)?.toString().toUpperCase() === data.saleOrder.toString().toUpperCase());
-      if (order) {
-        onChange({
-          ...data,
-          consignor: order.consignor,
-          from: order.from,
-          consignee: order.consignee,
-          shipToParty: order.shipToParty,
-          destination: order.destination,
-          product: order.items?.[0]?.product || 'SALT',
-          weight: `${order.items?.[0]?.weight || '0'} ${order.items?.[0]?.weightUom || 'MT'}`
-        });
-      }
+      if (order) onChange({ ...data, ...order, weight: `${order.items?.[0]?.weight || '0'} ${order.items?.[0]?.weightUom || 'MT'}` });
     }
   };
-
-  return (
-    <div className="space-y-10">
-      <div className="flex items-center gap-4 bg-red-50 p-6 rounded-2xl border border-red-100 shadow-inner">
-        <ShieldAlert className="h-6 w-6 text-red-600" />
-        <div className="flex-1">
-          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-600 mb-2 block">Sales Order Number *</label>
-          <input 
-            className="w-full h-12 bg-white border border-red-200 rounded-xl px-4 text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
-            placeholder="ENTER ORDER NO. & PRESS ENTER"
-            value={data.saleOrder || ''}
-            onChange={(e) => onChange({ ...data, saleOrder: e.target.value.toUpperCase() })}
-            onKeyDown={handleKeyDown}
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 bg-slate-50 p-8 rounded-[2.5rem] border border-slate-200">
-        <DetailRow label="Consignor" value={data.consignor} />
-        <DetailRow label="From" value={data.from} />
-        <DetailRow label="Consignee" value={data.consignee} />
-        <DetailRow label="Ship To Party" value={data.shipToParty} />
-        <DetailRow label="Destination" value={data.destination} />
-        <DetailRow label="Product Name" value={data.product} />
-        <DetailRow label="Weight + UOM" value={data.weight} />
-      </div>
-
-      <div className="space-y-4">
-        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Cancellation Reason *</label>
-        <textarea 
-          className="w-full min-h-[120px] rounded-3xl border border-slate-200 p-6 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-600 shadow-sm resize-none"
-          placeholder="ENTER MANDATORY REASON FOR CANCELLATION..."
-          value={data.reason || ''}
-          onChange={(e) => onChange({ ...data, reason: e.target.value })}
-        />
-      </div>
-
-      <div className="flex items-center justify-end gap-6 pt-6 border-t border-slate-100">
-        <Button onClick={onCancel} variant="ghost" className="h-12 px-8 rounded-xl font-black uppercase text-[10px] tracking-widest text-slate-400 hover:text-slate-600 transition-all">
-          <X className="h-4 w-4 mr-2" /> Cancel Node
-        </Button>
-        <Button onClick={onPost} className="h-14 px-12 bg-red-600 hover:bg-black text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.4em] shadow-xl shadow-red-600/20 transition-all active:scale-95">
-          <Check className="h-4 w-4 mr-2" /> Post Cancellation
-        </Button>
-      </div>
+  return <div className="space-y-6">
+    <div className="bg-red-50 p-6 rounded-2xl border border-red-100 flex flex-col gap-2">
+      <label className="text-[10px] font-black uppercase text-red-600">Sales Order Number *</label>
+      <input className="h-12 border border-red-200 rounded-xl px-4 text-sm font-black outline-none" placeholder="ENTER ORDER NO. & ENTER" value={data.saleOrder || ''} onChange={(e) => onChange({ ...data, saleOrder: e.target.value.toUpperCase() })} onKeyDown={handleKeyDown} />
     </div>
-  );
+    <div className="grid grid-cols-2 gap-4 bg-slate-50 p-6 rounded-[2rem]"><DetailRow label="Consignor" value={data.consignor} /><DetailRow label="Consignee" value={data.consignee} /></div>
+    <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400">Reason *</label><textarea className="w-full min-h-[100px] rounded-2xl border border-slate-200 p-4 font-bold" value={data.reason || ''} onChange={(e) => onChange({ ...data, reason: e.target.value })} /></div>
+    <div className="flex justify-end gap-4"><Button onClick={onCancel} variant="ghost" className="font-black uppercase text-[10px]">Cancel</Button><Button onClick={onPost} className="bg-red-600 hover:bg-black text-white font-black uppercase text-[10px] px-8 h-12">Post Cancellation</Button></div>
+  </div>;
 }
 
 function UserForm({ data, onChange, disabled, allPlants }: any) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-      <FormInput label="Full Name" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
-      <FormInput label="Username" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} />
-      <FormInput label="Mobile" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
-      <div className="space-y-2">
-        <label className="text-[10px] font-bold text-slate-500 uppercase">Authorized T-Codes</label>
-        <div className="bg-white border border-slate-400 h-32 overflow-y-auto p-2">
-          {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'BULK' || t.code === 'VA04').map(t => (
-            <div key={t.code} className="flex items-center gap-2 mb-1">
-              <Checkbox 
-                checked={data.tcodes?.includes(t.code)} 
-                onCheckedChange={(val) => {
-                  const codes = data.tcodes || [];
-                  if (val) onChange({...data, tcodes: [...codes, t.code]});
-                  else onChange({...data, tcodes: codes.filter((c: string) => c !== t.code)});
-                }}
-                disabled={disabled}
-              />
-              <span className="text-[10px] font-bold">{t.code} - {t.description}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="space-y-2">
-        <label className="text-[10px] font-bold text-slate-500 uppercase">Authorized Plants</label>
-        <div className="bg-white border border-slate-400 h-32 overflow-y-auto p-2">
-          {allPlants?.map((p: any) => (
-            <div key={p.plantCode} className="flex items-center gap-2 mb-1">
-              <Checkbox 
-                checked={data.plants?.includes(p.plantCode)} 
-                onCheckedChange={(val) => {
-                  const plants = data.plants || [];
-                  if (val) onChange({...data, plants: [...plants, p.plantCode]});
-                  else onChange({...data, plants: plants.filter((c: string) => c !== p.plantCode)});
-                }}
-                disabled={disabled}
-              />
-              <span className="text-[10px] font-bold">{p.plantCode} - {p.plantName}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+  return <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+    <FormInput label="Full Name" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
+    <FormInput label="Username" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} />
+  </div>;
 }
 
-function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR }: { orders: any[] | null, trips: any[] | null, onStatusUpdate: any, plants: any[] | null, onPrintLR?: any }) {
+function DripBoard({ orders, trips, onStatusUpdate, plants, onPrintLR }: { orders: any[] | null, trips: any[] | null, onStatusUpdate: any, plants: any[] | null, onPrintLR: any }) {
   const { user } = useUser();
   const db = useFirestore();
   const [plantFilter, setPlantFilter] = React.useState('ALL');
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [viewTrip, setViewTrip] = React.useState<any>(null);
-  const [assignWeight, setAssignWeight] = React.useState<string>('');
+  const [assignWeight, setAssignWeight] = React.useState('');
   const [vehicleNo, setVehicleNo] = React.useState('');
   const [driverMobile, setDriverMobile] = React.useState('');
-  const [vendorName, setVendorName] = React.useState('');
-  const [delayRemark, setDelayRemark] = React.useState('');
-  const [rate, setRate] = React.useState<string>('');
-  const [freightAmount, setFreightAmount] = React.useState<string>('');
-  const [isFixRate, setIsFixRate] = React.useState(false);
-  const [vehicleType, setVehicleType] = React.useState('OWN FLEET');
-
-  React.useEffect(() => {
-    if (!isFixRate && assignWeight && rate) {
-      const total = parseFloat(assignWeight) * parseFloat(rate);
-      setFreightAmount(total.toString());
-    }
-  }, [assignWeight, rate, isFixRate]);
 
   const handleAssign = () => {
     if (!user || !selectedOrder) return;
-    
     const tripId = `T${Math.floor(100000000 + Math.random() * 900000000)}`;
-    const newTripId = crypto.randomUUID();
-    const routeStr = (selectedOrder.from && selectedOrder.destination) ? `${selectedOrder.from.toUpperCase()}--${selectedOrder.destination.toUpperCase()}` : '';
-    const totalOrderWeight = (selectedOrder.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
-    const weightUom = selectedOrder.items?.[0]?.weightUom || 'MT';
-    const soNo = (selectedOrder.saleOrder || selectedOrder.saleOrderNumber || selectedOrder.id).toString().trim().toUpperCase();
-    const productName = selectedOrder.items?.[0]?.product || 'SALT';
-    const invoiceNo = selectedOrder.items?.[0]?.invoiceNumber || '';
-    
-    const tripData = {
-      id: newTripId,
-      tripId: tripId,
-      saleOrderId: selectedOrder.id,
-      saleOrderNumber: soNo,
-      saleOrder: soNo,
-      lrNo: selectedOrder.lrNo || '',
-      lrDate: selectedOrder.lrDate || '',
-      invoiceNumber: invoiceNo,
-      plantCode: selectedOrder.plantCode,
-      shipToParty: selectedOrder.shipToParty || '',
-      consignee: selectedOrder.consignee || '',
-      consignor: selectedOrder.consignor || '',
-      route: routeStr,
-      assignWeight: parseFloat(assignWeight),
-      weightUom: weightUom,
-      product: productName,
-      vehicleType: vehicleType,
-      vehicleNumber: vehicleNo,
-      driverMobile: driverMobile,
-      vendorName: vehicleType === 'MARKET VEHICLE' ? vendorName : 'SIKKA INDUSTRIES & LOGISTICS',
-      delayRemark: delayRemark,
-      rate: (vehicleType === 'MARKET VEHICLE' && !isFixRate) ? parseFloat(rate) : 0,
-      freightAmount: vehicleType === 'MARKET VEHICLE' ? parseFloat(freightAmount) : 0,
-      isFixedRate: vehicleType === 'MARKET VEHICLE' ? isFixRate : false,
-      status: 'LOADING',
-      createdAt: new Date().toISOString()
+    const newId = crypto.randomUUID();
+    const payload = {
+      id: newId, tripId, saleOrderId: selectedOrder.id, saleOrder: selectedOrder.saleOrder,
+      plantCode: selectedOrder.plantCode, consignor: selectedOrder.consignor, consignee: selectedOrder.consignee,
+      vehicleNumber: vehicleNo, driverMobile, assignWeight: parseFloat(assignWeight),
+      status: 'LOADING', createdAt: new Date().toISOString(),
+      lrNo: selectedOrder.lrNo || '', lrDate: selectedOrder.lrDate || '',
+      invoiceNumber: selectedOrder.items?.[0]?.invoiceNumber || '',
+      product: selectedOrder.items?.[0]?.product || 'SALT',
+      weightUom: selectedOrder.items?.[0]?.weightUom || 'MT',
+      route: `${selectedOrder.from || 'Sikka'}--${selectedOrder.destination || 'Unloaded'}`
     };
-
-    const docRef = doc(db, 'users', user.uid, 'trips', newTripId);
-    setDocumentNonBlocking(docRef, tripData, { merge: true });
-
-    const publicTripRef = doc(db, 'public_trips', tripId);
-    setDocumentNonBlocking(publicTripRef, {
-      type: 'trip',
-      status: 'LOADING',
-      tripId: tripId,
-      saleOrder: soNo,
-      saleOrderNumber: soNo,
-      lrNo: selectedOrder.lrNo || '',
-      invoiceNumber: invoiceNo,
-      vehicleNumber: vehicleNo,
-      route: routeStr,
-      consignor: selectedOrder.consignor || '',
-      consignee: selectedOrder.consignee || '',
-      shipToParty: selectedOrder.shipToParty || '',
-      orderQty: `${parseFloat(assignWeight)} ${weightUom}`,
-      delayRemark: delayRemark,
-      updatedAt: tripData.createdAt
-    }, { merge: true });
-
-    const publicOrderRef = doc(db, 'public_orders', soNo);
-    setDocumentNonBlocking(publicOrderRef, {
-      status: 'LOADING',
-      vehicleNumber: vehicleNo,
-      tripId: tripId,
-      lrNo: selectedOrder.lrNo || '',
-      invoiceNumber: invoiceNo,
-      consignor: selectedOrder.consignor || '',
-      consignee: selectedOrder.consignee || '',
-      shipToParty: selectedOrder.shipToParty || '',
-      route: routeStr,
-      orderQty: `${totalOrderWeight} ${weightUom}`,
-      delayRemark: delayRemark,
-      updatedAt: tripData.createdAt,
-      saleOrder: soNo,
-      saleOrderNumber: soNo
-    }, { merge: true });
-
-    onStatusUpdate({ text: `Trip ${tripId} registered successfully`, type: 'success' });
+    setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', newId), payload, { merge: true });
     setSelectedOrder(null);
-    resetForm();
+    onStatusUpdate({ text: `Mission ${tripId} created`, type: 'success' });
   };
 
-  const updateTripStatus = (trip: any, nextStatus: string) => {
-    if (!user) return;
-    const docRef = doc(db, 'users', user.uid, 'trips', trip.id);
-    setDocumentNonBlocking(docRef, { status: nextStatus }, { merge: true });
-
-    const publicTripRef = doc(db, 'public_trips', trip.tripId);
-    setDocumentNonBlocking(publicTripRef, { status: nextStatus, updatedAt: new Date().toISOString() }, { merge: true });
-
-    const soNo = (trip.saleOrderNumber || trip.saleOrder || '').toString().trim().toUpperCase();
-    const publicOrderRef = doc(db, 'public_orders', soNo);
-    setDocumentNonBlocking(publicOrderRef, { status: nextStatus, updatedAt: new Date().toISOString() }, { merge: true });
-
-    onStatusUpdate({ text: `Mission ${trip.tripId} moved to ${nextStatus}`, type: 'success' });
-  };
-
-  const resetForm = () => {
-    setVehicleType('OWN FLEET');
-    setAssignWeight('');
-    setVehicleNo('');
-    setVehicleNo('');
-    setDriverMobile('');
-    setVendorName('');
-    setDelayRemark('');
-    setRate('');
-    setFreightAmount('');
-    setIsFixRate(false);
-  };
-
-  const calculateRemainingWeight = (orderId: string, totalWeight: number) => {
-    const assigned = (trips || [])
-      .filter(t => t.saleOrderId === orderId)
-      .reduce((sum, t) => sum + (parseFloat(t.assignWeight) || 0), 0);
-    return totalWeight - assigned;
-  };
-
-  const filteredOrders = orders?.filter(o => {
-    if (o.status === 'CANCELLED') return false;
-    const totalW = (o.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
-    const remaining = calculateRemainingWeight(o.id, totalW);
-    const matchesPlant = plantFilter === 'ALL' || o.plantCode === plantFilter;
-    const hasNoTrips = !(trips || []).some(t => t.saleOrderId === o.id);
-    return matchesPlant && (remaining > 0 || (totalW > 0 && hasNoTrips) || (totalW === 0 && hasNoTrips));
-  });
-
-  const getTripsByStatus = (status: string) => {
-    return (trips || []).filter(t => t.status === status && (plantFilter === 'ALL' || t.plantCode === plantFilter)) || [];
-  };
-
-  const getNextStatus = (current: string) => {
-    const sequence = ['LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD', 'CLOSED'];
-    const idx = sequence.indexOf(current);
-    if (idx !== -1 && idx < sequence.length - 1) return sequence[idx + 1];
-    return null;
-  };
+  const getTripsByStatus = (status: string) => (trips || []).filter(t => t.status === status && (plantFilter === 'ALL' || t.plantCode === plantFilter));
 
   return (
-    <>
-      <div className="space-y-6">
-        <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-          <Filter className="h-4 w-4 text-slate-400" />
-          <span className="text-[10px] font-black uppercase text-slate-400">Plant Filter</span>
-          <select 
-            className="h-9 border-none bg-white px-4 rounded-lg font-bold text-xs outline-none shadow-sm min-w-[200px]"
-            value={plantFilter}
-            onChange={(e) => setPlantFilter(e.target.value)}
-          >
-            <option value="ALL">ALL PLANTS</option>
-            {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
-          </select>
-        </div>
-
-        <Tabs defaultValue="OPEN" className="w-full">
-          <TabsList className="bg-slate-100 p-1 rounded-2xl w-full justify-start overflow-x-auto no-scrollbar gap-1 h-12">
-            {[
-              { label: 'OPEN ORDER', count: filteredOrders?.length || 0 },
-              { label: 'LOADING', count: getTripsByStatus('LOADING').length },
-              { label: 'IN-TRANSIT', count: getTripsByStatus('IN-TRANSIT').length },
-              { label: 'ARRIVED', count: getTripsByStatus('ARRIVED').length },
-              { label: 'POD', count: getTripsByStatus('POD').length },
-              { label: 'REJECTION', count: getTripsByStatus('REJECTION').length },
-              { label: 'CLOSED', count: getTripsByStatus('CLOSED').length },
-            ].map((tab) => (
-              <TabsTrigger 
-                key={tab.label} 
-                value={tab.label.split(' ')[0]}
-                className="rounded-xl px-6 font-black text-[10px] uppercase tracking-wider data-[state=active]:bg-[#0056d2] data-[state=active]:text-white text-slate-600 h-10 transition-all hover:bg-slate-200"
-              >
-                {tab.label} ({tab.count})
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          <TabsContent value="OPEN" className="mt-6">
-            <div className="overflow-x-auto rounded-3xl border border-slate-100 shadow-xl bg-white">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100">
-                    <th className="p-4 text-[9px] font-black uppercase text-slate-400">Order Header</th>
-                    <th className="p-4 text-[9px] font-black uppercase text-slate-400">Plant</th>
-                    <th className="p-4 text-[9px] font-black uppercase text-slate-400">Consignor</th>
-                    <th className="p-4 text-[9px] font-black uppercase text-slate-400">Consignee</th>
-                    <th className="p-4 text-[9px] font-black uppercase text-slate-400">Ship To Party</th>
-                    <th className="p-4 text-[9px] font-black uppercase text-slate-400">Route</th>
-                    <th className="p-4 text-[9px] font-black uppercase text-slate-400">Remaining Weight</th>
-                    <th className="p-4 text-[9px] font-black uppercase text-slate-400 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredOrders?.map(order => {
-                    const totalW = (order.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
-                    const remaining = calculateRemainingWeight(order.id, totalW);
-                    const uom = order.items?.[0]?.weightUom || 'MT';
-                    const soNo = (order.saleOrder || order.saleOrderNumber || order.id.slice(0, 8));
-                    
-                    return (
-                      <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                        <td className="p-4 font-black text-xs text-[#0056d2]">{soNo}</td>
-                        <td className="p-4 font-bold text-[10px] text-slate-600 uppercase">{order.plantCode}</td>
-                        <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.consignor}</td>
-                        <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.consignee}</td>
-                        <td className="p-4 font-bold text-[10px] uppercase text-slate-600">{order.shipToParty}</td>
-                        <td className="p-4 font-bold text-[10px] uppercase text-slate-400 italic">
-                          {order.from}--{order.destination}
-                        </td>
-                        <td className="p-4 font-black text-xs">
-                          <Badge variant="outline" className="border-blue-100 text-[#0056d2] rounded-lg px-2">
-                            {remaining} {uom}
-                          </Badge>
-                        </td>
-                        <td className="p-4 text-center">
-                          <Button 
-                            onClick={() => setSelectedOrder(order)}
-                            className="bg-[#0056d2] hover:bg-black text-white h-8 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest gap-2"
-                          >
-                            <Truck className="h-3 w-3" /> Assign Vehicle
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </TabsContent>
-
-          {['LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD', 'REJECTION', 'CLOSED'].map(status => (
-            <TabsContent key={status} value={status} className="mt-6">
-              <div className="space-y-4">
-                <div className="hidden lg:grid grid-cols-10 bg-slate-100 border-y border-slate-200 py-3 px-6 text-[9px] font-black uppercase tracking-widest text-slate-500">
-                  <div className="col-span-1">ID / Node</div>
-                  <div className="col-span-1">Date</div>
-                  <div className="col-span-2">Loading / Consignor</div>
-                  <div className="col-span-2">Unloading / Consignee / Ship To</div>
-                  <div className="col-span-1">Vehicle / Carrier</div>
-                  <div className="col-span-1">Driver / Contact</div>
-                  <div className="col-span-1">Qty / Product</div>
-                  <div className="col-span-1 text-center">Actions</div>
-                </div>
-
-                {getTripsByStatus(status).map(trip => {
-                  const next = getNextStatus(status);
-                  const parentOrder = orders?.find(o => o.id === trip.saleOrderId);
-                  const soNo = trip.saleOrderNumber || trip.saleOrder || parentOrder?.saleOrder || 'N/A';
-                  const lrNoDisplay = trip.lrNo || parentOrder?.lrNo || '--';
-                  const invNoDisplay = trip.invoiceNumber || trip.invoiceNo || parentOrder?.items?.[0]?.invoiceNumber || '--';
-                  const formattedDate = trip.createdAt ? format(new Date(trip.createdAt), 'dd MMM').toUpperCase() : '--';
-                  const formattedTime = trip.createdAt ? format(new Date(trip.createdAt), 'hh:mm a') : '--';
-                  
-                  return (
-                    <div key={trip.id} className="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden">
-                      <div className="grid grid-cols-1 lg:grid-cols-10 items-center p-4 lg:p-6 gap-4">
-                        <div className="col-span-1 flex flex-col gap-0.5">
-                          <span className="text-[#0056d2] font-black text-[11px] leading-tight">#{trip.tripId}</span>
-                          <span className="text-slate-400 font-bold text-[8px] uppercase tracking-tighter">SO: {soNo}</span>
-                          <div className="flex flex-col mt-1">
-                            <button 
-                              onClick={() => onPrintLR && onPrintLR(trip, parentOrder)}
-                              className="text-slate-500 font-black text-[7px] uppercase tracking-tighter hover:text-blue-600 hover:underline text-left outline-none"
-                            >
-                              LR: {lrNoDisplay}
-                            </button>
-                            <span className="text-slate-500 font-black text-[7px] uppercase tracking-tighter">INV: {invNoDisplay}</span>
-                          </div>
-                        </div>
-
-                        <div className="col-span-1 flex flex-col gap-1">
-                          <span className="text-slate-900 font-black text-[10px]">{formattedDate}</span>
-                          <span className="text-slate-400 font-bold text-[9px]">{formattedTime}</span>
-                        </div>
-
-                        <div className="col-span-2 flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                            <span className="text-slate-900 font-black text-[10px] truncate uppercase">{trip.consignor || 'PLANT NODE'}</span>
-                          </div>
-                          <span className="text-slate-400 font-bold text-[9px] pl-3.5 truncate italic">{trip.route?.split('--')[0]}</span>
-                        </div>
-
-                        <div className="col-span-2 flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                            <div className="flex flex-col">
-                              <span className="text-slate-900 font-black text-[10px] truncate uppercase">{trip.consignee || trip.shipToParty || 'REGISTRY NODE'}</span>
-                              {trip.shipToParty && (
-                                <span className="text-red-600 font-bold text-[8px] uppercase truncate">
-                                  Ship To: {trip.shipToParty}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <span className="text-slate-400 font-bold text-[9px] pl-3.5 truncate italic">{trip.route?.split('--')[1]}</span>
-                        </div>
-
-                        <div className="col-span-1 flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5">
-                            <Truck className="h-3 w-3 text-[#0056d2]" />
-                            <span className="text-slate-900 font-black text-[10px] uppercase">{trip.vehicleNumber}</span>
-                          </div>
-                          <span className="text-slate-400 font-bold text-[8px] leading-tight uppercase">{trip.vendorName || 'OWN FLEET'}</span>
-                        </div>
-
-                        <div className="col-span-1 flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5">
-                            <Phone className="h-3 w-3 text-slate-400" />
-                            <span className="text-slate-900 font-black text-[10px]">{trip.driverMobile}</span>
-                          </div>
-                          <span className="text-slate-400 font-bold text-[8px] uppercase">Registry Verified</span>
-                        </div>
-
-                        <div className="col-span-1 flex flex-col gap-1">
-                          <span className="text-slate-900 font-black text-[10px]">{trip.assignWeight} {trip.weightUom || 'MT'}</span>
-                          <span className="text-slate-400 font-bold text-[9px] truncate italic">{trip.product || 'SALT'}</span>
-                        </div>
-
-                        <div className="col-span-1 flex flex-col gap-2 items-center">
-                          {next && (
-                            <Button 
-                              onClick={() => updateTripStatus(trip, next)}
-                              className="w-full bg-[#0056d2] hover:bg-black text-white h-7 rounded-sm text-[8px] font-black uppercase tracking-widest px-2"
-                            >
-                              {next === 'ARRIVED' ? 'Arrived In' : next === 'POD' ? 'Upload POD' : `Move ${next}`}
-                            </Button>
-                          )}
-                          <Button 
-                            variant="outline" 
-                            onClick={() => setViewTrip(trip)}
-                            className="w-full h-7 border-slate-200 text-slate-600 text-[8px] font-black uppercase tracking-widest px-2"
-                          >
-                            View Details
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="bg-slate-50 border-t border-slate-100 px-6 py-2 flex items-center justify-between">
-                         <div className="flex items-center gap-6">
-                            <div className="flex items-center gap-2">
-                               <Badge variant="outline" className="border-emerald-100 text-emerald-600 font-black text-[7px] uppercase tracking-tighter rounded-sm">On Schedule</Badge>
-                               <span className="text-slate-400 font-bold text-[8px]">{formattedDate}, {formattedTime}</span>
-                            </div>
-                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </TabsContent>
-          ))}
-        </Tabs>
+    <div className="space-y-6">
+      <div className="bg-white p-4 rounded-xl border border-slate-100 flex items-center gap-4 shadow-sm">
+        <Filter className="h-4 w-4 text-slate-400" />
+        <select className="bg-slate-50 border-none rounded-lg h-9 px-4 font-bold text-xs" value={plantFilter} onChange={(e) => setPlantFilter(e.target.value)}>
+          <option value="ALL">ALL PLANTS</option>
+          {plants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>)}
+        </select>
       </div>
+      <Tabs defaultValue="OPEN">
+        <TabsList className="bg-slate-100 rounded-2xl w-full justify-start overflow-x-auto gap-1 h-12 p-1">
+          {['OPEN', 'LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD', 'CLOSED'].map(s => (
+            <TabsTrigger key={s} value={s} className="rounded-xl px-6 font-black text-[10px] uppercase data-[state=active]:bg-[#0056d2] data-[state=active]:text-white text-slate-600 h-10">{s}</TabsTrigger>
+          ))}
+        </TabsList>
+        <TabsContent value="OPEN" className="mt-6 bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 border-b"><tr><th className="p-4 text-[9px] font-black uppercase text-slate-400">Order Node</th><th className="p-4 text-[9px] font-black uppercase text-slate-400">Details</th><th className="p-4 text-[9px] font-black uppercase text-slate-400 text-center">Action</th></tr></thead>
+            <tbody>{orders?.filter(o => (plantFilter === 'ALL' || o.plantCode === plantFilter) && o.status !== 'CANCELLED').map(o => (
+              <tr key={o.id} className="border-b hover:bg-slate-50 transition-colors">
+                <td className="p-4 font-black text-xs text-[#0056d2]">{o.saleOrder || o.id.slice(0,8)}</td>
+                <td className="p-4 font-bold text-[10px] uppercase">{o.consignor} → {o.consignee}</td>
+                <td className="p-4 text-center"><Button onClick={() => setSelectedOrder(o)} className="bg-[#0056d2] text-white h-8 px-4 text-[9px] font-black uppercase rounded-xl">Assign vehicle</Button></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </TabsContent>
+        {['LOADING', 'IN-TRANSIT', 'ARRIVED', 'POD', 'CLOSED'].map(s => (
+          <TabsContent key={s} value={s} className="space-y-4 mt-6">
+            {getTripsByStatus(s).map(t => {
+              const parentOrder = orders?.find(o => o.id === t.saleOrderId);
+              const lrVal = t.lrNo || parentOrder?.lrNo || '--';
+              const invVal = t.invoiceNumber || parentOrder?.items?.[0]?.invoiceNumber || '--';
+              return (
+                <div key={t.id} className="bg-white border rounded-lg p-6 shadow-sm flex flex-col lg:flex-row gap-6 items-center">
+                  <div className="flex flex-col gap-1 min-w-[120px]">
+                    <span className="text-[#0056d2] font-black text-xs">#{t.tripId}</span>
+                    <span className="text-[8px] font-bold text-slate-400 uppercase">SO: {t.saleOrder || 'N/A'}</span>
+                    <button onClick={() => onPrintLR(t, parentOrder)} className="text-[#0056d2] font-black text-[8px] uppercase hover:underline text-left">LR: {lrVal}</button>
+                    <span className="text-[8px] font-black text-slate-400 uppercase">INV: {invVal}</span>
+                  </div>
+                  <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="flex flex-col"><span className="text-[8px] uppercase text-slate-400 font-black">Consignor</span><span className="text-[10px] font-black uppercase truncate">{t.consignor}</span></div>
+                    <div className="flex flex-col"><span className="text-[8px] uppercase text-slate-400 font-black">Consignee</span><span className="text-[10px] font-black uppercase truncate">{t.consignee}</span></div>
+                    <div className="flex flex-col"><span className="text-[8px] uppercase text-slate-400 font-black">Vehicle</span><span className="text-[10px] font-black uppercase">{t.vehicleNumber}</span></div>
+                    <div className="flex flex-col"><span className="text-[8px] uppercase text-slate-400 font-black">Qty</span><span className="text-[10px] font-black">{t.assignWeight} {t.weightUom}</span></div>
+                  </div>
+                  <div className="flex gap-2"><Button onClick={() => setViewTrip(t)} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-xl">View Node</Button></div>
+                </div>
+              );
+            })}
+          </TabsContent>
+        ))}
+      </Tabs>
 
+      {/* ASSIGN MODAL */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent className="max-w-2xl rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden font-mono">
-          <div className="bg-[#0056d2] p-6 text-white flex flex-col items-center">
-            <DialogTitle className="text-xl font-black uppercase italic tracking-tighter">Assign Mission Vehicle</DialogTitle>
+        <DialogContent className="max-w-xl rounded-[2rem] border-none shadow-2xl p-0 font-mono">
+          <div className="bg-[#0056d2] p-6 text-white text-center"><DialogTitle className="text-lg font-black uppercase italic tracking-tighter">Assign Mission Vehicle</DialogTitle></div>
+          <div className="p-8 space-y-4">
+            <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400">Vehicle No.</label><Input value={vehicleNo} onChange={(e) => setVehicleNo(e.target.value.toUpperCase())} placeholder="UP14-XX-0000" /></div>
+            <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400">Weight</label><Input value={assignWeight} onChange={(e) => setAssignWeight(e.target.value)} placeholder="0.00" /></div>
+            <div className="space-y-1"><label className="text-[10px] font-black uppercase text-slate-400">Driver Mobile</label><Input value={driverMobile} onChange={(e) => setDriverMobile(e.target.value)} placeholder="+91..." /></div>
           </div>
-          <div className="p-8 space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400">Vehicle Type</label>
-                <select 
-                  value={vehicleType} 
-                  onChange={(e) => setVehicleType(e.target.value)}
-                  className="w-full h-11 rounded-xl font-bold bg-slate-50 border-slate-200 px-4 text-xs outline-none"
-                >
-                  <option value="OWN FLEET">OWN FLEET</option>
-                  <option value="CONTRACT">CONTRACT</option>
-                  <option value="MARKET VEHICLE">MARKET VEHICLE</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400">Assign Weight</label>
-                <Input value={assignWeight} onChange={(e) => setAssignWeight(e.target.value)} placeholder="0.00" className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400">Vehicle Number</label>
-                <Input value={vehicleNo} onChange={(e) => setVehicleNo(e.target.value)} placeholder="UP14-XX-0000" className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400">Driver Mobile</label>
-                <Input value={driverMobile} onChange={(e) => setDriverMobile(e.target.value)} placeholder="+91..." className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" />
-              </div>
-              <div className="space-y-2 col-span-2">
-                <label className="text-[10px] font-black uppercase text-slate-400">Delay Remark</label>
-                <Input value={delayRemark} onChange={(e) => setDelayRemark(e.target.value)} placeholder="Reason for delay..." className="h-11 rounded-xl font-bold bg-slate-50 border-slate-200" />
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="p-6 border-t border-slate-50">
-            <Button variant="ghost" onClick={() => setSelectedOrder(null)} className="rounded-xl font-black uppercase text-[10px]">Cancel</Button>
-            <Button onClick={handleAssign} className="bg-[#0056d2] hover:bg-black text-white px-8 h-12 rounded-xl font-black uppercase text-[10px]">Assign Mission</Button>
-          </DialogFooter>
+          <DialogFooter className="p-6 border-t"><Button onClick={handleAssign} className="bg-[#0056d2] hover:bg-black text-white px-8 h-12 rounded-xl font-black uppercase text-[10px]">Assign Mission</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <Dialog open={!!viewTrip} onOpenChange={() => setViewTrip(null)}>
-        <DialogContent className="max-w-4xl rounded-sm border border-slate-300 p-0 overflow-hidden font-mono shadow-2xl">
-          <div className="bg-[#0056d2] p-4 text-white flex justify-between items-center">
-            <div>
-              <DialogTitle className="text-lg font-black uppercase italic tracking-tighter">Mission Registry Hub</DialogTitle>
-              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-blue-200 mt-1">Registry Detail Node: {viewTrip?.tripId}</p>
-            </div>
-          </div>
-          <div className="p-6 space-y-8 bg-[#fdfdfd]">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <SectionHeader title="Consignment Context" />
-                <div className="space-y-3 px-2">
-                  <DetailRow label="Sale Order" value={viewTrip?.saleOrderNumber || viewTrip?.saleOrder} />
-                  <DetailRow label="LR Number" value={viewTrip?.lrNo || orders?.find(o => o.id === viewTrip?.saleOrderId)?.lrNo} />
-                  <DetailRow label="Invoice" value={viewTrip?.invoiceNumber || viewTrip?.invoiceNo || orders?.find(o => o.id === viewTrip?.saleOrderId)?.items?.[0]?.invoiceNumber} />
-                  <DetailRow label="Consignor" value={viewTrip?.consignor} />
-                  <DetailRow label="Consignee" value={viewTrip?.consignee} />
-                </div>
-              </div>
-              <div className="space-y-4">
-                <SectionHeader title="Mission Specs" />
-                <div className="space-y-3 px-2">
-                  <DetailRow label="Vehicle" value={viewTrip?.vehicleNumber} />
-                  <DetailRow label="Product" value={viewTrip?.product} />
-                  <DetailRow label="Assign Weight" value={`${viewTrip?.assignWeight} ${viewTrip?.weightUom}`} />
-                </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="p-4 bg-[#f0f0f0]">
-            <Button onClick={() => setViewTrip(null)} className="bg-slate-800 hover:bg-black text-white px-8 rounded-none font-black uppercase text-[10px]">Close Registry</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    </div>
   );
 }
 
-function BulkDataHub({ allPlants }: { allPlants: any[] | null }) {
-  const { toast } = useToast();
-  const [selectedModule, setSelectedModule] = React.useState('');
-  const [selectedPlant, setSelectedPlant] = React.useState('');
-  
-  const handleTemplateDownload = (type: string) => {
-    toast({
-      title: "Template Request Initiated",
-      description: `Downloading standardized CSV template for ${type} registry node.`,
-    });
-  };
-
-  const handleBulkSync = () => {
-    if (selectedModule === 'VA' && !selectedPlant) {
-      toast({
-        variant: "destructive",
-        title: "Registry Handshake Failed",
-        description: "Please select a Target Plant Registry node before initiating sync.",
-      });
-      return;
-    }
-    toast({
-      title: "Bulk Synchronization Active",
-      description: "Establishing handshake with registry mission node. Processing file data...",
-    });
-  };
-
+function BulkDataHub({ allPlants }: any) {
+  const [mod, setMod] = React.useState('');
+  const [plant, setPlant] = React.useState('');
   return (
-    <div className="space-y-10 animate-fade-in max-w-6xl mx-auto py-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl overflow-hidden flex flex-col">
-          <div className="bg-[#1e293b] px-8 py-6 flex items-center gap-4">
-            <HardDriveDownload className="h-6 w-6 text-blue-400" />
-            <h2 className="text-sm font-black uppercase text-white tracking-[0.2em] italic">Template Repository Node</h2>
-          </div>
-          <div className="p-10 space-y-6 flex-1">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
-              Download standardized CSV/Excel templates to ensure seamless synchronization with the Sikka Master Registry.
-            </p>
-            <div className="grid grid-cols-1 gap-4">
-              {[
-                { label: 'Customer Registry Template', code: 'XD_MASTER' },
-                { label: 'Sales Order Registry Template', code: 'VA_MASTER' },
-              ].map((template) => (
-                <button 
-                  key={template.code}
-                  onClick={() => handleTemplateDownload(template.label)}
-                  className="flex items-center justify-between p-5 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-blue-50 hover:border-blue-200 transition-all group"
-                >
-                  <div className="flex items-center gap-4">
-                    <FileSpreadsheet className="h-5 w-5 text-slate-400 group-hover:text-blue-600" />
-                    <span className="text-[11px] font-black uppercase text-slate-600 group-hover:text-blue-900">{template.label}</span>
-                  </div>
-                  <Download className="h-4 w-4 text-slate-300 group-hover:text-blue-600" />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl overflow-hidden flex flex-col">
-          <div className="bg-[#0056d2] px-8 py-6 flex items-center gap-4">
-            <CloudUpload className="h-6 w-6 text-white" />
-            <h2 className="text-sm font-black uppercase text-white tracking-[0.2em] italic">Mission Synchronization Hub</h2>
-          </div>
-          <div className="p-10 space-y-8 flex-1 flex flex-col">
-            <div className="space-y-4">
-               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Target Registry Node *</label>
-               <select 
-                 value={selectedModule}
-                 onChange={(e) => setSelectedModule(e.target.value)}
-                 className="w-full h-12 bg-slate-50 border border-slate-200 rounded-2xl px-4 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-600"
-               >
-                  <option value="">Select Target Module...</option>
-                  <option value="XD">CUSTOMER REGISTRY</option>
-                  <option value="VA">SALES ORDER REGISTRY</option>
-               </select>
-            </div>
-
-            {selectedModule === 'VA' && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Target Plant Registry *</label>
-                 <select 
-                   value={selectedPlant}
-                   onChange={(e) => setSelectedPlant(e.target.value)}
-                   className="w-full h-12 bg-slate-50 border border-slate-200 rounded-2xl px-4 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-600"
-                 >
-                    <option value="">Select Plant Node...</option>
-                    {allPlants?.map(p => (
-                      <option key={p.id} value={p.plantCode}>{p.plantCode} - {p.plantName}</option>
-                    ))}
-                 </select>
-              </div>
-            )}
-
-            <div 
-              onClick={handleBulkSync}
-              className="flex-1 border-4 border-dashed border-slate-100 rounded-[2rem] flex flex-col items-center justify-center p-10 hover:border-blue-200 hover:bg-blue-50/30 transition-all cursor-pointer group"
-            >
-               <Upload className="h-12 w-12 text-slate-200 mb-4 group-hover:text-blue-600 group-hover:scale-110 transition-all" />
-               <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 group-hover:text-blue-900">Drag & Drop Registry File</p>
-               <p className="text-[8px] font-bold text-slate-300 mt-2 uppercase">Supported: .CSV, .XLSX (Max 10MB)</p>
-            </div>
-
-            <Button 
-              onClick={handleBulkSync}
-              className="w-full h-14 bg-blue-900 hover:bg-black text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl transition-all active:scale-95"
-            >
-               Initiate Bulk Sync Node
-            </Button>
-          </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-6xl mx-auto">
+      <div className="bg-white rounded-[2rem] shadow-xl border overflow-hidden flex flex-col">
+        <div className="bg-[#1e293b] p-6 text-white font-black uppercase italic text-sm">Template Repository Node</div>
+        <div className="p-8 space-y-4 flex-1">
+          {['Customer Registry', 'Sales Order Registry'].map(t => <button key={t} className="w-full flex justify-between items-center p-4 bg-slate-50 border rounded-xl hover:bg-blue-50 transition-colors text-xs font-black uppercase">{t} <Download className="h-4 w-4" /></button>)}
         </div>
       </div>
-
-      <div className="bg-blue-50/50 p-8 rounded-[3rem] border border-blue-100 flex flex-col items-center text-center max-w-2xl mx-auto">
-         <div className="p-3 bg-white rounded-2xl shadow-sm mb-4">
-            <Info className="h-6 w-6 text-blue-600" />
-         </div>
-         <p className="text-[10px] font-black uppercase text-blue-900 tracking-[0.2em]">Operational Registry Note</p>
-         <p className="text-[9px] font-bold text-blue-400 mt-2 leading-relaxed">
-            Ensure all mandatory fields are correctly mapped to the Sikka Registry schema. Incorrect mapping may cause synchronization handshake failure in the mission node.
-         </p>
+      <div className="bg-white rounded-[2rem] shadow-xl border overflow-hidden flex flex-col">
+        <div className="bg-[#0056d2] p-6 text-white font-black uppercase italic text-sm">Mission Sync Hub</div>
+        <div className="p-8 space-y-6 flex-1">
+          <select className="w-full h-11 bg-slate-50 border rounded-xl px-4 text-xs font-bold outline-none" value={mod} onChange={(e) => setMod(e.target.value)}>
+            <option value="">Select Registry Node...</option><option value="XD">CUSTOMER REGISTRY</option><option value="VA">SALES ORDER REGISTRY</option>
+          </select>
+          {mod === 'VA' && <select className="w-full h-11 bg-slate-50 border rounded-xl px-4 text-xs font-bold outline-none" value={plant} onChange={(e) => setPlant(e.target.value)}><option value="">Select Plant Node...</option>{allPlants?.map((p: any) => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select>}
+          <div className="flex-1 border-4 border-dashed border-slate-100 rounded-[2rem] flex flex-col items-center justify-center p-10 hover:bg-blue-50/30 transition-all cursor-pointer"><Upload className="h-10 w-10 text-slate-200 mb-2" /><p className="text-[10px] font-black uppercase text-slate-400">Drag & Drop Registry File</p></div>
+          <Button className="w-full h-14 bg-blue-900 text-white font-black uppercase text-[10px] rounded-2xl">Initiate Bulk Sync</Button>
+        </div>
       </div>
     </div>
   );
