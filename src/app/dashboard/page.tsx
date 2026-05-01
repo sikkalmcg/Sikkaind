@@ -271,6 +271,14 @@ export default function SapDashboard() {
     let localData = { ...formData };
 
     // Strict Uniqueness Validation
+    if (activeScreen.startsWith('OX')) {
+      const exists = rawPlants?.some((p: any) => p.id !== localData.id && p.plantCode?.toString().toUpperCase() === localData.plantCode?.toString().toUpperCase());
+      if (exists) {
+        setStatusMsg({ text: `ID/Number ${localData.plantCode} Already exists, duplicate not allowed`, type: 'error' });
+        return;
+      }
+    }
+
     if (activeScreen.startsWith('FM')) {
       const exists = rawCompanies?.some((c: any) => c.id !== localData.id && c.companyCode?.toString().toUpperCase() === localData.companyCode?.toString().toUpperCase());
       if (exists) {
@@ -364,7 +372,7 @@ export default function SapDashboard() {
         if (!formData.id) setFormData(payload);
       }
     }
-  }, [user, activeScreen, formData, rawOrders, rawVendors, rawCustomers, rawCompanies, db]);
+  }, [user, activeScreen, formData, rawOrders, rawVendors, rawCustomers, rawCompanies, rawPlants, db]);
 
   const handleCancel = React.useCallback(() => {
     if (activeScreen === 'HOME' || activeScreen.endsWith('03')) return;
@@ -860,7 +868,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
   }, [allCustomers, data.plantCode]);
 
   const consignors = plantFilteredCustomers.filter((c: any) => c.customerType === 'Consignor');
-  const shipToParties = plantFilteredCustomers.filter((c: any) => c.customerType === 'Consignee - Ship to Party');
+  const shipToParties = plantFilteredCustomers.filter((c: any) => c.customerType === 'Consignee – Ship to Party');
 
   const items = data.items || [{ invoice: '', ewaybill: '', product: '', weight: '', weightUom: 'MT' }];
 
@@ -1094,7 +1102,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
   const [activeTab, setActiveTab] = React.useState('Open Orders');
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [isPopupOpen, setIsPopupOpen] = React.useState(false);
-  const [assignData, setAssignData] = React.setAssignData<any>({ fleetType: 'Own Vehicle', isFixedRate: false });
+  const [assignData, setAssignData] = React.useState<any>({ fleetType: 'Own Vehicle', isFixedRate: false });
   const [vendorSearch, setVendorSearch] = React.useState('');
   const [showVendorSuggestions, setShowVendorSuggestions] = React.useState(false);
 
@@ -1502,6 +1510,30 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code: string) => void }) {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-1 bg-[#1e3a8a] text-white p-6 rounded-sm shadow-lg">
+        <h2 className="text-xl font-black italic tracking-tighter uppercase">System Transaction Registry</h2>
+        <p className="text-[9px] font-black uppercase tracking-widest text-blue-300">Overview of all active T-Codes in the node</p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {tcodes.map((t) => (
+          <div key={t.code} onClick={() => onExecute(t.code)} className="bg-white p-6 border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-300 cursor-pointer transition-all group relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1.5 h-full bg-[#1e3a8a] group-hover:bg-blue-600 transition-colors" />
+            <div className="flex items-center justify-between mb-4">
+               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.module}</span>
+               <t.icon className="h-5 w-5 text-[#1e3a8a] opacity-30 group-hover:opacity-100 transition-opacity" />
+            </div>
+            <h3 className="text-lg font-black text-[#1e3a8a] tracking-tight mb-1">{t.code}</h3>
+            <p className="text-[11px] font-bold text-slate-500 uppercase">{t.description}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
