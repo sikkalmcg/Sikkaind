@@ -12,7 +12,7 @@ import {
   ArrowRight, Calendar, Phone, FileText, Package, Clock,
   LayoutDashboard, Database, Settings, BarChart, TrendingUp,
   FileSpreadsheet, HardDriveDownload, CloudUpload, ShieldAlert,
-  AlertTriangle
+  AlertTriangle, Radar
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -309,27 +309,39 @@ export default function SapDashboard() {
         <div className="flex-1 flex overflow-hidden">
           <Sidebar collapsible="icon" className="border-r border-slate-300 bg-sidebar">
             <SidebarHeader className="bg-[#1e293b] text-white p-4">
-              <div className="flex items-center gap-3"><div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center shrink-0 font-black italic">S</div>
-              <div className="flex flex-col group-data-[collapsible=icon]:hidden"><span className="text-[10px] font-black uppercase text-white">Sikka Hub</span></div></div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center shrink-0 font-black italic text-white shadow-lg">S</div>
+                <div className="flex flex-col group-data-[collapsible=icon]:hidden">
+                  <span className="text-[10px] font-black uppercase text-white tracking-tighter">Sikka Logistics</span>
+                  <span className="text-[8px] font-bold text-white/50 uppercase">Registry V2.5</span>
+                </div>
+              </div>
             </SidebarHeader>
             <SidebarContent className="custom-scrollbar">
               <SidebarMenu>
-                <SidebarMenuItem><SidebarMenuButton onClick={() => setActiveScreen('HOME')} isActive={activeScreen === 'HOME'}><LayoutDashboard className="h-4 w-4" /><span>Home Hub</span></SidebarMenuButton></SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => setActiveScreen('HOME')} isActive={activeScreen === 'HOME'}>
+                    <LayoutDashboard className="h-4 w-4" /><span>Home Hub</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                
                 <div className="px-4 py-3 mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-60">Logistics</div>
+                
                 {[
-                  { label: "Plant Master", code: "OX01" }, 
-                  { label: "Vendor Master", code: "XK01" }, 
-                  { label: "Sales Orders", code: "VA01" }, 
-                  { label: "Cancel Order", code: "VA04" }, 
-                  { label: "Drip Board", code: "TR21" }, 
-                  { label: "Bulk Sync", code: "BULK" }
+                  { label: "Plant Master", code: "OX01", icon: Database }, 
+                  { label: "Vendor Master", code: "XK01", icon: User }, 
+                  { label: "Sales Orders", code: "VA01", icon: ShoppingBag }, 
+                  { label: "Cancel Order", code: "VA04", icon: XCircle }, 
+                  { label: "Drip Board", code: "TR21", icon: Truck }, 
+                  { label: "Bulk Sync", code: "BULK", icon: TrendingUp }
                 ].map((item) => (
                   <SidebarMenuItem key={item.code}>
                     <SidebarMenuButton 
                       onClick={() => executeTCode(item.code)} 
                       isActive={activeScreen.startsWith(item.code.slice(0,2))}
                     >
-                      <span className="text-[11px] font-black uppercase tracking-tight">{item.code} - {item.label}</span>
+                      <item.icon className="h-4 w-4" />
+                      <span className="text-[11px] font-black uppercase tracking-tight">{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -339,17 +351,36 @@ export default function SapDashboard() {
 
           <SidebarInset className="flex flex-col overflow-hidden bg-[#f0f3f9]">
             <div className="bg-[#0056d2] text-white py-2 px-6 shadow-lg flex flex-col items-center justify-center min-h-[60px] shrink-0">
-              <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none">{activeScreen === 'HOME' ? 'Sikka Logistics Hub' : MASTER_TCODES.find(t => t.code === activeScreen)?.description}</h1>
+              <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none">
+                {activeScreen === 'HOME' ? 'SIKKA LOGISTICS HUB' : MASTER_TCODES.find(t => t.code === activeScreen)?.description}
+              </h1>
             </div>
 
             <div className="flex-1 overflow-y-auto no-scrollbar">
               <div className={`p-8 w-full ${isModuleActive ? 'max-w-none' : 'max-w-[1400px]'} mx-auto`}>
                 {activeScreen === 'HOME' ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
-                    {['OX01', 'FM01', 'XK01', 'XD01', 'VA01', 'VA04', 'TR21', 'BULK'].map((code) => (
-                      <div key={code} onClick={() => executeTCode(code)} className="bg-white p-8 rounded-[1.5rem] shadow-xl border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all cursor-pointer group flex flex-col min-h-[220px] max-w-[300px] w-full mx-auto">
-                        <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1.5 font-black italic tracking-[0.15em] text-[10px] border-none mb-8">{code}</Badge>
-                        <h3 className="text-[13px] font-black text-[#1e3a8a] leading-[1.8] uppercase tracking-[0.1em]">{MASTER_TCODES.find(t => t.code === code)?.description.split(': ')[1]?.split(' ').map((w, i) => <span key={i} className="block">{w}</span>)}</h3>
+                    {[
+                      { code: 'OX01', lines: ['CREATE', 'INITIAL', 'SCREEN'] },
+                      { code: 'FM01', lines: ['CREATE', 'INITIAL', 'SCREEN'] },
+                      { code: 'XK01', lines: ['CREATE', 'INITIAL', 'SCREEN'] },
+                      { code: 'XD01', lines: ['CREATE', 'INITIAL', 'SCREEN'] },
+                      { code: 'VA01', lines: ['CREATE', 'INITIAL', 'SCREEN'] },
+                      { code: 'VA04', lines: ['CANCEL', 'NODE'] },
+                    ].map((item) => (
+                      <div 
+                        key={item.code} 
+                        onClick={() => executeTCode(item.code)} 
+                        className="bg-white p-8 rounded-[1.5rem] shadow-xl border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all cursor-pointer group flex flex-col min-h-[220px] max-w-[300px] w-full mx-auto"
+                      >
+                        <Badge className="bg-[#e8f0fe] text-[#0056d2] rounded-none px-4 py-1.5 font-black italic tracking-[0.15em] text-[10px] border-none mb-8 w-fit self-start">
+                          {item.code}
+                        </Badge>
+                        <h3 className="text-[13px] font-black text-[#1e3a8a] leading-[1.8] uppercase tracking-[0.1em]">
+                          {item.lines.map((line, idx) => (
+                            <span key={idx} className="block">{line}</span>
+                          ))}
+                        </h3>
                       </div>
                     ))}
                   </div>
@@ -375,7 +406,9 @@ export default function SapDashboard() {
                 )}
               </div>
             </div>
-            <div className="h-6 bg-[#f0f0f0] border-t border-slate-300 flex items-center px-4 text-[10px] font-bold text-slate-600"><span>{statusMsg.text}</span></div>
+            <div className="h-6 bg-[#f0f0f0] border-t border-slate-300 flex items-center px-4 text-[10px] font-bold text-slate-600">
+              <span>{statusMsg.text}</span>
+            </div>
           </SidebarInset>
         </div>
 
