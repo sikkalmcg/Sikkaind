@@ -448,7 +448,7 @@ export default function SapDashboard() {
             <h1 className="text-xl font-black italic tracking-tighter uppercase leading-none text-center">
               {activeScreen === 'HOME' ? 'Sikka Logistics Hub' : activeScreen}
             </h1>
-            <p className="text-[8px] font-bold uppercase tracking-[0.4em] opacity-80 mt-1 text-center">
+            <p className="text-[8px] font-bold uppercase tracking-[0.4em] mt-1 text-center">
               {getScreenTitle(activeScreen)}
             </p>
           </div>
@@ -640,6 +640,10 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
     const docRef = doc(db, 'users', user.uid, 'trips', newTripId);
     setDocumentNonBlocking(docRef, tripData, { merge: true });
 
+    // Enforce full metadata synchronization for the mission
+    const totalOrderWeight = (selectedOrder.items || []).reduce((s: number, i: any) => s + (parseFloat(i.weight) || 0), 0);
+    const weightUom = selectedOrder.items?.[0]?.weightUom || 'KG';
+
     const publicTripRef = doc(db, 'public_trips', tripId);
     setDocumentNonBlocking(publicTripRef, {
       type: 'trip',
@@ -650,7 +654,7 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       consignor: selectedOrder.consignor || '',
       consignee: selectedOrder.consignee || '',
       shipToParty: selectedOrder.shipToParty || '',
-      orderQty: `${tripData.assignWeight} ${selectedOrder.items?.[0]?.weightUom || 'KG'}`,
+      orderQty: `${totalOrderWeight} ${weightUom}`,
       updatedAt: tripData.createdAt
     }, { merge: true });
 
@@ -660,6 +664,11 @@ function DripBoard({ orders, trips, onStatusUpdate, plants }: { orders: any[] | 
       status: 'LOADING',
       vehicleNumber: vehicleNo,
       tripId: tripId,
+      consignor: selectedOrder.consignor || '',
+      consignee: selectedOrder.consignee || '',
+      shipToParty: selectedOrder.shipToParty || '',
+      route: tripData.route,
+      orderQty: `${totalOrderWeight} ${weightUom}`,
       updatedAt: tripData.createdAt
     }, { merge: true });
 
