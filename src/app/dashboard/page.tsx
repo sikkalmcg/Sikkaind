@@ -110,9 +110,9 @@ export default function SapDashboard() {
 
   const isAuthorized = React.useCallback((code: string) => {
     if (code === 'HOME' || code === '') return true;
+    const registryIsEmpty = !allUsers || allUsers.length === 0;
     if (!userProfile) {
-      // Allow bootstrap admin if registry is empty
-      if (allUsers?.length === 0) return true;
+      if (registryIsEmpty) return true;
       return false;
     }
     return userProfile.tcodes?.includes(code);
@@ -297,7 +297,9 @@ export default function SapDashboard() {
     }
 
     let collectionName = '';
-    const docId = localData.id || crypto.randomUUID();
+    const registryIsEmpty = !allUsers || allUsers.length === 0;
+    const docId = activeScreen === 'SU01' && registryIsEmpty ? user.uid : (localData.id || crypto.randomUUID());
+    
     if (activeScreen.startsWith('OX')) collectionName = 'plants';
     else if (activeScreen.startsWith('FM')) collectionName = 'companies';
     else if (activeScreen.startsWith('XK')) collectionName = 'vendors';
@@ -331,16 +333,6 @@ export default function SapDashboard() {
       router.push('/login');
     }
   }, [user, isUserLoading, router]);
-
-  React.useEffect(() => {
-    if (!isUserLoading && !isProfileLoading && !isAllUsersLoading && user) {
-      const registryIsEmpty = !allUsers || allUsers.length === 0;
-      if (userProfile === null && !registryIsEmpty) {
-        toast({ title: "Access Denied", description: "Your account is not registered in the system.", variant: "destructive" });
-        router.push('/login');
-      }
-    }
-  }, [user, userProfile, isUserLoading, isProfileLoading, isAllUsersLoading, allUsers, router, toast]);
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -412,6 +404,16 @@ export default function SapDashboard() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [activeScreen, handleSave, handleCancel, executeTCode, showHistory, historyIndex, history, router, tCode]);
 
+  React.useEffect(() => {
+    if (!isUserLoading && !isProfileLoading && !isAllUsersLoading && user) {
+      const registryIsEmpty = !allUsers || allUsers.length === 0;
+      if (userProfile === null && !registryIsEmpty) {
+        toast({ title: "Access Denied", description: "Your account is not registered in the system.", variant: "destructive" });
+        router.push('/login');
+      }
+    }
+  }, [user, userProfile, isUserLoading, isProfileLoading, isAllUsersLoading, allUsers, router, toast]);
+
   const handleSearchIdEnter = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       const idToSearch = searchId || xdSearch.customerId;
@@ -439,6 +441,8 @@ export default function SapDashboard() {
     }
   };
 
+  const hideSidebar = activeScreen !== 'HOME';
+
   if (isUserLoading || isProfileLoading || isAllUsersLoading) {
     return (
       <div className="h-screen w-full bg-[#f0f3f9] flex flex-col items-center justify-center font-mono space-y-4">
@@ -462,7 +466,6 @@ export default function SapDashboard() {
   const isReadOnly = activeScreen.endsWith('03');
   const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
   const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
-  const hideSidebar = activeScreen !== 'HOME';
   const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
 
   return (
@@ -690,7 +693,7 @@ export default function SapDashboard() {
   );
 }
 
-// HELPER COMPONENTS (DEFINED ONCE)
+// HELPER COMPONENTS
 function SectionGrouping({ title, children }: { title: string, children: React.ReactNode }) {
   return (
     <div className="border border-slate-300 p-5 pt-4 relative bg-white rounded-sm mb-6">
@@ -1457,7 +1460,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
             <div className="border border-slate-300 rounded-sm overflow-hidden">
               <div className="bg-[#dae4f1]/50 p-2.5 border-b border-slate-300 flex justify-between items-center"><span className="text-[9px] font-black uppercase tracking-widest text-slate-500">DOCUMENT ITEMS</span><button onClick={() => setCnData({...cnData, items: [...(cnData.items || []), { invoice: '', ewaybill: '', product: '', unit: '', unitUom: 'BAG' }]})} className="h-6 px-3 bg-[#1e3a8a] text-white font-black text-[8px] uppercase tracking-tighter">Add Row</button></div>
               <table className="w-full text-left border-collapse text-[10px]">
-                <thead className="bg-[#f8fafc] border-b border-slate-300"><tr>{['Invoice', 'E-waybill', 'Product', 'Quantity'].map(h => <th key={h} className="p-2 font-black uppercase text-slate-400 border-r border-slate-200">{h}</th>)}</tr></thead>
+                <thead className="bg-f8fafc border-b border-slate-300"><tr>{['Invoice', 'E-waybill', 'Product', 'Quantity'].map(h => <th key={h} className="p-2 font-black uppercase text-slate-400 border-r border-slate-200">{h}</th>)}</tr></thead>
                 <tbody>{(cnData.items || []).map((it: any, idx: number) => (
                   <tr key={idx} className="border-b border-slate-100"><td className="p-1 border-r border-slate-100"><input value={it.invoice} onChange={e => { const items = [...cnData.items]; items[idx].invoice = e.target.value; setCnData({...cnData, items}); }} className="w-full h-7 outline-none px-2 font-bold focus:bg-[#ffffcc]" /></td><td className="p-1 border-r border-slate-100"><input value={it.ewaybill} onChange={e => { const items = [...cnData.items]; items[idx].ewaybill = e.target.value; setCnData({...cnData, items}); }} className="w-full h-7 outline-none px-2 font-bold focus:bg-[#ffffcc]" /></td><td className="p-1 border-r border-slate-100"><input value={it.product} onChange={e => { const items = [...cnData.items]; items[idx].product = e.target.value; setCnData({...cnData, items}); }} className="w-full h-7 outline-none px-2 font-bold focus:bg-[#ffffcc]" /></td><td className="p-1 border-r border-slate-100"><input value={it.unit} onChange={e => { const items = [...cnData.items]; items[idx].unit = e.target.value; setCnData({...cnData, items}); }} className="w-full h-7 outline-none px-2 font-bold focus:bg-[#ffffcc]" /></td><td className="p-1 border-r border-slate-100"><select value={it.unitUom} onChange={e => { const items = [...cnData.items]; items[idx].unitUom = e.target.value; setCnData({...cnData, items}); }} className="w-full h-7 outline-none bg-white font-bold">{['BAG', 'BOX', 'DRUM', 'Pieces'].map(u => <option key={u} value={u}>{u}</option>)}</select></td><td className="p-1 text-center"><button onClick={() => { const items = cnData.items.filter((_:any, i:number) => i !== idx); setCnData({...cnData, items}); }} className="text-red-400"><Trash2 className="h-3 w-3" /></button></td></tr>
                 ))}</tbody>
