@@ -626,13 +626,13 @@ export default function SapDashboard() {
             ) : (
               <div className={cn("bg-white shadow-xl rounded-sm border border-slate-300 overflow-hidden animate-slide-up min-h-[600px] p-4 md:p-6 mx-auto", hideSidebar ? "w-full" : "w-full max-w-[1400px]")}>
                  {showForm && <div className="space-y-6">
-                   {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly && !isBootstrapAdmin} />}
-                   {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly && !isBootstrapAdmin} allPlants={rawPlants} />}
-                   {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly && !isBootstrapAdmin} />}
-                   {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly && !isBootstrapAdmin} allPlants={rawPlants} />}
-                   {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly && !isBootstrapAdmin} allPlants={rawPlants} allCustomers={rawCustomers} />}
+                   {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                   {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
+                   {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                   {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
+                   {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} allCustomers={rawCustomers} />}
                    {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} onPost={handleSave} onCancel={() => setFormData({})} />}
-                   {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly && !isBootstrapAdmin} allPlants={rawPlants} />}
+                   {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
                  </div>}
                  {showList && <div className="space-y-6">
                    <div className="bg-[#dae4f1]/30 p-4 md:p-6 border border-slate-300 space-y-4"><label className="text-[11px] font-black uppercase text-slate-500 block">Registry Search Hub</label>
