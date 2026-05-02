@@ -122,6 +122,52 @@ export default function SapDashboard() {
   const { data: rawCustomers } = useCollection(customersQuery);
   const { data: allUsers, isLoading: isAllUsersLoading } = useCollection(usersQuery);
 
+  const getAuthorizedPlants = React.useCallback(() => {
+    return userProfile?.plants || [];
+  }, [userProfile]);
+
+  const allTrips = React.useMemo(() => {
+    const authPlants = getAuthorizedPlants();
+    if (isBootstrapAdmin) return rawTrips;
+    if (!authPlants.length) return [];
+    return rawTrips?.filter(t => authPlants.includes(t.plantCode));
+  }, [rawTrips, getAuthorizedPlants, isBootstrapAdmin]);
+
+  const allOrders = React.useMemo(() => {
+    const authPlants = getAuthorizedPlants();
+    if (isBootstrapAdmin) return rawOrders;
+    if (!authPlants.length) return [];
+    return rawOrders?.filter(o => authPlants.includes(o.plantCode));
+  }, [rawOrders, getAuthorizedPlants, isBootstrapAdmin]);
+
+  const homeStats = React.useMemo(() => {
+    if (!allOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, reject: 0, closed: 0 };
+    
+    const filterFn = (item: any) => {
+      // 1. Specific Plant Filter Check (if user selected one from their authorized list)
+      const matchesPlant = homePlantFilter === 'ALL' || item.plantCode === homePlantFilter;
+      if (!matchesPlant) return false;
+
+      // 2. Month Filter Check
+      const itemDate = item.createdAt || item.updatedAt || item.lrDate || item.saleOrderDate;
+      const matchesMonth = !homeMonthFilter || (itemDate && itemDate.startsWith(homeMonthFilter));
+      
+      return matchesMonth;
+    };
+
+    const filteredOrders = allOrders.filter(o => o.status !== 'CANCELLED' && filterFn(o));
+    const filteredTrips = allTrips.filter(filterFn);
+    
+    return {
+      open: filteredOrders.length,
+      loading: filteredTrips.filter(t => t.status === 'LOADING').length,
+      transit: filteredTrips.filter(t => t.status === 'IN-TRANSIT').length,
+      arrived: filteredTrips.filter(t => t.status === 'ARRIVED').length,
+      reject: filteredTrips.filter(t => t.status === 'REJECTION').length,
+      closed: filteredTrips.filter(t => t.status === 'CLOSED').length,
+    };
+  }, [allOrders, allTrips, homePlantFilter, homeMonthFilter]);
+
   const isAuthorized = React.useCallback((code: string) => {
     if (code === 'HOME' || code === '' || isBootstrapAdmin) return true;
     if (!userProfile) {
@@ -181,13 +227,10 @@ export default function SapDashboard() {
     let col = '';
     let docId = localData.id;
     
-    // Fix docId logic for SU01 and other create screens
     if (activeScreen.endsWith('01')) {
-      // If SU01 and registry is empty, it's the bootstrap case where we link auth UID
       if (activeScreen === 'SU01' && registryIsEmpty) {
         docId = user.uid;
       } else {
-        // Otherwise, always generate a new random ID for every new record
         docId = crypto.randomUUID();
       }
     } else {
@@ -208,7 +251,6 @@ export default function SapDashboard() {
       setDocumentNonBlocking(docRef, payload, { merge: true });
       setStatusMsg({ text: `Synchronized successfully`, type: 'success' });
       
-      // Auto-reset form for "Create" (01) transactions to allow sequential entry
       if (activeScreen.endsWith('01')) {
         setFormData({});
         setSearchId('');
@@ -293,8 +335,6 @@ export default function SapDashboard() {
     </div>;
   }
 
-  const getAuthorizedPlants = () => userProfile?.plants || [];
-
   const getRegistryList = () => {
     if (activeScreen.startsWith('OX')) return rawPlants || [];
     if (activeScreen.startsWith('FM')) return rawCompanies || [];
@@ -312,32 +352,6 @@ export default function SapDashboard() {
     return [];
   };
 
-  const allTrips = (() => {
-    const authPlants = getAuthorizedPlants();
-    if (isBootstrapAdmin || !authPlants.length) return rawTrips;
-    return rawTrips?.filter(t => authPlants.includes(t.plantCode));
-  })();
-
-  const homeStats = (() => {
-    if (!rawOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, reject: 0, closed: 0 };
-    const filterFn = (item: any) => {
-      const matchesPlant = homePlantFilter === 'ALL' || item.plantCode === homePlantFilter;
-      const itemDate = item.createdAt || item.updatedAt || item.lrDate || item.saleOrderDate;
-      const matchesMonth = !homeMonthFilter || (itemDate && itemDate.startsWith(homeMonthFilter));
-      return matchesPlant && matchesMonth;
-    };
-    const filteredOrders = rawOrders.filter(o => o.status !== 'CANCELLED' && filterFn(o));
-    const filteredTrips = (allTrips || []).filter(filterFn);
-    return {
-      open: filteredOrders.length,
-      loading: filteredTrips.filter(t => t.status === 'LOADING').length,
-      transit: filteredTrips.filter(t => t.status === 'IN-TRANSIT').length,
-      arrived: filteredTrips.filter(t => t.status === 'ARRIVED').length,
-      reject: filteredTrips.filter(t => t.status === 'REJECTION').length,
-      closed: filteredTrips.filter(t => t.status === 'CLOSED').length,
-    };
-  })();
-
   const isReadOnly = activeScreen.endsWith('03');
   const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
   const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
@@ -353,6 +367,8 @@ export default function SapDashboard() {
       else { setStatusMsg({ text: `Record ${idToSearch} not found`, type: 'error' }); }
     }
   };
+
+  const authorizedPlantsList = getAuthorizedPlants();
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
@@ -422,7 +438,8 @@ export default function SapDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 border border-slate-300 shadow-sm">
                   <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Authorized Plant Hub</label>
                     <select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none" value={homePlantFilter} onChange={(e) => setHomePlantFilter(e.target.value)}>
-                      <option value="ALL">ALL AUTHORIZED PLANTS</option>{rawPlants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
+                      <option value="ALL">ALL AUTHORIZED PLANTS</option>
+                      {rawPlants?.filter(p => isBootstrapAdmin || authorizedPlantsList.includes(p.plantCode)).map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
                     </select>
                   </div>
                   <div className="flex flex-col gap-2 relative" ref={monthRef}><label className="text-[10px] font-black uppercase text-slate-400">Node Period</label>
@@ -475,7 +492,7 @@ export default function SapDashboard() {
                    </div>
                    <RegistryList onSelectItem={setFormData} listData={getRegistryList()} />
                  </div>}
-                 {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} vendors={rawVendors} plants={rawPlants} onStatusUpdate={setStatusMsg} />}
+                 {activeScreen === 'TR21' && <DripBoard orders={allOrders} trips={allTrips} vendors={rawVendors} plants={rawPlants} onStatusUpdate={setStatusMsg} />}
                  {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               </div>
             )}
