@@ -84,13 +84,14 @@ export default function SapDashboard() {
   const [showMonthCalendar, setShowMonthCalendar] = React.useState(false);
   const [sessionCount, setSessionCount] = React.useState(1);
   const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '' });
+  const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
 
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const monthRef = React.useRef<HTMLDivElement>(null);
 
-  const isBootstrapAdmin = React.useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('sap_bootstrap_session') === 'true';
+  // Load Admin Status in useEffect to avoid hydration issues
+  React.useEffect(() => {
+    setIsBootstrapAdmin(localStorage.getItem('sap_bootstrap_session') === 'true');
   }, []);
 
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
@@ -127,47 +128,55 @@ export default function SapDashboard() {
     let localData = { ...formData };
     const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
 
-    if (activeScreen.startsWith('OX')) {
-      const exists = rawPlants?.some((p: any) => p.id !== localData.id && p.plantCode?.toString().toUpperCase() === localData.plantCode?.toString().toUpperCase());
-      if (exists) { setStatusMsg({ text: `ID/Number ${localData.plantCode} Already exists, duplicate not allowed`, type: 'error' }); return; }
-    }
-    if (activeScreen.startsWith('FM')) {
-      const exists = rawCompanies?.some((c: any) => c.id !== localData.id && c.companyCode?.toString().toUpperCase() === localData.companyCode?.toString().toUpperCase());
-      if (exists) { setStatusMsg({ text: `ID/Number ${localData.companyCode} Already exists, duplicate not allowed`, type: 'error' }); return; }
-    }
-    if (activeScreen.startsWith('XK')) {
-      if (!(localData.mobile?.trim() && localData.address?.trim() && localData.route?.trim() && (localData.vendorName?.trim() || localData.vendorFirmName?.trim()))) {
-        setStatusMsg({ text: 'Error: Mobile, Address, Special Route & (Name or Firm Name) are mandatory', type: 'error' }); return;
+    // SUPER ADMIN BYPASS for validation and checks
+    if (!isBootstrapAdmin) {
+      if (activeScreen.startsWith('OX')) {
+        const exists = rawPlants?.some((p: any) => p.id !== localData.id && p.plantCode?.toString().toUpperCase() === localData.plantCode?.toString().toUpperCase());
+        if (exists) { setStatusMsg({ text: `ID/Number ${localData.plantCode} Already exists, duplicate not allowed`, type: 'error' }); return; }
       }
-      if (!localData.vendorCode) localData.vendorCode = `V${Math.floor(10000 + Math.random() * 90000)}`;
-      const exists = rawVendors?.some((v: any) => v.id !== localData.id && (v.vendorCode || v.id)?.toString().toUpperCase() === (localData.vendorCode || localData.id)?.toString().toUpperCase());
-      if (exists) { setStatusMsg({ text: `ID/Number ${localData.vendorCode || localData.id} Already exists, duplicate not allowed`, type: 'error' }); return; }
-    }
-    if (activeScreen.startsWith('XD')) {
-      const exists = rawCustomers?.some((c: any) => c.id !== localData.id && (c.customerCode || c.id)?.toString().toUpperCase() === (localData.customerCode || localData.id)?.toString().toUpperCase());
-      if (exists) { setStatusMsg({ text: `ID/Number ${localData.customerCode || localData.id} Already exists, duplicate not allowed`, type: 'error' }); return; }
-    }
-    if (activeScreen.startsWith('VA') && activeScreen !== 'VA04') {
-      if (!(localData.plantCode && localData.saleOrder && localData.consignor && localData.items?.length)) {
-        setStatusMsg({ text: 'Error: Mandatory header fields and items are required', type: 'error' }); return;
+      if (activeScreen.startsWith('FM')) {
+        const exists = rawCompanies?.some((c: any) => c.id !== localData.id && c.companyCode?.toString().toUpperCase() === localData.companyCode?.toString().toUpperCase());
+        if (exists) { setStatusMsg({ text: `ID/Number ${localData.companyCode} Already exists, duplicate not allowed`, type: 'error' }); return; }
       }
-    }
-    if (activeScreen === 'VA04') {
-      const o = rawOrders?.find(ord => (ord.saleOrder || ord.id)?.toString().toUpperCase() === localData.saleOrder?.toString().toUpperCase());
-      if (!o) { setStatusMsg({ text: `Error: Order ${localData.saleOrder} not found`, type: 'error' }); return; }
-      setDocumentNonBlocking(doc(db, 'users', user.uid, 'sales_orders', o.id), { status: 'CANCELLED', updatedAt: new Date().toISOString() }, { merge: true });
-      setStatusMsg({ text: `Success: Order ${localData.saleOrder} CANCELLED`, type: 'success' }); setFormData({}); return;
-    }
-    if (activeScreen.startsWith('SU')) {
-      if (!(localData.fullName && localData.username && localData.password && localData.plants?.length && localData.tcodes?.length)) {
-        setStatusMsg({ text: 'Error: Name, Username, Password, Plants and T-Codes are mandatory', type: 'error' }); return;
+      if (activeScreen.startsWith('XK')) {
+        if (!(localData.mobile?.trim() && localData.address?.trim() && localData.route?.trim() && (localData.vendorName?.trim() || localData.vendorFirmName?.trim()))) {
+          setStatusMsg({ text: 'Error: Mobile, Address, Special Route & (Name or Firm Name) are mandatory', type: 'error' }); return;
+        }
+        if (!localData.vendorCode) localData.vendorCode = `V${Math.floor(10000 + Math.random() * 90000)}`;
+        const exists = rawVendors?.some((v: any) => v.id !== localData.id && (v.vendorCode || v.id)?.toString().toUpperCase() === (localData.vendorCode || localData.id)?.toString().toUpperCase());
+        if (exists) { setStatusMsg({ text: `ID/Number ${localData.vendorCode || localData.id} Already exists, duplicate not allowed`, type: 'error' }); return; }
       }
-      const exists = allUsers?.some((u: any) => u.id !== localData.id && u.username?.toString().toUpperCase() === localData.username?.toString().toUpperCase());
-      if (exists) { setStatusMsg({ text: `ID/Number ${localData.username} Already exists, duplicate not allowed`, type: 'error' }); return; }
+      if (activeScreen.startsWith('XD')) {
+        const exists = rawCustomers?.some((c: any) => c.id !== localData.id && (c.customerCode || c.id)?.toString().toUpperCase() === (localData.customerCode || localData.id)?.toString().toUpperCase());
+        if (exists) { setStatusMsg({ text: `ID/Number ${localData.customerCode || localData.id} Already exists, duplicate not allowed`, type: 'error' }); return; }
+      }
+      if (activeScreen.startsWith('VA') && activeScreen !== 'VA04') {
+        if (!(localData.plantCode && localData.saleOrder && localData.consignor && localData.items?.length)) {
+          setStatusMsg({ text: 'Error: Mandatory header fields and items are required', type: 'error' }); return;
+        }
+      }
+      if (activeScreen === 'VA04') {
+        const o = rawOrders?.find(ord => (ord.saleOrder || ord.id)?.toString().toUpperCase() === localData.saleOrder?.toString().toUpperCase());
+        if (!o) { setStatusMsg({ text: `Error: Order ${localData.saleOrder} not found`, type: 'error' }); return; }
+        setDocumentNonBlocking(doc(db, 'users', user.uid, 'sales_orders', o.id), { status: 'CANCELLED', updatedAt: new Date().toISOString() }, { merge: true });
+        setStatusMsg({ text: `Success: Order ${localData.saleOrder} CANCELLED`, type: 'success' }); setFormData({}); return;
+      }
+      if (activeScreen.startsWith('SU')) {
+        if (!(localData.fullName && localData.username && localData.password && localData.plants?.length && localData.tcodes?.length)) {
+          setStatusMsg({ text: 'Error: Name, Username, Password, Plants and T-Codes are mandatory', type: 'error' }); return;
+        }
+        const exists = allUsers?.some((u: any) => u.id !== localData.id && u.username?.toString().toUpperCase() === localData.username?.toString().toUpperCase());
+        if (exists) { setStatusMsg({ text: `ID/Number ${localData.username} Already exists, duplicate not allowed`, type: 'error' }); return; }
+      }
+    } else {
+        // Super Admin XK01 logic
+        if (activeScreen.startsWith('XK') && !localData.vendorCode) {
+            localData.vendorCode = `V${Math.floor(10000 + Math.random() * 90000)}`;
+        }
     }
 
     let col = '';
-    const docId = activeScreen === 'SU01' && registryIsEmpty ? user.uid : (localData.id || crypto.randomUUID());
+    const docId = activeScreen === 'SU01' && (registryIsEmpty || isBootstrapAdmin) ? (localData.id || user.uid) : (localData.id || crypto.randomUUID());
     if (activeScreen.startsWith('OX')) col = 'plants';
     else if (activeScreen.startsWith('FM')) col = 'companies';
     else if (activeScreen.startsWith('XK')) col = 'vendors';
@@ -184,7 +193,7 @@ export default function SapDashboard() {
       if (activeScreen.startsWith('SU')) setFormData({});
       else if (!formData.id) setFormData(payload);
     }
-  }, [user, activeScreen, formData, rawOrders, rawVendors, rawCustomers, rawCompanies, rawPlants, allUsers, db]);
+  }, [user, activeScreen, formData, rawOrders, rawVendors, rawCustomers, rawCompanies, rawPlants, allUsers, db, isBootstrapAdmin]);
 
   const executeTCode = React.useCallback((code: string) => {
     const input = code.toUpperCase().trim();
@@ -351,9 +360,9 @@ export default function SapDashboard() {
             )}
           </div>
           <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
-             <button onClick={handleSave} disabled={activeScreen === 'HOME' || isReadOnly} className={cn("p-1 rounded", (activeScreen === 'HOME' || isReadOnly) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}><Save className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={handleSave} disabled={activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}><Save className="h-4 w-4 text-slate-600" /></button>
              <button onClick={() => executeTCode('/n')} className="p-1 hover:bg-slate-200 rounded"><Undo2 className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={handleCancel} disabled={activeScreen === 'HOME' || isReadOnly} className={cn("p-1 rounded", (activeScreen === 'HOME' || isReadOnly) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}><XCircle className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={handleCancel} disabled={activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}><XCircle className="h-4 w-4 text-slate-600" /></button>
              <button onClick={() => window.open(window.location.href, '_blank')} disabled={sessionCount >= 3} className={cn("p-1 rounded", sessionCount >= 3 ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}><PlusSquare className="h-4 w-4 text-slate-600" /></button>
           </div>
           <div className="flex-1" /><div className="flex items-center gap-3 pr-4">
@@ -364,7 +373,7 @@ export default function SapDashboard() {
                </div>
              )}
              <button onClick={() => window.print()} className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Printer className="h-4 w-4" /></button>
-             <button onClick={() => { localStorage.removeItem('sap_bootstrap_session'); router.push('/login'); }} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700"><LogOut className="h-3.5 w-3.5" /> Log Off</button>
+             <button onClick={() => { localStorage.removeItem('sap_bootstrap_session'); localStorage.removeItem('sap_user_role'); router.push('/login'); }} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700"><LogOut className="h-3.5 w-3.5" /> Log Off</button>
           </div>
         </div>
       </div>
@@ -423,13 +432,13 @@ export default function SapDashboard() {
             ) : (
               <div className={cn("bg-white shadow-xl rounded-sm border border-slate-300 overflow-hidden animate-slide-up min-h-[600px] p-6 mx-auto", hideSidebar ? "w-full" : "w-full max-w-[1400px]")}>
                  {showForm && <div className="space-y-6">
-                   {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                   {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
-                   {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                   {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
-                   {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} allCustomers={rawCustomers} />}
+                   {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly && !isBootstrapAdmin} />}
+                   {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly && !isBootstrapAdmin} allPlants={rawPlants} />}
+                   {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly && !isBootstrapAdmin} />}
+                   {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly && !isBootstrapAdmin} allPlants={rawPlants} />}
+                   {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly && !isBootstrapAdmin} allPlants={rawPlants} allCustomers={rawCustomers} />}
                    {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={rawOrders} onPost={handleSave} onCancel={() => setFormData({})} />}
-                   {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
+                   {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly && !isBootstrapAdmin} allPlants={rawPlants} />}
                  </div>}
                  {showList && <div className="space-y-6">
                    <div className="bg-[#dae4f1]/30 p-6 border border-slate-300 space-y-4"><label className="text-[11px] font-black uppercase text-slate-500 block">Registry Search Hub</label>
@@ -452,7 +461,7 @@ export default function SapDashboard() {
         </div>
       </div>
       <div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em]">
-        <div className="flex items-center gap-8"><span className="flex items-center gap-2.5"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span><span>{activeScreen}</span><span>USER: {isBootstrapAdmin ? 'ADMINISTRATOR' : (userProfile?.fullName || 'Authenticating...')}</span>{statusMsg.text !== 'Ready' && <span className={cn(statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span>}</div>
+        <div className="flex items-center gap-8"><span className="flex items-center gap-2.5"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span><span>{activeScreen}</span><span>USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.fullName || 'Authenticating...')}</span>{statusMsg.text !== 'Ready' && <span className={cn(statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span>}</div>
       </div>
     </div>
   );
@@ -502,7 +511,7 @@ function PlantForm({ data, onChange, disabled }: any) {
 
 function CompanyForm({ data, onChange, disabled, allPlants }: any) {
   const pList = (allPlants || []).map((p: any) => p.plantCode);
-  const handleToggle = (p: string) => { const curr = data.plantCodes || []; onChange({...data, plantCodes: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); };
+  const handleToggle = (p: string) => { if (disabled) return; const curr = data.plantCodes || []; onChange({...data, plantCodes: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); };
   return <div className="space-y-4"><SectionGrouping title="IDENTIFICATION"><div className="col-span-2 space-y-2 mb-4"><label className="text-[10px] font-bold text-slate-500">Plant Assignment (Multiple)</label>
     <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border uppercase", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{p}</button>)}</div></div>
     <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} /><FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} /></SectionGrouping>
@@ -519,7 +528,7 @@ function VendorForm({ data, onChange, disabled }: any) {
 
 function CustomerForm({ data, onChange, disabled, allPlants }: any) {
   const pList = (allPlants || []).map((p: any) => p.plantCode);
-  const handleToggle = (p: string) => { const curr = data.plantCodes || []; onChange({...data, plantCodes: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); };
+  const handleToggle = (p: string) => { if (disabled) return; const curr = data.plantCodes || []; onChange({...data, plantCodes: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); };
   return <div className="space-y-4"><SectionGrouping title="IDENTIFICATION"><div className="col-span-2 space-y-2 mb-4"><label className="text-[10px] font-bold text-slate-500">Plant Assignment (Multiple)</label>
     <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border uppercase", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{p}</button>)}</div></div>
     <FormInput label="CUSTOMER CODE" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} /><FormInput label="CUSTOMER NAME" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
@@ -534,7 +543,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
   const cons = filtered.filter((c: any) => c.customerType === 'Consignor');
   const ships = filtered.filter((c: any) => c.customerType === 'Consignee - Ship to Party');
   const items = data.items || [{ invoice: '', ewaybill: '', product: '', weight: '', weightUom: 'MT' }];
-  const updateItem = (i: number, f: string, v: any) => { const n = [...items]; n[i] = { ...n[i], [f]: v }; onChange({ ...data, items: n }); };
+  const updateItem = (i: number, f: string, v: any) => { if (disabled) return; const n = [...items]; n[i] = { ...n[i], [f]: v }; onChange({ ...data, items: n }); };
   return <div className="space-y-4"><SectionGrouping title="HEADER"><FormSelect label="PLANT" value={data.plantCode} options={pOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
     <FormInput label="SALE ORDER NO" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} /></SectionGrouping>
     <SectionGrouping title="COORDINATION"><FormSelect label="CONSIGNOR" value={data.consignor} options={cons.map(c => c.customerName)} onChange={(v: string) => onChange({...data, consignor: v, from: cons.find(c => c.customerName === v)?.city || ''})} disabled={disabled} />

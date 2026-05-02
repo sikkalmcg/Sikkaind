@@ -38,7 +38,7 @@ export default function LoginPage() {
     const password = credentials.password.trim();
 
     try {
-      // MANDATORY: Admin Credential Verification
+      // MANDATORY: Admin Credential Verification (Super Admin Sikkaind)
       const isMasterAdmin = username === 'Sikkaind' && password === 'Sikka@lmc2105';
 
       // Background session handshake
@@ -46,6 +46,7 @@ export default function LoginPage() {
       
       if (isMasterAdmin) {
         localStorage.setItem('sap_bootstrap_session', 'true');
+        localStorage.setItem('sap_user_role', 'admin');
         router.push('/dashboard');
         return;
       }
@@ -64,6 +65,7 @@ export default function LoginPage() {
         await auth.signOut();
       } else {
         localStorage.removeItem('sap_bootstrap_session');
+        localStorage.setItem('sap_user_role', 'user');
         router.push('/dashboard');
       }
     } catch (err: any) {
