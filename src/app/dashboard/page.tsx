@@ -426,8 +426,8 @@ export default function SapDashboard() {
         if (exists) { setStatusMsg({ text: `Duplicate entry not allowed for Company Code: ${localData.companyCode}`, type: 'error' }); return; }
       }
       if (activeScreen.startsWith('XK')) {
-        if (!(localData.mobile?.trim() && localData.address?.trim() && localData.route?.trim() && (localData.vendorName?.trim() || localData.vendorFirmName?.trim()))) {
-          setStatusMsg({ text: 'Error: Mobile, Address, Route & Name are mandatory', type: 'error' }); return;
+        if (!(localData.plantCodes?.length && localData.mobile?.trim() && localData.address?.trim() && localData.route?.trim() && (localData.vendorName?.trim() || localData.vendorFirmName?.trim()))) {
+          setStatusMsg({ text: 'Error: Plant, Mobile, Address, Route & Name are mandatory', type: 'error' }); return;
         }
         const exists = rawVendors?.some((v: any) => v.id !== localData.id && v.vendorCode?.toString().toUpperCase() === localData.vendorCode?.toString().toUpperCase());
         if (exists && localData.vendorCode) { setStatusMsg({ text: `Duplicate entry not allowed for Vendor Code: ${localData.vendorCode}`, type: 'error' }); return; }
@@ -731,7 +731,7 @@ export default function SapDashboard() {
                  {showForm && <div className="space-y-6">
                    {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
                    {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
-                   {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                   {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
                    {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
                    {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} />}
                    {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} onPost={handleSave} onCancel={() => setFormData({})} />}
@@ -950,11 +950,41 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
     </SectionGrouping></div>;
 }
 
-function VendorForm({ data, onChange, disabled }: any) {
-  return <div className="space-y-4"><SectionGrouping title="IDENTIFICATION"><FormInput label="VENDOR CODE" value={data.vendorCode} disabled={true} placeholder="AUTO-GENERATED" /><FormInput label="VENDOR NAME" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
-    <FormInput label="VENDOR FIRM NAME" value={data.vendorFirmName} onChange={(v: string) => onChange({...data, vendorFirmName: v})} disabled={disabled} /></SectionGrouping>
-    <SectionGrouping title="DETAILS"><FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} /><FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
-    <FormInput label="SPECIAL ROUTE" value={data.route} onChange={(v: string) => onChange({...data, route: v})} disabled={disabled} /></SectionGrouping></div>;
+function VendorForm({ data, onChange, disabled, allPlants }: any) {
+  const pList = (allPlants || []).map((p: any) => p.plantCode);
+  const handleToggle = (p: string) => { 
+    if (disabled) return; 
+    const curr = data.plantCodes || []; 
+    onChange({...data, plantCodes: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); 
+  };
+  
+  return <div className="space-y-4">
+    <SectionGrouping title="IDENTIFICATION">
+      <div className="col-span-1 md:col-span-2 space-y-2 mb-4">
+        <label className="text-[10px] font-bold text-slate-500">Plant Assignment (Multiple) *</label>
+        <div className="flex flex-wrap gap-2">
+          {pList.map((p: string) => (
+            <button 
+              key={p} 
+              onClick={() => handleToggle(p)} 
+              disabled={disabled} 
+              className={cn("px-3 py-1.5 text-[10px] font-black border uppercase", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+      <FormInput label="VENDOR CODE" value={data.vendorCode} disabled={true} placeholder="AUTO-GENERATED" />
+      <FormInput label="VENDOR NAME" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
+      <FormInput label="VENDOR FIRM NAME" value={data.vendorFirmName} onChange={(v: string) => onChange({...data, vendorFirmName: v})} disabled={disabled} />
+    </SectionGrouping>
+    <SectionGrouping title="DETAILS">
+      <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+      <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+      <FormInput label="SPECIAL ROUTE" value={data.route} onChange={(v: string) => onChange({...data, route: v})} disabled={disabled} />
+    </SectionGrouping>
+  </div>;
 }
 
 function CustomerForm({ data, onChange, disabled, allPlants }: any) {
