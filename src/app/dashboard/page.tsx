@@ -477,13 +477,13 @@ export default function SapDashboard() {
           </div>
           <div className="flex-1" />
           <div className="flex items-center gap-3 pr-4">
-             {activeScreen === 'XD01' && (
+             {(activeScreen === 'XD01' || activeScreen === 'VA01') && (
                <div className="flex items-center gap-2 mr-4">
-                 <button onClick={() => setStatusMsg({ text: 'Template Exported Successfully', type: 'success' })} className="flex items-center gap-1.5 px-3 h-7 bg-white border border-slate-300 hover:bg-slate-50 rounded text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]"><FileText className="h-3.5 w-3.5" /> Template</button>
+                 <button onClick={() => setStatusMsg({ text: `${activeScreen.startsWith('VA') ? 'Sales Order' : 'Customer'} Template Exported`, type: 'success' })} className="flex items-center gap-1.5 px-3 h-7 bg-white border border-slate-300 hover:bg-slate-50 rounded text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]"><FileText className="h-3.5 w-3.5" /> Template</button>
                  <button onClick={() => {
                    const success = Math.floor(Math.random() * 50) + 10;
                    const failed = Math.floor(Math.random() * 5);
-                   setStatusMsg({ text: `Bulk Processing Complete: ${success} SUCCESSFUL, ${failed} FAILED`, type: 'success' });
+                   setStatusMsg({ text: `Bulk Processing Complete: ${success} SUCCESSFUL, ${failed} FAILED ${activeScreen.startsWith('VA') ? 'ORDERS' : 'RECORDS'}`, type: 'success' });
                  }} className="flex items-center gap-1.5 px-3 h-7 bg-[#1e3a8a] hover:bg-blue-900 text-white rounded text-[9px] font-black uppercase tracking-widest"><UploadCloud className="h-3.5 w-3.5" /> Bulk Upload</button>
                </div>
              )}
@@ -868,7 +868,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
   }, [allCustomers, data.plantCode]);
 
   const consignors = plantFilteredCustomers.filter((c: any) => c.customerType === 'Consignor');
-  const shipToParties = plantFilteredCustomers.filter((c: any) => c.customerType === 'Consignee – Ship to Party');
+  const shipToParties = plantFilteredCustomers.filter((c: any) => c.customerType === 'Consignee - Ship to Party');
 
   const items = data.items || [{ invoice: '', ewaybill: '', product: '', weight: '', weightUom: 'MT' }];
 
@@ -1109,9 +1109,9 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
   const [cnPopup, setCnPopup] = React.useState<{ isOpen: boolean, trip: any | null, isEdit: boolean }>({ isOpen: false, trip: null, isEdit: false });
   const [cnData, setCnData] = React.useState<any>({});
   const [cnPreview, setCnPreview] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null });
-  const [vehicleEditPopup, setVehicleEditPopup] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null });
+  const [vehicleEditPopup, setVehicleEditPopup] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: boolean, trip: null });
   const [vehicleEditData, setVehicleEditData] = React.useState<any>({});
-  const [vehicleOutPopup, setVehicleOutPopup] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null });
+  const [vehicleOutPopup, setVehicleOutPopup] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: boolean, trip: null });
   const [vehicleOutData, setVehicleOutData] = React.useState<any>({});
 
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
@@ -1534,6 +1534,39 @@ function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code:
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function FormSelect({ label, value, options, onChange, disabled }: any) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-9 border border-slate-400 bg-white px-2 text-xs font-bold outline-none shadow-sm">
+        <option value="">Select...</option>
+        {options.map((o: any, idx: number) => {
+          const optValue = typeof o === 'string' ? o : o.value;
+          const optLabel = typeof o === 'string' ? o : o.label;
+          return <option key={`${optValue}-${idx}`} value={optValue}>{optLabel}</option>;
+        })}
+      </select>
+    </div>
+  );
+}
+
+function PlantForm({ data, onChange, disabled }: any) {
+  return (
+    <div className="space-y-4">
+      <SectionGrouping title="DATA">
+        <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="SETTINGS">
+        <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
+        <FormInput label="STATE" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
+      </SectionGrouping>
     </div>
   );
 }
