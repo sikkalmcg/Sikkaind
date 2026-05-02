@@ -228,7 +228,7 @@ export default function SapDashboard() {
       headers = "Plant,Sale Order,Consignor,Consignee,Ship to Party,Weight,UOM";
       filename = "VA01_SALES_ORDER_TEMPLATE.csv";
     } else if (activeScreen.startsWith('XD')) {
-      headers = "PlantCodes,CustomerCode,CustomerName,CustomerType,Address,City,Mobile,GSTIN";
+      headers = "PlantCodes,CustomerCode,CustomerName,CustomerType,Address,City,PostalCode,Mobile,GSTIN";
       filename = "XD01_CUSTOMER_MASTER_TEMPLATE.csv";
     } else if (activeScreen.startsWith('FM')) {
       headers = "CompanyCode,CompanyName,Address,City,State,PostalCode,GSTIN,PAN,Mobile,Email,Website";
@@ -360,6 +360,7 @@ export default function SapDashboard() {
         const idxCT = getIdx('CustomerType');
         const idxA = getIdx('Address');
         const idxCi = getIdx('City');
+        const idxPC = getIdx('PostalCode');
         const idxM = getIdx('Mobile');
         const idxG = getIdx('GSTIN');
 
@@ -392,6 +393,7 @@ export default function SapDashboard() {
             customerType: idxCT !== -1 ? cols[idxCT] : '',
             address: idxA !== -1 ? cols[idxA] : '',
             city: city,
+            postalCode: idxPC !== -1 ? cols[idxPC] : '',
             mobile: idxM !== -1 ? cols[idxM] : '',
             gstin: idxG !== -1 ? cols[idxG] : '',
             updatedAt: new Date().toISOString()
@@ -956,6 +958,7 @@ function CustomerForm({ data, onChange, disabled, allPlants }: any) {
     <FormInput label="CUSTOMER CODE *" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} /><FormInput label="CUSTOMER NAME *" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
     <FormSelect label="CUSTOMER TYPE" value={data.customerType} options={["Consignor", "Consignee - Ship to Party"]} onChange={(v: string) => onChange({...data, customerType: v})} disabled={disabled} /></SectionGrouping>
     <SectionGrouping title="LOCATION"><FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} /><FormInput label="CITY *" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+    <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
     <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} /><FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} placeholder="ENTER GSTIN..." /></SectionGrouping></div>;
 }
 
