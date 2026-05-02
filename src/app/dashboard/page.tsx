@@ -90,64 +90,6 @@ export default function SapDashboard() {
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
 
-  React.useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isUserLoading, router]);
-
-  React.useEffect(() => {
-    if (!isUserLoading && !isProfileLoading && user && userProfile === null) {
-        toast({ title: "Access Denied", description: "Your account is not registered in the system.", variant: "destructive" });
-        router.push('/login');
-    }
-  }, [user, userProfile, isUserLoading, isProfileLoading, router, toast]);
-
-  React.useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (monthRef.current && !monthRef.current.contains(event.target as Node)) {
-        setShowMonthCalendar(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const channel = new BroadcastChannel('sap_session_hub');
-    const myId = Math.random().toString(36).substring(7);
-    const activeNodes = new Set<string>();
-
-    const handleMessage = (msg: MessageEvent) => {
-      if (msg.data.type === 'PING') {
-        channel.postMessage({ type: 'PONG', id: myId });
-      } else if (msg.data.type === 'PONG') {
-        activeNodes.add(msg.data.id);
-        setSessionCount(activeNodes.size + 1);
-      }
-    };
-
-    channel.onmessage = handleMessage;
-    const interval = setInterval(() => {
-      activeNodes.clear();
-      channel.postMessage({ type: 'PING' });
-    }, 1500);
-
-    return () => {
-      clearInterval(interval);
-      channel.close();
-    };
-  }, []);
-
-  const isAuthorized = (code: string) => {
-    if (code === 'HOME' || code === '') return true;
-    if (!userProfile) return false; 
-    return userProfile.tcodes?.includes(code);
-  };
-
-  const getAuthorizedPlants = () => userProfile?.plants || [];
-
   const ordersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'sales_orders') : null, [user, db]);
   const tripsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'trips') : null, [user, db]);
   const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
@@ -163,6 +105,14 @@ export default function SapDashboard() {
   const { data: rawVendors } = useCollection(vendorsQuery);
   const { data: rawCustomers } = useCollection(customersQuery);
   const { data: allUsers } = useCollection(usersQuery);
+
+  const getAuthorizedPlants = React.useCallback(() => userProfile?.plants || [], [userProfile]);
+
+  const isAuthorized = React.useCallback((code: string) => {
+    if (code === 'HOME' || code === '') return true;
+    if (!userProfile) return false; 
+    return userProfile.tcodes?.includes(code);
+  }, [userProfile]);
 
   const getRegistryList = React.useCallback(() => {
     if (activeScreen.startsWith('OX')) return rawPlants || [];
@@ -185,7 +135,7 @@ export default function SapDashboard() {
     const authPlants = getAuthorizedPlants();
     if (!authPlants.length) return rawTrips;
     return rawTrips?.filter(t => authPlants.includes(t.plantCode));
-  }, [rawTrips, userProfile]);
+  }, [rawTrips, getAuthorizedPlants]);
 
   const homeStats = React.useMemo(() => {
     if (!rawOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, reject: 0, closed: 0 };
@@ -250,34 +200,7 @@ export default function SapDashboard() {
       setStatusMsg({ text: `T-Code ${cleanCode} not found`, type: 'error' });
     }
     setTCode('');
-  }, [userProfile, isAuthorized]);
-
-  const handleSearchIdEnter = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      const idToSearch = searchId || xdSearch.customerId;
-      if (!idToSearch) return;
-
-      let list = getRegistryList();
-      let item = list.find((i: any) => 
-        (i.plantCode || i.customerCode || i.companyCode || i.saleOrder || i.username || i.id || i.vendorCode).toString().toUpperCase() === idToSearch.toUpperCase()
-      );
-      
-      if (!item && activeScreen.startsWith('XD')) {
-        item = (rawCustomers || []).find((i: any) => 
-          (i.customerCode || i.id).toString().toUpperCase() === idToSearch.toUpperCase()
-        );
-      }
-      
-      if (item) {
-        setFormData(item);
-        setSearchId('');
-        setXdSearch({ ...xdSearch, customerId: '' });
-        setStatusMsg({ text: `Record ${idToSearch} loaded`, type: 'success' });
-      } else {
-        setStatusMsg({ text: `Record ${idToSearch} not found`, type: 'error' });
-      }
-    }
-  };
+  }, [isAuthorized]);
 
   const handleSave = React.useCallback(() => {
     if (!user || activeScreen === 'HOME' || activeScreen.endsWith('03')) return;
@@ -399,25 +322,82 @@ export default function SapDashboard() {
     setStatusMsg({ text: 'Operation cancelled', type: 'info' });
   }, [activeScreen]);
 
-  if (isUserLoading || isProfileLoading) {
-    return (
-      <div className="h-screen w-full bg-[#f0f3f9] flex flex-col items-center justify-center font-mono space-y-4">
-        <div className="w-8 h-8 border-2 border-[#1e3a8a] border-t-transparent rounded-full animate-spin" />
-        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Handshaking Hub Node...</span>
-      </div>
-    );
-  }
+  React.useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router]);
 
-  if (userError) {
-    return (
-      <div className="h-screen w-full bg-red-50 flex flex-col items-center justify-center font-mono p-12 text-center">
-        <AlertTriangle className="h-12 w-12 text-red-600 mb-4" />
-        <h2 className="text-xl font-black uppercase text-red-600 mb-2">Auth Node Exception</h2>
-        <p className="text-xs font-bold text-red-400 max-w-md">{userError.message}</p>
-        <button onClick={() => window.location.reload()} className="mt-8 px-8 py-3 bg-red-600 text-white font-black uppercase text-[10px] tracking-widest shadow-lg">Restart Session</button>
-      </div>
-    );
-  }
+  React.useEffect(() => {
+    if (!isUserLoading && !isProfileLoading && user && userProfile === null) {
+        toast({ title: "Access Denied", description: "Your account is not registered in the system.", variant: "destructive" });
+        router.push('/login');
+    }
+  }, [user, userProfile, isUserLoading, isProfileLoading, router, toast]);
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (monthRef.current && !monthRef.current.contains(event.target as Node)) {
+        setShowMonthCalendar(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const channel = new BroadcastChannel('sap_session_hub');
+    const myId = Math.random().toString(36).substring(7);
+    const activeNodes = new Set<string>();
+
+    const handleMessage = (msg: MessageEvent) => {
+      if (msg.data.type === 'PING') {
+        channel.postMessage({ type: 'PONG', id: myId });
+      } else if (msg.data.type === 'PONG') {
+        activeNodes.add(msg.data.id);
+        setSessionCount(activeNodes.size + 1);
+      }
+    };
+
+    channel.onmessage = handleMessage;
+    const interval = setInterval(() => {
+      activeNodes.clear();
+      channel.postMessage({ type: 'PING' });
+    }, 1500);
+
+    return () => {
+      clearInterval(interval);
+      channel.close();
+    };
+  }, []);
+
+  const handleSearchIdEnter = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      const idToSearch = searchId || xdSearch.customerId;
+      if (!idToSearch) return;
+
+      let list = getRegistryList();
+      let item = list.find((i: any) => 
+        (i.plantCode || i.customerCode || i.companyCode || i.saleOrder || i.username || i.id || i.vendorCode).toString().toUpperCase() === idToSearch.toUpperCase()
+      );
+      
+      if (!item && activeScreen.startsWith('XD')) {
+        item = (rawCustomers || []).find((i: any) => 
+          (i.customerCode || i.id).toString().toUpperCase() === idToSearch.toUpperCase()
+        );
+      }
+      
+      if (item) {
+        setFormData(item);
+        setSearchId('');
+        setXdSearch({ ...xdSearch, customerId: '' });
+        setStatusMsg({ text: `Record ${idToSearch} loaded`, type: 'success' });
+      } else {
+        setStatusMsg({ text: `Record ${idToSearch} not found`, type: 'error' });
+      }
+    }
+  };
 
   const isReadOnly = activeScreen.endsWith('03');
   const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
@@ -456,6 +436,27 @@ export default function SapDashboard() {
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [activeScreen, handleSave, handleCancel, executeTCode, showHistory, historyIndex, history, router, tCode]);
+
+  // Handle Loading/Error States after Hooks are declared
+  if (isUserLoading || isProfileLoading) {
+    return (
+      <div className="h-screen w-full bg-[#f0f3f9] flex flex-col items-center justify-center font-mono space-y-4">
+        <div className="w-8 h-8 border-2 border-[#1e3a8a] border-t-transparent rounded-full animate-spin" />
+        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Handshaking Hub Node...</span>
+      </div>
+    );
+  }
+
+  if (userError) {
+    return (
+      <div className="h-screen w-full bg-red-50 flex flex-col items-center justify-center font-mono p-12 text-center">
+        <AlertTriangle className="h-12 w-12 text-red-600 mb-4" />
+        <h2 className="text-xl font-black uppercase text-red-600 mb-2">Auth Node Exception</h2>
+        <p className="text-xs font-bold text-red-400 max-w-md">{userError.message}</p>
+        <button onClick={() => window.location.reload()} className="mt-8 px-8 py-3 bg-red-600 text-white font-black uppercase text-[10px] tracking-widest shadow-lg">Restart Session</button>
+      </div>
+    );
+  }
 
   const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
 
@@ -684,7 +685,7 @@ export default function SapDashboard() {
   );
 }
 
-// HELPER COMPONENTS DEFINED ONCE AT BOTTOM
+// HELPER COMPONENTS
 function SectionGrouping({ title, children }: { title: string, children: React.ReactNode }) {
   return (
     <div className="border border-slate-300 p-5 pt-4 relative bg-white rounded-sm mb-6">
