@@ -1131,7 +1131,7 @@ function UserForm({ data, onChange, disabled, allPlants }: any) {
 function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
   return <div className="space-y-8"><SectionGrouping title="CANCELLATION HUB"><div className="flex flex-col gap-2 col-span-1 md:col-span-2"><label className="text-[11px] font-black uppercase text-red-600">Sales Order Number *</label>
     <input className="h-12 border border-red-200 px-4 text-sm font-black outline-none bg-red-50/30" placeholder="ENTER ORDER NO. & ENTER" value={data.saleOrder || ''} onChange={e => onChange({ ...data, saleOrder: e.target.value.toUpperCase() })} onKeyDown={e => { if (e.key === 'Enter') { const o = allOrders?.find((ord: any) => ord.saleOrder === data.saleOrder); if (o) onChange({...data, ...o}); } }} /></div></SectionGrouping>
-    <div className="flex justify-end gap-4"><Button onClick={onCancel} variant="ghost">Exit</Button><Button onClick={onPost} className="bg-red-600 text-white font-black uppercase text-[10px] px-6 md:px-10 h-11">Execute Cancellation</Button></div></div>;
+    <div className="flex justify-end gap-4"><Button onClick={onCancel} variant="ghost">Exit</Button><Button onClick={handleSave} className="bg-red-600 text-white font-black uppercase text-[10px] px-6 md:px-10 h-11">Execute Cancellation</Button></div></div>;
 }
 
 function RegistryList({ onSelectItem, listData, activeScreen }: any) {
@@ -1275,6 +1275,12 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   }, [filteredData, currentPage]);
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+  const tripVendors = React.useMemo(() => {
+    const pCode = selectedTripForAssignment?.plantCode || selectedOrder?.plantCode;
+    if (!pCode || !vendors) return [];
+    return vendors.filter((v: any) => v.plantCodes?.includes(pCode));
+  }, [selectedTripForAssignment, selectedOrder, vendors]);
 
   React.useEffect(() => {
     setCurrentPage(1);
@@ -1561,6 +1567,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                   );
                 } else {
                   const t = item;
+                  const isArrangeByParty = t.fleetType === 'Arrange by Party';
                   return (
                     <tr key={t.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] transition-colors text-[11px] font-bold group print:hidden">
                       <td className="p-3">{t.plantCode}</td>
@@ -1588,7 +1595,11 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                           ) : ""}
                           <button 
                             onClick={() => handleAddCn(t)}
-                            className="p-1 rounded bg-slate-50 border border-slate-200 text-slate-400 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all"
+                            disabled={isArrangeByParty}
+                            className={cn(
+                              "p-1 rounded bg-slate-50 border border-slate-200 transition-all",
+                              isArrangeByParty ? "opacity-30 cursor-not-allowed" : "text-slate-400 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
+                            )}
                           >
                             <Plus className="h-3 w-3" />
                           </button>
@@ -1699,7 +1710,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-black text-slate-500 uppercase">Assign Qty *</label>
-                  <input type="number" value={assignData.assignWeight || ''} onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
+                  <input type="number" value={assignData.assignWeight || ''} disabled className="h-10 border border-slate-200 bg-slate-50 px-3 text-xs font-black opacity-70 cursor-not-allowed" />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-black text-slate-500 uppercase">Fleet Type *</label>
@@ -1715,14 +1726,22 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
               {assignData.fleetType === 'Market Vehicle' && (
                 <div className="bg-white p-6 border border-blue-200 shadow-md relative">
                   <div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-blue-600 uppercase border border-blue-100">Market Coordination</div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-black text-slate-500 uppercase">Vendor Name *</label>
-                      <input 
-                        value={vendorSearch} 
-                        onChange={e => { setVendorSearch(e.target.value); setShowVS(true); }} 
-                        className="h-10 w-full border border-slate-400 px-3 text-xs font-black" 
-                      />
+                      <select 
+                        value={assignData.vendorName || ''} 
+                        onChange={e => {
+                          const v = tripVendors.find((vend: any) => vend.vendorName === e.target.value);
+                          setAssignData({...assignData, vendorName: e.target.value, vendorMobile: v?.mobile || ''});
+                        }}
+                        className="h-10 w-full border border-slate-400 px-3 text-xs font-black bg-white focus:bg-yellow-50 outline-none"
+                      >
+                        <option value="">Select Vendor...</option>
+                        {tripVendors.map((v: any) => (
+                          <option key={v.id} value={v.vendorName}>{v.vendorName}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-black text-slate-500 uppercase">Employee *</label>
@@ -1737,6 +1756,16 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                         </div>
                       </div>
                       <input type="number" value={assignData.rate || ''} disabled={assignData.isFixedRate} onChange={e => setAssignData({...assignData, rate: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-black text-slate-500 uppercase">Freight Amount</label>
+                      <input 
+                        type="number" 
+                        value={assignData.freightAmount || ''} 
+                        onChange={e => { if (assignData.isFixedRate) setAssignData({...assignData, freightAmount: e.target.value}); }}
+                        disabled={!assignData.isFixedRate}
+                        className={cn("h-10 border px-3 text-xs font-black outline-none", !assignData.isFixedRate ? "bg-blue-50/30 border-blue-100 text-blue-800" : "border-slate-400 focus:bg-yellow-50")} 
+                      />
                     </div>
                   </div>
                 </div>
@@ -2037,7 +2066,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     </Dialog>
 
     {/* CN Preview Popup */}
-    <Dialog open={isCnPreviewOpen} onOpenChange={setIsCnPreviewOpen}>
+    <Dialog border-none open={isCnPreviewOpen} onOpenChange={setIsCnPreviewOpen}>
       <DialogContent className="max-w-[1000px] w-[95vw] max-h-[95vh] overflow-y-auto bg-white p-0 rounded-none border-none">
         <DialogHeader className="bg-[#1e3a8a] text-white p-4 sticky top-0 z-[110] flex flex-row items-center justify-between space-y-0 print:hidden shadow-lg">
           <DialogTitle className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
