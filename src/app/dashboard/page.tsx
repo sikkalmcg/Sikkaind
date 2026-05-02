@@ -82,10 +82,10 @@ export default function SapDashboard() {
   const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM'));
   const [showMonthCalendar, setShowMonthCalendar] = React.useState(false);
   const [sessionCount, setSessionCount] = React.useState(1);
+  const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '' });
+
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const monthRef = React.useRef<HTMLDivElement>(null);
-
-  const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '' });
 
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
@@ -110,7 +110,7 @@ export default function SapDashboard() {
 
   const isAuthorized = React.useCallback((code: string) => {
     if (code === 'HOME' || code === '') return true;
-    const registryIsEmpty = !allUsers || allUsers.length === 0;
+    const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
     if (!userProfile) {
       if (registryIsEmpty) return true;
       return false;
@@ -297,7 +297,7 @@ export default function SapDashboard() {
     }
 
     let collectionName = '';
-    const registryIsEmpty = !allUsers || allUsers.length === 0;
+    const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
     const docId = activeScreen === 'SU01' && registryIsEmpty ? user.uid : (localData.id || crypto.randomUUID());
     
     if (activeScreen.startsWith('OX')) collectionName = 'plants';
@@ -333,6 +333,16 @@ export default function SapDashboard() {
       router.push('/login');
     }
   }, [user, isUserLoading, router]);
+
+  React.useEffect(() => {
+    if (!isUserLoading && !isProfileLoading && !isAllUsersLoading && user) {
+      const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
+      if (userProfile === null && !registryIsEmpty) {
+        toast({ title: "Access Denied", description: "Your account is not registered in the system.", variant: "destructive" });
+        router.push('/login');
+      }
+    }
+  }, [user, userProfile, isUserLoading, isProfileLoading, isAllUsersLoading, allUsers, router, toast]);
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -404,16 +414,6 @@ export default function SapDashboard() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [activeScreen, handleSave, handleCancel, executeTCode, showHistory, historyIndex, history, router, tCode]);
 
-  React.useEffect(() => {
-    if (!isUserLoading && !isProfileLoading && !isAllUsersLoading && user) {
-      const registryIsEmpty = !allUsers || allUsers.length === 0;
-      if (userProfile === null && !registryIsEmpty) {
-        toast({ title: "Access Denied", description: "Your account is not registered in the system.", variant: "destructive" });
-        router.push('/login');
-      }
-    }
-  }, [user, userProfile, isUserLoading, isProfileLoading, isAllUsersLoading, allUsers, router, toast]);
-
   const handleSearchIdEnter = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       const idToSearch = searchId || xdSearch.customerId;
@@ -441,8 +441,6 @@ export default function SapDashboard() {
     }
   };
 
-  const hideSidebar = activeScreen !== 'HOME';
-
   if (isUserLoading || isProfileLoading || isAllUsersLoading) {
     return (
       <div className="h-screen w-full bg-[#f0f3f9] flex flex-col items-center justify-center font-mono space-y-4">
@@ -467,6 +465,7 @@ export default function SapDashboard() {
   const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
   const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
   const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
+  const hideSidebar = activeScreen !== 'HOME';
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
@@ -1582,3 +1581,4 @@ function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code:
     </div>
   );
 }
+
