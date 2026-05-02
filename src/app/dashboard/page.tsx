@@ -1397,15 +1397,18 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
   return <div className="flex flex-col h-full space-y-4">
     <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 bg-white border border-slate-300 p-3 rounded-sm shadow-sm">
       <div className="flex items-center gap-4 flex-1">
-        <label className="text-[10px] font-black uppercase text-slate-400 whitespace-nowrap pl-2">Sync Search Hub</label>
+        <label className="text-[10px] font-black uppercase text-slate-400 whitespace-nowrap pl-2">Search</label>
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
           <input 
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-            placeholder="SEARCH REGISTRY..." 
-            className="h-9 w-full border border-slate-300 pl-9 pr-4 text-[10px] font-black outline-none bg-slate-50/30 focus:bg-yellow-50 focus:border-blue-400 uppercase tracking-wider"
+            className="h-9 w-full border border-slate-300 pl-9 pr-4 text-[10px] font-black outline-none focus:bg-yellow-50 focus:border-blue-400 uppercase tracking-wider"
           />
+        </div>
+        <div className="flex flex-col gap-1 border-l border-slate-200 pl-4 min-w-[120px]">
+          <label className="text-[8px] font-black uppercase text-slate-400">Plant</label>
+          <div className="text-[10px] font-black text-slate-800 uppercase tracking-tighter">Authorized Hub</div>
         </div>
       </div>
       
@@ -1771,7 +1774,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
                       value={vendorSearch} 
                       onChange={e => { setVendorSearch(e.target.value); setShowVS(true); }} 
                       onFocus={() => setShowVS(true)}
-                      placeholder="SEARCH VENDOR..."
                       className="h-10 w-full border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" 
                     />
                     {showVS && mVendors.length > 0 && (
