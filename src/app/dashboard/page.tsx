@@ -197,7 +197,7 @@ export default function SapDashboard() {
     let filename = "";
     
     if (activeScreen.startsWith('VA')) {
-      headers = "Plant,SaleOrderNo,Consignor,From,Consignee,ShipToParty,DeliveryAddress,Invoice,Ewaybill,Product,Qty,Weight,UOM";
+      headers = "Plant,Sale Order,Consignor,Consignee,Ship to Party,Weight,UOM";
       filename = "VA01_SALES_ORDER_TEMPLATE.csv";
     } else if (activeScreen.startsWith('XD')) {
       headers = "PlantCodes,CustomerCode,CustomerName,CustomerType,Address,City,Mobile,GSTIN";
@@ -244,44 +244,67 @@ export default function SapDashboard() {
 
       if (activeScreen.startsWith('VA')) {
         const orderGroups: Record<string, any> = {};
+        let rejectedCount = 0;
+
         dataRows.forEach(row => {
           const cols = row.split(',').map(c => c.trim());
-          const orderNo = cols[1];
-          if (!orderNo) return;
+          const plant = cols[0];
+          const soNo = cols[1];
+          const cons = cols[2];
+          const consee = cols[3];
+          const ship = cols[4];
+          const weight = parseFloat(cols[5] || '0');
+          const uom = cols[6];
+
+          // Strict validation: Plant, SO No, Consignor, Consignee, Ship to Party, Weight, UOM are mandatory
+          if (!plant || !soNo || !cons || !consee || !ship || !weight || !uom) {
+            rejectedCount++;
+            return;
+          }
           
-          if (!orderGroups[orderNo]) {
-            orderGroups[orderNo] = {
-              plantCode: cols[0],
-              saleOrder: cols[1],
-              consignor: cols[2],
-              from: cols[3],
-              consignee: cols[4],
-              shipToParty: cols[5],
-              deliveryAddress: cols[6],
-              items: [],
+          if (!orderGroups[soNo]) {
+            // Auto-fetch From, Destination, Delivery Address based on names from registry
+            const consData = rawCustomers?.find(c => c.customerName?.toUpperCase() === cons.toUpperCase());
+            const shipData = rawCustomers?.find(c => c.customerName?.toUpperCase() === ship.toUpperCase());
+
+            orderGroups[soNo] = {
+              plantCode: plant,
+              saleOrder: soNo,
+              consignor: cons,
+              from: consData?.city || '',
+              consignee: consee,
+              shipToParty: ship,
+              destination: shipData?.city || '',
+              deliveryAddress: shipData?.address || '',
+              weight: 0, // Will be summed
+              weightUom: uom,
               status: 'OPEN',
               createdAt: new Date().toISOString()
             };
           }
 
-          orderGroups[orderNo].items.push({
-            invoice: cols[7],
-            ewaybill: cols[8],
-            product: cols[9],
-            qty: cols[10],
-            weight: cols[11],
-            weightUom: cols[12] || 'MT'
-          });
+          // Rule: Same Sale Order appears in multiple rows → total weight = sum of all rows
+          orderGroups[soNo].weight += weight;
         });
 
         Object.values(orderGroups).forEach(order => {
           const docId = crypto.randomUUID();
           setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { ...order, id: docId }, { merge: true });
         });
+
+        const savedCount = Object.keys(orderGroups).length;
+        setStatusMsg({ text: `Bulk Sync: ${savedCount} Nodes Saved, ${rejectedCount} Rows Rejected`, type: rejectedCount > 0 ? 'error' : 'success' });
+
       } else if (activeScreen.startsWith('XD')) {
+        let savedCount = 0;
+        let rejectedCount = 0;
         dataRows.forEach(row => {
           const cols = row.split(',').map(c => c.trim());
-          if (!cols[1]) return;
+          // Mandatory: PlantCodes, CustomerCode, CustomerName, CustomerType, City
+          if (!cols[0] || !cols[1] || !cols[2] || !cols[3] || !cols[5]) {
+            rejectedCount++;
+            return;
+          }
           const docId = crypto.randomUUID();
           const customer = {
             id: docId,
@@ -296,11 +319,12 @@ export default function SapDashboard() {
             updatedAt: new Date().toISOString()
           };
           setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'customers', docId), customer, { merge: true });
+          savedCount++;
         });
+        setStatusMsg({ text: `Bulk Sync: ${savedCount} Customers Saved, ${rejectedCount} Rejected`, type: rejectedCount > 0 ? 'error' : 'success' });
       }
 
       setTimeout(() => {
-        setStatusMsg({ text: `Bulk Synchronization Successful: ${dataRows.length} Nodes`, type: 'success' });
         if (bulkInputRef.current) bulkInputRef.current.value = '';
       }, 1500);
     };
@@ -333,8 +357,9 @@ export default function SapDashboard() {
         if (exists) { setStatusMsg({ text: `ID/Number ${localData.customerCode} Already exists`, type: 'error' }); return; }
       }
       if (activeScreen.startsWith('VA') && activeScreen !== 'VA04') {
-        if (!(localData.plantCode && localData.saleOrder && localData.consignor && localData.items?.length)) {
-          setStatusMsg({ text: 'Error: Header fields and items required', type: 'error' }); return;
+        // Mandatory fields check for VA01
+        if (!(localData.plantCode && localData.saleOrder && localData.consignor && localData.from && localData.consignee && localData.shipToParty && localData.destination && localData.weight && localData.weightUom)) {
+          setStatusMsg({ text: 'Error: Mandatory fields (Plant, SO No, Consignor, From, Consignee, Ship to Party, Destination, Weight, UOM) required', type: 'error' }); return;
         }
       }
       if (activeScreen === 'VA04') {
@@ -820,10 +845,13 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
   const filtered = (allCustomers || []).filter((c: any) => c.plantCodes?.includes(data.plantCode));
   const cons = filtered.filter((c: any) => c.customerType === 'Consignor');
   const ships = filtered.filter((c: any) => c.customerType === 'Consignee - Ship to Party');
-  const items = data.items || [{ invoice: '', ewaybill: '', product: '', qty: '', weight: '', weightUom: 'MT' }];
-  const updateItem = (i: number, f: string, v: any) => { if (disabled) return; const n = [...items]; n[i] = { ...n[i], [f]: v }; onChange({ ...data, items: n }); };
-  return <div className="space-y-4"><SectionGrouping title="HEADER"><FormSelect label="PLANT" value={data.plantCode} options={pOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
-    <FormInput label="SALE ORDER NO" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} /></SectionGrouping>
+  
+  return <div className="space-y-4">
+    <SectionGrouping title="HEADER">
+      <FormSelect label="PLANT" value={data.plantCode} options={pOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+      <FormInput label="SALE ORDER NO" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
+    </SectionGrouping>
+    
     <SectionGrouping title="COORDINATION">
       <FormSearchInput 
         label="CONSIGNOR" 
@@ -850,27 +878,35 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
         options={ships.map(c => c.customerName)} 
         onChange={(v: string) => {
           const matching = ships.find(c => c.customerName?.toUpperCase() === v?.toUpperCase());
-          onChange({...data, shipToParty: v, destination: matching?.city || ''});
+          onChange({...data, shipToParty: v, destination: matching?.city || '', deliveryAddress: matching?.address || ''});
         }} 
         disabled={disabled} 
       />
       <FormInput label="DESTINATION" value={data.destination} disabled={true} />
-      <FormInput label="DELIVERY ADDRESS" value={data.deliveryAddress} onChange={(v: string) => onChange({...data, deliveryAddress: v})} disabled={disabled} placeholder="ENTER DELIVERY ADDRESS..." />
+      <FormInput 
+        label="DELIVERY ADDRESS" 
+        value={data.deliveryAddress} 
+        onChange={(v: string) => onChange({...data, deliveryAddress: v})} 
+        disabled={disabled} 
+        placeholder="ENTER DELIVERY ADDRESS..." 
+      />
+      <FormInput 
+        label="WEIGHT" 
+        type="number"
+        value={data.weight} 
+        onChange={(v: string) => onChange({...data, weight: v})} 
+        disabled={disabled} 
+        placeholder="ENTER TOTAL WEIGHT..." 
+      />
+      <FormSelect 
+        label="UOM" 
+        value={data.weightUom} 
+        options={["MT", "LTR"]} 
+        onChange={(v: string) => onChange({...data, weightUom: v})} 
+        disabled={disabled} 
+      />
     </SectionGrouping>
-    <div className="border border-slate-300 rounded-sm overflow-hidden"><div className="bg-[#dae4f1]/50 p-3 flex justify-between items-center"><span className="text-[10px] font-black uppercase text-slate-500">ITEMS</span>
-      {!disabled && <Button onClick={() => onChange({ ...data, items: [...items, { invoice: '', ewaybill: '', product: '', qty: '', weight: '', weightUom: 'MT' }] })} size="sm" variant="outline" className="h-7 text-blue-600">Add Row</Button>}</div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left min-w-[600px]"><thead><tr className="bg-[#f8fafc] text-[9px] font-black uppercase">{['Invoice', 'Ewaybill', 'Product', 'Qty.', 'Weight', 'UOM', ''].map(h => <th key={h} className="p-2 border-r">{h}</th>)}</tr></thead>
-          <tbody>{items.map((it: any, i: number) => <tr key={i} className="border-b">
-            <td className="p-1"><input value={it.invoice} onChange={e => updateItem(i, 'invoice', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
-            <td className="p-1"><input value={it.ewaybill} onChange={e => updateItem(i, 'ewaybill', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
-            <td className="p-1"><input value={it.product} onChange={e => updateItem(i, 'product', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
-            <td className="p-1"><input value={it.qty} onChange={e => updateItem(i, 'qty', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
-            <td className="p-1"><input value={it.weight} onChange={e => updateItem(i, 'weight', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
-            <td className="p-1"><select value={it.weightUom} onChange={e => updateItem(i, 'weightUom', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold"><option value="MT">MT</option><option value="LTR">LTR</option></select></td>
-            <td className="p-1 text-center">{!disabled && <button onClick={() => onChange({ ...data, items: items.filter((_:any, idx:number) => idx !== i) })} className="text-red-400"><Trash2 className="h-4 w-4" /></button>}</td></tr>)}
-          </tbody></table>
-      </div></div></div>;
+  </div>;
 }
 
 function UserForm({ data, onChange, disabled, allPlants }: any) {
@@ -938,7 +974,7 @@ function RegistryList({ onSelectItem, listData, activeScreen }: any) {
 function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
   const { user } = useUser(); const db = useFirestore(); const [activeTab, setActiveTab] = React.useState('Open Orders'); const [selectedOrder, setSelectedOrder] = React.useState<any>(null); const [isPopupOpen, setIsPopupOpen] = React.useState(false); const [assignData, setAssignData] = React.useState<any>({ fleetType: 'Own Vehicle' }); const [vendorSearch, setVendorSearch] = React.useState(''); const [showVS, setShowVS] = React.useState(false);
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
-  const getStats = (o: any) => { const tot = o.items?.reduce((a: number, i: any) => a + (parseFloat(i.weight) || 0), 0) || 0; const ass = trips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (t.assignWeight || 0), 0) || 0; return { tot, ass, bal: tot - ass, uom: o.items?.[0]?.weightUom || 'MT' }; };
+  const getStats = (o: any) => { const tot = parseFloat(o.weight) || 0; const ass = trips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (t.assignWeight || 0), 0) || 0; return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; };
   const fOrders = React.useMemo(() => (orders || []).filter(o => o.status !== 'CANCELLED').map(o => ({ ...o, ...getStats(o) })).filter(o => o.bal > 0), [orders, trips]);
   const fTrips = React.useMemo(() => { if (!trips) return []; const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; return trips.filter(t => t.status === map[activeTab]); }, [trips, activeTab]);
   const handleAssign = (o: any) => { setSelectedOrder(o); setAssignData({ plantCode: o.plantCode, consignee: o.consignee, shipToParty: o.shipToParty, route: o.route || '', orderQty: `${o.bal} ${o.uom}`, fleetType: 'Own Vehicle', assignWeight: o.bal }); setIsPopupOpen(true); };
