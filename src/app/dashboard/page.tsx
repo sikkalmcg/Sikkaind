@@ -88,13 +88,20 @@ export default function SapDashboard() {
   const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '' });
 
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
-  const { data: userProfile } = useDoc(profileRef);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
 
   React.useEffect(() => {
     if (!isUserLoading && !user) {
       router.push('/login');
     }
   }, [user, isUserLoading, router]);
+
+  React.useEffect(() => {
+    if (!isUserLoading && !isProfileLoading && user && userProfile === null) {
+        toast({ title: "Access Denied", description: "Your account is not registered in the system.", variant: "destructive" });
+        router.push('/login');
+    }
+  }, [user, userProfile, isUserLoading, isProfileLoading, router, toast]);
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -135,7 +142,7 @@ export default function SapDashboard() {
 
   const isAuthorized = (code: string) => {
     if (code === 'HOME' || code === '') return true;
-    if (!userProfile) return true; 
+    if (!userProfile) return false; 
     return userProfile.tcodes?.includes(code);
   };
 
@@ -355,6 +362,11 @@ export default function SapDashboard() {
         setStatusMsg({ text: 'Error: Name, Username, Password, Plants and T-Codes are mandatory', type: 'error' });
         return;
       }
+      const exists = allUsers?.some((u: any) => u.id !== localData.id && u.username?.toString().toUpperCase() === localData.username?.toString().toUpperCase());
+      if (exists) {
+        setStatusMsg({ text: `ID/Number ${localData.username} Already exists, duplicate not allowed`, type: 'error' });
+        return;
+      }
     }
 
     let collectionName = '';
@@ -378,7 +390,7 @@ export default function SapDashboard() {
         if (!formData.id) setFormData(payload);
       }
     }
-  }, [user, activeScreen, formData, rawOrders, rawVendors, rawCustomers, rawCompanies, rawPlants, db]);
+  }, [user, activeScreen, formData, rawOrders, rawVendors, rawCustomers, rawCompanies, rawPlants, allUsers, db]);
 
   const handleCancel = React.useCallback(() => {
     if (activeScreen === 'HOME' || activeScreen.endsWith('03')) return;
@@ -387,11 +399,11 @@ export default function SapDashboard() {
     setStatusMsg({ text: 'Operation cancelled', type: 'info' });
   }, [activeScreen]);
 
-  if (isUserLoading) {
+  if (isUserLoading || isProfileLoading) {
     return (
       <div className="h-screen w-full bg-[#f0f3f9] flex flex-col items-center justify-center font-mono space-y-4">
         <div className="w-8 h-8 border-2 border-[#1e3a8a] border-t-transparent rounded-full animate-spin" />
-        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Handshaking Auth Node...</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Handshaking Hub Node...</span>
       </div>
     );
   }
@@ -664,7 +676,7 @@ export default function SapDashboard() {
         <div className="flex items-center gap-8">
           <span className="flex items-center gap-2.5"><div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse" />SYNC: ACTIVE</span>
           <span className="text-slate-400">|</span><span>{activeScreen}</span>
-          <span className="text-slate-400">|</span><span>USER: Ajay Somra (Sikkaind)</span>
+          <span className="text-slate-400">|</span><span>USER: {userProfile?.fullName || 'Authenticating...'}</span>
           {statusMsg.text !== 'Ready' && <><span className="text-slate-400">|</span><span className={cn(statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span></>}
         </div>
       </div>

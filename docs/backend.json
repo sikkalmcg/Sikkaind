@@ -17,7 +17,7 @@
     "UserRegistry": {
       "title": "UserRegistry",
       "type": "object",
-      "description": "System User Management. Admin: Ajay Somra (Sikkaind).",
+      "description": "System User Management and Access Control.",
       "properties": {
         "id": { "type": "string" },
         "fullName": { "type": "string" },

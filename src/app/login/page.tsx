@@ -1,30 +1,71 @@
+
 'use client';
 
 import * as React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye } from 'lucide-react';
+import { Eye, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import placeholderData from '@/app/lib/placeholder-images.json';
-import { useAuth, initiateAnonymousSignIn } from '@/firebase';
+import { useAuth, initializeFirebase } from '@/firebase';
+import { signInAnonymously } from 'firebase/auth';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 /**
  * @fileOverview Portal Login page.
- * Replicates the legacy ERP-style login interface with full-screen edge-to-edge layout.
+ * Implements strict credential-based access control against the user_registry collection.
  */
 export default function LoginPage() {
   const router = useRouter();
   const auth = useAuth();
+  const { firestore: db } = React.useMemo(() => initializeFirebase(), []);
+
   const [showPassword, setShowPassword] = React.useState(false);
+  const [credentials, setCredentials] = React.useState({ username: '', password: '' });
+  const [errorMsg, setErrorMsg] = React.useState('');
+  const [isLoading, setIsLoading] = React.useState(false);
+
   const loginImg = placeholderData.placeholderImages.find(p => p.id === 'login-hero');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Initiate non-blocking sign-in to establish Firebase session for Firestore access
-    initiateAnonymousSignIn(auth);
-    router.push('/dashboard');
+    setIsLoading(true);
+    setErrorMsg('');
+
+    try {
+      // Background handshake to establish Firebase session for Firestore queries
+      await signInAnonymously(auth);
+      
+      // Strict Registry Check
+      const q = query(
+        collection(db, 'user_registry'),
+        where('username', '==', credentials.username),
+        where('password', '==', credentials.password)
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        // Special Case: Initial Admin Bootstrap
+        const allSnap = await getDocs(collection(db, 'user_registry'));
+        if (allSnap.empty && credentials.username === 'admin') {
+           router.push('/dashboard');
+           return;
+        }
+
+        setErrorMsg('Access Denied: Invalid Credentials or Unregistered Account');
+        await auth.signOut();
+      } else {
+        router.push('/dashboard');
+      }
+    } catch (err: any) {
+      setErrorMsg('Mission Handshake Error: ' + err.message);
+      await auth.signOut();
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -66,6 +107,13 @@ export default function LoginPage() {
             </h1>
 
             <form onSubmit={handleLogin} className="space-y-10">
+              {errorMsg && (
+                <div className="p-4 bg-red-50 border border-red-100 rounded-none flex items-center gap-3 animate-fade-in">
+                  <AlertCircle className="h-5 w-5 text-red-500" />
+                  <p className="text-[11px] font-black uppercase text-red-600 tracking-tight">{errorMsg}</p>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
                 <label className="w-full sm:w-40 text-[11px] md:text-xs font-black text-[#1e3a8a] uppercase tracking-widest shrink-0">
                   Username <span className="text-red-500">*</span>
@@ -73,6 +121,8 @@ export default function LoginPage() {
                 <div className="flex-1">
                   <Input 
                     required
+                    value={credentials.username}
+                    onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
                     className="h-11 w-full border-slate-300 rounded-none bg-slate-50 focus:ring-1 focus:ring-blue-900 transition-all text-sm font-bold"
                   />
                 </div>
@@ -86,6 +136,8 @@ export default function LoginPage() {
                   <Input 
                     required
                     type={showPassword ? "text" : "password"}
+                    value={credentials.password}
+                    onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
                     className="h-11 w-full border-slate-300 rounded-none bg-slate-50 pr-10 focus:ring-1 focus:ring-blue-900 transition-all text-sm font-bold"
                   />
                   <button 
@@ -103,9 +155,10 @@ export default function LoginPage() {
                 <div className="flex items-center gap-8 w-full sm:w-auto">
                   <Button 
                     type="submit" 
+                    disabled={isLoading}
                     className="flex-1 sm:flex-none bg-white hover:bg-slate-50 text-black border-2 border-slate-800 rounded-none px-12 h-11 font-black uppercase text-[11px] tracking-widest shadow-md transition-all active:scale-95"
                   >
-                    Log On
+                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Log On'}
                   </Button>
                 </div>
               </div>
@@ -117,7 +170,7 @@ export default function LoginPage() {
       {/* Footer Bar */}
       <div className="px-6 py-4 md:px-12 md:py-6 bg-white border-t border-slate-100 flex items-center justify-center shrink-0">
         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">
-          © 2026 Sikka Industries & Logistics. All Rights Reserved.
+          © {new Date().getFullYear()} Sikka Industries & Logistics. All Rights Reserved.
         </p>
       </div>
       
