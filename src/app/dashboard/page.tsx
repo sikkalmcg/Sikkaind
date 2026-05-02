@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -256,7 +255,7 @@ export default function SapDashboard() {
               saleOrder: cols[1],
               consignor: cols[2],
               from: cols[3],
-              consignee: cols[4], // Placeholder for consignee
+              consignee: cols[4],
               shipToParty: cols[5],
               deliveryAddress: cols[6],
               items: [],
@@ -540,7 +539,7 @@ export default function SapDashboard() {
           <div className="flex-1 overflow-y-auto p-2 md:p-4 relative">
             {activeScreen === 'HOME' ? (
               <div className="w-full h-full flex flex-col p-2 md:p-4 space-y-8 animate-fade-in">
-                <h1 className="text-2xl md:text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter">Sikka Logistics Hub Control</h1>
+                <h1 className="text-2xl md:text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter">Sikka Logistics Management Control</h1>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-4 md:p-6 border border-slate-300 shadow-sm">
                   <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Authorized Plant Hub</label>
                     <select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none" value={homePlantFilter} onChange={(e) => setHomePlantFilter(e.target.value)}>
