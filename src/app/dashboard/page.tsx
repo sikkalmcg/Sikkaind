@@ -644,6 +644,100 @@ function FormSelect({ label, value, options, onChange, disabled, placeholder }: 
   );
 }
 
+function FormSearchInput({ label, value, options, onChange, disabled, placeholder }: any) {
+  const [inputValue, setInputValue] = React.useState(value || '');
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [highlightedIndex, setHighlightedIndex] = React.useState(-1);
+  
+  const filteredOptions = React.useMemo(() => {
+    if (!inputValue) return [];
+    return options.filter((o: string) => o?.toUpperCase().includes(inputValue.toUpperCase())).slice(0, 10);
+  }, [options, inputValue]);
+
+  React.useEffect(() => {
+    setInputValue(value || '');
+  }, [value]);
+
+  const handleSelect = (val: string) => {
+    setInputValue(val);
+    onChange(val);
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!isOpen) {
+      if (e.key === 'ArrowDown') setIsOpen(true);
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev < filteredOptions.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === 'Enter') {
+      if (highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
+        e.preventDefault();
+        handleSelect(filteredOptions[highlightedIndex]);
+      }
+    } else if (e.key === 'Tab') {
+      if (highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
+        handleSelect(filteredOptions[highlightedIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5 relative">
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <div className="relative">
+        <Input 
+          value={inputValue} 
+          onChange={(e) => { 
+            const val = e.target.value;
+            setInputValue(val); 
+            onChange(val);
+            setIsOpen(true); 
+          }}
+          onFocus={() => setIsOpen(true)}
+          onBlur={() => setTimeout(() => setIsOpen(false), 250)}
+          onKeyDown={handleKeyDown}
+          disabled={disabled} 
+          placeholder={placeholder} 
+          className="h-9 rounded-none border-slate-400 text-xs font-bold bg-white focus:ring-1 shadow-sm pr-10" 
+        />
+        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+            <Search className="h-3 w-3 text-slate-400" />
+        </div>
+      </div>
+      {isOpen && filteredOptions.length > 0 && (
+        <div className="absolute top-full left-0 w-full bg-white border border-slate-300 shadow-xl z-[100] mt-1 max-h-[200px] overflow-y-auto rounded-sm">
+          {filteredOptions.map((opt: string, idx: number) => (
+            <div 
+              key={idx} 
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSelect(opt);
+              }}
+              onMouseEnter={() => setHighlightedIndex(idx)}
+              className={cn(
+                "px-4 py-2.5 text-[11px] font-bold cursor-pointer border-b border-slate-50 last:border-0",
+                idx === highlightedIndex ? "bg-[#e8f0fe] text-[#0056d2]" : "text-slate-700 hover:bg-slate-50"
+              )}
+            >
+              {opt}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PlantForm({ data, onChange, disabled }: any) {
   return <div className="space-y-4"><SectionGrouping title="DATA">
     <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
@@ -731,10 +825,35 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
   return <div className="space-y-4"><SectionGrouping title="HEADER"><FormSelect label="PLANT" value={data.plantCode} options={pOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
     <FormInput label="SALE ORDER NO" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} /></SectionGrouping>
     <SectionGrouping title="COORDINATION">
-      <FormSelect label="CONSIGNOR" value={data.consignor} options={cons.map(c => c.customerName)} onChange={(v: string) => onChange({...data, consignor: v, from: cons.find(c => c.customerName === v)?.city || ''})} disabled={disabled} />
+      <FormSearchInput 
+        label="CONSIGNOR" 
+        value={data.consignor} 
+        options={cons.map(c => c.customerName)} 
+        onChange={(v: string) => {
+          const matching = cons.find(c => c.customerName?.toUpperCase() === v?.toUpperCase());
+          onChange({...data, consignor: v, from: matching?.city || ''});
+        }} 
+        disabled={disabled} 
+      />
       <FormInput label="FROM" value={data.from} disabled={true} />
-      <FormSelect label="CONSIGNEE" value={data.consignee} placeholder="Select..." options={ships.map(c => c.customerName)} onChange={(v: string) => onChange({...data, consignee: v})} disabled={disabled} />
-      <FormSelect label="SHIP TO PARTY" value={data.shipToParty} options={ships.map(c => c.customerName)} onChange={(v: string) => onChange({...data, shipToParty: v, destination: ships.find(c => c.customerName === v)?.city || ''})} disabled={disabled} />
+      <FormSearchInput 
+        label="CONSIGNEE" 
+        value={data.consignee} 
+        placeholder="Select..." 
+        options={ships.map(c => c.customerName)} 
+        onChange={(v: string) => onChange({...data, consignee: v})} 
+        disabled={disabled} 
+      />
+      <FormSearchInput 
+        label="SHIP TO PARTY" 
+        value={data.shipToParty} 
+        options={ships.map(c => c.customerName)} 
+        onChange={(v: string) => {
+          const matching = ships.find(c => c.customerName?.toUpperCase() === v?.toUpperCase());
+          onChange({...data, shipToParty: v, destination: matching?.city || ''});
+        }} 
+        disabled={disabled} 
+      />
       <FormInput label="DESTINATION" value={data.destination} disabled={true} />
       <FormInput label="DELIVERY ADDRESS" value={data.deliveryAddress} onChange={(v: string) => onChange({...data, deliveryAddress: v})} disabled={disabled} placeholder="ENTER DELIVERY ADDRESS..." />
     </SectionGrouping>
