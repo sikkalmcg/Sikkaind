@@ -11,15 +11,18 @@ service cloud.firestore {
     }
 
     // User Registry: Allow signed-in users to read/list and manage registry for SU01/02/03 modules
-    match /user_registry/{userId} {
+    // Recursive wildcard allows collection listing in SU03 and credential verification
+    match /user_registry/{allPaths=**} {
       allow read, write: if isSignedIn();
     }
 
     // Shared Company Hub: Allow all authorized employees to access Sikka Industries shared data
-    match /users/Sikkaind/{collectionName}/{docId} {
+    // Recursive wildcard ensures that listing collections (Plants, Orders, etc.) is permitted
+    match /users/Sikkaind/{allPaths=**} {
       allow read, write: if isSignedIn();
     }
 
+    // Private User Nodes: Maintained for individual profile-specific data if needed
     match /users/{userId}/{collectionName}/{docId} {
       allow read, write: if isOwner(userId);
     }
