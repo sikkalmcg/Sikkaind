@@ -100,7 +100,6 @@ export default function SapDashboard() {
   const profileRef = useMemoFirebase(() => {
     if (!user) return null;
     if (isBootstrapAdmin) return doc(db, 'user_registry', user.uid);
-    // Use the stored registry ID found during login for proper authorization sync
     const rid = registryId || localStorage.getItem('sap_registry_id');
     return rid ? doc(db, 'user_registry', rid) : null;
   }, [user, db, isBootstrapAdmin, registryId]);
@@ -177,14 +176,24 @@ export default function SapDashboard() {
         const exists = allUsers?.some((u: any) => u.id !== localData.id && u.username?.toString().toUpperCase() === localData.username?.toString().toUpperCase());
         if (exists) { setStatusMsg({ text: `ID/Number ${localData.username} Already exists, duplicate not allowed`, type: 'error' }); return; }
       }
-    } else {
-        if (activeScreen.startsWith('XK') && !localData.vendorCode) {
-            localData.vendorCode = `V${Math.floor(10000 + Math.random() * 90000)}`;
-        }
     }
 
     let col = '';
-    const docId = activeScreen === 'SU01' && (registryIsEmpty || isBootstrapAdmin) ? (localData.id || user.uid) : (localData.id || crypto.randomUUID());
+    let docId = localData.id;
+    
+    // Fix docId logic for SU01 and other create screens
+    if (activeScreen.endsWith('01')) {
+      // If SU01 and registry is empty, it's the bootstrap case where we link auth UID
+      if (activeScreen === 'SU01' && registryIsEmpty) {
+        docId = user.uid;
+      } else {
+        // Otherwise, always generate a new random ID for every new record
+        docId = crypto.randomUUID();
+      }
+    } else {
+      docId = docId || crypto.randomUUID();
+    }
+
     if (activeScreen.startsWith('OX')) col = 'plants';
     else if (activeScreen.startsWith('FM')) col = 'companies';
     else if (activeScreen.startsWith('XK')) col = 'vendors';
@@ -198,8 +207,14 @@ export default function SapDashboard() {
       const payload = { ...localData, id: docId, updatedAt: new Date().toISOString() };
       setDocumentNonBlocking(docRef, payload, { merge: true });
       setStatusMsg({ text: `Synchronized successfully`, type: 'success' });
-      if (activeScreen.startsWith('SU')) setFormData({});
-      else if (!formData.id) setFormData(payload);
+      
+      // Auto-reset form for "Create" (01) transactions to allow sequential entry
+      if (activeScreen.endsWith('01')) {
+        setFormData({});
+        setSearchId('');
+      } else if (!formData.id) {
+        setFormData(payload);
+      }
     }
   }, [user, activeScreen, formData, rawOrders, rawVendors, rawCustomers, rawCompanies, rawPlants, allUsers, db, isBootstrapAdmin]);
 
