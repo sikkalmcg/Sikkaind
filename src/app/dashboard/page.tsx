@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -79,6 +80,7 @@ export default function SapDashboard() {
   const [formData, setFormData] = React.useState<any>({});
   const [searchId, setSearchId] = React.useState('');
   const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
+  const [greeting, setGreeting] = React.useState('');
   
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL');
   const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM'));
@@ -98,6 +100,30 @@ export default function SapDashboard() {
     setIsBootstrapAdmin(isAdmin);
     setRegistryId(rid);
     setIsAuthChecking(false);
+  }, []);
+
+  React.useEffect(() => {
+    const updateGreeting = () => {
+      const now = new Date();
+      // Calculate India Standard Time (IST): UTC + 5:30
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const istTime = new Date(utc + (3600000 * 5.5));
+      const hour = istTime.getHours();
+      
+      let msg = '';
+      if (hour >= 0 && hour < 12) {
+        msg = 'Good Morning, Have a good day';
+      } else if (hour >= 12 && hour < 17) {
+        msg = 'Good Afternoon, Have a great day';
+      } else {
+        msg = 'Good Evening';
+      }
+      setGreeting(msg);
+    };
+
+    updateGreeting();
+    const interval = setInterval(updateGreeting, 60000); // update every minute
+    return () => clearInterval(interval);
   }, []);
 
   const profileRef = useMemoFirebase(() => {
@@ -758,7 +784,8 @@ export default function SapDashboard() {
         </div>
       </div>
       <div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em]">
-        <div className="flex items-center gap-4 md:gap-8 overflow-hidden"><span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span><span className="shrink-0">{activeScreen}</span><span className="truncate">USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.fullName || 'Authenticating...')}</span>{statusMsg.text !== 'Ready' && <span className={cn("truncate", statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span>}</div>
+        <div className="flex items-center gap-4 md:gap-8 overflow-hidden flex-1"><span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span><span className="shrink-0">{activeScreen}</span><span className="truncate">USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.fullName || 'Authenticating...')}</span>{statusMsg.text !== 'Ready' && <span className={cn("truncate", statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span>}</div>
+        {greeting && <div className="shrink-0 ml-4 hidden sm:block text-blue-400">{greeting}</div>}
       </div>
     </div>
   );
