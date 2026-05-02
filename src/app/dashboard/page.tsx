@@ -9,7 +9,7 @@ import {
   Grid2X2, ShieldAlert, Edit3, 
   PlusSquare, XCircle, Calendar as CalendarIcon, Package, Undo2,
   FileText, UploadCloud, Trash2, Plus, CheckCircle as CheckCircleIcon, Search,
-  AlertTriangle, Clock, Calendar as LucideCalendar, FileCheck, Eye, Download,
+  AlertTriangle, Clock, Calendar as LucideCalendar, FileCheck, Eye, EyeOff, Download,
   Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -595,7 +595,7 @@ export default function SapDashboard() {
                              </> : <div className="col-span-1 md:col-span-4 flex items-center gap-4"><input className="h-11 w-full border border-slate-400 px-4 text-xs font-black outline-none bg-white" value={searchId} onChange={(e) => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE & PRESS ENTER..." /></div>}
                         </div>
                    </div>
-                   <RegistryList onSelectItem={setFormData} listData={getRegistryList()} />
+                   <RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} />
                  </div>}
                  {activeScreen === 'TR21' && <DripBoard orders={allOrders} trips={allTrips} vendors={rawVendors} plants={rawPlants} onStatusUpdate={setStatusMsg} />}
                  {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
@@ -620,10 +620,13 @@ function SectionGrouping({ title, children }: { title: string, children: React.R
   );
 }
 
-function FormInput({ label, value, onChange, type = "text", disabled, placeholder }: any) {
+function FormInput({ label, value, onChange, type = "text", disabled, placeholder, rightElement }: any) {
   return (
     <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
-      <Input type={type} value={value || ''} onChange={(e: any) => onChange(e.target.value)} disabled={disabled} placeholder={placeholder} className="h-9 rounded-none border-slate-400 text-xs font-bold bg-white focus:ring-1 shadow-sm" />
+      <div className="relative">
+        <Input type={type} value={value || ''} onChange={(e: any) => onChange(e.target.value)} disabled={disabled} placeholder={placeholder} className="h-9 rounded-none border-slate-400 text-xs font-bold bg-white focus:ring-1 shadow-sm pr-10" />
+        {rightElement && <div className="absolute right-2 top-1/2 -translate-y-1/2">{rightElement}</div>}
+      </div>
     </div>
   );
 }
@@ -723,12 +726,29 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
 }
 
 function UserForm({ data, onChange, disabled, allPlants }: any) {
+  const [showPassword, setShowPassword] = React.useState(false);
   const pList = (allPlants || []).map((p: any) => p.plantCode);
   const handlePToggle = (p: string) => { if (disabled) return; const curr = data.plants || []; onChange({...data, plants: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); };
   const handleTToggle = (c: string) => { if (disabled) return; const curr = data.tcodes || []; onChange({...data, tcodes: curr.includes(c) ? curr.filter((i: string) => i !== c) : [...curr, c]}); };
-  return <div className="space-y-6"><SectionGrouping title="USER IDENTIFICATION"><FormInput label="NAME" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
-    <FormInput label="USERNAME" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} /><FormInput label="PASSWORD" type="password" value={data.password} onChange={(v: string) => onChange({...data, password: v})} disabled={disabled} />
-    <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} /></SectionGrouping>
+  
+  return <div className="space-y-6">
+    <SectionGrouping title="USER IDENTIFICATION">
+      <FormInput label="NAME" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
+      <FormInput label="USERNAME" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} />
+      <FormInput 
+        label="PASSWORD" 
+        type={showPassword ? "text" : "password"} 
+        value={data.password} 
+        onChange={(v: string) => onChange({...data, password: v})} 
+        disabled={disabled} 
+        rightElement={
+          <button onClick={() => setShowPassword(!showPassword)} className="text-slate-400 hover:text-blue-900 transition-colors">
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        }
+      />
+      <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+    </SectionGrouping>
     <SectionGrouping title="AUTHORIZED PLANTS"><div className="col-span-1 md:col-span-2 flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handlePToggle(p)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border", data.plants?.includes(p) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{p}</button>)}</div></SectionGrouping>
     <SectionGrouping title="T-CODE AUTHORIZATION"><div className="col-span-1 md:col-span-2 flex flex-wrap gap-2">{MASTER_TCODES.map(t => <button key={t.code} onClick={() => handleTToggle(t.code)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border", data.tcodes?.includes(t.code) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{t.code}</button>)}</div></SectionGrouping></div>;
 }
@@ -739,14 +759,31 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
     <div className="flex justify-end gap-4"><Button onClick={onCancel} variant="ghost">Exit</Button><Button onClick={onPost} className="bg-red-600 text-white font-black uppercase text-[10px] px-6 md:px-10 h-11">Execute Cancellation</Button></div></div>;
 }
 
-function RegistryList({ onSelectItem, listData }: any) {
+function RegistryList({ onSelectItem, listData, activeScreen }: any) {
+  const isUserRegistry = activeScreen?.startsWith('SU');
+  const headers = isUserRegistry 
+    ? ['Name', 'Username', 'Password', 'Authorized Plant']
+    : ['ID', 'Name / Description', 'Type / Details', 'Sync Hub'];
+
   return <div className="overflow-x-auto border border-slate-300 shadow-sm"><table className="w-full text-left border-collapse min-w-[700px]">
-    <thead className="bg-[#f0f0f0] text-[10px] font-black uppercase"><tr>{['ID', 'Name / Description', 'Type / Details', 'Sync Hub'].map(c => <th key={c} className="p-3 border-r">{c}</th>)}</tr></thead>
+    <thead className="bg-[#f0f0f0] text-[10px] font-black uppercase"><tr>{headers.map(c => <th key={c} className="p-3 border-r">{c}</th>)}</tr></thead>
     <tbody>{listData?.map((item: any) => <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b hover:bg-[#e8f0fe] cursor-pointer transition-colors text-[11px] font-bold">
-      <td className="p-3 font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.vendorCode || item.companyCode || item.id.slice(0, 8)}</td>
-      <td className="p-3 uppercase">{item.customerName || item.plantName || item.vendorName || item.companyName || item.fullName || item.username || `${item.consignor} → ${item.consignee}`}</td>
-      <td className="p-3 italic text-slate-500">{item.city || item.customerType || item.vendorCode || 'DATA'}</td>
-      <td className="p-3 text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></tr>)}
+      {isUserRegistry ? (
+        <>
+          <td className="p-3 font-black text-[#0056d2] uppercase">{item.fullName}</td>
+          <td className="p-3 uppercase">{item.username}</td>
+          <td className="p-3">{item.password}</td>
+          <td className="p-3 uppercase text-slate-500 italic">{item.plants?.join(', ') || 'NONE'}</td>
+        </>
+      ) : (
+        <>
+          <td className="p-3 font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.vendorCode || item.companyCode || item.id.slice(0, 8)}</td>
+          <td className="p-3 uppercase">{item.customerName || item.plantName || item.vendorName || item.companyName || item.fullName || item.username || `${item.consignor} → ${item.consignee}`}</td>
+          <td className="p-3 italic text-slate-500">{item.city || item.customerType || item.vendorCode || 'DATA'}</td>
+          <td className="p-3 text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td>
+        </>
+      )}
+    </tr>)}
     </tbody></table></div>;
 }
 
