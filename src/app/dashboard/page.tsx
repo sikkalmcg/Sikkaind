@@ -1215,7 +1215,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const [isCnPreviewOpen, setIsCnPreviewOpen] = React.useState(false);
   const [selectedTripForPreview, setSelectedTripForPreview] = React.useState<any>(null);
   const [cnPreviewStatus, setCnPreviewStatus] = React.useState<'idle' | 'generated'>('idle');
-  const [previewDeliveryAddress, setPreviewDeliveryAddress] = React.useState('');
 
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
   
@@ -1425,9 +1424,16 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const handleCnPreviewClick = (t: any) => {
     const order = (orders || []).find((o: any) => o.id === t.saleOrderId);
     setSelectedTripForPreview({ ...t, order });
-    setPreviewDeliveryAddress(order?.deliveryAddress || t.deliveryAddress || '');
     setCnPreviewStatus('idle');
     setIsCnPreviewOpen(true);
+  };
+
+  const handleDownloadPdf = () => {
+    if (!selectedTripForPreview?.cnNo) return;
+    const originalTitle = document.title;
+    document.title = selectedTripForPreview.cnNo;
+    window.print();
+    document.title = originalTitle;
   };
 
   React.useEffect(() => {
@@ -1572,7 +1578,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                     <tr key={t.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] transition-colors text-[11px] font-bold group print:hidden">
                       <td className="p-3">{t.plantCode}</td>
                       <td className="p-3 space-y-0.5">
-                        <div className="text-[#0056d2] font-black">#{t.tripId}</div>
+                        <div className="text-[#0056d2] font-black">{t.tripId}</div>
                         <div className="text-[9px] text-slate-400 font-bold uppercase">{format(new Date(t.createdAt), 'dd/MM/yyyy HH:mm')}</div>
                       </td>
                       <td className="p-3 uppercase">{t.consignee}</td>
@@ -1672,7 +1678,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </DialogHeader>
         
         <div className="p-4 md:p-8 space-y-6 max-h-[80vh] overflow-y-auto green-scrollbar">
-          {/* Read Only Header */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 border border-slate-200 rounded-sm shadow-inner opacity-80">
             <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[10px] font-black truncate">{selectedTripForAssignment?.shipToParty}</span></div>
             <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black truncate">{selectedTripForAssignment?.route}</span></div>
@@ -1792,7 +1797,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </DialogHeader>
         
         <div className="p-4 md:p-8 space-y-6 max-h-[80vh] overflow-y-auto green-scrollbar">
-          {/* Read Only Header */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white p-4 border border-slate-200 rounded-sm shadow-inner opacity-80">
             <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[10px] font-black truncate">{selectedTripForCn?.shipToParty}</span></div>
             <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black truncate">{selectedTripForCn?.route}</span></div>
@@ -2075,7 +2079,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           <DialogDescription className="sr-only">Professional A4 preview of the Consignment Note with Three-Copy system.</DialogDescription>
           <div className="flex items-center gap-4">
             {cnPreviewStatus === 'generated' ? (
-              <Button onClick={() => window.print()} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase h-9 px-6 rounded-none shadow-md">
+              <Button onClick={handleDownloadPdf} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase h-9 px-6 rounded-none shadow-md">
                 <Download className="h-3.5 w-3.5 mr-2" /> Download
               </Button>
             ) : (
@@ -2089,21 +2093,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         
         <div className="p-4 md:p-12 bg-slate-200 min-h-screen flex flex-col items-center gap-8 print:bg-white print:p-0">
           <div className="bg-white shadow-2xl w-full max-w-[210mm] print:shadow-none print:w-full print:max-w-none">
-             <div className="p-6 md:p-8 bg-white border-b border-slate-100 print:hidden">
-                <label className="text-[10px] font-black uppercase text-slate-400 block mb-2 tracking-widest flex items-center gap-2">
-                  <MapPin className="h-3 w-3" /> Edit Delivery Address for Print
-                </label>
-                <textarea 
-                  value={previewDeliveryAddress} 
-                  onChange={(e) => {
-                    setPreviewDeliveryAddress(e.target.value.toUpperCase());
-                    setCnPreviewStatus('idle');
-                  }}
-                  className="w-full h-20 border border-slate-300 p-3 text-[11px] font-bold uppercase outline-none focus:ring-1 focus:ring-[#1e3a8a] focus:border-[#1e3a8a] transition-all bg-slate-50"
-                  placeholder="ENTER DELIVERY ADDRESS NODE..."
-                />
-             </div>
-             
              <div id="printable-area" className="p-0 m-0">
                {selectedTripForPreview && (
                  <CnPrintLayout 
@@ -2112,7 +2101,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                    consignor={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripForPreview.consignor?.toUpperCase())}
                    consignee={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripForPreview.consignee?.toUpperCase())}
                    shipTo={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripForPreview.shipToParty?.toUpperCase())}
-                   deliveryAddress={previewDeliveryAddress}
                  />
                )}
              </div>
@@ -2123,7 +2111,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   </div>;
 }
 
-function CnPrintLayout({ trip, company, consignor, consignee, shipTo, deliveryAddress }: any) {
+function CnPrintLayout({ trip, company, consignor, consignee, shipTo }: any) {
   const copies = ["CONSIGNEE COPY", "DRIVER COPY", "CONSIGNOR COPY"];
   return (
     <div className="bg-white text-black font-sans">
@@ -2132,9 +2120,9 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo, deliveryAd
           {/* Header */}
           <div className="flex justify-between items-start border-b-[2px] border-black pb-6 mb-4">
             <div className="flex items-start gap-6 max-w-[65%]">
-              {company?.logo && <img src={company.logo} alt="Logo" className="w-24 h-24 object-contain shrink-0" />}
+              {company?.logo && <img src={company.logo} alt="Logo" className="w-[68px] h-[68px] object-contain shrink-0" />}
               <div className="space-y-1">
-                <h1 className="text-2xl font-black uppercase leading-none tracking-tighter mb-2">{company?.companyName || 'Sikka Industries Hub'}</h1>
+                <h1 className="text-xl font-black uppercase leading-none tracking-tighter mb-2">{company?.companyName || 'Sikka Industries Hub'}</h1>
                 <div className="text-[10px] leading-tight font-bold uppercase whitespace-pre-line text-slate-800">{company?.address}</div>
                 <p className="text-[11px] font-black mt-2">GSTIN: {company?.gstin || 'N/A'} | PAN: {company?.pan || 'N/A'}</p>
                 <p className="text-[10px] font-bold">Mob: {company?.mobile} | Email: {company?.email}</p>
@@ -2149,7 +2137,7 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo, deliveryAd
               </div>
               <div className="mt-6 text-[11px] font-black space-y-1">
                 <p className="uppercase text-slate-500">FROM: <span className="text-black text-sm">{trip.from}</span></p>
-                <p className="uppercase text-slate-500">DEST: <span className="text-black text-sm">{trip.destination}</span></p>
+                <p className="uppercase text-slate-500">Destination: <span className="text-black text-sm">{trip.destination}</span></p>
               </div>
             </div>
           </div>
@@ -2170,7 +2158,7 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo, deliveryAd
                    <td className="p-3 border-r-2 border-black text-center uppercase text-base">{trip.vehicleNumber}</td>
                    <td className="p-3 border-r-2 border-black text-center text-base">{trip.driverMobile || 'N/A'}</td>
                    <td className="p-3 border-r-2 border-black text-center uppercase">{trip.paymentTerms || 'PAID'}</td>
-                   <td className="p-3 text-center">#{trip.tripId}</td>
+                   <td className="p-3 text-center">{trip.tripId}</td>
                  </tr>
                </tbody>
             </table>
@@ -2229,18 +2217,8 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo, deliveryAd
                      <td className="p-3 text-right">{i === 0 ? `${trip.assignWeight} MT` : ''}</td>
                    </tr>
                  ))}
-                 {/* Empty rows filler */}
-                 {Array.from({ length: Math.max(0, 3 - (trip.cnItems?.length || 0)) }).map((_, i) => (
-                   <tr key={`empty-${i}`} className="border-b border-black h-10">
-                     <td className="p-3 border-r-2 border-black" />
-                     <td className="p-3 border-r-2 border-black" />
-                     <td className="p-3 border-r-2 border-black" />
-                     <td className="p-3 border-r-2 border-black" />
-                     <td className="p-3" />
-                   </tr>
-                 ))}
                  <tr className="bg-slate-50 font-black border-t-2 border-black h-12">
-                    <td colSpan={3} className="p-3 text-right border-r-2 border-black uppercase tracking-widest text-[9px] text-slate-500">Grand Total Hub Synchronization</td>
+                    <td colSpan={3} className="p-3 text-right border-r-2 border-black uppercase tracking-widest text-[9px] text-slate-500">Grand Total</td>
                     <td className="p-3 border-r-2 border-black text-center text-sm uppercase">
                       {trip.cnItems?.reduce((acc: number, curr: any) => acc + (parseFloat(curr.unit) || 0), 0)} Total
                     </td>
@@ -2252,24 +2230,14 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo, deliveryAd
 
           {/* Acknowledgement */}
           <div className="mt-8 border-2 border-black rounded-sm shadow-sm">
-             <div className="p-3 border-b-2 border-black bg-slate-50 flex items-start gap-4">
-                <div className="w-1.5 h-1.5 rounded-full bg-black mt-1.5 shrink-0" />
-                <div className="space-y-1">
-                  <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Delivery Destination Node:</span>
-                  <p className="text-[12px] font-black uppercase leading-snug">{deliveryAddress || 'SITE DELIVERY PENDING'}</p>
-                </div>
-             </div>
              <div className="p-6 h-32 relative bg-white overflow-hidden">
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 absolute top-4 left-6">
-                  Consignee Acknowledgement Registry
+                  Consignee Acknowledgement
                 </span>
                 <div className="absolute bottom-6 right-8 text-center min-w-[200px]">
                    <div className="text-[11px] font-black uppercase tracking-widest border-t-2 border-black pt-2">
-                     Authorized Hub Signatory
+                     Authorized Signature
                    </div>
-                </div>
-                <div className="absolute bottom-6 left-8">
-                  <p className="text-[8px] font-black uppercase text-slate-300 italic">SYSTEM GENERATED NODE</p>
                 </div>
              </div>
           </div>
@@ -2281,7 +2249,7 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo, deliveryAd
                  Terms & Conditions: {company?.termsAndConditions?.length ? company.termsAndConditions.join(' | ') : 'Standard Sikka Industries logistics and transportation terms apply. Responsibility ends at unloading node. All disputes subject to local jurisdiction.'}
                </p>
                <p className="text-[10px] font-black italic text-[#1e3a8a] uppercase tracking-tighter text-center mt-4">
-                 Note: This Lorry Receipt was generated digitally and is to be considered as original in all system registries.
+                 Note: This Lorry Receipt was generated digitally and is to be considered as original.
                </p>
              </div>
           </div>
@@ -2295,3 +2263,4 @@ function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code:
   return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">{tcodes.map(t => <div key={t.code} onClick={() => onExecute(t.code)} className="bg-white p-4 md:p-6 border hover:border-blue-400 cursor-pointer transition-all relative">
     <div className="absolute top-0 left-0 w-1 h-full bg-slate-200" /><Badge className="mb-4">{t.module}</Badge><h3 className="text-xs font-black text-[#1e3a8a] uppercase">{t.code}</h3><p className="text-[10px] font-bold text-slate-500 uppercase">{t.description}</p></div>)}</div>;
 }
+
