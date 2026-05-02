@@ -1203,10 +1203,10 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
     <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
       <DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
         <div className="bg-[#1e3a8a] px-6 py-4 flex items-center justify-between">
-          <h2 className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
+          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
             <Truck className="h-4 w-4" /> TR24 - Assign Vehicle Hub
             {assignData.route && <span className="ml-4 pl-4 border-l border-white/20 text-blue-300 tracking-normal font-bold lowercase first-letter:uppercase">{assignData.route}</span>}
-          </h2>
+          </DialogTitle>
           <button onClick={() => setIsPopupOpen(false)} className="text-white/60 hover:text-white transition-colors"><X className="h-4 w-4" /></button>
         </div>
         
