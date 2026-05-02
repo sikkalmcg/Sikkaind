@@ -63,7 +63,7 @@ const MASTER_TCODES = [
   { code: 'ZCODE', description: 'SYSTEM: ALL ACTIVE T-CODES', icon: Grid2X2, module: 'System' },
 ];
 
-const SHARED_HUB_ID = 'Sikkaind'; // Centralized Hub ID for company-wide shared data
+const SHARED_HUB_ID = 'Sikkaind'; 
 
 export default function SapDashboard() {
   const router = useRouter();
@@ -109,7 +109,6 @@ export default function SapDashboard() {
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
 
-  // SHARED DATA FETCHING
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
@@ -228,13 +227,85 @@ export default function SapDashboard() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setStatusMsg({ text: `Processing ${file.name}...`, type: 'info' });
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const rows = text.split('\n').filter(r => r.trim());
+      if (rows.length < 2) {
+        setStatusMsg({ text: 'Error: CSV is empty or invalid', type: 'error' });
+        return;
+      }
+
+      setStatusMsg({ text: `Synchronizing hub nodes...`, type: 'info' });
+      
+      const headers = rows[0].split(',').map(h => h.trim());
+      const dataRows = rows.slice(1);
+
+      if (activeScreen.startsWith('VA')) {
+        const orderGroups: Record<string, any> = {};
+        dataRows.forEach(row => {
+          const cols = row.split(',').map(c => c.trim());
+          const orderNo = cols[1];
+          if (!orderNo) return;
+          
+          if (!orderGroups[orderNo]) {
+            orderGroups[orderNo] = {
+              plantCode: cols[0],
+              saleOrder: cols[1],
+              consignor: cols[2],
+              from: cols[3],
+              consignee: cols[4], // Placeholder for consignee
+              shipToParty: cols[5],
+              deliveryAddress: cols[6],
+              items: [],
+              status: 'OPEN',
+              createdAt: new Date().toISOString()
+            };
+          }
+
+          orderGroups[orderNo].items.push({
+            invoice: cols[7],
+            ewaybill: cols[8],
+            product: cols[9],
+            qty: cols[10],
+            weight: cols[11],
+            weightUom: cols[12] || 'MT'
+          });
+        });
+
+        Object.values(orderGroups).forEach(order => {
+          const docId = crypto.randomUUID();
+          setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { ...order, id: docId }, { merge: true });
+        });
+      } else if (activeScreen.startsWith('XD')) {
+        dataRows.forEach(row => {
+          const cols = row.split(',').map(c => c.trim());
+          if (!cols[1]) return;
+          const docId = crypto.randomUUID();
+          const customer = {
+            id: docId,
+            plantCodes: cols[0].split(';'),
+            customerCode: cols[1],
+            customerName: cols[2],
+            customerType: cols[3],
+            address: cols[4],
+            city: cols[5],
+            mobile: cols[6],
+            gstin: cols[7],
+            updatedAt: new Date().toISOString()
+          };
+          setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'customers', docId), customer, { merge: true });
+        });
+      }
+
       setTimeout(() => {
-        setStatusMsg({ text: `Bulk Processing Complete: SUCCESSFUL`, type: 'success' });
+        setStatusMsg({ text: `Bulk Synchronization Successful: ${dataRows.length} Nodes`, type: 'success' });
         if (bulkInputRef.current) bulkInputRef.current.value = '';
       }, 1500);
-    }
+    };
+    reader.readAsText(file);
   };
 
   const handleSave = React.useCallback(() => {
@@ -432,10 +503,10 @@ export default function SapDashboard() {
             )}
           </div>
           <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
-             <button onClick={handleSave} disabled={activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}><Save className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={() => executeTCode('/n')} className="p-1 hover:bg-slate-200 rounded"><Undo2 className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={handleCancel} disabled={activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}><XCircle className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={() => window.open(window.location.href, '_blank')} className={cn("p-1 rounded hover:bg-slate-200")}><PlusSquare className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={handleSave} disabled={activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title="Save (F8)"><Save className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={() => executeTCode('/n')} className="p-1 hover:bg-slate-200 rounded" title="Exit (F3)"><Undo2 className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={handleCancel} disabled={activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title="Cancel (F12)"><XCircle className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={() => window.open(window.location.href, '_blank')} className={cn("p-1 rounded hover:bg-slate-200")} title="New Session"><PlusSquare className="h-4 w-4 text-slate-600" /></button>
           </div>
           <div className="flex-1" /><div className="flex items-center gap-3 pr-4">
              {(activeScreen === 'XD01' || activeScreen === 'VA01' || activeScreen === 'FM01') && (
@@ -452,7 +523,7 @@ export default function SapDashboard() {
       </div>
       <div className="flex-1 flex overflow-hidden">
         {!hideSidebar && (
-          <div className="w-72 bg-white border-r border-slate-300 flex flex-col overflow-hidden">
+          <div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden">
             <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div>
             <div className="flex-1 overflow-y-auto green-scrollbar">
               {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'ZCODE').map((item) => (
@@ -466,11 +537,11 @@ export default function SapDashboard() {
           </div>
         )}
         <div className="flex-1 flex flex-col overflow-hidden bg-[#f0f3f9]">
-          <div className="flex-1 overflow-y-auto p-4 relative">
+          <div className="flex-1 overflow-y-auto p-2 md:p-4 relative">
             {activeScreen === 'HOME' ? (
-              <div className="w-full h-full flex flex-col p-4 space-y-8 animate-fade-in">
-                <h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter">Sikka Logistics Hub Control</h1>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 border border-slate-300 shadow-sm">
+              <div className="w-full h-full flex flex-col p-2 md:p-4 space-y-8 animate-fade-in">
+                <h1 className="text-2xl md:text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter">Sikka Logistics Hub Control</h1>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-4 md:p-6 border border-slate-300 shadow-sm">
                   <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Authorized Plant Hub</label>
                     <select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none" value={homePlantFilter} onChange={(e) => setHomePlantFilter(e.target.value)}>
                       <option value="ALL">ALL AUTHORIZED PLANTS</option>
@@ -497,14 +568,14 @@ export default function SapDashboard() {
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                   {[{ label: 'OPEN ORDER', count: homeStats.open, color: 'text-blue-600' }, { label: 'LOADING', count: homeStats.loading, color: 'text-orange-600' }, { label: 'IN-TRANSIT', count: homeStats.transit, color: 'text-emerald-600' }, { label: 'ARRIVED', count: homeStats.arrived, color: 'text-indigo-600' }, { label: 'REJECT', count: homeStats.reject, color: 'text-red-600' }, { label: 'CLOSED', count: homeStats.closed, color: 'text-slate-600' }].map(w => (
-                    <div key={w.label} className="p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-2 bg-white animate-slide-up">
-                      <span className="text-[10px] font-black text-slate-400 uppercase">{w.label}</span><span className={cn("text-4xl font-black italic tracking-tighter", w.color)}>{w.count}</span>
+                    <div key={w.label} className="p-4 md:p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-2 bg-white animate-slide-up">
+                      <span className="text-[10px] font-black text-slate-400 uppercase text-center">{w.label}</span><span className={cn("text-2xl md:text-4xl font-black italic tracking-tighter", w.color)}>{w.count}</span>
                     </div>
                   ))}
                 </div>
               </div>
             ) : (
-              <div className={cn("bg-white shadow-xl rounded-sm border border-slate-300 overflow-hidden animate-slide-up min-h-[600px] p-6 mx-auto", hideSidebar ? "w-full" : "w-full max-w-[1400px]")}>
+              <div className={cn("bg-white shadow-xl rounded-sm border border-slate-300 overflow-hidden animate-slide-up min-h-[600px] p-4 md:p-6 mx-auto", hideSidebar ? "w-full" : "w-full max-w-[1400px]")}>
                  {showForm && <div className="space-y-6">
                    {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly && !isBootstrapAdmin} />}
                    {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly && !isBootstrapAdmin} allPlants={rawPlants} />}
@@ -515,14 +586,14 @@ export default function SapDashboard() {
                    {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly && !isBootstrapAdmin} allPlants={rawPlants} />}
                  </div>}
                  {showList && <div className="space-y-6">
-                   <div className="bg-[#dae4f1]/30 p-6 border border-slate-300 space-y-4"><label className="text-[11px] font-black uppercase text-slate-500 block">Registry Search Hub</label>
+                   <div className="bg-[#dae4f1]/30 p-4 md:p-6 border border-slate-300 space-y-4"><label className="text-[11px] font-black uppercase text-slate-500 block">Registry Search Hub</label>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                            {activeScreen.startsWith('XD') ? <>
                                <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Customer ID</label><input className="h-10 border border-slate-400 px-3 text-xs font-black outline-none bg-white" value={xdSearch.customerId} onChange={(e) => setXdSearch({...xdSearch, customerId: e.target.value})} onKeyDown={handleSearchIdEnter} placeholder="ID & ENTER..." /></div>
                                <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Select Plant</label><select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold" value={xdSearch.plant} onChange={(e) => setXdSearch({...xdSearch, plant: e.target.value})}><option value="">ALL PLANTS</option>{rawPlants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div>
                                <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Select Type</label><select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold" value={xdSearch.type} onChange={(e) => setXdSearch({...xdSearch, type: e.target.value})}><option value="">ALL TYPES</option><option value="Consignor">Consignor</option><option value="Consignee - Ship to Party">Consignee - Ship to Party</option></select></div>
                                <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Enter Name</label><input className="h-10 border border-slate-400 px-4 text-xs font-black outline-none" value={xdSearch.name} onChange={(e) => setXdSearch({...xdSearch, name: e.target.value})} placeholder="NAME..." /></div>
-                             </> : <div className="col-span-4 flex items-center gap-4"><input className="h-11 w-full border border-slate-400 px-4 text-xs font-black outline-none bg-white" value={searchId} onChange={(e) => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE & PRESS ENTER..." /></div>}
+                             </> : <div className="col-span-1 md:col-span-4 flex items-center gap-4"><input className="h-11 w-full border border-slate-400 px-4 text-xs font-black outline-none bg-white" value={searchId} onChange={(e) => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE & PRESS ENTER..." /></div>}
                         </div>
                    </div>
                    <RegistryList onSelectItem={setFormData} listData={getRegistryList()} />
@@ -535,7 +606,7 @@ export default function SapDashboard() {
         </div>
       </div>
       <div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em]">
-        <div className="flex items-center gap-8"><span className="flex items-center gap-2.5"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span><span>{activeScreen}</span><span>USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.fullName || 'Authenticating...')}</span>{statusMsg.text !== 'Ready' && <span className={cn(statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span>}</div>
+        <div className="flex items-center gap-4 md:gap-8 overflow-hidden"><span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span><span className="shrink-0">{activeScreen}</span><span className="truncate">USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.fullName || 'Authenticating...')}</span>{statusMsg.text !== 'Ready' && <span className={cn("truncate", statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span>}</div>
       </div>
     </div>
   );
@@ -543,8 +614,8 @@ export default function SapDashboard() {
 
 function SectionGrouping({ title, children }: { title: string, children: React.ReactNode }) {
   return (
-    <div className="border border-slate-300 p-5 pt-4 relative bg-white rounded-sm mb-6">
-      {title && <span className="absolute -top-3 left-4 bg-white px-3 text-[10px] font-black uppercase text-slate-400 border border-slate-200">{title}</span>}
+    <div className="border border-slate-300 p-4 md:p-5 pt-4 relative bg-white rounded-sm mb-6">
+      {title && <span className="absolute -top-3 left-4 bg-white px-2 md:px-3 text-[10px] font-black uppercase text-slate-400 border border-slate-200">{title}</span>}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">{children}</div>
     </div>
   );
@@ -584,7 +655,7 @@ function PlantForm({ data, onChange, disabled }: any) {
 function CompanyForm({ data, onChange, disabled, allPlants }: any) {
   const pList = (allPlants || []).map((p: any) => p.plantCode);
   const handleToggle = (p: string) => { if (disabled) return; const curr = data.plantCodes || []; onChange({...data, plantCodes: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); };
-  return <div className="space-y-4"><SectionGrouping title="IDENTIFICATION"><div className="col-span-2 space-y-2 mb-4"><label className="text-[10px] font-bold text-slate-500">Plant Assignment (Multiple)</label>
+  return <div className="space-y-4"><SectionGrouping title="IDENTIFICATION"><div className="col-span-1 md:col-span-2 space-y-2 mb-4"><label className="text-[10px] font-bold text-slate-500">Plant Assignment (Multiple)</label>
     <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border uppercase", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{p}</button>)}</div></div>
     <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} /><FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} /></SectionGrouping>
     <SectionGrouping title="LOCATION"><FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} /><FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
@@ -611,7 +682,7 @@ function VendorForm({ data, onChange, disabled }: any) {
 function CustomerForm({ data, onChange, disabled, allPlants }: any) {
   const pList = (allPlants || []).map((p: any) => p.plantCode);
   const handleToggle = (p: string) => { if (disabled) return; const curr = data.plantCodes || []; onChange({...data, plantCodes: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); };
-  return <div className="space-y-4"><SectionGrouping title="IDENTIFICATION"><div className="col-span-2 space-y-2 mb-4"><label className="text-[10px] font-bold text-slate-500">Plant Assignment (Multiple)</label>
+  return <div className="space-y-4"><SectionGrouping title="IDENTIFICATION"><div className="col-span-1 md:col-span-2 space-y-2 mb-4"><label className="text-[10px] font-bold text-slate-500">Plant Assignment (Multiple)</label>
     <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border uppercase", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{p}</button>)}</div></div>
     <FormInput label="CUSTOMER CODE" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} /><FormInput label="CUSTOMER NAME" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
     <FormSelect label="CUSTOMER TYPE" value={data.customerType} options={["Consignor", "Consignee - Ship to Party"]} onChange={(v: string) => onChange({...data, customerType: v})} disabled={disabled} /></SectionGrouping>
@@ -638,16 +709,18 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
     </SectionGrouping>
     <div className="border border-slate-300 rounded-sm overflow-hidden"><div className="bg-[#dae4f1]/50 p-3 flex justify-between items-center"><span className="text-[10px] font-black uppercase text-slate-500">ITEMS</span>
       {!disabled && <Button onClick={() => onChange({ ...data, items: [...items, { invoice: '', ewaybill: '', product: '', qty: '', weight: '', weightUom: 'MT' }] })} size="sm" variant="outline" className="h-7 text-blue-600">Add Row</Button>}</div>
-      <table className="w-full text-left"><thead><tr className="bg-[#f8fafc] text-[9px] font-black uppercase">{['Invoice', 'Ewaybill', 'Product', 'Qty.', 'Weight', 'UOM', ''].map(h => <th key={h} className="p-2 border-r">{h}</th>)}</tr></thead>
-        <tbody>{items.map((it: any, i: number) => <tr key={i} className="border-b">
-          <td className="p-1"><input value={it.invoice} onChange={e => updateItem(i, 'invoice', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
-          <td className="p-1"><input value={it.ewaybill} onChange={e => updateItem(i, 'ewaybill', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
-          <td className="p-1"><input value={it.product} onChange={e => updateItem(i, 'product', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
-          <td className="p-1"><input value={it.qty} onChange={e => updateItem(i, 'qty', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
-          <td className="p-1"><input value={it.weight} onChange={e => updateItem(i, 'weight', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
-          <td className="p-1"><select value={it.weightUom} onChange={e => updateItem(i, 'weightUom', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold"><option value="MT">MT</option><option value="LTR">LTR</option></select></td>
-          <td className="p-1 text-center">{!disabled && <button onClick={() => onChange({ ...data, items: items.filter((_:any, idx:number) => idx !== i) })} className="text-red-400"><Trash2 className="h-4 w-4" /></button>}</td></tr>)}
-        </tbody></table></div></div>;
+      <div className="overflow-x-auto">
+        <table className="w-full text-left min-w-[600px]"><thead><tr className="bg-[#f8fafc] text-[9px] font-black uppercase">{['Invoice', 'Ewaybill', 'Product', 'Qty.', 'Weight', 'UOM', ''].map(h => <th key={h} className="p-2 border-r">{h}</th>)}</tr></thead>
+          <tbody>{items.map((it: any, i: number) => <tr key={i} className="border-b">
+            <td className="p-1"><input value={it.invoice} onChange={e => updateItem(i, 'invoice', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
+            <td className="p-1"><input value={it.ewaybill} onChange={e => updateItem(i, 'ewaybill', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
+            <td className="p-1"><input value={it.product} onChange={e => updateItem(i, 'product', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
+            <td className="p-1"><input value={it.qty} onChange={e => updateItem(i, 'qty', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
+            <td className="p-1"><input value={it.weight} onChange={e => updateItem(i, 'weight', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
+            <td className="p-1"><select value={it.weightUom} onChange={e => updateItem(i, 'weightUom', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold"><option value="MT">MT</option><option value="LTR">LTR</option></select></td>
+            <td className="p-1 text-center">{!disabled && <button onClick={() => onChange({ ...data, items: items.filter((_:any, idx:number) => idx !== i) })} className="text-red-400"><Trash2 className="h-4 w-4" /></button>}</td></tr>)}
+          </tbody></table>
+      </div></div></div>;
 }
 
 function UserForm({ data, onChange, disabled, allPlants }: any) {
@@ -657,24 +730,24 @@ function UserForm({ data, onChange, disabled, allPlants }: any) {
   return <div className="space-y-6"><SectionGrouping title="USER IDENTIFICATION"><FormInput label="NAME" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
     <FormInput label="USERNAME" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} /><FormInput label="PASSWORD" type="password" value={data.password} onChange={(v: string) => onChange({...data, password: v})} disabled={disabled} />
     <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} /></SectionGrouping>
-    <SectionGrouping title="AUTHORIZED PLANTS"><div className="col-span-2 flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handlePToggle(p)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border", data.plants?.includes(p) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{p}</button>)}</div></SectionGrouping>
-    <SectionGrouping title="T-CODE AUTHORIZATION"><div className="col-span-2 flex flex-wrap gap-2">{MASTER_TCODES.map(t => <button key={t.code} onClick={() => handleTToggle(t.code)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border", data.tcodes?.includes(t.code) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{t.code}</button>)}</div></SectionGrouping></div>;
+    <SectionGrouping title="AUTHORIZED PLANTS"><div className="col-span-1 md:col-span-2 flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handlePToggle(p)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border", data.plants?.includes(p) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{p}</button>)}</div></SectionGrouping>
+    <SectionGrouping title="T-CODE AUTHORIZATION"><div className="col-span-1 md:col-span-2 flex flex-wrap gap-2">{MASTER_TCODES.map(t => <button key={t.code} onClick={() => handleTToggle(t.code)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border", data.tcodes?.includes(t.code) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{t.code}</button>)}</div></SectionGrouping></div>;
 }
 
 function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
-  return <div className="space-y-8"><SectionGrouping title="CANCELLATION HUB"><div className="flex flex-col gap-2 col-span-2"><label className="text-[11px] font-black uppercase text-red-600">Sales Order Number *</label>
+  return <div className="space-y-8"><SectionGrouping title="CANCELLATION HUB"><div className="flex flex-col gap-2 col-span-1 md:col-span-2"><label className="text-[11px] font-black uppercase text-red-600">Sales Order Number *</label>
     <input className="h-12 border border-red-200 px-4 text-sm font-black outline-none bg-red-50/30" placeholder="ENTER ORDER NO. & ENTER" value={data.saleOrder || ''} onChange={e => onChange({ ...data, saleOrder: e.target.value.toUpperCase() })} onKeyDown={e => { if (e.key === 'Enter') { const o = allOrders?.find((ord: any) => ord.saleOrder === data.saleOrder); if (o) onChange({...data, ...o}); } }} /></div></SectionGrouping>
-    <div className="flex justify-end gap-4"><Button onClick={onCancel} variant="ghost">Exit</Button><Button onClick={onPost} className="bg-red-600 text-white font-black uppercase text-[10px] px-10 h-11">Execute Cancellation</Button></div></div>;
+    <div className="flex justify-end gap-4"><Button onClick={onCancel} variant="ghost">Exit</Button><Button onClick={onPost} className="bg-red-600 text-white font-black uppercase text-[10px] px-6 md:px-10 h-11">Execute Cancellation</Button></div></div>;
 }
 
 function RegistryList({ onSelectItem, listData }: any) {
-  return <div className="overflow-x-auto border border-slate-300 shadow-sm"><table className="w-full text-left border-collapse">
+  return <div className="overflow-x-auto border border-slate-300 shadow-sm"><table className="w-full text-left border-collapse min-w-[700px]">
     <thead className="bg-[#f0f0f0] text-[10px] font-black uppercase"><tr>{['ID', 'Name / Description', 'Type / Details', 'Sync Hub'].map(c => <th key={c} className="p-3 border-r">{c}</th>)}</tr></thead>
-    <tbody>{listData?.map((item: any) => <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b hover:bg-[#e8f0fe] cursor-pointer transition-colors">
-      <td className="p-3 text-[11px] font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.vendorCode || item.companyCode || item.id.slice(0, 8)}</td>
-      <td className="p-3 text-[11px] font-bold uppercase">{item.customerName || item.plantName || item.vendorName || item.companyName || item.fullName || item.username || `${item.consignor} → ${item.consignee}`}</td>
-      <td className="p-3 text-[11px] italic text-slate-500">{item.city || item.customerType || item.vendorCode || 'DATA'}</td>
-      <td className="p-3 text-[11px] font-bold text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></tr>)}
+    <tbody>{listData?.map((item: any) => <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b hover:bg-[#e8f0fe] cursor-pointer transition-colors text-[11px] font-bold">
+      <td className="p-3 font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.vendorCode || item.companyCode || item.id.slice(0, 8)}</td>
+      <td className="p-3 uppercase">{item.customerName || item.plantName || item.vendorName || item.companyName || item.fullName || item.username || `${item.consignor} → ${item.consignee}`}</td>
+      <td className="p-3 italic text-slate-500">{item.city || item.customerType || item.vendorCode || 'DATA'}</td>
+      <td className="p-3 text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></tr>)}
     </tbody></table></div>;
 }
 
@@ -687,16 +760,16 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
   const handleAssign = (o: any) => { setSelectedOrder(o); setAssignData({ plantCode: o.plantCode, consignee: o.consignee, shipToParty: o.shipToParty, route: o.route || '', orderQty: `${o.bal} ${o.uom}`, fleetType: 'Own Vehicle', assignWeight: o.bal }); setIsPopupOpen(true); };
   const handlePost = () => { if (!user || !selectedOrder) return; const tId = `T${Math.floor(100000000 + Math.random() * 900000000)}`; const newId = crypto.randomUUID(); const p = { id: newId, tripId: tId, saleOrderId: selectedOrder.id, saleOrderNumber: selectedOrder.saleOrder, plantCode: assignData.plantCode, shipToParty: assignData.shipToParty, route: assignData.route, consignor: selectedOrder.consignor, consignee: selectedOrder.consignee, vehicleNumber: assignData.vehicleNumber, driverMobile: assignData.driverMobile, fleetType: assignData.fleetType, vendorName: assignData.vendorName, assignWeight: parseFloat(assignData.assignWeight || 0), status: 'LOADING', createdAt: new Date().toISOString() }; setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', newId), p, { merge: true }); setIsPopupOpen(false); setSelectedOrder(null); onStatusUpdate({ text: `Trip ${tId} posted to Loading`, type: 'success' }); };
   const mVendors = (vendors || []).filter((v: any) => v.vendorName?.toUpperCase().includes(vendorSearch.toUpperCase()));
-  return <div className="flex flex-col h-full space-y-4"><div className="flex border-b border-slate-300 bg-[#dae4f1]/30">{TABS.map(t => <button key={t} onClick={() => setActiveTab(t)} className={cn("px-6 py-2.5 text-[10px] font-black uppercase tracking-widest", activeTab === t ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700")}>{t}</button>)}</div>
-    <div className="flex-1 overflow-auto bg-white border border-slate-300"><table className="w-full text-left"><thead><tr className="bg-[#f8fafc] text-[9px] font-black uppercase sticky top-0">{activeTab === 'Open Orders' ? ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r">{h}</th>) : ['Trip ID', 'Vehicle No', 'Plant', 'Consignee', 'Ship to Party', 'Route', 'Assign Qty', 'Action', 'Sync Hub'].map(h => <th key={h} className="p-3 border-r">{h}</th>)}</tr></thead>
+  return <div className="flex flex-col h-full space-y-4"><div className="flex border-b border-slate-300 bg-[#dae4f1]/30 overflow-x-auto no-scrollbar">{TABS.map(t => <button key={t} onClick={() => setActiveTab(t)} className={cn("px-4 md:px-6 py-2.5 text-[9px] md:text-[10px] font-black uppercase tracking-widest whitespace-nowrap", activeTab === t ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700")}>{t}</button>)}</div>
+    <div className="flex-1 overflow-auto bg-white border border-slate-300"><table className="w-full text-left min-w-[1000px]"><thead><tr className="bg-[#f8fafc] text-[9px] font-black uppercase sticky top-0">{activeTab === 'Open Orders' ? ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r">{h}</th>) : ['Trip ID', 'Vehicle No', 'Plant', 'Consignee', 'Ship to Party', 'Route', 'Assign Qty', 'Action', 'Sync Hub'].map(h => <th key={h} className="p-3 border-r">{h}</th>)}</tr></thead>
       <tbody>{activeTab === 'Open Orders' ? fOrders.map(o => <tr key={o.id} className="border-b text-[11px] font-bold"><td className="p-3">{o.plantCode}</td><td className="p-3 text-[#0056d2] font-black">{o.saleOrder}</td><td className="p-3 uppercase">{o.consignor}</td><td className="p-3 uppercase">{o.consignee}</td><td className="p-3 uppercase">{o.shipToParty}</td><td className="p-3 uppercase">{o.route}</td><td className="p-3 font-black">{o.tot} {o.uom}</td><td className="p-3 text-emerald-600">{o.ass} {o.uom}</td><td className="p-3 text-red-600 font-black">{o.bal} {o.uom}</td><td className="p-3"><Button onClick={() => handleAssign(o)} size="sm" className="bg-[#0056d2] text-white font-black text-[9px]">Assign</Button></td></tr>) : fTrips.map(t => <tr key={t.id} className="border-b text-[11px] font-bold"><td className="p-3 text-[#0056d2] font-black">#{t.tripId}</td><td className="p-3 uppercase">{t.vehicleNumber}</td><td className="p-3">{t.plantCode}</td><td className="p-3 uppercase">{t.consignee}</td><td className="p-3 uppercase">{t.shipToParty}</td><td className="p-3 uppercase">{t.route}</td><td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td><td className="p-3"><Button size="sm" className="text-[9px] bg-slate-100 text-slate-600">Action</Button></td><td className="p-3 text-slate-400">{format(new Date(t.createdAt), 'dd-MM HH:mm')}</td></tr>)}</tbody></table></div>
-    <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}><DialogContent className="max-w-3xl bg-[#f0f3f9]"><div className="p-8 space-y-6"><div className="grid grid-cols-4 gap-6"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Vehicle Number *</label><input value={assignData.vehicleNumber || ''} onChange={e => setAssignData({...assignData, vehicleNumber: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Driver Mobile *</label><input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Assign Qty *</label><input type="number" value={assignData.assignWeight || ''} onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Fleet Type *</label><select value={assignData.fleetType} onChange={e => setAssignData({...assignData, fleetType: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black"><option value="Own Vehicle">Own Vehicle</option><option value="Market Vehicle">Market Vehicle</option></select></div></div>
-      {assignData.fleetType === 'Market Vehicle' && <div className="p-6 bg-[#dae4f1]/20 border-l-4 border-blue-600 space-y-4"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Vendor Hub *</label><div className="relative"><input value={vendorSearch} onChange={e => { setVendorSearch(e.target.value); setShowVS(true); }} className="h-10 w-full border border-slate-400 px-3 text-xs font-black" />{showVS && mVendors.length > 0 && <div className="absolute top-full left-0 w-full bg-white border shadow-xl z-20">{mVendors.map((v:any) => <div key={v.id} onClick={() => { setVendorSearch(v.vendorName); setAssignData({...assignData, vendorName: v.vendorName}); setShowVS(false); }} className="px-4 py-2 text-xs font-bold hover:bg-blue-50 cursor-pointer">{v.vendorName}</div>)}</div>}</div></div></div>}
+    <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}><DialogContent className="max-w-[90vw] md:max-w-3xl bg-[#f0f3f9] p-0"><div className="p-4 md:p-8 space-y-6"><div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Vehicle Number *</label><input value={assignData.vehicleNumber || ''} onChange={e => setAssignData({...assignData, vehicleNumber: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Driver Mobile *</label><input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Assign Qty *</label><input type="number" value={assignData.assignWeight || ''} onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Fleet Type *</label><select value={assignData.fleetType} onChange={e => setAssignData({...assignData, fleetType: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black"><option value="Own Vehicle">Own Vehicle</option><option value="Market Vehicle">Market Vehicle</option></select></div></div>
+      {assignData.fleetType === 'Market Vehicle' && <div className="p-4 md:p-6 bg-[#dae4f1]/20 border-l-4 border-blue-600 space-y-4"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Vendor Hub *</label><div className="relative"><input value={vendorSearch} onChange={e => { setVendorSearch(e.target.value); setShowVS(true); }} className="h-10 w-full border border-slate-400 px-3 text-xs font-black" />{showVS && mVendors.length > 0 && <div className="absolute top-full left-0 w-full bg-white border shadow-xl z-20 max-h-[150px] overflow-y-auto">{mVendors.map((v:any) => <div key={v.id} onClick={() => { setVendorSearch(v.vendorName); setAssignData({...assignData, vendorName: v.vendorName}); setShowVS(false); }} className="px-4 py-2 text-xs font-bold hover:bg-blue-50 cursor-pointer">{v.vendorName}</div>)}</div>}</div></div></div>}
       <div className="flex justify-end gap-4"><Button onClick={() => setIsPopupOpen(false)} variant="outline">Cancel</Button><Button onClick={handlePost} className="bg-[#0056d2] text-white">Post to Loading</Button></div></div></DialogContent></Dialog>
   </div>;
 }
 
 function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code: string) => void }) {
-  return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{tcodes.map(t => <div key={t.code} onClick={() => onExecute(t.code)} className="bg-white p-6 border hover:border-blue-400 cursor-pointer transition-all relative">
+  return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">{tcodes.map(t => <div key={t.code} onClick={() => onExecute(t.code)} className="bg-white p-4 md:p-6 border hover:border-blue-400 cursor-pointer transition-all relative">
     <div className="absolute top-0 left-0 w-1 h-full bg-slate-200" /><Badge className="mb-4">{t.module}</Badge><h3 className="text-xs font-black text-[#1e3a8a] uppercase">{t.code}</h3><p className="text-[10px] font-bold text-slate-500 uppercase">{t.description}</p></div>)}</div>;
 }
