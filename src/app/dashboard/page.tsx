@@ -104,15 +104,19 @@ export default function SapDashboard() {
   const { data: rawCompanies } = useCollection(companiesQuery);
   const { data: rawVendors } = useCollection(vendorsQuery);
   const { data: rawCustomers } = useCollection(customersQuery);
-  const { data: allUsers } = useCollection(usersQuery);
+  const { data: allUsers, isLoading: isAllUsersLoading } = useCollection(usersQuery);
 
   const getAuthorizedPlants = React.useCallback(() => userProfile?.plants || [], [userProfile]);
 
   const isAuthorized = React.useCallback((code: string) => {
     if (code === 'HOME' || code === '') return true;
-    if (!userProfile) return false; 
+    if (!userProfile) {
+      // Allow bootstrap admin if registry is empty
+      if (allUsers?.length === 0) return true;
+      return false;
+    }
     return userProfile.tcodes?.includes(code);
-  }, [userProfile]);
+  }, [userProfile, allUsers]);
 
   const getRegistryList = React.useCallback(() => {
     if (activeScreen.startsWith('OX')) return rawPlants || [];
@@ -329,11 +333,14 @@ export default function SapDashboard() {
   }, [user, isUserLoading, router]);
 
   React.useEffect(() => {
-    if (!isUserLoading && !isProfileLoading && user && userProfile === null) {
+    if (!isUserLoading && !isProfileLoading && !isAllUsersLoading && user) {
+      const registryIsEmpty = !allUsers || allUsers.length === 0;
+      if (userProfile === null && !registryIsEmpty) {
         toast({ title: "Access Denied", description: "Your account is not registered in the system.", variant: "destructive" });
         router.push('/login');
+      }
     }
-  }, [user, userProfile, isUserLoading, isProfileLoading, router, toast]);
+  }, [user, userProfile, isUserLoading, isProfileLoading, isAllUsersLoading, allUsers, router, toast]);
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -372,38 +379,6 @@ export default function SapDashboard() {
     };
   }, []);
 
-  const handleSearchIdEnter = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      const idToSearch = searchId || xdSearch.customerId;
-      if (!idToSearch) return;
-
-      let list = getRegistryList();
-      let item = list.find((i: any) => 
-        (i.plantCode || i.customerCode || i.companyCode || i.saleOrder || i.username || i.id || i.vendorCode).toString().toUpperCase() === idToSearch.toUpperCase()
-      );
-      
-      if (!item && activeScreen.startsWith('XD')) {
-        item = (rawCustomers || []).find((i: any) => 
-          (i.customerCode || i.id).toString().toUpperCase() === idToSearch.toUpperCase()
-        );
-      }
-      
-      if (item) {
-        setFormData(item);
-        setSearchId('');
-        setXdSearch({ ...xdSearch, customerId: '' });
-        setStatusMsg({ text: `Record ${idToSearch} loaded`, type: 'success' });
-      } else {
-        setStatusMsg({ text: `Record ${idToSearch} not found`, type: 'error' });
-      }
-    }
-  };
-
-  const isReadOnly = activeScreen.endsWith('03');
-  const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
-  const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
-  const hideSidebar = activeScreen !== 'HOME';
-
   React.useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (['F3', 'F4', 'F8', 'F12'].includes(e.key)) e.preventDefault();
@@ -437,8 +412,34 @@ export default function SapDashboard() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [activeScreen, handleSave, handleCancel, executeTCode, showHistory, historyIndex, history, router, tCode]);
 
-  // Handle Loading/Error States after Hooks are declared
-  if (isUserLoading || isProfileLoading) {
+  const handleSearchIdEnter = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      const idToSearch = searchId || xdSearch.customerId;
+      if (!idToSearch) return;
+
+      let list = getRegistryList();
+      let item = list.find((i: any) => 
+        (i.plantCode || i.customerCode || i.companyCode || i.saleOrder || i.username || i.id || i.vendorCode).toString().toUpperCase() === idToSearch.toUpperCase()
+      );
+      
+      if (!item && activeScreen.startsWith('XD')) {
+        item = (rawCustomers || []).find((i: any) => 
+          (i.customerCode || i.id).toString().toUpperCase() === idToSearch.toUpperCase()
+        );
+      }
+      
+      if (item) {
+        setFormData(item);
+        setSearchId('');
+        setXdSearch({ ...xdSearch, customerId: '' });
+        setStatusMsg({ text: `Record ${idToSearch} loaded`, type: 'success' });
+      } else {
+        setStatusMsg({ text: `Record ${idToSearch} not found`, type: 'error' });
+      }
+    }
+  };
+
+  if (isUserLoading || isProfileLoading || isAllUsersLoading) {
     return (
       <div className="h-screen w-full bg-[#f0f3f9] flex flex-col items-center justify-center font-mono space-y-4">
         <div className="w-8 h-8 border-2 border-[#1e3a8a] border-t-transparent rounded-full animate-spin" />
@@ -458,6 +459,10 @@ export default function SapDashboard() {
     );
   }
 
+  const isReadOnly = activeScreen.endsWith('03');
+  const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
+  const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
+  const hideSidebar = activeScreen !== 'HOME';
   const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
 
   return (
@@ -685,7 +690,7 @@ export default function SapDashboard() {
   );
 }
 
-// HELPER COMPONENTS
+// HELPER COMPONENTS (DEFINED ONCE)
 function SectionGrouping({ title, children }: { title: string, children: React.ReactNode }) {
   return (
     <div className="border border-slate-300 p-5 pt-4 relative bg-white rounded-sm mb-6">

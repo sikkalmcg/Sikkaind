@@ -50,7 +50,7 @@ export default function LoginPage() {
       if (snapshot.empty) {
         // Special Case: Initial Admin Bootstrap
         const allSnap = await getDocs(collection(db, 'user_registry'));
-        if (allSnap.empty && credentials.username === 'admin') {
+        if (allSnap.empty && credentials.username === 'Sikkaind' && credentials.password === 'Sikka@lmc2105') {
            router.push('/dashboard');
            return;
         }
