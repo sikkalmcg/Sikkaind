@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -1118,8 +1117,21 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
     return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; 
   };
   
-  const fOrders = React.useMemo(() => (orders || []).filter(o => o.status !== 'CANCELLED').map(o => ({ ...o, ...getStats(o) })).filter(o => o.bal > 0), [orders, trips]);
-  const fTrips = React.useMemo(() => { if (!trips) return []; const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; return trips.filter(t => t.status === map[activeTab]); }, [trips, activeTab]);
+  const fOrders = React.useMemo(() => (orders || []).filter(o => o.status !== 'CANCELLED').map(o => {
+    const stats = getStats(o);
+    const route = (o.from && o.destination) ? `${o.from} → ${o.destination}` : (o.route || '');
+    return { ...o, ...stats, route };
+  }).filter(o => o.bal > 0), [orders, trips]);
+
+  const fTrips = React.useMemo(() => { 
+    if (!trips) return []; 
+    const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; 
+    return trips.filter(t => t.status === map[activeTab]).map(t => {
+       // Ensure trip route also follows From → Destination if possible
+       const route = (t.from && t.destination && !t.route?.includes('→')) ? `${t.from} → ${t.destination}` : t.route;
+       return { ...t, route };
+    }); 
+  }, [trips, activeTab]);
   
   const handleAssign = (o: any) => { 
     setSelectedOrder(o); 
@@ -1161,6 +1173,8 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
       route: assignData.route, 
       consignor: selectedOrder.consignor, 
       consignee: selectedOrder.consignee, 
+      from: selectedOrder.from || '',
+      destination: selectedOrder.destination || '',
       vehicleNumber: assignData.vehicleNumber, 
       driverMobile: assignData.driverMobile, 
       fleetType: assignData.fleetType, 
@@ -1191,6 +1205,7 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
         <div className="bg-[#1e3a8a] px-6 py-4 flex items-center justify-between">
           <h2 className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
             <Truck className="h-4 w-4" /> TR24 - Assign Vehicle Hub
+            {assignData.route && <span className="ml-4 pl-4 border-l border-white/20 text-blue-300 tracking-normal font-bold lowercase first-letter:uppercase">{assignData.route}</span>}
           </h2>
           <button onClick={() => setIsPopupOpen(false)} className="text-white/60 hover:text-white transition-colors"><X className="h-4 w-4" /></button>
         </div>
