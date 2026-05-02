@@ -535,7 +535,7 @@ export default function SapDashboard() {
             </div>
           </div>
         )}
-        <div className="flex-1 flex flex-col overflow-hidden bg-[#f0f3f9]">
+        <div className="flex-1 flex-1 flex flex-col overflow-hidden bg-[#f0f3f9]">
           <div className="flex-1 overflow-y-auto p-2 md:p-4 relative">
             {activeScreen === 'HOME' ? (
               <div className="w-full h-full flex flex-col p-2 md:p-4 space-y-8 animate-fade-in">
@@ -657,6 +657,21 @@ function PlantForm({ data, onChange, disabled }: any) {
 function CompanyForm({ data, onChange, disabled, allPlants }: any) {
   const pList = (allPlants || []).map((p: any) => p.plantCode);
   const handleToggle = (p: string) => { if (disabled) return; const curr = data.plantCodes || []; onChange({...data, plantCodes: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); };
+  
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) {
+      alert("Error: Image size must be under 500 KB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      onChange({ ...data, logo: ev.target?.result as string });
+    };
+    reader.readAsDataURL(file);
+  };
+
   return <div className="space-y-4"><SectionGrouping title="IDENTIFICATION"><div className="col-span-1 md:col-span-2 space-y-2 mb-4"><label className="text-[10px] font-bold text-slate-500">Plant Assignment (Multiple)</label>
     <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border uppercase", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{p}</button>)}</div></div>
     <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} /><FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} /></SectionGrouping>
@@ -670,7 +685,21 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
     </SectionGrouping>
     <SectionGrouping title="WEB & ASSETS">
       <FormInput label="WEBSITE" value={data.website} onChange={(v: string) => onChange({...data, website: v})} disabled={disabled} />
-      <FormInput label="COMPANY LOGO (URL)" value={data.logo} onChange={(v: string) => onChange({...data, logo: v})} disabled={disabled} />
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[10px] font-bold text-slate-500 uppercase">Company Logo (Under 500 KB)</label>
+        <div className="flex items-center gap-3">
+          <input type="file" accept="image/*" onChange={handleFile} disabled={disabled} className="hidden" id="fm01-logo-up" />
+          <label htmlFor="fm01-logo-up" className={cn("flex-1 h-9 border border-slate-400 bg-white px-3 flex items-center text-[11px] font-bold cursor-pointer shadow-sm", disabled && "opacity-50 cursor-not-allowed")}>
+            {data.logo ? "CHANGE IMAGE" : "UPLOAD IMAGE..."}
+          </label>
+          {data.logo && (
+            <div className="h-9 w-9 border border-slate-300 rounded overflow-hidden bg-white shrink-0 relative group">
+              <Image src={data.logo} alt="Logo" fill className="object-contain" unoptimized />
+              {!disabled && <button onClick={() => onChange({...data, logo: ''})} className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><Trash2 className="h-3 w-3" /></button>}
+            </div>
+          )}
+        </div>
+      </div>
     </SectionGrouping></div>;
 }
 
