@@ -109,7 +109,7 @@ export default function SapDashboard() {
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
 
-  // SHARED DATA FETCHING: Using SHARED_HUB_ID instead of user.uid for company-wide visibility
+  // SHARED DATA FETCHING
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
@@ -204,6 +204,9 @@ export default function SapDashboard() {
     } else if (activeScreen.startsWith('XD')) {
       headers = "PlantCodes,CustomerCode,CustomerName,CustomerType,Address,City,Mobile,GSTIN";
       filename = "XD01_CUSTOMER_MASTER_TEMPLATE.csv";
+    } else if (activeScreen.startsWith('FM')) {
+      headers = "CompanyCode,CompanyName,Address,City,State,PostalCode,GSTIN,PAN,Mobile,Email,Website";
+      filename = "FM01_COMPANY_MASTER_TEMPLATE.csv";
     } else {
       toast({ title: "Template Not Available", description: "No template defined for this module." });
       return;
@@ -297,7 +300,6 @@ export default function SapDashboard() {
 
     if (col) {
       const isSys = col === 'user_registry';
-      // DATA HUB SYNC: Saving to SHARED_HUB_ID for organization-wide access
       const docRef = isSys ? doc(db, 'user_registry', docId) : doc(db, 'users', SHARED_HUB_ID, col, docId);
       const payload = { 
         ...localData, 
@@ -436,7 +438,7 @@ export default function SapDashboard() {
              <button onClick={() => window.open(window.location.href, '_blank')} className={cn("p-1 rounded hover:bg-slate-200")}><PlusSquare className="h-4 w-4 text-slate-600" /></button>
           </div>
           <div className="flex-1" /><div className="flex items-center gap-3 pr-4">
-             {(activeScreen === 'XD01' || activeScreen === 'VA01') && (
+             {(activeScreen === 'XD01' || activeScreen === 'VA01' || activeScreen === 'FM01') && (
                <div className="flex items-center gap-2 mr-4">
                  <input type="file" ref={bulkInputRef} onChange={handleFileChange} className="hidden" accept=".csv" />
                  <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 h-7 bg-white border border-slate-300 hover:bg-slate-50 rounded text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]"><FileText className="h-3.5 w-3.5" /> Template</button>
@@ -586,7 +588,17 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
     <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border uppercase", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{p}</button>)}</div></div>
     <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} /><FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} /></SectionGrouping>
     <SectionGrouping title="LOCATION"><FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} /><FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
-    <FormInput label="STATE" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} /><FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} /></SectionGrouping></div>;
+    <FormInput label="STATE" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} /><FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} /></SectionGrouping>
+    <SectionGrouping title="TAXATION & CONTACT">
+      <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+      <FormInput label="PAN" value={data.pan} onChange={(v: string) => onChange({...data, pan: v})} disabled={disabled} />
+      <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} placeholder="Multiple numbers with comma (,)..." />
+      <FormInput label="EMAIL ID" value={data.email} onChange={(v: string) => onChange({...data, email: v})} disabled={disabled} />
+    </SectionGrouping>
+    <SectionGrouping title="WEB & ASSETS">
+      <FormInput label="WEBSITE" value={data.website} onChange={(v: string) => onChange({...data, website: v})} disabled={disabled} />
+      <FormInput label="COMPANY LOGO (URL)" value={data.logo} onChange={(v: string) => onChange({...data, logo: v})} disabled={disabled} />
+    </SectionGrouping></div>;
 }
 
 function VendorForm({ data, onChange, disabled }: any) {
