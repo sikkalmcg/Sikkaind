@@ -69,7 +69,6 @@ export default function SapDashboard() {
   const { user, isUserLoading, userError } = useUser();
   const db = useFirestore();
 
-  // All Hooks must be at the very top, before any return statements.
   const [tCode, setTCode] = React.useState('');
   const [history, setHistory] = React.useState<string[]>([]);
   const [showHistory, setShowHistory] = React.useState(false);
@@ -85,13 +84,15 @@ export default function SapDashboard() {
   const [sessionCount, setSessionCount] = React.useState(1);
   const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '' });
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
+  const [isAuthChecking, setIsAuthChecking] = React.useState(true);
 
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const monthRef = React.useRef<HTMLDivElement>(null);
 
-  // Load Admin Status in useEffect to avoid hydration issues
   React.useEffect(() => {
-    setIsBootstrapAdmin(localStorage.getItem('sap_bootstrap_session') === 'true');
+    const isAdmin = localStorage.getItem('sap_bootstrap_session') === 'true';
+    setIsBootstrapAdmin(isAdmin);
+    setIsAuthChecking(false);
   }, []);
 
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
@@ -128,7 +129,6 @@ export default function SapDashboard() {
     let localData = { ...formData };
     const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
 
-    // SUPER ADMIN BYPASS for validation and checks
     if (!isBootstrapAdmin) {
       if (activeScreen.startsWith('OX')) {
         const exists = rawPlants?.some((p: any) => p.id !== localData.id && p.plantCode?.toString().toUpperCase() === localData.plantCode?.toString().toUpperCase());
@@ -169,7 +169,6 @@ export default function SapDashboard() {
         if (exists) { setStatusMsg({ text: `ID/Number ${localData.username} Already exists, duplicate not allowed`, type: 'error' }); return; }
       }
     } else {
-        // Super Admin XK01 logic
         if (activeScreen.startsWith('XK') && !localData.vendorCode) {
             localData.vendorCode = `V${Math.floor(10000 + Math.random() * 90000)}`;
         }
@@ -228,7 +227,7 @@ export default function SapDashboard() {
   }, [user, isUserLoading, router]);
 
   React.useEffect(() => {
-    if (isBootstrapAdmin) return;
+    if (isAuthChecking || isBootstrapAdmin) return;
     if (!isUserLoading && !isProfileLoading && !isAllUsersLoading && user) {
       const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
       if (userProfile === null && !registryIsEmpty) {
@@ -236,7 +235,7 @@ export default function SapDashboard() {
         router.push('/login');
       }
     }
-  }, [user, userProfile, isUserLoading, isProfileLoading, isAllUsersLoading, allUsers, router, toast, isBootstrapAdmin]);
+  }, [user, userProfile, isUserLoading, isProfileLoading, isAllUsersLoading, allUsers, router, toast, isBootstrapAdmin, isAuthChecking]);
 
   React.useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -256,8 +255,7 @@ export default function SapDashboard() {
     window.addEventListener('keydown', handleGlobalKeyDown); return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [activeScreen, handleSave, handleCancel, executeTCode, showHistory, historyIndex, history, router, tCode]);
 
-  // Conditional returns MUST come after all Hook definitions.
-  if (isUserLoading || isProfileLoading || isAllUsersLoading) {
+  if (isUserLoading || isProfileLoading || isAllUsersLoading || isAuthChecking) {
     return <div className="h-screen w-full bg-[#f0f3f9] flex flex-col items-center justify-center font-mono space-y-4">
       <div className="w-8 h-8 border-2 border-[#1e3a8a] border-t-transparent rounded-full animate-spin" /><span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Hub Node Synchronizing...</span>
     </div>;
@@ -466,8 +464,6 @@ export default function SapDashboard() {
     </div>
   );
 }
-
-// Consolidating all sub-components at the bottom to ensure single definitions.
 
 function SectionGrouping({ title, children }: { title: string, children: React.ReactNode }) {
   return (
