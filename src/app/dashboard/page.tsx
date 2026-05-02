@@ -33,7 +33,7 @@ import {
   DialogDescription
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { format } from 'date-fns';
+import { format, subDays, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
@@ -1178,6 +1178,14 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 15;
+
+  // NEW: Date Range Filter States
+  const [fromDate, setFromDate] = React.useState(format(subDays(new Date(), 4), 'yyyy-MM-dd'));
+  const [toDate, setToDate] = React.useState(format(new Date(), 'yyyy-MM-dd'));
+
+  // NEW: Out Vehicle Logic
+  const [isOutPopupOpen, setIsOutPopupOpen] = React.useState(false);
+  const [outData, setOutData] = React.useState<any>({ tripId: '', vehicleNumber: '', route: '', date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
   
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
   
@@ -1191,7 +1199,12 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
     const stats = getStats(o);
     const route = (o.from && o.destination) ? `${o.from} → ${o.destination}` : (o.route || '');
     return { ...o, ...stats, route };
-  }).filter(o => o.bal > 0), [orders, trips]);
+  }).filter(o => {
+    const bal = o.bal > 0;
+    const itemDate = new Date(o.createdAt);
+    const matchesDate = isWithinInterval(itemDate, { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) });
+    return bal && matchesDate;
+  }), [orders, trips, fromDate, toDate]);
 
   const fTrips = React.useMemo(() => { 
     if (!trips) return []; 
@@ -1199,8 +1212,22 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
     return trips.filter(t => t.status === map[activeTab]).map(t => {
        const route = (t.from && t.destination && !t.route?.includes('→')) ? `${t.from} → ${t.destination}` : t.route;
        return { ...t, route };
+    }).filter(t => {
+       const itemDate = new Date(t.createdAt);
+       return isWithinInterval(itemDate, { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) });
     }); 
-  }, [trips, activeTab]);
+  }, [trips, activeTab, fromDate, toDate]);
+
+  // NEW: Tab Counts
+  const tabCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    counts['Open Orders'] = fOrders.length;
+    ['Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'].forEach(t => {
+       const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' };
+       counts[t] = (trips || []).filter(tr => tr.status === map[t] && isWithinInterval(new Date(tr.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })).length;
+    });
+    return counts;
+  }, [fOrders, trips, fromDate, toDate]);
 
   // Search Logic
   const filteredData = React.useMemo(() => {
@@ -1243,6 +1270,30 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
       freightAmount: 0
     }); 
     setIsPopupOpen(true); 
+  };
+
+  const handleOutVehicle = (t: any) => {
+    setOutData({ 
+      tripId: t.tripId, 
+      id: t.id, 
+      vehicleNumber: t.vehicleNumber, 
+      route: t.route, 
+      date: format(new Date(), 'yyyy-MM-dd'), 
+      time: format(new Date(), 'HH:mm') 
+    });
+    setIsOutPopupOpen(true);
+  };
+
+  const handleConfirmOut = () => {
+    if (!outData.id) return;
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', outData.id), { 
+      status: 'IN-TRANSIT', 
+      outDate: outData.date, 
+      outTime: outData.time, 
+      updatedAt: new Date().toISOString() 
+    }, { merge: true });
+    setIsOutPopupOpen(false);
+    onStatusUpdate({ text: `Vehicle ${outData.vehicleNumber} is now IN-TRANSIT`, type: 'success' });
   };
 
   React.useEffect(() => {
@@ -1293,30 +1344,57 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
   const mVendors = (vendors || []).filter((v: any) => v.vendorName?.toUpperCase().includes(vendorSearch.toUpperCase()));
 
   return <div className="flex flex-col h-full space-y-4">
-    {/* Top Header Search Enhancement */}
-    <div className="flex items-center justify-between bg-white border border-slate-300 p-2 rounded-sm shadow-sm">
+    {/* Top Header Filter & Search */}
+    <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 bg-white border border-slate-300 p-3 rounded-sm shadow-sm">
       <div className="flex items-center gap-4 flex-1">
-        <label className="text-[10px] font-black uppercase text-slate-400 whitespace-nowrap pl-2">Current Tab Registry Search</label>
-        <div className="relative flex-1 max-w-md">
+        <label className="text-[10px] font-black uppercase text-slate-400 whitespace-nowrap pl-2">Sync Search Hub</label>
+        <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
           <input 
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-            placeholder="SEARCH ACROSS ALL COLUMNS..." 
+            placeholder="SEARCH REGISTRY..." 
             className="h-9 w-full border border-slate-300 pl-9 pr-4 text-[10px] font-black outline-none bg-slate-50/30 focus:bg-yellow-50 focus:border-blue-400 uppercase tracking-wider"
           />
         </div>
       </div>
+      
+      <div className="flex items-center gap-4 border-l border-slate-200 pl-4">
+        <div className="flex flex-col gap-1">
+          <label className="text-[8px] font-black uppercase text-slate-400">From Date</label>
+          <input type="date" value={fromDate} onChange={e => {
+             if (e.target.value > toDate) return;
+             setFromDate(e.target.value);
+             setCurrentPage(1);
+          }} className="h-8 border border-slate-300 px-2 text-[10px] font-black outline-none focus:bg-yellow-50" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[8px] font-black uppercase text-slate-400">To Date</label>
+          <input type="date" value={toDate} onChange={e => {
+             if (e.target.value < fromDate) return;
+             setToDate(e.target.value);
+             setCurrentPage(1);
+          }} className="h-8 border border-slate-300 px-2 text-[10px] font-black outline-none focus:bg-yellow-50" />
+        </div>
+      </div>
     </div>
 
-    <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 overflow-x-auto no-scrollbar">{TABS.map(t => <button key={t} onClick={() => setActiveTab(t)} className={cn("px-4 md:px-6 py-2.5 text-[9px] md:text-[10px] font-black uppercase tracking-widest whitespace-nowrap", activeTab === t ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700")}>{t}</button>)}</div>
+    <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 overflow-x-auto no-scrollbar">
+      {TABS.map(t => (
+        <button key={t} onClick={() => setActiveTab(t)} className={cn("px-4 md:px-6 py-2.5 text-[9px] md:text-[10px] font-black uppercase tracking-widest whitespace-nowrap flex items-center gap-2", activeTab === t ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700")}>
+          {t} <span className="opacity-50 text-[8px]">({tabCounts[t] || 0})</span>
+        </button>
+      ))}
+    </div>
     
     <div className="flex-1 flex flex-col overflow-hidden bg-white border border-slate-300">
       <div className="flex-1 overflow-auto">
         <table className="w-full text-left min-w-[1000px]">
           <thead>
             <tr className="bg-[#f8fafc] text-[9px] font-black uppercase sticky top-0 border-b border-slate-300 z-10">
-              {activeTab === 'Open Orders' ? ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>) : ['Trip ID', 'Vehicle No', 'Plant', 'Consignee', 'Ship to Party', 'Route', 'Assign Qty', 'CN Number', 'Action', 'Sync Hub'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}
+              {activeTab === 'Open Orders' ? 
+                ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>) : 
+                ['Plant', 'Trip ID', 'Consignee', 'Ship to Party', 'Route', 'Vehicle No', 'Assign Qty', 'CN Number', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -1354,26 +1432,37 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
                   const t = item;
                   return (
                     <tr key={t.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] transition-colors text-[11px] font-bold group">
-                      <td className="p-3 text-[#0056d2] font-black">#{t.tripId}</td>
-                      <td className="p-3 uppercase">{t.vehicleNumber}</td>
                       <td className="p-3">{t.plantCode}</td>
+                      <td className="p-3 space-y-0.5">
+                        <div className="text-[#0056d2] font-black">#{t.tripId}</div>
+                        <div className="text-[9px] text-slate-400 font-bold uppercase">{format(new Date(t.createdAt), 'dd/MM/yyyy HH:mm')}</div>
+                      </td>
                       <td className="p-3 uppercase">{t.consignee}</td>
                       <td className="p-3 uppercase">{t.shipToParty}</td>
                       <td className="p-3 uppercase">{t.route}</td>
+                      <td className="p-3 space-y-0.5">
+                        <div className="uppercase">{t.vehicleNumber}</div>
+                        <div className="text-[9px] text-slate-400 font-bold">{t.driverMobile || 'NO MOBILE'}</div>
+                      </td>
                       <td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td>
                       <td className="p-3">
                         <div className="flex items-center gap-2">
-                          <span className="truncate max-w-[80px]">{t.cnNo || t.lrNo || 'PENDING'}</span>
+                          <span className="truncate max-w-[80px]">{t.cnNo || t.lrNo || (t.fleetType === 'Arrange by Party' ? 'INVOICE' : 'PENDING')}</span>
                           <button 
-                            disabled={t.fleetType === 'Arrange by Party'} 
-                            className={cn("p-1 rounded bg-slate-50 border border-slate-200 text-slate-400 transition-all", t.fleetType === 'Arrange by Party' ? "opacity-30 cursor-not-allowed" : "hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200")}
+                            disabled={t.fleetType === 'Arrange by Party' && activeTab === 'Loading'} 
+                            className={cn("p-1 rounded bg-slate-50 border border-slate-200 text-slate-400 transition-all", (t.fleetType === 'Arrange by Party' && activeTab === 'Loading') ? "opacity-30 cursor-not-allowed" : "hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200")}
                           >
                             <Plus className="h-3 w-3" />
                           </button>
                         </div>
                       </td>
-                      <td className="p-3"><Button size="sm" className="text-[9px] bg-slate-100 text-slate-600 h-7 px-3 uppercase tracking-tighter">Action</Button></td>
-                      <td className="p-3 text-slate-400">{format(new Date(t.createdAt), 'dd-MM HH:mm')}</td>
+                      <td className="p-3">
+                        {activeTab === 'Loading' ? (
+                          <Button onClick={() => handleOutVehicle(t)} size="sm" className="text-[9px] bg-emerald-600 hover:bg-emerald-700 text-white font-black h-7 px-3 uppercase tracking-tighter">Out Vehicle</Button>
+                        ) : (
+                          <Button size="sm" className="text-[9px] bg-slate-100 text-slate-600 h-7 px-3 uppercase tracking-tighter">Action</Button>
+                        )}
+                      </td>
                     </tr>
                   );
                 }
@@ -1383,7 +1472,7 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
         </table>
       </div>
 
-      {/* Pagination Footer Enhancement */}
+      {/* Pagination Footer */}
       <div className="p-3 bg-[#f8fafc] border-t border-slate-300 flex items-center justify-between z-10 shadow-[0_-2px_5px_rgba(0,0,0,0.02)]">
         <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-3">
           <Badge variant="outline" className="text-[#1e3a8a] border-blue-200 bg-white px-2 py-0.5 rounded-sm">REGISTRY NODES: {filteredData.length}</Badge>
@@ -1418,6 +1507,42 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
       </div>
     </div>
 
+    {/* Out Vehicle Popup */}
+    <Dialog open={isOutPopupOpen} onOpenChange={setIsOutPopupOpen}>
+      <DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
+        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
+          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
+            <Truck className="h-4 w-4" /> Out Vehicle Registry
+          </DialogTitle>
+          <DialogDescription className="sr-only">Confirm vehicle departure time and date.</DialogDescription>
+        </DialogHeader>
+        
+        <div className="p-6 space-y-6">
+          <div className="bg-white p-4 border border-slate-200 rounded-sm space-y-2">
+            <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Vehicle</span><span className="text-xs font-black uppercase">{outData.vehicleNumber}</span></div>
+            <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-bold text-blue-800 uppercase">{outData.route}</span></div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-500 uppercase">Out Date</label>
+              <input type="date" value={outData.date} onChange={e => setOutData({...outData, date: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-500 uppercase">Out Time</label>
+              <input type="time" value={outData.time} onChange={e => setOutData({...outData, time: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button onClick={() => setIsOutPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 hover:bg-[#e81123] hover:text-white text-[10px] font-black uppercase">Cancel</Button>
+            <Button onClick={handleConfirmOut} className="h-10 px-8 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase">Confirm</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Assign Vehicle Popup */}
     <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
       <DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
