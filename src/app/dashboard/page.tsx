@@ -22,7 +22,8 @@ import {
   useCollection, 
   useDoc,
   useMemoFirebase,
-  setDocumentNonBlocking 
+  setDocumentNonBlocking,
+  deleteDocumentNonBlocking
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { 
@@ -33,6 +34,8 @@ import {
   DialogDescription
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { format, subDays, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import placeholderData from '@/app/lib/placeholder-images.json';
@@ -760,15 +763,21 @@ export default function SapDashboard() {
                    {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
                  </div>}
                  {showList && <div className="space-y-6">
-                   <div className="bg-[#dae4f1]/30 p-4 md:p-6 border border-slate-300 space-y-4"><label className="text-[11px] font-black uppercase text-slate-500 block">Registry Search Hub</label>
+                   <div className="bg-[#dae4f1]/30 p-4 md:p-6 border border-slate-300 space-y-4 flex flex-col md:flex-row items-center gap-6">
+                     <div className="flex flex-col gap-2 flex-1 w-full"><label className="text-[11px] font-black uppercase text-slate-500 block">Search</label>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                            {activeScreen.startsWith('XD') ? <>
-                               <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Customer ID</label><input className="h-10 border border-slate-400 px-3 text-xs font-black outline-none bg-white" value={xdSearch.customerId} onChange={(e) => setXdSearch({...xdSearch, customerId: e.target.value})} onKeyDown={handleSearchIdEnter} placeholder="ID & ENTER..." /></div>
+                               <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Customer ID</label><input className="h-10 border border-slate-400 px-3 text-xs font-black outline-none bg-white" value={xdSearch.customerId} onChange={(e) => setXdSearch({...xdSearch, customerId: e.target.value})} onKeyDown={handleSearchIdEnter} /></div>
                                <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Select Plant</label><select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold" value={xdSearch.plant} onChange={(e) => setXdSearch({...xdSearch, plant: e.target.value})}><option value="">ALL PLANTS</option>{accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div>
                                <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Select Type</label><select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold" value={xdSearch.type} onChange={(e) => setXdSearch({...xdSearch, type: e.target.value})}><option value="">ALL TYPES</option><option value="Consignor">Consignor</option><option value="Consignee - Ship to Party">Consignee - Ship to Party</option></select></div>
-                               <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Enter Name</label><input className="h-10 border border-slate-400 px-4 text-xs font-black outline-none" value={xdSearch.name} onChange={(e) => setXdSearch({...xdSearch, name: e.target.value})} placeholder="NAME..." /></div>
-                             </> : <div className="col-span-1 md:col-span-4 flex items-center gap-4"><input className="h-11 w-full border border-slate-400 px-4 text-xs font-black outline-none bg-white" value={searchId} onChange={(e) => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE & PRESS ENTER..." /></div>}
+                               <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Enter Name</label><input className="h-10 border border-slate-400 px-4 text-xs font-black outline-none" value={xdSearch.name} onChange={(e) => setXdSearch({...xdSearch, name: e.target.value})} /></div>
+                             </> : <div className="col-span-1 md:col-span-4 flex items-center gap-4"><input className="h-11 w-full border border-slate-400 px-4 text-xs font-black outline-none bg-white" value={searchId} onChange={(e) => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} /></div>}
                         </div>
+                     </div>
+                     <div className="flex flex-col gap-1 border-l border-slate-300 pl-6 shrink-0 h-16 justify-center">
+                        <label className="text-[8px] font-black uppercase text-slate-400">Plant</label>
+                        <div className="text-[10px] font-black text-slate-800 uppercase tracking-tighter">Authorized Hub</div>
+                     </div>
                    </div>
                    <RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} />
                  </div>}
@@ -1187,6 +1196,11 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
   const [isOutPopupOpen, setIsOutPopupOpen] = React.useState(false);
   const [outData, setOutData] = React.useState<any>({ tripId: '', vehicleNumber: '', route: '', date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
   
+  // Assignment Logic (Edit/Unassign)
+  const [isAssignmentPopupOpen, setIsAssignmentPopupOpen] = React.useState(false);
+  const [assignmentMode, setAssignmentMode] = React.useState<'edit' | 'unassign' | null>(null);
+  const [selectedTripForAssignment, setSelectedTripForAssignment] = React.useState<any>(null);
+
   // CN Number Logic
   const [isCnPopupOpen, setIsCnPopupOpen] = React.useState(false);
   const [selectedTripForCn, setSelectedTripForCn] = React.useState<any>(null);
@@ -1278,8 +1292,58 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
     setIsPopupOpen(true); 
   };
 
+  const handleAssignmentClick = (t: any) => {
+    setSelectedTripForAssignment(t);
+    setAssignmentMode(null);
+    setAssignData({
+      vehicleNumber: t.vehicleNumber,
+      driverMobile: t.driverMobile,
+      assignWeight: t.assignWeight,
+      fleetType: t.fleetType,
+      vendorName: t.vendorName,
+      vendorMobile: t.vendorMobile,
+      employee: t.employee,
+      rate: t.rate,
+      freightAmount: t.freightAmount,
+      isFixedRate: t.isFixedRate,
+      plantCode: t.plantCode,
+      consignee: t.consignee,
+      shipToParty: t.shipToParty,
+      route: t.route
+    });
+    setVendorSearch(t.vendorName || '');
+    setIsAssignmentPopupOpen(true);
+  };
+
+  const handleAssignmentPost = () => {
+    if (!assignmentMode) {
+      onStatusUpdate({ text: 'Please select an option (Edit/Unassign)', type: 'error' });
+      return;
+    }
+
+    if (assignmentMode === 'unassign') {
+      deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id));
+      onStatusUpdate({ text: `Trip ${selectedTripForAssignment.tripId} unassigned. Order returned to Open Orders.`, type: 'success' });
+    } else {
+      setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id), {
+        vehicleNumber: assignData.vehicleNumber,
+        driverMobile: assignData.driverMobile,
+        assignWeight: parseFloat(assignData.assignWeight || 0),
+        fleetType: assignData.fleetType,
+        vendorName: assignData.vendorName || '',
+        vendorMobile: assignData.vendorMobile || '',
+        employee: assignData.employee || '',
+        rate: parseFloat(assignData.rate || 0),
+        freightAmount: parseFloat(assignData.freightAmount || 0),
+        isFixedRate: !!assignData.isFixedRate,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      onStatusUpdate({ text: `Trip ${selectedTripForAssignment.tripId} updated successfully.`, type: 'success' });
+    }
+    setIsAssignmentPopupOpen(false);
+  };
+
   const handleOutVehicle = (t: any) => {
-    // Dependency Check: Own/Contract/Market must have CN
     if (['Own Vehicle', 'Contract Vehicle', 'Market Vehicle'].includes(t.fleetType) && !t.cnNo) {
       onStatusUpdate({ text: 'Add CN Number before Out Vehicle', type: 'error' });
       return;
@@ -1308,7 +1372,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
     onStatusUpdate({ text: `Vehicle ${outData.vehicleNumber} is now IN-TRANSIT`, type: 'success' });
   };
 
-  // Recently used CNs Logic
   const recentCns = React.useMemo(() => {
     if (!trips) return [];
     const list = trips.filter((t: any) => t.cnNo).map((t: any) => t.cnNo);
@@ -1367,9 +1430,9 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
       saleOrderNumber: selectedOrder.saleOrder, 
       plantCode: assignData.plantCode, 
       shipToParty: assignData.shipToParty, 
+      consignee: selectedOrder.consignee,
       route: assignData.route, 
       consignor: selectedOrder.consignor, 
-      consignee: selectedOrder.consignee, 
       from: selectedOrder.from || '',
       destination: selectedOrder.destination || '',
       vehicleNumber: assignData.vehicleNumber, 
@@ -1447,7 +1510,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
             <tr className="bg-[#f8fafc] text-[9px] font-black uppercase sticky top-0 border-b border-slate-300 z-10">
               {activeTab === 'Open Orders' ? 
                 ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>) : 
-                ['Plant', 'Trip ID', 'Route', 'Vehicle No', 'Assign Qty', 'CN Number', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}
+                ['Plant', 'Trip ID', 'Consignee', 'Ship to Party', 'Route', 'Vehicle No', 'Assign Qty', 'CN Number', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -1490,6 +1553,8 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
                         <div className="text-[#0056d2] font-black">#{t.tripId}</div>
                         <div className="text-[9px] text-slate-400 font-bold uppercase">{format(new Date(t.createdAt), 'dd/MM/yyyy HH:mm')}</div>
                       </td>
+                      <td className="p-3 uppercase">{t.consignee}</td>
+                      <td className="p-3 uppercase">{t.shipToParty}</td>
                       <td className="p-3 uppercase">{t.route}</td>
                       <td className="p-3 space-y-0.5">
                         <div className="uppercase">{t.vehicleNumber}</div>
@@ -1508,11 +1573,18 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
                         </div>
                       </td>
                       <td className="p-3">
-                        {activeTab === 'Loading' ? (
-                          <Button onClick={() => handleOutVehicle(t)} size="sm" className="text-[9px] bg-emerald-600 hover:bg-emerald-700 text-white font-black h-7 px-3 uppercase tracking-tighter">Out Vehicle</Button>
-                        ) : (
-                          <Button size="sm" className="text-[9px] bg-slate-100 text-slate-600 h-7 px-3 uppercase tracking-tighter">Action</Button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {activeTab === 'Loading' && (
+                            <Button onClick={() => handleOutVehicle(t)} size="sm" className="text-[9px] bg-emerald-600 hover:bg-emerald-700 text-white font-black h-7 px-3 uppercase tracking-tighter">Out Vehicle</Button>
+                          )}
+                          <Button 
+                            onClick={() => handleAssignmentClick(t)} 
+                            size="sm" 
+                            className="text-[9px] bg-yellow-400 hover:bg-yellow-500 text-black font-black h-7 px-3 uppercase tracking-tighter"
+                          >
+                            Assignment
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1525,7 +1597,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
 
       <div className="p-3 bg-[#f8fafc] border-t border-slate-300 flex items-center justify-between z-10 shadow-[0_-2px_5px_rgba(0,0,0,0.02)]">
         <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-3">
-          <Badge variant="outline" className="text-[#1e3a8a] border-blue-200 bg-white px-2 py-0.5 rounded-sm">REGISTRY NODES: {filteredData.length}</Badge>
           <span>SHOWING {paginatedData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} — {Math.min(currentPage * itemsPerPage, filteredData.length)} OF {filteredData.length}</span>
         </div>
         
@@ -1556,6 +1627,108 @@ function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }
         </div>
       </div>
     </div>
+
+    {/* Assignment Popup (Edit/Unassign) */}
+    <Dialog open={isAssignmentPopupOpen} onOpenChange={setIsAssignmentPopupOpen}>
+      <DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
+        <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
+          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
+            <Truck className="h-4 w-4" /> Assignment Management
+          </DialogTitle>
+          <DialogDescription className="sr-only">Edit or unassign the current vehicle assignment.</DialogDescription>
+        </DialogHeader>
+        
+        <div className="p-4 md:p-8 space-y-6 max-h-[80vh] overflow-y-auto green-scrollbar">
+          {/* Read Only Header */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 border border-slate-200 rounded-sm shadow-inner opacity-80">
+            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[10px] font-black truncate">{selectedTripForAssignment?.shipToParty}</span></div>
+            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black truncate">{selectedTripForAssignment?.route}</span></div>
+            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle No</span><span className="text-[10px] font-black">{selectedTripForAssignment?.vehicleNumber}</span></div>
+          </div>
+
+          <div className="bg-white p-6 border border-slate-200 shadow-sm relative">
+            <div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-slate-400 uppercase border border-slate-100">Selection Type *</div>
+            <RadioGroup 
+              value={assignmentMode || ""} 
+              onValueChange={(v: any) => setAssignmentMode(v)}
+              className="flex gap-8"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="edit" id="mode-edit" className="border-[#1e3a8a] text-[#1e3a8a]" />
+                <Label htmlFor="mode-edit" className="text-xs font-black uppercase text-[#1e3a8a] cursor-pointer">Edit Assignment</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="unassign" id="mode-unassign" className="border-red-600 text-red-600" />
+                <Label htmlFor="mode-unassign" className="text-xs font-black uppercase text-red-600 cursor-pointer">Unassign Vehicle</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {assignmentMode === 'edit' && (
+            <div className="animate-fade-in space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-white p-6 border border-slate-200 shadow-sm">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase">Vehicle Number *</label>
+                  <input value={assignData.vehicleNumber || ''} onChange={e => setAssignData({...assignData, vehicleNumber: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase">Driver Mobile *</label>
+                  <input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase">Assign Qty *</label>
+                  <input type="number" value={assignData.assignWeight || ''} onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase">Fleet Type *</label>
+                  <select value={assignData.fleetType} onChange={e => setAssignData({...assignData, fleetType: e.target.value, vendorName: '', vendorMobile: '', employee: '', rate: 0, freightAmount: 0})} className="h-10 border border-slate-400 px-3 text-xs font-black">
+                    <option value="Own Vehicle">Own Vehicle</option>
+                    <option value="Contract Vehicle">Contract Vehicle</option>
+                    <option value="Market Vehicle">Market Vehicle</option>
+                    <option value="Arrange by Party">Arrange by Party</option>
+                  </select>
+                </div>
+              </div>
+
+              {assignData.fleetType === 'Market Vehicle' && (
+                <div className="bg-white p-6 border border-blue-200 shadow-md relative">
+                  <div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-blue-600 uppercase border border-blue-100">Market Coordination</div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-black text-slate-500 uppercase">Vendor Name *</label>
+                      <input 
+                        value={vendorSearch} 
+                        onChange={e => { setVendorSearch(e.target.value); setShowVS(true); }} 
+                        className="h-10 w-full border border-slate-400 px-3 text-xs font-black" 
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-black text-slate-500 uppercase">Employee *</label>
+                      <input value={assignData.employee || ''} onChange={e => setAssignData({...assignData, employee: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black text-slate-500 uppercase">Rate</label>
+                        <div className="flex items-center gap-2">
+                          <Checkbox id="assign-fix-rate" checked={assignData.isFixedRate} onCheckedChange={(c) => setAssignData({...assignData, isFixedRate: !!c})} />
+                          <label htmlFor="assign-fix-rate" className="text-[9px] font-black text-blue-600 cursor-pointer">Fix Rate</label>
+                        </div>
+                      </div>
+                      <input type="number" value={assignData.rate || ''} disabled={assignData.isFixedRate} onChange={e => setAssignData({...assignData, rate: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+            <Button onClick={() => setIsAssignmentPopupOpen(false)} variant="outline" className="h-11 px-8 border-slate-300 hover:bg-[#e81123] hover:text-white text-[10px] font-black uppercase tracking-widest">Cancel</Button>
+            <Button onClick={handleAssignmentPost} className="h-11 px-12 bg-[#0056d2] hover:bg-blue-900 text-white text-[10px] font-black uppercase tracking-widest shadow-lg">Post</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
 
     {/* Add CN Popup */}
     <Dialog open={isCnPopupOpen} onOpenChange={setIsCnPopupOpen}>
