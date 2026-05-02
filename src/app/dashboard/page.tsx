@@ -196,7 +196,8 @@ export default function SapDashboard() {
     let filename = "";
     
     if (activeScreen.startsWith('VA')) {
-      headers = "Plant,SaleOrderNo,Consignor,ShipToParty,InvoiceNumber,EwaybillNumber,Product,Weight,UOM";
+      // Updated to match the form sections: HEADER, COORDINATION, ITEMS as shown in provided image
+      headers = "Plant,SaleOrderNo,Consignor,From,ShipToParty,Destination,Invoice,Ewaybill,Product,Weight,UOM";
       filename = "VA01_SALES_ORDER_TEMPLATE.csv";
     } else if (activeScreen.startsWith('XD')) {
       headers = "PlantCodes,CustomerCode,CustomerName,CustomerType,Address,City,Mobile";
