@@ -552,9 +552,9 @@ export default function SapDashboard() {
             )}
           </div>
           <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
-             <button onClick={handleSave} disabled={activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title="Save (F8)"><Save className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={handleSave} disabled={activeScreen === 'HOME' || isReadOnly} className={cn("p-1 rounded", (activeScreen === 'HOME' || isReadOnly) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title="Save (F8)"><Save className="h-4 w-4 text-slate-600" /></button>
              <button onClick={() => executeTCode('/n')} className="p-1 hover:bg-slate-200 rounded" title="Exit (F3)"><Undo2 className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={handleCancel} disabled={activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title="Cancel (F12)"><XCircle className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={handleCancel} disabled={activeScreen === 'HOME' || isReadOnly} className={cn("p-1 rounded", (activeScreen === 'HOME' || isReadOnly) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title="Cancel (F12)"><XCircle className="h-4 w-4 text-slate-600" /></button>
              <button onClick={() => window.open(window.location.href, '_blank')} className={cn("p-1 rounded hover:bg-slate-200")} title="New Session"><PlusSquare className="h-4 w-4 text-slate-600" /></button>
           </div>
           <div className="flex-1" /><div className="flex items-center gap-3 pr-4">
