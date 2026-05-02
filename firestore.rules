@@ -15,6 +15,11 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    // Shared Company Hub: Allow all authorized employees to access Sikka Industries shared data
+    match /users/Sikkaind/{collectionName}/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
     match /users/{userId}/{collectionName}/{docId} {
       allow read, write: if isOwner(userId);
     }

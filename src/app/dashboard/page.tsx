@@ -63,6 +63,8 @@ const MASTER_TCODES = [
   { code: 'ZCODE', description: 'SYSTEM: ALL ACTIVE T-CODES', icon: Grid2X2, module: 'System' },
 ];
 
+const SHARED_HUB_ID = 'Sikkaind'; // Centralized Hub ID for company-wide shared data
+
 export default function SapDashboard() {
   const router = useRouter();
   const { toast } = useToast();
@@ -107,12 +109,13 @@ export default function SapDashboard() {
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
 
-  const ordersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'sales_orders') : null, [user, db]);
-  const tripsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'trips') : null, [user, db]);
-  const plantsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'plants') : null, [user, db]);
-  const companiesQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'companies') : null, [user, db]);
-  const vendorsQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'vendors') : null, [user, db]);
-  const customersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'customers') : null, [user, db]);
+  // SHARED DATA FETCHING: Using SHARED_HUB_ID instead of user.uid for company-wide visibility
+  const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
+  const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
+  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
+  const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
+  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
   const usersQuery = useMemoFirebase(() => collection(db, 'user_registry'), [db]);
   
   const { data: rawOrders } = useCollection(ordersQuery);
@@ -264,7 +267,7 @@ export default function SapDashboard() {
       if (activeScreen === 'VA04') {
         const o = allOrders?.find(ord => (ord.saleOrder || ord.id)?.toString().toUpperCase() === localData.saleOrder?.toString().toUpperCase());
         if (!o) { setStatusMsg({ text: `Error: Order ${localData.saleOrder} not found`, type: 'error' }); return; }
-        setDocumentNonBlocking(doc(db, 'users', user.uid, 'sales_orders', o.id), { status: 'CANCELLED', updatedAt: new Date().toISOString() }, { merge: true });
+        setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: 'CANCELLED', updatedAt: new Date().toISOString() }, { merge: true });
         setStatusMsg({ text: `Success: Order ${localData.saleOrder} CANCELLED`, type: 'success' }); setFormData({}); return;
       }
       if (activeScreen.startsWith('SU')) {
@@ -294,8 +297,14 @@ export default function SapDashboard() {
 
     if (col) {
       const isSys = col === 'user_registry';
-      const docRef = isSys ? doc(db, 'user_registry', docId) : doc(db, 'users', user.uid, col, docId);
-      const payload = { ...localData, id: docId, updatedAt: new Date().toISOString() };
+      // DATA HUB SYNC: Saving to SHARED_HUB_ID for organization-wide access
+      const docRef = isSys ? doc(db, 'user_registry', docId) : doc(db, 'users', SHARED_HUB_ID, col, docId);
+      const payload = { 
+        ...localData, 
+        id: docId, 
+        updatedAt: new Date().toISOString(),
+        createdAt: localData.createdAt || new Date().toISOString()
+      };
       setDocumentNonBlocking(docRef, payload, { merge: true });
       setStatusMsg({ text: `Synchronized successfully`, type: 'success' });
       
@@ -664,7 +673,7 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
   const fOrders = React.useMemo(() => (orders || []).filter(o => o.status !== 'CANCELLED').map(o => ({ ...o, ...getStats(o) })).filter(o => o.bal > 0), [orders, trips]);
   const fTrips = React.useMemo(() => { if (!trips) return []; const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; return trips.filter(t => t.status === map[activeTab]); }, [trips, activeTab]);
   const handleAssign = (o: any) => { setSelectedOrder(o); setAssignData({ plantCode: o.plantCode, consignee: o.consignee, shipToParty: o.shipToParty, route: o.route || '', orderQty: `${o.bal} ${o.uom}`, fleetType: 'Own Vehicle', assignWeight: o.bal }); setIsPopupOpen(true); };
-  const handlePost = () => { if (!user || !selectedOrder) return; const tId = `T${Math.floor(100000000 + Math.random() * 900000000)}`; const newId = crypto.randomUUID(); const p = { id: newId, tripId: tId, saleOrderId: selectedOrder.id, saleOrderNumber: selectedOrder.saleOrder, plantCode: assignData.plantCode, shipToParty: assignData.shipToParty, route: assignData.route, consignor: selectedOrder.consignor, consignee: selectedOrder.consignee, vehicleNumber: assignData.vehicleNumber, driverMobile: assignData.driverMobile, fleetType: assignData.fleetType, vendorName: assignData.vendorName, assignWeight: parseFloat(assignData.assignWeight || 0), status: 'LOADING', createdAt: new Date().toISOString() }; setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', newId), p, { merge: true }); setIsPopupOpen(false); setSelectedOrder(null); onStatusUpdate({ text: `Trip ${tId} posted to Loading`, type: 'success' }); };
+  const handlePost = () => { if (!user || !selectedOrder) return; const tId = `T${Math.floor(100000000 + Math.random() * 900000000)}`; const newId = crypto.randomUUID(); const p = { id: newId, tripId: tId, saleOrderId: selectedOrder.id, saleOrderNumber: selectedOrder.saleOrder, plantCode: assignData.plantCode, shipToParty: assignData.shipToParty, route: assignData.route, consignor: selectedOrder.consignor, consignee: selectedOrder.consignee, vehicleNumber: assignData.vehicleNumber, driverMobile: assignData.driverMobile, fleetType: assignData.fleetType, vendorName: assignData.vendorName, assignWeight: parseFloat(assignData.assignWeight || 0), status: 'LOADING', createdAt: new Date().toISOString() }; setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', newId), p, { merge: true }); setIsPopupOpen(false); setSelectedOrder(null); onStatusUpdate({ text: `Trip ${tId} posted to Loading`, type: 'success' }); };
   const mVendors = (vendors || []).filter((v: any) => v.vendorName?.toUpperCase().includes(vendorSearch.toUpperCase()));
   return <div className="flex flex-col h-full space-y-4"><div className="flex border-b border-slate-300 bg-[#dae4f1]/30">{TABS.map(t => <button key={t} onClick={() => setActiveTab(t)} className={cn("px-6 py-2.5 text-[10px] font-black uppercase tracking-widest", activeTab === t ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700")}>{t}</button>)}</div>
     <div className="flex-1 overflow-auto bg-white border border-slate-300"><table className="w-full text-left"><thead><tr className="bg-[#f8fafc] text-[9px] font-black uppercase sticky top-0">{activeTab === 'Open Orders' ? ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r">{h}</th>) : ['Trip ID', 'Vehicle No', 'Plant', 'Consignee', 'Ship to Party', 'Route', 'Assign Qty', 'Action', 'Sync Hub'].map(h => <th key={h} className="p-3 border-r">{h}</th>)}</tr></thead>
