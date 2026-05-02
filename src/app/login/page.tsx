@@ -15,7 +15,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 
 /**
  * @fileOverview Portal Login page.
- * Implements strict credential-based access control against the user_registry collection.
+ * Implements strict credential-based access control with master admin override.
  */
 export default function LoginPage() {
   const router = useRouter();
@@ -34,48 +34,40 @@ export default function LoginPage() {
     setIsLoading(true);
     setErrorMsg('');
 
-    try {
-      // Hardcoded Admin Check
-      const isMasterAdmin = credentials.username.trim() === 'Sikkaind' && credentials.password.trim() === 'Sikka@lmc2105';
+    const username = credentials.username.trim();
+    const password = credentials.password.trim();
 
-      // Background handshake to establish Firebase session
+    try {
+      // MANDATORY: Admin Credential Verification
+      const isMasterAdmin = username === 'Sikkaind' && password === 'Sikka@lmc2105';
+
+      // Background session handshake
       await signInAnonymously(auth);
       
-      // Check registry for user
+      if (isMasterAdmin) {
+        localStorage.setItem('sap_bootstrap_session', 'true');
+        router.push('/dashboard');
+        return;
+      }
+
+      // Check registry for non-admin users
       const q = query(
         collection(db, 'user_registry'),
-        where('username', '==', credentials.username.trim()),
-        where('password', '==', credentials.password.trim())
+        where('username', '==', username),
+        where('password', '==', password)
       );
       
       const snapshot = await getDocs(q);
       
       if (snapshot.empty) {
-        // Fallback: Initial Bootstrap or Master Admin Override
-        const allSnap = await getDocs(collection(db, 'user_registry'));
-        
-        if (allSnap.empty && isMasterAdmin) {
-           // First time setup - registry is empty
-           localStorage.setItem('sap_bootstrap_session', 'true');
-           router.push('/dashboard');
-           return;
-        }
-
-        if (isMasterAdmin) {
-          // Master admin override even if registry is not empty (Super User access)
-          localStorage.setItem('sap_bootstrap_session', 'true');
-          router.push('/dashboard');
-          return;
-        }
-
-        setErrorMsg('Access Denied: Invalid Credentials or Unregistered Account');
+        setErrorMsg('ACCESS DENIED: INVALID CREDENTIALS OR UNREGISTERED ACCOUNT');
         await auth.signOut();
       } else {
         localStorage.removeItem('sap_bootstrap_session');
         router.push('/dashboard');
       }
     } catch (err: any) {
-      setErrorMsg('Mission Handshake Error: ' + err.message);
+      setErrorMsg('ACCESS DENIED: SYSTEM HANDSHAKE ERROR');
       await auth.signOut();
     } finally {
       setIsLoading(false);

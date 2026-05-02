@@ -68,7 +68,8 @@ export default function SapDashboard() {
   const { toast } = useToast();
   const { user, isUserLoading, userError } = useUser();
   const db = useFirestore();
-  
+
+  // All Hooks must be at the very top, before any return statements.
   const [tCode, setTCode] = React.useState('');
   const [history, setHistory] = React.useState<string[]>([]);
   const [showHistory, setShowHistory] = React.useState(false);
@@ -86,6 +87,11 @@ export default function SapDashboard() {
 
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const monthRef = React.useRef<HTMLDivElement>(null);
+
+  const isBootstrapAdmin = React.useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('sap_bootstrap_session') === 'true';
+  }, []);
 
   const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
@@ -106,20 +112,11 @@ export default function SapDashboard() {
   const { data: rawCustomers } = useCollection(customersQuery);
   const { data: allUsers, isLoading: isAllUsersLoading } = useCollection(usersQuery);
 
-  const isBootstrapAdmin = React.useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('sap_bootstrap_session') === 'true';
-  }, []);
-
-  const getAuthorizedPlants = React.useCallback(() => userProfile?.plants || [], [userProfile]);
-
   const isAuthorized = React.useCallback((code: string) => {
     if (code === 'HOME' || code === '' || isBootstrapAdmin) return true;
-
-    const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
     if (!userProfile) {
-      if (registryIsEmpty) return true;
-      return false;
+      const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
+      return registryIsEmpty;
     }
     return userProfile.tcodes?.includes(code);
   }, [userProfile, allUsers, isBootstrapAdmin]);
@@ -151,14 +148,14 @@ export default function SapDashboard() {
       if (exists) { setStatusMsg({ text: `ID/Number ${localData.customerCode || localData.id} Already exists, duplicate not allowed`, type: 'error' }); return; }
     }
     if (activeScreen.startsWith('VA') && activeScreen !== 'VA04') {
-      if (!(localData.plantCode && localData.saleOrder && localData.consignor && localData.items?.length && localData.items.every((it: any) => it.weight && it.weightUom))) {
-        setStatusMsg({ text: 'Error: Mandatory header fields and item weight/UOM are required', type: 'error' }); return;
+      if (!(localData.plantCode && localData.saleOrder && localData.consignor && localData.items?.length)) {
+        setStatusMsg({ text: 'Error: Mandatory header fields and items are required', type: 'error' }); return;
       }
     }
     if (activeScreen === 'VA04') {
       const o = rawOrders?.find(ord => (ord.saleOrder || ord.id)?.toString().toUpperCase() === localData.saleOrder?.toString().toUpperCase());
       if (!o) { setStatusMsg({ text: `Error: Order ${localData.saleOrder} not found`, type: 'error' }); return; }
-      setDocumentNonBlocking(doc(db, 'users', user.uid, 'sales_orders', o.id), { status: 'CANCELLED', cancellationReason: localData.reason, updatedAt: new Date().toISOString() }, { merge: true });
+      setDocumentNonBlocking(doc(db, 'users', user.uid, 'sales_orders', o.id), { status: 'CANCELLED', updatedAt: new Date().toISOString() }, { merge: true });
       setStatusMsg({ text: `Success: Order ${localData.saleOrder} CANCELLED`, type: 'success' }); setFormData({}); return;
     }
     if (activeScreen.startsWith('SU')) {
@@ -233,25 +230,6 @@ export default function SapDashboard() {
   }, [user, userProfile, isUserLoading, isProfileLoading, isAllUsersLoading, allUsers, router, toast, isBootstrapAdmin]);
 
   React.useEffect(() => {
-    function handleClickOutside(e: MouseEvent) { if (monthRef.current && !monthRef.current.contains(e.target as Node)) setShowMonthCalendar(false); }
-    document.addEventListener("mousedown", handleClickOutside); return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const channel = new BroadcastChannel('sap_session_hub');
-    const myId = Math.random().toString(36).substring(7);
-    const nodes = new Set<string>();
-    const handleMsg = (m: any) => {
-      if (m.data.type === 'PING') channel.postMessage({ type: 'PONG', id: myId });
-      else if (m.data.type === 'PONG') { nodes.add(m.data.id); setSessionCount(nodes.size + 1); }
-    };
-    channel.onmessage = handleMsg;
-    const interval = setInterval(() => { nodes.clear(); channel.postMessage({ type: 'PING' }); }, 1500);
-    return () => { clearInterval(interval); channel.close(); };
-  }, []);
-
-  React.useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (['F3', 'F4', 'F8', 'F12'].includes(e.key)) e.preventDefault();
       if (e.key === 'F8') handleSave();
@@ -269,19 +247,22 @@ export default function SapDashboard() {
     window.addEventListener('keydown', handleGlobalKeyDown); return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [activeScreen, handleSave, handleCancel, executeTCode, showHistory, historyIndex, history, router, tCode]);
 
+  // Conditional returns MUST come after all Hook definitions.
   if (isUserLoading || isProfileLoading || isAllUsersLoading) {
     return <div className="h-screen w-full bg-[#f0f3f9] flex flex-col items-center justify-center font-mono space-y-4">
-      <div className="w-8 h-8 border-2 border-[#1e3a8a] border-t-transparent rounded-full animate-spin" /><span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Handshaking Hub Node...</span>
+      <div className="w-8 h-8 border-2 border-[#1e3a8a] border-t-transparent rounded-full animate-spin" /><span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Hub Node Synchronizing...</span>
     </div>;
   }
 
   if (userError) {
     return <div className="h-screen w-full bg-red-50 flex flex-col items-center justify-center font-mono p-12 text-center">
-      <AlertTriangle className="h-12 w-12 text-red-600 mb-4" /><h2 className="text-xl font-black uppercase text-red-600 mb-2">Auth Node Exception</h2>
+      <AlertTriangle className="h-12 w-12 text-red-600 mb-4" /><h2 className="text-xl font-black uppercase text-red-600 mb-2">Registry Exception</h2>
       <p className="text-xs font-bold text-red-400 max-w-md">{userError.message}</p>
-      <button onClick={() => window.location.reload()} className="mt-8 px-8 py-3 bg-red-600 text-white font-black uppercase text-[10px] tracking-widest shadow-lg">Restart Session</button>
+      <button onClick={() => window.location.reload()} className="mt-8 px-8 py-3 bg-red-600 text-white font-black uppercase text-[10px] tracking-widest shadow-lg">Restart Node</button>
     </div>;
   }
+
+  const getAuthorizedPlants = () => userProfile?.plants || [];
 
   const getRegistryList = () => {
     if (activeScreen.startsWith('OX')) return rawPlants || [];
@@ -383,7 +364,7 @@ export default function SapDashboard() {
                </div>
              )}
              <button onClick={() => window.print()} className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Printer className="h-4 w-4" /></button>
-             <button onClick={() => router.push('/login')} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700"><LogOut className="h-3.5 w-3.5" /> Log Off</button>
+             <button onClick={() => { localStorage.removeItem('sap_bootstrap_session'); router.push('/login'); }} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700"><LogOut className="h-3.5 w-3.5" /> Log Off</button>
           </div>
         </div>
       </div>
@@ -406,14 +387,14 @@ export default function SapDashboard() {
           <div className="flex-1 overflow-y-auto p-4 relative">
             {activeScreen === 'HOME' ? (
               <div className="w-full h-full flex flex-col p-4 space-y-8 animate-fade-in">
-                <h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter">Sikka Logistics Management control</h1>
+                <h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter">Sikka Logistics Hub Control</h1>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 border border-slate-300 shadow-sm">
-                  <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Plant</label>
+                  <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Authorized Plant Hub</label>
                     <select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none" value={homePlantFilter} onChange={(e) => setHomePlantFilter(e.target.value)}>
                       <option value="ALL">ALL AUTHORIZED PLANTS</option>{rawPlants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
                     </select>
                   </div>
-                  <div className="flex flex-col gap-2 relative" ref={monthRef}><label className="text-[10px] font-black uppercase text-slate-400">Month</label>
+                  <div className="flex flex-col gap-2 relative" ref={monthRef}><label className="text-[10px] font-black uppercase text-slate-400">Node Period</label>
                     <div onClick={() => setShowMonthCalendar(!showMonthCalendar)} className="h-10 border border-slate-400 bg-white px-3 flex items-center justify-between cursor-pointer shadow-sm"><span className="text-xs font-bold text-slate-700 uppercase">{format(new Date(homeMonthFilter + '-01'), 'MMMM yyyy')}</span><CalendarIcon className="h-4 w-4 text-slate-400" /></div>
                     {showMonthCalendar && (
                       <div className="absolute top-full left-0 mt-1 z-[60] flex flex-col border border-slate-300 bg-white rounded-lg shadow-2xl w-full max-w-[320px] animate-slide-down">
@@ -451,7 +432,7 @@ export default function SapDashboard() {
                    {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
                  </div>}
                  {showList && <div className="space-y-6">
-                   <div className="bg-[#dae4f1]/30 p-6 border border-slate-300 space-y-4"><label className="text-[11px] font-black uppercase text-slate-500 block">Transaction Search Hub</label>
+                   <div className="bg-[#dae4f1]/30 p-6 border border-slate-300 space-y-4"><label className="text-[11px] font-black uppercase text-slate-500 block">Registry Search Hub</label>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                            {activeScreen.startsWith('XD') ? <>
                                <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Customer ID</label><input className="h-10 border border-slate-400 px-3 text-xs font-black outline-none bg-white" value={xdSearch.customerId} onChange={(e) => setXdSearch({...xdSearch, customerId: e.target.value})} onKeyDown={handleSearchIdEnter} placeholder="ID & ENTER..." /></div>
@@ -463,7 +444,7 @@ export default function SapDashboard() {
                    </div>
                    <RegistryList onSelectItem={setFormData} listData={getRegistryList()} />
                  </div>}
-                 {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} vendors={rawVendors} plants={rawPlants} companies={rawCompanies} onStatusUpdate={setStatusMsg} />}
+                 {activeScreen === 'TR21' && <DripBoard orders={rawOrders} trips={allTrips} vendors={rawVendors} plants={rawPlants} onStatusUpdate={setStatusMsg} />}
                  {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               </div>
             )}
@@ -476,6 +457,8 @@ export default function SapDashboard() {
     </div>
   );
 }
+
+// Consolidating all sub-components at the bottom to ensure single definitions.
 
 function SectionGrouping({ title, children }: { title: string, children: React.ReactNode }) {
   return (
@@ -597,24 +580,21 @@ function RegistryList({ onSelectItem, listData }: any) {
     </tbody></table></div>;
 }
 
-function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }: any) {
-  const { user } = useUser(); const db = useFirestore(); const [activeTab, setActiveTab] = React.useState('Open Orders'); const [selectedOrder, setSelectedOrder] = React.useState<any>(null); const [isPopupOpen, setIsPopupOpen] = React.useState(false); const [assignData, setAssignData] = React.useState<any>({ fleetType: 'Own Vehicle', isFixedRate: false }); const [vendorSearch, setVendorSearch] = React.useState(''); const [showVS, setShowVS] = React.useState(false);
-  const [cnPopup, setCnPopup] = React.useState<{ isOpen: boolean, trip: any | null, isEdit: boolean }>({ isOpen: false, trip: null, isEdit: false }); const [cnData, setCnData] = React.useState<any>({}); const [cnPreview, setCnPreview] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null }); const [vEditP, setVEditP] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null }); const [vEditD, setVEditD] = React.useState<any>({}); const [vOutP, setVOutP] = React.useState<{ isOpen: boolean, trip: any | null }>({ isOpen: false, trip: null }); const [vOutD, setVOutD] = React.useState<any>({});
+function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
+  const { user } = useUser(); const db = useFirestore(); const [activeTab, setActiveTab] = React.useState('Open Orders'); const [selectedOrder, setSelectedOrder] = React.useState<any>(null); const [isPopupOpen, setIsPopupOpen] = React.useState(false); const [assignData, setAssignData] = React.useState<any>({ fleetType: 'Own Vehicle' }); const [vendorSearch, setVendorSearch] = React.useState(''); const [showVS, setShowVS] = React.useState(false);
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
-  const getStats = (o: any) => { const tot = o.items?.reduce((a: number, i: any) => a + (parseFloat(i.weight) || 0), 0) || 0; const ass = trips?.filter((t: any) => t.saleOrderId === o.id && t.status !== 'CANCELLED').reduce((a: number, t: any) => a + (t.assignWeight || 0), 0) || 0; return { tot, ass, bal: tot - ass, uom: o.items?.[0]?.weightUom || 'MT' }; };
+  const getStats = (o: any) => { const tot = o.items?.reduce((a: number, i: any) => a + (parseFloat(i.weight) || 0), 0) || 0; const ass = trips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (t.assignWeight || 0), 0) || 0; return { tot, ass, bal: tot - ass, uom: o.items?.[0]?.weightUom || 'MT' }; };
   const fOrders = React.useMemo(() => (orders || []).filter(o => o.status !== 'CANCELLED').map(o => ({ ...o, ...getStats(o) })).filter(o => o.bal > 0), [orders, trips]);
   const fTrips = React.useMemo(() => { if (!trips) return []; const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; return trips.filter(t => t.status === map[activeTab]); }, [trips, activeTab]);
-  const handleAssign = (o: any) => { setSelectedOrder(o); setAssignData({ plantCode: o.plantCode, consignee: o.consignee, shipToParty: o.shipToParty, route: o.route || '', orderQty: `${o.bal} ${o.uom}`, fleetType: 'Own Vehicle', isFixedRate: false, assignWeight: o.bal }); setIsPopupOpen(true); };
-  const handlePost = () => { if (!user || !selectedOrder) return; const tId = `T${Math.floor(100000000 + Math.random() * 900000000)}`; const newId = crypto.randomUUID(); const p = { id: newId, tripId: tId, saleOrderId: selectedOrder.id, saleOrderNumber: selectedOrder.saleOrder, plantCode: assignData.plantCode, shipToParty: assignData.shipToParty, route: assignData.route, consignor: selectedOrder.consignor, consignee: selectedOrder.consignee, vehicleNumber: assignData.vehicleNumber, driverMobile: assignData.driverMobile, fleetType: assignData.fleetType, vendorName: assignData.vendorName, vendorMobile: assignData.vendorMobile, rate: parseFloat(assignData.rate || 0), isFixedRate: assignData.isFixedRate, freightAmount: parseFloat(assignData.freightAmount || 0), assignWeight: parseFloat(assignData.assignWeight || 0), status: 'LOADING', createdAt: new Date().toISOString() }; setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', newId), p, { merge: true }); setIsPopupOpen(false); setSelectedOrder(null); onStatusUpdate({ text: `Trip ${tId} posted to Loading`, type: 'success' }); };
+  const handleAssign = (o: any) => { setSelectedOrder(o); setAssignData({ plantCode: o.plantCode, consignee: o.consignee, shipToParty: o.shipToParty, route: o.route || '', orderQty: `${o.bal} ${o.uom}`, fleetType: 'Own Vehicle', assignWeight: o.bal }); setIsPopupOpen(true); };
+  const handlePost = () => { if (!user || !selectedOrder) return; const tId = `T${Math.floor(100000000 + Math.random() * 900000000)}`; const newId = crypto.randomUUID(); const p = { id: newId, tripId: tId, saleOrderId: selectedOrder.id, saleOrderNumber: selectedOrder.saleOrder, plantCode: assignData.plantCode, shipToParty: assignData.shipToParty, route: assignData.route, consignor: selectedOrder.consignor, consignee: selectedOrder.consignee, vehicleNumber: assignData.vehicleNumber, driverMobile: assignData.driverMobile, fleetType: assignData.fleetType, vendorName: assignData.vendorName, assignWeight: parseFloat(assignData.assignWeight || 0), status: 'LOADING', createdAt: new Date().toISOString() }; setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', newId), p, { merge: true }); setIsPopupOpen(false); setSelectedOrder(null); onStatusUpdate({ text: `Trip ${tId} posted to Loading`, type: 'success' }); };
   const mVendors = (vendors || []).filter((v: any) => v.vendorName?.toUpperCase().includes(vendorSearch.toUpperCase()));
   return <div className="flex flex-col h-full space-y-4"><div className="flex border-b border-slate-300 bg-[#dae4f1]/30">{TABS.map(t => <button key={t} onClick={() => setActiveTab(t)} className={cn("px-6 py-2.5 text-[10px] font-black uppercase tracking-widest", activeTab === t ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700")}>{t}</button>)}</div>
-    <div className="flex-1 overflow-auto bg-white border border-slate-300"><table className="w-full text-left"><thead><tr className="bg-[#f8fafc] text-[9px] font-black uppercase sticky top-0">{activeTab === 'Open Orders' ? ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r">{h}</th>) : ['Trip ID', 'Vehicle No', 'Plant', 'Consignee', 'Ship to Party', 'Route', 'Assign Qty', 'CN Number', 'Action', 'Sync'].map(h => <th key={h} className="p-3 border-r">{h}</th>)}</tr></thead>
-      <tbody>{activeTab === 'Open Orders' ? fOrders.map(o => <tr key={o.id} className="border-b text-[11px] font-bold"><td className="p-3">{o.plantCode}</td><td className="p-3 text-[#0056d2] font-black">{o.saleOrder}</td><td className="p-3 uppercase">{o.consignor}</td><td className="p-3 uppercase">{o.consignee}</td><td className="p-3 uppercase">{o.shipToParty}</td><td className="p-3 uppercase">{o.route}</td><td className="p-3 font-black">{o.tot} {o.uom}</td><td className="p-3 text-emerald-600">{o.ass} {o.uom}</td><td className="p-3 text-red-600 font-black">{o.bal} {o.uom}</td><td className="p-3"><Button onClick={() => handleAssign(o)} size="sm" className="bg-[#0056d2] text-white font-black text-[9px]">Assign</Button></td></tr>) : fTrips.map(t => <tr key={t.id} className="border-b text-[11px] font-bold"><td className="p-3 text-[#0056d2] font-black">#{t.tripId}</td><td className="p-3 uppercase">{t.vehicleNumber}</td><td className="p-3">{t.plantCode}</td><td className="p-3 uppercase">{t.consignee}</td><td className="p-3 uppercase">{t.shipToParty}</td><td className="p-3 uppercase">{t.route}</td><td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td><td className="p-3">{t.cnNumber || <button onClick={() => { setCnData({ consignor: t.consignor, consignee: t.consignee, shipToParty: t.shipToParty, route: t.route, vehicleNumber: t.vehicleNumber, carrierName: 'Sikka Logistics', cnDate: format(new Date(), 'yyyy-MM-dd'), paymentTerm: 'Paid', items: [{ invoice: '', ewaybill: '', product: '', unit: '', unitUom: 'BAG' }] }); setCnPopup({ isOpen: true, trip: t, isEdit: false }); }}><Plus className="h-4 w-4 text-blue-600" /></button>}</td><td className="p-3">{activeTab === 'Loading' && <Button onClick={() => { setVOutD({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setVOutP({ isOpen: true, trip: t }); }} disabled={!t.cnNumber} size="sm" className={cn("text-[9px]", !t.cnNumber ? "bg-slate-300" : "bg-emerald-600")}>Vehicle Out</Button>}</td><td className="p-3 text-slate-400">{format(new Date(t.createdAt), 'dd-MM HH:mm')}</td></tr>)}</tbody></table></div>
+    <div className="flex-1 overflow-auto bg-white border border-slate-300"><table className="w-full text-left"><thead><tr className="bg-[#f8fafc] text-[9px] font-black uppercase sticky top-0">{activeTab === 'Open Orders' ? ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r">{h}</th>) : ['Trip ID', 'Vehicle No', 'Plant', 'Consignee', 'Ship to Party', 'Route', 'Assign Qty', 'Action', 'Sync Hub'].map(h => <th key={h} className="p-3 border-r">{h}</th>)}</tr></thead>
+      <tbody>{activeTab === 'Open Orders' ? fOrders.map(o => <tr key={o.id} className="border-b text-[11px] font-bold"><td className="p-3">{o.plantCode}</td><td className="p-3 text-[#0056d2] font-black">{o.saleOrder}</td><td className="p-3 uppercase">{o.consignor}</td><td className="p-3 uppercase">{o.consignee}</td><td className="p-3 uppercase">{o.shipToParty}</td><td className="p-3 uppercase">{o.route}</td><td className="p-3 font-black">{o.tot} {o.uom}</td><td className="p-3 text-emerald-600">{o.ass} {o.uom}</td><td className="p-3 text-red-600 font-black">{o.bal} {o.uom}</td><td className="p-3"><Button onClick={() => handleAssign(o)} size="sm" className="bg-[#0056d2] text-white font-black text-[9px]">Assign</Button></td></tr>) : fTrips.map(t => <tr key={t.id} className="border-b text-[11px] font-bold"><td className="p-3 text-[#0056d2] font-black">#{t.tripId}</td><td className="p-3 uppercase">{t.vehicleNumber}</td><td className="p-3">{t.plantCode}</td><td className="p-3 uppercase">{t.consignee}</td><td className="p-3 uppercase">{t.shipToParty}</td><td className="p-3 uppercase">{t.route}</td><td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td><td className="p-3"><Button size="sm" className="text-[9px] bg-slate-100 text-slate-600">Action</Button></td><td className="p-3 text-slate-400">{format(new Date(t.createdAt), 'dd-MM HH:mm')}</td></tr>)}</tbody></table></div>
     <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}><DialogContent className="max-w-3xl bg-[#f0f3f9]"><div className="p-8 space-y-6"><div className="grid grid-cols-4 gap-6"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Vehicle Number *</label><input value={assignData.vehicleNumber || ''} onChange={e => setAssignData({...assignData, vehicleNumber: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Driver Mobile *</label><input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Assign Qty *</label><input type="number" value={assignData.assignWeight || ''} onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Fleet Type *</label><select value={assignData.fleetType} onChange={e => setAssignData({...assignData, fleetType: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black"><option value="Own Vehicle">Own Vehicle</option><option value="Market Vehicle">Market Vehicle</option></select></div></div>
-      {assignData.fleetType === 'Market Vehicle' && <div className="p-6 bg-[#dae4f1]/20 border-l-4 border-blue-600 space-y-4"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Vendor *</label><div className="relative"><input value={vendorSearch} onChange={e => { setVendorSearch(e.target.value); setShowVS(true); }} className="h-10 w-full border border-slate-400 px-3 text-xs font-black" />{showVS && mVendors.length > 0 && <div className="absolute top-full left-0 w-full bg-white border shadow-xl z-20">{mVendors.map((v:any) => <div key={v.id} onClick={() => { setVendorSearch(v.vendorName); setAssignData({...assignData, vendorName: v.vendorName, vendorMobile: v.mobile}); setShowVS(false); }} className="px-4 py-2 text-xs font-bold hover:bg-blue-50 cursor-pointer">{v.vendorName}</div>)}</div>}</div></div></div>}
+      {assignData.fleetType === 'Market Vehicle' && <div className="p-6 bg-[#dae4f1]/20 border-l-4 border-blue-600 space-y-4"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Vendor Hub *</label><div className="relative"><input value={vendorSearch} onChange={e => { setVendorSearch(e.target.value); setShowVS(true); }} className="h-10 w-full border border-slate-400 px-3 text-xs font-black" />{showVS && mVendors.length > 0 && <div className="absolute top-full left-0 w-full bg-white border shadow-xl z-20">{mVendors.map((v:any) => <div key={v.id} onClick={() => { setVendorSearch(v.vendorName); setAssignData({...assignData, vendorName: v.vendorName}); setShowVS(false); }} className="px-4 py-2 text-xs font-bold hover:bg-blue-50 cursor-pointer">{v.vendorName}</div>)}</div>}</div></div></div>}
       <div className="flex justify-end gap-4"><Button onClick={() => setIsPopupOpen(false)} variant="outline">Cancel</Button><Button onClick={handlePost} className="bg-[#0056d2] text-white">Post to Loading</Button></div></div></DialogContent></Dialog>
-    <Dialog open={cnPopup.isOpen} onOpenChange={val => setCnPopup({...cnPopup, isOpen: val})}><DialogContent className="max-w-4xl bg-[#f0f3f9]"><div className="p-8 space-y-6"><div className="grid grid-cols-3 gap-6"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-500">CN Number *</label><input value={cnData.cnNumber || ''} onChange={e => setCnData({...cnData, cnNumber: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-500">Date *</label><input type="date" value={cnData.cnDate || ''} onChange={e => setCnData({...cnData, cnDate: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-500">Payment Term *</label><select value={cnData.paymentTerm} onChange={e => setCnData({...cnData, paymentTerm: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black"><option value="Paid">Paid</option><option value="To Pay">To Pay</option></select></div></div>
-      <div className="flex justify-end gap-4 pt-4"><Button onClick={() => setCnPopup({...cnPopup, isOpen: false})} variant="outline">Cancel</Button><Button onClick={() => { if (!user || !cnPopup.trip) return; setDocumentNonBlocking(doc(db, 'users', user.uid, 'trips', cnPopup.trip.id), { ...cnData, cnPosted: true, updatedAt: new Date().toISOString() }, { merge: true }); setCnPopup({ isOpen: false, trip: null, isEdit: false }); onStatusUpdate({ text: `CN ${cnData.cnNumber} Synchronized`, type: 'success' }); }} className="bg-[#0056d2] text-white">Post CN</Button></div></div></DialogContent></Dialog>
   </div>;
 }
 
