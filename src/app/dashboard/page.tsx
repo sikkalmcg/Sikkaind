@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -85,17 +84,27 @@ export default function SapDashboard() {
   const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '' });
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
   const [isAuthChecking, setIsAuthChecking] = React.useState(true);
+  const [registryId, setRegistryId] = React.useState<string | null>(null);
 
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const monthRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     const isAdmin = localStorage.getItem('sap_bootstrap_session') === 'true';
+    const rid = localStorage.getItem('sap_registry_id');
     setIsBootstrapAdmin(isAdmin);
+    setRegistryId(rid);
     setIsAuthChecking(false);
   }, []);
 
-  const profileRef = useMemoFirebase(() => user ? doc(db, 'user_registry', user.uid) : null, [user, db]);
+  const profileRef = useMemoFirebase(() => {
+    if (!user) return null;
+    if (isBootstrapAdmin) return doc(db, 'user_registry', user.uid);
+    // Use the stored registry ID found during login for proper authorization sync
+    const rid = registryId || localStorage.getItem('sap_registry_id');
+    return rid ? doc(db, 'user_registry', rid) : null;
+  }, [user, db, isBootstrapAdmin, registryId]);
+
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
 
   const ordersQuery = useMemoFirebase(() => user ? collection(db, 'users', user.uid, 'sales_orders') : null, [user, db]);

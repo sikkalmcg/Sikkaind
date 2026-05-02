@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -47,6 +46,7 @@ export default function LoginPage() {
       if (isMasterAdmin) {
         localStorage.setItem('sap_bootstrap_session', 'true');
         localStorage.setItem('sap_user_role', 'admin');
+        localStorage.removeItem('sap_registry_id'); // Clear user registry ID for admin
         router.push('/dashboard');
         return;
       }
@@ -64,6 +64,9 @@ export default function LoginPage() {
         setErrorMsg('ACCESS DENIED: INVALID CREDENTIALS OR UNREGISTERED ACCOUNT');
         await auth.signOut();
       } else {
+        const userDoc = snapshot.docs[0];
+        // FIX: Store the registry document ID so the dashboard can find the profile
+        localStorage.setItem('sap_registry_id', userDoc.id);
         localStorage.removeItem('sap_bootstrap_session');
         localStorage.setItem('sap_user_role', 'user');
         router.push('/dashboard');
