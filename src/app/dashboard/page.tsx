@@ -514,7 +514,16 @@ export default function SapDashboard() {
     const input = code.toUpperCase().trim();
     if (!input) return;
     
-    const clean = input.replace('/N', '').replace('/O', '').trim();
+    let clean = input;
+    let isNewSession = false;
+
+    if (input.startsWith('/N')) {
+      clean = input.substring(2).trim();
+    } else if (input.startsWith('/O')) {
+      clean = input.substring(2).trim();
+      isNewSession = true;
+    }
+
     if (clean !== 'HOME' && clean !== '' && !isAuthorized(clean)) {
       setStatusMsg({ text: `You are not authorized to run T-code ${clean}`, type: 'error' });
       setTCode('');
@@ -524,10 +533,9 @@ export default function SapDashboard() {
     setHistory(p => [input, ...p.filter(h => h !== input)].slice(0, 7));
     setShowHistory(false); setHistoryIndex(-1);
 
-    if (input.startsWith('/O')) {
-      const target = input.replace('/O', '').trim();
+    if (isNewSession) {
       const baseUrl = window.location.origin + window.location.pathname;
-      window.open(target ? `${baseUrl}?tcode=${target}` : baseUrl, '_blank'); setTCode(''); return;
+      window.open(clean ? `${baseUrl}?tcode=${clean}` : baseUrl, '_blank'); setTCode(''); return;
     }
 
     if (clean === 'HOME' || clean === '') { 
@@ -551,7 +559,7 @@ export default function SapDashboard() {
       return;
     }
     const newStack = [...screenStack];
-    newStack.pop(); // Remove current screen
+    newStack.pop(); 
     const prevScreen = newStack[newStack.length - 1];
     setScreenStack(newStack);
     setActiveScreen(prevScreen);
