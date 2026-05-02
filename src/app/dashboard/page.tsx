@@ -106,13 +106,15 @@ export default function SapDashboard() {
   const { data: rawCustomers } = useCollection(customersQuery);
   const { data: allUsers, isLoading: isAllUsersLoading } = useCollection(usersQuery);
 
-  const isBootstrapAdmin = React.useMemo(() => typeof window !== 'undefined' && localStorage.getItem('sap_bootstrap_session') === 'true', []);
+  const isBootstrapAdmin = React.useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('sap_bootstrap_session') === 'true';
+  }, []);
 
   const getAuthorizedPlants = React.useCallback(() => userProfile?.plants || [], [userProfile]);
 
   const isAuthorized = React.useCallback((code: string) => {
-    if (code === 'HOME' || code === '') return true;
-    if (isBootstrapAdmin) return true;
+    if (code === 'HOME' || code === '' || isBootstrapAdmin) return true;
 
     const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
     if (!userProfile) {
@@ -121,49 +123,6 @@ export default function SapDashboard() {
     }
     return userProfile.tcodes?.includes(code);
   }, [userProfile, allUsers, isBootstrapAdmin]);
-
-  const getRegistryList = React.useCallback(() => {
-    if (activeScreen.startsWith('OX')) return rawPlants || [];
-    if (activeScreen.startsWith('FM')) return rawCompanies || [];
-    if (activeScreen.startsWith('XK')) return rawVendors || [];
-    if (activeScreen.startsWith('XD')) {
-      let list = rawCustomers || [];
-      if (xdSearch.plant) list = list.filter((c: any) => c.plantCodes?.includes(xdSearch.plant));
-      if (xdSearch.type) list = list.filter((c: any) => c.customerType === xdSearch.type);
-      if (xdSearch.name) list = list.filter((c: any) => c.customerName?.toUpperCase().includes(xdSearch.name.toUpperCase()));
-      if (xdSearch.customerId) list = list.filter((c: any) => (c.customerCode || c.id)?.toString().toUpperCase() === xdSearch.customerId.toUpperCase());
-      return list;
-    }
-    if (activeScreen.startsWith('VA')) return rawOrders || [];
-    if (activeScreen.startsWith('SU')) return allUsers || [];
-    return [];
-  }, [activeScreen, rawPlants, rawCompanies, rawVendors, rawCustomers, rawOrders, allUsers, xdSearch]);
-
-  const allTrips = React.useMemo(() => {
-    const authPlants = getAuthorizedPlants();
-    if (!authPlants.length) return rawTrips;
-    return rawTrips?.filter(t => authPlants.includes(t.plantCode));
-  }, [rawTrips, getAuthorizedPlants]);
-
-  const homeStats = React.useMemo(() => {
-    if (!rawOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, reject: 0, closed: 0 };
-    const filterFn = (item: any) => {
-      const matchesPlant = homePlantFilter === 'ALL' || item.plantCode === homePlantFilter;
-      const itemDate = item.createdAt || item.updatedAt || item.lrDate || item.saleOrderDate;
-      const matchesMonth = !homeMonthFilter || (itemDate && itemDate.startsWith(homeMonthFilter));
-      return matchesPlant && matchesMonth;
-    };
-    const filteredOrders = rawOrders.filter(o => o.status !== 'CANCELLED' && filterFn(o));
-    const filteredTrips = allTrips.filter(filterFn);
-    return {
-      open: filteredOrders.length,
-      loading: filteredTrips.filter(t => t.status === 'LOADING').length,
-      transit: filteredTrips.filter(t => t.status === 'IN-TRANSIT').length,
-      arrived: filteredTrips.filter(t => t.status === 'ARRIVED').length,
-      reject: filteredTrips.filter(t => t.status === 'REJECTION').length,
-      closed: filteredTrips.filter(t => t.status === 'CLOSED').length,
-    };
-  }, [rawOrders, allTrips, homePlantFilter, homeMonthFilter]);
 
   const handleSave = React.useCallback(() => {
     if (!user || activeScreen === 'HOME' || activeScreen.endsWith('03')) return;
@@ -230,11 +189,6 @@ export default function SapDashboard() {
     }
   }, [user, activeScreen, formData, rawOrders, rawVendors, rawCustomers, rawCompanies, rawPlants, allUsers, db]);
 
-  const handleCancel = React.useCallback(() => {
-    if (activeScreen === 'HOME' || activeScreen.endsWith('03')) return;
-    setFormData({}); setSearchId(''); setStatusMsg({ text: 'Operation cancelled', type: 'info' });
-  }, [activeScreen]);
-
   const executeTCode = React.useCallback((code: string) => {
     const input = code.toUpperCase().trim();
     if (!input) return;
@@ -258,14 +212,20 @@ export default function SapDashboard() {
     setTCode('');
   }, [isAuthorized]);
 
+  const handleCancel = React.useCallback(() => {
+    if (activeScreen === 'HOME' || activeScreen.endsWith('03')) return;
+    setFormData({}); setSearchId(''); setStatusMsg({ text: 'Operation cancelled', type: 'info' });
+  }, [activeScreen]);
+
   React.useEffect(() => {
     if (!isUserLoading && !user) router.push('/login');
   }, [user, isUserLoading, router]);
 
   React.useEffect(() => {
+    if (isBootstrapAdmin) return;
     if (!isUserLoading && !isProfileLoading && !isAllUsersLoading && user) {
       const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
-      if (userProfile === null && !registryIsEmpty && !isBootstrapAdmin) {
+      if (userProfile === null && !registryIsEmpty) {
         toast({ title: "Access Denied", description: "Your account is not registered in the system.", variant: "destructive" });
         router.push('/login');
       }
@@ -322,6 +282,49 @@ export default function SapDashboard() {
       <button onClick={() => window.location.reload()} className="mt-8 px-8 py-3 bg-red-600 text-white font-black uppercase text-[10px] tracking-widest shadow-lg">Restart Session</button>
     </div>;
   }
+
+  const getRegistryList = () => {
+    if (activeScreen.startsWith('OX')) return rawPlants || [];
+    if (activeScreen.startsWith('FM')) return rawCompanies || [];
+    if (activeScreen.startsWith('XK')) return rawVendors || [];
+    if (activeScreen.startsWith('XD')) {
+      let list = rawCustomers || [];
+      if (xdSearch.plant) list = list.filter((c: any) => c.plantCodes?.includes(xdSearch.plant));
+      if (xdSearch.type) list = list.filter((c: any) => c.customerType === xdSearch.type);
+      if (xdSearch.name) list = list.filter((c: any) => c.customerName?.toUpperCase().includes(xdSearch.name.toUpperCase()));
+      if (xdSearch.customerId) list = list.filter((c: any) => (c.customerCode || c.id)?.toString().toUpperCase() === xdSearch.customerId.toUpperCase());
+      return list;
+    }
+    if (activeScreen.startsWith('VA')) return rawOrders || [];
+    if (activeScreen.startsWith('SU')) return allUsers || [];
+    return [];
+  };
+
+  const allTrips = (() => {
+    const authPlants = getAuthorizedPlants();
+    if (isBootstrapAdmin || !authPlants.length) return rawTrips;
+    return rawTrips?.filter(t => authPlants.includes(t.plantCode));
+  })();
+
+  const homeStats = (() => {
+    if (!rawOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, reject: 0, closed: 0 };
+    const filterFn = (item: any) => {
+      const matchesPlant = homePlantFilter === 'ALL' || item.plantCode === homePlantFilter;
+      const itemDate = item.createdAt || item.updatedAt || item.lrDate || item.saleOrderDate;
+      const matchesMonth = !homeMonthFilter || (itemDate && itemDate.startsWith(homeMonthFilter));
+      return matchesPlant && matchesMonth;
+    };
+    const filteredOrders = rawOrders.filter(o => o.status !== 'CANCELLED' && filterFn(o));
+    const filteredTrips = (allTrips || []).filter(filterFn);
+    return {
+      open: filteredOrders.length,
+      loading: filteredTrips.filter(t => t.status === 'LOADING').length,
+      transit: filteredTrips.filter(t => t.status === 'IN-TRANSIT').length,
+      arrived: filteredTrips.filter(t => t.status === 'ARRIVED').length,
+      reject: filteredTrips.filter(t => t.status === 'REJECTION').length,
+      closed: filteredTrips.filter(t => t.status === 'CLOSED').length,
+    };
+  })();
 
   const isReadOnly = activeScreen.endsWith('03');
   const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
@@ -468,7 +471,7 @@ export default function SapDashboard() {
         </div>
       </div>
       <div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em]">
-        <div className="flex items-center gap-8"><span className="flex items-center gap-2.5"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span><span>{activeScreen}</span><span>USER: {userProfile?.fullName || 'Authenticating...'}</span>{statusMsg.text !== 'Ready' && <span className={cn(statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span>}</div>
+        <div className="flex items-center gap-8"><span className="flex items-center gap-2.5"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span><span>{activeScreen}</span><span>USER: {isBootstrapAdmin ? 'ADMINISTRATOR' : (userProfile?.fullName || 'Authenticating...')}</span>{statusMsg.text !== 'Ready' && <span className={cn(statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span>}</div>
       </div>
     </div>
   );
