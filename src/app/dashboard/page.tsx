@@ -73,6 +73,7 @@ export default function SapDashboard() {
 
   const [tCode, setTCode] = React.useState('');
   const [history, setHistory] = React.useState<string[]>([]);
+  const [screenStack, setScreenStack] = React.useState<Screen[]>(['HOME']);
   const [showHistory, setShowHistory] = React.useState(false);
   const [historyIndex, setHistoryIndex] = React.useState(-1);
   const [activeScreen, setActiveScreen] = React.useState<Screen>('HOME');
@@ -264,7 +265,6 @@ export default function SapDashboard() {
         return;
       }
 
-      // Robust CSV parser to handle commas and quotes correctly
       const parseCsvRow = (rowText: string) => {
         const result = [];
         let currentField = '';
@@ -281,7 +281,6 @@ export default function SapDashboard() {
           }
         }
         result.push(currentField.trim());
-        // Remove surrounding quotes and handle internal escaping
         return result.map(field => field.replace(/^"|"$/g, '').trim());
       };
 
@@ -419,16 +418,18 @@ export default function SapDashboard() {
     if (!isBootstrapAdmin) {
       if (activeScreen.startsWith('OX')) {
         const exists = rawPlants?.some((p: any) => p.id !== localData.id && p.plantCode?.toString().toUpperCase() === localData.plantCode?.toString().toUpperCase());
-        if (exists) { setStatusMsg({ text: `ID/Number ${localData.plantCode} Already exists`, type: 'error' }); return; }
+        if (exists) { setStatusMsg({ text: `Duplicate entry not allowed for Plant Code: ${localData.plantCode}`, type: 'error' }); return; }
       }
       if (activeScreen.startsWith('FM')) {
         const exists = rawCompanies?.some((c: any) => c.id !== localData.id && c.companyCode?.toString().toUpperCase() === localData.companyCode?.toString().toUpperCase());
-        if (exists) { setStatusMsg({ text: `ID/Number ${localData.companyCode} Already exists`, type: 'error' }); return; }
+        if (exists) { setStatusMsg({ text: `Duplicate entry not allowed for Company Code: ${localData.companyCode}`, type: 'error' }); return; }
       }
       if (activeScreen.startsWith('XK')) {
         if (!(localData.mobile?.trim() && localData.address?.trim() && localData.route?.trim() && (localData.vendorName?.trim() || localData.vendorFirmName?.trim()))) {
           setStatusMsg({ text: 'Error: Mobile, Address, Route & Name are mandatory', type: 'error' }); return;
         }
+        const exists = rawVendors?.some((v: any) => v.id !== localData.id && v.vendorCode?.toString().toUpperCase() === localData.vendorCode?.toString().toUpperCase());
+        if (exists && localData.vendorCode) { setStatusMsg({ text: `Duplicate entry not allowed for Vendor Code: ${localData.vendorCode}`, type: 'error' }); return; }
         if (!localData.vendorCode) localData.vendorCode = `V${Math.floor(10000 + Math.random() * 90000)}`;
       }
       if (activeScreen.startsWith('XD')) {
@@ -436,13 +437,24 @@ export default function SapDashboard() {
           setStatusMsg({ text: 'Error: Plant, Customer Code, Name & City are mandatory', type: 'error' });
           return;
         }
-        const exists = rawCustomers?.some((c: any) => c.id !== localData.id && (c.customerCode || c.id)?.toString().toUpperCase() === (localData.customerCode || localData.id)?.toString().toUpperCase());
-        if (exists) { setStatusMsg({ text: `ID/Number ${localData.customerCode} Already exists`, type: 'error' }); return; }
+        // Strict Plant + Customer Code uniqueness
+        const duplicateInPlant = rawCustomers?.some((c: any) => {
+          if (c.id === localData.id) return false;
+          if (c.customerCode?.toString().toUpperCase() !== localData.customerCode?.toString().toUpperCase()) return false;
+          return localData.plantCodes?.some((p: string) => c.plantCodes?.includes(p));
+        });
+
+        if (duplicateInPlant) {
+          setStatusMsg({ text: `Duplicate entry not allowed for Customer Code ${localData.customerCode} in selected Plants`, type: 'error' });
+          return;
+        }
       }
       if (activeScreen.startsWith('VA') && activeScreen !== 'VA04') {
         if (!(localData.plantCode && localData.saleOrder && localData.consignor && localData.from && localData.consignee && localData.shipToParty && localData.destination && localData.weight && localData.weightUom)) {
           setStatusMsg({ text: 'Error: Mandatory fields (Plant, SO No, Consignor, From, Consignee, Ship to Party, Destination, Weight, UOM) required', type: 'error' }); return;
         }
+        const exists = rawOrders?.some((o: any) => o.id !== localData.id && o.saleOrder?.toString().toUpperCase() === localData.saleOrder?.toString().toUpperCase());
+        if (exists) { setStatusMsg({ text: `Duplicate entry not allowed for Sale Order No: ${localData.saleOrder}`, type: 'error' }); return; }
       }
       if (activeScreen === 'VA04') {
         const o = allOrders?.find(ord => (ord.saleOrder || ord.id)?.toString().toUpperCase() === localData.saleOrder?.toString().toUpperCase());
@@ -494,7 +506,7 @@ export default function SapDashboard() {
         setFormData(payload);
       }
     }
-  }, [user, activeScreen, formData, allOrders, rawPlants, allUsers, db, isBootstrapAdmin, rawCustomers, rawCompanies, rawVendors]);
+  }, [user, activeScreen, formData, allOrders, rawPlants, allUsers, db, isBootstrapAdmin, rawCustomers, rawCompanies, rawVendors, rawOrders]);
 
   const executeTCode = React.useCallback((code: string) => {
     const input = code.toUpperCase().trim();
@@ -516,14 +528,35 @@ export default function SapDashboard() {
       window.open(target ? `${baseUrl}?tcode=${target}` : baseUrl, '_blank'); setTCode(''); return;
     }
 
-    if (clean === 'HOME' || clean === '') { setActiveScreen('HOME'); setTCode(''); setFormData({}); setSearchId(''); return; }
+    if (clean === 'HOME' || clean === '') { 
+      setScreenStack(prev => [...prev, 'HOME']);
+      setActiveScreen('HOME'); 
+      setTCode(''); setFormData({}); setSearchId(''); return; 
+    }
 
     if (MASTER_TCODES.some(t => t.code === clean)) {
+      setScreenStack(prev => [...prev, clean as Screen]);
       setActiveScreen(clean as Screen); setFormData({}); setSearchId(''); setXdSearch({ plant: '', type: '', name: '', customerId: '' });
       setStatusMsg({ text: `Transaction ${clean} executed`, type: 'info' });
     } else { setStatusMsg({ text: `T-Code ${clean} not found`, type: 'error' }); }
     setTCode('');
   }, [isAuthorized]);
+
+  const handleBack = React.useCallback(() => {
+    if (screenStack.length <= 1) {
+      setActiveScreen('HOME');
+      setFormData({});
+      return;
+    }
+    const newStack = [...screenStack];
+    newStack.pop(); // Remove current screen
+    const prevScreen = newStack[newStack.length - 1];
+    setScreenStack(newStack);
+    setActiveScreen(prevScreen);
+    setFormData({});
+    setSearchId('');
+    setStatusMsg({ text: `Navigated to ${prevScreen}`, type: 'info' });
+  }, [screenStack]);
 
   const handleCancel = React.useCallback(() => {
     if (activeScreen === 'HOME' || activeScreen.endsWith('03')) return;
@@ -549,7 +582,7 @@ export default function SapDashboard() {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (['F3', 'F4', 'F8', 'F12'].includes(e.key)) e.preventDefault();
       if (e.key === 'F8') handleSave();
-      if (e.key === 'F3') { if (e.shiftKey) router.push('/'); else { setActiveScreen('HOME'); setFormData({}); } }
+      if (e.key === 'F3') { if (e.shiftKey) router.push('/'); else handleBack(); }
       if (e.key === 'F4') tCodeRef.current?.focus();
       if (e.key === 'F12') handleCancel();
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); handleSave(); }
@@ -561,7 +594,7 @@ export default function SapDashboard() {
       }
     };
     window.addEventListener('keydown', handleGlobalKeyDown); return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [activeScreen, handleSave, handleCancel, executeTCode, showHistory, historyIndex, history, router, tCode]);
+  }, [activeScreen, handleSave, handleCancel, executeTCode, handleBack, showHistory, historyIndex, history, router, tCode]);
 
   if (isUserLoading || isProfileLoading || isAllUsersLoading || isAuthChecking) {
     return <div className="h-screen w-full bg-[#f0f3f9] flex flex-col items-center justify-center font-mono space-y-4">
@@ -614,7 +647,7 @@ export default function SapDashboard() {
           </div>
           <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
              <button onClick={handleSave} disabled={activeScreen === 'HOME' || isReadOnly} className={cn("p-1 rounded", (activeScreen === 'HOME' || isReadOnly) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title="Save (F8)"><Save className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={() => executeTCode('/n')} className="p-1 hover:bg-slate-200 rounded" title="Exit (F3)"><Undo2 className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={handleBack} className="p-1 hover:bg-slate-200 rounded" title="Back Step-by-Step (F3)"><Undo2 className="h-4 w-4 text-slate-600" /></button>
              <button onClick={handleCancel} disabled={activeScreen === 'HOME' || isReadOnly} className={cn("p-1 rounded", (activeScreen === 'HOME' || isReadOnly) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title="Cancel (F12)"><XCircle className="h-4 w-4 text-slate-600" /></button>
              <button onClick={() => window.open(window.location.href, '_blank')} className={cn("p-1 rounded hover:bg-slate-200")} title="New Session"><PlusSquare className="h-4 w-4 text-slate-600" /></button>
           </div>
