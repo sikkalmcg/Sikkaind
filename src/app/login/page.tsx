@@ -35,31 +35,43 @@ export default function LoginPage() {
     setErrorMsg('');
 
     try {
-      // Background handshake to establish Firebase session for Firestore queries
+      // Hardcoded Admin Check
+      const isMasterAdmin = credentials.username.trim() === 'Sikkaind' && credentials.password.trim() === 'Sikka@lmc2105';
+
+      // Background handshake to establish Firebase session
       await signInAnonymously(auth);
       
-      // Strict Registry Check
+      // Check registry for user
       const q = query(
         collection(db, 'user_registry'),
-        where('username', '==', credentials.username),
-        where('password', '==', credentials.password)
+        where('username', '==', credentials.username.trim()),
+        where('password', '==', credentials.password.trim())
       );
       
       const snapshot = await getDocs(q);
       
       if (snapshot.empty) {
-        // Special Case: Initial Admin Bootstrap
+        // Fallback: Initial Bootstrap or Master Admin Override
         const allSnap = await getDocs(collection(db, 'user_registry'));
-        const isBootstrapAdmin = credentials.username.trim() === 'Sikkaind' && credentials.password.trim() === 'Sikka@lmc2105';
         
-        if (allSnap.empty && isBootstrapAdmin) {
+        if (allSnap.empty && isMasterAdmin) {
+           // First time setup - registry is empty
+           localStorage.setItem('sap_bootstrap_session', 'true');
            router.push('/dashboard');
            return;
+        }
+
+        if (isMasterAdmin) {
+          // Master admin override even if registry is not empty (Super User access)
+          localStorage.setItem('sap_bootstrap_session', 'true');
+          router.push('/dashboard');
+          return;
         }
 
         setErrorMsg('Access Denied: Invalid Credentials or Unregistered Account');
         await auth.signOut();
       } else {
+        localStorage.removeItem('sap_bootstrap_session');
         router.push('/dashboard');
       }
     } catch (err: any) {
@@ -72,11 +84,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-body">
-      {/* Top Yellow Border */}
       <div className="h-2 w-full bg-yellow-500 shrink-0" />
 
       <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
-        {/* Left Column: Image - Edge to edge */}
         <div className="w-full md:w-[45%] flex items-center justify-center bg-white relative">
           <div className="relative w-full h-full min-h-[300px] md:min-h-0 group">
             {loginImg && (
@@ -89,7 +99,6 @@ export default function LoginPage() {
                 data-ai-hint="statue logistics"
               />
             )}
-            {/* Overlay Logo Card */}
             <div className="absolute top-1/4 left-1/2 -translate-x-1/2 bg-white/95 p-4 md:p-6 shadow-2xl flex flex-col items-center min-w-[140px] md:min-w-[180px]">
                <div className="w-10 h-10 md:w-14 md:h-14 bg-[#1e3a8a] flex items-center justify-center mb-2">
                   <span className="text-white font-black text-xl md:text-3xl italic">S</span>
@@ -101,7 +110,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Right Column: Form */}
         <div className="w-full md:w-[55%] p-8 md:p-16 lg:p-24 flex flex-col justify-center bg-white">
           <div className="max-w-xl mx-auto w-full space-y-12 md:space-y-16">
             <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-[#1e3a8a] uppercase italic tracking-tighter text-center md:text-left whitespace-nowrap">
@@ -169,14 +177,12 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Footer Bar */}
       <div className="px-6 py-4 md:px-12 md:py-6 bg-white border-t border-slate-100 flex items-center justify-center shrink-0">
         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">
           © {new Date().getFullYear()} Sikka Industries & Logistics. All Rights Reserved.
         </p>
       </div>
       
-      {/* Back Link */}
       <Link href="/" className="fixed bottom-4 right-4 md:bottom-8 md:right-8 text-[10px] font-black uppercase text-slate-400 hover:text-blue-900 bg-white/80 backdrop-blur-sm p-2 rounded px-4 shadow-sm border border-slate-100">
         Exit to Website
       </Link>

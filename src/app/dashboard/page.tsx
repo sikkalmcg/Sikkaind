@@ -110,6 +110,9 @@ export default function SapDashboard() {
 
   const isAuthorized = React.useCallback((code: string) => {
     if (code === 'HOME' || code === '') return true;
+    const isBootstrapAdmin = typeof window !== 'undefined' && localStorage.getItem('sap_bootstrap_session') === 'true';
+    if (isBootstrapAdmin) return true;
+
     const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
     if (!userProfile) {
       if (registryIsEmpty) return true;
@@ -337,7 +340,9 @@ export default function SapDashboard() {
   React.useEffect(() => {
     if (!isUserLoading && !isProfileLoading && !isAllUsersLoading && user) {
       const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
-      if (userProfile === null && !registryIsEmpty) {
+      const isBootstrapAdmin = typeof window !== 'undefined' && localStorage.getItem('sap_bootstrap_session') === 'true';
+      
+      if (userProfile === null && !registryIsEmpty && !isBootstrapAdmin) {
         toast({ title: "Access Denied", description: "Your account is not registered in the system.", variant: "destructive" });
         router.push('/login');
       }
@@ -1030,7 +1035,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
                 </td>
                 <td className="p-1 text-center">
                   {!disabled && (
-                    <button onClick={() => handleRemoveItem(idx)} className="text-red-400 hover:text-red-600 transition-colors">
+                    <button onClick={() => handleRemoveItem(index)} className="text-red-400 hover:text-red-600 transition-colors">
                       <Trash2 className="h-4 w-4" />
                     </button>
                   )}
@@ -1581,4 +1586,3 @@ function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code:
     </div>
   );
 }
-
