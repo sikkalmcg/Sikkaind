@@ -264,26 +264,61 @@ export default function SapDashboard() {
         return;
       }
 
-      const headers = rows[0].split(',').map(h => h.trim());
+      // Robust CSV parser to handle commas and quotes correctly
+      const parseCsvRow = (rowText: string) => {
+        const result = [];
+        let currentField = '';
+        let insideQuotes = false;
+        for (let i = 0; i < rowText.length; i++) {
+          const char = rowText[i];
+          if (char === '"') {
+            insideQuotes = !insideQuotes;
+          } else if (char === ',' && !insideQuotes) {
+            result.push(currentField.trim());
+            currentField = '';
+          } else {
+            currentField += char;
+          }
+        }
+        result.push(currentField.trim());
+        // Remove surrounding quotes and handle internal escaping
+        return result.map(field => field.replace(/^"|"$/g, '').trim());
+      };
+
+      const headers = parseCsvRow(rows[0]);
       const dataRows = rows.slice(1);
 
       setStatusMsg({ text: `Synchronizing hub nodes...`, type: 'info' });
 
       if (activeScreen.startsWith('VA')) {
+        const getIdx = (name: string) => headers.findIndex(h => h.toLowerCase().replace(/\s/g, '') === name.toLowerCase().replace(/\s/g, ''));
+        const idxP = getIdx('Plant');
+        const idxSO = getIdx('SaleOrder');
+        const idxCons = getIdx('Consignor');
+        const idxConsee = getIdx('Consignee');
+        const idxShip = getIdx('ShiptoParty');
+        const idxW = getIdx('Weight');
+        const idxU = getIdx('UOM');
+
+        if (idxP === -1 || idxSO === -1 || idxCons === -1 || idxConsee === -1 || idxShip === -1 || idxW === -1 || idxU === -1) {
+          setStatusMsg({ text: 'Error: Mandatory headers missing for Sales Order', type: 'error' });
+          return;
+        }
+
         const orderGroups: Record<string, any> = {};
         let rejectedCount = 0;
 
         dataRows.forEach(row => {
-          const cols = row.split(',').map(c => c.trim());
-          const plant = cols[0];
-          const soNo = cols[1];
-          const cons = cols[2];
-          const consee = cols[3];
-          const ship = cols[4];
-          const weight = parseFloat(cols[5] || '0');
-          const uom = cols[6];
+          const cols = parseCsvRow(row);
+          const plant = cols[idxP];
+          const soNo = cols[idxSO];
+          const cons = cols[idxCons];
+          const consee = cols[idxConsee];
+          const ship = cols[idxShip];
+          const weight = parseFloat(cols[idxW] || '0');
+          const uom = cols[idxU];
 
-          if (!plant || !soNo || !cons || !consee || !ship || !weight || !uom) {
+          if (!plant || !soNo || !cons || !consee || !ship || isNaN(weight) || !uom) {
             rejectedCount++;
             return;
           }
@@ -319,7 +354,7 @@ export default function SapDashboard() {
         setStatusMsg({ text: `Bulk Sync: ${savedCount} Nodes Saved, ${rejectedCount} Rows Rejected`, type: rejectedCount > 0 ? 'error' : 'success' });
 
       } else if (activeScreen.startsWith('XD')) {
-        const getIdx = (name: string) => headers.findIndex(h => h.toLowerCase() === name.toLowerCase());
+        const getIdx = (name: string) => headers.findIndex(h => h.toLowerCase().replace(/\s/g, '') === name.toLowerCase().replace(/\s/g, ''));
         const idxP = getIdx('PlantCodes');
         const idxCC = getIdx('CustomerCode');
         const idxCN = getIdx('CustomerName');
@@ -338,7 +373,7 @@ export default function SapDashboard() {
         let rejectedCount = 0;
 
         dataRows.forEach(row => {
-          const cols = row.split(',').map(c => c.trim());
+          const cols = parseCsvRow(row);
           const pCode = cols[idxP];
           const cCode = cols[idxCC];
           const cName = cols[idxCN];
