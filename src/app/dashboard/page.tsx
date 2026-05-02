@@ -88,7 +88,7 @@ export default function SapDashboard() {
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
   const [isAuthChecking, setIsAuthChecking] = React.useState(true);
   const [registryId, setRegistryId] = React.useState<string | null>(null);
-  const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '' });
+  const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '', postalCode: '' });
 
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const monthRef = React.useRef<HTMLDivElement>(null);
@@ -567,7 +567,7 @@ export default function SapDashboard() {
 
     if (MASTER_TCODES.some(t => t.code === clean)) {
       setScreenStack(prev => [...prev, clean as Screen]);
-      setActiveScreen(clean as Screen); setFormData({}); setSearchId(''); setXdSearch({ plant: '', type: '', name: '', customerId: '' });
+      setActiveScreen(clean as Screen); setFormData({}); setSearchId(''); setXdSearch({ plant: '', type: '', name: '', customerId: '', postalCode: '' });
       setStatusMsg({ text: `Transaction ${clean} executed`, type: 'info' });
     } else { setStatusMsg({ text: `T-Code ${clean} not found`, type: 'error' }); }
     setTCode('');
@@ -772,7 +772,7 @@ export default function SapDashboard() {
                    </div>
                    <RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} />
                  </div>}
-                 {activeScreen === 'TR21' && <DripBoard orders={allOrders} trips={allTrips} vendors={accessibleVendors} plants={accessiblePlants} onStatusUpdate={setStatusMsg} />}
+                 {activeScreen === 'TR21' && <DripBoard orders={allOrders} trips={allTrips} vendors={accessibleVendors} plants={accessiblePlants} companies={accessibleCompanies} onStatusUpdate={setStatusMsg} />}
                  {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               </div>
             )}
@@ -1165,7 +1165,7 @@ function RegistryList({ onSelectItem, listData, activeScreen }: any) {
     </tbody></table></div>;
 }
 
-function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
+function DripBoard({ orders, trips, vendors, plants, companies, onStatusUpdate }: any) {
   const { user } = useUser(); const db = useFirestore(); 
   const [activeTab, setActiveTab] = React.useState('Open Orders'); 
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null); 
@@ -1179,14 +1179,24 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 15;
 
-  // NEW: Date Range Filter States
+  // Date Range Filter States
   const [fromDate, setFromDate] = React.useState(format(subDays(new Date(), 4), 'yyyy-MM-dd'));
   const [toDate, setToDate] = React.useState(format(new Date(), 'yyyy-MM-dd'));
 
-  // NEW: Out Vehicle Logic
+  // Out Vehicle Logic
   const [isOutPopupOpen, setIsOutPopupOpen] = React.useState(false);
   const [outData, setOutData] = React.useState<any>({ tripId: '', vehicleNumber: '', route: '', date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
   
+  // CN Number Logic
+  const [isCnPopupOpen, setIsCnPopupOpen] = React.useState(false);
+  const [selectedTripForCn, setSelectedTripForCn] = React.useState<any>(null);
+  const [cnFormData, setCnFormData] = React.useState<any>({
+    cnNo: '',
+    cnDate: format(new Date(), 'yyyy-MM-dd'),
+    paymentTerms: 'PAID',
+    items: [{ invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'BAG' }]
+  });
+
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
   
   const getStats = (o: any) => { 
@@ -1218,7 +1228,6 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
     }); 
   }, [trips, activeTab, fromDate, toDate]);
 
-  // NEW: Tab Counts
   const tabCounts = React.useMemo(() => {
     const counts: Record<string, number> = {};
     counts['Open Orders'] = fOrders.length;
@@ -1229,7 +1238,6 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
     return counts;
   }, [fOrders, trips, fromDate, toDate]);
 
-  // Search Logic
   const filteredData = React.useMemo(() => {
     const rawData = activeTab === 'Open Orders' ? fOrders : fTrips;
     if (!searchQuery) return rawData;
@@ -1241,7 +1249,6 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
     );
   }, [activeTab, fOrders, fTrips, searchQuery]);
 
-  // Pagination Logic
   const paginatedData = React.useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredData.slice(start, start + itemsPerPage);
@@ -1249,7 +1256,6 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
-  // Tab change triggers page reset
   React.useEffect(() => {
     setCurrentPage(1);
     setSearchQuery('');
@@ -1273,6 +1279,12 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
   };
 
   const handleOutVehicle = (t: any) => {
+    // Dependency Check: Own/Contract/Market must have CN
+    if (['Own Vehicle', 'Contract Vehicle', 'Market Vehicle'].includes(t.fleetType) && !t.cnNo) {
+      onStatusUpdate({ text: 'Add CN Number before Out Vehicle', type: 'error' });
+      return;
+    }
+
     setOutData({ 
       tripId: t.tripId, 
       id: t.id, 
@@ -1294,6 +1306,45 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
     }, { merge: true });
     setIsOutPopupOpen(false);
     onStatusUpdate({ text: `Vehicle ${outData.vehicleNumber} is now IN-TRANSIT`, type: 'success' });
+  };
+
+  // Recently used CNs Logic
+  const recentCns = React.useMemo(() => {
+    if (!trips) return [];
+    const list = trips.filter((t: any) => t.cnNo).map((t: any) => t.cnNo);
+    return Array.from(new Set(list)).reverse().slice(0, 3);
+  }, [trips]);
+
+  const handleAddCn = (t: any) => {
+    setSelectedTripForCn(t);
+    const company = (companies || []).find((c: any) => c.plantCodes?.includes(t.plantCode));
+    setCnFormData({
+      cnNo: t.cnNo || '',
+      cnDate: t.cnDate || format(new Date(), 'yyyy-MM-dd'),
+      paymentTerms: t.paymentTerms || 'PAID',
+      carrierName: company?.companyName || 'AUTO-ASSIGN PENDING',
+      items: t.cnItems || [{ invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'BAG' }]
+    });
+    setIsCnPopupOpen(true);
+  };
+
+  const handleCnPost = () => {
+    if (!cnFormData.cnNo || !cnFormData.cnDate || !cnFormData.items[0]?.invoiceNo || !cnFormData.items[0]?.product) {
+      onStatusUpdate({ text: 'Fill mandatory fields: CN No, Date, Invoice No, Product', type: 'error' });
+      return;
+    }
+    
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForCn.id), {
+      cnNo: cnFormData.cnNo,
+      cnDate: cnFormData.cnDate,
+      paymentTerms: cnFormData.paymentTerms,
+      carrierName: cnFormData.carrierName,
+      cnItems: cnFormData.items,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+    
+    setIsCnPopupOpen(false);
+    onStatusUpdate({ text: `CN ${cnFormData.cnNo} synchronized successfully`, type: 'success' });
   };
 
   React.useEffect(() => {
@@ -1344,7 +1395,6 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
   const mVendors = (vendors || []).filter((v: any) => v.vendorName?.toUpperCase().includes(vendorSearch.toUpperCase()));
 
   return <div className="flex flex-col h-full space-y-4">
-    {/* Top Header Filter & Search */}
     <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 bg-white border border-slate-300 p-3 rounded-sm shadow-sm">
       <div className="flex items-center gap-4 flex-1">
         <label className="text-[10px] font-black uppercase text-slate-400 whitespace-nowrap pl-2">Sync Search Hub</label>
@@ -1394,7 +1444,7 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
             <tr className="bg-[#f8fafc] text-[9px] font-black uppercase sticky top-0 border-b border-slate-300 z-10">
               {activeTab === 'Open Orders' ? 
                 ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>) : 
-                ['Plant', 'Trip ID', 'Consignee', 'Ship to Party', 'Route', 'Vehicle No', 'Assign Qty', 'CN Number', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}
+                ['Plant', 'Trip ID', 'Route', 'Vehicle No', 'Assign Qty', 'CN Number', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -1437,8 +1487,6 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
                         <div className="text-[#0056d2] font-black">#{t.tripId}</div>
                         <div className="text-[9px] text-slate-400 font-bold uppercase">{format(new Date(t.createdAt), 'dd/MM/yyyy HH:mm')}</div>
                       </td>
-                      <td className="p-3 uppercase">{t.consignee}</td>
-                      <td className="p-3 uppercase">{t.shipToParty}</td>
                       <td className="p-3 uppercase">{t.route}</td>
                       <td className="p-3 space-y-0.5">
                         <div className="uppercase">{t.vehicleNumber}</div>
@@ -1447,10 +1495,10 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
                       <td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td>
                       <td className="p-3">
                         <div className="flex items-center gap-2">
-                          <span className="truncate max-w-[80px]">{t.cnNo || t.lrNo || (t.fleetType === 'Arrange by Party' ? 'INVOICE' : 'PENDING')}</span>
+                          <span className="truncate max-w-[80px] font-black text-blue-700">{t.cnNo || ""}</span>
                           <button 
-                            disabled={t.fleetType === 'Arrange by Party' && activeTab === 'Loading'} 
-                            className={cn("p-1 rounded bg-slate-50 border border-slate-200 text-slate-400 transition-all", (t.fleetType === 'Arrange by Party' && activeTab === 'Loading') ? "opacity-30 cursor-not-allowed" : "hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200")}
+                            onClick={() => handleAddCn(t)}
+                            className="p-1 rounded bg-slate-50 border border-slate-200 text-slate-400 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all"
                           >
                             <Plus className="h-3 w-3" />
                           </button>
@@ -1472,7 +1520,6 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
         </table>
       </div>
 
-      {/* Pagination Footer */}
       <div className="p-3 bg-[#f8fafc] border-t border-slate-300 flex items-center justify-between z-10 shadow-[0_-2px_5px_rgba(0,0,0,0.02)]">
         <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-3">
           <Badge variant="outline" className="text-[#1e3a8a] border-blue-200 bg-white px-2 py-0.5 rounded-sm">REGISTRY NODES: {filteredData.length}</Badge>
@@ -1506,6 +1553,140 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
         </div>
       </div>
     </div>
+
+    {/* Add CN Popup */}
+    <Dialog open={isCnPopupOpen} onOpenChange={setIsCnPopupOpen}>
+      <DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
+        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
+          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
+            <FileCheck className="h-4 w-4" /> Add CN Details
+          </DialogTitle>
+          <DialogDescription className="sr-only">Add consignment note and document details for the trip.</DialogDescription>
+        </DialogHeader>
+        
+        <div className="p-4 md:p-8 space-y-6 max-h-[80vh] overflow-y-auto green-scrollbar">
+          {/* Read Only Header */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white p-4 border border-slate-200 rounded-sm shadow-inner opacity-80">
+            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[10px] font-black truncate">{selectedTripForCn?.shipToParty}</span></div>
+            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black truncate">{selectedTripForCn?.route}</span></div>
+            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle No</span><span className="text-[10px] font-black">{selectedTripForCn?.vehicleNumber}</span></div>
+            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Weight</span><span className="text-[10px] font-black">{selectedTripForCn?.assignWeight} MT</span></div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg-white p-6 border border-slate-200 shadow-sm relative">
+            <div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-slate-400 uppercase border border-slate-100">CN HEADER</div>
+            
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-black text-slate-500 uppercase">CN Number *</label>
+                <div className="flex gap-1">
+                  {recentCns.map(cn => (
+                    <span key={cn} onClick={() => setCnFormData({...cnFormData, cnNo: cn})} className="text-[8px] font-black bg-yellow-200 text-yellow-900 px-1 cursor-pointer hover:bg-yellow-300">
+                      {cn}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <input value={cnFormData.cnNo} onChange={e => setCnFormData({...cnFormData, cnNo: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" placeholder="ENTER CN NO..." />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-500 uppercase">CN Date *</label>
+              <input type="date" value={cnFormData.cnDate} onChange={e => setCnFormData({...cnFormData, cnDate: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-500 uppercase">Payment Terms</label>
+              <select value={cnFormData.paymentTerms} onChange={e => setCnFormData({...cnFormData, paymentTerms: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black">
+                <option value="PAID">PAID</option>
+                <option value="TO PAY">TO PAY</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-500 uppercase">Carrier Name</label>
+              <input value={cnFormData.carrierName} disabled className="h-10 border border-slate-200 bg-slate-50 px-3 text-xs font-black opacity-70" />
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-sm shadow-sm overflow-hidden">
+            <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
+              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Document Details</span>
+              <Button onClick={() => setCnFormData({...cnFormData, items: [...cnFormData.items, { invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'BAG' }]})} size="sm" variant="outline" className="h-6 px-2 text-[8px] font-black border-blue-200 text-blue-700">
+                <Plus className="h-3 w-3 mr-1" /> Add Row
+              </Button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/50 text-[8px] font-black uppercase text-slate-400">
+                    <th className="p-3 border-r">Invoice No *</th>
+                    <th className="p-3 border-r">E-waybill No</th>
+                    <th className="p-3 border-r">Product Description *</th>
+                    <th className="p-3 border-r w-24">Unit</th>
+                    <th className="p-3 border-r w-32">Unit UOM</th>
+                    <th className="p-3 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cnFormData.items.map((item: any, idx: number) => (
+                    <tr key={idx} className="border-t border-slate-100 hover:bg-slate-50/50">
+                      <td className="p-2"><input value={item.invoiceNo} onChange={e => {
+                        const newItems = [...cnFormData.items];
+                        newItems[idx].invoiceNo = e.target.value.toUpperCase();
+                        setCnFormData({...cnFormData, items: newItems});
+                      }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td>
+                      <td className="p-2"><input value={item.ewaybillNo} onChange={e => {
+                        const newItems = [...cnFormData.items];
+                        newItems[idx].ewaybillNo = e.target.value.toUpperCase();
+                        setCnFormData({...cnFormData, items: newItems});
+                      }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td>
+                      <td className="p-2"><input value={item.product} onChange={e => {
+                        const newItems = [...cnFormData.items];
+                        newItems[idx].product = e.target.value.toUpperCase();
+                        setCnFormData({...cnFormData, items: newItems});
+                      }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td>
+                      <td className="p-2"><input type="number" value={item.unit} onChange={e => {
+                        const newItems = [...cnFormData.items];
+                        newItems[idx].unit = e.target.value;
+                        setCnFormData({...cnFormData, items: newItems});
+                      }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td>
+                      <td className="p-2">
+                        <select value={item.uom} onChange={e => {
+                          const newItems = [...cnFormData.items];
+                          newItems[idx].uom = e.target.value;
+                          setCnFormData({...cnFormData, items: newItems});
+                        }} className="w-full h-8 border border-slate-300 px-1 text-[10px] font-bold outline-none">
+                          <option value="BAG">BAG</option>
+                          <option value="BOX">BOX</option>
+                          <option value="DRUM">DRUM</option>
+                          <option value="CAN">CAN</option>
+                          <option value="Pices">Pices</option>
+                          <option value="Others">Others</option>
+                        </select>
+                      </td>
+                      <td className="p-2">
+                        {cnFormData.items.length > 1 && (
+                          <button onClick={() => {
+                            const newItems = cnFormData.items.filter((_:any, i:number) => i !== idx);
+                            setCnFormData({...cnFormData, items: newItems});
+                          }} className="text-red-400 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+            <Button onClick={() => setIsCnPopupOpen(false)} variant="outline" className="h-11 px-8 border-slate-300 hover:bg-[#e81123] hover:text-white text-[10px] font-black uppercase tracking-widest transition-all">Cancel</Button>
+            <Button onClick={handleCnPost} className="h-11 px-12 bg-[#0056d2] hover:bg-blue-900 text-white text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95">Post</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
 
     {/* Out Vehicle Popup */}
     <Dialog open={isOutPopupOpen} onOpenChange={setIsOutPopupOpen}>
