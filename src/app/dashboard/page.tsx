@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -237,10 +238,10 @@ export default function SapDashboard() {
         return;
       }
 
-      setStatusMsg({ text: `Synchronizing hub nodes...`, type: 'info' });
-      
       const headers = rows[0].split(',').map(h => h.trim());
       const dataRows = rows.slice(1);
+
+      setStatusMsg({ text: `Synchronizing hub nodes...`, type: 'info' });
 
       if (activeScreen.startsWith('VA')) {
         const orderGroups: Record<string, any> = {};
@@ -263,7 +264,6 @@ export default function SapDashboard() {
           }
           
           if (!orderGroups[soNo]) {
-            // Auto-fetch From, Destination, Delivery Address based on names from registry
             const consData = rawCustomers?.find(c => c.customerName?.toUpperCase() === cons.toUpperCase());
             const shipData = rawCustomers?.find(c => c.customerName?.toUpperCase() === ship.toUpperCase());
 
@@ -276,14 +276,12 @@ export default function SapDashboard() {
               shipToParty: ship,
               destination: shipData?.city || '',
               deliveryAddress: shipData?.address || '',
-              weight: 0, // Will be summed
+              weight: 0,
               weightUom: uom,
               status: 'OPEN',
               createdAt: new Date().toISOString()
             };
           }
-
-          // Rule: Same Sale Order appears in multiple rows → total weight = sum of all rows
           orderGroups[soNo].weight += weight;
         });
 
@@ -296,26 +294,49 @@ export default function SapDashboard() {
         setStatusMsg({ text: `Bulk Sync: ${savedCount} Nodes Saved, ${rejectedCount} Rows Rejected`, type: rejectedCount > 0 ? 'error' : 'success' });
 
       } else if (activeScreen.startsWith('XD')) {
+        const getIdx = (name: string) => headers.findIndex(h => h.toLowerCase() === name.toLowerCase());
+        const idxP = getIdx('PlantCodes');
+        const idxCC = getIdx('CustomerCode');
+        const idxCN = getIdx('CustomerName');
+        const idxCT = getIdx('CustomerType');
+        const idxA = getIdx('Address');
+        const idxCi = getIdx('City');
+        const idxM = getIdx('Mobile');
+        const idxG = getIdx('GSTIN');
+
+        // Check if mandatory headers are present
+        if (idxP === -1 || idxCC === -1 || idxCN === -1 || idxCi === -1) {
+          setStatusMsg({ text: 'Error: Mandatory headers (PlantCodes, CustomerCode, CustomerName, City) missing', type: 'error' });
+          return;
+        }
+
         let savedCount = 0;
         let rejectedCount = 0;
+
         dataRows.forEach(row => {
           const cols = row.split(',').map(c => c.trim());
-          // Mandatory: PlantCodes, CustomerCode, CustomerName, CustomerType, City
-          if (!cols[0] || !cols[1] || !cols[2] || !cols[3] || !cols[5]) {
+          const pCode = cols[idxP];
+          const cCode = cols[idxCC];
+          const cName = cols[idxCN];
+          const city = cols[idxCi];
+
+          // Strict validation: Plant Code, Customer Code, Customer Name, City are mandatory
+          if (!pCode || !cCode || !cName || !city) {
             rejectedCount++;
             return;
           }
+
           const docId = crypto.randomUUID();
           const customer = {
             id: docId,
-            plantCodes: cols[0].split(';'),
-            customerCode: cols[1],
-            customerName: cols[2],
-            customerType: cols[3],
-            address: cols[4],
-            city: cols[5],
-            mobile: cols[6],
-            gstin: cols[7],
+            plantCodes: pCode.split(';'),
+            customerCode: cCode,
+            customerName: cName,
+            customerType: idxCT !== -1 ? cols[idxCT] : '',
+            address: idxA !== -1 ? cols[idxA] : '',
+            city: city,
+            mobile: idxM !== -1 ? cols[idxM] : '',
+            gstin: idxG !== -1 ? cols[idxG] : '',
             updatedAt: new Date().toISOString()
           };
           setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'customers', docId), customer, { merge: true });
@@ -353,11 +374,15 @@ export default function SapDashboard() {
         if (!localData.vendorCode) localData.vendorCode = `V${Math.floor(10000 + Math.random() * 90000)}`;
       }
       if (activeScreen.startsWith('XD')) {
+        // Strict Mandatory Validation for XD01
+        if (!(localData.plantCodes?.length && localData.customerCode && localData.customerName && localData.city)) {
+          setStatusMsg({ text: 'Error: Plant, Customer Code, Name & City are mandatory', type: 'error' });
+          return;
+        }
         const exists = rawCustomers?.some((c: any) => c.id !== localData.id && (c.customerCode || c.id)?.toString().toUpperCase() === (localData.customerCode || localData.id)?.toString().toUpperCase());
         if (exists) { setStatusMsg({ text: `ID/Number ${localData.customerCode} Already exists`, type: 'error' }); return; }
       }
       if (activeScreen.startsWith('VA') && activeScreen !== 'VA04') {
-        // Mandatory fields check for VA01
         if (!(localData.plantCode && localData.saleOrder && localData.consignor && localData.from && localData.consignee && localData.shipToParty && localData.destination && localData.weight && localData.weightUom)) {
           setStatusMsg({ text: 'Error: Mandatory fields (Plant, SO No, Consignor, From, Consignee, Ship to Party, Destination, Weight, UOM) required', type: 'error' }); return;
         }
@@ -832,11 +857,11 @@ function VendorForm({ data, onChange, disabled }: any) {
 function CustomerForm({ data, onChange, disabled, allPlants }: any) {
   const pList = (allPlants || []).map((p: any) => p.plantCode);
   const handleToggle = (p: string) => { if (disabled) return; const curr = data.plantCodes || []; onChange({...data, plantCodes: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); };
-  return <div className="space-y-4"><SectionGrouping title="IDENTIFICATION"><div className="col-span-1 md:col-span-2 space-y-2 mb-4"><label className="text-[10px] font-bold text-slate-500">Plant Assignment (Multiple)</label>
+  return <div className="space-y-4"><SectionGrouping title="IDENTIFICATION"><div className="col-span-1 md:col-span-2 space-y-2 mb-4"><label className="text-[10px] font-bold text-slate-500">Plant Assignment (Multiple) *</label>
     <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border uppercase", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{p}</button>)}</div></div>
-    <FormInput label="CUSTOMER CODE" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} /><FormInput label="CUSTOMER NAME" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
+    <FormInput label="CUSTOMER CODE *" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} /><FormInput label="CUSTOMER NAME *" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
     <FormSelect label="CUSTOMER TYPE" value={data.customerType} options={["Consignor", "Consignee - Ship to Party"]} onChange={(v: string) => onChange({...data, customerType: v})} disabled={disabled} /></SectionGrouping>
-    <SectionGrouping title="LOCATION"><FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} /><FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+    <SectionGrouping title="LOCATION"><FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} /><FormInput label="CITY *" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
     <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} /><FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} placeholder="ENTER GSTIN..." /></SectionGrouping></div>;
 }
 
