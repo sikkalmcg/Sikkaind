@@ -1174,6 +1174,11 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
   const [vendorSearch, setVendorSearch] = React.useState(''); 
   const [showVS, setShowVS] = React.useState(false);
   
+  // Enhancement States
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 15;
+  
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
   
   const getStats = (o: any) => { 
@@ -1196,6 +1201,32 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
        return { ...t, route };
     }); 
   }, [trips, activeTab]);
+
+  // Search Logic
+  const filteredData = React.useMemo(() => {
+    const rawData = activeTab === 'Open Orders' ? fOrders : fTrips;
+    if (!searchQuery) return rawData;
+    const lowerQuery = searchQuery.toLowerCase();
+    return rawData.filter((item: any) => 
+      Object.values(item).some(val => 
+        String(val).toLowerCase().includes(lowerQuery)
+      )
+    );
+  }, [activeTab, fOrders, fTrips, searchQuery]);
+
+  // Pagination Logic
+  const paginatedData = React.useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(start, start + itemsPerPage);
+  }, [filteredData, currentPage]);
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+  // Tab change triggers page reset
+  React.useEffect(() => {
+    setCurrentPage(1);
+    setSearchQuery('');
+  }, [activeTab]);
   
   const handleAssign = (o: any) => { 
     setSelectedOrder(o); 
@@ -1261,9 +1292,132 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
 
   const mVendors = (vendors || []).filter((v: any) => v.vendorName?.toUpperCase().includes(vendorSearch.toUpperCase()));
 
-  return <div className="flex flex-col h-full space-y-4"><div className="flex border-b border-slate-300 bg-[#dae4f1]/30 overflow-x-auto no-scrollbar">{TABS.map(t => <button key={t} onClick={() => setActiveTab(t)} className={cn("px-4 md:px-6 py-2.5 text-[9px] md:text-[10px] font-black uppercase tracking-widest whitespace-nowrap", activeTab === t ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700")}>{t}</button>)}</div>
-    <div className="flex-1 overflow-auto bg-white border border-slate-300"><table className="w-full text-left min-w-[1000px]"><thead><tr className="bg-[#f8fafc] text-[9px] font-black uppercase sticky top-0">{activeTab === 'Open Orders' ? ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r">{h}</th>) : ['Trip ID', 'Vehicle No', 'Plant', 'Consignee', 'Ship to Party', 'Route', 'Assign Qty', 'CN Number', 'Action', 'Sync Hub'].map(h => <th key={h} className="p-3 border-r">{h}</th>)}</tr></thead>
-      <tbody>{activeTab === 'Open Orders' ? fOrders.map(o => <tr key={o.id} className="border-b text-[11px] font-bold"><td className="p-3">{o.plantCode}</td><td className="p-3 space-y-0.5"><div className="text-[#0056d2] font-black">{o.saleOrder}</div><div className="text-[9px] text-slate-400 font-bold uppercase">{o.createdAt ? format(new Date(o.createdAt), 'dd/MM/yyyy HH:mm') : ''}</div></td><td className="p-3 uppercase">{o.consignor}</td><td className="p-3 uppercase">{o.consignee}</td><td className="p-3 uppercase">{o.shipToParty}</td><td className="p-3 uppercase">{o.route}</td><td className="p-3 font-black">{o.tot} {o.uom}</td><td className="p-3 text-emerald-600">{o.ass} {o.uom}</td><td className="p-3 text-red-600 font-black">{o.bal} {o.uom}</td><td className="p-3"><Button onClick={() => handleAssign(o)} size="sm" className="bg-[#0056d2] text-white font-black text-[9px]">Assign</Button></td></tr>) : fTrips.map(t => <tr key={t.id} className="border-b text-[11px] font-bold"><td className="p-3 text-[#0056d2] font-black">#{t.tripId}</td><td className="p-3 uppercase">{t.vehicleNumber}</td><td className="p-3">{t.plantCode}</td><td className="p-3 uppercase">{t.consignee}</td><td className="p-3 uppercase">{t.shipToParty}</td><td className="p-3 uppercase">{t.route}</td><td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td><td className="p-3"><div className="flex items-center gap-2"><span className="truncate max-w-[80px]">{t.cnNo || t.lrNo || 'PENDING'}</span><button disabled={t.fleetType === 'Arrange by Party'} className={cn("p-1 rounded bg-slate-50 border border-slate-200 text-slate-400 transition-all", t.fleetType === 'Arrange by Party' ? "opacity-30 cursor-not-allowed" : "hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200")}><Plus className="h-3 w-3" /></button></div></td><td className="p-3"><Button size="sm" className="text-[9px] bg-slate-100 text-slate-600">Action</Button></td><td className="p-3 text-slate-400">{format(new Date(t.createdAt), 'dd-MM HH:mm')}</td></tr>)}</tbody></table></div>
+  return <div className="flex flex-col h-full space-y-4">
+    {/* Top Header Search Enhancement */}
+    <div className="flex items-center justify-between bg-white border border-slate-300 p-2 rounded-sm shadow-sm">
+      <div className="flex items-center gap-4 flex-1">
+        <label className="text-[10px] font-black uppercase text-slate-400 whitespace-nowrap pl-2">Current Tab Registry Search</label>
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+          <input 
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            placeholder="SEARCH ACROSS ALL COLUMNS..." 
+            className="h-9 w-full border border-slate-300 pl-9 pr-4 text-[10px] font-black outline-none bg-slate-50/30 focus:bg-yellow-50 focus:border-blue-400 uppercase tracking-wider"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 overflow-x-auto no-scrollbar">{TABS.map(t => <button key={t} onClick={() => setActiveTab(t)} className={cn("px-4 md:px-6 py-2.5 text-[9px] md:text-[10px] font-black uppercase tracking-widest whitespace-nowrap", activeTab === t ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700")}>{t}</button>)}</div>
+    
+    <div className="flex-1 flex flex-col overflow-hidden bg-white border border-slate-300">
+      <div className="flex-1 overflow-auto">
+        <table className="w-full text-left min-w-[1000px]">
+          <thead>
+            <tr className="bg-[#f8fafc] text-[9px] font-black uppercase sticky top-0 border-b border-slate-300 z-10">
+              {activeTab === 'Open Orders' ? ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>) : ['Trip ID', 'Vehicle No', 'Plant', 'Consignee', 'Ship to Party', 'Route', 'Assign Qty', 'CN Number', 'Action', 'Sync Hub'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedData.length === 0 ? (
+              <tr>
+                <td colSpan={11} className="p-20 text-center">
+                  <div className="flex flex-col items-center gap-3 opacity-20">
+                    <Search className="h-10 w-10" />
+                    <span className="text-[11px] font-black uppercase tracking-[0.2em]">No Synchronized Nodes Found</span>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              paginatedData.map((item: any) => {
+                if (activeTab === 'Open Orders') {
+                  const o = item;
+                  return (
+                    <tr key={o.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] transition-colors text-[11px] font-bold group">
+                      <td className="p-3">{o.plantCode}</td>
+                      <td className="p-3 space-y-0.5">
+                        <div className="text-[#0056d2] font-black">{o.saleOrder}</div>
+                        <div className="text-[9px] text-slate-400 font-bold uppercase">{o.createdAt ? format(new Date(o.createdAt), 'dd/MM/yyyy HH:mm') : ''}</div>
+                      </td>
+                      <td className="p-3 uppercase">{o.consignor}</td>
+                      <td className="p-3 uppercase">{o.consignee}</td>
+                      <td className="p-3 uppercase">{o.shipToParty}</td>
+                      <td className="p-3 uppercase">{o.route}</td>
+                      <td className="p-3 font-black">{o.tot} {o.uom}</td>
+                      <td className="p-3 text-emerald-600">{o.ass} {o.uom}</td>
+                      <td className="p-3 text-red-600 font-black">{o.bal} {o.uom}</td>
+                      <td className="p-3"><Button onClick={() => handleAssign(o)} size="sm" className="bg-[#0056d2] text-white font-black text-[9px] h-7 px-3 uppercase tracking-tighter">Assign</Button></td>
+                    </tr>
+                  );
+                } else {
+                  const t = item;
+                  return (
+                    <tr key={t.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] transition-colors text-[11px] font-bold group">
+                      <td className="p-3 text-[#0056d2] font-black">#{t.tripId}</td>
+                      <td className="p-3 uppercase">{t.vehicleNumber}</td>
+                      <td className="p-3">{t.plantCode}</td>
+                      <td className="p-3 uppercase">{t.consignee}</td>
+                      <td className="p-3 uppercase">{t.shipToParty}</td>
+                      <td className="p-3 uppercase">{t.route}</td>
+                      <td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate max-w-[80px]">{t.cnNo || t.lrNo || 'PENDING'}</span>
+                          <button 
+                            disabled={t.fleetType === 'Arrange by Party'} 
+                            className={cn("p-1 rounded bg-slate-50 border border-slate-200 text-slate-400 transition-all", t.fleetType === 'Arrange by Party' ? "opacity-30 cursor-not-allowed" : "hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200")}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="p-3"><Button size="sm" className="text-[9px] bg-slate-100 text-slate-600 h-7 px-3 uppercase tracking-tighter">Action</Button></td>
+                      <td className="p-3 text-slate-400">{format(new Date(t.createdAt), 'dd-MM HH:mm')}</td>
+                    </tr>
+                  );
+                }
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination Footer Enhancement */}
+      <div className="p-3 bg-[#f8fafc] border-t border-slate-300 flex items-center justify-between z-10 shadow-[0_-2px_5px_rgba(0,0,0,0.02)]">
+        <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-3">
+          <Badge variant="outline" className="text-[#1e3a8a] border-blue-200 bg-white px-2 py-0.5 rounded-sm">REGISTRY NODES: {filteredData.length}</Badge>
+          <span>SHOWING {paginatedData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} — {Math.min(currentPage * itemsPerPage, filteredData.length)} OF {filteredData.length}</span>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(p => p - 1)}
+            className="h-8 px-4 text-[9px] font-black uppercase tracking-widest border-slate-300 hover:bg-white hover:text-blue-700 hover:border-blue-300 transition-all"
+          >
+            <ChevronLeft className="h-4 w-4 mr-1.5" /> Previous Page
+          </Button>
+          
+          <div className="h-8 px-5 flex items-center text-[10px] font-black text-[#1e3a8a] bg-blue-50/50 rounded-sm border border-blue-100 uppercase tracking-widest min-w-[120px] justify-center">
+            PAGE {currentPage} / {totalPages || 1}
+          </div>
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            disabled={currentPage === totalPages || totalPages === 0}
+            onClick={() => setCurrentPage(p => p + 1)}
+            className="h-8 px-4 text-[9px] font-black uppercase tracking-widest border-slate-300 hover:bg-white hover:text-blue-700 hover:border-blue-300 transition-all"
+          >
+            Next Page <ChevronRight className="h-4 w-4 ml-1.5" />
+          </Button>
+        </div>
+      </div>
+    </div>
+
     <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
       <DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
