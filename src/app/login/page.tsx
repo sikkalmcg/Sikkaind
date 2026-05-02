@@ -50,7 +50,7 @@ export default function LoginPage() {
       if (snapshot.empty) {
         // Special Case: Initial Admin Bootstrap
         const allSnap = await getDocs(collection(db, 'user_registry'));
-        const isBootstrapAdmin = credentials.username === 'Sikkaind' && credentials.password === 'Sikka@lmc2105';
+        const isBootstrapAdmin = credentials.username.trim() === 'Sikkaind' && credentials.password.trim() === 'Sikka@lmc2105';
         
         if (allSnap.empty && isBootstrapAdmin) {
            router.push('/dashboard');
