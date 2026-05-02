@@ -129,19 +129,45 @@ export default function SapDashboard() {
     return userProfile?.plants || [];
   }, [userProfile]);
 
+  const authorizedPlantsList = React.useMemo(() => getAuthorizedPlants(), [getAuthorizedPlants]);
+
+  const accessiblePlants = React.useMemo(() => {
+    if (isBootstrapAdmin) return rawPlants || [];
+    return (rawPlants || []).filter(p => authorizedPlantsList.includes(p.plantCode));
+  }, [rawPlants, authorizedPlantsList, isBootstrapAdmin]);
+
+  const accessibleCompanies = React.useMemo(() => {
+    if (isBootstrapAdmin) return rawCompanies || [];
+    return (rawCompanies || []).filter(c => c.plantCodes?.some((p: string) => authorizedPlantsList.includes(p)));
+  }, [rawCompanies, authorizedPlantsList, isBootstrapAdmin]);
+
+  const accessibleVendors = React.useMemo(() => {
+    if (isBootstrapAdmin) return rawVendors || [];
+    return (rawVendors || []).filter(v => v.plantCodes?.some((p: string) => authorizedPlantsList.includes(p)));
+  }, [rawVendors, authorizedPlantsList, isBootstrapAdmin]);
+
+  const accessibleCustomers = React.useMemo(() => {
+    if (isBootstrapAdmin) return rawCustomers || [];
+    return (rawCustomers || []).filter(c => c.plantCodes?.some((p: string) => authorizedPlantsList.includes(p)));
+  }, [rawCustomers, authorizedPlantsList, isBootstrapAdmin]);
+
+  const accessibleUsers = React.useMemo(() => {
+    if (isBootstrapAdmin) return allUsers || [];
+    if (!authorizedPlantsList.length) return [];
+    return (allUsers || []).filter(u => u.plants?.some((p: string) => authorizedPlantsList.includes(p)));
+  }, [allUsers, authorizedPlantsList, isBootstrapAdmin]);
+
   const allTrips = React.useMemo(() => {
-    const authPlants = getAuthorizedPlants();
     if (isBootstrapAdmin) return rawTrips || [];
-    if (!authPlants.length) return [];
-    return rawTrips?.filter(t => authPlants.includes(t.plantCode)) || [];
-  }, [rawTrips, getAuthorizedPlants, isBootstrapAdmin]);
+    if (!authorizedPlantsList.length) return [];
+    return rawTrips?.filter(t => authorizedPlantsList.includes(t.plantCode)) || [];
+  }, [rawTrips, authorizedPlantsList, isBootstrapAdmin]);
 
   const allOrders = React.useMemo(() => {
-    const authPlants = getAuthorizedPlants();
     if (isBootstrapAdmin) return rawOrders || [];
-    if (!authPlants.length) return [];
-    return rawOrders?.filter(o => authPlants.includes(o.plantCode)) || [];
-  }, [rawOrders, getAuthorizedPlants, isBootstrapAdmin]);
+    if (!authorizedPlantsList.length) return [];
+    return rawOrders?.filter(o => authorizedPlantsList.includes(o.plantCode)) || [];
+  }, [rawOrders, authorizedPlantsList, isBootstrapAdmin]);
 
   const homeStats = React.useMemo(() => {
     if (!allOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, reject: 0, closed: 0 };
@@ -177,21 +203,21 @@ export default function SapDashboard() {
   }, [userProfile, allUsers, isBootstrapAdmin]);
 
   const getRegistryList = React.useCallback(() => {
-    if (activeScreen.startsWith('OX')) return rawPlants || [];
-    if (activeScreen.startsWith('FM')) return rawCompanies || [];
-    if (activeScreen.startsWith('XK')) return rawVendors || [];
+    if (activeScreen.startsWith('OX')) return accessiblePlants;
+    if (activeScreen.startsWith('FM')) return accessibleCompanies;
+    if (activeScreen.startsWith('XK')) return accessibleVendors;
     if (activeScreen.startsWith('XD')) {
-      let list = rawCustomers || [];
+      let list = accessibleCustomers;
       if (xdSearch.plant) list = list.filter((c: any) => c.plantCodes?.includes(xdSearch.plant));
       if (xdSearch.type) list = list.filter((c: any) => c.customerType === xdSearch.type);
       if (xdSearch.name) list = list.filter((c: any) => c.customerName?.toUpperCase().includes(xdSearch.name.toUpperCase()));
       if (xdSearch.customerId) list = list.filter((c: any) => (c.customerCode || c.id)?.toString().toUpperCase() === xdSearch.customerId.toUpperCase());
       return list;
     }
-    if (activeScreen.startsWith('VA')) return allOrders || [];
-    if (activeScreen.startsWith('SU')) return allUsers || [];
+    if (activeScreen.startsWith('VA')) return allOrders;
+    if (activeScreen.startsWith('SU')) return accessibleUsers;
     return [];
-  }, [activeScreen, rawPlants, rawCompanies, rawVendors, rawCustomers, allOrders, allUsers, xdSearch]);
+  }, [activeScreen, accessiblePlants, accessibleCompanies, accessibleVendors, accessibleCustomers, allOrders, accessibleUsers, xdSearch]);
 
   const handleDownloadTemplate = React.useCallback(() => {
     let headers = "";
@@ -257,7 +283,6 @@ export default function SapDashboard() {
           const weight = parseFloat(cols[5] || '0');
           const uom = cols[6];
 
-          // Strict validation: Plant, SO No, Consignor, Consignee, Ship to Party, Weight, UOM are mandatory
           if (!plant || !soNo || !cons || !consee || !ship || !weight || !uom) {
             rejectedCount++;
             return;
@@ -304,7 +329,6 @@ export default function SapDashboard() {
         const idxM = getIdx('Mobile');
         const idxG = getIdx('GSTIN');
 
-        // Check if mandatory headers are present
         if (idxP === -1 || idxCC === -1 || idxCN === -1 || idxCi === -1) {
           setStatusMsg({ text: 'Error: Mandatory headers (PlantCodes, CustomerCode, CustomerName, City) missing', type: 'error' });
           return;
@@ -320,7 +344,6 @@ export default function SapDashboard() {
           const cName = cols[idxCN];
           const city = cols[idxCi];
 
-          // Strict validation: Plant Code, Customer Code, Customer Name, City are mandatory
           if (!pCode || !cCode || !cName || !city) {
             rejectedCount++;
             return;
@@ -374,7 +397,6 @@ export default function SapDashboard() {
         if (!localData.vendorCode) localData.vendorCode = `V${Math.floor(10000 + Math.random() * 90000)}`;
       }
       if (activeScreen.startsWith('XD')) {
-        // Strict Mandatory Validation for XD01
         if (!(localData.plantCodes?.length && localData.customerCode && localData.customerName && localData.city)) {
           setStatusMsg({ text: 'Error: Plant, Customer Code, Name & City are mandatory', type: 'error' });
           return;
@@ -437,11 +459,19 @@ export default function SapDashboard() {
         setFormData(payload);
       }
     }
-  }, [user, activeScreen, formData, allOrders, rawVendors, rawCustomers, rawCompanies, rawPlants, allUsers, db, isBootstrapAdmin]);
+  }, [user, activeScreen, formData, allOrders, rawPlants, allUsers, db, isBootstrapAdmin, rawCustomers, rawCompanies, rawVendors]);
 
   const executeTCode = React.useCallback((code: string) => {
     const input = code.toUpperCase().trim();
     if (!input) return;
+    
+    const clean = input.replace('/N', '').replace('/O', '').trim();
+    if (clean !== 'HOME' && clean !== '' && !isAuthorized(clean)) {
+      setStatusMsg({ text: `You are not authorized to run T-code ${clean}`, type: 'error' });
+      setTCode('');
+      return;
+    }
+
     setHistory(p => [input, ...p.filter(h => h !== input)].slice(0, 7));
     setShowHistory(false); setHistoryIndex(-1);
 
@@ -451,9 +481,7 @@ export default function SapDashboard() {
       window.open(target ? `${baseUrl}?tcode=${target}` : baseUrl, '_blank'); setTCode(''); return;
     }
 
-    const clean = input.replace('/N', '').trim();
     if (clean === 'HOME' || clean === '') { setActiveScreen('HOME'); setTCode(''); setFormData({}); setSearchId(''); return; }
-    if (!isAuthorized(clean)) { setStatusMsg({ text: `Authorization failed for ${clean}`, type: 'error' }); setTCode(''); return; }
 
     if (MASTER_TCODES.some(t => t.code === clean)) {
       setActiveScreen(clean as Screen); setFormData({}); setSearchId(''); setXdSearch({ plant: '', type: '', name: '', customerId: '' });
@@ -521,8 +549,6 @@ export default function SapDashboard() {
       else { setStatusMsg({ text: `Record ${idToSearch} not found`, type: 'error' }); }
     }
   };
-
-  const authorizedPlantsList = getAuthorizedPlants();
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
@@ -594,7 +620,7 @@ export default function SapDashboard() {
                   <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Authorized Plant Hub</label>
                     <select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none" value={homePlantFilter} onChange={(e) => setHomePlantFilter(e.target.value)}>
                       <option value="ALL">ALL AUTHORIZED PLANTS</option>
-                      {rawPlants?.filter(p => isBootstrapAdmin || authorizedPlantsList.includes(p.plantCode)).map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
+                      {accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
                     </select>
                   </div>
                   <div className="flex flex-col gap-2 relative" ref={monthRef}><label className="text-[10px] font-black uppercase text-slate-400">Node Period</label>
@@ -627,19 +653,19 @@ export default function SapDashboard() {
               <div className={cn("bg-white shadow-xl rounded-sm border border-slate-300 overflow-hidden animate-slide-up min-h-[600px] p-4 md:p-6 mx-auto", hideSidebar ? "w-full" : "w-full max-w-[1400px]")}>
                  {showForm && <div className="space-y-6">
                    {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                   {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
+                   {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
                    {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                   {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
-                   {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} allCustomers={rawCustomers} />}
+                   {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
+                   {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} />}
                    {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} onPost={handleSave} onCancel={() => setFormData({})} />}
-                   {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={rawPlants} />}
+                   {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
                  </div>}
                  {showList && <div className="space-y-6">
                    <div className="bg-[#dae4f1]/30 p-4 md:p-6 border border-slate-300 space-y-4"><label className="text-[11px] font-black uppercase text-slate-500 block">Registry Search Hub</label>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                            {activeScreen.startsWith('XD') ? <>
                                <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Customer ID</label><input className="h-10 border border-slate-400 px-3 text-xs font-black outline-none bg-white" value={xdSearch.customerId} onChange={(e) => setXdSearch({...xdSearch, customerId: e.target.value})} onKeyDown={handleSearchIdEnter} placeholder="ID & ENTER..." /></div>
-                               <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Select Plant</label><select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold" value={xdSearch.plant} onChange={(e) => setXdSearch({...xdSearch, plant: e.target.value})}><option value="">ALL PLANTS</option>{rawPlants?.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div>
+                               <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Select Plant</label><select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold" value={xdSearch.plant} onChange={(e) => setXdSearch({...xdSearch, plant: e.target.value})}><option value="">ALL PLANTS</option>{accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div>
                                <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Select Type</label><select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold" value={xdSearch.type} onChange={(e) => setXdSearch({...xdSearch, type: e.target.value})}><option value="">ALL TYPES</option><option value="Consignor">Consignor</option><option value="Consignee - Ship to Party">Consignee - Ship to Party</option></select></div>
                                <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Enter Name</label><input className="h-10 border border-slate-400 px-4 text-xs font-black outline-none" value={xdSearch.name} onChange={(e) => setXdSearch({...xdSearch, name: e.target.value})} placeholder="NAME..." /></div>
                              </> : <div className="col-span-1 md:col-span-4 flex items-center gap-4"><input className="h-11 w-full border border-slate-400 px-4 text-xs font-black outline-none bg-white" value={searchId} onChange={(e) => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE & PRESS ENTER..." /></div>}
@@ -647,7 +673,7 @@ export default function SapDashboard() {
                    </div>
                    <RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} />
                  </div>}
-                 {activeScreen === 'TR21' && <DripBoard orders={allOrders} trips={allTrips} vendors={rawVendors} plants={rawPlants} onStatusUpdate={setStatusMsg} />}
+                 {activeScreen === 'TR21' && <DripBoard orders={allOrders} trips={allTrips} vendors={accessibleVendors} plants={accessiblePlants} onStatusUpdate={setStatusMsg} />}
                  {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               </div>
             )}
