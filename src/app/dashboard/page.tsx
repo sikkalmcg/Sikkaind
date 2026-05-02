@@ -1104,8 +1104,12 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
 
 function RegistryList({ onSelectItem, listData, activeScreen }: any) {
   const isUserRegistry = activeScreen?.startsWith('SU');
+  const isVendorRegistry = activeScreen?.startsWith('XK');
+  
   const headers = isUserRegistry 
     ? ['Name', 'Username', 'Password', 'Authorized Plant']
+    : isVendorRegistry
+    ? ['Vendor Code', 'Vendor Name', 'Vendor Firm Name', 'Mobile', 'Special Route']
     : ['ID', 'Name / Description', 'Type / Details', 'Sync Hub'];
 
   return <div className="overflow-x-auto border border-slate-300 shadow-sm"><table className="w-full text-left border-collapse min-w-[700px]">
@@ -1117,6 +1121,14 @@ function RegistryList({ onSelectItem, listData, activeScreen }: any) {
           <td className="p-3 uppercase">{item.username}</td>
           <td className="p-3">{item.password}</td>
           <td className="p-3 uppercase text-slate-500 italic">{item.plants?.join(', ') || 'NONE'}</td>
+        </>
+      ) : isVendorRegistry ? (
+        <>
+          <td className="p-3 font-black text-[#0056d2]">{item.vendorCode}</td>
+          <td className="p-3 uppercase">{item.vendorName}</td>
+          <td className="p-3 uppercase">{item.vendorFirmName}</td>
+          <td className="p-3">{item.mobile}</td>
+          <td className="p-3 italic text-slate-500">{item.route}</td>
         </>
       ) : (
         <>
