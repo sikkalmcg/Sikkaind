@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -30,7 +29,8 @@ import {
   Dialog, 
   DialogContent, 
   DialogHeader, 
-  DialogTitle 
+  DialogTitle,
+  DialogDescription
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
@@ -105,7 +105,6 @@ export default function SapDashboard() {
   React.useEffect(() => {
     const updateGreeting = () => {
       const now = new Date();
-      // Calculate India Standard Time (IST): UTC + 5:30
       const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
       const istTime = new Date(utc + (3600000 * 5.5));
       const hour = istTime.getHours();
@@ -122,7 +121,7 @@ export default function SapDashboard() {
     };
 
     updateGreeting();
-    const interval = setInterval(updateGreeting, 60000); // update every minute
+    const interval = setInterval(updateGreeting, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -151,11 +150,9 @@ export default function SapDashboard() {
   const { data: rawCustomers } = useCollection(customersQuery);
   const { data: allUsers, isLoading: isAllUsersLoading } = useCollection(usersQuery);
 
-  const getAuthorizedPlants = React.useCallback(() => {
+  const authorizedPlantsList = React.useMemo(() => {
     return userProfile?.plants || [];
   }, [userProfile]);
-
-  const authorizedPlantsList = React.useMemo(() => getAuthorizedPlants(), [getAuthorizedPlants]);
 
   const accessiblePlants = React.useMemo(() => {
     if (isBootstrapAdmin) return rawPlants || [];
@@ -464,7 +461,6 @@ export default function SapDashboard() {
           setStatusMsg({ text: 'Error: Plant, Customer Code, Name & City are mandatory', type: 'error' });
           return;
         }
-        // Strict Plant + Customer Code uniqueness
         const duplicateInPlant = rawCustomers?.some((c: any) => {
           if (c.id === localData.id) return false;
           if (c.customerCode?.toString().toUpperCase() !== localData.customerCode?.toString().toUpperCase()) return false;
@@ -714,7 +710,7 @@ export default function SapDashboard() {
             </div>
           </div>
         )}
-        <div className="flex-1 flex-1 flex flex-col overflow-hidden bg-[#f0f3f9]">
+        <div className="flex-1 flex flex-col overflow-hidden bg-[#f0f3f9]">
           <div className="flex-1 overflow-y-auto p-2 md:p-4 relative">
             {activeScreen === 'HOME' ? (
               <div className="w-full h-full flex flex-col p-2 md:p-4 space-y-8 animate-fade-in">
@@ -1196,7 +1192,6 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
     if (!trips) return []; 
     const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; 
     return trips.filter(t => t.status === map[activeTab]).map(t => {
-       // Ensure trip route also follows From → Destination if possible
        const route = (t.from && t.destination && !t.route?.includes('→')) ? `${t.from} → ${t.destination}` : t.route;
        return { ...t, route };
     }); 
@@ -1223,7 +1218,7 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
     if (assignData.fleetType === 'Market Vehicle' && !assignData.isFixedRate) {
       const weight = parseFloat(assignData.assignWeight || 0);
       const rate = parseFloat(assignData.rate || 0);
-      setAssignData(prev => ({ ...prev, freightAmount: weight * rate }));
+      setAssignData(prev => ({ ...prev, freightAmount: isNaN(weight * rate) ? 0 : weight * rate }));
     }
   }, [assignData.assignWeight, assignData.rate, assignData.fleetType, assignData.isFixedRate]);
 
@@ -1250,10 +1245,10 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
       vendorName: assignData.vendorName || '', 
       vendorMobile: assignData.vendorMobile || '',
       employee: assignData.employee || '',
-      rate: parseFloat(assignData.rate || 0),
-      freightAmount: parseFloat(assignData.freightAmount || 0),
+      rate: parseFloat(assignData.rate || 0) || 0,
+      freightAmount: parseFloat(assignData.freightAmount || 0) || 0,
       isFixedRate: !!assignData.isFixedRate,
-      assignWeight: parseFloat(assignData.assignWeight || 0), 
+      assignWeight: parseFloat(assignData.assignWeight || 0) || 0, 
       status: 'LOADING', 
       createdAt: new Date().toISOString() 
     }; 
@@ -1271,13 +1266,13 @@ function DripBoard({ orders, trips, vendors, plants, onStatusUpdate }: any) {
       <tbody>{activeTab === 'Open Orders' ? fOrders.map(o => <tr key={o.id} className="border-b text-[11px] font-bold"><td className="p-3">{o.plantCode}</td><td className="p-3 space-y-0.5"><div className="text-[#0056d2] font-black">{o.saleOrder}</div><div className="text-[9px] text-slate-400 font-bold uppercase">{o.createdAt ? format(new Date(o.createdAt), 'dd/MM/yyyy HH:mm') : ''}</div></td><td className="p-3 uppercase">{o.consignor}</td><td className="p-3 uppercase">{o.consignee}</td><td className="p-3 uppercase">{o.shipToParty}</td><td className="p-3 uppercase">{o.route}</td><td className="p-3 font-black">{o.tot} {o.uom}</td><td className="p-3 text-emerald-600">{o.ass} {o.uom}</td><td className="p-3 text-red-600 font-black">{o.bal} {o.uom}</td><td className="p-3"><Button onClick={() => handleAssign(o)} size="sm" className="bg-[#0056d2] text-white font-black text-[9px]">Assign</Button></td></tr>) : fTrips.map(t => <tr key={t.id} className="border-b text-[11px] font-bold"><td className="p-3 text-[#0056d2] font-black">#{t.tripId}</td><td className="p-3 uppercase">{t.vehicleNumber}</td><td className="p-3">{t.plantCode}</td><td className="p-3 uppercase">{t.consignee}</td><td className="p-3 uppercase">{t.shipToParty}</td><td className="p-3 uppercase">{t.route}</td><td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td><td className="p-3"><div className="flex items-center gap-2"><span className="truncate max-w-[80px]">{t.cnNo || t.lrNo || 'PENDING'}</span><button disabled={t.fleetType === 'Arrange by Party'} className={cn("p-1 rounded bg-slate-50 border border-slate-200 text-slate-400 transition-all", t.fleetType === 'Arrange by Party' ? "opacity-30 cursor-not-allowed" : "hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200")}><Plus className="h-3 w-3" /></button></div></td><td className="p-3"><Button size="sm" className="text-[9px] bg-slate-100 text-slate-600">Action</Button></td><td className="p-3 text-slate-400">{format(new Date(t.createdAt), 'dd-MM HH:mm')}</td></tr>)}</tbody></table></div>
     <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
       <DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
-        <div className="bg-[#1e3a8a] px-6 py-4 flex items-center justify-between">
+        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
           <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
             <Truck className="h-4 w-4" /> TR24 - Assign Vehicle Hub
             {assignData.route && <span className="ml-4 pl-4 border-l border-white/20 text-blue-300 tracking-normal font-bold lowercase first-letter:uppercase">{assignData.route}</span>}
           </DialogTitle>
-          <button onClick={() => setIsPopupOpen(false)} className="text-white/60 hover:text-white transition-colors"><X className="h-4 w-4" /></button>
-        </div>
+          <DialogDescription className="sr-only">Assign vehicle and details for the selected sales order.</DialogDescription>
+        </DialogHeader>
         
         <div className="p-4 md:p-8 space-y-8 max-h-[80vh] overflow-y-auto green-scrollbar">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 bg-white p-6 border border-slate-200 shadow-sm relative">
