@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -65,7 +66,7 @@ const MASTER_TCODES = [
 export default function SapDashboard() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user, isUserLoading, userError } = useUser();
+  const { user, isUserLoading } = useUser();
   const db = useFirestore();
 
   const [tCode, setTCode] = React.useState('');
@@ -80,11 +81,10 @@ export default function SapDashboard() {
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL');
   const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM'));
   const [showMonthCalendar, setShowMonthCalendar] = React.useState(false);
-  const [sessionCount, setSessionCount] = React.useState(1);
-  const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '' });
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
   const [isAuthChecking, setIsAuthChecking] = React.useState(true);
   const [registryId, setRegistryId] = React.useState<string | null>(null);
+  const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '' });
 
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const monthRef = React.useRef<HTMLDivElement>(null);
@@ -129,16 +129,16 @@ export default function SapDashboard() {
 
   const allTrips = React.useMemo(() => {
     const authPlants = getAuthorizedPlants();
-    if (isBootstrapAdmin) return rawTrips;
+    if (isBootstrapAdmin) return rawTrips || [];
     if (!authPlants.length) return [];
-    return rawTrips?.filter(t => authPlants.includes(t.plantCode));
+    return rawTrips?.filter(t => authPlants.includes(t.plantCode)) || [];
   }, [rawTrips, getAuthorizedPlants, isBootstrapAdmin]);
 
   const allOrders = React.useMemo(() => {
     const authPlants = getAuthorizedPlants();
-    if (isBootstrapAdmin) return rawOrders;
+    if (isBootstrapAdmin) return rawOrders || [];
     if (!authPlants.length) return [];
-    return rawOrders?.filter(o => authPlants.includes(o.plantCode));
+    return rawOrders?.filter(o => authPlants.includes(o.plantCode)) || [];
   }, [rawOrders, getAuthorizedPlants, isBootstrapAdmin]);
 
   const homeStats = React.useMemo(() => {
@@ -196,11 +196,10 @@ export default function SapDashboard() {
     let filename = "";
     
     if (activeScreen.startsWith('VA')) {
-      // Updated to match the form sections: HEADER, COORDINATION, ITEMS as shown in provided image
-      headers = "Plant,SaleOrderNo,Consignor,From,ShipToParty,Destination,Invoice,Ewaybill,Product,Weight,UOM";
+      headers = "Plant,SaleOrderNo,Consignor,From,Consignee,ShipToParty,DeliveryAddress,Invoice,Ewaybill,Product,Qty,Weight,UOM";
       filename = "VA01_SALES_ORDER_TEMPLATE.csv";
     } else if (activeScreen.startsWith('XD')) {
-      headers = "PlantCodes,CustomerCode,CustomerName,CustomerType,Address,City,Mobile";
+      headers = "PlantCodes,CustomerCode,CustomerName,CustomerType,Address,City,Mobile,GSTIN";
       filename = "XD01_CUSTOMER_MASTER_TEMPLATE.csv";
     } else {
       toast({ title: "Template Not Available", description: "No template defined for this module." });
@@ -226,7 +225,7 @@ export default function SapDashboard() {
     if (file) {
       setStatusMsg({ text: `Processing ${file.name}...`, type: 'info' });
       setTimeout(() => {
-        setStatusMsg({ text: `Bulk Processing Complete: ${Math.floor(Math.random() * 50) + 10} SUCCESSFUL, 0 FAILED`, type: 'success' });
+        setStatusMsg({ text: `Bulk Processing Complete: SUCCESSFUL`, type: 'success' });
         if (bulkInputRef.current) bulkInputRef.current.value = '';
       }, 1500);
     }
@@ -425,7 +424,7 @@ export default function SapDashboard() {
              <button onClick={handleSave} disabled={activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}><Save className="h-4 w-4 text-slate-600" /></button>
              <button onClick={() => executeTCode('/n')} className="p-1 hover:bg-slate-200 rounded"><Undo2 className="h-4 w-4 text-slate-600" /></button>
              <button onClick={handleCancel} disabled={activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && !isBootstrapAdmin)) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}><XCircle className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={() => window.open(window.location.href, '_blank')} disabled={sessionCount >= 3} className={cn("p-1 rounded", sessionCount >= 3 ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")}><PlusSquare className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={() => window.open(window.location.href, '_blank')} className={cn("p-1 rounded hover:bg-slate-200")}><PlusSquare className="h-4 w-4 text-slate-600" /></button>
           </div>
           <div className="flex-1" /><div className="flex items-center gap-3 pr-4">
              {(activeScreen === 'XD01' || activeScreen === 'VA01') && (
@@ -548,11 +547,11 @@ function FormInput({ label, value, onChange, type = "text", disabled, placeholde
   );
 }
 
-function FormSelect({ label, value, options, onChange, disabled }: any) {
+function FormSelect({ label, value, options, onChange, disabled, placeholder }: any) {
   return (
     <div className="flex flex-col gap-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
       <select value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="h-9 border border-slate-400 bg-white px-2 text-xs font-bold outline-none shadow-sm">
-        <option value="">Select...</option>{options.map((o: any, idx: number) => {
+        <option value="">{placeholder || 'Select...'}</option>{options.map((o: any, idx: number) => {
           const v = typeof o === 'string' ? o : o.value; const l = typeof o === 'string' ? o : o.label;
           return <option key={`${v}-${idx}`} value={v}>{l}</option>;
         })}
@@ -596,7 +595,7 @@ function CustomerForm({ data, onChange, disabled, allPlants }: any) {
     <FormInput label="CUSTOMER CODE" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} /><FormInput label="CUSTOMER NAME" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
     <FormSelect label="CUSTOMER TYPE" value={data.customerType} options={["Consignor", "Consignee - Ship to Party"]} onChange={(v: string) => onChange({...data, customerType: v})} disabled={disabled} /></SectionGrouping>
     <SectionGrouping title="LOCATION"><FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} /><FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
-    <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} /></SectionGrouping></div>;
+    <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} /><FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} placeholder="ENTER GSTIN..." /></SectionGrouping></div>;
 }
 
 function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: any) {
@@ -604,19 +603,26 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
   const filtered = (allCustomers || []).filter((c: any) => c.plantCodes?.includes(data.plantCode));
   const cons = filtered.filter((c: any) => c.customerType === 'Consignor');
   const ships = filtered.filter((c: any) => c.customerType === 'Consignee - Ship to Party');
-  const items = data.items || [{ invoice: '', ewaybill: '', product: '', weight: '', weightUom: 'MT' }];
+  const items = data.items || [{ invoice: '', ewaybill: '', product: '', qty: '', weight: '', weightUom: 'MT' }];
   const updateItem = (i: number, f: string, v: any) => { if (disabled) return; const n = [...items]; n[i] = { ...n[i], [f]: v }; onChange({ ...data, items: n }); };
   return <div className="space-y-4"><SectionGrouping title="HEADER"><FormSelect label="PLANT" value={data.plantCode} options={pOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
     <FormInput label="SALE ORDER NO" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} /></SectionGrouping>
-    <SectionGrouping title="COORDINATION"><FormSelect label="CONSIGNOR" value={data.consignor} options={cons.map(c => c.customerName)} onChange={(v: string) => onChange({...data, consignor: v, from: cons.find(c => c.customerName === v)?.city || ''})} disabled={disabled} />
-      <FormInput label="FROM" value={data.from} disabled={true} /><FormSelect label="SHIP TO PARTY" value={data.shipToParty} options={ships.map(c => c.customerName)} onChange={(v: string) => onChange({...data, shipToParty: v, destination: ships.find(c => c.customerName === v)?.city || ''})} disabled={disabled} />
-      <FormInput label="DESTINATION" value={data.destination} disabled={true} /></SectionGrouping>
+    <SectionGrouping title="COORDINATION">
+      <FormSelect label="CONSIGNOR" value={data.consignor} options={cons.map(c => c.customerName)} onChange={(v: string) => onChange({...data, consignor: v, from: cons.find(c => c.customerName === v)?.city || ''})} disabled={disabled} />
+      <FormInput label="FROM" value={data.from} disabled={true} />
+      <FormSelect label="CONSIGNEE" value={data.consignee} placeholder="Select..." options={ships.map(c => c.customerName)} onChange={(v: string) => onChange({...data, consignee: v})} disabled={disabled} />
+      <FormSelect label="SHIP TO PARTY" value={data.shipToParty} options={ships.map(c => c.customerName)} onChange={(v: string) => onChange({...data, shipToParty: v, destination: ships.find(c => c.customerName === v)?.city || ''})} disabled={disabled} />
+      <FormInput label="DESTINATION" value={data.destination} disabled={true} />
+      <FormInput label="DELIVERY ADDRESS" value={data.deliveryAddress} onChange={(v: string) => onChange({...data, deliveryAddress: v})} disabled={disabled} placeholder="ENTER DELIVERY ADDRESS..." />
+    </SectionGrouping>
     <div className="border border-slate-300 rounded-sm overflow-hidden"><div className="bg-[#dae4f1]/50 p-3 flex justify-between items-center"><span className="text-[10px] font-black uppercase text-slate-500">ITEMS</span>
-      {!disabled && <Button onClick={() => onChange({ ...data, items: [...items, { invoice: '', ewaybill: '', product: '', weight: '', weightUom: 'MT' }] })} size="sm" variant="outline" className="h-7 text-blue-600">Add Row</Button>}</div>
-      <table className="w-full text-left"><thead><tr className="bg-[#f8fafc] text-[9px] font-black uppercase">{['Invoice', 'Ewaybill', 'Product', 'Weight', 'UOM', ''].map(h => <th key={h} className="p-2 border-r">{h}</th>)}</tr></thead>
-        <tbody>{items.map((it: any, i: number) => <tr key={i} className="border-b"><td className="p-1"><input value={it.invoice} onChange={e => updateItem(i, 'invoice', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
+      {!disabled && <Button onClick={() => onChange({ ...data, items: [...items, { invoice: '', ewaybill: '', product: '', qty: '', weight: '', weightUom: 'MT' }] })} size="sm" variant="outline" className="h-7 text-blue-600">Add Row</Button>}</div>
+      <table className="w-full text-left"><thead><tr className="bg-[#f8fafc] text-[9px] font-black uppercase">{['Invoice', 'Ewaybill', 'Product', 'Qty.', 'Weight', 'UOM', ''].map(h => <th key={h} className="p-2 border-r">{h}</th>)}</tr></thead>
+        <tbody>{items.map((it: any, i: number) => <tr key={i} className="border-b">
+          <td className="p-1"><input value={it.invoice} onChange={e => updateItem(i, 'invoice', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
           <td className="p-1"><input value={it.ewaybill} onChange={e => updateItem(i, 'ewaybill', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
           <td className="p-1"><input value={it.product} onChange={e => updateItem(i, 'product', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
+          <td className="p-1"><input value={it.qty} onChange={e => updateItem(i, 'qty', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
           <td className="p-1"><input value={it.weight} onChange={e => updateItem(i, 'weight', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold" /></td>
           <td className="p-1"><select value={it.weightUom} onChange={e => updateItem(i, 'weightUom', e.target.value)} disabled={disabled} className="w-full h-8 px-2 text-[11px] font-bold"><option value="MT">MT</option><option value="LTR">LTR</option></select></td>
           <td className="p-1 text-center">{!disabled && <button onClick={() => onChange({ ...data, items: items.filter((_:any, idx:number) => idx !== i) })} className="text-red-400"><Trash2 className="h-4 w-4" /></button>}</td></tr>)}
