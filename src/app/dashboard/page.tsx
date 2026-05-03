@@ -10,7 +10,7 @@ import {
   PlusSquare, XCircle, Calendar as CalendarIcon, Package, Undo2,
   FileText, UploadCloud, Trash2, Plus, CheckCircle as CheckCircleIcon, Search,
   AlertTriangle, Clock, Calendar as LucideCalendar, FileCheck, Eye, EyeOff, Download,
-  Loader2, Camera
+  Loader2, Camera, Radar, Settings
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,7 +40,7 @@ import { format, subDays, isWithinInterval, startOfDay, endOfDay, isAfter, parse
 import { cn } from '@/lib/utils';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
-type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE';
+type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'WGPS24' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE';
 
 const MASTER_TCODES = [
   { code: 'OX01', description: 'PLANT MASTER: CREATE', icon: Package, module: 'Master Data' },
@@ -60,6 +60,7 @@ const MASTER_TCODES = [
   { code: 'VA03', description: 'SALES ORDER: DISPLAY', icon: Info, module: 'Logistics' },
   { code: 'VA04', description: 'CANCEL SALES ORDER', icon: XCircle, module: 'Logistics' },
   { code: 'TR21', description: 'DRIP BOARD CONTROL', icon: Truck, module: 'Logistics' },
+  { code: 'WGPS24', description: 'GPS TRACKING HUB', icon: Radar, module: 'Logistics' },
   { code: 'SU01', description: 'USER MANAGEMENT: CREATE', icon: ShieldAlert, module: 'System' },
   { code: 'SU02', description: 'USER MANAGEMENT: CHANGE', icon: Edit3, module: 'System' },
   { code: 'SU03', description: 'USER MANAGEMENT: DISPLAY', icon: Info, module: 'System' },
@@ -703,7 +704,7 @@ export default function SapDashboard() {
           <div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden print:hidden">
             <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div>
             <div className="flex-1 overflow-y-auto green-scrollbar">
-              {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'ZCODE').map((item) => (
+              {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'ZCODE' || t.code === 'WGPS24').map((item) => (
                 <div key={item.code} onClick={() => executeTCode(item.code)} className={cn("flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all", activeScreen === item.code ? "bg-[#0056d2] text-white" : "text-[#1e3a8a]")}>
                   <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", activeScreen === item.code ? "bg-white" : "bg-slate-300 group-hover:bg-blue-600")} />
                   <span className={cn("text-[10px] font-black uppercase tracking-tight", activeScreen === item.code ? "text-white" : "text-[#1e3a8a]")}>{item.code} - {item.description}</span>
@@ -782,6 +783,7 @@ export default function SapDashboard() {
                    <RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} />
                  </div>}
                  {activeScreen === 'TR21' && <DripBoard orders={allOrders} trips={allTrips} vendors={accessibleVendors} plants={accessiblePlants} companies={accessibleCompanies} customers={accessibleCustomers} onStatusUpdate={setStatusMsg} />}
+                 {activeScreen === 'WGPS24' && <GpsTrackingHub trips={allTrips} onStatusUpdate={setStatusMsg} db={db} />}
                  {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               </div>
             )}
@@ -2476,6 +2478,180 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       </DialogContent>
     </Dialog>
   </div>;
+}
+
+function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
+  const [activeTab, setActiveTab] = React.useState('Tracking MAP');
+  const [vehicles, setVehicles] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [map, setMap] = React.useState<any>(null);
+  const [markers, setMarkers] = React.useState<any[]>([]);
+  
+  const settingsRef = doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config');
+  const { data: settings } = useDoc(settingsRef);
+
+  React.useEffect(() => {
+    if (activeTab === 'Tracking MAP') {
+       const scriptId = 'google-maps-script';
+       if (!document.getElementById(scriptId)) {
+         const script = document.createElement('script');
+         script.id = scriptId;
+         script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU&libraries=places`;
+         script.async = true;
+         script.defer = true;
+         document.head.appendChild(script);
+       }
+    }
+  }, [activeTab]);
+
+  const fetchGpsData = async () => {
+    try {
+      const res = await fetch('https://api.wheelseye.com/currentLoc?accessToken=53afc208-0981-48c7-b134-d85d2f33dc0c');
+      const json = await res.json();
+      if (json.data) {
+        setVehicles(json.data);
+      }
+    } catch (e) {
+      console.error("GPS Fetch Error", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchGpsData();
+    const interval = setInterval(fetchGpsData, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  React.useEffect(() => {
+    if (!map || !vehicles.length || !window.google) return;
+
+    markers.forEach(m => m.setMap(null));
+    const newMarkers: any[] = [];
+
+    vehicles.forEach((v: any) => {
+      const pos = { lat: parseFloat(v.lat), lng: parseFloat(v.lng) };
+      const isActive = v.speed > 0;
+      const iconUrl = isActive ? (settings?.activeIcon || 'https://maps.google.com/mapfiles/ms/icons/green-dot.png') : (settings?.stopIcon || 'https://maps.google.com/mapfiles/ms/icons/red-dot.png');
+
+      const marker = new window.google.maps.Marker({
+        position: pos,
+        map: map,
+        title: v.vehicleNo,
+        icon: {
+          url: iconUrl,
+          scaledSize: new window.google.maps.Size(32, 32)
+        }
+      });
+      newMarkers.push(marker);
+    });
+
+    setMarkers(newMarkers);
+  }, [map, vehicles, settings]);
+
+  const handleIconUpload = async (e: any, type: 'activeIcon' | 'stopIcon') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setDocumentNonBlocking(settingsRef, { [type]: dataUrl }, { merge: true });
+      onStatusUpdate({ text: `${type === 'activeIcon' ? 'Active' : 'Stop'} icon synchronized`, type: 'success' });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="flex flex-col h-full space-y-4">
+      <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 overflow-x-auto no-scrollbar">
+        {['Tracking MAP', 'Setting'].map(t => (
+          <button key={t} onClick={() => setActiveTab(t)} className={cn("px-6 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap", activeTab === t ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700")}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 bg-white border border-slate-300 overflow-hidden flex flex-col md:flex-row">
+        {activeTab === 'Tracking MAP' ? (
+          <>
+            <div className="w-full md:w-80 border-r border-slate-200 flex flex-col h-[300px] md:h-auto">
+               <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase text-slate-500">Vehicle Registry</span>
+                  <Badge variant="outline" className="text-[8px]">{vehicles.length} Units</Badge>
+               </div>
+               <div className="flex-1 overflow-y-auto green-scrollbar">
+                  {loading ? (
+                    <div className="p-10 flex flex-col items-center gap-2">
+                       <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                       <span className="text-[8px] font-black uppercase text-slate-400">Loading GPS Nodes...</span>
+                    </div>
+                  ) : vehicles.map((v: any) => (
+                    <div key={v.vehicleNo} onClick={() => map?.panTo({ lat: parseFloat(v.lat), lng: parseFloat(v.lng) })} className="p-3 border-b border-slate-50 hover:bg-blue-50 cursor-pointer transition-colors group">
+                       <div className="flex justify-between items-start">
+                          <span className="text-[11px] font-black text-[#1e3a8a]">{v.vehicleNo}</span>
+                          <span className={cn("text-[8px] font-black px-1.5 py-0.5 rounded", v.speed > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>
+                            {v.speed > 0 ? `${v.speed} KM/H` : 'STOPPED'}
+                          </span>
+                       </div>
+                       <p className="text-[9px] text-slate-400 font-bold uppercase truncate mt-1">{v.location || 'SYNCING LOCATION...'}</p>
+                    </div>
+                  ))}
+               </div>
+            </div>
+            <div className="flex-1 relative bg-slate-100">
+               <div id="google-map" ref={(el) => {
+                  if (el && !map && window.google) {
+                    const newMap = new window.google.maps.Map(el, {
+                      center: { lat: 28.6139, lng: 77.2090 },
+                      zoom: 5,
+                      disableDefaultUI: false
+                    });
+                    setMap(newMap);
+                  }
+               }} className="w-full h-full min-h-[400px]" />
+            </div>
+          </>
+        ) : (
+          <div className="p-8 space-y-10 max-w-2xl mx-auto w-full">
+             <div className="space-y-6">
+                <h3 className="text-sm font-black text-[#1e3a8a] uppercase tracking-tighter border-b border-slate-100 pb-2">GPS ICON SYNCHRONIZATION</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   <div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm">
+                      <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Active Vehicle Icon</label>
+                      <div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">
+                         {settings?.activeIcon ? (
+                           <div className="relative w-12 h-12 border border-slate-200 p-1">
+                              <Image src={settings.activeIcon} alt="Active" fill className="object-contain" unoptimized />
+                           </div>
+                         ) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}
+                         <input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'activeIcon')} className="hidden" id="up-active-icon" />
+                         <Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300">
+                            <label htmlFor="up-active-icon" className="cursor-pointer">Upload New Node</label>
+                         </Button>
+                      </div>
+                   </div>
+                   <div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm">
+                      <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500" /> Stopped Vehicle Icon</label>
+                      <div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">
+                         {settings?.stopIcon ? (
+                           <div className="relative w-12 h-12 border border-slate-200 p-1">
+                              <Image src={settings.stopIcon} alt="Stop" fill className="object-contain" unoptimized />
+                           </div>
+                         ) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}
+                         <input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'stopIcon')} className="hidden" id="up-stop-icon" />
+                         <Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300">
+                            <label htmlFor="up-stop-icon" className="cursor-pointer">Upload New Node</label>
+                         </Button>
+                      </div>
+                   </div>
+                </div>
+             </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function CnPrintLayout({ trip, company, consignor, consignee, shipTo }: any) {
