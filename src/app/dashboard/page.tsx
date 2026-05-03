@@ -2311,7 +2311,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-black text-slate-500 uppercase">Out Time</label>
-              <input type="time" value={outData.time} onChange={e => setOutData({...outData, time: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
+              <input type="time" value={outData.time} onChange={e => { if (e.target.value) setOutData({...outData, time: e.target.value}); }} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
             </div>
           </div>
 
@@ -2504,26 +2504,34 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
     }
   }, [activeTab]);
 
-  const fetchGpsData = async () => {
-    try {
-      const res = await fetch('https://api.wheelseye.com/currentLoc?accessToken=53afc208-0981-48c7-b134-d85d2f33dc0c');
-      if (!res.ok) throw new Error('API Sync Failed');
-      const json = await res.json();
-      if (json.data) {
-        setVehicles(json.data);
-      }
-    } catch (e) {
-      console.error("GPS Fetch Error", e);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchGpsData = React.useCallback(async () => {
+    const apiUrl = 'https://api.wheelseye.com/currentLoc?accessToken=53afc208-0981-48c7-b134-d85d2f33dc0c';
+    
+    fetch(apiUrl, { mode: 'cors' })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Registry Handshake Failed: ${response.status} ${response.statusText}`);
+        }
+        return response.json();
+      })
+      .then(json => {
+        if (json && Array.isArray(json.data)) {
+          setVehicles(json.data);
+        }
+        setLoading(false);
+      })
+      .catch(error => {
+        console.error("Wheelseye Sync Handshake Error:", error);
+        onStatusUpdate({ text: `Wheelseye Registry Sync Error: ${error.message}`, type: 'error' });
+        setLoading(false);
+      });
+  }, [onStatusUpdate]);
 
   React.useEffect(() => {
     fetchGpsData();
     const interval = setInterval(fetchGpsData, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchGpsData]);
 
   React.useEffect(() => {
     if (!map || !vehicles.length || !window.google) return;
@@ -2549,7 +2557,7 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
     });
 
     setMarkers(newMarkers);
-  }, [map, vehicles, settings]);
+  }, [map, vehicles, settings, markers]);
 
   const handleIconUpload = async (e: any, type: 'activeIcon' | 'stopIcon') => {
     const file = e.target.files?.[0];
