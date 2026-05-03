@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -10,7 +11,7 @@ import {
   PlusSquare, XCircle, Calendar as CalendarIcon, Package, Undo2,
   FileText, UploadCloud, Trash2, Plus, CheckCircle as CheckCircleIcon, Search,
   AlertTriangle, Clock, Calendar as LucideCalendar, FileCheck, Eye, EyeOff, Download,
-  Loader2, Radar, Settings, PlayCircle
+  Loader2, Radar, Settings, PlayCircle, ShoppingCart, CheckCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1584,7 +1585,6 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
   };
 
   const startAnimation = (trip: any) => {
-    const steps = ['ORDER BOOKED', 'LOADING', 'IN-TRANSIT', 'ARRIVED', 'DELIVERED'];
     let target = 0;
     if (trip.status === 'LOADING') target = 1;
     else if (trip.status === 'IN-TRANSIT') target = 2;
@@ -1654,22 +1654,66 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
     <div className="flex justify-start"><Button onClick={() => setView('search')} variant="outline" className="h-10 text-[9px] font-black uppercase tracking-widest border-slate-300">New Search</Button></div></div>;
   }
 
-  const steps = ['Order Booked', 'Loading', 'IN-Transit', 'Arrived', trackingData.status === 'REJECTION' ? 'Reject' : 'Delivered'];
+  const steps = [
+    { label: 'Order Booked', icon: ShoppingCart },
+    { label: 'Loading', icon: Package },
+    { label: 'IN-Transit', icon: Truck },
+    { label: 'Arrived', icon: MapPin },
+    { label: trackingData.status === 'REJECTION' ? 'Reject' : 'Delivered', icon: trackingData.status === 'REJECTION' ? AlertTriangle : CheckCircleIcon }
+  ];
+
   return <div className="space-y-8 animate-slide-up"><SectionGrouping title="TRIP TRACKING HUB">
       <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle</span><span className="text-sm font-black uppercase text-[#1e3a8a]">{trackingData.vehicleNumber}</span></div>
       <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Driver Mob</span><span className="text-sm font-black">{trackingData.driverMobile}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Consignee</span><span className="text-xs font-black uppercase truncate">{trackingData.consignee}</span></div>
       <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship To</span><span className="text-xs font-black uppercase truncate">{trackingData.shipToParty}</span></div>
       <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-xs font-black uppercase">{trackingData.route}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Assigned Qty</span><span className="text-sm font-black text-emerald-600">{trackingData.assignWeight} MT</span></div>
     </SectionGrouping>
-    <div className="bg-slate-900 p-10 rounded-sm relative overflow-hidden"><div className="flex justify-between relative z-10">
-      {steps.map((s, i) => (<div key={s} className="flex flex-col items-center gap-4 group">
-          <div className={cn("w-4 h-4 rounded-full border-2 transition-all duration-1000", i <= activeStep ? "bg-blue-500 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]" : "bg-slate-800 border-slate-700")}>
-            {i === activeStep && <div className="relative -top-12 -translate-x-1/2 left-1/2 transition-all duration-1000"><Truck className={cn("h-8 w-8", trackingData.status === 'REJECTION' && activeStep === 4 ? "text-red-500 rotate-180" : "text-white")} /></div>}
+    <div className="p-10 rounded-sm relative overflow-hidden bg-white border border-slate-100">
+      <div className="flex justify-between relative z-10">
+        {steps.map((s, i) => {
+          let statusColor = "text-red-500";
+          let iconColor = "bg-red-50 text-red-500 border-red-200";
+          if (i < activeStep) {
+            statusColor = "text-emerald-500";
+            iconColor = "bg-emerald-50 text-emerald-500 border-emerald-200";
+          } else if (i === activeStep) {
+            statusColor = "text-yellow-600";
+            iconColor = "bg-yellow-50 text-yellow-600 border-yellow-300 shadow-[0_0_15px_rgba(234,179,8,0.3)]";
+          }
+
+          return (
+            <div key={s.label} className="flex flex-col items-center gap-4 group">
+              <div className={cn("w-12 h-12 rounded-2xl border-2 flex items-center justify-center transition-all duration-500 shadow-sm", iconColor)}>
+                <s.icon className="h-6 w-6 drop-shadow-md" />
+              </div>
+              <div className="text-center space-y-1">
+                <p className={cn("text-[9px] font-black uppercase tracking-widest", statusColor)}>{s.label}</p>
+                {i <= activeStep && (
+                  <p className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">
+                    {format(new Date(trackingData.createdAt), 'dd-MMM-yy HH:mm')}
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        <div className="absolute top-[24px] left-[10%] right-[10%] h-0.5 bg-slate-100 -z-0" />
+        {/* Animated Jumbo 3D Truck */}
+        <div 
+          className="absolute top-[-10px] z-20 transition-all duration-[2000ms] ease-in-out"
+          style={{ 
+            left: `${(activeStep / (steps.length - 1)) * 80 + 10}%`,
+            transform: 'translateX(-50%)'
+          }}
+        >
+          <div className="bg-white p-3 rounded-full shadow-2xl border border-blue-100 animate-bounce">
+            <Truck className={cn("h-10 w-10", trackingData.status === 'REJECTION' && activeStep === 4 ? "text-red-500 rotate-180" : "text-[#1e3a8a]")} />
           </div>
-          <div className="text-center"><p className={cn("text-[9px] font-black uppercase tracking-widest", i <= activeStep ? "text-white" : "text-slate-600")}>{s}</p>
-            {i <= activeStep && <p className="text-[14px] text-blue-400 font-bold mt-1 uppercase">{format(new Date(trackingData.createdAt), 'dd/MM HH:mm')}</p>}</div></div>))}
-      <div className="absolute top-[48px] left-[10%] right-[10%] h-0.5 bg-slate-800 -z-0" /><div className="absolute top-[48px] left-[10%] h-0.5 bg-blue-500 -z-0 transition-all duration-[2000ms]" style={{ width: `${(activeStep / (steps.length - 1)) * 80}%` }} />
-    </div></div>
+        </div>
+      </div>
+    </div>
     {trackingData.status === 'REJECTION' && <div className="bg-red-50 border-red-200 border p-4 text-center"><p className="text-[10px] font-black text-red-600 uppercase italic">REJECTION REASON: {trackingData.rejectionRemark || 'NODE REJECTED BY CONSIGNEE'}</p></div>}
     <div className="h-[400px] border border-slate-300 rounded-sm overflow-hidden"><div ref={mapRef} className="w-full h-full" /></div>
     <div className="flex justify-between items-center"><Button onClick={() => setView('search')} variant="outline" className="h-10 text-[9px] font-black uppercase tracking-widest border-slate-300">Exit Tracking</Button><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Sync: Active node tracking</p></div></div>;
