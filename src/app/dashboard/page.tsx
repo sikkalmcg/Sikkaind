@@ -70,6 +70,137 @@ const MASTER_TCODES = [
 
 const SHARED_HUB_ID = 'Sikkaind'; 
 
+function VehicleLocation({ lat, lng }: { lat: number, lng: number }) {
+  const [loc, setLoc] = React.useState<string>('Syncing...');
+  React.useEffect(() => {
+    if (!window.google) return;
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+      if (status === 'OK' && results[0]) {
+        const comps = results[0].address_components;
+        let street = '', city = '';
+        for (const c of comps) {
+          if (c.types.includes('route')) street = c.long_name;
+          if (c.types.includes('locality')) city = c.long_name;
+        }
+        setLoc(`${street}${street && city ? ', ' : ''}${city}` || results[0].formatted_address);
+      } else {
+        setLoc('Unknown Location');
+      }
+    });
+  }, [lat, lng]);
+  return <span className="text-[8px] font-black text-blue-600 truncate max-w-[120px]">{loc}</span>;
+}
+
+function LiveTrackingMapDialog({ isOpen, onOpenChange, trip, gpsVehicle, customers, settings }: any) {
+  const mapRef = React.useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    if (!isOpen || !trip || !gpsVehicle || !window.google) return;
+    
+    setLoading(true);
+    const geocoder = new window.google.maps.Geocoder();
+    const directionsService = new window.google.maps.DirectionsService();
+    const directionsRenderer = new window.google.maps.DirectionsRenderer({
+      suppressMarkers: true,
+      polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 }
+    });
+
+    const consignor = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.consignor?.toUpperCase());
+    const shipTo = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.shipToParty?.toUpperCase());
+
+    const p1 = new Promise((resolve) => {
+      if (consignor?.postalCode) {
+        geocoder.geocode({ address: consignor.postalCode }, (res, status) => {
+          if (status === 'OK') resolve(res[0].geometry.location);
+          else resolve(null);
+        });
+      } else resolve(null);
+    });
+
+    const p2 = new Promise((resolve) => {
+      if (shipTo?.postalCode) {
+        geocoder.geocode({ address: shipTo.postalCode }, (res, status) => {
+          if (status === 'OK') resolve(res[0].geometry.location);
+          else resolve(null);
+        });
+      } else resolve(null);
+    });
+
+    Promise.all([p1, p2]).then(([origin, dest]: any) => {
+      if (!mapRef.current) return;
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: { lat: gpsVehicle.latitude, lng: gpsVehicle.longitude },
+        zoom: 12,
+      });
+      directionsRenderer.setMap(map);
+
+      if (origin) {
+        new window.google.maps.Marker({
+          position: origin,
+          map,
+          label: { text: 'Loading Point', className: 'bg-white px-2 py-1 border border-slate-300 text-[8px] font-black uppercase rounded shadow-sm mb-8' },
+          icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
+        });
+      }
+
+      if (dest) {
+        new window.google.maps.Marker({
+          position: dest,
+          map,
+          label: { text: 'Drop Point', className: 'bg-white px-2 py-1 border border-slate-300 text-[8px] font-black uppercase rounded shadow-sm mb-8' },
+          icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+        });
+      }
+
+      const vIcon = gpsVehicle.speed > 0 ? settings?.activeIcon : settings?.stopIcon;
+      new window.google.maps.Marker({
+        position: { lat: gpsVehicle.latitude, lng: gpsVehicle.longitude },
+        map,
+        title: gpsVehicle.vehicleNumber,
+        icon: {
+          url: vIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png',
+          scaledSize: new window.google.maps.Size(40, 40)
+        }
+      });
+
+      if (origin && dest) {
+        directionsService.route({
+          origin,
+          destination: dest,
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        }, (result, status) => {
+          if (status === 'OK') directionsRenderer.setDirections(result);
+        });
+      }
+      setLoading(false);
+    });
+  }, [isOpen, trip, gpsVehicle, customers, settings]);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl h-[85vh] p-0 overflow-hidden bg-white border-none rounded-xl">
+        <DialogHeader className="bg-[#1e3a8a] text-white px-6 py-4 flex flex-row items-center justify-between space-y-0">
+          <DialogTitle className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
+            <Radar className="h-4 w-4" /> Live Tracking: {trip?.vehicleNumber}
+          </DialogTitle>
+          <button onClick={() => onOpenChange(false)} className="hover:opacity-70"><X className="h-5 w-5" /></button>
+        </DialogHeader>
+        <div className="relative w-full h-full bg-slate-50">
+          {loading && (
+            <div className="absolute inset-0 bg-white/80 z-20 flex flex-col items-center justify-center gap-3">
+               <Loader2 className="h-10 w-10 animate-spin text-[#1e3a8a]" />
+               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Live Map Synchronization...</span>
+            </div>
+          )}
+          <div ref={mapRef} className="w-full h-full" />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function SapDashboard() {
   const router = useRouter();
   const { toast } = useToast();
@@ -1186,53 +1317,42 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const [vendorSearch, setVendorSearch] = React.useState(''); 
   const [showVS, setShowVS] = React.useState(false);
   
-  // Enhancement States
   const [searchQuery, setSearchQuery] = React.useState('');
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 15;
 
-  // Date Range Filter States
   const [fromDate, setFromDate] = React.useState(format(subDays(new Date(), 4), 'yyyy-MM-dd'));
   const [toDate, setToDate] = React.useState(format(new Date(), 'yyyy-MM-dd'));
 
-  // Out Vehicle Logic
   const [isOutPopupOpen, setIsOutPopupOpen] = React.useState(false);
   const [outData, setOutData] = React.useState<any>({ tripId: '', vehicleNumber: '', route: '', date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
   
-  // Assignment Logic (Edit/Unassign)
   const [isAssignmentPopupOpen, setIsAssignmentPopupOpen] = React.useState(false);
   const [assignmentMode, setAssignmentMode] = React.useState<'edit' | 'unassign' | null>(null);
   const [selectedTripForAssignment, setSelectedTripForAssignment] = React.useState<any>(null);
 
-  // Track Mode Logic
   const [isTrackModePopupOpen, setIsTrackModePopupOpen] = React.useState(false);
   const [selectedTripForTrackMode, setSelectedTripForTrackMode] = React.useState<any>(null);
   const [trackModeData, setTrackModeData] = React.useState({ mode: 'GPS Tracking' });
 
-  // Arrived Logic
   const [isArrivedPopupOpen, setIsArrivedPopupOpen] = React.useState(false);
   const [arrivedData, setArrivedData] = React.useState<any>({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
 
-  // Reject Logic
   const [isRejectPopupOpen, setIsRejectPopupOpen] = React.useState(false);
   const [rejectData, setRejectData] = React.useState<any>({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), remark: '' });
 
-  // Unload Logic
   const [isUnloadPopupOpen, setIsUnloadPopupOpen] = React.useState(false);
   const [unloadData, setUnloadData] = React.useState<any>({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
 
-  // POD Upload Logic
   const [isPodPopupOpen, setIsPodPopupOpen] = React.useState(false);
   const [selectedTripForPod, setSelectedTripForPod] = React.useState<any>(null);
   const [podFile, setPodFile] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Closed View Logic
   const [isClosedViewPopupOpen, setIsClosedViewPopupOpen] = React.useState(false);
   const [selectedTripForClosed, setSelectedTripForClosed] = React.useState<any>(null);
   const [closedViewMode, setClosedViewMode] = React.useState<'view' | 'upload'>('view');
 
-  // CN Number Logic
   const [isCnPopupOpen, setIsCnPopupOpen] = React.useState(false);
   const [selectedTripForCn, setSelectedTripForCn] = React.useState<any>(null);
   const [cnFormData, setCnFormData] = React.useState<any>({
@@ -1242,10 +1362,33 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     items: [{ invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'BAG' }]
   });
 
-  // CN Preview Logic
   const [isCnPreviewOpen, setIsCnPreviewOpen] = React.useState(false);
   const [selectedTripForPreview, setSelectedTripForPreview] = React.useState<any>(null);
   const [cnPreviewStatus, setCnPreviewStatus] = React.useState<'idle' | 'generated'>('idle');
+
+  const [gpsData, setGpsData] = React.useState<any[]>([]);
+  const [isLiveTrackOpen, setIsLiveTrackOpen] = React.useState(false);
+  const [selectedLiveTrip, setSelectedLiveTrip] = React.useState<any>(null);
+  const [selectedLiveGps, setSelectedLiveGps] = React.useState<any>(null);
+
+  const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
+  const { data: settings } = useDoc(settingsRef);
+
+  const fetchGps = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/gps');
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.data?.list) setGpsData(json.data.list);
+      }
+    } catch (e) {}
+  }, []);
+  
+  React.useEffect(() => { 
+    fetchGps(); 
+    const i = setInterval(fetchGps, 30000); 
+    return () => clearInterval(i); 
+  }, [fetchGps]);
 
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
   
@@ -1399,6 +1542,12 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     }, { merge: true });
     setIsTrackModePopupOpen(false);
     onStatusUpdate({ text: `Track Mode synchronized: ${trackModeData.mode}`, type: 'success' });
+  };
+
+  const handleLiveMapAction = (t: any, gps: any) => {
+    setSelectedLiveTrip(t);
+    setSelectedLiveGps(gps);
+    setIsLiveTrackOpen(true);
   };
 
   const handleOutVehicle = (t: any) => {
@@ -1744,7 +1893,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           <tbody>
             {paginatedData.length === 0 ? (
               <tr className="print:hidden">
-                <td colSpan={ activeTab === 'Open Orders' ? 10 : 10 } className="p-20 text-center">
+                <td colSpan={10} className="p-20 text-center">
                   <div className="flex flex-col items-center gap-3 opacity-20">
                     <Search className="h-10 w-10" />
                     <span className="text-[11px] font-black uppercase tracking-[0.2em]">No Synchronized Nodes Found</span>
@@ -1775,12 +1924,18 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                 } else {
                   const t = item;
                   const isArrangeByParty = t.fleetType === 'Arrange by Party';
+                  const gpsVehicle = gpsData.find(v => v.vehicleNumber === t.vehicleNumber);
+                  
                   return (
                     <tr key={t.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] transition-colors text-[11px] font-bold group print:hidden">
                       <td className="p-3">{t.plantCode}</td>
                       <td className="p-3 space-y-0.5">
                         <div className="text-[#0056d2] font-black">{t.tripId}</div>
-                        <div className="text-[9px] text-slate-400 font-bold uppercase">{format(new Date(t.createdAt), 'dd/MM/yyyy HH:mm')}</div>
+                        <div className="text-[9px] text-slate-400 font-bold uppercase">
+                          {activeTab === 'In-Transit' || activeTab === 'Arrived' 
+                            ? format(new Date(t.updatedAt || t.createdAt), 'dd/MM/yyyy HH:mm')
+                            : format(new Date(t.createdAt), 'dd/MM/yyyy HH:mm')}
+                        </div>
                       </td>
                       <td className="p-3 uppercase font-black text-slate-700">{t.saleOrderNumber || 'N/A'}</td>
                       <td className="p-3 uppercase">{t.consignee}</td>
@@ -1814,37 +1969,47 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                         </div>
                       </td>
                       <td className="p-3">
-                        <div className="flex items-center gap-2">
-                          {activeTab === 'Loading' && (
-                            <>
-                              <Button onClick={() => handleOutVehicle(t)} size="sm" className="text-[9px] bg-emerald-600 hover:bg-emerald-700 text-white font-black h-7 px-3 uppercase tracking-tighter">Out Vehicle</Button>
-                              <Button 
-                                onClick={() => handleAssignmentClick(t)} 
-                                size="sm" 
-                                className="text-[9px] bg-yellow-400 hover:bg-yellow-500 text-black font-black h-7 px-3 uppercase tracking-tighter"
-                              >
-                                Assignment
-                              </Button>
-                            </>
-                          )}
-                          {activeTab === 'In-Transit' && (
-                            <>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            {activeTab === 'Loading' && (
+                              <>
+                                <Button onClick={() => handleOutVehicle(t)} size="sm" className="text-[9px] bg-emerald-600 hover:bg-emerald-700 text-white font-black h-7 px-3 uppercase tracking-tighter">Out Vehicle</Button>
+                                <Button 
+                                  onClick={() => handleAssignmentClick(t)} 
+                                  size="sm" 
+                                  className="text-[9px] bg-yellow-400 hover:bg-yellow-500 text-black font-black h-7 px-3 uppercase tracking-tighter"
+                                >
+                                  Assignment
+                                </Button>
+                              </>
+                            )}
+                            {activeTab === 'In-Transit' && (
                               <Button onClick={() => handleArrivedAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 px-3 uppercase tracking-tighter">Arrived</Button>
+                            )}
+                            {activeTab === 'Arrived' && (
+                              <>
+                                <Button onClick={() => handleUnloadAction(t)} size="sm" className="text-[9px] bg-emerald-600 text-white font-black h-7 px-3 uppercase tracking-tighter">Unload</Button>
+                                <Button onClick={() => handleRejectAction(t)} size="sm" className="text-[9px] bg-red-600 text-white font-black h-7 px-3 uppercase tracking-tighter">Reject</Button>
+                              </>
+                            )}
+                            {activeTab === 'POD Verify' && (
+                              <Button onClick={() => handlePodUploadAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 px-3 uppercase tracking-tighter">Upload POD</Button>
+                            )}
+                            {activeTab === 'Closed' && (
+                              <Button onClick={() => handleViewAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 px-3 uppercase tracking-tighter">View</Button>
+                            )}
+                          </div>
+                          
+                          {(activeTab === 'In-Transit' || activeTab === 'Arrived') && (
+                            <div className="flex items-center gap-2">
+                              {gpsVehicle && (
+                                <button onClick={() => handleLiveMapAction(t, gpsVehicle)} className="hover:underline flex items-center gap-1 group">
+                                  <MapPin className="h-2.5 w-2.5 text-blue-500 group-hover:scale-110 transition-transform" />
+                                  <VehicleLocation lat={gpsVehicle.latitude} lng={gpsVehicle.longitude} />
+                                </button>
+                              )}
                               <Button onClick={() => handleTrackModeAction(t)} size="sm" className="text-[9px] bg-yellow-400 hover:bg-yellow-500 text-black font-black h-7 px-3 uppercase tracking-tighter">Track Mode</Button>
-                            </>
-                          )}
-                          {activeTab === 'Arrived' && (
-                            <>
-                              <Button onClick={() => handleUnloadAction(t)} size="sm" className="text-[9px] bg-emerald-600 text-white font-black h-7 px-3 uppercase tracking-tighter">Unload</Button>
-                              <Button onClick={() => handleRejectAction(t)} size="sm" className="text-[9px] bg-red-600 text-white font-black h-7 px-3 uppercase tracking-tighter">Reject</Button>
-                              <Button onClick={() => handleTrackModeAction(t)} size="sm" className="text-[9px] bg-yellow-400 hover:bg-yellow-500 text-black font-black h-7 px-3 uppercase tracking-tighter">Track Mode</Button>
-                            </>
-                          )}
-                          {activeTab === 'POD Verify' && (
-                            <Button onClick={() => handlePodUploadAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 px-3 uppercase tracking-tighter">Upload POD</Button>
-                          )}
-                          {activeTab === 'Closed' && (
-                            <Button onClick={() => handleViewAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 px-3 uppercase tracking-tighter">View</Button>
+                            </div>
                           )}
                         </div>
                       </td>
@@ -1889,6 +2054,15 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </div>
       </div>
     </div>
+
+    <LiveTrackingMapDialog 
+      isOpen={isLiveTrackOpen} 
+      onOpenChange={setIsLiveTrackOpen} 
+      trip={selectedLiveTrip} 
+      gpsVehicle={selectedLiveGps} 
+      customers={customers} 
+      settings={settings} 
+    />
 
     {/* Track Mode Popup */}
     <Dialog open={isTrackModePopupOpen} onOpenChange={setIsTrackModePopupOpen}>
@@ -2547,12 +2721,10 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
   const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
   const { data: settings } = useDoc(settingsRef);
 
-  // Tracked Vehicles (All from GPS API per latest instruction)
   const trackedVehicles = React.useMemo(() => {
     return vehicles;
   }, [vehicles]);
 
-  // Reverse Geocoding and Info Window logic
   const showVehicleInfo = React.useCallback((v: any, marker?: any) => {
     if (!window.google || !map) return;
     if (!infoWindowRef.current) infoWindowRef.current = new window.google.maps.InfoWindow();
@@ -2791,7 +2963,6 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo }: any) {
     <div className="bg-white text-black font-sans">
       {copies.map((label, idx) => (
         <div key={label} className={cn("p-8 md:p-12 min-h-[297mm] flex flex-col border-black", idx < copies.length - 1 && "page-break-after-always border-b-[1px] border-dashed")}>
-          {/* Header */}
           <div className="flex justify-between items-start border-b-[2px] border-black pb-6 mb-4">
             <div className="flex items-start gap-6 max-w-[65%]">
               {company?.logo && <img src={company.logo} alt="Logo" className="w-[68px] h-[68px] object-contain shrink-0" />}
@@ -2816,7 +2987,6 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo }: any) {
             </div>
           </div>
 
-          {/* Vehicle Details */}
           <div className="mb-6">
             <table className="w-full border-2 border-black text-[11px] border-collapse">
                <thead>
@@ -2838,7 +3008,6 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo }: any) {
             </table>
           </div>
 
-          {/* Party Details */}
           <div className="grid grid-cols-3 border-2 border-black mb-6">
              <div className="p-3 border-r-2 border-black flex flex-col min-h-[140px]">
                 <p className="font-black text-[9px] uppercase text-slate-500 border-b border-slate-200 mb-2 pb-1">Consignor</p>
@@ -2869,7 +3038,6 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo }: any) {
              </div>
           </div>
 
-          {/* Items Table */}
           <div className="flex-1">
             <table className="w-full border-2 border-black text-[11px] border-collapse">
                <thead>
@@ -2902,7 +3070,6 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo }: any) {
             </table>
           </div>
 
-          {/* Authorized Signature Section */}
           <div className="mt-16 flex justify-end">
              <div className="text-center min-w-[200px]">
                 <div className="text-[11px] font-black uppercase tracking-widest border-t-2 border-black pt-2">
@@ -2911,7 +3078,6 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo }: any) {
              </div>
           </div>
 
-          {/* Terms & Conditions */}
           <div className="mt-8 pt-6 border-t border-slate-200">
              <div className="space-y-3">
                <p className="text-[8px] leading-relaxed text-justify uppercase font-bold text-slate-500 tracking-tight">
