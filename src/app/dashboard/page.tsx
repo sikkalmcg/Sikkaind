@@ -2525,7 +2525,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                    company={(companies || []).find((c: any) => c.plantCodes?.includes(selectedTripForPreview.plantCode))}
                    consignor={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripForPreview.consignor?.toUpperCase())}
                    consignee={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripForPreview.consignee?.toUpperCase())}
-                   shipTo={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripToParty?.toUpperCase())}
+                   shipTo={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripForPreview.shipToParty?.toUpperCase())}
                  />
                )}
              </div>
@@ -2547,23 +2547,10 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
   const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
   const { data: settings } = useDoc(settingsRef);
 
-  // SAP Vehicles (Unique list from trips)
-  const sapVehicleList = React.useMemo(() => {
-    const unique = new Set();
-    return (trips || [])
-      .filter((t: any) => {
-        const vNo = t.vehicleNumber?.toString().toUpperCase();
-        if (!vNo || unique.has(vNo)) return false;
-        unique.add(vNo);
-        return true;
-      })
-      .map((t: any) => t.vehicleNumber.toString().toUpperCase());
-  }, [trips]);
-
-  // Tracked Vehicles (Intersection of GPS data and SAP registry)
+  // Tracked Vehicles (All from GPS API per latest instruction)
   const trackedVehicles = React.useMemo(() => {
-    return vehicles.filter(v => sapVehicleList.includes(v.vehicleNumber?.toUpperCase()));
-  }, [vehicles, sapVehicleList]);
+    return vehicles;
+  }, [vehicles]);
 
   // Reverse Geocoding and Info Window logic
   const showVehicleInfo = React.useCallback((v: any, marker?: any) => {
@@ -2713,7 +2700,7 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
             <div className="w-full md:w-80 border-r border-slate-200 flex flex-col h-full overflow-hidden">
                <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                   <span className="text-[10px] font-black uppercase text-slate-500">Vehicle Registry</span>
-                  <Badge variant="outline" className="text-[8px]">{sapVehicleList.length} Units</Badge>
+                  <Badge variant="outline" className="text-[8px]">{trackedVehicles.length} Units</Badge>
                </div>
                <div className="flex-1 overflow-y-auto green-scrollbar h-[420px]">
                   {loading ? (
