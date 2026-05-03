@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -1233,7 +1232,8 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
         options={cons.map(c => c.customerName + ' - ' + c.city)} 
         onChange={(v: string) => {
           const matching = cons.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase());
-          onChange({...data, consignor: v, from: matching?.city || ''});
+          const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v;
+          onChange({...data, consignor: nameOnly, from: matching?.city || ''});
         }} 
         disabled={disabled} 
       />
@@ -1243,7 +1243,10 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
         value={data.consignee} 
         placeholder="Select..." 
         options={ships.map(c => c.customerName + ' - ' + c.city)} 
-        onChange={(v: string) => onChange({...data, consignee: v})} 
+        onChange={(v: string) => {
+          const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v;
+          onChange({...data, consignee: nameOnly});
+        }} 
         disabled={disabled} 
       />
       <FormSearchInput 
@@ -1252,7 +1255,8 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
         options={ships.map(c => c.customerName + ' - ' + c.city)} 
         onChange={(v: string) => {
           const matching = ships.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase());
-          onChange({...data, shipToParty: v, destination: matching?.city || '', deliveryAddress: matching?.address || ''});
+          const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v;
+          onChange({...data, shipToParty: nameOnly, destination: matching?.city || '', deliveryAddress: matching?.address || ''});
         }} 
         disabled={disabled} 
       />
