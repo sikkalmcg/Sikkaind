@@ -2525,7 +2525,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                    company={(companies || []).find((c: any) => c.plantCodes?.includes(selectedTripForPreview.plantCode))}
                    consignor={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripForPreview.consignor?.toUpperCase())}
                    consignee={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripForPreview.consignee?.toUpperCase())}
-                   shipTo={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripForPreview.shipToParty?.toUpperCase())}
+                   shipTo={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripToParty?.toUpperCase())}
                  />
                )}
              </div>
@@ -2542,9 +2542,72 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
   const [loading, setLoading] = React.useState(true);
   const [map, setMap] = React.useState<any>(null);
   const markersRef = React.useRef<any[]>([]);
+  const infoWindowRef = React.useRef<any>(null);
   
   const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
   const { data: settings } = useDoc(settingsRef);
+
+  // SAP Vehicles (Unique list from trips)
+  const sapVehicleList = React.useMemo(() => {
+    const unique = new Set();
+    return (trips || [])
+      .filter((t: any) => {
+        const vNo = t.vehicleNumber?.toString().toUpperCase();
+        if (!vNo || unique.has(vNo)) return false;
+        unique.add(vNo);
+        return true;
+      })
+      .map((t: any) => t.vehicleNumber.toString().toUpperCase());
+  }, [trips]);
+
+  // Tracked Vehicles (Intersection of GPS data and SAP registry)
+  const trackedVehicles = React.useMemo(() => {
+    return vehicles.filter(v => sapVehicleList.includes(v.vehicleNumber?.toUpperCase()));
+  }, [vehicles, sapVehicleList]);
+
+  // Reverse Geocoding and Info Window logic
+  const showVehicleInfo = React.useCallback((v: any, marker?: any) => {
+    if (!window.google || !map) return;
+    if (!infoWindowRef.current) infoWindowRef.current = new window.google.maps.InfoWindow();
+
+    const geocoder = new window.google.maps.Geocoder();
+    const latlng = { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) };
+
+    geocoder.geocode({ location: latlng }, (results: any, status: any) => {
+      if (status === 'OK' && results[0]) {
+        const components = results[0].address_components;
+        let street = '';
+        let city = '';
+        for (const comp of components) {
+          if (comp.types.includes('route')) street = comp.long_name;
+          if (comp.types.includes('locality')) city = comp.long_name;
+        }
+        const locationStr = [street, city].filter(Boolean).join(', ') || results[0].formatted_address;
+        
+        const content = `
+          <div style="font-family: monospace; font-size: 11px; font-weight: bold; padding: 10px; min-width: 180px;">
+            <div style="color: #1e3a8a; border-bottom: 2px solid #1e3a8a; margin-bottom: 8px; padding-bottom: 4px; font-size: 13px; letter-spacing: -0.5px;">
+              ${v.vehicleNumber}
+            </div>
+            <div style="color: #64748b; font-size: 9px; margin-bottom: 2px; text-transform: uppercase;">Live Node Location:</div>
+            <div style="color: #0f172a; line-height: 1.4;">${locationStr}</div>
+            <div style="margin-top: 8px; color: #1e3a8a; font-size: 9px; display: flex; justify-content: space-between; border-top: 1px dashed #cbd5e1; padding-top: 4px;">
+              <span>SPEED: ${v.speed} KM/H</span>
+              <span>${v.createdDateReadable}</span>
+            </div>
+          </div>
+        `;
+        infoWindowRef.current.setContent(content);
+        if (marker) infoWindowRef.current.open(map, marker);
+        else {
+          infoWindowRef.current.setPosition(latlng);
+          infoWindowRef.current.open(map);
+        }
+        map.panTo(latlng);
+        if (map.getZoom() < 14) map.setZoom(15);
+      }
+    });
+  }, [map]);
 
   React.useEffect(() => {
     if (activeTab === 'Tracking MAP') {
@@ -2568,18 +2631,11 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
     try {
       const response = await fetch(internalApiUrl, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         signal: controller.signal
       });
-
       clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const json = await response.json();
       if (json && json.data && Array.isArray(json.data.list)) {
         setVehicles(json.data.list);
@@ -2587,7 +2643,7 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
       setLoading(false);
     } catch (error: any) {
       clearTimeout(timeoutId);
-      console.error("System Synchronization Event:", error.name === 'AbortError' ? 'Timeout' : error.message);
+      console.error("GPS API handshake failure:", error.message);
       setLoading(false);
     }
   }, []);
@@ -2599,19 +2655,18 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
   }, [fetchGpsData]);
 
   React.useEffect(() => {
-    if (!map || !vehicles.length || !window.google) return;
+    if (!map || !trackedVehicles.length || !window.google) return;
 
-    // Clear existing markers using ref to avoid depth loop
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
 
     const newMarkers: any[] = [];
-    vehicles.forEach((v: any) => {
+    trackedVehicles.forEach((v: any) => {
       const pos = { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) };
       const isActive = v.speed > 0;
       const iconUrl = isActive 
-        ? (settings?.activeIcon || 'https://maps.google.com/mapfiles/ms/icons/green-dot.png') 
-        : (settings?.stopIcon || 'https://maps.google.com/mapfiles/ms/icons/red-dot.png');
+        ? (settings?.activeIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png') 
+        : (settings?.stopIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png');
 
       const marker = new window.google.maps.Marker({
         position: pos,
@@ -2619,14 +2674,16 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
         title: v.vehicleNumber,
         icon: {
           url: iconUrl,
-          scaledSize: new window.google.maps.Size(32, 32)
+          scaledSize: new window.google.maps.Size(40, 40)
         }
       });
+      
+      marker.addListener('click', () => showVehicleInfo(v, marker));
       newMarkers.push(marker);
     });
 
     markersRef.current = newMarkers;
-  }, [map, vehicles, settings]);
+  }, [map, trackedVehicles, settings, showVehicleInfo]);
 
   const handleIconUpload = async (e: any, type: 'activeIcon' | 'stopIcon') => {
     const file = e.target.files?.[0];
@@ -2653,28 +2710,33 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
       <div className="flex-1 bg-white border border-slate-300 overflow-hidden flex flex-col md:flex-row">
         {activeTab === 'Tracking MAP' ? (
           <>
-            <div className="w-full md:w-80 border-r border-slate-200 flex flex-col h-[300px] md:h-auto">
+            <div className="w-full md:w-80 border-r border-slate-200 flex flex-col h-full overflow-hidden">
                <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                   <span className="text-[10px] font-black uppercase text-slate-500">Vehicle Registry</span>
-                  <Badge variant="outline" className="text-[8px]">{vehicles.length} Units</Badge>
+                  <Badge variant="outline" className="text-[8px]">{sapVehicleList.length} Units</Badge>
                </div>
-               <div className="flex-1 overflow-y-auto green-scrollbar">
+               <div className="flex-1 overflow-y-auto green-scrollbar h-[420px]">
                   {loading ? (
                     <div className="p-10 flex flex-col items-center gap-2">
                        <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                        <span className="text-[8px] font-black uppercase text-slate-400">Loading GPS Nodes...</span>
                     </div>
-                  ) : vehicles.map((v: any) => (
-                    <div key={v.vehicleNumber} onClick={() => map?.panTo({ lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) })} className="p-3 border-b border-slate-50 hover:bg-blue-50 cursor-pointer transition-colors group">
+                  ) : trackedVehicles.map((v: any) => (
+                    <div key={v.vehicleNumber} onClick={() => showVehicleInfo(v)} className="p-4 border-b border-slate-50 hover:bg-blue-50 cursor-pointer transition-colors group flex flex-col gap-1 min-h-[70px]">
                        <div className="flex justify-between items-start">
                           <span className="text-[11px] font-black text-[#1e3a8a]">{v.vehicleNumber}</span>
                           <span className={cn("text-[8px] font-black px-1.5 py-0.5 rounded", v.speed > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>
                             {v.speed > 0 ? `${v.speed} KM/H` : 'STOPPED'}
                           </span>
                        </div>
-                       <p className="text-[9px] text-slate-400 font-bold uppercase truncate mt-1">{v.createdDateReadable || 'SYNCING...'}</p>
+                       <p className="text-[9px] text-slate-400 font-bold uppercase truncate">{v.createdDateReadable || 'SYNCING...'}</p>
                     </div>
                   ))}
+                  {trackedVehicles.length === 0 && !loading && (
+                    <div className="p-8 text-center">
+                       <p className="text-[9px] font-black text-slate-300 uppercase italic">No Active Vehicles in Registry</p>
+                    </div>
+                  )}
                </div>
             </div>
             <div className="flex-1 relative bg-slate-100">
@@ -2691,11 +2753,11 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
                       console.error("Map initialization handshake failed:", e);
                     }
                   }
-               }} className="w-full h-full min-h-[400px]" />
+               }} className="w-full h-full min-h-[500px]" />
             </div>
           </>
         ) : (
-          <div className="p-8 space-y-10 max-w-2xl mx-auto w-full">
+          <div className="p-8 space-y-10 max-w-2xl mx-auto w-full overflow-y-auto">
              <div className="space-y-6">
                 <h3 className="text-sm font-black text-[#1e3a8a] uppercase tracking-tighter border-b border-slate-100 pb-2">GPS ICON SYNCHRONIZATION</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
