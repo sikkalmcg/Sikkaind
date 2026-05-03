@@ -397,7 +397,7 @@ export default function SapDashboard() {
     let filename = "";
     
     if (activeScreen.startsWith('VA')) {
-      headers = "Plant,Sale Order,Consignor,Consignee,Ship to Party,Weight,UOM";
+      headers = "Plant,Consignor,Consignee Code,Consignee Name,Ship to Party Code,Ship to Party Name,Weight,UOM";
       filename = "VA01_SALES_ORDER_TEMPLATE.csv";
     } else if (activeScreen.startsWith('XD')) {
       headers = "PlantCodes,CustomerCode,CustomerName,CustomerType,Address,City,PostalCode,Mobile,GSTIN";
@@ -464,49 +464,57 @@ export default function SapDashboard() {
       if (activeScreen.startsWith('VA')) {
         const getIdx = (name: string) => headers.findIndex(h => h.toLowerCase().replace(/\s/g, '') === name.toLowerCase().replace(/\s/g, ''));
         const idxP = getIdx('Plant');
-        const idxSO = getIdx('SaleOrder');
         const idxCons = getIdx('Consignor');
-        const idxConsee = getIdx('Consignee');
-        const idxShip = getIdx('ShiptoParty');
+        const idxCeeCode = getIdx('ConsigneeCode');
+        const idxCeeName = getIdx('ConsigneeName');
+        const idxShipCode = getIdx('ShiptoPartyCode');
+        const idxShipName = getIdx('ShiptoPartyName');
         const idxW = getIdx('Weight');
         const idxU = getIdx('UOM');
 
-        if (idxP === -1 || idxSO === -1 || idxCons === -1 || idxConsee === -1 || idxShip === -1 || idxW === -1 || idxU === -1) {
-          setStatusMsg({ text: 'Error: Mandatory headers missing for Sales Order', type: 'error' });
+        if (idxP === -1 || idxCons === -1 || idxCeeCode === -1 || idxShipCode === -1 || idxW === -1 || idxU === -1) {
+          setStatusMsg({ text: 'Error: Mandatory headers missing (Plant, Consignor, Consignee Code, Ship to Party Code, Weight, UOM)', type: 'error' });
           return;
         }
 
         const orderGroups: Record<string, any> = {};
         let rejectedCount = 0;
 
-        dataRows.forEach(row => {
+        dataRows.forEach((row, rowIndex) => {
           const cols = parseCsvRow(row);
           const plant = cols[idxP];
-          const soNo = cols[idxSO];
           const cons = cols[idxCons];
-          const consee = cols[idxConsee];
-          const ship = cols[idxShip];
+          const ceeCode = cols[idxCeeCode];
+          const shipCode = cols[idxShipCode];
           const weight = parseFloat(cols[idxW] || '0');
           const uom = cols[idxU];
 
-          if (!plant || !soNo || !cons || !consee || !ship || isNaN(weight) || !uom) {
+          if (!plant || !cons || !ceeCode || !shipCode || isNaN(weight) || !uom) {
             rejectedCount++;
             return;
           }
-          
-          if (!orderGroups[soNo]) {
-            const consData = rawCustomers?.find(c => (c.customerName?.toUpperCase() === cons.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === cons.toUpperCase()));
-            const shipData = rawCustomers?.find(c => (c.customerName?.toUpperCase() === ship.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === ship.toUpperCase()));
 
+          // Lookup master data
+          const consigneeMaster = rawCustomers?.find(c => c.customerCode?.toString().toUpperCase() === ceeCode.toUpperCase());
+          const shipToMaster = rawCustomers?.find(c => c.customerCode?.toString().toUpperCase() === shipCode.toUpperCase());
+          const consignorMaster = rawCustomers?.find(c => (c.customerName?.toUpperCase() === cons.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === cons.toUpperCase()));
+
+          const consigneeNameFinal = consigneeMaster?.customerName || (idxCeeName !== -1 ? cols[idxCeeName] : 'UNKNOWN CONSIGNEE');
+          const shipToNameFinal = shipToMaster?.customerName || (idxShipName !== -1 ? cols[idxShipName] : 'UNKNOWN SHIP TO');
+          
+          // Generate a unique Sale Order number for each row since it's not in the template
+          const soNo = `SO-B${Date.now().toString().slice(-6)}${rowIndex}`;
+
+          if (!orderGroups[soNo]) {
             orderGroups[soNo] = {
               plantCode: plant,
               saleOrder: soNo,
               consignor: cons,
-              from: consData?.city || '',
-              consignee: consee,
-              shipToParty: ship,
-              destination: shipData?.city || '',
-              deliveryAddress: shipData?.address || '',
+              from: consignorMaster?.city || '',
+              consignee: consigneeNameFinal,
+              shipToParty: shipToNameFinal,
+              destination: shipToMaster?.city || '',
+              deliveryAddress: shipToMaster?.address || '',
               weight: 0,
               weightUom: uom,
               status: 'OPEN',
