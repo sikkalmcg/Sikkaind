@@ -40,7 +40,7 @@ import { format, subDays, isWithinInterval, startOfDay, endOfDay, isAfter, parse
 import { cn } from '@/lib/utils';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
-type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'WGPS24' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE';
+type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XK03_LIST' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'WGPS24' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE';
 
 const MASTER_TCODES = [
   { code: 'OX01', description: 'PLANT MASTER: CREATE', icon: Package, module: 'Master Data' },
@@ -2515,8 +2515,8 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
         return response.json();
       })
       .then(json => {
-        if (json && Array.isArray(json.data)) {
-          setVehicles(json.data);
+        if (json && json.data && Array.isArray(json.data.list)) {
+          setVehicles(json.data.list);
         }
         setLoading(false);
       })
@@ -2540,14 +2540,14 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
     const newMarkers: any[] = [];
 
     vehicles.forEach((v: any) => {
-      const pos = { lat: parseFloat(v.lat), lng: parseFloat(v.lng) };
+      const pos = { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) };
       const isActive = v.speed > 0;
       const iconUrl = isActive ? (settings?.activeIcon || 'https://maps.google.com/mapfiles/ms/icons/green-dot.png') : (settings?.stopIcon || 'https://maps.google.com/mapfiles/ms/icons/red-dot.png');
 
       const marker = new window.google.maps.Marker({
         position: pos,
         map: map,
-        title: v.vehicleNo,
+        title: v.vehicleNumber,
         icon: {
           url: iconUrl,
           scaledSize: new window.google.maps.Size(32, 32)
@@ -2596,14 +2596,14 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
                        <span className="text-[8px] font-black uppercase text-slate-400">Loading GPS Nodes...</span>
                     </div>
                   ) : vehicles.map((v: any) => (
-                    <div key={v.vehicleNo} onClick={() => map?.panTo({ lat: parseFloat(v.lat), lng: parseFloat(v.lng) })} className="p-3 border-b border-slate-50 hover:bg-blue-50 cursor-pointer transition-colors group">
+                    <div key={v.vehicleNumber} onClick={() => map?.panTo({ lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) })} className="p-3 border-b border-slate-50 hover:bg-blue-50 cursor-pointer transition-colors group">
                        <div className="flex justify-between items-start">
-                          <span className="text-[11px] font-black text-[#1e3a8a]">{v.vehicleNo}</span>
+                          <span className="text-[11px] font-black text-[#1e3a8a]">{v.vehicleNumber}</span>
                           <span className={cn("text-[8px] font-black px-1.5 py-0.5 rounded", v.speed > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>
                             {v.speed > 0 ? `${v.speed} KM/H` : 'STOPPED'}
                           </span>
                        </div>
-                       <p className="text-[9px] text-slate-400 font-bold uppercase truncate mt-1">{v.location || 'SYNCING LOCATION...'}</p>
+                       <p className="text-[9px] text-slate-400 font-bold uppercase truncate mt-1">{v.createdDateReadable || 'SYNCING...'}</p>
                     </div>
                   ))}
                </div>
