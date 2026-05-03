@@ -2290,7 +2290,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
 
     {/* Out Vehicle Popup */}
     <Dialog open={isOutPopupOpen} onOpenChange={setIsOutPopupOpen}>
-      <DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
+      <DialogContent className="max-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
           <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
             <Truck className="h-4 w-4" /> Out Vehicle Registry
@@ -2487,7 +2487,7 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
   const [map, setMap] = React.useState<any>(null);
   const [markers, setMarkers] = React.useState<any[]>([]);
   
-  const settingsRef = doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config');
+  const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
   const { data: settings } = useDoc(settingsRef);
 
   React.useEffect(() => {
@@ -2507,6 +2507,7 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
   const fetchGpsData = async () => {
     try {
       const res = await fetch('https://api.wheelseye.com/currentLoc?accessToken=53afc208-0981-48c7-b134-d85d2f33dc0c');
+      if (!res.ok) throw new Error('API Sync Failed');
       const json = await res.json();
       if (json.data) {
         setVehicles(json.data);
