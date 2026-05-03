@@ -41,7 +41,7 @@ import { format, subDays, isWithinInterval, startOfDay, endOfDay, isAfter, parse
 import { cn } from '@/lib/utils';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
-type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XK03_LIST' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'WGPS24' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE' | 'SE38';
+type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XK03_LIST' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'TR24' | 'WGPS24' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE' | 'SE38';
 
 const MASTER_TCODES = [
   { code: 'OX01', description: 'PLANT MASTER: CREATE', icon: Package, module: 'Master Data' },
@@ -61,6 +61,7 @@ const MASTER_TCODES = [
   { code: 'VA03', description: 'SALES ORDER: DISPLAY', icon: Info, module: 'Logistics' },
   { code: 'VA04', description: 'CANCEL SALES ORDER', icon: XCircle, module: 'Logistics' },
   { code: 'TR21', description: 'DRIP BOARD CONTROL', icon: Truck, module: 'Logistics' },
+  { code: 'TR24', description: 'TRACK SHIPMENT', icon: Radar, module: 'Logistics' },
   { code: 'WGPS24', description: 'GPS TRACKING HUB', icon: Radar, module: 'Logistics' },
   { code: 'SE38', description: 'CUSTOM T-CODE REPORT', icon: FileText, module: 'System' },
   { code: 'SU01', description: 'USER MANAGEMENT: CREATE', icon: ShieldAlert, module: 'System' },
@@ -93,12 +94,12 @@ function VehicleLocation({ lat, lng }: { lat: number, lng: number }) {
   return <span className="text-[8px] font-black text-blue-600 truncate max-w-[120px]">{loc}</span>;
 }
 
-function LiveTrackingMapDialog({ isOpen, onOpenChange, trip, gpsVehicle, customers, settings }: any) {
+function LiveTrackingMapDialog({ isOpen, onOpenChange, trip, gpsVehicle, customers, settings, isCompact = false }: any) {
   const mapRef = React.useRef<HTMLDivElement>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (!isOpen || !trip || !gpsVehicle || !window.google) return;
+    if (!isOpen || !trip || !gpsVehicle || !window.google || isCompact) return;
     
     setLoading(true);
     const geocoder = new window.google.maps.Geocoder();
@@ -108,8 +109,8 @@ function LiveTrackingMapDialog({ isOpen, onOpenChange, trip, gpsVehicle, custome
       polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 }
     });
 
-    const consignor = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.consignor?.toUpperCase());
-    const shipTo = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.shipToParty?.toUpperCase());
+    const consignor = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.consignor?.toUpperCase());
+    const shipTo = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.shipToParty?.toUpperCase());
 
     const p1 = new Promise((resolve) => {
       if (consignor?.postalCode) {
@@ -177,25 +178,35 @@ function LiveTrackingMapDialog({ isOpen, onOpenChange, trip, gpsVehicle, custome
       }
       setLoading(false);
     });
-  }, [isOpen, trip, gpsVehicle, customers, settings]);
+  }, [isOpen, trip, gpsVehicle, customers, settings, isCompact]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl h-[85vh] p-0 overflow-hidden bg-white border-none rounded-xl">
+      <DialogContent className={cn("max-w-5xl p-0 overflow-hidden bg-white border-none rounded-xl", isCompact ? "h-[12vh]" : "h-[85vh]")}>
         <DialogHeader className="bg-[#1e3a8a] text-white px-6 py-4 flex flex-row items-center justify-between space-y-0">
           <DialogTitle className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
-            <Radar className="h-4 w-4" /> Live Tracking: {trip?.vehicleNumber}
+            <Radar className="h-4 w-4" /> {isCompact ? 'Live Tracking' : 'Live Tracking: ' + trip?.vehicleNumber}
           </DialogTitle>
           <button onClick={() => onOpenChange(false)} className="hover:opacity-70"><X className="h-5 w-5" /></button>
         </DialogHeader>
         <div className="relative w-full h-full bg-slate-50">
-          {loading && (
-            <div className="absolute inset-0 bg-white/80 z-20 flex flex-col items-center justify-center gap-3">
-               <Loader2 className="h-10 w-10 animate-spin text-[#1e3a8a]" />
-               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Live Map Synchronization...</span>
-            </div>
+          {isCompact ? (
+             <div className="p-4 grid grid-cols-3 gap-8">
+                <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[10px] font-black uppercase truncate">{trip?.shipToParty}</span></div>
+                <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black uppercase truncate">{trip?.route}</span></div>
+                <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle Number</span><span className="text-[10px] font-black uppercase">{trip?.vehicleNumber}</span></div>
+             </div>
+          ) : (
+            <>
+              {loading && (
+                <div className="absolute inset-0 bg-white/80 z-20 flex flex-col items-center justify-center gap-3">
+                   <Loader2 className="h-10 w-10 animate-spin text-[#1e3a8a]" />
+                   <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Live Map Synchronization...</span>
+                </div>
+              )}
+              <div ref={mapRef} className="w-full h-full" />
+            </>
           )}
-          <div ref={mapRef} className="w-full h-full" />
         </div>
       </DialogContent>
     </Dialog>
@@ -227,7 +238,6 @@ export default function SapDashboard() {
   const [registryId, setRegistryId] = React.useState<string | null>(null);
   const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '', postalCode: '' });
 
-  // SE38 Report State
   const [se38Search, setSe38Search] = React.useState({ plant: '', vendor: '', company: '', customer: '', from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') });
   const [se38Results, setSe38Results] = React.useState<any[] | null>(null);
 
@@ -486,8 +496,8 @@ export default function SapDashboard() {
           }
           
           if (!orderGroups[soNo]) {
-            const consData = rawCustomers?.find(c => c.customerName?.toUpperCase() === cons.toUpperCase());
-            const shipData = rawCustomers?.find(c => c.customerName?.toUpperCase() === ship.toUpperCase());
+            const consData = rawCustomers?.find(c => (c.customerName?.toUpperCase() === cons.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === cons.toUpperCase()));
+            const shipData = rawCustomers?.find(c => (c.customerName?.toUpperCase() === ship.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === ship.toUpperCase()));
 
             orderGroups[soNo] = {
               plantCode: plant,
@@ -894,7 +904,7 @@ export default function SapDashboard() {
           <div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden print:hidden">
             <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div>
             <div className="flex-1 overflow-y-auto green-scrollbar">
-              {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'ZCODE' || t.code === 'WGPS24' || t.code === 'SE38').map((item) => (
+              {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'TR24' || t.code === 'VA04' || t.code === 'ZCODE' || t.code === 'WGPS24' || t.code === 'SE38').map((item) => (
                 <div key={item.code} onClick={() => executeTCode(item.code)} className={cn("flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all", activeScreen === item.code ? "bg-[#0056d2] text-white" : "text-[#1e3a8a]")}>
                   <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", activeScreen === item.code ? "bg-white" : "bg-slate-300 group-hover:bg-blue-600")} />
                   <span className={cn("text-[10px] font-black uppercase tracking-tight", activeScreen === item.code ? "text-white" : "text-[#1e3a8a]")}>{item.code} - {item.description}</span>
@@ -973,6 +983,7 @@ export default function SapDashboard() {
                    <RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} />
                  </div>}
                  {activeScreen === 'TR21' && <DripBoard orders={allOrders} trips={allTrips} vendors={accessibleVendors} plants={accessiblePlants} companies={accessibleCompanies} customers={accessibleCustomers} onStatusUpdate={setStatusMsg} />}
+                 {activeScreen === 'TR24' && <TrackShipmentScreen trips={allTrips} orders={allOrders} customers={accessibleCustomers} />}
                  {activeScreen === 'WGPS24' && <GpsTrackingHub trips={allTrips} onStatusUpdate={setStatusMsg} db={db} />}
                  {activeScreen === 'SE38' && <Se38Report search={se38Search} results={se38Results} onSearchChange={setSe38Search} allPlants={accessiblePlants} allVendors={accessibleVendors} allCompanies={accessibleCompanies} allCustomers={accessibleCustomers} />}
                  {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
@@ -1185,31 +1196,10 @@ function VendorForm({ data, onChange, disabled, allPlants }: any) {
   
   return <div className="space-y-4">
     <SectionGrouping title="IDENTIFICATION">
-      <div className="col-span-1 md:col-span-2 space-y-2 mb-4">
-        <label className="text-[10px] font-bold text-slate-500">Plant Assignment (Multiple) *</label>
-        <div className="flex flex-wrap gap-2">
-          {pList.map((p: string) => (
-            <button 
-              key={p} 
-              onClick={() => handleToggle(p)} 
-              disabled={disabled} 
-              className={cn("px-3 py-1.5 text-[10px] font-black border uppercase", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
-      </div>
-      <FormInput label="VENDOR CODE" value={data.vendorCode} disabled={true} placeholder="AUTO-GENERATED" />
-      <FormInput label="VENDOR NAME" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
-      <FormInput label="VENDOR FIRM NAME" value={data.vendorFirmName} onChange={(v: string) => onChange({...data, vendorFirmName: v})} disabled={disabled} />
-    </SectionGrouping>
-    <SectionGrouping title="DETAILS">
-      <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
-      <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
-      <FormInput label="SPECIAL ROUTE" value={data.route} onChange={(v: string) => onChange({...data, route: v})} disabled={disabled} />
-    </SectionGrouping>
-  </div>;
+      <div className="col-span-1 md:col-span-2 space-y-2 mb-4"><label className="text-[10px] font-bold text-slate-500">Plant Assignment (Multiple) *</label>
+        <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border uppercase", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{p}</button>)}</div></div>
+      <FormInput label="VENDOR CODE" value={data.vendorCode} disabled={true} placeholder="AUTO-GENERATED" /><FormInput label="VENDOR NAME" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} /><FormInput label="VENDOR FIRM NAME" value={data.vendorFirmName} onChange={(v: string) => onChange({...data, vendorFirmName: v})} disabled={disabled} /></SectionGrouping>
+    <SectionGrouping title="DETAILS"><FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} /><FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} /><FormInput label="SPECIAL ROUTE" value={data.route} onChange={(v: string) => onChange({...data, route: v})} disabled={disabled} /></SectionGrouping></div>;
 }
 
 function CustomerForm({ data, onChange, disabled, allPlants }: any) {
@@ -1240,9 +1230,9 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
       <FormSearchInput 
         label="CONSIGNOR" 
         value={data.consignor} 
-        options={cons.map(c => c.customerName)} 
+        options={cons.map(c => c.customerName + ' - ' + c.city)} 
         onChange={(v: string) => {
-          const matching = cons.find(c => c.customerName?.toUpperCase() === v?.toUpperCase());
+          const matching = cons.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase());
           onChange({...data, consignor: v, from: matching?.city || ''});
         }} 
         disabled={disabled} 
@@ -1252,16 +1242,16 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
         label="CONSIGNEE" 
         value={data.consignee} 
         placeholder="Select..." 
-        options={ships.map(c => c.customerName)} 
+        options={ships.map(c => c.customerName + ' - ' + c.city)} 
         onChange={(v: string) => onChange({...data, consignee: v})} 
         disabled={disabled} 
       />
       <FormSearchInput 
         label="SHIP TO PARTY" 
         value={data.shipToParty} 
-        options={ships.map(c => c.customerName)} 
+        options={ships.map(c => c.customerName + ' - ' + c.city)} 
         onChange={(v: string) => {
-          const matching = ships.find(c => c.customerName?.toUpperCase() === v?.toUpperCase());
+          const matching = ships.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase());
           onChange({...data, shipToParty: v, destination: matching?.city || '', deliveryAddress: matching?.address || ''});
         }} 
         disabled={disabled} 
@@ -1300,23 +1290,10 @@ function UserForm({ data, onChange, disabled, allPlants }: any) {
   const handleTToggle = (c: string) => { if (disabled) return; const curr = data.tcodes || []; onChange({...data, tcodes: curr.includes(c) ? curr.filter((i: string) => i !== c) : [...curr, c]}); };
   
   return <div className="space-y-6">
-    <SectionGrouping title="USER IDENTIFICATION">
-      <FormInput label="NAME" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
+    <SectionGrouping title="USER IDENTIFICATION"><FormInput label="NAME" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
       <FormInput label="USERNAME" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} />
-      <FormInput 
-        label="PASSWORD" 
-        type={showPassword ? "text" : "password"} 
-        value={data.password} 
-        onChange={(v: string) => onChange({...data, password: v})} 
-        disabled={disabled} 
-        rightElement={
-          <button onClick={() => setShowPassword(!showPassword)} className="text-slate-400 hover:text-blue-900 transition-colors">
-            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
-        }
-      />
-      <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
-    </SectionGrouping>
+      <FormInput label="PASSWORD" type={showPassword ? "text" : "password"} value={data.password} onChange={(v: string) => onChange({...data, password: v})} disabled={disabled} rightElement={<button onClick={() => setShowPassword(!showPassword)} className="text-slate-400 hover:text-blue-900 transition-colors">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>} />
+      <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} /></SectionGrouping>
     <SectionGrouping title="AUTHORIZED PLANTS"><div className="col-span-1 md:col-span-2 flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handlePToggle(p)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border", data.plants?.includes(p) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{p}</button>)}</div></SectionGrouping>
     <SectionGrouping title="T-CODE AUTHORIZATION"><div className="col-span-1 md:col-span-2 flex flex-wrap gap-2">{MASTER_TCODES.map(t => <button key={t.code} onClick={() => handleTToggle(t.code)} disabled={disabled} className={cn("px-3 py-1.5 text-[10px] font-black border", data.tcodes?.includes(t.code) ? "bg-[#1e3a8a] text-white" : "bg-white text-slate-600 border-slate-300")}>{t.code}</button>)}</div></SectionGrouping></div>;
 }
@@ -1329,103 +1306,18 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
 
 function Se38Report({ search, results, onSearchChange, allPlants, allVendors, allCompanies, allCustomers }: any) {
   const pOpts = (allPlants || []).map((p: any) => p.plantCode);
-  
   if (results) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-          <h2 className="text-sm font-black text-[#1e3a8a] uppercase tracking-tighter">Report Output: {results.length} Records</h2>
-          <Button onClick={() => onSearchChange({ ...search, results: null })} variant="outline" size="sm" className="h-7 text-[9px] font-black uppercase">Back to Selection</Button>
-        </div>
-        <div className="overflow-x-auto border border-slate-300">
-          <table className="w-full text-left border-collapse min-w-[1000px]">
-            <thead className="bg-[#f8fafc] text-[9px] font-black uppercase">
-              <tr>
-                <th className="p-3 border-r">Trip ID</th>
-                <th className="p-3 border-r">Sale Order</th>
-                <th className="p-3 border-r">Vehicle No</th>
-                <th className="p-3 border-r">Route</th>
-                <th className="p-3 border-r">Status</th>
-                <th className="p-3">Created At</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((r: any) => (
-                <tr key={r.id} className="border-t hover:bg-blue-50 text-[11px] font-bold">
-                  <td className="p-3 text-[#0056d2] font-black">{r.tripId}</td>
-                  <td className="p-3">{r.saleOrderNumber}</td>
-                  <td className="p-3 uppercase">{r.vehicleNumber}</td>
-                  <td className="p-3 uppercase">{r.route}</td>
-                  <td className="p-3">
-                    <Badge variant="outline" className="text-[8px] font-black">{r.status}</Badge>
-                  </td>
-                  <td className="p-3 text-slate-500">{r.createdAt ? format(new Date(r.createdAt), 'dd-MM-yyyy HH:mm') : 'N/A'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
+    return <div className="space-y-6"><div className="flex items-center justify-between border-b border-slate-200 pb-4"><h2 className="text-sm font-black text-[#1e3a8a] uppercase tracking-tighter">Report Output: {results.length} Records</h2><Button onClick={() => onSearchChange({ ...search, results: null })} variant="outline" size="sm" className="h-7 text-[9px] font-black uppercase">Back to Selection</Button></div>
+      <div className="overflow-x-auto border border-slate-300"><table className="w-full text-left border-collapse min-w-[1000px]"><thead className="bg-[#f8fafc] text-[9px] font-black uppercase"><tr><th className="p-3 border-r">Trip ID</th><th className="p-3 border-r">Sale Order</th><th className="p-3 border-r">Vehicle No</th><th className="p-3 border-r">Route</th><th className="p-3 border-r">Status</th><th className="p-3">Created At</th></tr></thead><tbody>{results.map((r: any) => (<tr key={r.id} className="border-t hover:bg-blue-50 text-[11px] font-bold"><td className="p-3 text-[#0056d2] font-black">{r.tripId}</td><td className="p-3">{r.saleOrderNumber}</td><td className="p-3 uppercase">{r.vehicleNumber}</td><td className="p-3 uppercase">{r.route}</td><td className="p-3"><Badge variant="outline" className="text-[8px] font-black">{r.status}</Badge></td><td className="p-3 text-slate-500">{r.createdAt ? format(new Date(r.createdAt), 'dd-MM-yyyy HH:mm') : 'N/A'}</td></tr>))}</tbody></table></div></div>;
   }
-
-  return (
-    <div className="space-y-6">
-      <SectionGrouping title="SELECTION CRITERIA">
-        <FormSelect label="PLANT *" value={search.plant} options={pOpts} onChange={(v: string) => onSearchChange({ ...search, plant: v })} />
-        <FormInput label="VENDOR CODE" value={search.vendor} onChange={(v: string) => onSearchChange({ ...search, vendor: v })} placeholder="Optional..." />
-        <FormInput label="COMPANY CODE" value={search.company} onChange={(v: string) => onSearchChange({ ...search, company: v })} placeholder="Optional..." />
-        <FormInput label="CUSTOMER CODE" value={search.customer} onChange={(v: string) => onSearchChange({ ...search, customer: v })} placeholder="Optional..." />
-        <FormInput label="FROM DATE *" type="date" value={search.from} onChange={(v: string) => onSearchChange({ ...search, from: v })} />
-        <FormInput label="TO DATE *" type="date" value={search.to} onChange={(v: string) => onSearchChange({ ...search, to: v })} />
-      </SectionGrouping>
-      <div className="bg-blue-50 p-4 border border-blue-100 rounded-sm">
-        <p className="text-[10px] font-bold text-blue-800 uppercase flex items-center gap-2">
-          <Info className="h-3.5 w-3.5" /> Run report using Execute button in toolbar or F8 key.
-        </p>
-      </div>
-    </div>
-  );
+  return <div className="space-y-6"><SectionGrouping title="SELECTION CRITERIA"><FormSelect label="PLANT *" value={search.plant} options={pOpts} onChange={(v: string) => onSearchChange({ ...search, plant: v })} /><FormInput label="VENDOR CODE" value={search.vendor} onChange={(v: string) => onSearchChange({ ...search, vendor: v })} placeholder="Optional..." /><FormInput label="COMPANY CODE" value={search.company} onChange={(v: string) => onSearchChange({ ...search, company: v })} placeholder="Optional..." /><FormInput label="CUSTOMER CODE" value={search.customer} onChange={(v: string) => onSearchChange({ ...search, customer: v })} placeholder="Optional..." /><FormInput label="FROM DATE *" type="date" value={search.from} onChange={(v: string) => onSearchChange({ ...search, from: v })} /><FormInput label="TO DATE *" type="date" value={search.to} onChange={(v: string) => onSearchChange({ ...search, to: v })} /></SectionGrouping>
+    <div className="bg-blue-50 p-4 border border-blue-100 rounded-sm"><p className="text-[10px] font-bold text-blue-800 uppercase flex items-center gap-2"><Info className="h-3.5 w-3.5" /> Run report using Execute button in toolbar or F8 key.</p></div></div>;
 }
 
 function RegistryList({ onSelectItem, listData, activeScreen }: any) {
-  const isUserRegistry = activeScreen?.startsWith('SU');
-  const isVendorRegistry = activeScreen?.startsWith('XK');
-  
-  const headers = isUserRegistry 
-    ? ['Name', 'Username', 'Password', 'Authorized Plant']
-    : isVendorRegistry
-    ? ['Vendor Code', 'Vendor Name', 'Vendor Firm Name', 'Mobile', 'Special Route']
-    : ['ID', 'Name / Description', 'Type / Details', 'Sync Hub'];
-
-  return <div className="overflow-x-auto border border-slate-300 shadow-sm"><table className="w-full text-left border-collapse min-w-[700px]">
-    <thead className="bg-[#f0f0f0] text-[10px] font-black uppercase"><tr>{headers.map(c => <th key={c} className="p-3 border-r">{c}</th>)}</tr></thead>
-    <tbody>{listData?.map((item: any) => <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b hover:bg-[#e8f0fe] cursor-pointer transition-colors text-[11px] font-bold">
-      {isUserRegistry ? (
-        <>
-          <td className="p-3 font-black text-[#0056d2] uppercase">{item.fullName}</td>
-          <td className="p-3 uppercase">{item.username}</td>
-          <td className="p-3">{item.password}</td>
-          <td className="p-3 uppercase text-slate-500 italic">{item.plants?.join(', ') || 'NONE'}</td>
-        </>
-      ) : isVendorRegistry ? (
-        <>
-          <td className="p-3 font-black text-[#0056d2]">{item.vendorCode}</td>
-          <td className="p-3 uppercase">{item.vendorName}</td>
-          <td className="p-3 uppercase">{item.vendorFirmName}</td>
-          <td className="p-3">{item.mobile}</td>
-          <td className="p-3 italic text-slate-500">{item.route}</td>
-        </>
-      ) : (
-        <>
-          <td className="p-3 font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.vendorCode || item.companyCode || item.id.slice(0, 8)}</td>
-          <td className="p-3 uppercase">{item.customerName || item.plantName || item.vendorName || item.companyName || item.fullName || item.username || `${item.consignor} → ${item.consignee}`}</td>
-          <td className="p-3 italic text-slate-500">{item.city || item.customerType || item.vendorCode || 'DATA'}</td>
-          <td className="p-3 text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td>
-        </>
-      )}
-    </tr>)}
-    </tbody></table></div>;
+  const isUserRegistry = activeScreen?.startsWith('SU'); const isVendorRegistry = activeScreen?.startsWith('XK');
+  const headers = isUserRegistry ? ['Name', 'Username', 'Password', 'Authorized Plant'] : isVendorRegistry ? ['Vendor Code', 'Vendor Name', 'Vendor Firm Name', 'Mobile', 'Special Route'] : ['ID', 'Name / Description', 'Type / Details', 'Sync Hub'];
+  return <div className="overflow-x-auto border border-slate-300 shadow-sm"><table className="w-full text-left border-collapse min-w-[700px]"><thead className="bg-[#f0f0f0] text-[10px] font-black uppercase"><tr>{headers.map(c => <th key={c} className="p-3 border-r">{c}</th>)}</tr></thead><tbody>{listData?.map((item: any) => <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b hover:bg-[#e8f0fe] cursor-pointer transition-colors text-[11px] font-bold">{isUserRegistry ? (<><td className="p-3 font-black text-[#0056d2] uppercase">{item.fullName}</td><td className="p-3 uppercase">{item.username}</td><td className="p-3">{item.password}</td><td className="p-3 uppercase text-slate-500 italic">{item.plants?.join(', ') || 'NONE'}</td></>) : isVendorRegistry ? (<><td className="p-3 font-black text-[#0056d2]">{item.vendorCode}</td><td className="p-3 uppercase">{item.vendorName}</td><td className="p-3 uppercase">{item.vendorFirmName}</td><td className="p-3">{item.mobile}</td><td className="p-3 italic text-slate-500">{item.route}</td></>) : (<><td className="p-3 font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.vendorCode || item.companyCode || item.id.slice(0, 8)}</td><td className="p-3 uppercase">{item.customerName || item.plantName || item.vendorName || item.companyName || item.fullName || item.username || `${item.consignor} → ${item.consignee}`}</td><td className="p-3 italic text-slate-500">{item.city || item.customerType || item.vendorCode || 'DATA'}</td><td className="p-3 text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></>)}</tr>)}</tbody></table></div>;
 }
 
 function DripBoard({ orders, trips, vendors, plants, companies, customers, onStatusUpdate }: any) {
@@ -1436,58 +1328,41 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const [assignData, setAssignData] = React.useState<any>({ fleetType: 'Own Vehicle', isFixedRate: false, rate: 0, freightAmount: 0 }); 
   const [vendorSearch, setVendorSearch] = React.useState(''); 
   const [showVS, setShowVS] = React.useState(false);
-  
   const [searchQuery, setSearchQuery] = React.useState('');
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 15;
-
   const [fromDate, setFromDate] = React.useState(format(subDays(new Date(), 4), 'yyyy-MM-dd'));
   const [toDate, setToDate] = React.useState(format(new Date(), 'yyyy-MM-dd'));
-
   const [isOutPopupOpen, setIsOutPopupOpen] = React.useState(false);
   const [outData, setOutData] = React.useState<any>({ tripId: '', vehicleNumber: '', route: '', date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
-  
   const [isAssignmentPopupOpen, setIsAssignmentPopupOpen] = React.useState(false);
   const [assignmentMode, setAssignmentMode] = React.useState<'edit' | 'unassign' | null>(null);
   const [selectedTripForAssignment, setSelectedTripForAssignment] = React.useState<any>(null);
-
   const [isTrackModePopupOpen, setIsTrackModePopupOpen] = React.useState(false);
   const [selectedTripForTrackMode, setSelectedTripForTrackMode] = React.useState<any>(null);
   const [trackModeData, setTrackModeData] = React.useState({ mode: 'GPS Tracking' });
-
   const [isArrivedPopupOpen, setIsArrivedPopupOpen] = React.useState(false);
   const [arrivedData, setArrivedData] = React.useState<any>({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
-
   const [isRejectPopupOpen, setIsRejectPopupOpen] = React.useState(false);
   const [rejectData, setRejectData] = React.useState<any>({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), remark: '' });
-
   const [isUnloadPopupOpen, setIsUnloadPopupOpen] = React.useState(false);
   const [unloadData, setUnloadData] = React.useState<any>({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
-
   const [isPodPopupOpen, setIsPodPopupOpen] = React.useState(false);
   const [selectedTripForPod, setSelectedTripForPod] = React.useState<any>(null);
   const [podFile, setPodFile] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-
   const [isClosedViewPopupOpen, setIsClosedViewPopupOpen] = React.useState(false);
   const [selectedTripForClosed, setSelectedTripForClosed] = React.useState<any>(null);
   const [closedViewMode, setClosedViewMode] = React.useState<'view' | 'upload'>('view');
-
   const [isCnPopupOpen, setIsCnPopupOpen] = React.useState(false);
   const [selectedTripForCn, setSelectedTripForCn] = React.useState<any>(null);
-  const [cnFormData, setCnFormData] = React.useState<any>({
-    cnNo: '',
-    cnDate: format(new Date(), 'yyyy-MM-dd'),
-    paymentTerms: 'PAID',
-    items: [{ invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'BAG' }]
-  });
-
+  const [cnFormData, setCnFormData] = React.useState<any>({ cnNo: '', cnDate: format(new Date(), 'yyyy-MM-dd'), paymentTerms: 'PAID', items: [{ invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'BAG' }] });
   const [isCnPreviewOpen, setIsCnPreviewOpen] = React.useState(false);
   const [selectedTripForPreview, setSelectedTripForPreview] = React.useState<any>(null);
   const [cnPreviewStatus, setCnPreviewStatus] = React.useState<'idle' | 'generated'>('idle');
-
   const [gpsData, setGpsData] = React.useState<any[]>([]);
   const [isLiveTrackOpen, setIsLiveTrackOpen] = React.useState(false);
+  const [isLiveTrackCompact, setIsLiveTrackCompact] = React.useState(false);
   const [selectedLiveTrip, setSelectedLiveTrip] = React.useState<any>(null);
   const [selectedLiveGps, setSelectedLiveGps] = React.useState<any>(null);
 
@@ -1505,1576 +1380,287 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   }, []);
   
   React.useEffect(() => { 
-    fetchGps(); 
-    const i = setInterval(fetchGps, 30000); 
-    return () => clearInterval(i); 
+    fetchGps(); const i = setInterval(fetchGps, 30000); return () => clearInterval(i); 
   }, [fetchGps]);
 
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
-  
-  const getStats = (o: any) => { 
-    const tot = parseFloat(o.weight) || 0; 
-    const ass = trips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (t.assignWeight || 0), 0) || 0; 
-    return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; 
-  };
-  
-  const fOrders = React.useMemo(() => (orders || []).filter(o => o.status !== 'CANCELLED').map(o => {
-    const stats = getStats(o);
-    const route = (o.from && o.destination) ? `${o.from} → ${o.destination}` : (o.route || '');
-    return { ...o, ...stats, route };
-  }).filter(o => {
-    const bal = o.bal > 0;
-    const itemDate = new Date(o.createdAt);
-    const matchesDate = isWithinInterval(itemDate, { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) });
-    return bal && matchesDate;
-  }), [orders, trips, fromDate, toDate]);
-
-  const fTrips = React.useMemo(() => { 
-    if (!trips) return []; 
-    const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; 
-    return trips.filter(t => t.status === map[activeTab]).map(t => {
-       const route = (t.from && t.destination && !t.route?.includes('→')) ? `${t.from} → ${t.destination}` : t.route;
-       return { ...t, route };
-    }).filter(t => {
-       const itemDate = new Date(t.createdAt);
-       return isWithinInterval(itemDate, { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) });
-    }); 
-  }, [trips, activeTab, fromDate, toDate]);
-
-  const tabCounts = React.useMemo(() => {
-    const counts: Record<string, number> = {};
-    counts['Open Orders'] = fOrders.length;
-    ['Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'].forEach(t => {
-       const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' };
-       counts[t] = (trips || []).filter(tr => tr.status === map[t] && isWithinInterval(new Date(tr.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })).length;
-    });
-    return counts;
-  }, [fOrders, trips, fromDate, toDate]);
-
-  const filteredData = React.useMemo(() => {
-    const rawData = activeTab === 'Open Orders' ? fOrders : fTrips;
-    if (!searchQuery) return rawData;
-    const lowerQuery = searchQuery.toLowerCase();
-    return rawData.filter((item: any) => 
-      Object.values(item).some(val => 
-        String(val).toLowerCase().includes(lowerQuery)
-      )
-    );
-  }, [activeTab, fOrders, fTrips, searchQuery]);
-
-  const paginatedData = React.useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredData.slice(start, start + itemsPerPage);
-  }, [filteredData, currentPage]);
-
+  const getStats = (o: any) => { const tot = parseFloat(o.weight) || 0; const ass = trips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (t.assignWeight || 0), 0) || 0; return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; };
+  const fOrders = React.useMemo(() => (orders || []).filter(o => o.status !== 'CANCELLED').map(o => { const stats = getStats(o); const route = (o.from && o.destination) ? `${o.from} → ${o.destination}` : (o.route || ''); return { ...o, ...stats, route }; }).filter(o => { const bal = o.bal > 0; const itemDate = new Date(o.createdAt); return bal && isWithinInterval(itemDate, { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) }); }), [orders, trips, fromDate, toDate]);
+  const fTrips = React.useMemo(() => { if (!trips) return []; const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; return trips.filter(t => t.status === map[activeTab]).map(t => { const route = (t.from && t.destination && !t.route?.includes('→')) ? `${t.from} → ${t.destination}` : t.route; return { ...t, route }; }).filter(t => isWithinInterval(new Date(t.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })); }, [trips, activeTab, fromDate, toDate]);
+  const tabCounts = React.useMemo(() => { const counts: Record<string, number> = {}; counts['Open Orders'] = fOrders.length; ['Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'].forEach(t => { const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; counts[t] = (trips || []).filter(tr => tr.status === map[t] && isWithinInterval(new Date(tr.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })).length; }); return counts; }, [fOrders, trips, fromDate, toDate]);
+  const filteredData = React.useMemo(() => { const rawData = activeTab === 'Open Orders' ? fOrders : fTrips; if (!searchQuery) return rawData; const lowerQuery = searchQuery.toLowerCase(); return rawData.filter((item: any) => Object.values(item).some(val => String(val).toLowerCase().includes(lowerQuery))); }, [activeTab, fOrders, fTrips, searchQuery]);
+  const paginatedData = React.useMemo(() => { const start = (currentPage - 1) * itemsPerPage; return filteredData.slice(start, start + itemsPerPage); }, [filteredData, currentPage]);
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const tripVendors = React.useMemo(() => { const pCode = selectedTripForAssignment?.plantCode || selectedOrder?.plantCode; if (!pCode || !vendors) return []; return vendors.filter((v: any) => v.plantCodes?.includes(pCode)); }, [selectedTripForAssignment, selectedOrder, vendors]);
 
-  const tripVendors = React.useMemo(() => {
-    const pCode = selectedTripForAssignment?.plantCode || selectedOrder?.plantCode;
-    if (!pCode || !vendors) return [];
-    return vendors.filter((v: any) => v.plantCodes?.includes(pCode));
-  }, [selectedTripForAssignment, selectedOrder, vendors]);
+  React.useEffect(() => { setCurrentPage(1); setSearchQuery(''); }, [activeTab]);
+  const handleAssign = (o: any) => { setSelectedOrder(o); setAssignData({ plantCode: o.plantCode, consignee: o.consignee, shipToParty: o.shipToParty, route: o.route || '', orderQty: `${o.bal} ${o.uom}`, fleetType: 'Own Vehicle', assignWeight: o.bal, isFixedRate: false, rate: 0, freightAmount: 0 }); setIsPopupOpen(true); };
+  const handleAssignmentClick = (t: any) => { setSelectedTripForAssignment(t); setAssignmentMode(null); setAssignData({ vehicleNumber: t.vehicleNumber, driverMobile: t.driverMobile, assignWeight: t.assignWeight, fleetType: t.fleetType, vendorName: t.vendorName, vendorMobile: t.vendorMobile, employee: t.employee, rate: t.rate, freightAmount: t.freightAmount, isFixedRate: t.isFixedRate, plantCode: t.plantCode, consignee: t.consignee, shipToParty: t.shipToParty, route: t.route }); setVendorSearch(t.vendorName || ''); setIsAssignmentPopupOpen(true); };
+  const handleAssignmentPost = () => { if (!assignmentMode) { onStatusUpdate({ text: 'Please select an option (Edit/Unassign)', type: 'error' }); return; } if (assignmentMode === 'unassign') { deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id)); onStatusUpdate({ text: `Trip ${selectedTripForAssignment.tripId} unassigned. Order returned to Open Orders.`, type: 'success' }); } else { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id), { vehicleNumber: assignData.vehicleNumber, driverMobile: assignData.driverMobile, assignWeight: parseFloat(assignData.assignWeight || 0), fleetType: assignData.fleetType, vendorName: assignData.vendorName || '', vendorMobile: assignData.vendorMobile || '', employee: assignData.employee || '', rate: parseFloat(assignData.rate || 0), freightAmount: parseFloat(assignData.freightAmount || 0), isFixedRate: !!assignData.isFixedRate, updatedAt: new Date().toISOString() }, { merge: true }); onStatusUpdate({ text: `Trip ${selectedTripForAssignment.tripId} updated successfully.`, type: 'success' }); } setIsAssignmentPopupOpen(false); };
+  const handleTrackModeAction = (t: any) => { setSelectedTripForTrackMode(t); setTrackModeData({ mode: t.trackMode || 'GPS Tracking' }); setIsTrackModePopupOpen(true); };
+  const handleTrackModePost = () => { if (!selectedTripForTrackMode) return; setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForTrackMode.id), { trackMode: trackModeData.mode, updatedAt: new Date().toISOString() }, { merge: true }); setIsTrackModePopupOpen(false); onStatusUpdate({ text: `Track Mode synchronized: ${trackModeData.mode}`, type: 'success' }); };
+  const handleLiveMapAction = (t: any, gps: any) => { setSelectedLiveTrip(t); setSelectedLiveGps(gps); setIsLiveTrackCompact(false); setIsLiveTrackOpen(true); };
+  const handleCompactTrackAction = (t: any, gps: any) => { setSelectedLiveTrip(t); setSelectedLiveGps(gps); setIsLiveTrackCompact(true); setIsLiveTrackOpen(true); };
+  const handleOutVehicle = (t: any) => { if (['Own Vehicle', 'Contract Vehicle', 'Market Vehicle'].includes(t.fleetType) && !t.cnNo) { onStatusUpdate({ text: 'Add CN Number before Out Vehicle', type: 'error' }); return; } setOutData({ tripId: t.tripId, id: t.id, vehicleNumber: t.vehicleNumber, route: t.route, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsOutPopupOpen(true); };
+  const handleConfirmOut = () => { if (!outData.id) return; setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', outData.id), { status: 'IN-TRANSIT', outDate: outData.date, outTime: outData.time, updatedAt: new Date().toISOString() }, { merge: true }); setIsOutPopupOpen(false); onStatusUpdate({ text: `Vehicle ${outData.vehicleNumber} is now IN-TRANSIT`, type: 'success' }); };
+  const handleArrivedAction = (t: any) => { setArrivedData({ ...arrivedData, trip: t }); setIsArrivedPopupOpen(true); };
+  const handleArrivedPost = () => { const { date, time, trip } = arrivedData; if (!validateDateTime(date, time)) { onStatusUpdate({ text: 'Error: Future date/time not allowed', type: 'error' }); return; } setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', trip.id), { status: 'ARRIVED', arrivedDate: date, arrivedTime: time, updatedAt: new Date().toISOString() }, { merge: true }); setIsArrivedPopupOpen(false); onStatusUpdate({ text: `Trip ${trip.tripId} status updated to ARRIVED`, type: 'success' }); };
+  const handleRejectAction = (t: any) => { setRejectData({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), remark: '', trip: t }); setIsRejectPopupOpen(true); };
+  const handleRejectPost = () => { const { date, time, remark, trip } = rejectData; if (!remark.trim()) { onStatusUpdate({ text: 'Error: Remark is mandatory for rejection', type: 'error' }); return; } if (!validateDateTime(date, time)) { onStatusUpdate({ text: 'Error: Future date/time not allowed', type: 'error' }); return; } setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', trip.id), { status: 'REJECTION', rejectionDate: date, rejectionTime: time, rejectionRemark: remark, updatedAt: new Date().toISOString() }, { merge: true }); setIsRejectPopupOpen(false); onStatusUpdate({ text: `Trip ${trip.tripId} status updated to REJECT`, type: 'success' }); };
+  const handleUnloadAction = (t: any) => { setUnloadData({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), trip: t }); setIsUnloadPopupOpen(true); };
+  const handleUnloadPost = () => { const { date, time, trip } = unloadData; if (!validateDateTime(date, time)) { onStatusUpdate({ text: 'Error: Future date/time not allowed', type: 'error' }); return; } setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', trip.id), { status: 'POD', unloadDate: date, unloadTime: time, updatedAt: new Date().toISOString() }, { merge: true }); setIsUnloadPopupOpen(false); onStatusUpdate({ text: `Trip ${trip.tripId} moved to POD VERIFY`, type: 'success' }); };
+  const handlePodUploadAction = (t: any) => { setSelectedTripForPod(t); setPodFile(null); setIsPodPopupOpen(true); };
+  const compressFile = async (file: File): Promise<string> => { return new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => { const dataUrl = e.target?.result as string; if (file.type.includes('image')) { const img = new globalThis.Image(); img.onload = () => { const canvas = document.createElement('canvas'); let width = img.width; let height = img.height; const max = 1200; if (width > max || height > max) { if (width > height) { height *= max / width; width = max; } else { width *= max / height; height = max; } } canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d'); ctx?.drawImage(img, 0, 0, width, height); resolve(canvas.toDataURL('image/jpeg', 0.6)); }; img.src = dataUrl; } else { resolve(dataUrl); } }; reader.readAsDataURL(file); }); };
+  const handlePodFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; if (file.size > 2 * 1024 * 1024) { onStatusUpdate({ text: 'Error: File exceeds 2MB limit', type: 'error' }); return; } const compressed = await compressFile(file); setPodFile(compressed); };
+  const handlePodPost = () => { if (!podFile) { onStatusUpdate({ text: 'Error: No POD file selected', type: 'error' }); return; } setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForPod.id), { status: 'CLOSED', podFile: podFile, podUploadedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true }); setIsPodPopupOpen(false); onStatusUpdate({ text: `POD uploaded for Trip ${selectedTripForPod.tripId}. Node CLOSED.`, type: 'success' }); };
+  const handleViewAction = (t: any) => { setSelectedTripForClosed(t); setClosedViewMode('view'); setPodFile(t.podFile || null); setIsClosedViewPopupOpen(true); };
+  const handleClosedUpdatePost = () => { if (closedViewMode === 'upload' && podFile) { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForClosed.id), { podFile: podFile, podUploadedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true }); onStatusUpdate({ text: `POD document replaced for Trip ${selectedTripForClosed.id}`, type: 'success' }); } setIsClosedViewPopupOpen(false); };
+  const recentCns = React.useMemo(() => { if (!trips) return []; const list = trips.filter((t: any) => t.cnNo).map((t: any) => t.cnNo); return Array.from(new Set(list)).reverse().slice(0, 3); }, [trips]);
+  const handleAddCn = (t: any) => { setSelectedTripForCn(t); const company = (companies || []).find((c: any) => c.plantCodes?.includes(t.plantCode)); setCnFormData({ cnNo: t.cnNo || '', cnDate: t.cnDate || format(new Date(), 'yyyy-MM-dd'), paymentTerms: t.paymentTerms || 'PAID', carrierName: company?.companyName || 'AUTO-ASSIGN PENDING', items: t.cnItems || [{ invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'BAG' }] }); setIsCnPopupOpen(true); };
+  const handleCnPost = () => { if (!cnFormData.cnNo || !cnFormData.cnDate || !cnFormData.items[0]?.invoiceNo || !cnFormData.items[0]?.product) { onStatusUpdate({ text: 'Fill mandatory fields: CN No, Date, Invoice No, Product', type: 'error' }); return; } setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForCn.id), { cnNo: cnFormData.cnNo, cnDate: cnFormData.cnDate, paymentTerms: cnFormData.paymentTerms, carrierName: cnFormData.carrierName, cnItems: cnFormData.items, updatedAt: new Date().toISOString() }, { merge: true }); setIsCnPopupOpen(false); onStatusUpdate({ text: `CN ${cnFormData.cnNo} synchronized successfully`, type: 'success' }); };
+  const handleCnPreviewClick = (t: any) => { const order = (orders || []).find((o: any) => o.id === t.saleOrderId); setSelectedTripForPreview({ ...t, order }); setCnPreviewStatus('idle'); setIsCnPreviewOpen(true); };
+  const handleDownloadPdf = () => { if (!selectedTripForPreview?.cnNo) return; const originalTitle = document.title; document.title = selectedTripForPreview.cnNo; window.print(); document.title = originalTitle; };
+  const validateDateTime = (dateStr: string, timeStr: string) => { const input = parse(`${dateStr} ${timeStr}`, 'yyyy-MM-dd HH:mm', new Date()); return !isAfter(input, new Date()); };
 
-  React.useEffect(() => {
-    setCurrentPage(1);
-    setSearchQuery('');
-  }, [activeTab]);
-  
-  const handleAssign = (o: any) => { 
-    setSelectedOrder(o); 
-    setAssignData({ 
-      plantCode: o.plantCode, 
-      consignee: o.consignee, 
-      shipToParty: o.shipToParty, 
-      route: o.route || '', 
-      orderQty: `${o.bal} ${o.uom}`, 
-      fleetType: 'Own Vehicle', 
-      assignWeight: o.bal,
-      isFixedRate: false,
-      rate: 0,
-      freightAmount: 0
-    }); 
-    setIsPopupOpen(true); 
-  };
-
-  const handleAssignmentClick = (t: any) => {
-    setSelectedTripForAssignment(t);
-    setAssignmentMode(null);
-    setAssignData({
-      vehicleNumber: t.vehicleNumber,
-      driverMobile: t.driverMobile,
-      assignWeight: t.assignWeight,
-      fleetType: t.fleetType,
-      vendorName: t.vendorName,
-      vendorMobile: t.vendorMobile,
-      employee: t.employee,
-      rate: t.rate,
-      freightAmount: t.freightAmount,
-      isFixedRate: t.isFixedRate,
-      plantCode: t.plantCode,
-      consignee: t.consignee,
-      shipToParty: t.shipToParty,
-      route: t.route
-    });
-    setVendorSearch(t.vendorName || '');
-    setIsAssignmentPopupOpen(true);
-  };
-
-  const handleAssignmentPost = () => {
-    if (!assignmentMode) {
-      onStatusUpdate({ text: 'Please select an option (Edit/Unassign)', type: 'error' });
-      return;
-    }
-
-    if (assignmentMode === 'unassign') {
-      deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id));
-      onStatusUpdate({ text: `Trip ${selectedTripForAssignment.tripId} unassigned. Order returned to Open Orders.`, type: 'success' });
-    } else {
-      setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id), {
-        vehicleNumber: assignData.vehicleNumber,
-        driverMobile: assignData.driverMobile,
-        assignWeight: parseFloat(assignData.assignWeight || 0),
-        fleetType: assignData.fleetType,
-        vendorName: assignData.vendorName || '',
-        vendorMobile: assignData.vendorMobile || '',
-        employee: assignData.employee || '',
-        rate: parseFloat(assignData.rate || 0),
-        freightAmount: parseFloat(assignData.freightAmount || 0),
-        isFixedRate: !!assignData.isFixedRate,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-      onStatusUpdate({ text: `Trip ${selectedTripForAssignment.tripId} updated successfully.`, type: 'success' });
-    }
-    setIsAssignmentPopupOpen(false);
-  };
-
-  const handleTrackModeAction = (t: any) => {
-    setSelectedTripForTrackMode(t);
-    setTrackModeData({ mode: t.trackMode || 'GPS Tracking' });
-    setIsTrackModePopupOpen(true);
-  };
-
-  const handleTrackModePost = () => {
-    if (!selectedTripForTrackMode) return;
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForTrackMode.id), {
-      trackMode: trackModeData.mode,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-    setIsTrackModePopupOpen(false);
-    onStatusUpdate({ text: `Track Mode synchronized: ${trackModeData.mode}`, type: 'success' });
-  };
-
-  const handleLiveMapAction = (t: any, gps: any) => {
-    setSelectedLiveTrip(t);
-    setSelectedLiveGps(gps);
-    setIsLiveTrackOpen(true);
-  };
-
-  const handleOutVehicle = (t: any) => {
-    if (['Own Vehicle', 'Contract Vehicle', 'Market Vehicle'].includes(t.fleetType) && !t.cnNo) {
-      onStatusUpdate({ text: 'Add CN Number before Out Vehicle', type: 'error' });
-      return;
-    }
-
-    setOutData({ 
-      tripId: t.tripId, 
-      id: t.id, 
-      vehicleNumber: t.vehicleNumber, 
-      route: t.route, 
-      date: format(new Date(), 'yyyy-MM-dd'), 
-      time: format(new Date(), 'HH:mm') 
-    });
-    setIsOutPopupOpen(true);
-  };
-
-  const handleConfirmOut = () => {
-    if (!outData.id) return;
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', outData.id), { 
-      status: 'IN-TRANSIT', 
-      outDate: outData.date, 
-      outTime: outData.time, 
-      updatedAt: new Date().toISOString() 
-    }, { merge: true });
-    setIsOutPopupOpen(false);
-    onStatusUpdate({ text: `Vehicle ${outData.vehicleNumber} is now IN-TRANSIT`, type: 'success' });
-  };
-
-  const validateDateTime = (dateStr: string, timeStr: string) => {
-    const input = parse(`${dateStr} ${timeStr}`, 'yyyy-MM-dd HH:mm', new Date());
-    return !isAfter(input, new Date());
-  };
-
-  const handleArrivedAction = (t: any) => {
-    setArrivedData({ ...arrivedData, trip: t });
-    setIsArrivedPopupOpen(true);
-  };
-
-  const handleArrivedPost = () => {
-    const { date, time, trip } = arrivedData;
-    if (!validateDateTime(date, time)) {
-      onStatusUpdate({ text: 'Error: Future date/time not allowed', type: 'error' });
-      return;
-    }
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', trip.id), {
-      status: 'ARRIVED',
-      arrivedDate: date,
-      arrivedTime: time,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-    setIsArrivedPopupOpen(false);
-    onStatusUpdate({ text: `Trip ${trip.tripId} status updated to ARRIVED`, type: 'success' });
-  };
-
-  const handleRejectAction = (t: any) => {
-    setRejectData({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), remark: '', trip: t });
-    setIsRejectPopupOpen(true);
-  };
-
-  const handleRejectPost = () => {
-    const { date, time, remark, trip } = rejectData;
-    if (!remark.trim()) {
-      onStatusUpdate({ text: 'Error: Remark is mandatory for rejection', type: 'error' });
-      return;
-    }
-    if (!validateDateTime(date, time)) {
-      onStatusUpdate({ text: 'Error: Future date/time not allowed', type: 'error' });
-      return;
-    }
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', trip.id), {
-      status: 'REJECTION',
-      rejectionDate: date,
-      rejectionTime: time,
-      rejectionRemark: remark,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-    setIsRejectPopupOpen(false);
-    onStatusUpdate({ text: `Trip ${trip.tripId} status updated to REJECT`, type: 'success' });
-  };
-
-  const handleUnloadAction = (t: any) => {
-    setUnloadData({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), trip: t });
-    setIsUnloadPopupOpen(true);
-  };
-
-  const handleUnloadPost = () => {
-    const { date, time, trip } = unloadData;
-    if (!validateDateTime(date, time)) {
-      onStatusUpdate({ text: 'Error: Future date/time not allowed', type: 'error' });
-      return;
-    }
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', trip.id), {
-      status: 'POD',
-      unloadDate: date,
-      unloadTime: time,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-    setIsUnloadPopupOpen(false);
-    onStatusUpdate({ text: `Trip ${trip.tripId} moved to POD VERIFY`, type: 'success' });
-  };
-
-  const handlePodUploadAction = (t: any) => {
-    setSelectedTripForPod(t);
-    setPodFile(null);
-    setIsPodPopupOpen(true);
-  };
-
-  const compressFile = async (file: File): Promise<string> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        if (file.type.includes('image')) {
-          const img = new globalThis.Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            let width = img.width;
-            let height = img.height;
-            const max = 1200;
-            if (width > max || height > max) {
-              if (width > height) { height *= max / width; width = max; }
-              else { width *= max / height; height = max; }
-            }
-            canvas.width = width; canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx?.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.6));
-          };
-          img.src = dataUrl;
-        } else {
-          resolve(dataUrl);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const handlePodFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      onStatusUpdate({ text: 'Error: File exceeds 2MB limit', type: 'error' });
-      return;
-    }
-    const compressed = await compressFile(file);
-    setPodFile(compressed);
-  };
-
-  const handlePodPost = () => {
-    if (!podFile) {
-      onStatusUpdate({ text: 'Error: No POD file selected', type: 'error' });
-      return;
-    }
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForPod.id), {
-      status: 'CLOSED',
-      podFile: podFile,
-      podUploadedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-    setIsPodPopupOpen(false);
-    onStatusUpdate({ text: `POD uploaded for Trip ${selectedTripForPod.tripId}. Node CLOSED.`, type: 'success' });
-  };
-
-  const handleViewAction = (t: any) => {
-    setSelectedTripForClosed(t);
-    setClosedViewMode('view');
-    setPodFile(t.podFile || null);
-    setIsClosedViewPopupOpen(true);
-  };
-
-  const handleClosedUpdatePost = () => {
-    if (closedViewMode === 'upload' && podFile) {
-      setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForClosed.id), {
-        podFile: podFile,
-        podUploadedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-      onStatusUpdate({ text: `POD document replaced for Trip ${selectedTripForClosed.id}`, type: 'success' });
-    }
-    setIsClosedViewPopupOpen(false);
-  };
-
-  const recentCns = React.useMemo(() => {
-    if (!trips) return [];
-    const list = trips.filter((t: any) => t.cnNo).map((t: any) => t.cnNo);
-    return Array.from(new Set(list)).reverse().slice(0, 3);
-  }, [trips]);
-
-  const handleAddCn = (t: any) => {
-    setSelectedTripForCn(t);
-    const company = (companies || []).find((c: any) => c.plantCodes?.includes(t.plantCode));
-    setCnFormData({
-      cnNo: t.cnNo || '',
-      cnDate: t.cnDate || format(new Date(), 'yyyy-MM-dd'),
-      paymentTerms: t.paymentTerms || 'PAID',
-      carrierName: company?.companyName || 'AUTO-ASSIGN PENDING',
-      items: t.cnItems || [{ invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'BAG' }]
-    });
-    setIsCnPopupOpen(true);
-  };
-
-  const handleCnPost = () => {
-    if (!cnFormData.cnNo || !cnFormData.cnDate || !cnFormData.items[0]?.invoiceNo || !cnFormData.items[0]?.product) {
-      onStatusUpdate({ text: 'Fill mandatory fields: CN No, Date, Invoice No, Product', type: 'error' });
-      return;
-    }
-    
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForCn.id), {
-      cnNo: cnFormData.cnNo,
-      cnDate: cnFormData.cnDate,
-      paymentTerms: cnFormData.paymentTerms,
-      carrierName: cnFormData.carrierName,
-      cnItems: cnFormData.items,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-    
-    setIsCnPopupOpen(false);
-    onStatusUpdate({ text: `CN ${cnFormData.cnNo} synchronized successfully`, type: 'success' });
-  };
-
-  const handleCnPreviewClick = (t: any) => {
-    const order = (orders || []).find((o: any) => o.id === t.saleOrderId);
-    setSelectedTripForPreview({ ...t, order });
-    setCnPreviewStatus('idle');
-    setIsCnPreviewOpen(true);
-  };
-
-  const handleDownloadPdf = () => {
-    if (!selectedTripForPreview?.cnNo) return;
-    const originalTitle = document.title;
-    document.title = selectedTripForPreview.cnNo;
-    window.print();
-    document.title = originalTitle;
-  };
-
-  React.useEffect(() => {
-    if (assignData.fleetType === 'Market Vehicle' && !assignData.isFixedRate) {
-      const weight = parseFloat(assignData.assignWeight || 0);
-      const rate = parseFloat(assignData.rate || 0);
-      setAssignData(prev => ({ ...prev, freightAmount: isNaN(weight * rate) ? 0 : weight * rate }));
-    }
-  }, [assignData.assignWeight, assignData.rate, assignData.fleetType, assignData.isFixedRate]);
-
-  const handlePost = () => { 
-    if (!user || !selectedOrder) return; 
-    const tId = `T${Math.floor(100000000 + Math.random() * 900000000)}`; 
-    const newId = crypto.randomUUID(); 
-    
-    const p = { 
-      id: newId, 
-      tripId: tId, 
-      saleOrderId: selectedOrder.id, 
-      saleOrderNumber: selectedOrder.saleOrder, 
-      plantCode: assignData.plantCode, 
-      shipToParty: assignData.shipToParty, 
-      consignee: selectedOrder.consignee,
-      route: assignData.route, 
-      consignor: selectedOrder.consignor, 
-      from: selectedOrder.from || '',
-      destination: selectedOrder.destination || '',
-      deliveryAddress: selectedOrder.deliveryAddress || '',
-      vehicleNumber: assignData.vehicleNumber, 
-      driverMobile: assignData.driverMobile, 
-      fleetType: assignData.fleetType, 
-      vendorName: assignData.vendorName || '', 
-      vendorMobile: assignData.vendorMobile || '',
-      employee: assignData.employee || '',
-      rate: parseFloat(assignData.rate || 0) || 0,
-      freightAmount: parseFloat(assignData.freightAmount || 0) || 0,
-      isFixedRate: !!assignData.isFixedRate,
-      assignWeight: parseFloat(assignData.assignWeight || 0) || 0, 
-      status: 'LOADING', 
-      createdAt: new Date().toISOString() 
-    }; 
-    
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', newId), p, { merge: true }); 
-    setIsPopupOpen(false); 
-    setSelectedOrder(null); 
-    onStatusUpdate({ text: `Trip ${tId} posted to Loading`, type: 'success' }); 
-  };
-
+  React.useEffect(() => { if (assignData.fleetType === 'Market Vehicle' && !assignData.isFixedRate) { const weight = parseFloat(assignData.assignWeight || 0); const rate = parseFloat(assignData.rate || 0); setAssignData(prev => ({ ...prev, freightAmount: isNaN(weight * rate) ? 0 : weight * rate })); } }, [assignData.assignWeight, assignData.rate, assignData.fleetType, assignData.isFixedRate]);
+  const handlePost = () => { if (!user || !selectedOrder) return; const tId = `T${Math.floor(100000000 + Math.random() * 900000000)}`; const newId = crypto.randomUUID(); const p = { id: newId, tripId: tId, saleOrderId: selectedOrder.id, saleOrderNumber: selectedOrder.saleOrder, plantCode: assignData.plantCode, shipToParty: assignData.shipToParty, consignee: selectedOrder.consignee, route: assignData.route, consignor: selectedOrder.consignor, from: selectedOrder.from || '', destination: selectedOrder.destination || '', deliveryAddress: selectedOrder.deliveryAddress || '', vehicleNumber: assignData.vehicleNumber, driverMobile: assignData.driverMobile, fleetType: assignData.fleetType, vendorName: assignData.vendorName || '', vendorMobile: assignData.vendorMobile || '', employee: assignData.employee || '', rate: parseFloat(assignData.rate || 0) || 0, freightAmount: parseFloat(assignData.freightAmount || 0) || 0, isFixedRate: !!assignData.isFixedRate, assignWeight: parseFloat(assignData.assignWeight || 0) || 0, status: 'LOADING', createdAt: new Date().toISOString() }; setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', newId), p, { merge: true }); setIsPopupOpen(false); setSelectedOrder(null); onStatusUpdate({ text: `Trip ${tId} posted to Loading`, type: 'success' }); };
   const mVendors = (vendors || []).filter((v: any) => v.vendorName?.toUpperCase().includes(vendorSearch.toUpperCase()));
 
   return <div className="flex flex-col h-full space-y-4">
     <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 bg-white border border-slate-300 p-3 rounded-sm shadow-sm print:hidden">
-      <div className="flex items-center gap-4 flex-1">
-        <label className="text-[10px] font-black uppercase text-slate-400 whitespace-nowrap pl-2">Search</label>
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-          <input 
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-            className="h-9 w-full border border-slate-300 pl-9 pr-4 text-[10px] font-black outline-none focus:bg-yellow-50 focus:border-blue-400 uppercase tracking-wider"
-          />
-        </div>
-        <div className="flex flex-col gap-1 border-l border-slate-200 pl-4 min-w-[120px]">
-          <label className="text-[8px] font-black uppercase text-slate-400">Plant</label>
-          <div className="text-[10px] font-black text-slate-800 uppercase tracking-tighter">Authorized Hub</div>
-        </div>
-      </div>
-      
-      <div className="flex items-center gap-4 border-l border-slate-200 pl-4">
-        <div className="flex flex-col gap-1">
-          <label className="text-[8px] font-black uppercase text-slate-400">From Date</label>
-          <input type="date" value={fromDate} onChange={e => {
-             if (e.target.value > toDate) return;
-             setFromDate(e.target.value);
-             setCurrentPage(1);
-          }} className="h-8 border border-slate-300 px-2 text-[10px] font-black outline-none focus:bg-yellow-50" />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-[8px] font-black uppercase text-slate-400">To Date</label>
-          <input type="date" value={toDate} onChange={e => {
-             if (e.target.value < fromDate) return;
-             setToDate(e.target.value);
-             setCurrentPage(1);
-          }} className="h-8 border border-slate-300 px-2 text-[10px] font-black outline-none focus:bg-yellow-50" />
-        </div>
-      </div>
+      <div className="flex items-center gap-4 flex-1"><label className="text-[10px] font-black uppercase text-slate-400 whitespace-nowrap pl-2">Search</label><div className="relative flex-1 max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" /><input value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} className="h-9 w-full border border-slate-300 pl-9 pr-4 text-[10px] font-black outline-none focus:bg-yellow-50 focus:border-blue-400 uppercase tracking-wider" /></div><div className="flex flex-col gap-1 border-l border-slate-200 pl-4 min-w-[120px]"><label className="text-[8px] font-black uppercase text-slate-400">Plant</label><div className="text-[10px] font-black text-slate-800 uppercase tracking-tighter">Authorized Hub</div></div></div>
+      <div className="flex items-center gap-4 border-l border-slate-200 pl-4"><div className="flex flex-col gap-1"><label className="text-[8px] font-black uppercase text-slate-400">From Date</label><input type="date" value={fromDate} onChange={e => { if (e.target.value > toDate) return; setFromDate(e.target.value); setCurrentPage(1); }} className="h-8 border border-slate-300 px-2 text-[10px] font-black outline-none focus:bg-yellow-50" /></div><div className="flex flex-col gap-1"><label className="text-[8px] font-black uppercase text-slate-400">To Date</label><input type="date" value={toDate} onChange={e => { if (e.target.value < fromDate) return; setToDate(e.target.value); setCurrentPage(1); }} className="h-8 border border-slate-300 px-2 text-[10px] font-black outline-none focus:bg-yellow-50" /></div></div>
     </div>
-
-    <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 overflow-x-auto no-scrollbar print:hidden">
-      {TABS.map(t => (
-        <button key={t} onClick={() => setActiveTab(t)} className={cn("px-4 md:px-6 py-2.5 text-[9px] md:text-[10px] font-black uppercase tracking-widest whitespace-nowrap flex items-center gap-2", activeTab === t ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700")}>
-          {t} <span className="opacity-50 text-[8px]">({tabCounts[t] || 0})</span>
-        </button>
-      ))}
-    </div>
-    
-    <div className="flex-1 flex flex-col overflow-hidden bg-white border border-slate-300 print:border-none">
-      <div className="flex-1 overflow-auto">
-        <table className="w-full text-left min-w-[1000px]">
-          <thead>
-            <tr className="bg-[#f8fafc] text-[9px] font-black uppercase sticky top-0 border-b border-slate-300 z-10 print:hidden">
-              {activeTab === 'Open Orders' ? 
-                ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>) : 
-                ['Plant', 'Trip ID', 'Sale Order', 'Consignee', 'Ship to Party', 'Route', 'Vehicle No', 'Assign Qty', 'CN Number', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedData.length === 0 ? (
-              <tr className="print:hidden">
-                <td colSpan={10} className="p-20 text-center">
-                  <div className="flex flex-col items-center gap-3 opacity-20">
-                    <Search className="h-10 w-10" />
-                    <span className="text-[11px] font-black uppercase tracking-[0.2em]">No Synchronized Nodes Found</span>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              paginatedData.map((item: any) => {
+    <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 overflow-x-auto no-scrollbar print:hidden">{TABS.map(t => (<button key={t} onClick={() => setActiveTab(t)} className={cn("px-4 md:px-6 py-2.5 text-[9px] md:text-[10px] font-black uppercase tracking-widest whitespace-nowrap flex items-center gap-2", activeTab === t ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700")}>{t} <span className="opacity-50 text-[8px]">({tabCounts[t] || 0})</span></button>))}</div>
+    <div className="flex-1 flex flex-col overflow-hidden bg-white border border-slate-300 print:border-none"><div className="flex-1 overflow-auto"><table className="w-full text-left min-w-[1000px]"><thead><tr className="bg-[#f8fafc] text-[9px] font-black uppercase sticky top-0 border-b border-slate-300 z-10 print:hidden">{activeTab === 'Open Orders' ? ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>) : ['Plant', 'Trip ID', 'Sale Order', 'Consignee', 'Ship to Party', 'Route', 'Vehicle No', 'Assign Qty', 'CN Number', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}</tr></thead>
+          <tbody>{paginatedData.length === 0 ? (<tr className="print:hidden"><td colSpan={10} className="p-20 text-center"><div className="flex flex-col items-center gap-3 opacity-20"><Search className="h-10 w-10" /><span className="text-[11px] font-black uppercase tracking-[0.2em]">No Synchronized Nodes Found</span></div></td></tr>) : (paginatedData.map((item: any) => {
                 if (activeTab === 'Open Orders') {
-                  const o = item;
-                  return (
-                    <tr key={o.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] transition-colors text-[11px] font-bold group print:hidden">
-                      <td className="p-3">{o.plantCode}</td>
-                      <td className="p-3 space-y-0.5">
-                        <div className="text-[#0056d2] font-black">{o.saleOrder}</div>
-                        <div className="text-[9px] text-slate-400 font-bold uppercase">{o.createdAt ? format(new Date(o.createdAt), 'dd/MM/yyyy HH:mm') : ''}</div>
-                      </td>
-                      <td className="p-3 uppercase">{o.consignor}</td>
-                      <td className="p-3 uppercase">{o.consignee}</td>
-                      <td className="p-3 uppercase">{o.shipToParty}</td>
-                      <td className="p-3 uppercase">{o.route}</td>
-                      <td className="p-3 font-black">{o.tot} {o.uom}</td>
-                      <td className="p-3 text-emerald-600">{o.ass} {o.uom}</td>
-                      <td className="p-3 text-red-600 font-black">{o.bal} {o.uom}</td>
-                      <td className="p-3"><Button onClick={() => handleAssign(o)} size="sm" className="bg-[#0056d2] text-white font-black text-[9px] h-7 px-3 uppercase tracking-tighter">Assign</Button></td>
-                    </tr>
-                  );
+                  const o = item; return (<tr key={o.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] transition-colors text-[11px] font-bold group print:hidden"><td className="p-3">{o.plantCode}</td><td className="p-3 space-y-0.5"><div className="text-[#0056d2] font-black">{o.saleOrder}</div><div className="text-[9px] text-slate-400 font-bold uppercase">{o.createdAt ? format(new Date(o.createdAt), 'dd/MM/yyyy HH:mm') : ''}</div></td><td className="p-3 uppercase">{o.consignor}</td><td className="p-3 uppercase">{o.consignee}</td><td className="p-3 uppercase">{o.shipToParty}</td><td className="p-3 uppercase">{o.route}</td><td className="p-3 font-black">{o.tot} {o.uom}</td><td className="p-3 text-emerald-600">{o.ass} {o.uom}</td><td className="p-3 text-red-600 font-black">{o.bal} {o.uom}</td><td className="p-3"><Button onClick={() => handleAssign(o)} size="sm" className="bg-[#0056d2] text-white font-black text-[9px] h-7 px-3 uppercase tracking-tighter">Assign</Button></td></tr>);
                 } else {
-                  const t = item;
-                  const isArrangeByParty = t.fleetType === 'Arrange by Party';
-                  const gpsVehicle = gpsData.find(v => v.vehicleNumber === t.vehicleNumber);
-                  
-                  return (
-                    <tr key={t.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] transition-colors text-[11px] font-bold group print:hidden">
-                      <td className="p-3">{t.plantCode}</td>
-                      <td className="p-3 space-y-0.5">
-                        <div className="text-[#0056d2] font-black">{t.tripId}</div>
-                        <div className="text-[9px] text-slate-400 font-bold uppercase">
-                          {activeTab === 'In-Transit' || activeTab === 'Arrived' 
-                            ? format(new Date(t.updatedAt || t.createdAt), 'dd/MM/yyyy HH:mm')
-                            : format(new Date(t.createdAt), 'dd/MM/yyyy HH:mm')}
-                        </div>
-                      </td>
-                      <td className="p-3 uppercase font-black text-slate-700">{t.saleOrderNumber || 'N/A'}</td>
-                      <td className="p-3 uppercase">{t.consignee}</td>
-                      <td className="p-3 uppercase">{t.shipToParty}</td>
-                      <td className="p-3 uppercase">{t.route}</td>
-                      <td className="p-3 space-y-0.5">
-                        <div className="uppercase">{t.vehicleNumber}</div>
-                        <div className="text-[9px] text-slate-400 font-bold">{t.driverMobile || 'NO MOBILE'}</div>
-                      </td>
-                      <td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-2">
-                          {t.cnNo ? (
-                            <button 
-                              onClick={() => handleCnPreviewClick(t)} 
-                              className="font-black text-[#0056d2] hover:underline uppercase decoration-2"
-                            >
-                              {t.cnNo}
-                            </button>
-                          ) : ""}
-                          <button 
-                            onClick={() => handleAddCn(t)}
-                            disabled={isArrangeByParty || activeTab !== 'Loading'}
-                            className={cn(
-                              "p-1 rounded bg-slate-50 border border-slate-200 transition-all",
-                              (isArrangeByParty || activeTab !== 'Loading') ? "opacity-30 cursor-not-allowed" : "text-slate-400 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
-                            )}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center gap-2">
-                            {activeTab === 'Loading' && (
-                              <>
-                                <Button onClick={() => handleOutVehicle(t)} size="sm" className="text-[9px] bg-emerald-600 hover:bg-emerald-700 text-white font-black h-7 px-3 uppercase tracking-tighter">Out Vehicle</Button>
-                                <Button 
-                                  onClick={() => handleAssignmentClick(t)} 
-                                  size="sm" 
-                                  className="text-[9px] bg-yellow-400 hover:bg-yellow-500 text-black font-black h-7 px-3 uppercase tracking-tighter"
-                                >
-                                  Assignment
-                                </Button>
-                              </>
-                            )}
-                            {activeTab === 'In-Transit' && (
-                              <Button onClick={() => handleArrivedAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 px-3 uppercase tracking-tighter">Arrived</Button>
-                            )}
-                            {activeTab === 'Arrived' && (
-                              <>
-                                <Button onClick={() => handleUnloadAction(t)} size="sm" className="text-[9px] bg-emerald-600 text-white font-black h-7 px-3 uppercase tracking-tighter">Unload</Button>
-                                <Button onClick={() => handleRejectAction(t)} size="sm" className="text-[9px] bg-red-600 text-white font-black h-7 px-3 uppercase tracking-tighter">Reject</Button>
-                              </>
-                            )}
-                            {activeTab === 'POD Verify' && (
-                              <Button onClick={() => handlePodUploadAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 px-3 uppercase tracking-tighter">Upload POD</Button>
-                            )}
-                            {activeTab === 'Closed' && (
-                              <Button onClick={() => handleViewAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 px-3 uppercase tracking-tighter">View</Button>
-                            )}
+                  const t = item; const isArrangeByParty = t.fleetType === 'Arrange by Party'; const gpsVehicle = gpsData.find(v => v.vehicleNumber === t.vehicleNumber);
+                  return (<tr key={t.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] transition-colors text-[11px] font-bold group print:hidden"><td className="p-3">{t.plantCode}</td><td className="p-3 space-y-0.5"><div className="text-[#0056d2] font-black">{t.tripId}</div><div className="text-[9px] text-slate-400 font-bold uppercase">{format(new Date(t.updatedAt || t.createdAt), 'dd/MM/yyyy HH:mm')}</div></td><td className="p-3 uppercase font-black text-slate-700">{t.saleOrderNumber || 'N/A'}</td><td className="p-3 uppercase">{t.consignee}</td><td className="p-3 uppercase">{t.shipToParty}</td><td className="p-3 uppercase">{t.route}</td><td className="p-3 space-y-0.5"><div className="uppercase">{t.vehicleNumber}</div><div className="text-[9px] text-slate-400 font-bold">{t.driverMobile || 'NO MOBILE'}</div></td><td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td><td className="p-3"><div className="flex items-center gap-2">{t.cnNo ? (<button onClick={() => handleCnPreviewClick(t)} className="font-black text-[#0056d2] hover:underline uppercase decoration-2">{t.cnNo}</button>) : ""}<button onClick={() => handleAddCn(t)} disabled={isArrangeByParty || activeTab !== 'Loading'} className={cn("p-1 rounded bg-slate-50 border border-slate-200 transition-all", (isArrangeByParty || activeTab !== 'Loading') ? "opacity-30 cursor-not-allowed" : "text-slate-400 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200")}><Plus className="h-3 w-3" /></button></div></td>
+                      <td className="p-3"><div className="flex flex-col gap-2"><div className="flex items-center gap-2">
+                            {activeTab === 'Loading' && (<><Button onClick={() => handleOutVehicle(t)} size="sm" className="text-[9px] bg-emerald-600 hover:bg-emerald-700 text-white font-black h-7 px-3 uppercase tracking-tighter">Out Vehicle</Button><Button onClick={() => handleAssignmentClick(t)} size="sm" className="text-[9px] bg-yellow-400 hover:bg-yellow-500 text-black font-black h-7 px-3 uppercase tracking-tighter">Assignment</Button></>)}
+                            {activeTab === 'In-Transit' && (<Button onClick={() => handleArrivedAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 px-3 uppercase tracking-tighter">Arrived</Button>)}
+                            {activeTab === 'Arrived' && (<><Button onClick={() => handleUnloadAction(t)} size="sm" className="text-[9px] bg-emerald-600 text-white font-black h-7 px-3 uppercase tracking-tighter">Unload</Button><Button onClick={() => handleRejectAction(t)} size="sm" className="text-[9px] bg-red-600 text-white font-black h-7 px-3 uppercase tracking-tighter">Reject</Button></>)}
+                            {activeTab === 'POD Verify' && (<Button onClick={() => handlePodUploadAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 px-3 uppercase tracking-tighter">Upload POD</Button>)}
+                            {activeTab === 'Closed' && (<Button onClick={() => handleViewAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 px-3 uppercase tracking-tighter">View</Button>)}
                           </div>
-                          
-                          {(activeTab === 'In-Transit' || activeTab === 'Arrived') && (
-                            <div className="flex items-center gap-2">
-                              {gpsVehicle && (
-                                <button onClick={() => handleLiveMapAction(t, gpsVehicle)} className="hover:underline flex items-center gap-1 group">
-                                  <MapPin className="h-2.5 w-2.5 text-blue-500 group-hover:scale-110 transition-transform" />
-                                  <VehicleLocation lat={gpsVehicle.latitude} lng={gpsVehicle.longitude} />
-                                </button>
-                              )}
-                              <Button onClick={() => handleTrackModeAction(t)} size="sm" className="text-[9px] bg-yellow-400 hover:bg-yellow-500 text-black font-black h-7 px-3 uppercase tracking-tighter">Track Mode</Button>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
+                          {(activeTab === 'In-Transit' || activeTab === 'Arrived') && (<div className="flex flex-col gap-1 mt-1 border-t border-slate-50 pt-2"><div className="flex items-center gap-2">
+                              {gpsVehicle && (<button onClick={() => handleCompactTrackAction(t, gpsVehicle)} className="flex-1 flex items-center gap-1 group bg-slate-50 border border-slate-200 p-1 rounded"><MapPin className="h-2 w-2 text-blue-500" /><VehicleLocation lat={gpsVehicle.latitude} lng={gpsVehicle.longitude} /></button>)}
+                              <Button onClick={() => handleTrackModeAction(t)} size="sm" className="text-[8px] bg-yellow-400 hover:bg-yellow-500 text-black font-black h-6 px-2 uppercase tracking-tighter shrink-0">Track Mode</Button>
+                            </div></div>)}
+                        </div></td></tr>);
                 }
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="p-3 bg-[#f8fafc] border-t border-slate-300 flex items-center justify-between z-10 shadow-[0_-2px_5px_rgba(0,0,0,0.02)] print:hidden">
-        <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-3">
-          <span>SHOWING {paginatedData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} — {Math.min(currentPage * itemsPerPage, filteredData.length)} OF {filteredData.length}</span>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(p => p - 1)}
-            className="h-8 px-4 text-[9px] font-black uppercase tracking-widest border-slate-300 hover:bg-white hover:text-blue-700 hover:border-blue-300 transition-all"
-          >
-            <ChevronLeft className="h-4 w-4 mr-1.5" /> Previous Page
-          </Button>
-          
-          <div className="h-8 px-5 flex items-center text-[10px] font-black text-[#1e3a8a] bg-blue-50/50 rounded-sm border border-blue-100 uppercase tracking-widest min-w-[120px] justify-center">
-            PAGE {currentPage} / {totalPages || 1}
-          </div>
-          
-          <Button 
-            variant="outline" 
-            size="sm" 
-            disabled={currentPage === totalPages || totalPages === 0}
-            onClick={() => setCurrentPage(p => p + 1)}
-            className="h-8 px-4 text-[9px] font-black uppercase tracking-widest border-slate-300 hover:bg-white hover:text-blue-700 hover:border-blue-300 transition-all"
-          >
-            Next Page <ChevronRight className="h-4 w-4 ml-1.5" />
-          </Button>
-        </div>
-      </div>
-    </div>
-
-    <LiveTrackingMapDialog 
-      isOpen={isLiveTrackOpen} 
-      onOpenChange={setIsLiveTrackOpen} 
-      trip={selectedLiveTrip} 
-      gpsVehicle={selectedLiveGps} 
-      customers={customers} 
-      settings={settings} 
-    />
-
-    {/* Track Mode Popup */}
-    <Dialog open={isTrackModePopupOpen} onOpenChange={setIsTrackModePopupOpen}>
-      <DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
-        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
-            <Radar className="h-4 w-4" /> Tracking Synchronization
-          </DialogTitle>
-          <DialogDescription className="sr-only">Select tracking mode for the vehicle.</DialogDescription>
-        </DialogHeader>
-        <div className="p-6 space-y-6">
-          <div className="flex flex-col gap-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase">Track Mode *</label>
-            <select 
-              value={trackModeData.mode} 
-              onChange={e => setTrackModeData({ mode: e.target.value })} 
-              className="h-12 border border-slate-400 px-3 text-xs font-black bg-white focus:bg-yellow-50 outline-none"
-            >
-              <option value="GPS Tracking">GPS Tracking</option>
-              <option value="SIM Tracking">SIM Tracking</option>
-            </select>
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button onClick={() => setIsTrackModePopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 text-[10px] font-black uppercase">Cancel</Button>
-            <Button onClick={handleTrackModePost} className="h-10 px-8 bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-md">Post</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Arrived Popup */}
-    <Dialog open={isArrivedPopupOpen} onOpenChange={setIsArrivedPopupOpen}>
-      <DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
-        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
-            <MapPin className="h-4 w-4" /> Vehicle Arrival Hub
-          </DialogTitle>
-          <DialogDescription className="sr-only">Confirm vehicle arrival at destination.</DialogDescription>
-        </DialogHeader>
-        <div className="p-6 space-y-6">
-          <div className="bg-white p-4 border border-slate-200 rounded-sm space-y-2 opacity-80">
-            <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Party</span><span className="text-[10px] font-black uppercase">{arrivedData.trip?.shipToParty}</span></div>
-            <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black uppercase">{arrivedData.trip?.route}</span></div>
-            <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Vehicle</span><span className="text-[10px] font-black uppercase">{arrivedData.trip?.vehicleNumber}</span></div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Arrived Date *</label><input type="date" value={arrivedData.date} onChange={e => setArrivedData({...arrivedData, date: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div>
-            <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Arrived Time *</label><input type="time" value={arrivedData.time} onChange={e => setArrivedData({...arrivedData, time: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div>
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button onClick={() => setIsArrivedPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 hover:bg-[#e81123] hover:text-white text-[10px] font-black uppercase">Cancel</Button>
-            <Button onClick={handleArrivedPost} className="h-10 px-8 bg-[#0056d2] hover:bg-blue-900 text-white text-[10px] font-black uppercase shadow-md">Post</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Reject Popup */}
-    <Dialog open={isRejectPopupOpen} onOpenChange={setIsRejectPopupOpen}>
-      <DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
-        <DialogHeader className="bg-[#e81123] px-6 py-4 flex flex-row items-center justify-between space-y-0">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
-            <XCircle className="h-4 w-4" /> Reject Consignment
-          </DialogTitle>
-          <DialogDescription className="sr-only">Confirm rejection of vehicle or shipment.</DialogDescription>
-        </DialogHeader>
-        <div className="p-6 space-y-6">
-          <div className="bg-white p-4 border border-slate-200 rounded-sm space-y-2 opacity-80">
-            <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Party</span><span className="text-[10px] font-black uppercase">{rejectData.trip?.shipToParty}</span></div>
-            <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Vehicle</span><span className="text-[10px] font-black uppercase">{rejectData.trip?.vehicleNumber}</span></div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Date *</label><input type="date" value={rejectData.date} onChange={e => setRejectData({...rejectData, date: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div>
-            <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Time *</label><input type="time" value={rejectData.time} onChange={e => setRejectData({...rejectData, time: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div>
-          </div>
-          <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Remark *</label><textarea value={rejectData.remark} onChange={e => setRejectData({...rejectData, remark: e.target.value})} className="h-20 border border-slate-400 px-3 py-2 text-xs font-black focus:bg-yellow-50 resize-none" placeholder="REASON FOR REJECTION..." /></div>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button onClick={() => setIsRejectPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 text-[10px] font-black uppercase">Cancel</Button>
-            <Button onClick={handleRejectPost} className="h-10 px-8 bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-md">Post</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Unload Popup */}
-    <Dialog open={isUnloadPopupOpen} onOpenChange={setIsUnloadPopupOpen}>
-      <DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
-        <DialogHeader className="bg-emerald-600 px-6 py-4 flex flex-row items-center justify-between space-y-0">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
-            <Package className="h-4 w-4" /> Unload Confirmation
-          </DialogTitle>
-          <DialogDescription className="sr-only">Confirm vehicle unloading at party location.</DialogDescription>
-        </DialogHeader>
-        <div className="p-6 space-y-6">
-          <div className="bg-white p-4 border border-slate-200 rounded-sm space-y-2 opacity-80">
-            <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[10px] font-black uppercase">{unloadData.trip?.shipToParty}</span></div>
-            <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Vehicle</span><span className="text-[10px] font-black uppercase">{unloadData.trip?.vehicleNumber}</span></div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Unload Date *</label><input type="date" value={unloadData.date} onChange={e => setUnloadData({...unloadData, date: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div>
-            <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Unload Time *</label><input type="time" value={unloadData.time} onChange={e => setUnloadData({...unloadData, time: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div>
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button onClick={() => setIsUnloadPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 text-[10px] font-black uppercase">Cancel</Button>
-            <Button onClick={handleUnloadPost} className="h-10 px-8 bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-md">Post</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* POD Upload Popup */}
-    <Dialog open={isPodPopupOpen} onOpenChange={setIsPodPopupOpen}>
-      <DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
-        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
-            <UploadCloud className="h-4 w-4" /> Upload POD Document
-          </DialogTitle>
-          <DialogDescription className="sr-only">Upload POD image or PDF for verification.</DialogDescription>
-        </DialogHeader>
-        <div className="p-6 space-y-6">
-          <div className="bg-white border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center gap-4 text-center">
-            <input type="file" accept="image/*,.pdf" ref={fileInputRef} onChange={handlePodFileChange} className="hidden" />
-            {podFile ? (
-              <div className="w-full space-y-4">
-                <div className="relative aspect-video bg-slate-50 rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
-                  {podFile.startsWith('data:application/pdf') ? (
-                    <FileText className="h-12 w-12 text-blue-900" />
-                  ) : (
-                    <Image src={podFile} alt="POD" fill className="object-contain" unoptimized />
-                  )}
-                  <button onClick={() => setPodFile(null)} className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full shadow-lg"><X className="h-4 w-4" /></button>
-                </div>
-                <p className="text-[10px] font-black text-emerald-600 uppercase">POD Sync: Ready to Post (&le; 200KB)</p>
-              </div>
-            ) : (
-              <div onClick={() => fileInputRef.current?.click()} className="cursor-pointer group flex flex-col items-center gap-2">
-                <div className="h-14 w-14 bg-blue-50 rounded-full flex items-center justify-center group-hover:bg-blue-100 transition-colors"><UploadCloud className="h-7 w-7 text-[#1e3a8a]" /></div>
-                <div><p className="text-[11px] font-black uppercase text-slate-700">Select POD Document</p><p className="text-[9px] font-bold text-slate-400 uppercase">Image or PDF (Max 2MB)</p></div>
-              </div>
-            )}
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button onClick={() => setIsPodPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 text-[10px] font-black uppercase">Cancel</Button>
-            <Button onClick={handlePodPost} disabled={!podFile} className="h-10 px-8 bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-md disabled:opacity-50">Post & Close</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Closed View Popup */}
-    <Dialog open={isClosedViewPopupOpen} onOpenChange={setIsClosedViewPopupOpen}>
-      <DialogContent className="max-w-2xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
-        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
-            <CheckCircleIcon className="h-4 w-4" /> Node Registry: CLOSED
-          </DialogTitle>
-          <DialogDescription className="sr-only">View or update POD documents for a closed trip.</DialogDescription>
-        </DialogHeader>
-        <div className="p-4 md:p-8 space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white p-4 border border-slate-200 rounded-sm shadow-inner opacity-80">
-            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">CN No</span><span className="text-[10px] font-black">{selectedTripForClosed?.cnNo || 'N/A'}</span></div>
-            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Party</span><span className="text-[10px] font-black truncate">{selectedTripForClosed?.shipToParty}</span></div>
-            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black truncate">{selectedTripForClosed?.route}</span></div>
-            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle No</span><span className="text-[10px] font-black">{selectedTripForClosed?.vehicleNumber}</span></div>
-          </div>
-          <div className="bg-white p-4 border border-slate-200 shadow-sm relative">
-            <div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-slate-400 uppercase border border-slate-100">Selection Type *</div>
-            <RadioGroup value={closedViewMode} onValueChange={(v: any) => setClosedViewMode(v)} className="flex gap-8">
-              <div className="flex items-center space-x-2"><RadioGroupItem value="view" id="cv-view" /><Label htmlFor="cv-view" className="text-xs font-black uppercase text-[#1e3a8a]">View POD</Label></div>
-              <div className="flex items-center space-x-2"><RadioGroupItem value="upload" id="cv-upload" /><Label htmlFor="cv-upload" className="text-xs font-black uppercase text-[#1e3a8a]">Upload New</Label></div>
-            </RadioGroup>
-          </div>
-          <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-center min-h-[300px]">
-            {closedViewMode === 'view' ? (
-              podFile ? (
-                podFile.startsWith('data:application/pdf') ? (
-                  <div className="flex flex-col items-center gap-4">
-                    <FileText className="h-16 w-16 text-blue-900" />
-                    <a href={podFile} download={`POD_${selectedTripForClosed?.tripId}.pdf`} className="text-blue-600 underline font-black text-[10px] uppercase">Download PDF POD</a>
-                  </div>
-                ) : (
-                  <div className="relative w-full aspect-video"><Image src={podFile} alt="POD" fill className="object-contain" unoptimized /></div>
-                )
-              ) : <p className="text-[10px] font-black text-slate-300 uppercase">No Document Synchronized</p>
-            ) : (
-              <div className="w-full flex flex-col items-center gap-4">
-                <input type="file" ref={fileInputRef} onChange={handlePodFileChange} className="hidden" />
-                <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="h-14 w-full max-w-sm border-2 border-dashed flex flex-col gap-1 border-slate-300 hover:bg-blue-50">
-                  <UploadCloud className="h-6 w-6 text-[#1e3a8a]" />
-                  <span className="text-[10px] font-black uppercase">Replace POD File</span>
-                </Button>
-                {podFile && closedViewMode === 'upload' && <p className="text-[10px] font-black text-emerald-600 uppercase italic">New Registry Loaded: Ready to Post</p>}
-              </div>
-            )}
-          </div>
-          <div className="flex justify-end gap-3">
-            <Button onClick={() => setIsClosedViewPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 text-[10px] font-black uppercase">Cancel</Button>
-            {closedViewMode === 'upload' && <Button onClick={handleClosedUpdatePost} disabled={!podFile} className="h-10 px-8 bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-md">Post Update</Button>}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Assignment Popup (Edit/Unassign) */}
-    <Dialog open={isAssignmentPopupOpen} onOpenChange={setIsAssignmentPopupOpen}>
-      <DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
-        <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
-            <Truck className="h-4 w-4" /> Assignment Management
-          </DialogTitle>
-          <DialogDescription className="sr-only">Edit or unassign the current vehicle assignment.</DialogDescription>
-        </DialogHeader>
-        
-        <div className="p-4 md:p-8 space-y-6 max-h-[80vh] overflow-y-auto green-scrollbar">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 border border-slate-200 rounded-sm shadow-inner opacity-80">
-            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[10px] font-black truncate">{selectedTripForAssignment?.shipToParty}</span></div>
-            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black truncate">{selectedTripForAssignment?.route}</span></div>
-            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle No</span><span className="text-[10px] font-black">{selectedTripForAssignment?.vehicleNumber}</span></div>
-          </div>
-
-          <div className="bg-white p-6 border border-slate-200 shadow-sm relative">
-            <div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-slate-400 uppercase border border-slate-100">Selection Type *</div>
-            <RadioGroup 
-              value={assignmentMode || ""} 
-              onValueChange={(v: any) => setAssignmentMode(v)}
-              className="flex gap-8"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="edit" id="mode-edit" className="border-[#1e3a8a] text-[#1e3a8a]" />
-                <Label htmlFor="mode-edit" className="text-xs font-black uppercase text-[#1e3a8a] cursor-pointer">Edit Assignment</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="unassign" id="mode-unassign" className="border-red-600 text-red-600" />
-                <Label htmlFor="mode-unassign" className="text-xs font-black uppercase text-red-600 cursor-pointer">Unassign Vehicle</Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          {assignmentMode === 'edit' && (
-            <div className="animate-fade-in space-y-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-white p-6 border border-slate-200 shadow-sm">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">Vehicle Number *</label>
-                  <input value={assignData.vehicleNumber || ''} onChange={e => setAssignData({...assignData, vehicleNumber: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">Driver Mobile *</label>
-                  <input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">Assign Qty *</label>
-                  <input type="number" value={assignData.assignWeight || ''} disabled className="h-10 border border-slate-200 bg-slate-50 px-3 text-xs font-black opacity-70 cursor-not-allowed" />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">Fleet Type *</label>
-                  <select value={assignData.fleetType} onChange={e => setAssignData({...assignData, fleetType: e.target.value, vendorName: '', vendorMobile: '', employee: '', rate: 0, freightAmount: 0})} className="h-10 border border-slate-400 px-3 text-xs font-black">
-                    <option value="Own Vehicle">Own Vehicle</option>
-                    <option value="Contract Vehicle">Contract Vehicle</option>
-                    <option value="Market Vehicle">Market Vehicle</option>
-                    <option value="Arrange by Party">Arrange by Party</option>
-                  </select>
-                </div>
-              </div>
-
-              {assignData.fleetType === 'Market Vehicle' && (
-                <div className="bg-white p-6 border border-blue-200 shadow-md relative">
-                  <div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-blue-600 uppercase border border-blue-100">Market Coordination</div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-black text-slate-500 uppercase">Vendor Name *</label>
-                      <select 
-                        value={assignData.vendorName || ''} 
-                        onChange={e => {
-                          const v = tripVendors.find((vend: any) => vend.vendorName === e.target.value);
-                          setAssignData({...assignData, vendorName: e.target.value, vendorMobile: v?.mobile || ''});
-                        }}
-                        className="h-10 w-full border border-slate-400 px-3 text-xs font-black bg-white focus:bg-yellow-50 outline-none"
-                      >
-                        <option value="">Select Vendor...</option>
-                        {tripVendors.map((v: any) => (
-                          <option key={v.id} value={v.vendorName}>{v.vendorName}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-black text-slate-500 uppercase">Employee *</label>
-                      <input value={assignData.employee || ''} onChange={e => setAssignData({...assignData, employee: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-black text-slate-500 uppercase">Rate</label>
-                        <div className="flex items-center gap-2">
-                          <Checkbox id="assign-fix-rate" checked={assignData.isFixedRate} onCheckedChange={(c) => setAssignData({...assignData, isFixedRate: !!c})} />
-                          <label htmlFor="assign-fix-rate" className="text-[9px] font-black text-blue-600 cursor-pointer">Fix Rate</label>
-                        </div>
-                      </div>
-                      <input type="number" value={assignData.rate || ''} disabled={assignData.isFixedRate} onChange={e => setAssignData({...assignData, rate: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-black text-slate-500 uppercase">Freight Amount</label>
-                      <input 
-                        type="number" 
-                        value={assignData.freightAmount || ''} 
-                        onChange={e => { if (assignData.isFixedRate) setAssignData({...assignData, freightAmount: e.target.value}); }}
-                        disabled={!assignData.isFixedRate}
-                        className={cn("h-10 border px-3 text-xs font-black outline-none", !assignData.isFixedRate ? "bg-blue-50/30 border-blue-100 text-blue-800" : "border-slate-400 focus:bg-yellow-50")} 
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-            <Button onClick={() => setIsAssignmentPopupOpen(false)} variant="outline" className="h-11 px-8 border-slate-300 hover:bg-[#e81123] hover:text-white text-[10px] font-black uppercase tracking-widest">Cancel</Button>
-            <Button onClick={handleAssignmentPost} className="h-11 px-12 bg-[#0056d2] hover:bg-blue-900 text-white text-[10px] font-black uppercase tracking-widest shadow-lg">Post</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Add CN Popup */}
-    <Dialog open={isCnPopupOpen} onOpenChange={setIsCnPopupOpen}>
-      <DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
-        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
-            <FileCheck className="h-4 w-4" /> Add CN Details
-          </DialogTitle>
-          <DialogDescription className="sr-only">Add consignment note and document details for the trip.</DialogDescription>
-        </DialogHeader>
-        
-        <div className="p-4 md:p-8 space-y-6 max-h-[80vh] overflow-y-auto green-scrollbar">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white p-4 border border-slate-200 rounded-sm shadow-inner opacity-80">
-            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[10px] font-black truncate">{selectedTripForCn?.shipToParty}</span></div>
-            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black truncate">{selectedTripForCn?.route}</span></div>
-            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle No</span><span className="text-[10px] font-black">{selectedTripForCn?.vehicleNumber}</span></div>
-            <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Weight</span><span className="text-[10px] font-black">{selectedTripForCn?.assignWeight} MT</span></div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg-white p-6 border border-slate-200 shadow-sm relative">
-            <div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-slate-400 uppercase border border-slate-100">CN HEADER</div>
-            
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-[10px] font-black text-slate-500 uppercase">CN Number *</label>
-                <div className="flex gap-1">
-                  {recentCns.map(cn => (
-                    <span key={cn} onClick={() => setCnFormData({...cnFormData, cnNo: cn})} className="text-[8px] font-black bg-yellow-200 text-yellow-900 px-1 cursor-pointer hover:bg-yellow-300">
-                      {cn}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <input value={cnFormData.cnNo} onChange={e => setCnFormData({...cnFormData, cnNo: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" placeholder="ENTER CN NO..." />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase">CN Date *</label>
-              <input type="date" value={cnFormData.cnDate} onChange={e => setCnFormData({...cnFormData, cnDate: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase">Payment Terms</label>
-              <select value={cnFormData.paymentTerms} onChange={e => setCnFormData({...cnFormData, paymentTerms: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black">
-                <option value="PAID">PAID</option>
-                <option value="TO PAY">TO PAY</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase">Carrier Name</label>
-              <input value={cnFormData.carrierName} disabled className="h-10 border border-slate-200 bg-slate-50 px-3 text-xs font-black opacity-70" />
-            </div>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-sm shadow-sm overflow-hidden">
-            <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
-              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Document Details</span>
-              <Button onClick={() => setCnFormData({...cnFormData, items: [...cnFormData.items, { invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'BAG' }]})} size="sm" variant="outline" className="h-6 px-2 text-[8px] font-black border-blue-200 text-blue-700">
-                <Plus className="h-3 w-3 mr-1" /> Add Row
-              </Button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/50 text-[8px] font-black uppercase text-slate-400">
-                    <th className="p-3 border-r">Invoice No *</th>
-                    <th className="p-3 border-r">E-waybill No</th>
-                    <th className="p-3 border-r">Product Description *</th>
-                    <th className="p-3 border-r w-24">Unit</th>
-                    <th className="p-3 border-r w-32">Unit UOM</th>
-                    <th className="p-3 w-10"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cnFormData.items.map((item: any, idx: number) => (
-                    <tr key={idx} className="border-t border-slate-100 hover:bg-slate-50/50">
-                      <td className="p-2"><input value={item.invoiceNo} onChange={e => {
-                        const newItems = [...cnFormData.items];
-                        newItems[idx].invoiceNo = e.target.value.toUpperCase();
-                        setCnFormData({...cnFormData, items: newItems});
-                      }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td>
-                      <td className="p-2"><input value={item.ewaybillNo} onChange={e => {
-                        const newItems = [...cnFormData.items];
-                        newItems[idx].ewaybillNo = e.target.value.toUpperCase();
-                        setCnFormData({...cnFormData, items: newItems});
-                      }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td>
-                      <td className="p-2"><input value={item.product} onChange={e => {
-                        const newItems = [...cnFormData.items];
-                        newItems[idx].product = e.target.value.toUpperCase();
-                        setCnFormData({...cnFormData, items: newItems});
-                      }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td>
-                      <td className="p-2"><input type="number" value={item.unit} onChange={e => {
-                        const newItems = [...cnFormData.items];
-                        newItems[idx].unit = e.target.value;
-                        setCnFormData({...cnFormData, items: newItems});
-                      }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td>
-                      <td className="p-2">
-                        <select value={item.uom} onChange={e => {
-                          const newItems = [...cnFormData.items];
-                          newItems[idx].uom = e.target.value;
-                          setCnFormData({...cnFormData, items: newItems});
-                        }} className="w-full h-8 border border-slate-300 px-1 text-[10px] font-bold outline-none">
-                          <option value="BAG">BAG</option>
-                          <option value="BOX">BOX</option>
-                          <option value="DRUM">DRUM</option>
-                          <option value="CAN">CAN</option>
-                          <option value="Pices">Pices</option>
-                          <option value="Others">Others</option>
-                        </select>
-                      </td>
-                      <td className="p-2">
-                        {cnFormData.items.length > 1 && (
-                          <button onClick={() => {
-                            const newItems = cnFormData.items.filter((_:any, i:number) => i !== idx);
-                            setCnFormData({...cnFormData, items: newItems});
-                          }} className="text-red-400 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-            <Button onClick={() => setIsCnPopupOpen(false)} variant="outline" className="h-11 px-8 border-slate-300 hover:bg-[#e81123] hover:text-white text-[10px] font-black uppercase tracking-widest transition-all">Cancel</Button>
-            <Button onClick={handleCnPost} className="h-11 px-12 bg-[#0056d2] hover:bg-blue-900 text-white text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95">Post</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Out Vehicle Popup */}
-    <Dialog open={isOutPopupOpen} onOpenChange={setIsOutPopupOpen}>
-      <DialogContent className="max-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
-        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
-            <Truck className="h-4 w-4" /> Out Vehicle Registry
-          </DialogTitle>
-          <DialogDescription className="sr-only">Confirm vehicle departure time and date.</DialogDescription>
-        </DialogHeader>
-        
-        <div className="p-6 space-y-6">
-          <div className="bg-white p-4 border border-slate-200 rounded-sm space-y-2">
-            <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Vehicle</span><span className="text-xs font-black uppercase">{outData.vehicleNumber}</span></div>
-            <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-bold text-blue-800 uppercase">{outData.route}</span></div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase">Out Date</label>
-              <input type="date" value={outData.date} onChange={e => setOutData({...outData, date: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase">Out Time</label>
-              <input type="time" value={outData.time} onChange={e => { if (e.target.value) setOutData({...outData, time: e.target.value}); }} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button onClick={() => setIsOutPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 hover:bg-[#e81123] hover:text-white text-[10px] font-black uppercase">Cancel</Button>
-            <Button onClick={handleConfirmOut} className="h-10 px-8 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase">Confirm</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Assign Vehicle Popup */}
-    <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
-      <DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
-        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
-            <Truck className="h-4 w-4" /> TR24 - Assign Vehicle Hub
-            {assignData.route && <span className="ml-4 pl-4 border-l border-white/20 text-blue-300 tracking-normal font-bold lowercase first-letter:uppercase">{assignData.route}</span>}
-          </DialogTitle>
-          <DialogDescription className="sr-only">Assign vehicle and details for the selected sales order.</DialogDescription>
-        </DialogHeader>
-        
-        <div className="p-4 md:p-8 space-y-8 max-h-[80vh] overflow-y-auto green-scrollbar">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 bg-white p-6 border border-slate-200 shadow-sm relative">
-            <div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-slate-400 uppercase border border-slate-100">Primary Node</div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase">Vehicle Number *</label>
-              <input value={assignData.vehicleNumber || ''} onChange={e => setAssignData({...assignData, vehicleNumber: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase">Driver Mobile *</label>
-              <input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase">Assign Qty *</label>
-              <input type="number" value={assignData.assignWeight || ''} onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-500 uppercase">Fleet Type *</label>
-              <select value={assignData.fleetType} onChange={e => setAssignData({...assignData, fleetType: e.target.value, vendorName: '', vendorMobile: '', employee: '', rate: 0, freightAmount: 0})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50">
-                <option value="Own Vehicle">Own Vehicle</option>
-                <option value="Contract Vehicle">Contract Vehicle</option>
-                <option value="Market Vehicle">Market Vehicle</option>
-                <option value="Arrange by Party">Arrange by Party</option>
-              </select>
-            </div>
-          </div>
-
-          {assignData.fleetType === 'Market Vehicle' && (
-            <div className="bg-white p-6 border border-blue-200 shadow-md animate-fade-in relative">
-              <div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-blue-600 uppercase border border-blue-100">Market Coordination</div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">Vendor Name *</label>
-                  <div className="relative">
-                    <input 
-                      value={vendorSearch} 
-                      onChange={e => { setVendorSearch(e.target.value); setShowVS(true); }} 
-                      onFocus={() => setShowVS(true)}
-                      className="h-10 w-full border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" 
-                    />
-                    {showVS && mVendors.length > 0 && (
-                      <div className="absolute top-full left-0 w-full bg-white border border-slate-300 shadow-xl z-50 max-h-[150px] overflow-y-auto">
-                        {mVendors.map((v:any) => (
-                          <div key={v.id} onClick={() => { 
-                            setVendorSearch(v.vendorName); 
-                            setAssignData({...assignData, vendorName: v.vendorName, vendorMobile: v.mobile}); 
-                            setShowVS(false); 
-                          }} className="px-4 py-2.5 text-[11px] font-bold hover:bg-[#e8f0fe] hover:text-[#0056d2] cursor-pointer border-b border-slate-50 last:border-0">
-                            {v.vendorName}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">Mobile (Auto)</label>
-                  <input value={assignData.vendorMobile || ''} disabled className="h-10 border border-slate-200 bg-slate-50 px-3 text-xs font-black opacity-70" />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">Employee *</label>
-                  <input value={assignData.employee || ''} onChange={e => setAssignData({...assignData, employee: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black text-slate-500 uppercase">Rate</label>
-                    <div className="flex items-center gap-2">
-                      <Checkbox 
-                        id="fix-rate" 
-                        checked={assignData.isFixedRate} 
-                        onCheckedChange={(checked) => setAssignData({...assignData, isFixedRate: checked === true})} 
-                      />
-                      <label htmlFor="fix-rate" className="text-[9px] font-black text-blue-600 uppercase cursor-pointer">Fix Rate</label>
-                    </div>
-                  </div>
-                  <input 
-                    type="number" 
-                    value={assignData.rate || ''} 
-                    disabled={assignData.isFixedRate}
-                    onChange={e => setAssignData({...assignData, rate: e.target.value})} 
-                    className={cn("h-10 border px-3 text-xs font-black", assignData.isFixedRate ? "bg-slate-50 border-slate-200 opacity-50" : "border-slate-400 focus:bg-yellow-50")} 
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5 col-span-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">Freight Amount</label>
-                  <input 
-                    type="number" 
-                    value={assignData.freightAmount || ''} 
-                    onChange={e => { if (assignData.isFixedRate) setAssignData({...assignData, freightAmount: e.target.value}); }}
-                    disabled={!assignData.isFixedRate}
-                    className={cn("h-10 border px-3 text-xs font-black", !assignData.isFixedRate ? "bg-blue-50/30 border-blue-100 text-blue-800" : "border-slate-400 focus:bg-yellow-50")} 
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-11 px-8 border-slate-300 hover:bg-[#e81123] hover:text-white hover:border-[#e81123] text-[10px] font-black uppercase tracking-widest transition-all">Cancel</Button>
-            <Button onClick={handlePost} className="h-11 px-10 bg-[#0056d2] hover:bg-blue-900 text-white text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95">Post to Loading</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* CN Preview Popup */}
-    <Dialog open={isCnPreviewOpen} onOpenChange={setIsCnPreviewOpen}>
-      <DialogContent className="max-w-[1000px] w-[95vw] max-h-[95vh] overflow-y-auto bg-white p-0 rounded-none border-none">
-        <DialogHeader className="bg-[#1e3a8a] text-white p-4 sticky top-0 z-[110] flex flex-row items-center justify-between space-y-0 print:hidden shadow-lg">
-          <DialogTitle className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
-            <FileText className="h-4 w-4" /> CN PREVIEW - {selectedTripForPreview?.cnNo}
-          </DialogTitle>
-          <DialogDescription className="sr-only">Professional A4 preview of the Consignment Note with Three-Copy system.</DialogDescription>
-          <div className="flex items-center gap-4">
-            {cnPreviewStatus === 'generated' ? (
-              <Button onClick={handleDownloadPdf} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase h-9 px-6 rounded-none shadow-md">
-                <Download className="h-3.5 w-3.5 mr-2" /> Download
-              </Button>
-            ) : (
-              <Button onClick={() => setCnPreviewStatus('generated')} className="bg-white hover:bg-slate-100 text-[#1e3a8a] font-black text-[10px] uppercase h-9 px-6 rounded-none shadow-md">
-                <Printer className="h-3.5 w-3.5 mr-2" /> Generate PDF
-              </Button>
-            )}
-            <button onClick={() => setIsCnPreviewOpen(false)} className="text-white/70 hover:text-white transition-colors ml-2"><X className="h-5 w-5" /></button>
-          </div>
-        </DialogHeader>
-        
-        <div className="p-4 md:p-12 bg-slate-200 min-h-screen flex flex-col items-center gap-8 print:bg-white print:p-0">
-          <div className="bg-white shadow-2xl w-full max-w-[210mm] print:shadow-none print:w-full print:max-w-none">
-             <div id="printable-area" className="p-0 m-0">
-               {selectedTripForPreview && (
-                 <CnPrintLayout 
-                   trip={selectedTripForPreview} 
-                   company={(companies || []).find((c: any) => c.plantCodes?.includes(selectedTripForPreview.plantCode))}
-                   consignor={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripForPreview.consignor?.toUpperCase())}
-                   consignee={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripForPreview.consignee?.toUpperCase())}
-                   shipTo={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripForPreview.shipToParty?.toUpperCase())}
-                 />
-               )}
-             </div>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+              }))}</tbody></table></div>
+      <div className="p-3 bg-[#f8fafc] border-t border-slate-300 flex items-center justify-between z-10 shadow-[0_-2px_5px_rgba(0,0,0,0.02)] print:hidden"><div className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-3"><span>SHOWING {paginatedData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} — {Math.min(currentPage * itemsPerPage, filteredData.length)} OF {filteredData.length}</span></div>
+        <div className="flex items-center gap-2"><Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="h-8 px-4 text-[9px] font-black uppercase tracking-widest border-slate-300 hover:bg-white hover:text-blue-700 hover:border-blue-300 transition-all"><ChevronLeft className="h-4 w-4 mr-1.5" /> Previous Page</Button>
+          <div className="h-8 px-5 flex items-center text-[10px] font-black text-[#1e3a8a] bg-blue-50/50 rounded-sm border border-blue-100 uppercase tracking-widest min-w-[120px] justify-center">PAGE {currentPage} / {totalPages || 1}</div>
+          <Button variant="outline" size="sm" disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(p => p + 1)} className="h-8 px-4 text-[9px] font-black uppercase tracking-widest border-slate-300 hover:bg-white hover:text-blue-700 hover:border-blue-300 transition-all">Next Page <ChevronRight className="h-4 w-4 ml-1.5" /></Button></div></div></div>
+    <LiveTrackingMapDialog isOpen={isLiveTrackOpen} onOpenChange={setIsLiveTrackOpen} trip={selectedLiveTrip} gpsVehicle={selectedLiveGps} customers={customers} settings={settings} isCompact={isLiveTrackCompact} />
+    <Dialog open={isTrackModePopupOpen} onOpenChange={setIsTrackModePopupOpen}><DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl"><DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0"><DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3"><Radar className="h-4 w-4" /> Tracking Synchronization</DialogTitle><DialogDescription className="sr-only">Select tracking mode for the vehicle.</DialogDescription></DialogHeader>
+        <div className="p-6 space-y-6"><div className="flex flex-col gap-2"><label className="text-[10px] font-black text-slate-500 uppercase">Track Mode *</label><select value={trackModeData.mode} onChange={e => setTrackModeData({ mode: e.target.value })} className="h-12 border border-slate-400 px-3 text-xs font-black bg-white focus:bg-yellow-50 outline-none"><option value="GPS Tracking">GPS Tracking</option><option value="SIM Tracking">SIM Tracking</option></select></div><div className="flex justify-end gap-3 pt-2"><Button onClick={() => setIsTrackModePopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 text-[10px] font-black uppercase">Cancel</Button><Button onClick={handleTrackModePost} className="h-10 px-8 bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-md">Post</Button></div></div></Dialog></Dialog>
+    <Dialog open={isArrivedPopupOpen} onOpenChange={setIsArrivedPopupOpen}><DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl"><DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0"><DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3"><MapPin className="h-4 w-4" /> Vehicle Arrival Hub</DialogTitle><DialogDescription className="sr-only">Confirm vehicle arrival at destination.</DialogDescription></DialogHeader>
+        <div className="p-6 space-y-6"><div className="bg-white p-4 border border-slate-200 rounded-sm space-y-2 opacity-80"><div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Party</span><span className="text-[10px] font-black uppercase">{arrivedData.trip?.shipToParty}</span></div><div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black uppercase">{arrivedData.trip?.route}</span></div><div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Vehicle</span><span className="text-[10px] font-black uppercase">{arrivedData.trip?.vehicleNumber}</span></div></div><div className="grid grid-cols-2 gap-4"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Arrived Date *</label><input type="date" value={arrivedData.date} onChange={e => setArrivedData({...arrivedData, date: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Arrived Time *</label><input type="time" value={arrivedData.time} onChange={e => setArrivedData({...arrivedData, time: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div></div><div className="flex justify-end gap-3 pt-2"><Button onClick={() => setIsArrivedPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 hover:bg-[#e81123] hover:text-white text-[10px] font-black uppercase">Cancel</Button><Button onClick={handleArrivedPost} className="h-10 px-8 bg-[#0056d2] hover:bg-blue-900 text-white text-[10px] font-black uppercase shadow-md">Post</Button></div></div></Dialog></Dialog>
+    <Dialog open={isRejectPopupOpen} onOpenChange={setIsRejectPopupOpen}><DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl"><DialogHeader className="bg-[#e81123] px-6 py-4 flex flex-row items-center justify-between space-y-0"><DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3"><XCircle className="h-4 w-4" /> Reject Consignment</DialogTitle><DialogDescription className="sr-only">Confirm rejection of vehicle or shipment.</DialogDescription></DialogHeader>
+        <div className="p-6 space-y-6"><div className="bg-white p-4 border border-slate-200 rounded-sm space-y-2 opacity-80"><div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Party</span><span className="text-[10px] font-black uppercase">{rejectData.trip?.shipToParty}</span></div><div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Vehicle</span><span className="text-[10px] font-black uppercase">{rejectData.trip?.vehicleNumber}</span></div></div><div className="grid grid-cols-2 gap-4"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Date *</label><input type="date" value={rejectData.date} onChange={e => setRejectData({...rejectData, date: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Time *</label><input type="time" value={rejectData.time} onChange={e => setRejectData({...rejectData, time: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Remark *</label><textarea value={rejectData.remark} onChange={e => setRejectData({...rejectData, remark: e.target.value})} className="h-20 border border-slate-400 px-3 py-2 text-xs font-black focus:bg-yellow-50 resize-none" placeholder="REASON FOR REJECTION..." /></div><div className="flex justify-end gap-3 pt-2"><Button onClick={() => setIsRejectPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 text-[10px] font-black uppercase">Cancel</Button><Button onClick={handleRejectPost} className="h-10 px-8 bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-md">Post</Button></div></div></Dialog></Dialog>
+    <Dialog open={isUnloadPopupOpen} onOpenChange={setIsUnloadPopupOpen}><DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl"><DialogHeader className="bg-emerald-600 px-6 py-4 flex flex-row items-center justify-between space-y-0"><DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3"><Package className="h-4 w-4" /> Unload Confirmation</DialogTitle><DialogDescription className="sr-only">Confirm vehicle unloading at party location.</DialogDescription></DialogHeader>
+        <div className="p-6 space-y-6"><div className="bg-white p-4 border border-slate-200 rounded-sm space-y-2 opacity-80"><div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[10px] font-black uppercase">{unloadData.trip?.shipToParty}</span></div><div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Vehicle</span><span className="text-[10px] font-black uppercase">{unloadData.trip?.vehicleNumber}</span></div></div><div className="grid grid-cols-2 gap-4"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Unload Date *</label><input type="date" value={unloadData.date} onChange={e => setUnloadData({...unloadData, date: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Unload Time *</label><input type="time" value={unloadData.time} onChange={e => setUnloadData({...unloadData, time: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div></div><div className="flex justify-end gap-3 pt-2"><Button onClick={() => setIsUnloadPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 text-[10px] font-black uppercase">Cancel</Button><Button onClick={handleUnloadPost} className="h-10 px-8 bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-md">Post</Button></div></div></Dialog></Dialog>
+    <Dialog open={isPodPopupOpen} onOpenChange={setIsPodPopupOpen}><DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl"><DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0"><DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3"><UploadCloud className="h-4 w-4" /> Upload POD Document</DialogTitle><DialogDescription className="sr-only">Upload POD image or PDF for verification.</DialogDescription></DialogHeader>
+        <div className="p-6 space-y-6"><div className="bg-white border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center gap-4 text-center"><input type="file" accept="image/*,.pdf" ref={fileInputRef} onChange={handlePodFileChange} className="hidden" />{podFile ? (<div className="w-full space-y-4"><div className="relative aspect-video bg-slate-50 rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">{podFile.startsWith('data:application/pdf') ? (<FileText className="h-12 w-12 text-blue-900" />) : (<Image src={podFile} alt="POD" fill className="object-contain" unoptimized />)}<button onClick={() => setPodFile(null)} className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full shadow-lg"><X className="h-4 w-4" /></button></div><p className="text-[10px] font-black text-emerald-600 uppercase">POD Sync: Ready to Post (&le; 200KB)</p></div>) : (<div onClick={() => fileInputRef.current?.click()} className="cursor-pointer group flex flex-col items-center gap-2"><div className="h-14 w-14 bg-blue-50 rounded-full flex items-center justify-center group-hover:bg-blue-100 transition-colors"><UploadCloud className="h-7 w-7 text-[#1e3a8a]" /></div><div><p className="text-[11px] font-black uppercase text-slate-700">Select POD Document</p><p className="text-[9px] font-bold text-slate-400 uppercase">Image or PDF (Max 2MB)</p></div></div>)}</div><div className="flex justify-end gap-3 pt-2"><Button onClick={() => setIsPodPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 text-[10px] font-black uppercase">Cancel</Button><Button onClick={handlePodPost} disabled={!podFile} className="h-10 px-8 bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-md disabled:opacity-50">Post & Close</Button></div></div></Dialog></Dialog>
+    <Dialog open={isClosedViewPopupOpen} onOpenChange={setIsClosedViewPopupOpen}><DialogContent className="max-w-2xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl"><DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0"><DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3"><CheckCircleIcon className="h-4 w-4" /> Node Registry: CLOSED</DialogTitle><DialogDescription className="sr-only">View or update POD documents for a closed trip.</DialogDescription></DialogHeader>
+        <div className="p-4 md:p-8 space-y-6"><div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white p-4 border border-slate-200 rounded-sm shadow-inner opacity-80"><div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">CN No</span><span className="text-[10px] font-black">{selectedTripForClosed?.cnNo || 'N/A'}</span></div><div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Party</span><span className="text-[10px] font-black truncate">{selectedTripForClosed?.shipToParty}</span></div><div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black truncate">{selectedTripForClosed?.route}</span></div><div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle No</span><span className="text-[10px] font-black">{selectedTripForClosed?.vehicleNumber}</span></div></div><div className="bg-white p-4 border border-slate-200 shadow-sm relative"><div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-slate-400 uppercase border border-slate-100">Selection Type *</div><RadioGroup value={closedViewMode} onValueChange={(v: any) => setClosedViewMode(v)} className="flex gap-8"><div className="flex items-center space-x-2"><RadioGroupItem value="view" id="cv-view" /><Label htmlFor="cv-view" className="text-xs font-black uppercase text-[#1e3a8a]">View POD</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="upload" id="cv-upload" /><Label htmlFor="cv-upload" className="text-xs font-black uppercase text-[#1e3a8a]">Upload New</Label></div></RadioGroup></div><div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-center min-h-[300px]">{closedViewMode === 'view' ? (podFile ? (podFile.startsWith('data:application/pdf') ? (<div className="flex flex-col items-center gap-4"><FileText className="h-16 w-16 text-blue-900" /><a href={podFile} download={`POD_${selectedTripForClosed?.tripId}.pdf`} className="text-blue-600 underline font-black text-[10px] uppercase">Download PDF POD</a></div>) : (<div className="relative w-full aspect-video"><Image src={podFile} alt="POD" fill className="object-contain" unoptimized /></div>)) : <p className="text-[10px] font-black text-slate-300 uppercase">No Document Synchronized</p>) : (<div className="w-full flex flex-col items-center gap-4"><input type="file" ref={fileInputRef} onChange={handlePodFileChange} className="hidden" /><Button onClick={() => fileInputRef.current?.click()} variant="outline" className="h-14 w-full max-w-sm border-2 border-dashed flex flex-col gap-1 border-slate-300 hover:bg-blue-50"><UploadCloud className="h-6 w-6 text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase">Replace POD File</span></Button>{podFile && closedViewMode === 'upload' && <p className="text-[10px] font-black text-emerald-600 uppercase italic">New Registry Loaded: Ready to Post</p>}</div>)}</div><div className="flex justify-end gap-3"><Button onClick={() => setIsClosedViewPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 text-[10px] font-black uppercase">Cancel</Button>{closedViewMode === 'upload' && <Button onClick={handleClosedUpdatePost} disabled={!podFile} className="h-10 px-8 bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-md">Post Update</Button>}</div></div></Dialog></Dialog>
+    <Dialog open={isAssignmentPopupOpen} onOpenChange={setIsAssignmentPopupOpen}><DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3"><Truck className="h-4 w-4" /> Assignment Management</DialogTitle><DialogDescription className="sr-only">Edit or unassign the current vehicle assignment.</DialogDescription></DialogHeader>
+        <div className="p-4 md:p-8 space-y-6 max-h-[80vh] overflow-y-auto green-scrollbar"><div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 border border-slate-200 rounded-sm shadow-inner opacity-80"><div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[10px] font-black truncate">{selectedTripForAssignment?.shipToParty}</span></div><div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black truncate">{selectedTripForAssignment?.route}</span></div><div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle No</span><span className="text-[10px] font-black">{selectedTripForAssignment?.vehicleNumber}</span></div></div><div className="bg-white p-6 border border-slate-200 shadow-sm relative"><div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-slate-400 uppercase border border-slate-100">Selection Type *</div><RadioGroup value={assignmentMode || ""} onValueChange={(v: any) => setAssignmentMode(v)} className="flex gap-8"><div className="flex items-center space-x-2"><RadioGroupItem value="edit" id="mode-edit" className="border-[#1e3a8a] text-[#1e3a8a]" /><Label htmlFor="mode-edit" className="text-xs font-black uppercase text-[#1e3a8a] cursor-pointer">Edit Assignment</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="unassign" id="mode-unassign" className="border-red-600 text-red-600" /><Label htmlFor="mode-unassign" className="text-xs font-black uppercase text-red-600 cursor-pointer">Unassign Vehicle</Label></div></RadioGroup></div>
+          {assignmentMode === 'edit' && (<div className="animate-fade-in space-y-6"><div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-white p-6 border border-slate-200 shadow-sm"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Vehicle Number *</label><input value={assignData.vehicleNumber || ''} onChange={e => setAssignData({...assignData, vehicleNumber: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Driver Mobile *</label><input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Assign Qty *</label><input type="number" value={assignData.assignWeight || ''} disabled className="h-10 border border-slate-200 bg-slate-50 px-3 text-xs font-black opacity-70 cursor-not-allowed" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Fleet Type *</label><select value={assignData.fleetType} onChange={e => setAssignData({...assignData, fleetType: e.target.value, vendorName: '', vendorMobile: '', employee: '', rate: 0, freightAmount: 0})} className="h-10 border border-slate-400 px-3 text-xs font-black"><option value="Own Vehicle">Own Vehicle</option><option value="Contract Vehicle">Contract Vehicle</option><option value="Market Vehicle">Market Vehicle</option><option value="Arrange by Party">Arrange by Party</option></select></div></div>
+              {assignData.fleetType === 'Market Vehicle' && (<div className="bg-white p-6 border border-blue-200 shadow-md relative"><div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-blue-600 uppercase border border-blue-100">Market Coordination</div><div className="grid grid-cols-2 md:grid-cols-4 gap-6"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Vendor Name *</label><select value={assignData.vendorName || ''} onChange={e => { const v = tripVendors.find((vend: any) => vend.vendorName === e.target.value); setAssignData({...assignData, vendorName: e.target.value, vendorMobile: v?.mobile || ''}); }} className="h-10 w-full border border-slate-400 px-3 text-xs font-black bg-white focus:bg-yellow-50 outline-none"><option value="">Select Vendor...</option>{tripVendors.map((v: any) => (<option key={v.id} value={v.vendorName}>{v.vendorName}</option>))}</select></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Employee *</label><input value={assignData.employee || ''} onChange={e => setAssignData({...assignData, employee: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div><div className="flex flex-col gap-1.5"><div className="flex items-center justify-between"><label className="text-[10px] font-black text-slate-500 uppercase">Rate</label><div className="flex items-center gap-2"><Checkbox id="assign-fix-rate" checked={assignData.isFixedRate} onCheckedChange={(c) => setAssignData({...assignData, isFixedRate: !!c})} /><label htmlFor="assign-fix-rate" className="text-[9px] font-black text-blue-600 cursor-pointer">Fix Rate</label></div></div><input type="number" value={assignData.rate || ''} disabled={assignData.isFixedRate} onChange={e => setAssignData({...assignData, rate: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Freight Amount</label><input type="number" value={assignData.freightAmount || ''} onChange={e => { if (assignData.isFixedRate) setAssignData({...assignData, freightAmount: e.target.value}); }} disabled={!assignData.isFixedRate} className={cn("h-10 border px-3 text-xs font-black outline-none", !assignData.isFixedRate ? "bg-blue-50/30 border-blue-100 text-blue-800" : "border-slate-400 focus:bg-yellow-50")} /></div></div></div>)}</div>)}
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200"><Button onClick={() => setIsAssignmentPopupOpen(false)} variant="outline" className="h-11 px-8 border-slate-300 hover:bg-[#e81123] hover:text-white text-[10px] font-black uppercase tracking-widest">Cancel</Button><Button onClick={handleAssignmentPost} className="h-11 px-12 bg-[#0056d2] hover:bg-blue-900 text-white text-[10px] font-black uppercase tracking-widest shadow-lg">Post</Button></div></div></DialogContent></Dialog>
+    <Dialog open={isCnPopupOpen} onOpenChange={setIsCnPopupOpen}><DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl"><DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0"><DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3"><FileCheck className="h-4 w-4" /> Add CN Details</DialogTitle><DialogDescription className="sr-only">Add consignment note and document details for the trip.</DialogDescription></DialogHeader>
+        <div className="p-4 md:p-8 space-y-6 max-h-[80vh] overflow-y-auto green-scrollbar"><div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white p-4 border border-slate-200 rounded-sm shadow-inner opacity-80"><div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[10px] font-black truncate">{selectedTripForCn?.shipToParty}</span></div><div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black truncate">{selectedTripForCn?.route}</span></div><div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle No</span><span className="text-[10px] font-black">{selectedTripForCn?.vehicleNumber}</span></div><div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Weight</span><span className="text-[10px] font-black">{selectedTripForCn?.assignWeight} MT</span></div></div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg-white p-6 border border-slate-200 shadow-sm relative"><div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-slate-400 uppercase border border-slate-100">CN HEADER</div><div className="flex flex-col gap-1.5"><div className="flex items-center justify-between"><label className="text-[10px] font-black text-slate-500 uppercase">CN Number *</label><div className="flex gap-1">{recentCns.map(cn => (<span key={cn} onClick={() => setCnFormData({...cnFormData, cnNo: cn})} className="text-[8px] font-black bg-yellow-200 text-yellow-900 px-1 cursor-pointer hover:bg-yellow-300">{cn}</span>))}</div></div><input value={cnFormData.cnNo} onChange={e => setCnFormData({...cnFormData, cnNo: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" placeholder="ENTER CN NO..." /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">CN Date *</label><input type="date" value={cnFormData.cnDate} onChange={e => setCnFormData({...cnFormData, cnDate: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Payment Terms</label><select value={cnFormData.paymentTerms} onChange={e => setCnFormData({...cnFormData, paymentTerms: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black"><option value="PAID">PAID</option><option value="TO PAY">TO PAY</option></select></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Carrier Name</label><input value={cnFormData.carrierName} disabled className="h-10 border border-slate-200 bg-slate-50 px-3 text-xs font-black opacity-70" /></div></div><div className="bg-white border border-slate-200 rounded-sm shadow-sm overflow-hidden"><div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center"><span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Document Details</span><Button onClick={() => setCnFormData({...cnFormData, items: [...cnFormData.items, { invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'BAG' }]})} size="sm" variant="outline" className="h-6 px-2 text-[8px] font-black border-blue-200 text-blue-700"><Plus className="h-3 w-3 mr-1" /> Add Row</Button></div><div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead><tr className="bg-slate-50/50 text-[8px] font-black uppercase text-slate-400"><th className="p-3 border-r">Invoice No *</th><th className="p-3 border-r">E-waybill No</th><th className="p-3 border-r">Product Description *</th><th className="p-3 border-r w-24">Unit</th><th className="p-3 border-r w-32">Unit UOM</th><th className="p-3 w-10"></th></tr></thead><tbody>{cnFormData.items.map((item: any, idx: number) => (<tr key={idx} className="border-t border-slate-100 hover:bg-slate-50/50"><td className="p-2"><input value={item.invoiceNo} onChange={e => { const newItems = [...cnFormData.items]; newItems[idx].invoiceNo = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items: newItems}); }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td><td className="p-2"><input value={item.ewaybillNo} onChange={e => { const newItems = [...cnFormData.items]; newItems[idx].ewaybillNo = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items: newItems}); }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td><td className="p-2"><input value={item.product} onChange={e => { const newItems = [...cnFormData.items]; newItems[idx].product = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items: newItems}); }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td><td className="p-2"><input type="number" value={item.unit} onChange={e => { const newItems = [...cnFormData.items]; newItems[idx].unit = e.target.value; setCnFormData({...cnFormData, items: newItems}); }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td><td className="p-2"><select value={item.uom} onChange={e => { const newItems = [...cnFormData.items]; newItems[idx].uom = e.target.value; setCnFormData({...cnFormData, items: newItems}); }} className="w-full h-8 border border-slate-300 px-1 text-[10px] font-bold outline-none"><option value="BAG">BAG</option><option value="BOX">BOX</option><option value="DRUM">DRUM</option><option value="CAN">CAN</option><option value="Pices">Pices</option><option value="Others">Others</option></select></td><td className="p-2">{cnFormData.items.length > 1 && (<button onClick={() => { const newItems = cnFormData.items.filter((_:any, i:number) => i !== idx); setCnFormData({...cnFormData, items: newItems}); }} className="text-red-400 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>)}</td></tr>))}</tbody></table></div></div><div className="flex justify-end gap-3 pt-4 border-t border-slate-200"><Button onClick={() => setIsCnPopupOpen(false)} variant="outline" className="h-11 px-8 border-slate-300 hover:bg-[#e81123] hover:text-white text-[10px] font-black uppercase tracking-widest transition-all">Cancel</Button><Button onClick={handleCnPost} className="h-11 px-12 bg-[#0056d2] hover:bg-blue-900 text-white text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95">Post</Button></div></div></DialogContent></Dialog>
+    <Dialog open={isOutPopupOpen} onOpenChange={setIsOutPopupOpen}><DialogContent className="max-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl"><DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0"><DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3"><Truck className="h-4 w-4" /> Out Vehicle Registry</DialogTitle><DialogDescription className="sr-only">Confirm vehicle departure time and date.</DialogDescription></DialogHeader>
+        <div className="p-6 space-y-6"><div className="bg-white p-4 border border-slate-200 rounded-sm space-y-2"><div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Vehicle</span><span className="text-xs font-black uppercase">{outData.vehicleNumber}</span></div><div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-bold text-blue-800 uppercase">{outData.route}</span></div></div><div className="grid grid-cols-2 gap-4"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Out Date</label><input type="date" value={outData.date} onChange={e => setOutData({...outData, date: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Out Time</label><input type="time" value={outData.time} onChange={e => { if (e.target.value) setOutData({...outData, time: e.target.value}); }} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div></div><div className="flex justify-end gap-3 pt-2"><Button onClick={() => setIsOutPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 hover:bg-[#e81123] hover:text-white text-[10px] font-black uppercase">Cancel</Button><Button onClick={handleConfirmOut} className="h-10 px-8 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase">Confirm</Button></div></div></DialogContent></Dialog>
+    <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}><DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl"><DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0"><DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3"><Truck className="h-4 w-4" /> TR24 - Assign Vehicle Hub {assignData.route && <span className="ml-4 pl-4 border-l border-white/20 text-blue-300 tracking-normal font-bold lowercase first-letter:uppercase">{assignData.route}</span>}</DialogTitle><DialogDescription className="sr-only">Assign vehicle and details for the selected sales order.</DialogDescription></DialogHeader>
+        <div className="p-4 md:p-8 space-y-8 max-h-[80vh] overflow-y-auto green-scrollbar"><div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 bg-white p-6 border border-slate-200 shadow-sm relative"><div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-slate-400 uppercase border border-slate-100">Primary Node</div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Vehicle Number *</label><input value={assignData.vehicleNumber || ''} onChange={e => setAssignData({...assignData, vehicleNumber: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Driver Mobile *</label><input value={assignData.driverMobile || ''} onChange={e => setAssignData({...assignData, driverMobile: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Assign Qty *</label><input type="number" value={assignData.assignWeight || ''} onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Fleet Type *</label><select value={assignData.fleetType} onChange={e => setAssignData({...assignData, fleetType: e.target.value, vendorName: '', vendorMobile: '', employee: '', rate: 0, freightAmount: 0})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50"><option value="Own Vehicle">Own Vehicle</option><option value="Contract Vehicle">Contract Vehicle</option><option value="Market Vehicle">Market Vehicle</option><option value="Arrange by Party">Arrange by Party</option></select></div></div>
+          {assignData.fleetType === 'Market Vehicle' && (<div className="bg-white p-6 border border-blue-200 shadow-md animate-fade-in relative"><div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-blue-600 uppercase border border-blue-100">Market Coordination</div><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Vendor Name *</label><div className="relative"><input value={vendorSearch} onChange={e => { setVendorSearch(e.target.value); setShowVS(true); }} onFocus={() => setShowVS(true)} className="h-10 w-full border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />{showVS && mVendors.length > 0 && (<div className="absolute top-full left-0 w-full bg-white border border-slate-300 shadow-xl z-50 max-h-[150px] overflow-y-auto">{mVendors.map((v:any) => (<div key={v.id} onClick={() => { setVendorSearch(v.vendorName); setAssignData({...assignData, vendorName: v.vendorName, vendorMobile: v.mobile}); setShowVS(false); }} className="px-4 py-2.5 text-[11px] font-bold hover:bg-[#e8f0fe] hover:text-[#0056d2] cursor-pointer border-b border-slate-50 last:border-0">{v.vendorName}</div>))}</div>)}</div></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Mobile (Auto)</label><input value={assignData.vendorMobile || ''} disabled className="h-10 border border-slate-200 bg-slate-50 px-3 text-xs font-black opacity-70" /></div><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Employee *</label><input value={assignData.employee || ''} onChange={e => setAssignData({...assignData, employee: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div><div className="flex flex-col gap-1.5"><div className="flex items-center justify-between"><label className="text-[10px] font-black text-slate-500 uppercase">Rate</label><div className="flex items-center gap-2"><Checkbox id="fix-rate" checked={assignData.isFixedRate} onCheckedChange={(checked) => setAssignData({...assignData, isFixedRate: checked === true})} /><label htmlFor="fix-rate" className="text-[9px] font-black text-blue-600 uppercase cursor-pointer">Fix Rate</label></div></div><input type="number" value={assignData.rate || ''} disabled={assignData.isFixedRate} onChange={e => setAssignData({...assignData, rate: e.target.value})} className={cn("h-10 border px-3 text-xs font-black", assignData.isFixedRate ? "bg-slate-50 border-slate-200 opacity-50" : "border-slate-400 focus:bg-yellow-50")} /></div><div className="flex flex-col gap-1.5 col-span-2"><label className="text-[10px] font-black text-slate-500 uppercase">Freight Amount</label><input type="number" value={assignData.freightAmount || ''} onChange={e => { if (assignData.isFixedRate) setAssignData({...assignData, freightAmount: e.target.value}); }} disabled={!assignData.isFixedRate} className={cn("h-10 border px-3 text-xs font-black", !assignData.isFixedRate ? "bg-blue-50/30 border-blue-100 text-blue-800" : "border-slate-400 focus:bg-yellow-50")} /></div></div></div>)}
+          <div className="flex justify-end gap-3 pt-4"><Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-11 px-8 border-slate-300 hover:bg-[#e81123] hover:text-white hover:border-[#e81123] text-[10px] font-black uppercase tracking-widest transition-all">Cancel</Button><Button onClick={handlePost} className="h-11 px-10 bg-[#0056d2] hover:bg-blue-900 text-white text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95">Post to Loading</Button></div></div></DialogContent></Dialog>
+    <Dialog open={isCnPreviewOpen} onOpenChange={setIsCnPreviewOpen}><DialogContent className="max-w-[1000px] w-[95vw] max-h-[95vh] overflow-y-auto bg-white p-0 rounded-none border-none"><DialogHeader className="bg-[#1e3a8a] text-white p-4 sticky top-0 z-[110] flex flex-row items-center justify-between space-y-0 print:hidden shadow-lg"><DialogTitle className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3"><FileText className="h-4 w-4" /> CN PREVIEW - {selectedTripForPreview?.cnNo}</DialogTitle><DialogDescription className="sr-only">Professional A4 preview of the Consignment Note with Three-Copy system.</DialogDescription><div className="flex items-center gap-4">{cnPreviewStatus === 'generated' ? (<Button onClick={handleDownloadPdf} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase h-9 px-6 rounded-none shadow-md"><Download className="h-3.5 w-3.5 mr-2" /> Download</Button>) : (<Button onClick={() => setCnPreviewStatus('generated')} className="bg-white hover:bg-slate-100 text-[#1e3a8a] font-black text-[10px] uppercase h-9 px-6 rounded-none shadow-md"><Printer className="h-3.5 w-3.5 mr-2" /> Generate PDF</Button>)}<button onClick={() => setIsCnPreviewOpen(false)} className="text-white/70 hover:text-white transition-colors ml-2"><X className="h-5 w-5" /></button></div></DialogHeader>
+        <div className="p-4 md:p-12 bg-slate-200 min-h-screen flex flex-col items-center gap-8 print:bg-white print:p-0"><div className="bg-white shadow-2xl w-full max-w-[210mm] print:shadow-none print:w-full print:max-w-none"><div id="printable-area" className="p-0 m-0">{selectedTripForPreview && (<CnPrintLayout trip={selectedTripForPreview} company={(companies || []).find((c: any) => c.plantCodes?.includes(selectedTripForPreview.plantCode))} consignor={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripForPreview.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === selectedTripForPreview.consignor?.toUpperCase())} consignee={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripForPreview.consignee?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === selectedTripForPreview.consignee?.toUpperCase())} shipTo={(customers || []).find((c: any) => c.customerName?.toUpperCase() === selectedTripForPreview.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === selectedTripForPreview.shipToParty?.toUpperCase())} />)}</div></div></div></DialogContent></Dialog>
   </div>;
 }
 
 function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
-  const [activeTab, setActiveTab] = React.useState('Tracking MAP');
-  const [vehicles, setVehicles] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [map, setMap] = React.useState<any>(null);
-  const markersRef = React.useRef<any[]>([]);
-  const infoWindowRef = React.useRef<any>(null);
-  
+  const [activeTab, setActiveTab] = React.useState('Tracking MAP'); const [vehicles, setVehicles] = React.useState<any[]>([]); const [loading, setLoading] = React.useState(true); const [map, setMap] = React.useState<any>(null); const markersRef = React.useRef<any[]>([]); const infoWindowRef = React.useRef<any>(null);
   const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
   const { data: settings } = useDoc(settingsRef);
 
-  const trackedVehicles = React.useMemo(() => {
-    return vehicles;
-  }, [vehicles]);
+  const fetchGpsData = React.useCallback(async () => {
+    const internalApiUrl = '/api/gps'; const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 15000);
+    try { const response = await fetch(internalApiUrl, { method: "GET", headers: { "Content-Type": "application/json" }, signal: controller.signal }); clearTimeout(timeoutId); if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`); const json = await response.json(); if (json?.data?.list) setVehicles(json.data.list); setLoading(false); } catch (error: any) { clearTimeout(timeoutId); console.error("GPS API handshake failure:", error.message); setLoading(false); }
+  }, []);
+
+  React.useEffect(() => { fetchGpsData(); const interval = setInterval(fetchGpsData, 30000); return () => clearInterval(interval); }, [fetchGpsData]);
 
   const showVehicleInfo = React.useCallback((v: any, marker?: any) => {
-    if (!window.google || !map) return;
-    if (!infoWindowRef.current) infoWindowRef.current = new window.google.maps.InfoWindow();
-
-    const geocoder = new window.google.maps.Geocoder();
-    const latlng = { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) };
-
-    geocoder.geocode({ location: latlng }, (results: any, status: any) => {
-      if (status === 'OK' && results[0]) {
-        const components = results[0].address_components;
-        let street = '';
-        let city = '';
-        for (const comp of components) {
-          if (comp.types.includes('route')) street = comp.long_name;
-          if (comp.types.includes('locality')) city = comp.long_name;
-        }
-        const locationStr = [street, city].filter(Boolean).join(', ') || results[0].formatted_address;
-        
-        const content = `
-          <div style="font-family: monospace; font-size: 11px; font-weight: bold; padding: 10px; min-width: 180px;">
-            <div style="color: #1e3a8a; border-bottom: 2px solid #1e3a8a; margin-bottom: 8px; padding-bottom: 4px; font-size: 13px; letter-spacing: -0.5px;">
-              ${v.vehicleNumber}
-            </div>
-            <div style="color: #64748b; font-size: 9px; margin-bottom: 2px; text-transform: uppercase;">Live Node Location:</div>
-            <div style="color: #0f172a; line-height: 1.4;">${locationStr}</div>
-            <div style="margin-top: 8px; color: #1e3a8a; font-size: 9px; display: flex; justify-content: space-between; border-top: 1px dashed #cbd5e1; padding-top: 4px;">
-              <span>SPEED: ${v.speed} KM/H</span>
-              <span>${v.createdDateReadable}</span>
-            </div>
-          </div>
-        `;
-        infoWindowRef.current.setContent(content);
-        if (marker) infoWindowRef.current.open(map, marker);
-        else {
-          infoWindowRef.current.setPosition(latlng);
-          infoWindowRef.current.open(map);
-        }
-        map.panTo(latlng);
-        if (map.getZoom() < 14) map.setZoom(15);
+    if (!window.google || !map) return; if (!infoWindowRef.current) infoWindowRef.current = new window.google.maps.InfoWindow();
+    const geocoder = new window.google.maps.Geocoder(); const latlng = { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) };
+    geocoder.geocode({ location: latlng }, (results: any, status: any) => { if (status === 'OK' && results[0]) {
+        const comps = results[0].address_components; let street = '', city = '';
+        for (const c of comps) { if (c.types.includes('route')) street = c.long_name; if (c.types.includes('locality')) city = c.long_name; }
+        const locStr = [street, city].filter(Boolean).join(', ') || results[0].formatted_address;
+        const content = `<div style="font-family: monospace; font-size: 11px; font-weight: bold; padding: 10px; min-width: 180px;"><div style="color: #1e3a8a; border-bottom: 2px solid #1e3a8a; margin-bottom: 8px; padding-bottom: 4px; font-size: 13px; letter-spacing: -0.5px;">${v.vehicleNumber}</div><div style="color: #64748b; font-size: 9px; margin-bottom: 2px; text-transform: uppercase;">Live Node Location:</div><div style="color: #0f172a; line-height: 1.4;">${locStr}</div><div style="margin-top: 8px; color: #1e3a8a; font-size: 9px; display: flex; justify-content: space-between; border-top: 1px dashed #cbd5e1; padding-top: 4px;"><span>SPEED: ${v.speed} KM/H</span><span>${v.createdDateReadable}</span></div></div>`;
+        infoWindowRef.current.setContent(content); if (marker) infoWindowRef.current.open(map, marker); else { infoWindowRef.current.setPosition(latlng); infoWindowRef.current.open(map); }
+        map.panTo(latlng); if (map.getZoom() < 14) map.setZoom(15);
       }
     });
   }, [map]);
 
+  React.useEffect(() => { if (activeTab === 'Tracking MAP') { const scriptId = 'google-maps-script'; if (!document.getElementById(scriptId)) { const script = document.createElement('script'); script.id = scriptId; script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU&libraries=places`; script.async = true; script.defer = true; document.head.appendChild(script); } } }, [activeTab]);
   React.useEffect(() => {
-    if (activeTab === 'Tracking MAP') {
-       const scriptId = 'google-maps-script';
-       if (!document.getElementById(scriptId)) {
-         const script = document.createElement('script');
-         script.id = scriptId;
-         script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU&libraries=places`;
-         script.async = true;
-         script.defer = true;
-         document.head.appendChild(script);
-       }
-    }
-  }, [activeTab]);
+    if (!map || !vehicles.length || !window.google) return; markersRef.current.forEach(m => m.setMap(null)); markersRef.current = [];
+    const newMarkers: any[] = [];
+    vehicles.forEach((v: any) => {
+      const pos = { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) }; const isActive = v.speed > 0;
+      const iconUrl = isActive ? (settings?.activeIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png') : (settings?.stopIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png');
+      const marker = new window.google.maps.Marker({ position: pos, map: map, title: v.vehicleNumber, icon: { url: iconUrl, scaledSize: new window.google.maps.Size(40, 40) } });
+      marker.addListener('click', () => showVehicleInfo(v, marker)); newMarkers.push(marker);
+    });
+    markersRef.current = newMarkers;
+  }, [map, vehicles, settings, showVehicleInfo]);
 
-  const fetchGpsData = React.useCallback(async () => {
-    const internalApiUrl = '/api/gps';
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const handleIconUpload = async (e: any, type: 'activeIcon' | 'stopIcon') => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => { const dataUrl = ev.target?.result as string; setDocumentNonBlocking(settingsRef, { [type]: dataUrl }, { merge: true }); onStatusUpdate({ text: `${type === 'activeIcon' ? 'Active' : 'Stop'} icon synchronized`, type: 'success' }); }; reader.readAsDataURL(file); };
 
-    try {
-      const response = await fetch(internalApiUrl, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const json = await response.json();
-      if (json && json.data && Array.isArray(json.data.list)) {
-        setVehicles(json.data.list);
-      }
-      setLoading(false);
-    } catch (error: any) {
-      clearTimeout(timeoutId);
-      console.error("GPS API handshake failure:", error.message);
-      setLoading(false);
-    }
+  return <div className="flex flex-col h-full space-y-4"><div className="flex border-b border-slate-300 bg-[#dae4f1]/30 overflow-x-auto no-scrollbar">{['Tracking MAP', 'Setting'].map(t => (<button key={t} onClick={() => setActiveTab(t)} className={cn("px-6 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap", activeTab === t ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700")}>{t}</button>))}</div>
+    <div className="flex-1 bg-white border border-slate-300 overflow-hidden flex flex-col md:flex-row">{activeTab === 'Tracking MAP' ? (<><div className="w-full md:w-80 border-r border-slate-200 flex flex-col h-full overflow-hidden"><div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between"><span className="text-[10px] font-black uppercase text-slate-500">Vehicle Registry</span><Badge variant="outline" className="text-[8px]">{vehicles.length} Units</Badge></div><div className="flex-1 overflow-y-auto green-scrollbar h-[420px]">{loading ? (<div className="p-10 flex flex-col items-center gap-2"><Loader2 className="h-5 w-5 animate-spin text-blue-600" /><span className="text-[8px] font-black uppercase text-slate-400">Loading GPS Nodes...</span></div>) : vehicles.map((v: any) => (<div key={v.vehicleNumber} onClick={() => showVehicleInfo(v)} className="p-4 border-b border-slate-50 hover:bg-blue-50 cursor-pointer transition-colors group flex flex-col gap-1 min-h-[70px]"><div className="flex justify-between items-start"><span className="text-[11px] font-black text-[#1e3a8a]">{v.vehicleNumber}</span><span className={cn("text-[8px] font-black px-1.5 py-0.5 rounded", v.speed > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{v.speed > 0 ? `${v.speed} KM/H` : 'STOPPED'}</span></div><p className="text-[9px] text-slate-400 font-bold uppercase truncate">{v.createdDateReadable || 'SYNCING...'}</p></div>))}</div></div><div className="flex-1 relative bg-slate-100"><div id="google-map" ref={(el) => { if (el && !map && window.google) { const newMap = new window.google.maps.Map(el, { center: { lat: 28.6139, lng: 77.2090 }, zoom: 5, disableDefaultUI: false }); setMap(newMap); } }} className="w-full h-full min-h-[500px]" /></div></>) : (<div className="p-8 space-y-10 max-w-2xl mx-auto w-full overflow-y-auto"><div className="space-y-6"><h3 className="text-sm font-black text-[#1e3a8a] uppercase tracking-tighter border-b border-slate-100 pb-2">GPS ICON SYNCHRONIZATION</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm"><label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Active Vehicle Icon</label><div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">{settings?.activeIcon ? (<div className="relative w-12 h-12 border border-slate-200 p-1"><Image src={settings.activeIcon} alt="Active" fill className="object-contain" unoptimized /></div>) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}<input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'activeIcon')} className="hidden" id="up-active-icon" /><Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300"><label htmlFor="up-active-icon" className="cursor-pointer">Upload New Node</label></Button></div></div><div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm"><label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500" /> Stopped Vehicle Icon</label><div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">{settings?.stopIcon ? (<div className="relative w-12 h-12 border border-slate-200 p-1"><Image src={settings.stopIcon} alt="Stop" fill className="object-contain" unoptimized /></div>) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}<input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'stopIcon')} className="hidden" id="up-stop-icon" /><Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300"><label htmlFor="up-stop-icon" className="cursor-pointer">Upload New Node</label></Button></div></div></div></div></div>)}</div></div>;
+}
+
+function TrackShipmentScreen({ trips, orders, customers }: any) {
+  const [refType, setRefType] = React.useState('');
+  const [refValue, setRefValue] = React.useState('');
+  const [activeStep, setActiveStep] = React.useState(-1);
+  const [trackingData, setTrackingData] = React.useState<any>(null);
+  const [linkedTrip, setLinkedTrip] = React.useState<any>(null);
+  const [view, setView] = React.useState<'search' | 'so_details' | 'track_view'>('search');
+  const [animating, setAnimating] = React.useState(false);
+  const mapRef = React.useRef<HTMLDivElement>(null);
+  const [gpsData, setGpsData] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchGps = async () => { try { const res = await fetch('/api/gps'); if (res.ok) { const json = await res.json(); if (json?.data?.list) setGpsData(json.data.list); } } catch (e) {} };
+    fetchGps(); const i = setInterval(fetchGps, 30000); return () => clearInterval(i);
   }, []);
 
-  React.useEffect(() => {
-    fetchGpsData();
-    const interval = setInterval(fetchGpsData, 30000);
-    return () => clearInterval(interval);
-  }, [fetchGpsData]);
-
-  React.useEffect(() => {
-    if (!map || !trackedVehicles.length || !window.google) return;
-
-    markersRef.current.forEach(m => m.setMap(null));
-    markersRef.current = [];
-
-    const newMarkers: any[] = [];
-    trackedVehicles.forEach((v: any) => {
-      const pos = { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) };
-      const isActive = v.speed > 0;
-      const iconUrl = isActive 
-        ? (settings?.activeIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png') 
-        : (settings?.stopIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png');
-
-      const marker = new window.google.maps.Marker({
-        position: pos,
-        map: map,
-        title: v.vehicleNumber,
-        icon: {
-          url: iconUrl,
-          scaledSize: new window.google.maps.Size(40, 40)
-        }
-      });
-      
-      marker.addListener('click', () => showVehicleInfo(v, marker));
-      newMarkers.push(marker);
-    });
-
-    markersRef.current = newMarkers;
-  }, [map, trackedVehicles, settings, showVehicleInfo]);
-
-  const handleIconUpload = async (e: any, type: 'activeIcon' | 'stopIcon') => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      setDocumentNonBlocking(settingsRef, { [type]: dataUrl }, { merge: true });
-      onStatusUpdate({ text: `${type === 'activeIcon' ? 'Active' : 'Stop'} icon synchronized`, type: 'success' });
-    };
-    reader.readAsDataURL(file);
+  const handleTrackNow = () => {
+    if (!refValue) return;
+    const val = refValue.trim().toUpperCase();
+    if (refType === 'Sale Order') {
+      const order = orders?.find((o: any) => o.saleOrder === val || o.id === val);
+      if (order) {
+        setTrackingData(order);
+        const trip = trips?.find((t: any) => t.saleOrderId === order.id);
+        setLinkedTrip(trip || null);
+        setView('so_details');
+      } else { alert("Registry Failure: Sale Order Not Found"); }
+    } else {
+      const trip = trips?.find((t: any) => t.tripId === val || t.id === val);
+      if (trip) {
+        setTrackingData(trip);
+        setLinkedTrip(trip);
+        setView('track_view');
+        startAnimation(trip);
+      } else { alert("Registry Failure: Trip ID Not Found"); }
+    }
   };
 
-  return (
-    <div className="flex flex-col h-full space-y-4">
-      <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 overflow-x-auto no-scrollbar">
-        {['Tracking MAP', 'Setting'].map(t => (
-          <button key={t} onClick={() => setActiveTab(t)} className={cn("px-6 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap", activeTab === t ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700")}>
-            {t}
-          </button>
-        ))}
-      </div>
+  const startAnimation = (trip: any) => {
+    const steps = ['ORDER BOOKED', 'LOADING', 'IN-TRANSIT', 'ARRIVED', 'DELIVERED'];
+    let target = 0;
+    if (trip.status === 'LOADING') target = 1;
+    else if (trip.status === 'IN-TRANSIT') target = 2;
+    else if (trip.status === 'ARRIVED') target = 3;
+    else if (trip.status === 'CLOSED') target = 4;
+    else if (trip.status === 'REJECTION') target = 4;
 
-      <div className="flex-1 bg-white border border-slate-300 overflow-hidden flex flex-col md:flex-row">
-        {activeTab === 'Tracking MAP' ? (
-          <>
-            <div className="w-full md:w-80 border-r border-slate-200 flex flex-col h-full overflow-hidden">
-               <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase text-slate-500">Vehicle Registry</span>
-                  <Badge variant="outline" className="text-[8px]">{trackedVehicles.length} Units</Badge>
-               </div>
-               <div className="flex-1 overflow-y-auto green-scrollbar h-[420px]">
-                  {loading ? (
-                    <div className="p-10 flex flex-col items-center gap-2">
-                       <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-                       <span className="text-[8px] font-black uppercase text-slate-400">Loading GPS Nodes...</span>
-                    </div>
-                  ) : trackedVehicles.map((v: any) => (
-                    <div key={v.vehicleNumber} onClick={() => showVehicleInfo(v)} className="p-4 border-b border-slate-50 hover:bg-blue-50 cursor-pointer transition-colors group flex flex-col gap-1 min-h-[70px]">
-                       <div className="flex justify-between items-start">
-                          <span className="text-[11px] font-black text-[#1e3a8a]">{v.vehicleNumber}</span>
-                          <span className={cn("text-[8px] font-black px-1.5 py-0.5 rounded", v.speed > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>
-                            {v.speed > 0 ? `${v.speed} KM/H` : 'STOPPED'}
-                          </span>
-                       </div>
-                       <p className="text-[9px] text-slate-400 font-bold uppercase truncate">{v.createdDateReadable || 'SYNCING...'}</p>
-                    </div>
-                  ))}
-                  {trackedVehicles.length === 0 && !loading && (
-                    <div className="p-8 text-center">
-                       <p className="text-[9px] font-black text-slate-300 uppercase italic">No Active Vehicles in Registry</p>
-                    </div>
-                  )}
-               </div>
-            </div>
-            <div className="flex-1 relative bg-slate-100">
-               <div id="google-map" ref={(el) => {
-                  if (el && !map && window.google) {
-                    try {
-                      const newMap = new window.google.maps.Map(el, {
-                        center: { lat: 28.6139, lng: 77.2090 },
-                        zoom: 5,
-                        disableDefaultUI: false
-                      });
-                      setMap(newMap);
-                    } catch (e) {
-                      console.error("Map initialization handshake failed:", e);
-                    }
-                  }
-               }} className="w-full h-full min-h-[500px]" />
-            </div>
-          </>
-        ) : (
-          <div className="p-8 space-y-10 max-w-2xl mx-auto w-full overflow-y-auto">
-             <div className="space-y-6">
-                <h3 className="text-sm font-black text-[#1e3a8a] uppercase tracking-tighter border-b border-slate-100 pb-2">GPS ICON SYNCHRONIZATION</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   <div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm">
-                      <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Active Vehicle Icon</label>
-                      <div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">
-                         {settings?.activeIcon ? (
-                           <div className="relative w-12 h-12 border border-slate-200 p-1">
-                              <Image src={settings.activeIcon} alt="Active" fill className="object-contain" unoptimized />
-                           </div>
-                         ) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}
-                         <input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'activeIcon')} className="hidden" id="up-active-icon" />
-                         <Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300">
-                            <label htmlFor="up-active-icon" className="cursor-pointer">Upload New Node</label>
-                         </Button>
-                      </div>
-                   </div>
-                   <div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm">
-                      <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500" /> Stopped Vehicle Icon</label>
-                      <div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">
-                         {settings?.stopIcon ? (
-                           <div className="relative w-12 h-12 border border-slate-200 p-1">
-                              <Image src={settings.stopIcon} alt="Stop" fill className="object-contain" unoptimized />
-                           </div>
-                         ) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}
-                         <input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'stopIcon')} className="hidden" id="up-stop-icon" />
-                         <Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300">
-                            <label htmlFor="up-stop-icon" className="cursor-pointer">Upload New Node</label>
-                         </Button>
-                      </div>
-                   </div>
-                </div>
-             </div>
+    setAnimating(true);
+    let current = 0;
+    setActiveStep(0);
+    const interval = setInterval(() => {
+      if (current < target) {
+        current++;
+        setActiveStep(current);
+      } else {
+        clearInterval(interval);
+        setAnimating(false);
+      }
+    }, 2000);
+  };
+
+  const renderMap = () => {
+    if (!window.google || !trackingData || !linkedTrip) return;
+    const geocoder = new window.google.maps.Geocoder();
+    const directionsService = new window.google.maps.DirectionsService();
+    const directionsRenderer = new window.google.maps.DirectionsRenderer({ suppressMarkers: true, polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 } });
+    
+    const cons = customers?.find((c: any) => c.customerName?.toUpperCase() === linkedTrip.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === linkedTrip.consignor?.toUpperCase());
+    const ship = customers?.find((c: any) => c.customerName?.toUpperCase() === linkedTrip.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === linkedTrip.shipToParty?.toUpperCase());
+    
+    Promise.all([
+      new Promise(r => geocoder.geocode({ address: cons?.postalCode || 'India' }, (res: any) => r(res?.[0]?.geometry?.location))),
+      new Promise(r => geocoder.geocode({ address: ship?.postalCode || 'India' }, (res: any) => r(res?.[0]?.geometry?.location)))
+    ]).then(([origin, dest]: any) => {
+      if (!mapRef.current) return;
+      const map = new window.google.maps.Map(mapRef.current, { center: origin || { lat: 20, lng: 78 }, zoom: 5 });
+      directionsRenderer.setMap(map);
+      if (origin && dest) directionsService.route({ origin, destination: dest, travelMode: window.google.maps.TravelMode.DRIVING }, (res, stat) => { if (stat === 'OK') directionsRenderer.setDirections(res); });
+      const gps = gpsData.find(v => v.vehicleNumber === linkedTrip.vehicleNumber);
+      if (gps) new window.google.maps.Marker({ position: { lat: gps.latitude, lng: gps.longitude }, map, icon: { url: 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(40, 40) } });
+    });
+  };
+
+  React.useEffect(() => { if (view === 'track_view' && trackingData) renderMap(); }, [view, trackingData, gpsData]);
+
+  if (view === 'search') {
+    return <div className="p-8 max-w-xl mx-auto space-y-10"><SectionGrouping title="TRACK SHIPMENT Registry"><div className="col-span-1 md:col-span-2 space-y-6">
+      <div className="flex flex-col gap-2"><label className="text-[10px] font-black uppercase text-slate-400">Reference Type *</label><select value={refType} onChange={e => setRefType(e.target.value)} className="h-12 border border-slate-400 bg-white px-4 text-sm font-black outline-none"><option value="">Select Option...</option><option value="Sale Order">Sale Order</option><option value="Trip ID">Trip ID</option></select></div>
+      {refType && <div className="flex flex-col gap-2 animate-fade-in"><label className="text-[10px] font-black uppercase text-slate-400">{refType} *</label><input value={refValue} onChange={e => setRefValue(e.target.value)} className="h-12 border border-slate-400 bg-white px-4 text-sm font-black uppercase tracking-widest outline-none focus:bg-yellow-50" placeholder={`ENTER ${refType.toUpperCase()}...`} /></div>}
+    </div></SectionGrouping><div className="flex justify-end gap-4"><Button onClick={() => setRefValue('')} className="bg-red-600 text-white font-black uppercase text-[10px] px-8 h-12">Cancel</Button><Button onClick={handleTrackNow} className="bg-[#0056d2] text-white font-black uppercase text-[10px] px-10 h-12">Track Now</Button></div></div>;
+  }
+
+  if (view === 'so_details') {
+    return <div className="space-y-8 animate-slide-up"><SectionGrouping title="SALE ORDER Registry NODE">
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Booked On</span><span className="text-xs font-black uppercase">{format(new Date(trackingData.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Weight</span><span className="text-xs font-black text-emerald-600">{trackingData.weight} {trackingData.weightUom}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Consignor</span><span className="text-xs font-black uppercase truncate">{trackingData.consignor}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Consignee</span><span className="text-xs font-black uppercase truncate">{trackingData.consignee}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship To</span><span className="text-xs font-black uppercase truncate">{trackingData.shipToParty}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-xs font-black text-[#1e3a8a] uppercase">{trackingData.from} → {trackingData.destination}</span></div>
+    </SectionGrouping>
+    {linkedTrip ? (
+      <div className="bg-blue-50 border-l-[6px] border-blue-600 p-8 rounded-sm shadow-lg text-center animate-fade-in"><p className="text-sm font-black italic uppercase text-slate-800">Sale order {trackingData.saleOrder} against Trip ID <button onClick={() => { setTrackingData(linkedTrip); startAnimation(linkedTrip); setView('track_view'); }} className="text-blue-600 underline decoration-2">{linkedTrip.tripId}</button> has been generated successfully. Click on Trip ID for track your Shipment</p></div>
+    ) : (
+      <div className="bg-orange-50 border-l-[6px] border-orange-500 p-8 rounded-sm shadow-lg text-center animate-fade-in"><p className="text-sm font-black italic uppercase text-slate-800">Currently your sale order {trackingData.saleOrder} against Trip ID not generated, we will share trip ID shortly… Thanks for visit.</p></div>
+    )}
+    <div className="flex justify-start"><Button onClick={() => setView('search')} variant="outline" className="h-10 text-[9px] font-black uppercase tracking-widest border-slate-300">New Search</Button></div></div>;
+  }
+
+  const steps = ['Order Booked', 'Loading', 'IN-Transit', 'Arrived', trackingData.status === 'REJECTION' ? 'Reject' : 'Delivered'];
+  return <div className="space-y-8 animate-slide-up"><SectionGrouping title="TRIP TRACKING HUB">
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle</span><span className="text-sm font-black uppercase text-[#1e3a8a]">{trackingData.vehicleNumber}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Driver Mob</span><span className="text-sm font-black">{trackingData.driverMobile}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship To</span><span className="text-xs font-black uppercase truncate">{trackingData.shipToParty}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-xs font-black uppercase">{trackingData.route}</span></div>
+    </SectionGrouping>
+    <div className="bg-slate-900 p-10 rounded-sm relative overflow-hidden"><div className="flex justify-between relative z-10">
+      {steps.map((s, i) => (<div key={s} className="flex flex-col items-center gap-4 group">
+          <div className={cn("w-4 h-4 rounded-full border-2 transition-all duration-1000", i <= activeStep ? "bg-blue-500 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]" : "bg-slate-800 border-slate-700")}>
+            {i === activeStep && <div className="relative -top-12 -translate-x-1/2 left-1/2 transition-all duration-1000"><Truck className={cn("h-8 w-8", trackingData.status === 'REJECTION' && activeStep === 4 ? "text-red-500 rotate-180" : "text-white")} /></div>}
           </div>
-        )}
-      </div>
-    </div>
-  );
+          <div className="text-center"><p className={cn("text-[9px] font-black uppercase tracking-widest", i <= activeStep ? "text-white" : "text-slate-600")}>{s}</p>
+            {i <= activeStep && <p className="text-[7px] text-blue-400 font-bold mt-1 uppercase">{format(new Date(trackingData.createdAt), 'dd/MM HH:mm')}</p>}</div></div>))}
+      <div className="absolute top-[48px] left-[10%] right-[10%] h-0.5 bg-slate-800 -z-0" /><div className="absolute top-[48px] left-[10%] h-0.5 bg-blue-500 -z-0 transition-all duration-[2000ms]" style={{ width: `${(activeStep / (steps.length - 1)) * 80}%` }} />
+    </div></div>
+    {trackingData.status === 'REJECTION' && <div className="bg-red-50 border-red-200 border p-4 text-center"><p className="text-[10px] font-black text-red-600 uppercase italic">REJECTION REASON: {trackingData.rejectionRemark || 'NODE REJECTED BY CONSIGNEE'}</p></div>}
+    <div className="h-[400px] border border-slate-300 rounded-sm overflow-hidden"><div ref={mapRef} className="w-full h-full" /></div>
+    <div className="flex justify-between items-center"><Button onClick={() => setView('search')} variant="outline" className="h-10 text-[9px] font-black uppercase tracking-widest border-slate-300">Exit Tracking</Button><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Sync: Active node tracking</p></div></div>;
 }
 
 function CnPrintLayout({ trip, company, consignor, consignee, shipTo }: any) {
@@ -3109,105 +1695,22 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo }: any) {
 
           <div className="mb-6">
             <table className="w-full border-2 border-black text-[11px] border-collapse">
-               <thead>
-                 <tr className="bg-slate-100 border-b-2 border-black font-black uppercase">
-                   <th className="p-3 border-r-2 border-black text-center">Vehicle Number</th>
-                   <th className="p-3 border-r-2 border-black text-center">Driver Mobile</th>
-                   <th className="p-3 border-r-2 border-black text-center">Payment Term</th>
-                   <th className="p-3 text-center">Trip ID</th>
-                 </tr>
-               </thead>
-               <tbody>
-                 <tr className="font-black">
-                   <td className="p-3 border-r-2 border-black text-center uppercase text-base">{trip.vehicleNumber}</td>
-                   <td className="p-3 border-r-2 border-black text-center text-base">{trip.driverMobile || 'N/A'}</td>
-                   <td className="p-3 border-r-2 border-black text-center uppercase">{trip.paymentTerms || 'PAID'}</td>
-                   <td className="p-3 text-center">{trip.tripId}</td>
-                 </tr>
-               </tbody>
+               <thead><tr className="bg-slate-100 border-b-2 border-black font-black uppercase"><th className="p-3 border-r-2 border-black text-center">Vehicle Number</th><th className="p-3 border-r-2 border-black text-center">Driver Mobile</th><th className="p-3 border-r-2 border-black text-center">Payment Term</th><th className="p-3 text-center">Trip ID</th></tr></thead>
+               <tbody><tr className="font-black"><td className="p-3 border-r-2 border-black text-center uppercase text-base">{trip.vehicleNumber}</td><td className="p-3 border-r-2 border-black text-center text-base">{trip.driverMobile || 'N/A'}</td><td className="p-3 border-r-2 border-black text-center uppercase">{trip.paymentTerms || 'PAID'}</td><td className="p-3 text-center">{trip.tripId}</td></tr></tbody>
             </table>
           </div>
 
           <div className="grid grid-cols-3 border-2 border-black mb-6">
-             <div className="p-3 border-r-2 border-black flex flex-col min-h-[140px]">
-                <p className="font-black text-[9px] uppercase text-slate-500 border-b border-slate-200 mb-2 pb-1">Consignor</p>
-                <p className="font-black text-[12px] uppercase leading-tight mb-2">{consignor?.customerName || trip.consignor}</p>
-                <p className="text-[10px] leading-snug font-bold uppercase mb-auto text-slate-700">{consignor?.address || 'ADDRESS PENDING'}</p>
-                <div className="mt-4 pt-2 border-t border-slate-100 space-y-0.5">
-                  <p className="text-[10px] font-black">MOB: {consignor?.mobile || 'N/A'}</p>
-                  <p className="text-[10px] font-black">GST: {consignor?.gstin || 'N/A'}</p>
-                </div>
-             </div>
-             <div className="p-3 border-r-2 border-black flex flex-col min-h-[140px]">
-                <p className="font-black text-[9px] uppercase text-slate-500 border-b border-slate-200 mb-2 pb-1">Consignee</p>
-                <p className="font-black text-[12px] uppercase leading-tight mb-2">{consignee?.customerName || trip.consignee}</p>
-                <p className="text-[10px] leading-snug font-bold uppercase mb-auto text-slate-700">{consignee?.address || 'ADDRESS PENDING'}</p>
-                <div className="mt-4 pt-2 border-t border-slate-100 space-y-0.5">
-                  <p className="text-[10px] font-black">MOB: {consignee?.mobile || 'N/A'}</p>
-                  <p className="text-[10px] font-black">GST: {consignee?.gstin || 'N/A'}</p>
-                </div>
-             </div>
-             <div className="p-3 flex flex-col min-h-[140px]">
-                <p className="font-black text-[9px] uppercase text-slate-500 border-b border-slate-200 mb-2 pb-1">Ship to Party</p>
-                <p className="font-black text-[12px] uppercase leading-tight mb-2">{shipTo?.customerName || trip.shipToParty}</p>
-                <p className="text-[10px] leading-snug font-bold uppercase mb-auto text-slate-700">{shipTo?.address || 'ADDRESS PENDING'}</p>
-                <div className="mt-4 pt-2 border-t border-slate-100 space-y-0.5">
-                  <p className="text-[10px] font-black">MOB: {shipTo?.mobile || 'N/A'}</p>
-                  <p className="text-[10px] font-black">GST: {shipTo?.gstin || 'N/A'}</p>
-                </div>
-             </div>
+             <div className="p-3 border-r-2 border-black flex flex-col min-h-[140px]"><p className="font-black text-[9px] uppercase text-slate-500 border-b border-slate-200 mb-2 pb-1">Consignor</p><p className="font-black text-[12px] uppercase leading-tight mb-2">{consignor?.customerName || trip.consignor}</p><p className="text-[10px] leading-snug font-bold uppercase mb-auto text-slate-700">{consignor?.address || 'ADDRESS PENDING'}</p><div className="mt-4 pt-2 border-t border-slate-100 space-y-0.5"><p className="text-[10px] font-black">MOB: {consignor?.mobile || 'N/A'}</p><p className="text-[10px] font-black">GST: {consignor?.gstin || 'N/A'}</p></div></div>
+             <div className="p-3 border-r-2 border-black flex flex-col min-h-[140px]"><p className="font-black text-[9px] uppercase text-slate-500 border-b border-slate-200 mb-2 pb-1">Consignee</p><p className="font-black text-[12px] uppercase leading-tight mb-2">{consignee?.customerName || trip.consignee}</p><p className="text-[10px] leading-snug font-bold uppercase mb-auto text-slate-700">{consignee?.address || 'ADDRESS PENDING'}</p><div className="mt-4 pt-2 border-t border-slate-100 space-y-0.5"><p className="text-[10px] font-black">MOB: {consignee?.mobile || 'N/A'}</p><p className="text-[10px] font-black">GST: {consignee?.gstin || 'N/A'}</p></div></div>
+             <div className="p-3 flex flex-col min-h-[140px]"><p className="font-black text-[9px] uppercase text-slate-500 border-b border-slate-200 mb-2 pb-1">Ship to Party</p><p className="font-black text-[12px] uppercase leading-tight mb-2">{shipTo?.customerName || trip.shipToParty}</p><p className="text-[10px] leading-snug font-bold uppercase mb-auto text-slate-700">{shipTo?.address || 'ADDRESS PENDING'}</p><div className="mt-4 pt-2 border-t border-slate-100 space-y-0.5"><p className="text-[10px] font-black">MOB: {shipTo?.mobile || 'N/A'}</p><p className="text-[10px] font-black">GST: {shipTo?.gstin || 'N/A'}</p></div></div>
           </div>
 
-          <div className="flex-1">
-            <table className="w-full border-2 border-black text-[11px] border-collapse">
-               <thead>
-                 <tr className="bg-slate-100 border-b-2 border-black font-black uppercase">
-                   <th className="p-3 border-r-2 border-black text-left w-32">Invoice No</th>
-                   <th className="p-3 border-r-2 border-black text-left w-40">E-Waybill No</th>
-                   <th className="p-3 border-r-2 border-black text-left">Product Description</th>
-                   <th className="p-3 border-r-2 border-black text-center w-28">Unit</th>
-                   <th className="p-3 text-right w-32">Weight</th>
-                 </tr>
-               </thead>
-               <tbody>
-                 {trip.cnItems?.map((item: any, i: number) => (
-                   <tr key={i} className="border-b border-black font-bold align-top">
-                     <td className="p-3 border-r-2 border-black uppercase">{item.invoiceNo}</td>
-                     <td className="p-3 border-r-2 border-black uppercase text-[10px]">{item.ewaybillNo}</td>
-                     <td className="p-3 border-r-2 border-black uppercase italic text-slate-600">{item.product}</td>
-                     <td className="p-3 border-r-2 border-black text-center uppercase">{item.unit} {item.uom}</td>
-                     <td className="p-3 text-right">{i === 0 ? `${trip.assignWeight} MT` : ''}</td>
-                   </tr>
-                 ))}
-                 <tr className="bg-slate-50 font-black border-t-2 border-black h-12">
-                    <td colSpan={3} className="p-3 text-right border-r-2 border-black uppercase tracking-widest text-[9px] text-slate-500">Grand Total</td>
-                    <td className="p-3 border-r-2 border-black text-center text-sm uppercase">
-                      {trip.cnItems?.reduce((acc: number, curr: any) => acc + (parseFloat(curr.unit) || 0), 0)} Total
-                    </td>
-                    <td className="p-3 text-right text-sm">{trip.assignWeight} MT</td>
-                 </tr>
-               </tbody>
-            </table>
-          </div>
-
-          <div className="mt-16 flex justify-end">
-             <div className="text-center min-w-[200px]">
-                <div className="text-[11px] font-black uppercase tracking-widest border-t-2 border-black pt-2">
-                  Authorized Signature
-                </div>
-             </div>
-          </div>
-
-          <div className="mt-8 pt-6 border-t border-slate-200">
-             <div className="space-y-3">
-               <p className="text-[8px] leading-relaxed text-justify uppercase font-bold text-slate-500 tracking-tight">
-                 Terms & Conditions: {company?.termsAndConditions?.length ? company.termsAndConditions.join(' | ') : 'Standard Sikka Industries logistics and transportation terms apply. Responsibility ends at unloading node. All disputes subject to local jurisdiction.'}
-               </p>
-               <p className="text-[10px] font-black italic text-[#1e3a8a] uppercase tracking-tighter text-center mt-4">
-                 Note: This Lorry Receipt was generated digitally and is to be considered as original.
-               </p>
-             </div>
-          </div>
+          <div className="flex-1"><table className="w-full border-2 border-black text-[11px] border-collapse"><thead><tr className="bg-slate-100 border-b-2 border-black font-black uppercase"><th className="p-3 border-r-2 border-black text-left w-32">Invoice No</th><th className="p-3 border-r-2 border-black text-left w-40">E-Waybill No</th><th className="p-3 border-r-2 border-black text-left">Product Description</th><th className="p-3 border-r-2 border-black text-center w-28">Unit</th><th className="p-3 text-right w-32">Weight</th></tr></thead>
+               <tbody>{trip.cnItems?.map((item: any, i: number) => (<tr key={i} className="border-b border-black font-bold align-top"><td className="p-3 border-r-2 border-black uppercase">{item.invoiceNo}</td><td className="p-3 border-r-2 border-black uppercase text-[10px]">{item.ewaybillNo}</td><td className="p-3 border-r-2 border-black uppercase italic text-slate-600">{item.product}</td><td className="p-3 border-r-2 border-black text-center uppercase">{item.unit} {item.uom}</td><td className="p-3 text-right">{i === 0 ? `${trip.assignWeight} MT` : ''}</td></tr>))}
+                 <tr className="bg-slate-50 font-black border-t-2 border-black h-12"><td colSpan={3} className="p-3 text-right border-r-2 border-black uppercase tracking-widest text-[9px] text-slate-500">Grand Total</td><td className="p-3 border-r-2 border-black text-center text-sm uppercase">{trip.cnItems?.reduce((acc: number, curr: any) => acc + (parseFloat(curr.unit) || 0), 0)} Total</td><td className="p-3 text-right text-sm">{trip.assignWeight} MT</td></tr></tbody></table></div>
+          <div className="mt-16 flex justify-end"><div className="text-center min-w-[200px]"><div className="text-[11px] font-black uppercase tracking-widest border-t-2 border-black pt-2">Authorized Signature</div></div></div>
+          <div className="mt-8 pt-6 border-t border-slate-200"><div className="space-y-3"><p className="text-[8px] leading-relaxed text-justify uppercase font-bold text-slate-500 tracking-tight">Terms & Conditions: {company?.termsAndConditions?.length ? company.termsAndConditions.join(' | ') : 'Standard Sikka Industries logistics and transportation terms apply. Responsibility ends at unloading node. All disputes subject to local jurisdiction.'}</p><p className="text-[10px] font-black italic text-[#1e3a8a] uppercase tracking-tighter text-center mt-4">Note: This Lorry Receipt was generated digitally and is to be considered as original.</p></div></div>
         </div>
       ))}
     </div>
@@ -3215,6 +1718,5 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo }: any) {
 }
 
 function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code: string) => void }) {
-  return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">{tcodes.map(t => <div key={t.code} onClick={() => onExecute(t.code)} className="bg-white p-4 md:p-6 border hover:border-blue-400 cursor-pointer transition-all relative">
-    <div className="absolute top-0 left-0 w-1 h-full bg-slate-200" /><Badge className="mb-4">{t.module}</Badge><h3 className="text-xs font-black text-[#1e3a8a] uppercase">{t.code}</h3><p className="text-[10px] font-bold text-slate-500 uppercase">{t.description}</p></div>)}</div>;
+  return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">{tcodes.map(t => <div key={t.code} onClick={() => onExecute(t.code)} className="bg-white p-4 md:p-6 border hover:border-blue-400 cursor-pointer transition-all relative"><div className="absolute top-0 left-0 w-1 h-full bg-slate-200" /><Badge className="mb-4">{t.module}</Badge><h3 className="text-xs font-black text-[#1e3a8a] uppercase">{t.code}</h3><p className="text-[10px] font-bold text-slate-500 uppercase">{t.description}</p></div>)}</div>;
 }
