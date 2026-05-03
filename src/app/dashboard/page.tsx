@@ -1557,7 +1557,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         podUploadedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }, { merge: true });
-      onStatusUpdate({ text: `POD document replaced for Trip ${selectedTripForClosed.tripId}`, type: 'success' });
+      onStatusUpdate({ text: `POD document replaced for Trip ${selectedTripForClosed.id}`, type: 'success' });
     }
     setIsClosedViewPopupOpen(false);
   };
@@ -2443,7 +2443,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       <DialogContent className="max-w-[1000px] w-[95vw] max-h-[95vh] overflow-y-auto bg-white p-0 rounded-none border-none">
         <DialogHeader className="bg-[#1e3a8a] text-white p-4 sticky top-0 z-[110] flex flex-row items-center justify-between space-y-0 print:hidden shadow-lg">
           <DialogTitle className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
-            <FileText className="h-4 w-4" /> CN PREVIEW HUB - {selectedTripForPreview?.cnNo}
+            <FileText className="h-4 w-4" /> CN PREVIEW - {selectedTripForPreview?.cnNo}
           </DialogTitle>
           <DialogDescription className="sr-only">Professional A4 preview of the Consignment Note with Three-Copy system.</DialogDescription>
           <div className="flex items-center gap-4">
