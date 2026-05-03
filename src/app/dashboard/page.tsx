@@ -2506,26 +2506,37 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
 
   const fetchGpsData = React.useCallback(async () => {
     const apiUrl = 'https://api.wheelseye.com/currentLoc?accessToken=53afc208-0981-48c7-b134-d85d2f33dc0c';
-    
-    fetch(apiUrl, { mode: 'cors' })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`Registry Handshake Failed: ${response.status} ${response.statusText}`);
-        }
-        return response.json();
-      })
-      .then(json => {
-        if (json && json.data && Array.isArray(json.data.list)) {
-          setVehicles(json.data.list);
-        }
-        setLoading(false);
-      })
-      .catch(error => {
-        console.error("Wheelseye Sync Handshake Error:", error);
-        onStatusUpdate({ text: `Wheelseye Registry Sync Error: ${error.message}`, type: 'error' });
-        setLoading(false);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        mode: 'cors',
+        signal: controller.signal
       });
-  }, [onStatusUpdate]);
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const json = await response.json();
+      if (json && json.data && Array.isArray(json.data.list)) {
+        setVehicles(json.data.list);
+      }
+      setLoading(false);
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      console.error("Network Fetch Error:", error);
+      // Fail silently to avoid crash, just update loading state
+      setLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     fetchGpsData();
