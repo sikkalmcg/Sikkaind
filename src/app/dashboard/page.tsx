@@ -11,7 +11,7 @@ import {
   PlusSquare, XCircle, Calendar as CalendarIcon, Package, Undo2,
   FileText, UploadCloud, Trash2, Plus, CheckCircle as CheckCircleIcon, Search,
   AlertTriangle, Clock, Calendar as LucideCalendar, FileCheck, Eye, EyeOff, Download,
-  Loader2, Camera, Radar, Settings
+  Loader2, Radar, Settings
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -760,7 +760,7 @@ export default function SapDashboard() {
                    {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
                    {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
                    {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
-                   {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} />}
+                   {activeScreen.startsWith('VA') && activeScreen !== 'VA03' && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} />}
                    {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} onPost={handleSave} onCancel={() => setFormData({})} />}
                    {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
                  </div>}
@@ -2541,7 +2541,7 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
   const [vehicles, setVehicles] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [map, setMap] = React.useState<any>(null);
-  const [markers, setMarkers] = React.useState<any[]>([]);
+  const markersRef = React.useRef<any[]>([]);
   
   const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
   const { data: settings } = useDoc(settingsRef);
@@ -2561,17 +2561,16 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
   }, [activeTab]);
 
   const fetchGpsData = React.useCallback(async () => {
-    const apiUrl = 'https://api.wheelseye.com/currentLoc?accessToken=53afc208-0981-48c7-b134-d85d2f33dc0c';
+    const internalApiUrl = '/api/gps';
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
-      const response = await fetch(apiUrl, {
+      const response = await fetch(internalApiUrl, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
-        mode: 'cors',
         signal: controller.signal
       });
 
@@ -2588,8 +2587,7 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
       setLoading(false);
     } catch (error: any) {
       clearTimeout(timeoutId);
-      console.error("Network Fetch Error:", error);
-      // Fail silently to avoid crash, just update loading state
+      console.error("System Synchronization Event:", error.name === 'AbortError' ? 'Timeout' : error.message);
       setLoading(false);
     }
   }, []);
@@ -2603,13 +2601,17 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
   React.useEffect(() => {
     if (!map || !vehicles.length || !window.google) return;
 
-    markers.forEach(m => m.setMap(null));
-    const newMarkers: any[] = [];
+    // Clear existing markers using ref to avoid depth loop
+    markersRef.current.forEach(m => m.setMap(null));
+    markersRef.current = [];
 
+    const newMarkers: any[] = [];
     vehicles.forEach((v: any) => {
       const pos = { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) };
       const isActive = v.speed > 0;
-      const iconUrl = isActive ? (settings?.activeIcon || 'https://maps.google.com/mapfiles/ms/icons/green-dot.png') : (settings?.stopIcon || 'https://maps.google.com/mapfiles/ms/icons/red-dot.png');
+      const iconUrl = isActive 
+        ? (settings?.activeIcon || 'https://maps.google.com/mapfiles/ms/icons/green-dot.png') 
+        : (settings?.stopIcon || 'https://maps.google.com/mapfiles/ms/icons/red-dot.png');
 
       const marker = new window.google.maps.Marker({
         position: pos,
@@ -2623,8 +2625,8 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
       newMarkers.push(marker);
     });
 
-    setMarkers(newMarkers);
-  }, [map, vehicles, settings, markers]);
+    markersRef.current = newMarkers;
+  }, [map, vehicles, settings]);
 
   const handleIconUpload = async (e: any, type: 'activeIcon' | 'stopIcon') => {
     const file = e.target.files?.[0];
@@ -2678,12 +2680,16 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
             <div className="flex-1 relative bg-slate-100">
                <div id="google-map" ref={(el) => {
                   if (el && !map && window.google) {
-                    const newMap = new window.google.maps.Map(el, {
-                      center: { lat: 28.6139, lng: 77.2090 },
-                      zoom: 5,
-                      disableDefaultUI: false
-                    });
-                    setMap(newMap);
+                    try {
+                      const newMap = new window.google.maps.Map(el, {
+                        center: { lat: 28.6139, lng: 77.2090 },
+                        zoom: 5,
+                        disableDefaultUI: false
+                      });
+                      setMap(newMap);
+                    } catch (e) {
+                      console.error("Map initialization handshake failed:", e);
+                    }
                   }
                }} className="w-full h-full min-h-[400px]" />
             </div>
