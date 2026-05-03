@@ -11,7 +11,7 @@ import {
   PlusSquare, XCircle, Calendar as CalendarIcon, Package, Undo2,
   FileText, UploadCloud, Trash2, Plus, CheckCircle as CheckCircleIcon, Search,
   AlertTriangle, Clock, Calendar as LucideCalendar, FileCheck, Eye, EyeOff, Download,
-  Loader2, Radar, Settings
+  Loader2, Radar, Settings, PlayCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,7 +41,7 @@ import { format, subDays, isWithinInterval, startOfDay, endOfDay, isAfter, parse
 import { cn } from '@/lib/utils';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
-type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XK03_LIST' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'WGPS24' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE';
+type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XK03_LIST' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'WGPS24' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE' | 'SE38';
 
 const MASTER_TCODES = [
   { code: 'OX01', description: 'PLANT MASTER: CREATE', icon: Package, module: 'Master Data' },
@@ -62,6 +62,7 @@ const MASTER_TCODES = [
   { code: 'VA04', description: 'CANCEL SALES ORDER', icon: XCircle, module: 'Logistics' },
   { code: 'TR21', description: 'DRIP BOARD CONTROL', icon: Truck, module: 'Logistics' },
   { code: 'WGPS24', description: 'GPS TRACKING HUB', icon: Radar, module: 'Logistics' },
+  { code: 'SE38', description: 'CUSTOM T-CODE REPORT', icon: FileText, module: 'System' },
   { code: 'SU01', description: 'USER MANAGEMENT: CREATE', icon: ShieldAlert, module: 'System' },
   { code: 'SU02', description: 'USER MANAGEMENT: CHANGE', icon: Edit3, module: 'System' },
   { code: 'SU03', description: 'USER MANAGEMENT: DISPLAY', icon: Info, module: 'System' },
@@ -225,6 +226,10 @@ export default function SapDashboard() {
   const [isAuthChecking, setIsAuthChecking] = React.useState(true);
   const [registryId, setRegistryId] = React.useState<string | null>(null);
   const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '', postalCode: '' });
+
+  // SE38 Report State
+  const [se38Search, setSe38Search] = React.useState({ plant: '', vendor: '', company: '', customer: '', from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') });
+  const [se38Results, setSe38Results] = React.useState<any[] | null>(null);
 
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const monthRef = React.useRef<HTMLDivElement>(null);
@@ -570,7 +575,51 @@ export default function SapDashboard() {
   };
 
   const handleSave = React.useCallback(() => {
-    if (!user || activeScreen === 'HOME' || activeScreen.endsWith('03')) return;
+    if (!user || activeScreen === 'HOME' || (activeScreen.endsWith('03') && activeScreen !== 'SE38')) return;
+
+    if (activeScreen === 'SE38') {
+      const { plant, from, to, vendor, company, customer } = se38Search;
+      if (!plant || !from || !to) {
+        setStatusMsg({ text: 'Error: Mandatory fields (Plant, From Date, To Date) missing', type: 'error' });
+        return;
+      }
+      if (from > to) {
+        setStatusMsg({ text: 'Error: Invalid date range (From > To)', type: 'error' });
+        return;
+      }
+      
+      let results = (rawTrips || []).filter(t => {
+        const matchesPlant = t.plantCode === plant;
+        const tripDate = (t.createdAt || t.updatedAt || '').split('T')[0];
+        const matchesDate = tripDate >= from && tripDate <= to;
+        
+        if (!matchesPlant || !matchesDate) return false;
+        
+        if (vendor) {
+          const v = (rawVendors || []).find(vend => vend.vendorCode === vendor);
+          if (v && t.vendorName !== v.vendorName) return false;
+          if (!v) return false;
+        }
+        
+        if (company) {
+          const c = (rawCompanies || []).find(comp => comp.companyCode === company);
+          if (c && !c.plantCodes?.includes(t.plantCode)) return false;
+          if (!c) return false;
+        }
+        
+        if (customer) {
+          const cust = (rawCustomers || []).find(c => c.customerCode === customer);
+          if (cust && t.shipToParty !== cust.customerName && t.consignee !== cust.customerName && t.consignor !== cust.customerName) return false;
+          if (!cust) return false;
+        }
+        
+        return true;
+      });
+      
+      setSe38Results(results);
+      setStatusMsg({ text: `Sync complete: ${results.length} records found`, type: 'success' });
+      return;
+    }
 
     let localData = { ...formData };
     const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
@@ -665,7 +714,7 @@ export default function SapDashboard() {
         setFormData(payload);
       }
     }
-  }, [user, activeScreen, formData, allOrders, rawPlants, allUsers, db, isBootstrapAdmin, rawCustomers, rawCompanies, rawVendors, rawOrders]);
+  }, [user, activeScreen, formData, allOrders, rawPlants, allUsers, db, isBootstrapAdmin, rawCustomers, rawCompanies, rawVendors, rawOrders, se38Search, rawTrips]);
 
   const executeTCode = React.useCallback((code: string) => {
     const input = code.toUpperCase().trim();
@@ -704,12 +753,17 @@ export default function SapDashboard() {
     if (MASTER_TCODES.some(t => t.code === clean)) {
       setScreenStack(prev => [...prev, clean as Screen]);
       setActiveScreen(clean as Screen); setFormData({}); setSearchId(''); setXdSearch({ plant: '', type: '', name: '', customerId: '', postalCode: '' });
+      setSe38Results(null);
       setStatusMsg({ text: `Transaction ${clean} executed`, type: 'info' });
     } else { setStatusMsg({ text: `T-Code ${clean} not found`, type: 'error' }); }
     setTCode('');
   }, [isAuthorized]);
 
   const handleBack = React.useCallback(() => {
+    if (activeScreen === 'SE38' && se38Results) {
+      setSe38Results(null);
+      return;
+    }
     if (screenStack.length <= 1) {
       setActiveScreen('HOME');
       setFormData({});
@@ -723,10 +777,10 @@ export default function SapDashboard() {
     setFormData({});
     setSearchId('');
     setStatusMsg({ text: `Navigated to ${prevScreen}`, type: 'info' });
-  }, [screenStack]);
+  }, [screenStack, activeScreen, se38Results]);
 
   const handleCancel = React.useCallback(() => {
-    if (activeScreen === 'HOME' || activeScreen.endsWith('03')) return;
+    if (activeScreen === 'HOME' || (activeScreen.endsWith('03') && activeScreen !== 'SE38')) return;
     setFormData({}); setSearchId(''); setStatusMsg({ text: 'Operation cancelled', type: 'info' });
   }, [activeScreen]);
 
@@ -770,7 +824,7 @@ export default function SapDashboard() {
   }
 
   const isReadOnly = activeScreen.endsWith('03');
-  const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id;
+  const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id && activeScreen !== 'SE38';
   const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
   const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
   const hideSidebar = activeScreen !== 'HOME';
@@ -813,9 +867,13 @@ export default function SapDashboard() {
             )}
           </div>
           <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
-             <button onClick={handleSave} disabled={activeScreen === 'HOME' || isReadOnly} className={cn("p-1 rounded", (activeScreen === 'HOME' || isReadOnly) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title="Save (F8)"><Save className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={handleSave} disabled={activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')} 
+               className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} 
+               title={activeScreen === 'SE38' ? "Execute (F8)" : "Save (F8)"}>
+               {activeScreen === 'SE38' ? <PlayCircle className="h-4 w-4 text-blue-600" /> : <Save className="h-4 w-4 text-slate-600" />}
+             </button>
              <button onClick={handleBack} className="p-1 hover:bg-slate-200 rounded" title="Back Step-by-Step (F3)"><Undo2 className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={handleCancel} disabled={activeScreen === 'HOME' || isReadOnly} className={cn("p-1 rounded", (activeScreen === 'HOME' || isReadOnly) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title="Cancel (F12)"><XCircle className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={handleCancel} disabled={activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title="Cancel (F12)"><XCircle className="h-4 w-4 text-slate-600" /></button>
              <button onClick={() => window.open(window.location.href, '_blank')} className={cn("p-1 rounded hover:bg-slate-200")} title="New Session"><PlusSquare className="h-4 w-4 text-slate-600" /></button>
           </div>
           <div className="flex-1" /><div className="flex items-center gap-3 pr-4">
@@ -836,7 +894,7 @@ export default function SapDashboard() {
           <div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden print:hidden">
             <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div>
             <div className="flex-1 overflow-y-auto green-scrollbar">
-              {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'ZCODE' || t.code === 'WGPS24').map((item) => (
+              {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'ZCODE' || t.code === 'WGPS24' || t.code === 'SE38').map((item) => (
                 <div key={item.code} onClick={() => executeTCode(item.code)} className={cn("flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all", activeScreen === item.code ? "bg-[#0056d2] text-white" : "text-[#1e3a8a]")}>
                   <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", activeScreen === item.code ? "bg-white" : "bg-slate-300 group-hover:bg-blue-600")} />
                   <span className={cn("text-[10px] font-black uppercase tracking-tight", activeScreen === item.code ? "text-white" : "text-[#1e3a8a]")}>{item.code} - {item.description}</span>
@@ -916,6 +974,7 @@ export default function SapDashboard() {
                  </div>}
                  {activeScreen === 'TR21' && <DripBoard orders={allOrders} trips={allTrips} vendors={accessibleVendors} plants={accessiblePlants} companies={accessibleCompanies} customers={accessibleCustomers} onStatusUpdate={setStatusMsg} />}
                  {activeScreen === 'WGPS24' && <GpsTrackingHub trips={allTrips} onStatusUpdate={setStatusMsg} db={db} />}
+                 {activeScreen === 'SE38' && <Se38Report search={se38Search} results={se38Results} onSearchChange={setSe38Search} allPlants={accessiblePlants} allVendors={accessibleVendors} allCompanies={accessibleCompanies} allCustomers={accessibleCustomers} />}
                  {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               </div>
             )}
@@ -1265,7 +1324,68 @@ function UserForm({ data, onChange, disabled, allPlants }: any) {
 function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
   return <div className="space-y-8"><SectionGrouping title="CANCELLATION HUB"><div className="flex flex-col gap-2 col-span-1 md:col-span-2"><label className="text-[11px] font-black uppercase text-red-600">Sales Order Number *</label>
     <input className="h-12 border border-red-200 px-4 text-sm font-black outline-none bg-red-50/30" placeholder="ENTER ORDER NO. & ENTER" value={data.saleOrder || ''} onChange={e => onChange({ ...data, saleOrder: e.target.value.toUpperCase() })} onKeyDown={e => { if (e.key === 'Enter') { const o = allOrders?.find((ord: any) => ord.saleOrder === data.saleOrder); if (o) onChange({...data, ...o}); } }} /></div></SectionGrouping>
-    <div className="flex justify-end gap-4"><Button onClick={onCancel} variant="ghost">Exit</Button><Button onClick={handleSave} className="bg-red-600 text-white font-black uppercase text-[10px] px-6 md:px-10 h-11">Execute Cancellation</Button></div></div>;
+    <div className="flex justify-end gap-4"><Button onClick={onCancel} variant="ghost">Exit</Button><Button onClick={onPost} className="bg-red-600 text-white font-black uppercase text-[10px] px-6 md:px-10 h-11">Execute Cancellation</Button></div></div>;
+}
+
+function Se38Report({ search, results, onSearchChange, allPlants, allVendors, allCompanies, allCustomers }: any) {
+  const pOpts = (allPlants || []).map((p: any) => p.plantCode);
+  
+  if (results) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+          <h2 className="text-sm font-black text-[#1e3a8a] uppercase tracking-tighter">Report Output: {results.length} Records</h2>
+          <Button onClick={() => onSearchChange({ ...search, results: null })} variant="outline" size="sm" className="h-7 text-[9px] font-black uppercase">Back to Selection</Button>
+        </div>
+        <div className="overflow-x-auto border border-slate-300">
+          <table className="w-full text-left border-collapse min-w-[1000px]">
+            <thead className="bg-[#f8fafc] text-[9px] font-black uppercase">
+              <tr>
+                <th className="p-3 border-r">Trip ID</th>
+                <th className="p-3 border-r">Sale Order</th>
+                <th className="p-3 border-r">Vehicle No</th>
+                <th className="p-3 border-r">Route</th>
+                <th className="p-3 border-r">Status</th>
+                <th className="p-3">Created At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((r: any) => (
+                <tr key={r.id} className="border-t hover:bg-blue-50 text-[11px] font-bold">
+                  <td className="p-3 text-[#0056d2] font-black">{r.tripId}</td>
+                  <td className="p-3">{r.saleOrderNumber}</td>
+                  <td className="p-3 uppercase">{r.vehicleNumber}</td>
+                  <td className="p-3 uppercase">{r.route}</td>
+                  <td className="p-3">
+                    <Badge variant="outline" className="text-[8px] font-black">{r.status}</Badge>
+                  </td>
+                  <td className="p-3 text-slate-500">{r.createdAt ? format(new Date(r.createdAt), 'dd-MM-yyyy HH:mm') : 'N/A'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <SectionGrouping title="SELECTION CRITERIA">
+        <FormSelect label="PLANT *" value={search.plant} options={pOpts} onChange={(v: string) => onSearchChange({ ...search, plant: v })} />
+        <FormInput label="VENDOR CODE" value={search.vendor} onChange={(v: string) => onSearchChange({ ...search, vendor: v })} placeholder="Optional..." />
+        <FormInput label="COMPANY CODE" value={search.company} onChange={(v: string) => onSearchChange({ ...search, company: v })} placeholder="Optional..." />
+        <FormInput label="CUSTOMER CODE" value={search.customer} onChange={(v: string) => onSearchChange({ ...search, customer: v })} placeholder="Optional..." />
+        <FormInput label="FROM DATE *" type="date" value={search.from} onChange={(v: string) => onSearchChange({ ...search, from: v })} />
+        <FormInput label="TO DATE *" type="date" value={search.to} onChange={(v: string) => onSearchChange({ ...search, to: v })} />
+      </SectionGrouping>
+      <div className="bg-blue-50 p-4 border border-blue-100 rounded-sm">
+        <p className="text-[10px] font-bold text-blue-800 uppercase flex items-center gap-2">
+          <Info className="h-3.5 w-3.5" /> Run report using Execute button in toolbar or F8 key.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function RegistryList({ onSelectItem, listData, activeScreen }: any) {
