@@ -2595,16 +2595,11 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo }: any) {
             </table>
           </div>
 
-          {/* Acknowledgement */}
-          <div className="mt-8 border-2 border-black rounded-sm shadow-sm">
-             <div className="p-6 h-32 relative bg-white overflow-hidden">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 absolute top-4 left-6">
-                  Consignee Acknowledgement
-                </span>
-                <div className="absolute bottom-6 right-8 text-center min-w-[200px]">
-                   <div className="text-[11px] font-black uppercase tracking-widest border-t-2 border-black pt-2">
-                     Authorized Signature
-                   </div>
+          {/* Authorized Signature Section */}
+          <div className="mt-16 flex justify-end">
+             <div className="text-center min-w-[200px]">
+                <div className="text-[11px] font-black uppercase tracking-widest border-t-2 border-black pt-2">
+                  Authorized Signature
                 </div>
              </div>
           </div>
