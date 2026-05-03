@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -1203,6 +1204,11 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const [assignmentMode, setAssignmentMode] = React.useState<'edit' | 'unassign' | null>(null);
   const [selectedTripForAssignment, setSelectedTripForAssignment] = React.useState<any>(null);
 
+  // Track Mode Logic
+  const [isTrackModePopupOpen, setIsTrackModePopupOpen] = React.useState(false);
+  const [selectedTripForTrackMode, setSelectedTripForTrackMode] = React.useState<any>(null);
+  const [trackModeData, setTrackModeData] = React.useState({ mode: 'GPS Tracking' });
+
   // Arrived Logic
   const [isArrivedPopupOpen, setIsArrivedPopupOpen] = React.useState(false);
   const [arrivedData, setArrivedData] = React.useState<any>({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
@@ -1377,6 +1383,22 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       onStatusUpdate({ text: `Trip ${selectedTripForAssignment.tripId} updated successfully.`, type: 'success' });
     }
     setIsAssignmentPopupOpen(false);
+  };
+
+  const handleTrackModeAction = (t: any) => {
+    setSelectedTripForTrackMode(t);
+    setTrackModeData({ mode: t.trackMode || 'GPS Tracking' });
+    setIsTrackModePopupOpen(true);
+  };
+
+  const handleTrackModePost = () => {
+    if (!selectedTripForTrackMode) return;
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForTrackMode.id), {
+      trackMode: trackModeData.mode,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+    setIsTrackModePopupOpen(false);
+    onStatusUpdate({ text: `Track Mode synchronized: ${trackModeData.mode}`, type: 'success' });
   };
 
   const handleOutVehicle = (t: any) => {
@@ -1716,13 +1738,13 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
             <tr className="bg-[#f8fafc] text-[9px] font-black uppercase sticky top-0 border-b border-slate-300 z-10 print:hidden">
               {activeTab === 'Open Orders' ? 
                 ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>) : 
-                ['Plant', 'Trip ID', 'Consignee', 'Ship to Party', 'Route', 'Vehicle No', 'Assign Qty', 'CN Number', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}
+                ['Plant', 'Trip ID', 'Sale Order', 'Consignee', 'Ship to Party', 'Route', 'Vehicle No', 'Assign Qty', 'CN Number', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}
             </tr>
           </thead>
           <tbody>
             {paginatedData.length === 0 ? (
               <tr className="print:hidden">
-                <td colSpan={ activeTab === 'Open Orders' ? 10 : 9 } className="p-20 text-center">
+                <td colSpan={ activeTab === 'Open Orders' ? 10 : 10 } className="p-20 text-center">
                   <div className="flex flex-col items-center gap-3 opacity-20">
                     <Search className="h-10 w-10" />
                     <span className="text-[11px] font-black uppercase tracking-[0.2em]">No Synchronized Nodes Found</span>
@@ -1760,6 +1782,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                         <div className="text-[#0056d2] font-black">{t.tripId}</div>
                         <div className="text-[9px] text-slate-400 font-bold uppercase">{format(new Date(t.createdAt), 'dd/MM/yyyy HH:mm')}</div>
                       </td>
+                      <td className="p-3 uppercase font-black text-slate-700">{t.saleOrderNumber || 'N/A'}</td>
                       <td className="p-3 uppercase">{t.consignee}</td>
                       <td className="p-3 uppercase">{t.shipToParty}</td>
                       <td className="p-3 uppercase">{t.route}</td>
@@ -1805,12 +1828,16 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                             </>
                           )}
                           {activeTab === 'In-Transit' && (
-                            <Button onClick={() => handleArrivedAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 px-3 uppercase tracking-tighter">Arrived</Button>
+                            <>
+                              <Button onClick={() => handleArrivedAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 px-3 uppercase tracking-tighter">Arrived</Button>
+                              <Button onClick={() => handleTrackModeAction(t)} size="sm" className="text-[9px] bg-yellow-400 hover:bg-yellow-500 text-black font-black h-7 px-3 uppercase tracking-tighter">Track Mode</Button>
+                            </>
                           )}
                           {activeTab === 'Arrived' && (
                             <>
                               <Button onClick={() => handleUnloadAction(t)} size="sm" className="text-[9px] bg-emerald-600 text-white font-black h-7 px-3 uppercase tracking-tighter">Unload</Button>
                               <Button onClick={() => handleRejectAction(t)} size="sm" className="text-[9px] bg-red-600 text-white font-black h-7 px-3 uppercase tracking-tighter">Reject</Button>
+                              <Button onClick={() => handleTrackModeAction(t)} size="sm" className="text-[9px] bg-yellow-400 hover:bg-yellow-500 text-black font-black h-7 px-3 uppercase tracking-tighter">Track Mode</Button>
                             </>
                           )}
                           {activeTab === 'POD Verify' && (
@@ -1862,6 +1889,35 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </div>
       </div>
     </div>
+
+    {/* Track Mode Popup */}
+    <Dialog open={isTrackModePopupOpen} onOpenChange={setIsTrackModePopupOpen}>
+      <DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
+        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
+          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
+            <Radar className="h-4 w-4" /> Tracking Synchronization
+          </DialogTitle>
+          <DialogDescription className="sr-only">Select tracking mode for the vehicle.</DialogDescription>
+        </DialogHeader>
+        <div className="p-6 space-y-6">
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-black text-slate-500 uppercase">Track Mode *</label>
+            <select 
+              value={trackModeData.mode} 
+              onChange={e => setTrackModeData({ mode: e.target.value })} 
+              className="h-12 border border-slate-400 px-3 text-xs font-black bg-white focus:bg-yellow-50 outline-none"
+            >
+              <option value="GPS Tracking">GPS Tracking</option>
+              <option value="SIM Tracking">SIM Tracking</option>
+            </select>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button onClick={() => setIsTrackModePopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 text-[10px] font-black uppercase">Cancel</Button>
+            <Button onClick={handleTrackModePost} className="h-10 px-8 bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-md">Post</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
 
     {/* Arrived Popup */}
     <Dialog open={isArrivedPopupOpen} onOpenChange={setIsArrivedPopupOpen}>
