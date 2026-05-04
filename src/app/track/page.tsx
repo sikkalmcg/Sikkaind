@@ -1,18 +1,20 @@
-
 'use client';
+
+export const dynamic = 'force-dynamic';
 
 import * as React from 'react';
 import { 
   Radar, Search, Package, Truck, CheckCircle, 
-  AlertCircle, Loader2, MapPin, User, ArrowLeft, 
-  ShoppingCart, AlertTriangle, X
+  Loader2, MapPin, ArrowLeft, 
+  ShoppingCart, AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
@@ -28,12 +30,26 @@ export default function TrackPage() {
   const mapRef = React.useRef<HTMLDivElement>(null);
   const [gpsData, setGpsData] = React.useState<any[]>([]);
 
-  const { data: orders } = useCollection(collection(db, 'users', SHARED_HUB_ID, 'sales_orders'));
-  const { data: trips } = useCollection(collection(db, 'users', SHARED_HUB_ID, 'trips'));
+  // Correctly memoized collection references to prevent prerender errors
+  const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
+  const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
+
+  const { data: orders } = useCollection(ordersQuery);
+  const { data: trips } = useCollection(tripsQuery);
 
   React.useEffect(() => {
-    const fetchGps = async () => { try { const res = await fetch('/api/gps'); if (res.ok) { const json = await res.json(); if (json?.data?.list) setGpsData(json.data.list); } } catch (e) {} };
-    fetchGps(); const i = setInterval(fetchGps, 30000); return () => clearInterval(i);
+    const fetchGps = async () => { 
+      try { 
+        const res = await fetch('/api/gps'); 
+        if (res.ok) { 
+          const json = await res.json(); 
+          if (json?.data?.list) setGpsData(json.data.list); 
+        } 
+      } catch (e) {} 
+    };
+    fetchGps(); 
+    const i = setInterval(fetchGps, 30000); 
+    return () => clearInterval(i);
   }, []);
 
   const handleTrackNow = () => {
@@ -211,7 +227,6 @@ export default function TrackPage() {
               })}
               <div className="absolute top-[35px] left-[10%] right-[10%] h-0.5 bg-slate-100 -z-0" />
               
-              {/* Jumbo 3D Truck Animation */}
               <div 
                 className="absolute top-[-5px] transition-all duration-[2000ms] ease-in-out"
                 style={{ 
