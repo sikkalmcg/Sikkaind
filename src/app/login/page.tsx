@@ -81,9 +81,9 @@ export default function LoginPage() {
       {/* Main SAP-Style Container */}
       <div className="w-full max-w-[1000px] bg-white relative shadow-xl overflow-hidden border-[6px] border-[#eeb81c] rounded-sm">
         
-        <div className="flex flex-col md:flex-row min-h-[550px]">
+        <div className="flex flex-col md:flex-row min-h-[360px]">
           {/* Left Side: Hero Image */}
-          <div className="w-full md:w-[48%] relative bg-slate-100 min-h-[300px] md:min-h-0 border-r border-slate-200">
+          <div className="w-full md:w-[48%] relative bg-slate-100 min-h-[200px] md:min-h-0 border-r border-slate-200">
             {loginHero && (
               <Image
                 src={loginHero.url}
@@ -100,7 +100,7 @@ export default function LoginPage() {
           <div className="w-full md:w-[52%] p-8 flex flex-col items-center justify-center relative">
             
             {/* Logo Section */}
-            <div className="mb-12 flex flex-col items-center">
+            <div className="mb-6 flex flex-col items-center">
               {slmcLogo && (
                 <div className="relative w-[300px] h-[100px]">
                   <Image 
