@@ -1563,6 +1563,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       freightAmount: 0,
       assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
       vendorName: '',
+      vendorCode: '',
       vendorFirmName: '',
       vendorMobile: '',
       arrangeBy: '',
@@ -2036,6 +2037,8 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                         <p>{selectedTripForPreview?.carrier?.address}</p>
                         <p>{selectedTripForPreview?.carrier?.city} - {selectedTripForPreview?.carrier?.postalCode}</p>
                         <p className="font-black">GSTIN: {selectedTripForPreview?.carrier?.gstin}</p>
+                        <p className="font-black">PAN: {selectedTripForPreview?.carrier?.pan}</p>
+                        <p>Website: {selectedTripForPreview?.carrier?.website}</p>
                         <p>MOB: {selectedTripForPreview?.carrier?.mobile} | EMAIL: {selectedTripForPreview?.carrier?.email}</p>
                       </div>
                     </div>
@@ -2071,21 +2074,25 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                 </table>
 
                 <div className="grid grid-cols-3 gap-0 border-2 border-black mb-4">
-                  <div className="border-r-2 border-black p-3 space-y-2">
-                    <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-2">Consignor</h3>
+                  <div className="border-r-2 border-black p-3 space-y-1">
+                    <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-1">Consignor</h3>
                     <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview?.order?.consignor}</p>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase">{selectedTripForPreview?.consignorMaster?.address}</p>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase">MOB: {selectedTripForPreview?.consignorMaster?.mobile}</p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">GSTIN: {selectedTripForPreview?.consignorMaster?.gstin || 'N/A'}</p>
                   </div>
-                  <div className="border-r-2 border-black p-3 space-y-2">
-                    <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-2">Consignee</h3>
+                  <div className="border-r-2 border-black p-3 space-y-1">
+                    <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-1">Consignee</h3>
                     <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview?.order?.consignee}</p>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase">{selectedTripForPreview?.consigneeMaster?.address}</p>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase">MOB: {selectedTripForPreview?.consigneeMaster?.mobile}</p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">GSTIN: {selectedTripForPreview?.consigneeMaster?.gstin || 'N/A'}</p>
                   </div>
-                  <div className="p-3 space-y-2 bg-slate-50/50">
-                    <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-2">Ship To Party</h3>
+                  <div className="p-3 space-y-1 bg-slate-50/50">
+                    <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-1">Ship To Party</h3>
                     <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview?.order?.shipToParty}</p>
-                    <p className="text-[10px] font-bold text-slate-600 uppercase italic">Delivery Address:</p>
-                    <p className="text-[11px] font-bold uppercase leading-relaxed">{selectedTripForPreview?.order?.deliveryAddress}</p>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase">{selectedTripForPreview?.shipToMaster?.address}</p>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase">MOB: {selectedTripForPreview?.shipToMaster?.mobile}</p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">GSTIN: {selectedTripForPreview?.shipToMaster?.gstin || 'N/A'}</p>
                   </div>
                 </div>
@@ -2096,9 +2103,9 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                       <tr className="bg-slate-50 text-[10px] font-black uppercase border-b-2 border-black">
                         <th className="p-2 border-r-2 border-black w-[150px]">Invoice No</th>
                         <th className="p-2 border-r-2 border-black w-[180px]">E-Waybill No</th>
-                        <th className="p-2 border-r-2 border-black text-center w-[120px]">Package + UOM</th>
+                        <th className="p-2 border-r-2 border-black text-center w-[120px]">Package</th>
                         <th className="p-2 border-r-2 border-black">Description of Goods</th>
-                        <th className="p-2 text-center w-[130px]">Quantity + UOM</th>
+                        <th className="p-2 text-center w-[130px]">Weight</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2106,64 +2113,55 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                         <tr key={idx} className="border-b border-black text-[11px] font-bold">
                           <td className="p-2 border-r-2 border-black uppercase">{item.invoiceNo}</td>
                           <td className="p-2 border-r-2 border-black uppercase font-mono">{item.ewaybillNo}</td>
-                          <td className="p-2 border-r-2 border-black text-center uppercase">{item.unit} {item.uom}</td>
+                          <td className="p-2 border-r-2 border-black text-center uppercase">{item.unit}</td>
                           <td className="p-2 border-r-2 border-black uppercase whitespace-pre-wrap">{item.product}</td>
                           <td className="p-2 text-center">-</td>
-                        </tr>
-                      ))}
-                      {Array.from({ length: Math.max(0, 10 - (selectedTripForPreview?.cnItems?.length || 0)) }).map((_, i) => (
-                        <tr key={`filler-${i}`} className="border-b border-black h-8 opacity-20">
-                          <td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td></td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr className="bg-slate-100 font-black text-[11px] uppercase border-t-2 border-black">
-                        <td colSpan={2} className="p-3 text-right border-r-2 border-black tracking-widest">Aggregate Total:</td>
+                        <td colSpan={2} className="p-3 text-right border-r-2 border-black tracking-widest">Sub Total:</td>
                         <td className="p-3 text-center border-r-2 border-black bg-yellow-50/50">
-                           {selectedTripForPreview?.cnItems?.reduce((a: number, i: any) => a + (parseFloat(i.unit) || 0), 0)} {' '}
+                           Total Package: {selectedTripForPreview?.cnItems?.reduce((a: number, i: any) => a + (parseFloat(i.unit) || 0), 0)} {' '}
                            {(() => {
                               const uoms = Array.from(new Set(selectedTripForPreview?.cnItems?.map((i: any) => i.uom).filter(Boolean)));
-                              return uoms.length > 1 ? 'Combined' : (uoms[0] || 'Units');
+                              return uoms.length > 1 ? 'Combined' : (uoms[0] || '');
                            })()}
                         </td>
                         <td className="p-3 border-r-2 border-black"></td>
                         <td className="p-3 text-center text-[#1e3a8a] text-sm">
-                           {selectedTripForPreview?.assignWeight} {selectedTripForPreview?.weightUom || 'MT'}
+                           Total Weight: {selectedTripForPreview?.assignWeight} {selectedTripForPreview?.weightUom || 'MT'}
                         </td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
 
-                <div className="mt-4 space-y-4">
+                <div className="mt-4 space-y-2">
                   <div className="border-2 border-black">
-                     <div className="bg-slate-100 p-1.5 text-[9px] font-black uppercase border-b-2 border-black">Delivery Address (Preview Edit Access Enabled):</div>
-                     <div className="p-3">
+                     <div className="bg-slate-100 p-1 text-[9px] font-black uppercase border-b-2 border-black">Delivery Address:</div>
+                     <div className="p-2">
                         <textarea 
                           value={previewDeliveryAddress} 
                           onChange={(e) => setPreviewDeliveryAddress(e.target.value)}
-                          className="w-full h-16 border-none font-black text-[12px] uppercase resize-none outline-none focus:ring-0 bg-transparent print:h-auto"
+                          className="w-full h-8 border-none font-black text-[12px] uppercase resize-none outline-none focus:ring-0 bg-transparent print:h-auto"
                         />
-                     </div>
-                  </div>
-                  <div className="border-2 border-black min-h-[100px] flex flex-col">
-                     <div className="bg-slate-100 p-1.5 text-[9px] font-black uppercase border-b-2 border-black">Acknowledgement of Cargo:</div>
-                     <div className="flex-1 p-3 flex items-end justify-between">
-                        <span className="text-[9px] font-bold text-slate-300 uppercase italic">Recipient Signature Space</span>
-                        <div className="text-right space-y-1">
-                          <p className="text-[10px] font-black uppercase text-[#1e3a8a]">For {selectedTripForPreview?.carrierName}</p>
-                          <div className="h-10" />
-                          <p className="text-[9px] font-black uppercase tracking-widest border-t border-slate-300 pt-1">Authorized Signatory</p>
-                        </div>
                      </div>
                   </div>
                 </div>
 
-                <div className="mt-4">
-                  <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tight text-justify leading-tight border border-slate-200 p-3 italic">
-                    {selectedTripForPreview?.carrier?.termsAndConditions?.join(' | ') || 'STANDARD TRANSPORTATION TERMS APPLY AS PER THE CARRIER MASTER REGISTRY. ALL DISPUTES ARE SUBJECT TO CARRIER HEADQUARTERS JURISDICTION ONLY.'}
-                  </p>
+                <div className="mt-4 flex justify-between items-start gap-12">
+                  <div className="flex-1">
+                    <h4 className="text-[10px] font-black uppercase mb-1">Terms & Conditions:</h4>
+                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tight text-justify leading-tight italic border border-slate-200 p-2">
+                      {selectedTripForPreview?.carrier?.termsAndConditions?.join(' | ') || 'STANDARD TRANSPORTATION TERMS APPLY AS PER THE CARRIER MASTER REGISTRY.'}
+                    </p>
+                  </div>
+                  <div className="text-right min-w-[200px]">
+                    <div className="h-16" />
+                    <p className="text-[10px] font-black uppercase tracking-widest border-t border-slate-300 pt-1">Authorized Signature</p>
+                  </div>
                 </div>
 
                 <div className="mt-6 text-center border-t-2 border-dashed border-black pt-4 pb-2">
@@ -2705,3 +2703,4 @@ function Se38Report({ search, results, onSearchChange, allPlants, allVendors, al
 function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code: string) => void }) {
   return <div className="px-10 py-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{tcodes.map(t => <div key={t.code} onClick={() => onExecute(t.code)} className="bg-white p-6 border border-slate-300 hover:border-blue-500 cursor-pointer transition-all flex flex-col gap-3"><Badge className="w-fit rounded-none bg-slate-100 text-slate-600 border-slate-200 uppercase text-[8px] font-black">{t.module}</Badge><h3 className="text-xs font-black text-[#1e3a8a] uppercase">{t.code}</h3><p className="text-[10px] font-bold text-slate-500 uppercase">{t.description}</p></div>)}</div>;
 }
+
