@@ -640,9 +640,7 @@ export default function SapDashboard() {
         if (!matchesPlant || !matchesDate) return false;
         
         if (vendor) {
-          const v = (rawVendors || []).find(vend => vend.vendorCode === vendor);
-          if (v && t.vendorName !== v.vendorName) return false;
-          if (!v) return false;
+          if (t.vendorCode !== vendor) return false;
         }
         
         if (company) {
@@ -2168,6 +2166,96 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
     <div className="flex justify-between items-center"><Button onClick={() => setView('search')} variant="outline" className="h-10 text-[9px] font-black uppercase tracking-widest border-slate-300">Exit Tracking</Button><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Sync: Active node tracking</p></div></div>;
 }
 
+function Se38SearchInput({ label, value, options, onChange, placeholder, mandatory }: any) {
+  const [inputValue, setInputValue] = React.useState(value || '');
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [highlightedIndex, setHighlightedIndex] = React.useState(-1);
+  
+  const filteredOptions = React.useMemo(() => {
+    if (!inputValue) return [];
+    return options.filter((o: string) => o?.toUpperCase().includes(inputValue.toUpperCase())).slice(0, 15);
+  }, [options, inputValue]);
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      const match = options.find((o: string) => o.split(' - ')[0].toUpperCase() === value?.toUpperCase());
+      if (match) setInputValue(match);
+      else setInputValue(value || '');
+    }
+  }, [value, options, isOpen]);
+
+  const handleSelect = (val: string) => {
+    const codeOnly = val.split(' - ')[0];
+    setInputValue(val);
+    onChange(codeOnly);
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!isOpen) {
+      if (e.key === 'ArrowDown') setIsOpen(true);
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(p => (p < filteredOptions.length - 1 ? p + 1 : p));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(p => (p > 0 ? p - 1 : 0));
+    } else if (e.key === 'Enter') {
+      if (highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
+        e.preventDefault();
+        handleSelect(filteredOptions[highlightedIndex]);
+      }
+    } else if (e.key === 'Tab') {
+      if (highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
+        handleSelect(filteredOptions[highlightedIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-8 relative">
+      <label className="text-[12px] font-medium text-slate-600 w-[180px] text-right">
+        {label}: {mandatory && <span className="text-red-500">*</span>}
+      </label>
+      <div className="relative w-[320px]">
+        <input 
+          value={inputValue} 
+          onChange={(e) => { 
+            const val = e.target.value;
+            setInputValue(val); 
+            onChange(val.split(' - ')[0]);
+            setIsOpen(true); 
+          }}
+          onFocus={() => setIsOpen(true)}
+          onBlur={() => setTimeout(() => setIsOpen(false), 250)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder} 
+          className="h-8 w-full border border-slate-400 bg-white px-2 text-[12px] outline-none focus:ring-1 focus:ring-blue-500 uppercase font-bold" 
+        />
+        {isOpen && filteredOptions.length > 0 && (
+          <div className="absolute top-full left-0 w-full bg-white border border-slate-300 shadow-2xl z-[100] mt-1 max-h-[200px] overflow-y-auto">
+            {filteredOptions.map((opt: string, idx: number) => (
+              <div 
+                key={idx} 
+                onMouseDown={(e) => { e.preventDefault(); handleSelect(opt); }}
+                onMouseEnter={() => setHighlightedIndex(idx)}
+                className={cn("px-3 py-1.5 text-[11px] font-bold cursor-pointer border-b border-slate-50", idx === highlightedIndex ? "bg-[#e8f0fe] text-[#0056d2]" : "text-slate-700 hover:bg-slate-50")}
+              >
+                {opt}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Se38Report({ search, results, onSearchChange, allPlants, allVendors, allCompanies, allCustomers }: any) {
   const handleExport = () => {
     if (!results || results.length === 0) return;
@@ -2305,29 +2393,29 @@ function Se38Report({ search, results, onSearchChange, allPlants, allVendors, al
               </select>
             </div>
 
-            <div className="flex items-center gap-8">
-              <label className="text-[12px] font-medium text-slate-600 w-[180px] text-right">Vendor Node:</label>
-              <select className="h-8 w-[320px] border border-slate-400 bg-white px-2 text-[12px] outline-none focus:ring-1 focus:ring-blue-500" value={search.vendor} onChange={e => onSearchChange({...search, vendor: e.target.value})}>
-                <option value="">ALL VENDORS...</option>
-                {allVendors.map((v: any) => <option key={v.id} value={v.vendorCode}>{v.vendorCode} - {v.vendorName}</option>)}
-              </select>
-            </div>
+            <Se38SearchInput 
+              label="Vendor" 
+              value={search.vendor} 
+              options={allVendors.map((v: any) => `${v.vendorCode} - ${v.vendorName}`)}
+              onChange={(v: string) => onSearchChange({...search, vendor: v})}
+              placeholder="ALL VENDORS..."
+            />
 
-            <div className="flex items-center gap-8">
-              <label className="text-[12px] font-medium text-slate-600 w-[180px] text-right">Company Hub:</label>
-              <select className="h-8 w-[320px] border border-slate-400 bg-white px-2 text-[12px] outline-none focus:ring-1 focus:ring-blue-500" value={search.company} onChange={e => onSearchChange({...search, company: e.target.value})}>
-                <option value="">ALL COMPANIES...</option>
-                {allCompanies.map((c: any) => <option key={c.id} value={c.companyCode}>{c.companyCode} - {c.companyName}</option>)}
-              </select>
-            </div>
+            <Se38SearchInput 
+              label="Carrier" 
+              value={search.company} 
+              options={allCompanies.map((c: any) => `${c.companyCode} - ${c.companyName}`)}
+              onChange={(v: string) => onSearchChange({...search, company: v})}
+              placeholder="ALL COMPANIES..."
+            />
 
-            <div className="flex items-center gap-8">
-              <label className="text-[12px] font-medium text-slate-600 w-[180px] text-right">Customer Node:</label>
-              <select className="h-8 w-[320px] border border-slate-400 bg-white px-2 text-[12px] outline-none focus:ring-1 focus:ring-blue-500" value={search.customer} onChange={e => onSearchChange({...search, customer: e.target.value})}>
-                <option value="">ALL CUSTOMERS...</option>
-                {allCustomers.map((c: any) => <option key={c.id} value={c.customerCode}>{c.customerCode} - {c.customerName}</option>)}
-              </select>
-            </div>
+            <Se38SearchInput 
+              label="Customer" 
+              value={search.customer} 
+              options={allCustomers.map((c: any) => `${c.customerCode} - ${c.customerName}`)}
+              onChange={(v: string) => onSearchChange({...search, customer: v})}
+              placeholder="ALL CUSTOMERS..."
+            />
           </div>
         </div>
 
@@ -2339,11 +2427,11 @@ function Se38Report({ search, results, onSearchChange, allPlants, allVendors, al
 
           <div className="space-y-4 pl-8 pb-12">
             <div className="flex items-center gap-8">
-              <label className="text-[12px] font-medium text-slate-600 w-[180px] text-right">From sync date: <span className="text-red-500">*</span></label>
+              <label className="text-[12px] font-medium text-slate-600 w-[180px] text-right">From Date: <span className="text-red-500">*</span></label>
               <input type="date" value={search.from} onChange={e => onSearchChange({...search, from: e.target.value})} className="h-8 w-[320px] border border-slate-400 bg-white px-2 text-[12px] outline-none focus:ring-1 focus:ring-blue-500 shadow-sm" />
             </div>
             <div className="flex items-center gap-8">
-              <label className="text-[12px] font-medium text-slate-600 w-[180px] text-right">To sync date: <span className="text-red-500">*</span></label>
+              <label className="text-[12px] font-medium text-slate-600 w-[180px] text-right">To Date: <span className="text-red-500">*</span></label>
               <input type="date" value={search.to} onChange={e => onSearchChange({...search, to: e.target.value})} className="h-8 w-[320px] border border-slate-400 bg-white px-2 text-[12px] outline-none focus:ring-1 focus:ring-blue-500 shadow-sm" />
             </div>
           </div>
@@ -2410,3 +2498,4 @@ function CnPrintLayout({ trip, company, consignor, consignee, shipTo }: any) {
 function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code: string) => void }) {
   return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">{tcodes.map(t => <div key={t.code} onClick={() => onExecute(t.code)} className="bg-white p-4 md:p-6 border hover:border-blue-400 cursor-pointer transition-all relative"><div className="absolute top-0 left-0 w-1 h-full bg-slate-200" /><Badge className="mb-4">{t.module}</Badge><h3 className="text-xs font-black text-[#1e3a8a] uppercase">{t.code}</h3><p className="text-[10px] font-bold text-slate-500 uppercase">{t.description}</p></div>)}</div>;
 }
+
