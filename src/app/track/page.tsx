@@ -30,7 +30,6 @@ export default function TrackPage() {
   const mapRef = React.useRef<HTMLDivElement>(null);
   const [gpsData, setGpsData] = React.useState<any[]>([]);
 
-  // Correctly memoized collection references to prevent prerender errors
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
 
@@ -118,31 +117,35 @@ export default function TrackPage() {
 
   if (view === 'search') {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 py-12 font-mono">
-        <div className="w-full max-w-2xl space-y-10 bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 animate-slide-up">
-          <div className="flex flex-col items-center gap-6">
-            <div className="p-5 bg-blue-900 rounded-[1.5rem] shadow-xl shadow-blue-900/20"><Radar className="h-10 w-10 text-white" /></div>
-            <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase italic text-center">Track Shipment</h1>
-          </div>
-          <div className="space-y-8">
-            <div className="space-y-2.5">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Reference Type *</label>
-              <select value={refType} onChange={e => setRefType(e.target.value)} className="h-14 w-full rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-black focus:ring-2 focus:ring-blue-600 outline-none">
-                <option value="">Select Option...</option>
-                <option value="Sale Order">Sale Order</option>
-                <option value="Trip ID">Trip ID</option>
-              </select>
-            </div>
-            {refType && (
-              <div className="space-y-2.5 animate-fade-in">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">{refType} *</label>
-                <Input value={refValue} onChange={(e) => setRefValue(e.target.value)} className="h-16 rounded-2xl font-black text-center text-slate-700 bg-slate-50 border-slate-100 text-lg uppercase tracking-wider focus:ring-blue-600 transition-all" placeholder={`ENTER ${refType.toUpperCase()}...`} />
+      <div className="min-h-screen bg-[#f2f2f2] flex flex-col font-mono">
+        <div className="bg-white border-b border-slate-300 px-8 py-4 mb-12 shadow-sm">
+           <div className="max-w-7xl mx-auto flex items-center gap-6">
+             <Radar className="h-6 w-6 text-[#1e3a8a]" />
+             <h1 className="text-xl font-black text-slate-800 tracking-tighter uppercase italic">Track Shipment Interface</h1>
+           </div>
+        </div>
+        <div className="max-w-4xl mx-auto w-full px-8 space-y-12">
+          <div className="bg-white border border-slate-300 p-12 space-y-10 shadow-sm animate-fade-in">
+            <div className="space-y-6">
+              <div className="flex items-center gap-8">
+                <label className="text-[12px] font-black text-slate-500 w-[180px] text-right uppercase">Reference Type:</label>
+                <select value={refType} onChange={e => setRefType(e.target.value)} className="h-9 w-[320px] border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase">
+                  <option value="">SELECT OPTION...</option>
+                  <option value="Sale Order">Sale Order</option>
+                  <option value="Trip ID">Trip ID</option>
+                </select>
               </div>
-            )}
-            <div className="flex gap-4">
-               <Button onClick={() => setRefValue('')} className="flex-1 h-16 bg-red-600 hover:bg-red-700 font-black uppercase text-xs tracking-[0.4em] rounded-2xl shadow-xl transition-all">Cancel</Button>
-               <Button onClick={handleTrackNow} disabled={loading || !refType || !refValue} className="flex-[2] h-16 bg-blue-900 hover:bg-black font-black uppercase text-xs tracking-[0.4em] rounded-2xl shadow-xl transition-all flex items-center justify-center gap-4 disabled:opacity-50">
-                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />} Track Now
+              {refType && (
+                <div className="flex items-center gap-8 animate-fade-in">
+                  <label className="text-[12px] font-black text-slate-500 w-[180px] text-right uppercase">{refType}:</label>
+                  <input value={refValue} onChange={(e) => setRefValue(e.target.value)} className="h-9 w-[320px] border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase tracking-widest" placeholder={`ENTER ${refType.toUpperCase()}...`} />
+                </div>
+              )}
+            </div>
+            <div className="pl-[212px] flex gap-4">
+               <Button onClick={() => setRefValue('')} variant="outline" className="h-9 px-8 rounded-none border-slate-300 text-[10px] font-black uppercase">Clear</Button>
+               <Button onClick={handleTrackNow} disabled={loading || !refType || !refValue} className="h-9 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg disabled:opacity-50">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Execute Tracking'}
                </Button>
             </div>
           </div>
@@ -153,22 +156,25 @@ export default function TrackPage() {
 
   if (view === 'so_details') {
     return (
-      <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-mono animate-fade-in">
-        <div className="max-w-4xl mx-auto space-y-6">
-          <button onClick={() => setView('search')} className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 hover:text-blue-900 transition-colors"><ArrowLeft className="h-3 w-3" /> BACK TO SEARCH</button>
-          <div className="bg-white p-8 rounded-[2rem] shadow-2xl border border-slate-100 space-y-8">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
-              <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Booked On</span><span className="text-[11px] font-black uppercase">{format(new Date(trackingData.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
-              <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Weight</span><span className="text-[11px] font-black text-emerald-600">{trackingData.weight} {trackingData.weightUom}</span></div>
-              <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[11px] font-black text-[#1e3a8a] uppercase">{trackingData.from} → {trackingData.destination}</span></div>
-              <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Consignor</span><span className="text-[11px] font-black uppercase truncate">{trackingData.consignor}</span></div>
-              <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Consignee</span><span className="text-[11px] font-black uppercase truncate">{trackingData.consignee}</span></div>
-              <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Ship To</span><span className="text-[11px] font-black uppercase truncate">{trackingData.shipToParty}</span></div>
+      <div className="min-h-screen bg-[#f2f2f2] font-mono animate-fade-in">
+        <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 flex items-center justify-between shadow-sm">
+           <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Order Registry Details</h2>
+           <Button onClick={() => setView('search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">New Search</Button>
+        </div>
+        <div className="max-w-5xl mx-auto px-8 space-y-12">
+          <div className="bg-white border border-slate-300 p-10 space-y-8 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6">
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Booked On:</label><span className="text-[12px] font-black uppercase">{format(new Date(trackingData.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Weight:</label><span className="text-[12px] font-black text-emerald-600">{trackingData.weight} {trackingData.weightUom}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Consignor:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignor}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Consignee:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignee}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Ship To:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.shipToParty}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Route:</label><span className="text-[12px] font-black text-[#1e3a8a] uppercase">{trackingData.from} → {trackingData.destination}</span></div>
             </div>
             {linkedTrip ? (
-              <div className="bg-blue-50 border-l-[6px] border-blue-600 p-8 rounded-2xl text-center"><p className="text-sm font-black italic uppercase text-slate-800 leading-relaxed">Sale order {trackingData.saleOrder} against Trip ID <button onClick={() => { setTrackingData(linkedTrip); startAnimation(linkedTrip); setView('track_view'); }} className="text-blue-600 underline decoration-2">{linkedTrip.tripId}</button> has been generated successfully. Click on Trip ID for track your Shipment</p></div>
+              <div className="bg-blue-50 border border-blue-100 p-8 text-center animate-pulse"><p className="text-sm font-black italic uppercase text-slate-800 leading-relaxed">Order {trackingData.saleOrder} is synchronized with Trip <button onClick={() => { setTrackingData(linkedTrip); startAnimation(linkedTrip); setView('track_view'); }} className="text-blue-600 underline font-black">{linkedTrip.tripId}</button></p></div>
             ) : (
-              <div className="bg-orange-50 border-l-[6px] border-orange-500 p-8 rounded-2xl text-center"><p className="text-sm font-black italic uppercase text-slate-800 leading-relaxed">Currently your sale order {trackingData.saleOrder} against Trip ID not generated, we will share trip ID shortly… Thanks for visit.</p></div>
+              <div className="bg-orange-50 border border-orange-100 p-8 text-center"><p className="text-sm font-black italic uppercase text-slate-800 leading-relaxed">Waiting for logistical node synchronization...</p></div>
             )}
           </div>
         </div>
@@ -185,37 +191,30 @@ export default function TrackPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-mono animate-fade-in">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <button onClick={() => setView('search')} className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 hover:text-blue-900 transition-colors"><ArrowLeft className="h-3 w-3" /> BACK TO SEARCH</button>
-        <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden border-t-[6px] border-blue-600">
-           <div className="grid grid-cols-2 md:grid-cols-3 gap-6 mb-10 opacity-80">
-              <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle</span><span className="text-sm font-black uppercase">{trackingData.vehicleNumber}</span></div>
-              <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Driver</span><span className="text-sm font-black">{trackingData.driverMobile}</span></div>
-              <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Weight</span><span className="text-sm font-black text-emerald-600">{trackingData.assignWeight} MT</span></div>
-              <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Consignee</span><span className="text-[10px] font-black uppercase truncate">{trackingData.consignee}</span></div>
-              <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship To</span><span className="text-[10px] font-black uppercase truncate">{trackingData.shipToParty}</span></div>
-              <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black uppercase truncate text-blue-600">{trackingData.route}</span></div>
+    <div className="min-h-screen bg-[#f2f2f2] font-mono animate-fade-in">
+      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between shadow-sm">
+         <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Live Logistical Node Tracker</h2>
+         <Button onClick={() => setView('search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">Back</Button>
+      </div>
+      <div className="max-w-6xl mx-auto px-8 space-y-8 pb-20">
+        <div className="bg-white border border-slate-300 p-8 space-y-10 shadow-sm relative overflow-hidden">
+           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10 opacity-80 border-b border-slate-100 pb-8">
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[13px] font-black uppercase text-[#1e3a8a]">{trackingData.vehicleNumber}</span></div>
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Driver Registry</span><span className="text-[13px] font-black">{trackingData.driverMobile}</span></div>
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight Node</span><span className="text-[13px] font-black text-emerald-600">{trackingData.assignWeight} MT</span></div>
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route Hub</span><span className="text-[13px] font-black uppercase text-blue-600 truncate">{trackingData.route}</span></div>
            </div>
-           <div className="py-12 relative flex justify-between px-4">
+           <div className="py-12 relative flex justify-between px-8">
               {steps.map((s, i) => {
-                let statusColor = "text-red-500";
-                let iconColor = "bg-red-50 text-red-500 border-red-200";
-                if (i < activeStep) {
-                  statusColor = "text-emerald-500";
-                  iconColor = "bg-emerald-50 text-emerald-500 border-emerald-200";
-                } else if (i === activeStep) {
-                  statusColor = "text-yellow-600";
-                  iconColor = "bg-yellow-50 text-yellow-600 border-yellow-300 shadow-[0_0_15px_rgba(234,179,8,0.2)]";
-                }
-
+                const statusColor = i < activeStep ? "text-emerald-600" : i === activeStep ? "text-yellow-600" : "text-red-500";
+                const iconColor = i < activeStep ? "bg-emerald-50 text-emerald-600 border-emerald-200" : i === activeStep ? "bg-yellow-50 text-yellow-600 border-yellow-300 shadow-md" : "bg-red-50 text-red-500 border-red-100";
                 return (
                   <div key={s.label} className="flex flex-col items-center gap-4 group relative z-10">
-                    <div className={cn("w-12 h-12 rounded-2xl border-2 flex items-center justify-center transition-all duration-500 shadow-sm", iconColor)}>
-                       <s.icon className="h-6 w-6 drop-shadow-md" />
+                    <div className={cn("w-14 h-14 rounded-none border-2 flex items-center justify-center transition-all duration-500", iconColor)}>
+                       <s.icon className="h-7 w-7" />
                     </div>
                     <div className="text-center">
-                      <p className={cn("text-[8px] md:text-[10px] font-black uppercase tracking-widest", statusColor)}>{s.label}</p>
+                      <p className={cn("text-[10px] font-black uppercase tracking-widest", statusColor)}>{s.label}</p>
                       {i <= activeStep && (
                         <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
                           {format(new Date(trackingData.createdAt), 'dd-MMM-yy HH:mm')}
@@ -225,24 +224,17 @@ export default function TrackPage() {
                   </div>
                 );
               })}
-              <div className="absolute top-[35px] left-[10%] right-[10%] h-0.5 bg-slate-100 -z-0" />
-              
-              <div 
-                className="absolute top-[-5px] transition-all duration-[2000ms] ease-in-out"
-                style={{ 
-                  left: `${(activeStep / (steps.length - 1)) * 80 + 10}%`,
-                  transform: 'translateX(-50%)'
-                }}
-              >
-                 <div className="bg-white p-3 rounded-full shadow-2xl border border-blue-100 animate-bounce">
-                    <Truck className={cn("h-10 w-10", trackingData.status === 'REJECTION' && activeStep === 4 ? "text-red-500 rotate-180" : "text-[#1e3a8a]")} />
+              <div className="absolute top-[40px] left-[10%] right-[10%] h-px bg-slate-200 -z-0" />
+              <div className="absolute top-[-5px] transition-all duration-[2000ms] ease-in-out" style={{ left: `${(activeStep / (steps.length - 1)) * 80 + 10}%`, transform: 'translateX(-50%)' }}>
+                 <div className="bg-white p-3 shadow-2xl border border-blue-100 animate-bounce">
+                    <Truck className={cn("h-11 w-11", trackingData.status === 'REJECTION' && activeStep === 4 ? "text-red-500 rotate-180" : "text-[#1e3a8a]")} />
                  </div>
               </div>
            </div>
-           {trackingData.status === 'REJECTION' && <div className="mt-6 bg-red-50 border border-red-200 p-4 rounded-xl text-center"><p className="text-[10px] font-black text-red-600 uppercase italic">REJECTION REASON: {trackingData.rejectionRemark || 'NODE REJECTED BY CONSIGNEE'}</p></div>}
+           {trackingData.status === 'REJECTION' && <div className="mt-8 bg-red-50 border border-red-200 p-4 text-center"><p className="text-[10px] font-black text-red-600 uppercase italic">REJECTION REASON: {trackingData.rejectionRemark}</p></div>}
         </div>
-        <div className="h-[450px] bg-white border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-2xl"><div ref={mapRef} className="w-full h-full" /></div>
-        <div className="flex justify-between items-center px-4"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Sync: Active node tracking</p><Badge variant="outline" className="text-[8px] font-black bg-blue-50 border-blue-100 text-blue-800">TR24 INTERFACE</Badge></div>
+        <div className="h-[450px] bg-white border border-slate-300 shadow-sm"><div ref={mapRef} className="w-full h-full" /></div>
+        <div className="flex justify-between items-center px-4"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Sync: High-Density Node Tracking</p><Badge variant="outline" className="text-[8px] font-black bg-blue-50 border-blue-100 text-blue-800 rounded-none">TR24 SAP INTERFACE</Badge></div>
       </div>
     </div>
   );
