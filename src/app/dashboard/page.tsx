@@ -504,7 +504,7 @@ export default function SapDashboard() {
       const headers = parseCsvRow(rows[0]);
       const dataRows = rows.slice(1);
 
-      setStatusMsg({ text: `Synchronizing hub nodes...`, type: 'info' });
+      setStatusMsg({ text: `Synchronizing hub...`, type: 'info' });
 
       if (activeScreen.startsWith('VA')) {
         const getIdx = (name: string) => headers.findIndex(h => h.toLowerCase().replace(/\s/g, '') === name.toLowerCase().replace(/\s/g, ''));
@@ -558,7 +558,7 @@ export default function SapDashboard() {
               deliveryAddress: shipToMaster?.address || '',
               weight: 0,
               weightUom: uom,
-              status: 'OPEN',
+              status: 'Active',
               createdAt: new Date().toISOString(),
               saleOrderDate: format(new Date(), "yyyy-MM-dd'T'HH:mm")
             };
@@ -719,7 +719,8 @@ export default function SapDashboard() {
           setStatusMsg({ text: 'Error: Mandatory fields (Plant, SO No, Consignor, From, Consignee, Ship to Party, Destination, Weight, UOM) required', type: 'error' }); return;
         }
         const exists = rawOrders?.some((o: any) => o.id !== localData.id && o.saleOrder?.toString().toUpperCase() === localData.saleOrder?.toString().toUpperCase());
-        if (exists) { setStatusMsg({ text: `Duplicate entry not allowed for Sale Order No: ${localData.saleOrder}`, type: 'error' }); return; }
+        if (exists && activeScreen === 'VA01') { setStatusMsg({ text: `Duplicate entry not allowed for Sale Order No: ${localData.saleOrder}`, type: 'error' }); return; }
+        if (!localData.status) localData.status = 'Active';
       }
       if (activeScreen === 'VA04') {
         const o = allOrders?.find(ord => (ord.saleOrder || ord.id)?.toString().toUpperCase() === localData.saleOrder?.toString().toUpperCase());
@@ -862,7 +863,7 @@ export default function SapDashboard() {
 
   if (isUserLoading || isProfileLoading || isAllUsersLoading || isAuthChecking) {
     return <div className="h-screen w-full bg-[#f0f3f9] flex flex-col items-center justify-center font-mono space-y-4">
-      <div className="w-8 h-8 border-2 border-[#1e3a8a] border-t-transparent rounded-full animate-spin" /><span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Hub Node Synchronizing...</span>
+      <div className="w-8 h-8 border-2 border-[#1e3a8a] border-t-transparent rounded-full animate-spin" /><span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Synchronizing...</span>
     </div>;
   }
 
@@ -957,13 +958,13 @@ export default function SapDashboard() {
               <div className="flex-1 overflow-y-auto p-2 md:p-4 relative animate-fade-in">
                 <h1 className="text-2xl md:text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter mb-8">Sikka Logistics Management Control</h1>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-4 md:p-6 border border-slate-300 shadow-sm mb-12">
-                  <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Authorized Plant Hub</label>
+                  <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Authorized Plant</label>
                     <select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none" value={homePlantFilter} onChange={(e) => setHomePlantFilter(e.target.value)}>
                       <option value="ALL">ALL AUTHORIZED PLANTS</option>
                       {accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
                     </select>
                   </div>
-                  <div className="flex flex-col gap-2 relative" ref={monthRef}><label className="text-[10px] font-black uppercase text-slate-400">Node Period</label>
+                  <div className="flex flex-col gap-2 relative" ref={monthRef}><label className="text-[10px] font-black uppercase text-slate-400">Period</label>
                     <div onClick={() => setShowMonthCalendar(!showMonthCalendar)} className="h-10 border border-slate-400 bg-white px-3 flex items-center justify-between cursor-pointer shadow-sm"><span className="text-xs font-bold text-slate-700 uppercase">{format(new Date(homeMonthFilter + '-01'), 'MMMM yyyy')}</span><CalendarIcon className="h-4 w-4 text-slate-400" /></div>
                     {showMonthCalendar && (
                       <div className="absolute top-full left-0 mt-1 z-[60] flex flex-col border border-slate-300 bg-white rounded-lg shadow-2xl w-full max-w-[320px] animate-slide-down">
@@ -1004,7 +1005,7 @@ export default function SapDashboard() {
                      {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
                      {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
                      {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
-                     {activeScreen.startsWith('VA') && activeScreen !== 'VA03' && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} />}
+                     {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} trips={allTrips} screen={activeScreen} />}
                      {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} onPost={handleSave} onCancel={() => setFormData({})} />}
                      {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
                    </div>
@@ -1014,7 +1015,7 @@ export default function SapDashboard() {
                       <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">
                         {MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen} - REGISTRY
                       </h2>
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AUTHORIZED HUB NODE</div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AUTHORIZED HUB</div>
                    </div>
                    <div className="px-10 pb-20 max-w-full">
                      <div className="bg-white border-b-2 border-slate-300 p-6 mb-8 flex flex-col md:flex-row items-center gap-8">
@@ -1318,7 +1319,7 @@ function CustomerForm({ data, onChange, disabled, allPlants }: any) {
   const pList = (allPlants || []).map((p: any) => p.plantCode);
   const handleToggle = (p: string) => { if (disabled) return; const curr = data.plantCodes || []; onChange({...data, plantCodes: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); };
   return <div className="space-y-10">
-    <SectionGrouping title="PLANT HUB">
+    <SectionGrouping title="PLANT">
       <div className="flex items-center gap-8">
         <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Hubs:</label>
         <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div>
@@ -1337,23 +1338,30 @@ function CustomerForm({ data, onChange, disabled, allPlants }: any) {
     </SectionGrouping></div>;
 }
 
-function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: any) {
+function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers, trips, screen }: any) {
   const pOpts = (allPlants || []).map((p: any) => p.plantCode);
   const filtered = (allCustomers || []).filter((c: any) => c.plantCodes?.includes(data.plantCode));
   const cons = filtered.filter((c: any) => c.customerType === 'Consignor');
   const ships = filtered.filter((c: any) => c.customerType === 'Consignee - Ship to Party');
 
+  const dispatchWeight = React.useMemo(() => {
+    if (!data.id || !trips) return 0;
+    return trips.filter((t: any) => t.saleOrderId === data.id).reduce((acc: number, t: any) => acc + (parseFloat(t.assignWeight) || 0), 0);
+  }, [data.id, trips]);
+
+  const balanceWeight = (parseFloat(data.weight) || 0) - dispatchWeight;
+
   React.useEffect(() => {
-    if (!data.saleOrderDate && !disabled) {
+    if (!data.saleOrderDate && !disabled && screen === 'VA01') {
       onChange({ ...data, saleOrderDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") });
     }
-  }, [data.saleOrderDate, disabled, onChange, data]);
+  }, [data.saleOrderDate, disabled, onChange, data, screen]);
   
   return <div className="space-y-10">
     <SectionGrouping title="HEADER">
-      <FormSelect label="PLANT HUB" value={data.plantCode} options={pOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
-      <FormInput label="SALE ORDER NO" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
-      <FormInput label="ORDER BOOK DATE TIME" type="datetime-local" value={data.saleOrderDate} onChange={(v: string) => onChange({...data, saleOrderDate: v})} disabled={disabled} />
+      <FormSelect label="PLANT" value={data.plantCode} options={pOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+      <FormInput label="SALE ORDER" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
+      <FormInput label="BOOKED DATE TIME" type="datetime-local" value={data.saleOrderDate} onChange={(v: string) => onChange({...data, saleOrderDate: v})} disabled={disabled} />
     </SectionGrouping>
     <SectionGrouping title="COORDINATION">
       <FormSearchInput 
@@ -1367,7 +1375,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
         }} 
         disabled={disabled} 
       />
-      <FormInput label="FROM CITY" value={data.from} disabled={true} />
+      <FormInput label="FROM" value={data.from} disabled={true} />
       <FormSearchInput 
         label="CONSIGNEE" 
         value={data.consignee} 
@@ -1390,8 +1398,16 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
         disabled={disabled} 
       />
       <FormInput label="DESTINATION" value={data.destination} disabled={true} />
-      <FormInput label="WEIGHT" type="number" value={data.weight} onChange={(v: string) => onChange({...data, weight: v})} disabled={disabled} />
+      <FormInput label="SALE ORDER WEIGHT" type="number" value={data.weight} onChange={(v: string) => onChange({...data, weight: v})} disabled={disabled} />
       <FormSelect label="UOM" value={data.weightUom} options={["MT", "LTR"]} onChange={(v: string) => onChange({...data, weightUom: v})} disabled={disabled} />
+      
+      {(screen === 'VA02' || screen === 'VA03') && (
+        <>
+          <FormInput label="DISPATCH WEIGHT" value={dispatchWeight} disabled={true} />
+          <FormInput label="BALANCE WEIGHT" value={balanceWeight.toFixed(2)} disabled={true} />
+          <FormSelect label="STATUS" value={data.status} options={["Active", "Short closed"]} onChange={(v: string) => onChange({...data, status: v})} disabled={disabled} />
+        </>
+      )}
     </SectionGrouping>
   </div>;
 }
@@ -1438,7 +1454,7 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
 function RegistryList({ onSelectItem, listData, activeScreen }: any) {
   const isSuPage = activeScreen?.startsWith('SU');
   const isVendorRegistry = activeScreen?.startsWith('XK');
-  const headers = isSuPage ? ['Full Name', 'Username', 'Authentication Node', 'Authorized Hub Node'] : isVendorRegistry ? ['Vendor Code', 'Vendor Name', 'Vendor Firm Name', 'Mobile', 'Special Route'] : ['ID', 'Name / Description', 'Type / Details', 'Sync Hub'];
+  const headers = isSuPage ? ['Full Name', 'Username', 'Authentication', 'Authorized Hub'] : isVendorRegistry ? ['Vendor Code', 'Vendor Name', 'Vendor Firm Name', 'Mobile', 'Special Route'] : ['ID', 'Name / Description', 'Type / Details', 'Sync Hub'];
   
   return <div className="w-full bg-white border border-slate-300 shadow-sm overflow-hidden">
     <table className="w-full text-left border-collapse min-w-[700px]">
@@ -1574,26 +1590,12 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
 
   const handleAssignmentClick = (t: any) => { 
     setSelectedTripForAssignment(t); 
-    setAssignmentMode(null); 
     setAssignData({ 
       vehicleNumber: t.vehicleNumber, 
       driverMobile: t.driverMobile, 
-      assignWeight: t.assignWeight, 
-      fleetType: t.fleetType, 
-      vendorName: t.vendorName, 
-      vendorMobile: t.vendorMobile, 
-      vendorFirmName: t.vendorFirmName,
-      vendorCode: t.vendorCode,
-      arrangeBy: t.arrangeBy,
-      employee: t.employee, 
-      rate: t.rate, 
-      freightAmount: t.freightAmount, 
-      isFixedRate: t.isFixedRate, 
       plantCode: t.plantCode, 
-      consignee: t.consignee, 
       shipToParty: t.shipToParty, 
-      route: t.route,
-      assignDate: t.assignDate || t.createdAt
+      route: t.route
     }); 
     setIsAssignmentPopupOpen(true); 
   };
@@ -1620,34 +1622,16 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       updatedAt: new Date().toISOString() 
     }, { merge: true });
     setIsClosedViewPopupOpen(false);
-    onStatusUpdate({ text: `POD Node Updated`, type: 'success' });
+    onStatusUpdate({ text: `POD Updated`, type: 'success' });
   };
 
   const handleAssignmentPost = () => { 
-    if (!assignmentMode) { onStatusUpdate({ text: 'Selection Required', type: 'error' }); return; } 
-    if (assignmentMode === 'unassign') { 
-      deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id)); 
-      onStatusUpdate({ text: `Trip Unassigned`, type: 'success' }); 
-    } else { 
-      setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id), { 
-        vehicleNumber: assignData.vehicleNumber, 
-        driverMobile: assignData.driverMobile, 
-        assignWeight: parseFloat(assignData.assignWeight || 0), 
-        fleetType: assignData.fleetType, 
-        vendorName: assignData.vendorName || '', 
-        vendorMobile: assignData.vendorMobile || '', 
-        vendorFirmName: assignData.vendorFirmName || '',
-        vendorCode: assignData.vendorCode || '',
-        arrangeBy: assignData.arrangeBy || '',
-        employee: assignData.employee || '', 
-        rate: parseFloat(assignData.rate || 0) || 0, 
-        freightAmount: parseFloat(assignData.freightAmount || 0) || 0, 
-        isFixedRate: !!assignData.isFixedRate, 
-        assignDate: assignData.assignDate,
-        updatedAt: new Date().toISOString() 
-      }, { merge: true }); 
-      onStatusUpdate({ text: `Trip Updated`, type: 'success' }); 
-    } 
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id), { 
+      vehicleNumber: assignData.vehicleNumber.toUpperCase(), 
+      driverMobile: assignData.driverMobile, 
+      updatedAt: new Date().toISOString() 
+    }, { merge: true }); 
+    onStatusUpdate({ text: `Assignment Updated`, type: 'success' }); 
     setIsAssignmentPopupOpen(false); 
   };
 
@@ -1657,11 +1641,11 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const handleArrivedAction = (t: any) => { setArrivedData({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), trip: t }); setIsArrivedPopupOpen(true); };
   const handleArrivedPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', arrivedData.trip.id), { status: 'ARRIVED', arrivedDate: arrivedData.date, arrivedTime: arrivedData.time, updatedAt: new Date().toISOString() }, { merge: true }); setIsArrivedPopupOpen(false); onStatusUpdate({ text: `Arrived Registry Synced`, type: 'success' }); };
   const handleRejectAction = (t: any) => { setRejectData({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), remark: '', trip: t }); setIsRejectPopupOpen(true); };
-  const handleRejectPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', rejectData.trip.id), { status: 'REJECTION', rejectionDate: rejectData.date, rejectionTime: rejectData.time, rejectionRemark: rejectData.remark, updatedAt: new Date().toISOString() }, { merge: true }); setIsRejectPopupOpen(true); onStatusUpdate({ text: `Node Rejected`, type: 'success' }); };
+  const handleRejectPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', rejectData.trip.id), { status: 'REJECTION', rejectionDate: rejectData.date, rejectionTime: rejectData.time, rejectionRemark: rejectData.remark, updatedAt: new Date().toISOString() }, { merge: true }); setIsRejectPopupOpen(true); onStatusUpdate({ text: `Rejected`, type: 'success' }); };
   const handleUnloadAction = (t: any) => { setUnloadData({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), trip: t }); setIsUnloadPopupOpen(true); };
-  const handleUnloadPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', unloadData.trip.id), { status: 'POD', unloadDate: unloadData.date, unloadTime: unloadData.time, updatedAt: new Date().toISOString() }, { merge: true }); setIsUnloadPopupOpen(false); onStatusUpdate({ text: `Unload Node Synced`, type: 'success' }); };
+  const handleUnloadPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', unloadData.trip.id), { status: 'POD', unloadDate: unloadData.date, unloadTime: unloadData.time, updatedAt: new Date().toISOString() }, { merge: true }); setIsUnloadPopupOpen(false); onStatusUpdate({ text: `Unload Synced`, type: 'success' }); };
   const handlePodUploadAction = (t: any) => { setSelectedTripForPod(t); setPodFile(null); setIsPodPopupOpen(true); };
-  const handlePodPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForPod.id), { status: 'CLOSED', podFile: podFile, podUploadedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true }); setIsPodPopupOpen(false); onStatusUpdate({ text: `Node CLOSED`, type: 'success' }); };
+  const handlePodPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForPod.id), { status: 'CLOSED', podFile: podFile, podUploadedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true }); setIsPodPopupOpen(false); onStatusUpdate({ text: `CLOSED`, type: 'success' }); };
   const handleViewAction = (t: any) => { setSelectedTripForClosed(t); setClosedViewMode('view'); setPodFile(t.podFile || null); setIsClosedViewPopupOpen(true); };
   
   const handleAddCn = (t: any) => { 
@@ -1691,7 +1675,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       updatedAt: new Date().toISOString() 
     }, { merge: true }); 
     setIsCnPopupOpen(false); 
-    onStatusUpdate({ text: `CN Registry Node Synchronized`, type: 'success' }); 
+    onStatusUpdate({ text: `CN Registry Synchronized`, type: 'success' }); 
   };
 
   const handleCnPreviewClick = (t: any) => { 
@@ -1747,7 +1731,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     };
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', docId), payload, { merge: true });
     setIsPopupOpen(false);
-    onStatusUpdate({ text: `Trip Node ${tripId} Synchronized`, type: 'success' });
+    onStatusUpdate({ text: `Trip ${tripId} Synchronized`, type: 'success' });
   };
 
   const cnTableTotal = React.useMemo(() => {
@@ -1765,7 +1749,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       <div className="flex flex-col md:flex-row items-center gap-6 bg-white border border-slate-300 p-4 rounded-none shadow-sm print:hidden">
         <div className="flex items-center gap-4 flex-1">
           <label className="text-[11px] font-black uppercase text-slate-500 min-w-[60px]">Search:</label>
-          <input value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} className="h-8 w-full max-w-sm border border-slate-300 px-3 text-[11px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase tracking-widest" placeholder="FILTER NODES..." />
+          <input value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} className="h-8 w-full max-w-sm border border-slate-300 px-3 text-[11px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase tracking-widest" placeholder="FILTER..." />
         </div>
         <div className="flex items-center gap-6 border-l border-slate-200 pl-6">
           <div className="flex items-center gap-3"><label className="text-[10px] font-black uppercase text-slate-400">From:</label><input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="h-8 border border-slate-300 px-2 text-[10px] font-black outline-none" /></div>
@@ -1791,7 +1775,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                     const canEditCn = ['Loading', 'In-Transit', 'Arrived'].includes(activeTab);
                     const isArrangeBy = t.fleetType === 'Arrange by Party';
 
-                    return (<tr key={t.id} className="border-b border-slate-100 text-[11px] font-bold"><td className="p-3">{t.plantCode}</td><td className="p-3 text-[#0056d2] font-black">{t.tripId}</td><td className="p-3 uppercase">{t.saleOrderNumber}</td><td className="p-3 uppercase">{t.shipToParty}</td><td className="p-3 uppercase">{t.route}</td><td className="p-3 uppercase" onDoubleClick={(e) => { e.stopPropagation(); handleAssignmentClick(t); }}>{t.vehicleNumber}</td><td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td><td className="p-3">
+                    return (<tr key={t.id} className="border-b border-slate-100 text-[11px] font-bold"><td className="p-3">{t.plantCode}</td><td className="p-3 text-[#0056d2] font-black">{t.tripId}</td><td className="p-3 uppercase">{t.saleOrderNumber}</td><td className="p-3 uppercase">{t.shipToParty}</td><td className="p-3 uppercase">{t.route}</td><td className="p-3 uppercase cursor-pointer hover:underline" onDoubleClick={(e) => { e.stopPropagation(); handleAssignmentClick(t); }}>{t.vehicleNumber}</td><td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td><td className="p-3">
                         <div className="flex items-center gap-2">
                           {t.cnNo ? (
                             <div className="flex items-center gap-1.5">
@@ -1834,13 +1818,13 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Truck className="h-4 w-4" /> TR21 – Assign Vehicle</DialogTitle>
         </DialogHeader>
         <div className="p-6 space-y-4 overflow-y-auto green-scrollbar flex-1">
-          <SectionGrouping title="POPUP HEADER">
+          <SectionGrouping title="HEADER">
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-12 mb-4">
-                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Plant Hub</span><span className="text-[12px] font-black text-[#1e3a8a]">{selectedOrder?.plantCode}</span></div>
+                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Plant</span><span className="text-[12px] font-black text-[#1e3a8a]">{selectedOrder?.plantCode}</span></div>
                 <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sale Order</span><span className="text-[12px] font-black text-[#1e3a8a]">{selectedOrder?.saleOrder}</span></div>
-                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Consignee Node</span><span className="text-[12px] font-black uppercase truncate">{selectedOrder?.consignee}</span></div>
+                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Consignee</span><span className="text-[12px] font-black uppercase truncate">{selectedOrder?.consignee}</span></div>
                 <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[12px] font-black uppercase truncate">{selectedOrder?.shipToParty}</span></div>
-                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route Node</span><span className="text-[12px] font-black uppercase truncate">{selectedOrder?.route}</span></div>
+                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[12px] font-black uppercase truncate">{selectedOrder?.route}</span></div>
                 <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Balance Qty</span><span className="text-[12px] font-black text-red-600">{selectedOrder?.bal} {selectedOrder?.uom}</span></div>
              </div>
           </SectionGrouping>
@@ -1913,7 +1897,39 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </div>
         <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
           <Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
-          <Button onClick={handleCreateTrip} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post Assignment</Button>
+          <Button onClick={handleCreateTrip} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Assignment Edit/Update Popup */}
+    <Dialog open={isAssignmentPopupOpen} onOpenChange={setIsAssignmentPopupOpen}>
+      <DialogContent className="max-w-[1200px] max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
+        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
+          <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Edit3 className="h-4 w-4" /> Assignment Management</DialogTitle>
+        </DialogHeader>
+        <div className="p-6 space-y-6 overflow-y-auto green-scrollbar flex-1">
+          <div className="grid grid-cols-2 gap-12 mb-4 bg-white p-4 border border-slate-200">
+            <div className="flex flex-col gap-1">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span>
+              <span className="text-[12px] font-black uppercase truncate">{selectedTripForAssignment?.shipToParty}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span>
+              <span className="text-[12px] font-black uppercase truncate">{selectedTripForAssignment?.route}</span>
+            </div>
+          </div>
+
+          <div className="space-y-4 animate-fade-in border-t border-slate-200 pt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+              <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} />
+              <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} />
+            </div>
+          </div>
+        </div>
+        <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
+          <Button onClick={() => setIsAssignmentPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
+          <Button onClick={handleAssignmentPost} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -1925,11 +1941,11 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><FileText className="h-4 w-4" /> CN Registry Management</DialogTitle>
         </DialogHeader>
         <div className="p-6 space-y-4 overflow-y-auto green-scrollbar flex-1">
-          <SectionGrouping title="LOGISTICAL HUB">
+          <SectionGrouping title="LOGISTICAL REGISTRY">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-y-4 gap-x-8 mb-4">
-              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Plant Hub</span><span className="text-[11px] font-black uppercase">{selectedTripForCn?.plantCode}</span></div>
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Plant</span><span className="text-[11px] font-black uppercase">{selectedTripForCn?.plantCode}</span></div>
               <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[11px] font-black uppercase truncate">{selectedTripForCn?.shipToParty}</span></div>
-              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route Hub</span><span className="text-[11px] font-black uppercase truncate">{selectedTripForCn?.route}</span></div>
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[11px] font-black uppercase truncate">{selectedTripForCn?.route}</span></div>
               <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[11px] font-black uppercase">{selectedTripForCn?.vehicleNumber}</span></div>
               <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Assigned Qty</span><span className="text-[11px] font-black uppercase text-emerald-600">{selectedTripForCn?.assignWeight} {selectedTripForCn?.weightUom || 'MT'}</span></div>
             </div>
@@ -1988,7 +2004,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </div>
         <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
           <Button onClick={() => setIsCnPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
-          <Button onClick={handleCnPost} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post CN Node</Button>
+          <Button onClick={handleCnPost} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -1997,7 +2013,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     <Dialog open={isCnPreviewOpen} onOpenChange={setIsCnPreviewOpen}>
       <DialogContent className="max-w-[1200px] max-h-[95vh] bg-white p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col print:shadow-none print:w-full print:max-w-none">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0 flex flex-row items-center justify-between space-y-0 print:hidden">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Printer className="h-4 w-4" /> CN Print Hub: {selectedTripForPreview?.cnNo}</DialogTitle>
+          <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Printer className="h-4 w-4" /> CN Print Registry: {selectedTripForPreview?.cnNo}</DialogTitle>
           <div className="flex items-center gap-4">
             <Button onClick={() => window.print()} className="h-8 bg-white/10 hover:bg-white/20 text-white border-white/20 text-[9px] font-black uppercase"><Printer className="h-3.5 w-3.5 mr-2" /> Print Registry</Button>
             <button onClick={() => setIsCnPreviewOpen(false)} className="text-white/60 hover:text-white"><X className="h-5 w-5" /></button>
@@ -2007,7 +2023,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           <div id="printable-area" className="flex flex-col gap-0 mx-auto w-full max-w-[210mm] print:max-w-none print:m-0">
             {['CONSIGNEE COPY', 'DRIVER COPY', 'CONSIGNOR COPY'].map((copyLabel) => (
               <div key={copyLabel} className="bg-white p-[0.5in] min-h-[297mm] flex flex-col border border-slate-200 mb-8 shadow-sm print:m-0 print:shadow-none print:border-none print:page-break-after-always">
-                {/* 1. Top Header */}
                 <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-4">
                   <div className="flex gap-6 items-center">
                     {selectedTripForPreview?.carrier?.logo && (
@@ -2016,7 +2031,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                       </div>
                     )}
                     <div className="space-y-1">
-                      <h1 className="text-2xl font-black uppercase text-[#1e3a8a] leading-none">{selectedTripForPreview?.carrierName || 'CARRIER HUB'}</h1>
+                      <h1 className="text-2xl font-black uppercase text-[#1e3a8a] leading-none">{selectedTripForPreview?.carrierName || 'CARRIER'}</h1>
                       <div className="text-[10px] font-bold text-slate-700 uppercase space-y-0.5">
                         <p>{selectedTripForPreview?.carrier?.address}</p>
                         <p>{selectedTripForPreview?.carrier?.city} - {selectedTripForPreview?.carrier?.postalCode}</p>
@@ -2036,7 +2051,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                   </div>
                 </div>
 
-                {/* 2. Vehicle Details */}
                 <table className="w-full border-collapse border-2 border-black mb-4">
                   <thead>
                     <tr className="bg-slate-50 border-b-2 border-black">
@@ -2056,15 +2070,14 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                   </tbody>
                 </table>
 
-                {/* 3. Party Details Section */}
                 <div className="grid grid-cols-3 gap-0 border-2 border-black mb-4">
                   <div className="border-r-2 border-black p-3 space-y-2">
-                    <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-2">Consignor Node</h3>
+                    <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-2">Consignor</h3>
                     <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview?.order?.consignor}</p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">GSTIN: {selectedTripForPreview?.consignorMaster?.gstin || 'N/A'}</p>
                   </div>
                   <div className="border-r-2 border-black p-3 space-y-2">
-                    <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-2">Consignee Node</h3>
+                    <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-2">Consignee</h3>
                     <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview?.order?.consignee}</p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">GSTIN: {selectedTripForPreview?.consigneeMaster?.gstin || 'N/A'}</p>
                   </div>
@@ -2077,7 +2090,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                   </div>
                 </div>
 
-                {/* 4. Document & Items Table */}
                 <div className="flex-1">
                   <table className="w-full border-collapse border-2 border-black">
                     <thead>
@@ -2099,7 +2111,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                           <td className="p-2 text-center">-</td>
                         </tr>
                       ))}
-                      {/* Empty filler rows */}
                       {Array.from({ length: Math.max(0, 10 - (selectedTripForPreview?.cnItems?.length || 0)) }).map((_, i) => (
                         <tr key={`filler-${i}`} className="border-b border-black h-8 opacity-20">
                           <td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td></td>
@@ -2108,7 +2119,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                     </tbody>
                     <tfoot>
                       <tr className="bg-slate-100 font-black text-[11px] uppercase border-t-2 border-black">
-                        <td colSpan={2} className="p-3 text-right border-r-2 border-black tracking-widest">Aggregate Registry Node Total:</td>
+                        <td colSpan={2} className="p-3 text-right border-r-2 border-black tracking-widest">Aggregate Total:</td>
                         <td className="p-3 text-center border-r-2 border-black bg-yellow-50/50">
                            {selectedTripForPreview?.cnItems?.reduce((a: number, i: any) => a + (parseFloat(i.unit) || 0), 0)} {' '}
                            {(() => {
@@ -2125,10 +2136,9 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                   </table>
                 </div>
 
-                {/* 5. Acknowledgement Box */}
                 <div className="mt-4 space-y-4">
                   <div className="border-2 border-black">
-                     <div className="bg-slate-100 p-1.5 text-[9px] font-black uppercase border-b-2 border-black">Delivery Address Node (Preview Edit Access Enabled):</div>
+                     <div className="bg-slate-100 p-1.5 text-[9px] font-black uppercase border-b-2 border-black">Delivery Address (Preview Edit Access Enabled):</div>
                      <div className="p-3">
                         <textarea 
                           value={previewDeliveryAddress} 
@@ -2138,9 +2148,9 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                      </div>
                   </div>
                   <div className="border-2 border-black min-h-[100px] flex flex-col">
-                     <div className="bg-slate-100 p-1.5 text-[9px] font-black uppercase border-b-2 border-black">Acknowledgement of Cargo Registry:</div>
+                     <div className="bg-slate-100 p-1.5 text-[9px] font-black uppercase border-b-2 border-black">Acknowledgement of Cargo:</div>
                      <div className="flex-1 p-3 flex items-end justify-between">
-                        <span className="text-[9px] font-bold text-slate-300 uppercase italic">Recipient Node Signature Space</span>
+                        <span className="text-[9px] font-bold text-slate-300 uppercase italic">Recipient Signature Space</span>
                         <div className="text-right space-y-1">
                           <p className="text-[10px] font-black uppercase text-[#1e3a8a]">For {selectedTripForPreview?.carrierName}</p>
                           <div className="h-10" />
@@ -2150,14 +2160,12 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                   </div>
                 </div>
 
-                {/* 6. Terms & Conditions Section */}
                 <div className="mt-4">
                   <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tight text-justify leading-tight border border-slate-200 p-3 italic">
                     {selectedTripForPreview?.carrier?.termsAndConditions?.join(' | ') || 'STANDARD TRANSPORTATION TERMS APPLY AS PER THE CARRIER MASTER REGISTRY. ALL DISPUTES ARE SUBJECT TO CARRIER HEADQUARTERS JURISDICTION ONLY.'}
                   </p>
                 </div>
 
-                {/* 7. Note Line */}
                 <div className="mt-6 text-center border-t-2 border-dashed border-black pt-4 pb-2">
                    <p className="text-[10px] font-black uppercase italic text-[#1e3a8a]">Note: This Lorry Receipt was generated digitally and is to be considered as original.</p>
                 </div>
@@ -2168,118 +2176,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       </DialogContent>
     </Dialog>
 
-    <Dialog open={isAssignmentPopupOpen} onOpenChange={setIsAssignmentPopupOpen}>
-      <DialogContent className="max-w-[1200px] max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
-        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Edit3 className="h-4 w-4" /> Assignment Management</DialogTitle>
-        </DialogHeader>
-        <div className="p-6 space-y-6 overflow-y-auto green-scrollbar flex-1">
-          <div className="grid grid-cols-2 gap-12 mb-4 bg-white p-4 border border-slate-200">
-            <div className="flex flex-col gap-1">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span>
-              <span className="text-[12px] font-black uppercase truncate">{selectedTripForAssignment?.shipToParty}</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route Hub</span>
-              <span className="text-[12px] font-black uppercase truncate">{selectedTripForAssignment?.route}</span>
-            </div>
-          </div>
-
-          <RadioGroup value={assignmentMode || ''} onValueChange={(v: any) => setAssignmentMode(v)} className="grid grid-cols-2 gap-4">
-            <div className="flex items-center space-x-2 bg-white p-4 border border-slate-200">
-              <RadioGroupItem value="edit" id="r-edit" /><Label htmlFor="r-edit" className="text-[10px] font-black uppercase cursor-pointer">Edit Assignment</Label>
-            </div>
-            <div className="flex items-center space-x-2 bg-white p-4 border border-slate-200">
-              <RadioGroupItem value="unassign" id="r-unassign" /><Label htmlFor="r-unassign" className="text-[10px] font-black uppercase cursor-pointer text-red-600">Unassign Trip</Label>
-            </div>
-          </RadioGroup>
-
-          {assignmentMode === 'edit' && (
-            <div className="space-y-4 animate-fade-in border-t border-slate-200 pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-                <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} />
-                <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} />
-                <FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle", "Arrange by Party"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} />
-                <FormInput label="ASSIGN QTY (MT)" type="number" value={assignData.assignWeight} onChange={(v: string) => {
-                  const w = parseFloat(v) || 0;
-                  const r = parseFloat(assignData.rate) || 0;
-                  setAssignData({
-                    ...assignData, 
-                    assignWeight: v,
-                    freightAmount: !assignData.isFixedRate ? (w * r).toFixed(2) : assignData.freightAmount
-                  });
-                }} />
-                <FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignData.assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} />
-              </div>
-
-              {assignData.fleetType === 'Market Vehicle' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 pt-4 border-t border-slate-200 mt-4 animate-fade-in">
-                  <FormSelect 
-                    label="VENDOR NAME" 
-                    value={assignData.vendorName} 
-                    options={vendors.map((v: any) => ({ value: v.vendorName, label: v.vendorName }))} 
-                    onChange={(v: string) => {
-                      const match = vendors.find((vend: any) => vend.vendorName === v);
-                      setAssignData({
-                        ...assignData, 
-                        vendorName: v, 
-                        vendorCode: match?.vendorCode || '', 
-                        vendorFirmName: match?.vendorFirmName || '', 
-                        vendorMobile: match?.mobile || ''
-                      });
-                    }} 
-                  />
-                  <FormInput label="VENDOR FIRM" value={assignData.vendorFirmName} disabled={true} />
-                  <FormInput label="MOBILE" value={assignData.vendorMobile} disabled={true} />
-                  <FormInput label="ARRANGE BY" value={assignData.arrangeBy} onChange={(v: string) => setAssignData({...assignData, arrangeBy: v})} />
-                  <FormInput label="RATE" type="number" value={assignData.rate} onChange={(v: string) => {
-                    const r = parseFloat(v) || 0; 
-                    const w = parseFloat(assignData.assignWeight) || 0;
-                    setAssignData({
-                      ...assignData, 
-                      rate: v, 
-                      freightAmount: !assignData.isFixedRate ? (r * w).toFixed(2) : assignData.freightAmount
-                    });
-                  }} />
-                  <div className="flex items-center gap-8 pl-[180px]">
-                    <div className="flex items-center gap-2">
-                      <Checkbox 
-                        checked={assignData.isFixedRate} 
-                        onCheckedChange={(c) => setAssignData({...assignData, isFixedRate: !!c})} 
-                        id="edit-fix-rate" 
-                      />
-                      <label htmlFor="edit-fix-rate" className="text-[10px] font-black uppercase cursor-pointer text-slate-500">Fix Rate Mode</label>
-                    </div>
-                  </div>
-                  <FormInput 
-                    label="FREIGHT AMOUNT" 
-                    type="number" 
-                    value={assignData.freightAmount} 
-                    disabled={!assignData.isFixedRate} 
-                    onChange={(v: string) => setAssignData({...assignData, freightAmount: v})} 
-                  />
-                </div>
-              )}
-            </div>
-          )}
-          {assignmentMode === 'unassign' && (
-            <div className="bg-red-50 p-6 border border-red-100 text-center animate-pulse mt-6">
-              <p className="text-xs font-black text-red-600 uppercase tracking-widest">
-                CAUTION: TRIP ID {selectedTripForAssignment?.tripId} WILL BE CANCELLED.
-              </p>
-              <p className="text-[10px] font-bold text-slate-500 uppercase mt-2">
-                ORDER WILL MOVE BACK TO OPEN REGISTRY FOR RE-ASSIGNMENT.
-              </p>
-            </div>
-          )}
-        </div>
-        <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
-          <Button onClick={() => setIsAssignmentPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
-          <Button onClick={handleAssignmentPost} disabled={!assignmentMode} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-
     <Dialog open={isDelayRemarkPopupOpen} onOpenChange={setIsDelayRemarkPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Clock className="h-4 w-4" /> Delay Remark Registry</DialogTitle></DialogHeader>
         <div className="p-8 space-y-6">
           <div className="bg-white p-4 border border-slate-200 rounded-none space-y-3 shadow-inner opacity-90">
@@ -2299,159 +2195,13 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           </div>
         </div></DialogContent></Dialog>
 
-    <Dialog open={isArrivedPopupOpen} onOpenChange={setIsArrivedPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><MapPin className="h-4 w-4" /> Arrival Node</DialogTitle></DialogHeader>
+    <Dialog open={isArrivedPopupOpen} onOpenChange={setIsArrivedPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><MapPin className="h-4 w-4" /> Arrival</DialogTitle></DialogHeader>
         <div className="p-8 space-y-6"><SectionGrouping title="DATE TIME"><FormInput label="ARRIVED DATE" type="date" value={arrivedData.date} onChange={(v: string) => setArrivedData({...arrivedData, date: v})} /><FormInput label="ARRIVED TIME" type="time" value={arrivedData.time} onChange={(v: string) => setArrivedData({...arrivedData, time: v})} /></SectionGrouping><div className="flex justify-end gap-3"><Button onClick={() => setIsArrivedPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button><Button onClick={handleArrivedPost} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Execute</Button></div></div></DialogContent></Dialog>
 
     <Dialog open={isRejectPopupOpen} onOpenChange={setIsRejectPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-red-600 px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><XCircle className="h-4 w-4" /> Reject Registry</DialogTitle></DialogHeader>
-        <div className="p-8 space-y-6"><SectionGrouping title="REJECTION DATA"><FormInput label="DATE" type="date" value={rejectData.date} onChange={(v: string) => setRejectData({...rejectData, date: v})} /><FormInput label="TIME" type="time" value={rejectData.time} onChange={(v: string) => setRejectData({...rejectData, time: v})} /><div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right uppercase shrink-0">REMARK:</label><textarea value={rejectData.remark} onChange={e => setRejectData({...rejectData, remark: e.target.value})} className="h-20 w-[320px] border border-slate-400 bg-white px-2 py-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-red-500 uppercase resize-none" placeholder="REASON..." /></div></SectionGrouping><div className="flex justify-end gap-3"><Button onClick={() => setIsRejectPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button><Button onClick={handleRejectPost} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post Node</Button></div></div></DialogContent></Dialog>
+        <div className="p-8 space-y-6"><SectionGrouping title="REJECTION DATA"><FormInput label="DATE" type="date" value={rejectData.date} onChange={(v: string) => setRejectData({...rejectData, date: v})} /><FormInput label="TIME" type="time" value={rejectData.time} onChange={(v: string) => setRejectData({...rejectData, time: v})} /><div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right uppercase shrink-0">REMARK:</label><textarea value={rejectData.remark} onChange={e => setRejectData({...rejectData, remark: e.target.value})} className="h-20 w-[320px] border border-slate-400 bg-white px-2 py-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-red-500 uppercase resize-none" placeholder="REASON..." /></div></SectionGrouping><div className="flex justify-end gap-3"><Button onClick={() => setIsRejectPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button><Button onClick={handleRejectPost} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post</Button></div></div></DialogContent></Dialog>
 
-    <Dialog open={isUnloadPopupOpen} onOpenChange={setIsUnloadPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-emerald-600 px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Package className="h-4 w-4" /> Unload Node</DialogTitle></DialogHeader>
-        <div className="p-8 space-y-6"><SectionGrouping title="TIMESTAMP"><FormInput label="UNLOAD DATE" type="date" value={unloadData.date} onChange={(v: string) => setUnloadData({...unloadData, date: v})} /><FormInput label="UNLOAD TIME" type="time" value={unloadData.time} onChange={(v: string) => setUnloadData({...unloadData, time: v})} /></SectionGrouping><div className="flex justify-end gap-3"><Button onClick={() => setIsUnloadPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button><Button onClick={handleUnloadPost} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post Unload</Button></div></div></DialogContent></Dialog>
-
-    <Dialog open={isPodPopupOpen} onOpenChange={setIsPodPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><UploadCloud className="h-4 w-4" /> Upload POD</DialogTitle></DialogHeader>
-        <div className="p-8 space-y-6 flex flex-col items-center justify-center"><input type="file" accept="image/*,.pdf" ref={fileInputRef} onChange={handlePodFileChange} className="hidden" />
-          <div onClick={() => fileInputRef.current?.click()} className="w-full h-40 border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-blue-50 transition-all">
-            {podFile ? <div className="text-emerald-600 font-black text-xs uppercase">Document Ready</div> : <><UploadCloud className="h-8 w-8 text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase">Select Registry File</span></>}
-          </div><div className="flex justify-end gap-3 w-full"><Button onClick={() => setIsPodPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button><Button onClick={handlePodPost} disabled={!podFile} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post & Close</Button></div></div></DialogContent></Dialog>
-
-    <Dialog open={isAssignmentPopupOpen} onOpenChange={setIsAssignmentPopupOpen}>
-      <DialogContent className="max-w-[1200px] max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
-        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Edit3 className="h-4 w-4" /> Assignment Management</DialogTitle>
-        </DialogHeader>
-        <div className="p-6 space-y-6 overflow-y-auto green-scrollbar flex-1">
-          <div className="grid grid-cols-2 gap-12 mb-4 bg-white p-4 border border-slate-200">
-            <div className="flex flex-col gap-1">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span>
-              <span className="text-[12px] font-black uppercase truncate">{selectedTripForAssignment?.shipToParty}</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route Hub</span>
-              <span className="text-[12px] font-black uppercase truncate">{selectedTripForAssignment?.route}</span>
-            </div>
-          </div>
-
-          <RadioGroup value={assignmentMode || ''} onValueChange={(v: any) => setAssignmentMode(v)} className="grid grid-cols-2 gap-4">
-            <div className="flex items-center space-x-2 bg-white p-4 border border-slate-200">
-              <RadioGroupItem value="edit" id="r-edit" /><Label htmlFor="r-edit" className="text-[10px] font-black uppercase cursor-pointer">Edit Assignment</Label>
-            </div>
-            <div className="flex items-center space-x-2 bg-white p-4 border border-slate-200">
-              <RadioGroupItem value="unassign" id="r-unassign" /><Label htmlFor="r-unassign" className="text-[10px] font-black uppercase cursor-pointer text-red-600">Unassign Trip</Label>
-            </div>
-          </RadioGroup>
-
-          {assignmentMode === 'edit' && (
-            <div className="space-y-4 animate-fade-in border-t border-slate-200 pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-                <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} />
-                <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} />
-                <FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle", "Arrange by Party"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} />
-                <FormInput label="ASSIGN QTY (MT)" type="number" value={assignData.assignWeight} onChange={(v: string) => {
-                  const w = parseFloat(v) || 0;
-                  const r = parseFloat(assignData.rate) || 0;
-                  setAssignData({
-                    ...assignData, 
-                    assignWeight: v,
-                    freightAmount: !assignData.isFixedRate ? (w * r).toFixed(2) : assignData.freightAmount
-                  });
-                }} />
-                <FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignData.assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} />
-              </div>
-
-              {assignData.fleetType === 'Market Vehicle' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 pt-4 border-t border-slate-200 mt-4 animate-fade-in">
-                  <FormSelect 
-                    label="VENDOR NAME" 
-                    value={assignData.vendorName} 
-                    options={vendors.map((v: any) => ({ value: v.vendorName, label: v.vendorName }))} 
-                    onChange={(v: string) => {
-                      const match = vendors.find((vend: any) => vend.vendorName === v);
-                      setAssignData({
-                        ...assignData, 
-                        vendorName: v, 
-                        vendorCode: match?.vendorCode || '', 
-                        vendorFirmName: match?.vendorFirmName || '', 
-                        vendorMobile: match?.mobile || ''
-                      });
-                    }} 
-                  />
-                  <FormInput label="VENDOR FIRM" value={assignData.vendorFirmName} disabled={true} />
-                  <FormInput label="MOBILE" value={assignData.vendorMobile} disabled={true} />
-                  <FormInput label="ARRANGE BY" value={assignData.arrangeBy} onChange={(v: string) => setAssignData({...assignData, arrangeBy: v})} />
-                  <FormInput label="RATE" type="number" value={assignData.rate} onChange={(v: string) => {
-                    const r = parseFloat(v) || 0; 
-                    const w = parseFloat(assignData.assignWeight) || 0;
-                    setAssignData({
-                      ...assignData, 
-                      rate: v, 
-                      freightAmount: !assignData.isFixedRate ? (r * w).toFixed(2) : assignData.freightAmount
-                    });
-                  }} />
-                  <div className="flex items-center gap-8 pl-[180px]">
-                    <div className="flex items-center gap-2">
-                      <Checkbox 
-                        checked={assignData.isFixedRate} 
-                        onCheckedChange={(c) => setAssignData({...assignData, isFixedRate: !!c})} 
-                        id="edit-fix-rate" 
-                      />
-                      <label htmlFor="edit-fix-rate" className="text-[10px] font-black uppercase cursor-pointer text-slate-500">Fix Rate Mode</label>
-                    </div>
-                  </div>
-                  <FormInput 
-                    label="FREIGHT AMOUNT" 
-                    type="number" 
-                    value={assignData.freightAmount} 
-                    disabled={!assignData.isFixedRate} 
-                    onChange={(v: string) => setAssignData({...assignData, freightAmount: v})} 
-                  />
-                </div>
-              )}
-            </div>
-          )}
-          {assignmentMode === 'unassign' && (
-            <div className="bg-red-50 p-6 border border-red-100 text-center animate-pulse mt-6">
-              <p className="text-xs font-black text-red-600 uppercase tracking-widest">
-                CAUTION: TRIP ID {selectedTripForAssignment?.tripId} WILL BE CANCELLED.
-              </p>
-              <p className="text-[10px] font-bold text-slate-500 uppercase mt-2">
-                ORDER WILL MOVE BACK TO OPEN REGISTRY FOR RE-ASSIGNMENT.
-              </p>
-            </div>
-          )}
-        </div>
-        <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
-          <Button onClick={() => setIsAssignmentPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
-          <Button onClick={handleAssignmentPost} disabled={!assignmentMode} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    <Dialog open={isDelayRemarkPopupOpen} onOpenChange={setIsDelayRemarkPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Clock className="h-4 w-4" /> Delay Remark Registry</DialogTitle></DialogHeader>
-        <div className="p-8 space-y-6">
-          <div className="bg-white p-4 border border-slate-200 rounded-none space-y-3 shadow-inner opacity-90">
-             <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Sale Order</span><span className="text-[11px] font-black text-[#1e3a8a]">{selectedOrderForRemark?.saleOrder}</span></div>
-             <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Booked On</span><span className="text-[10px] font-black">{selectedOrderForRemark?.createdAt && format(new Date(selectedOrderForRemark.createdAt), 'dd-MMM-yy HH:mm')}</span></div>
-             <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[10px] font-black uppercase truncate max-w-[200px]">{selectedOrderForRemark?.shipToParty}</span></div>
-             <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black uppercase truncate max-w-[200px]">{selectedOrderForRemark?.route}</span></div>
-             <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Balance Qty</span><span className="text-[10px] font-black text-red-600">{selectedOrderForRemark?.bal} {selectedOrderForRemark?.weightUom}</span></div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-[11px] font-black text-slate-600 uppercase tracking-widest">Delay Remark *</label>
-            <textarea value={delayRemarkInput} onChange={e => setDelayRemarkInput(e.target.value)} className="w-full h-24 border border-slate-400 bg-white p-3 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase resize-none" placeholder="ENTER DELAY REASON..." />
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button onClick={() => setIsDelayRemarkPopupOpen(false)} variant="outline" className="h-9 px-6 bg-red-50 border-red-200 text-red-700 hover:bg-red-100 rounded-none text-[10px] font-black uppercase">Cancel</Button>
-            <Button onClick={handlePostDelayRemark} className="h-9 px-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post Sync</Button>
-          </div>
-        </div></DialogContent></Dialog>
-
-    <Dialog open={isArrivedPopupOpen} onOpenChange={setIsArrivedPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><MapPin className="h-4 w-4" /> Arrival Node</DialogTitle></DialogHeader>
-        <div className="p-8 space-y-6"><SectionGrouping title="DATE TIME"><FormInput label="ARRIVED DATE" type="date" value={arrivedData.date} onChange={(v: string) => setArrivedData({...arrivedData, date: v})} /><FormInput label="ARRIVED TIME" type="time" value={arrivedData.time} onChange={(v: string) => setArrivedData({...arrivedData, time: v})} /></SectionGrouping><div className="flex justify-end gap-3"><Button onClick={() => setIsArrivedPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button><Button onClick={handleArrivedPost} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Execute</Button></div></div></DialogContent></Dialog>
-
-    <Dialog open={isRejectPopupOpen} onOpenChange={setIsRejectPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-red-600 px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><XCircle className="h-4 w-4" /> Reject Registry</DialogTitle></DialogHeader>
-        <div className="p-8 space-y-6"><SectionGrouping title="REJECTION DATA"><FormInput label="DATE" type="date" value={rejectData.date} onChange={(v: string) => setRejectData({...rejectData, date: v})} /><FormInput label="TIME" type="time" value={rejectData.time} onChange={(v: string) => setRejectData({...rejectData, time: v})} /><div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right uppercase shrink-0">REMARK:</label><textarea value={rejectData.remark} onChange={e => setRejectData({...rejectData, remark: e.target.value})} className="h-20 w-[320px] border border-slate-400 bg-white px-2 py-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-red-500 uppercase resize-none" placeholder="REASON..." /></div></SectionGrouping><div className="flex justify-end gap-3"><Button onClick={() => setIsRejectPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button><Button onClick={handleRejectPost} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post Node</Button></div></div></DialogContent></Dialog>
-
-    <Dialog open={isUnloadPopupOpen} onOpenChange={setIsUnloadPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-emerald-600 px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Package className="h-4 w-4" /> Unload Node</DialogTitle></DialogHeader>
+    <Dialog open={isUnloadPopupOpen} onOpenChange={setIsUnloadPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-emerald-600 px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Package className="h-4 w-4" /> Unload</DialogTitle></DialogHeader>
         <div className="p-8 space-y-6"><SectionGrouping title="TIMESTAMP"><FormInput label="UNLOAD DATE" type="date" value={unloadData.date} onChange={(v: string) => setUnloadData({...unloadData, date: v})} /><FormInput label="UNLOAD TIME" type="time" value={unloadData.time} onChange={(v: string) => setUnloadData({...unloadData, time: v})} /></SectionGrouping><div className="flex justify-end gap-3"><Button onClick={() => setIsUnloadPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button><Button onClick={handleUnloadPost} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post Unload</Button></div></div></DialogContent></Dialog>
 
     <Dialog open={isPodPopupOpen} onOpenChange={setIsPodPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><UploadCloud className="h-4 w-4" /> Upload POD</DialogTitle></DialogHeader>
@@ -2595,7 +2345,7 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
         const comps = results[0].address_components; let street = '', city = '';
         for (const c of comps) { if (c.types.includes('route')) street = c.long_name; if (c.types.includes('locality')) city = c.long_name; }
         const locStr = [street, city].filter(Boolean).join(', ') || results[0].formatted_address;
-        const content = `<div style="font-family: monospace; font-size: 11px; font-weight: bold; padding: 10px; min-width: 180px;"><div style="color: #1e3a8a; border-bottom: 2px solid #1e3a8a; margin-bottom: 8px; padding-bottom: 4px; font-size: 13px; letter-spacing: -0.5px;">${v.vehicleNumber}</div><div style="color: #64748b; font-size: 9px; margin-bottom: 2px; text-transform: uppercase;">Live Node Location:</div><div style="color: #0f172a; line-height: 1.4;">${locStr}</div><div style="margin-top: 8px; color: #1e3a8a; font-size: 9px; display: flex; justify-content: space-between; border-top: 1px dashed #cbd5e1; padding-top: 4px;"><span>SPEED: ${v.speed} KM/H</span><span>${v.createdDateReadable}</span></div></div>`;
+        const content = `<div style="font-family: monospace; font-size: 11px; font-weight: bold; padding: 10px; min-width: 180px;"><div style="color: #1e3a8a; border-bottom: 2px solid #1e3a8a; margin-bottom: 8px; padding-bottom: 4px; font-size: 13px; letter-spacing: -0.5px;">${v.vehicleNumber}</div><div style="color: #64748b; font-size: 9px; margin-bottom: 2px; text-transform: uppercase;">Live Location:</div><div style="color: #0f172a; line-height: 1.4;">${locStr}</div><div style="margin-top: 8px; color: #1e3a8a; font-size: 9px; display: flex; justify-content: space-between; border-top: 1px dashed #cbd5e1; padding-top: 4px;"><span>SPEED: ${v.speed} KM/H</span><span>${v.createdDateReadable}</span></div></div>`;
         infoWindowRef.current.setContent(content); if (marker) infoWindowRef.current.open(map, marker); else { infoWindowRef.current.setPosition(latlng); infoWindowRef.current.open(map); }
         map.panTo(latlng); if (map.getZoom() < 14) map.setZoom(15);
       }
@@ -2621,7 +2371,7 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
        <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">GPS TRACKING HUB</h2>
        <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 overflow-x-auto no-scrollbar">{['Tracking MAP', 'Setting'].map(t => (<button key={t} onClick={() => setActiveTab(t)} className={cn("px-6 py-2 text-[9px] font-black uppercase tracking-widest whitespace-nowrap", activeTab === t ? "bg-white text-[#0056d2] -mb-px" : "text-slate-500 hover:text-slate-700")}>{t}</button>))}</div>
     </div>
-    <div className="flex-1 bg-white border border-slate-300 overflow-hidden flex flex-col md:flex-row mx-8 mb-12 shadow-sm">{activeTab === 'Tracking MAP' ? (<><div className="w-full md:w-80 border-r border-slate-200 flex flex-col h-full overflow-hidden"><div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between"><span className="text-[10px] font-black uppercase text-slate-500">Vehicle Registry</span><Badge variant="outline" className="text-[8px]">{vehicles.length} Units</Badge></div><div className="flex-1 overflow-y-auto green-scrollbar h-[350px]">{loading ? (<div className="p-10 flex flex-col items-center gap-2"><Loader2 className="h-5 w-5 animate-spin text-blue-600" /><span className="text-[8px] font-black uppercase text-slate-400">Loading GPS Nodes...</span></div>) : vehicles.map((v: any) => (<div key={v.vehicleNumber} onClick={() => showVehicleInfo(v)} className="p-4 border-b border-slate-50 hover:bg-blue-50 cursor-pointer transition-colors group flex flex-col gap-1 min-h-[70px]"><div className="flex justify-between items-start"><span className="text-[11px] font-black text-[#1e3a8a]">{v.vehicleNumber}</span><span className={cn("text-[8px] font-black px-1.5 py-0.5 rounded", v.speed > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{v.speed > 0 ? `${v.speed} KM/H` : 'STOPPED'}</span></div><p className="text-[9px] text-slate-400 font-bold uppercase truncate">{v.createdDateReadable || 'SYNCING...'}</p></div>))}</div></div><div className="flex-1 relative bg-slate-100"><div id="google-map" ref={(el) => { if (el && !map && window.google) { const newMap = new window.google.maps.Map(el, { center: { lat: 28.6139, lng: 77.2090 }, zoom: 5, disableDefaultUI: false }); setMap(newMap); } }} className="w-full h-full" /></div></>) : (<div className="p-8 space-y-10 max-w-2xl mx-auto w-full overflow-y-auto"><div className="space-y-6"><h3 className="text-sm font-black text-[#1e3a8a] uppercase tracking-tighter border-b border-slate-100 pb-2">GPS ICON SYNCHRONIZATION</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm"><label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Active Vehicle Icon</label><div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">{settings?.activeIcon ? (<div className="relative w-12 h-12 border border-slate-200 p-1"><Image src={settings.activeIcon} alt="Active" fill className="object-contain" unoptimized /></div>) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}<input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'activeIcon')} className="hidden" id="up-active-icon" /><Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300"><label htmlFor="up-active-icon" className="cursor-pointer">Upload New Node</label></Button></div></div><div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm"><label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500" /> Stopped Vehicle Icon</label><div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">{settings?.stopIcon ? (<div className="relative w-12 h-12 border border-slate-200 p-1"><Image src={settings.stopIcon} alt="Stop" fill className="object-contain" unoptimized /></div>) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}<input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'stopIcon')} className="hidden" id="up-stop-icon" /><Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300"><label htmlFor="up-stop-icon" className="cursor-pointer">Upload New Node</label></Button></div></div></div></div></div>)}</div></div>;
+    <div className="flex-1 bg-white border border-slate-300 overflow-hidden flex flex-col md:flex-row mx-8 mb-12 shadow-sm">{activeTab === 'Tracking MAP' ? (<><div className="w-full md:w-80 border-r border-slate-200 flex flex-col h-full overflow-hidden"><div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between"><span className="text-[10px] font-black uppercase text-slate-500">Vehicle Registry</span><Badge variant="outline" className="text-[8px]">{vehicles.length} Units</Badge></div><div className="flex-1 overflow-y-auto green-scrollbar h-[350px]">{loading ? (<div className="p-10 flex flex-col items-center gap-2"><Loader2 className="h-5 w-5 animate-spin text-blue-600" /><span className="text-[8px] font-black uppercase text-slate-400">Loading GPS...</span></div>) : vehicles.map((v: any) => (<div key={v.vehicleNumber} onClick={() => showVehicleInfo(v)} className="p-4 border-b border-slate-50 hover:bg-blue-50 cursor-pointer transition-colors group flex flex-col gap-1 min-h-[70px]"><div className="flex justify-between items-start"><span className="text-[11px] font-black text-[#1e3a8a]">{v.vehicleNumber}</span><span className={cn("text-[8px] font-black px-1.5 py-0.5 rounded", v.speed > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{v.speed > 0 ? `${v.speed} KM/H` : 'STOPPED'}</span></div><p className="text-[9px] text-slate-400 font-bold uppercase truncate">{v.createdDateReadable || 'SYNCING...'}</p></div>))}</div></div><div className="flex-1 relative bg-slate-100"><div id="google-map" ref={(el) => { if (el && !map && window.google) { const newMap = new window.google.maps.Map(el, { center: { lat: 28.6139, lng: 77.2090 }, zoom: 5, disableDefaultUI: false }); setMap(newMap); } }} className="w-full h-full" /></div></>) : (<div className="p-8 space-y-10 max-w-2xl mx-auto w-full overflow-y-auto"><div className="space-y-6"><h3 className="text-sm font-black text-[#1e3a8a] uppercase tracking-tighter border-b border-slate-100 pb-2">GPS ICON SYNCHRONIZATION</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm"><label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Active Vehicle Icon</label><div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">{settings?.activeIcon ? (<div className="relative w-12 h-12 border border-slate-200 p-1"><Image src={settings.activeIcon} alt="Active" fill className="object-contain" unoptimized /></div>) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}<input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'activeIcon')} className="hidden" id="up-active-icon" /><Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300"><label htmlFor="up-active-icon" className="cursor-pointer">Upload New</label></Button></div></div><div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm"><label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500" /> Stopped Vehicle Icon</label><div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">{settings?.stopIcon ? (<div className="relative w-12 h-12 border border-slate-200 p-1"><Image src={settings.stopIcon} alt="Stop" fill className="object-contain" unoptimized /></div>) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}<input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'stopIcon')} className="hidden" id="up-stop-icon" /><Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300"><label htmlFor="up-stop-icon" className="cursor-pointer">Upload New</label></Button></div></div></div></div></div>)}</div></div>;
 }
 
 function TrackShipmentScreen({ trips, orders, customers }: any) {
@@ -2718,7 +2468,7 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
 
   if (view === 'so_details') {
     return <div className="space-y-0 min-h-full">
-      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 flex items-center justify-between"><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">SALE ORDER NODE</h2><Button onClick={() => setView('search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">New Search</Button></div>
+      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 flex items-center justify-between"><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">SALE ORDER</h2><Button onClick={() => setView('search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">New Search</Button></div>
       <div className="px-10 pb-20"><SectionGrouping title="ORDER DETAILS">
           <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-400 w-[180px] text-right uppercase">Booked On:</label><span className="text-[12px] font-black uppercase">{format(new Date(trackingData.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
           <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-400 w-[180px] text-right uppercase">Weight:</label><span className="text-[12px] font-black text-emerald-600">{trackingData.weight} {trackingData.weightUom}</span></div>
@@ -2728,7 +2478,7 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
         </SectionGrouping>
         {linkedTrips && linkedTrips.length > 0 ? (
           <div className="bg-blue-50 border-y border-blue-200 p-8 space-y-4">
-            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Linked Trip Nodes Found:</p>
+            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Linked Trip Found:</p>
             <div className="flex flex-wrap gap-4">
               {linkedTrips.map((t: any) => (
                 <button 
@@ -2743,7 +2493,7 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
             </div>
           </div>
         ) : (
-          <div className="bg-orange-50 border-y border-orange-200 p-8 text-center"><p className="text-sm font-black italic uppercase text-slate-800 leading-relaxed">Pending Trip Node Synchronization...</p></div>
+          <div className="bg-orange-50 border-y border-orange-200 p-8 text-center"><p className="text-sm font-black italic uppercase text-slate-800 leading-relaxed">Pending Trip Synchronization...</p></div>
         )}
       </div></div>;
   }
@@ -2759,12 +2509,12 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
   return <div className="space-y-0 min-h-full">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between"><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">LIVE TRIP TRACKING</h2><Button onClick={() => setView(linkedTrips.length > 1 ? 'so_details' : 'search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">Back</Button></div>
       <div className="px-10 pb-20 space-y-8">
-        <SectionGrouping title="REGISTRY HUB">
+        <SectionGrouping title="REGISTRY">
            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-4 border-b border-slate-100 pb-8">
               <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[13px] font-black uppercase text-[#1e3a8a]">{trackingData.vehicleNumber}</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Consignee Node</span><span className="text-[13px] font-black uppercase truncate">{trackingData.consignee}</span></div>
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Consignee</span><span className="text-[13px] font-black uppercase truncate">{trackingData.consignee}</span></div>
               <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Assigned Qty</span><span className="text-[13px] font-black text-emerald-600">{trackingData.assignWeight} MT</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route Hub</span><span className="text-[13px] font-black uppercase text-blue-600 truncate">{trackingData.route}</span></div>
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[13px] font-black uppercase text-blue-600 truncate">{trackingData.route}</span></div>
            </div>
            {trackingData.delayRemark && (
              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200">
@@ -2842,7 +2592,7 @@ function Se38Report({ search, results, onSearchChange, allPlants, allVendors, al
       <div className="flex flex-col h-full bg-white animate-fade-in">
         <div className="bg-[#f0f0f0] border-b border-slate-300 p-2 flex items-center gap-4">
           <Button onClick={handleExport} className="h-7 bg-white border border-slate-400 hover:bg-slate-50 text-[#1e3a8a] font-black text-[9px] uppercase px-4 rounded-none shadow-sm">
-            <Download className="h-3 w-3 mr-2" /> Export Node
+            <Download className="h-3 w-3 mr-2" /> Export
           </Button>
         </div>
         <div className="flex-1 overflow-auto green-scrollbar">
