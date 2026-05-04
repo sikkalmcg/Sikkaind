@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -1690,7 +1691,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
           <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Truck className="h-4 w-4" /> TR21 – Assign Vehicle</DialogTitle>
         </DialogHeader>
-        <div className="p-10 space-y-10 overflow-y-auto green-scrollbar flex-1">
+        <div className="p-6 space-y-4 overflow-y-auto green-scrollbar flex-1">
           <SectionGrouping title="POPUP HEADER">
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-12 mb-4">
                 <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Plant Hub</span><span className="text-[12px] font-black text-[#1e3a8a]">{selectedOrder?.plantCode}</span></div>
@@ -1768,7 +1769,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
              )}
           </SectionGrouping>
         </div>
-        <div className="p-6 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
+        <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
           <Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
           <Button onClick={handleCreateTrip} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post Assignment</Button>
         </div>
