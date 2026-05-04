@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -73,11 +72,16 @@ const MASTER_TCODES = [
 const SHARED_HUB_ID = 'Sikkaind'; 
 
 function VehicleLocation({ lat, lng, locationName, onClick }: { lat: number, lng: number, locationName?: string, onClick?: (loc: string) => void }) {
-  const [loc, setLoc] = React.useState<string>(locationName || 'Syncing...');
+  const [loc, setLoc] = React.useState<string>('Syncing...');
   
   React.useEffect(() => {
     if (locationName) {
-      setLoc(locationName);
+      const parts = locationName.split(',');
+      if (parts.length >= 2) {
+        setLoc(`${parts[0].trim()} – ${parts[1].trim()}`);
+      } else {
+        setLoc(locationName);
+      }
       return;
     }
     if (!window.google) return;
@@ -93,7 +97,7 @@ function VehicleLocation({ lat, lng, locationName, onClick }: { lat: number, lng
         const full = `${street}${street && city ? ' – ' : ''}${city}` || results[0].formatted_address;
         setLoc(full);
       } else {
-        setLoc('Unknown Location');
+        setLoc('Location Offline');
       }
     });
   }, [lat, lng, locationName]);
@@ -277,6 +281,17 @@ export default function SapDashboard() {
     setIsBootstrapAdmin(isAdmin);
     setRegistryId(rid);
     setIsAuthChecking(false);
+
+    // Global Google Maps script load
+    const scriptId = 'google-maps-script';
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
   }, []);
 
   React.useEffect(() => {
@@ -1649,7 +1664,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const handlePodUploadAction = (t: any) => { setSelectedTripForPod(t); setPodFile(null); setIsPodPopupOpen(true); };
   const handlePodPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForPod.id), { status: 'CLOSED', podFile: podFile, podUploadedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true }); setIsPodPopupOpen(false); onStatusUpdate({ text: `Node CLOSED`, type: 'success' }); };
   const handleViewAction = (t: any) => { setSelectedTripForClosed(t); setClosedViewMode('view'); setPodFile(t.podFile || null); setIsClosedViewPopupOpen(true); };
-  const handleAddCn = (t: any) => { setSelectedTripForCn(t); const company = (companies || []).find((c: any) => c.plantCodes?.includes(t.plantCode)); setCnFormData({ cnNo: t.cnNo || '', cnDate: t.cnDate || format(new Date(), 'yyyy-MM-dd'), paymentTerms: t.paymentTerms || 'PAID', carrierName: company?.companyName || 'AUTO-ASSIGN PENDING', items: t.cnItems || [{ invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'BAG' }] }); setIsCnPopupOpen(true); };
+  const handleAddCn = (t: any) => { setSelectedTripForCn(t); const company = (companies || []).find((c: any) => c.plantCodes?.includes(t.plantCode)); setCnFormData({ cnNo: t.cnNo || '', cnNoAuto: '', cnDate: t.cnDate || format(new Date(), 'yyyy-MM-dd'), paymentTerms: t.paymentTerms || 'PAID', carrierName: company?.companyName || 'AUTO-ASSIGN PENDING', items: t.cnItems || [{ invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'BAG' }] }); setIsCnPopupOpen(true); };
   const handleCnPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForCn.id), { cnNo: cnFormData.cnNo, cnDate: cnFormData.cnDate, paymentTerms: cnFormData.paymentTerms, carrierName: cnFormData.carrierName, cnItems: cnFormData.items, updatedAt: new Date().toISOString() }, { merge: true }); setIsCnPopupOpen(false); onStatusUpdate({ text: `CN Synced`, type: 'success' }); };
   const handleCnPreviewClick = (t: any) => { const order = (orders || []).find((o: any) => o.id === t.saleOrderId); setSelectedTripForPreview({ ...t, order }); setCnPreviewStatus('idle'); setIsCnPreviewOpen(true); };
 
@@ -1663,6 +1678,8 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       saleOrderNumber: selectedOrder.saleOrder,
       saleOrderDate: selectedOrder.saleOrderDate || '',
       plantCode: assignData.plantCode,
+      consignor: selectedOrder.consignor || '',
+      from: selectedOrder.from || '',
       consignee: assignData.consignee,
       shipToParty: assignData.shipToParty,
       route: assignData.route,
@@ -1718,12 +1735,12 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                         </div>
                     </td></tr>);
                   } else {
-                    const t = item; const gpsVehicle = gpsData.find(v => v.vehicleNumber === t.vehicleNumber);
+                    const t = item; const gpsVehicle = gpsData.find(v => v.vehicleNumber?.toUpperCase() === t.vehicleNumber?.toUpperCase());
                     return (<tr key={t.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] cursor-pointer text-[11px] font-bold"><td className="p-3">{t.plantCode}</td><td className="p-3 text-[#0056d2] font-black">{t.tripId}</td><td className="p-3 uppercase">{t.saleOrderNumber}</td><td className="p-3 uppercase">{t.consignee}</td><td className="p-3 uppercase">{t.shipToParty}</td><td className="p-3 uppercase">{t.route}</td><td className="p-3 uppercase" onDoubleClick={(e) => { e.stopPropagation(); handleAssignmentClick(t); }}>{t.vehicleNumber}</td><td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td><td className="p-3"><div className="flex items-center gap-2">{t.cnNo ? (<button onClick={() => handleCnPreviewClick(t)} className="font-black text-[#0056d2] uppercase">{t.cnNo}</button>) : ""}<button onClick={() => handleAddCn(t)} className="p-1 text-slate-400 hover:text-blue-600"><Plus className="h-3 w-3" /></button></div></td>
                         <td className="p-3"><div className="flex items-center gap-2">
                               {activeTab === 'Loading' && (<><Button onClick={() => handleOutVehicle(t)} size="sm" className="text-[9px] bg-emerald-600 text-white font-black h-7 rounded-none uppercase">Out</Button><Button onClick={() => handleAssignmentClick(t)} size="sm" className="text-[9px] bg-yellow-400 text-black font-black h-7 rounded-none uppercase">Assign</Button></>)}
                               {activeTab === 'In-Transit' && (<><Button onClick={() => handleArrivedAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 rounded-none uppercase">Arrived</Button>{gpsVehicle && <VehicleLocation lat={gpsVehicle.latitude} lng={gpsVehicle.longitude} locationName={gpsVehicle.location} onClick={() => handleOpenMapPage(t, gpsVehicle)} />}</>)}
-                              {activeTab === 'Arrived' && (<><Button onClick={() => handleUnloadAction(t)} size="sm" className="text-[9px] bg-emerald-600 text-white font-black h-7 rounded-none uppercase">Unload</Button><Button onClick={() => handleRejectAction(t)} size="sm" className="text-[9px] bg-red-600 text-white font-black h-7 rounded-none uppercase">Reject</Button></>)}
+                              {activeTab === 'Arrived' && (<><Button onClick={() => handleUnloadAction(t)} size="sm" className="text-[9px] bg-emerald-600 text-white font-black h-7 rounded-none uppercase">Unload</Button><Button onClick={() => handleRejectAction(t)} size="sm" className="text-[9px] bg-red-600 text-white font-black h-7 rounded-none uppercase">Reject</Button>{gpsVehicle && <VehicleLocation lat={gpsVehicle.latitude} lng={gpsVehicle.longitude} locationName={gpsVehicle.location} onClick={() => handleOpenMapPage(t, gpsVehicle)} />}</>)}
                               {activeTab === 'POD Verify' && (<Button onClick={() => handlePodUploadAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 rounded-none uppercase">POD</Button>)}
                               {activeTab === 'Closed' && (<Button onClick={() => handleViewAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 rounded-none uppercase">View</Button>)}
                             </div></td></tr>);
@@ -1994,8 +2011,14 @@ function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
     const consMaster = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.consignor?.toUpperCase());
     const shipMaster = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.shipToParty?.toUpperCase());
 
-    const p1 = new Promise(r => { if (consMaster?.postalCode) geocoder.geocode({ address: consMaster.postalCode }, (res: any) => r(res?.[0]?.geometry?.location)); else r(null); });
-    const p2 = new Promise(r => { if (shipMaster?.postalCode) geocoder.geocode({ address: shipMaster.postalCode }, (res: any) => r(res?.[0]?.geometry?.location)); else r(null); });
+    const p1 = new Promise(r => { 
+      if (consMaster?.postalCode) geocoder.geocode({ address: consMaster.postalCode }, (res: any) => r(res?.[0]?.geometry?.location || null)); 
+      else r(null); 
+    });
+    const p2 = new Promise(r => { 
+      if (shipMaster?.postalCode) geocoder.geocode({ address: shipMaster.postalCode }, (res: any) => r(res?.[0]?.geometry?.location || null)); 
+      else r(null); 
+    });
 
     Promise.all([p1, p2]).then(([origin, dest]: any) => {
       if (!mapRef.current) return;
@@ -2039,8 +2062,12 @@ function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
           if (status === 'OK') {
             directionsRenderer.setDirections(result);
             setDistance(result.routes[0].legs[0].distance?.text || 'N/A');
+          } else {
+            setDistance('N/A');
           }
         });
+      } else {
+        setDistance('N/A');
       }
     });
   }, [node, customers, settings]);
@@ -2107,7 +2134,6 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
     });
   }, [map]);
 
-  React.useEffect(() => { if (activeTab === 'Tracking MAP') { const scriptId = 'google-maps-script'; if (!document.getElementById(scriptId)) { const script = document.createElement('script'); script.id = scriptId; script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU&libraries=places`; script.async = true; script.defer = true; document.head.appendChild(script); } } }, [activeTab]);
   React.useEffect(() => {
     if (!map || !vehicles.length || !window.google) return; markersRef.current.forEach(m => m.setMap(null)); markersRef.current = [];
     const newMarkers: any[] = [];
