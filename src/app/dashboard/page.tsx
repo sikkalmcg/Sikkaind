@@ -1557,7 +1557,31 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     onStatusUpdate({ text: 'Delay Remark Saved', type: 'success' });
   };
 
-  const handleAssignmentClick = (t: any) => { setSelectedTripForAssignment(t); setAssignmentMode(null); setAssignData({ vehicleNumber: t.vehicleNumber, driverMobile: t.driverMobile, assignWeight: t.assignWeight, fleetType: t.fleetType, vendorName: t.vendorName, vendorMobile: t.vendorMobile, employee: t.employee, rate: t.rate, freightAmount: t.freightAmount, isFixedRate: t.isFixedRate, plantCode: t.plantCode, consignee: t.consignee, shipToParty: t.shipToParty, route: t.route }); setIsAssignmentPopupOpen(true); };
+  const handleAssignmentClick = (t: any) => { 
+    setSelectedTripForAssignment(t); 
+    setAssignmentMode(null); 
+    setAssignData({ 
+      vehicleNumber: t.vehicleNumber, 
+      driverMobile: t.driverMobile, 
+      assignWeight: t.assignWeight, 
+      fleetType: t.fleetType, 
+      vendorName: t.vendorName, 
+      vendorMobile: t.vendorMobile, 
+      vendorFirmName: t.vendorFirmName,
+      vendorCode: t.vendorCode,
+      arrangeBy: t.arrangeBy,
+      employee: t.employee, 
+      rate: t.rate, 
+      freightAmount: t.freightAmount, 
+      isFixedRate: t.isFixedRate, 
+      plantCode: t.plantCode, 
+      consignee: t.consignee, 
+      shipToParty: t.shipToParty, 
+      route: t.route,
+      assignDate: t.assignDate || t.createdAt
+    }); 
+    setIsAssignmentPopupOpen(true); 
+  };
   
   const handlePodFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1584,7 +1608,33 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     onStatusUpdate({ text: `POD Node Updated`, type: 'success' });
   };
 
-  const handleAssignmentPost = () => { if (!assignmentMode) { onStatusUpdate({ text: 'Selection Required', type: 'error' }); return; } if (assignmentMode === 'unassign') { deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id)); onStatusUpdate({ text: `Trip Unassigned`, type: 'success' }); } else { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id), { vehicleNumber: assignData.vehicleNumber, driverMobile: assignData.driverMobile, assignWeight: parseFloat(assignData.assignWeight || 0), fleetType: assignData.fleetType, vendorName: assignData.vendorName || '', vendorMobile: assignData.vendorMobile || '', employee: assignData.employee || '', rate: parseFloat(assignData.rate || 0) || 0, freightAmount: parseFloat(assignData.freightAmount || 0) || 0, isFixedRate: !!assignData.isFixedRate, updatedAt: new Date().toISOString() }, { merge: true }); onStatusUpdate({ text: `Trip Updated`, type: 'success' }); } setIsAssignmentPopupOpen(false); };
+  const handleAssignmentPost = () => { 
+    if (!assignmentMode) { onStatusUpdate({ text: 'Selection Required', type: 'error' }); return; } 
+    if (assignmentMode === 'unassign') { 
+      deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id)); 
+      onStatusUpdate({ text: `Trip Unassigned`, type: 'success' }); 
+    } else { 
+      setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id), { 
+        vehicleNumber: assignData.vehicleNumber, 
+        driverMobile: assignData.driverMobile, 
+        assignWeight: parseFloat(assignData.assignWeight || 0), 
+        fleetType: assignData.fleetType, 
+        vendorName: assignData.vendorName || '', 
+        vendorMobile: assignData.vendorMobile || '', 
+        vendorFirmName: assignData.vendorFirmName || '',
+        vendorCode: assignData.vendorCode || '',
+        arrangeBy: assignData.arrangeBy || '',
+        employee: assignData.employee || '', 
+        rate: parseFloat(assignData.rate || 0) || 0, 
+        freightAmount: parseFloat(assignData.freightAmount || 0) || 0, 
+        isFixedRate: !!assignData.isFixedRate, 
+        assignDate: assignData.assignDate,
+        updatedAt: new Date().toISOString() 
+      }, { merge: true }); 
+      onStatusUpdate({ text: `Trip Updated`, type: 'success' }); 
+    } 
+    setIsAssignmentPopupOpen(false); 
+  };
   const handleTrackModeAction = (t: any) => { setSelectedTripForTrackMode(t); setTrackModeData({ mode: t.trackMode || 'GPS Tracking' }); setIsTrackModePopupOpen(true); };
   const handleTrackModePost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForTrackMode.id), { trackMode: trackModeData.mode, updatedAt: new Date().toISOString() }, { merge: true }); setIsTrackModePopupOpen(false); onStatusUpdate({ text: `Mode Synced`, type: 'success' }); };
   const handleOpenMapPage = (t: any, gps: any) => { setTrackingNode({ trip: t, gps }); setViewMode('tracking'); };
@@ -1669,7 +1719,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                     </td></tr>);
                   } else {
                     const t = item; const gpsVehicle = gpsData.find(v => v.vehicleNumber === t.vehicleNumber);
-                    return (<tr key={t.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] cursor-pointer text-[11px] font-bold"><td className="p-3">{t.plantCode}</td><td className="p-3 text-[#0056d2] font-black">{t.tripId}</td><td className="p-3 uppercase">{t.saleOrderNumber}</td><td className="p-3 uppercase">{t.consignee}</td><td className="p-3 uppercase">{t.shipToParty}</td><td className="p-3 uppercase">{t.route}</td><td className="p-3 uppercase">{t.vehicleNumber}</td><td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td><td className="p-3"><div className="flex items-center gap-2">{t.cnNo ? (<button onClick={() => handleCnPreviewClick(t)} className="font-black text-[#0056d2] uppercase">{t.cnNo}</button>) : ""}<button onClick={() => handleAddCn(t)} className="p-1 text-slate-400 hover:text-blue-600"><Plus className="h-3 w-3" /></button></div></td>
+                    return (<tr key={t.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] cursor-pointer text-[11px] font-bold"><td className="p-3">{t.plantCode}</td><td className="p-3 text-[#0056d2] font-black">{t.tripId}</td><td className="p-3 uppercase">{t.saleOrderNumber}</td><td className="p-3 uppercase">{t.consignee}</td><td className="p-3 uppercase">{t.shipToParty}</td><td className="p-3 uppercase">{t.route}</td><td className="p-3 uppercase" onDoubleClick={(e) => { e.stopPropagation(); handleAssignmentClick(t); }}>{t.vehicleNumber}</td><td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td><td className="p-3"><div className="flex items-center gap-2">{t.cnNo ? (<button onClick={() => handleCnPreviewClick(t)} className="font-black text-[#0056d2] uppercase">{t.cnNo}</button>) : ""}<button onClick={() => handleAddCn(t)} className="p-1 text-slate-400 hover:text-blue-600"><Plus className="h-3 w-3" /></button></div></td>
                         <td className="p-3"><div className="flex items-center gap-2">
                               {activeTab === 'Loading' && (<><Button onClick={() => handleOutVehicle(t)} size="sm" className="text-[9px] bg-emerald-600 text-white font-black h-7 rounded-none uppercase">Out</Button><Button onClick={() => handleAssignmentClick(t)} size="sm" className="text-[9px] bg-yellow-400 text-black font-black h-7 rounded-none uppercase">Assign</Button></>)}
                               {activeTab === 'In-Transit' && (<><Button onClick={() => handleArrivedAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 rounded-none uppercase">Arrived</Button>{gpsVehicle && <VehicleLocation lat={gpsVehicle.latitude} lng={gpsVehicle.longitude} locationName={gpsVehicle.location} onClick={() => handleOpenMapPage(t, gpsVehicle)} />}</>)}
@@ -1777,11 +1827,22 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     </Dialog>
 
     <Dialog open={isAssignmentPopupOpen} onOpenChange={setIsAssignmentPopupOpen}>
-      <DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden">
-        <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
+      <DialogContent className="max-w-[1200px] max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
+        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
           <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Edit3 className="h-4 w-4" /> Assignment Management</DialogTitle>
         </DialogHeader>
-        <div className="p-8 space-y-8">
+        <div className="p-6 space-y-6 overflow-y-auto green-scrollbar flex-1">
+          <div className="grid grid-cols-2 gap-12 mb-4 bg-white p-4 border border-slate-200">
+            <div className="flex flex-col gap-1">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span>
+              <span className="text-[12px] font-black uppercase truncate">{selectedTripForAssignment?.shipToParty}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route Hub</span>
+              <span className="text-[12px] font-black uppercase truncate">{selectedTripForAssignment?.route}</span>
+            </div>
+          </div>
+
           <RadioGroup value={assignmentMode || ''} onValueChange={(v: any) => setAssignmentMode(v)} className="grid grid-cols-2 gap-4">
             <div className="flex items-center space-x-2 bg-white p-4 border border-slate-200">
               <RadioGroupItem value="edit" id="r-edit" /><Label htmlFor="r-edit" className="text-[10px] font-black uppercase cursor-pointer">Edit Assignment</Label>
@@ -1790,21 +1851,89 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
               <RadioGroupItem value="unassign" id="r-unassign" /><Label htmlFor="r-unassign" className="text-[10px] font-black uppercase cursor-pointer text-red-600">Unassign Trip</Label>
             </div>
           </RadioGroup>
+
           {assignmentMode === 'edit' && (
             <div className="space-y-4 animate-fade-in border-t border-slate-200 pt-6">
-              <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: any) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} />
-              <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: any) => setAssignData({...assignData, driverMobile: v})} />
-              <FormInput label="ASSIGN QTY *" type="number" value={assignData.assignWeight} onChange={(v: any) => setAssignData({...assignData, assignWeight: v})} />
-              <FormInput label="RATE" type="number" value={assignData.rate} onChange={(v: any) => setAssignData({...assignData, rate: v})} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} />
+                <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} />
+                <FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle", "Arrange by Party"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} />
+                <FormInput label="ASSIGN QTY (MT)" type="number" value={assignData.assignWeight} onChange={(v: string) => {
+                  const w = parseFloat(v) || 0;
+                  const r = parseFloat(assignData.rate) || 0;
+                  setAssignData({
+                    ...assignData, 
+                    assignWeight: v,
+                    freightAmount: !assignData.isFixedRate ? (w * r).toFixed(2) : assignData.freightAmount
+                  });
+                }} />
+                <FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignData.assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} />
+              </div>
+
+              {assignData.fleetType === 'Market Vehicle' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 pt-4 border-t border-slate-200 mt-4 animate-fade-in">
+                  <FormSelect 
+                    label="VENDOR NAME" 
+                    value={assignData.vendorName} 
+                    options={vendors.map((v: any) => ({ value: v.vendorName, label: v.vendorName }))} 
+                    onChange={(v: string) => {
+                      const match = vendors.find((vend: any) => vend.vendorName === v);
+                      setAssignData({
+                        ...assignData, 
+                        vendorName: v, 
+                        vendorCode: match?.vendorCode || '', 
+                        vendorFirmName: match?.vendorFirmName || '', 
+                        vendorMobile: match?.mobile || ''
+                      });
+                    }} 
+                  />
+                  <FormInput label="VENDOR FIRM" value={assignData.vendorFirmName} disabled={true} />
+                  <FormInput label="MOBILE" value={assignData.vendorMobile} disabled={true} />
+                  <FormInput label="ARRANGE BY" value={assignData.arrangeBy} onChange={(v: string) => setAssignData({...assignData, arrangeBy: v})} />
+                  <FormInput label="RATE" type="number" value={assignData.rate} onChange={(v: string) => {
+                    const r = parseFloat(v) || 0; 
+                    const w = parseFloat(assignData.assignWeight) || 0;
+                    setAssignData({
+                      ...assignData, 
+                      rate: v, 
+                      freightAmount: !assignData.isFixedRate ? (r * w).toFixed(2) : assignData.freightAmount
+                    });
+                  }} />
+                  <div className="flex items-center gap-8 pl-[180px]">
+                    <div className="flex items-center gap-2">
+                      <Checkbox 
+                        checked={assignData.isFixedRate} 
+                        onCheckedChange={(c) => setAssignData({...assignData, isFixedRate: !!c})} 
+                        id="edit-fix-rate" 
+                      />
+                      <label htmlFor="edit-fix-rate" className="text-[10px] font-black uppercase cursor-pointer text-slate-500">Fix Rate Mode</label>
+                    </div>
+                  </div>
+                  <FormInput 
+                    label="FREIGHT AMOUNT" 
+                    type="number" 
+                    value={assignData.freightAmount} 
+                    disabled={!assignData.isFixedRate} 
+                    onChange={(v: string) => setAssignData({...assignData, freightAmount: v})} 
+                  />
+                </div>
+              )}
             </div>
           )}
           {assignmentMode === 'unassign' && (
-            <div className="bg-red-50 p-4 border border-red-100 text-center animate-pulse"><p className="text-[10px] font-black text-red-600 uppercase">CAUTION: This node will be permanently unassigned.</p></div>
+            <div className="bg-red-50 p-6 border border-red-100 text-center animate-pulse mt-6">
+              <p className="text-xs font-black text-red-600 uppercase tracking-widest">
+                CAUTION: TRIP ID {selectedTripForAssignment?.tripId} WILL BE CANCELLED.
+              </p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase mt-2">
+                ORDER WILL MOVE BACK TO OPEN REGISTRY FOR RE-ASSIGNMENT.
+              </p>
+            </div>
           )}
-          <div className="flex justify-end gap-3">
-            <Button onClick={() => setIsAssignmentPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button>
-            <Button onClick={handleAssignmentPost} disabled={!assignmentMode} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Execute Sync</Button>
-          </div>
+        </div>
+        <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
+          <Button onClick={() => setIsAssignmentPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
+          <Button onClick={handleAssignmentPost} disabled={!assignmentMode} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button>
         </div>
       </DialogContent>
     </Dialog>
