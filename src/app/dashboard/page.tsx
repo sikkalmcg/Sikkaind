@@ -216,8 +216,8 @@ function LiveTrackingMapDialog({ isOpen, onOpenChange, trip, gpsVehicle, custome
           {isCompact ? (
              <div className="p-4 grid grid-cols-3 gap-8">
                 <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[10px] font-black uppercase truncate">{trip?.shipToParty}</span></div>
-                <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black uppercase truncate">{trip?.route}</span></div>
-                <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle Number</span><span className="text-[10px] font-black uppercase">{trip?.vehicleNumber}</span></div>
+                <div className="flex flex-col"><span className="text-[10px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black uppercase truncate">{trip?.route}</span></div>
+                <div className="flex flex-col"><span className="text-[10px] font-black text-slate-400 uppercase">Vehicle Number</span><span className="text-[10px] font-black uppercase">{trip?.vehicleNumber}</span></div>
              </div>
           ) : (
             <>
@@ -310,6 +310,9 @@ export default function SapDashboard() {
   }, [user, db, isBootstrapAdmin, registryId]);
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
+
+  const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
+  const { data: settings } = useDoc(settingsRef);
 
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
@@ -1026,6 +1029,7 @@ export default function SapDashboard() {
                      setViewMode={setViewMode}
                      trackingNode={trackingNode}
                      setTrackingNode={setTrackingNode}
+                     settings={settings}
                    />
                  )}
                  {activeScreen === 'TR21' && viewMode === 'tracking' && (
@@ -1037,7 +1041,7 @@ export default function SapDashboard() {
                     />
                  )}
                  {activeScreen === 'TR24' && <TrackShipmentScreen trips={allTrips} orders={allOrders} customers={accessibleCustomers} />}
-                 {activeScreen === 'WGPS24' && <GpsTrackingHub trips={allTrips} onStatusUpdate={setStatusMsg} db={db} />}
+                 {activeScreen === 'WGPS24' && <GpsTrackingHub trips={allTrips} onStatusUpdate={setStatusMsg} db={db} settings={settings} settingsRef={settingsRef} />}
                  {activeScreen === 'SE38' && <Se38Report search={se38Search} results={se38Results} onSearchChange={setSe38Search} allPlants={accessiblePlants} allVendors={accessibleVendors} allCompanies={accessibleCompanies} allCustomers={accessibleCustomers} />}
                  {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               </div>
@@ -1437,7 +1441,7 @@ function RegistryList({ onSelectItem, listData, activeScreen }: any) {
   </div>;
 }
 
-function DripBoard({ orders, trips, vendors, plants, companies, customers, onStatusUpdate, viewMode, setViewMode, trackingNode, setTrackingNode }: any) {
+function DripBoard({ orders, trips, vendors, plants, companies, customers, onStatusUpdate, viewMode, setViewMode, trackingNode, setTrackingNode, settings }: any) {
   const { user } = useUser(); const db = useFirestore(); 
   const [activeTab, setActiveTab] = React.useState('Open Orders'); 
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null); 
@@ -1477,9 +1481,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const [selectedTripForPreview, setSelectedTripForPreview] = React.useState<any>(null);
   const [cnPreviewStatus, setCnPreviewStatus] = React.useState<'idle' | 'generated'>('idle');
   const [gpsData, setGpsData] = React.useState<any[]>([]);
-  
-  const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
-  const { data: settings } = useDoc(settingsRef);
 
   const fetchGps = React.useCallback(async () => {
     try {
@@ -1716,10 +1717,8 @@ function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
   );
 }
 
-function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
+function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: any) {
   const [activeTab, setActiveTab] = React.useState('Tracking MAP'); const [vehicles, setVehicles] = React.useState<any[]>([]); const [loading, setLoading] = React.useState(true); const [map, setMap] = React.useState<any>(null); const markersRef = React.useRef<any[]>([]); const infoWindowRef = React.useRef<any>(null);
-  const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
-  const { data: settings } = useDoc(settingsRef);
 
   const fetchGpsData = React.useCallback(async () => {
     const internalApiUrl = '/api/gps'; const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 15000);
