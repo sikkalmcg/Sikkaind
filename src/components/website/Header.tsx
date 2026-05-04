@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -31,6 +32,7 @@ export default function Header() {
                     className="object-contain"
                     priority
                     unoptimized={true}
+                    data-ai-hint="logistics logo"
                   />
                 </div>
               )}

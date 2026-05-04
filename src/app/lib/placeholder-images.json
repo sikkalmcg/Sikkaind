@@ -3,70 +3,70 @@
   "placeholderImages": [
     {
       "id": "logo-old",
-      "url": "/assets/logo.png",
+      "url": "https://picsum.photos/seed/sikka-logo/200/100",
       "width": 200,
       "height": 100,
       "description": "Sikka Industries Logo"
     },
     {
       "id": "login-hero",
-      "url": "/assets/login-hero.jpg",
+      "url": "https://picsum.photos/seed/logistics-login/800/1200",
       "width": 800,
-      "height": 1000,
+      "height": 1200,
       "description": "Sikka Industries Login Hero Image"
     },
     {
       "id": "dashboard-bg",
-      "url": "/assets/dashboard-bg.jpg",
+      "url": "https://picsum.photos/seed/logistics-bg/1920/1080",
       "width": 1920,
       "height": 1080,
       "description": "Logistics operations background with trucks and aircraft"
     },
     {
       "id": "slmc-logo",
-      "url": "/assets/slmc-logo.png",
+      "url": "https://picsum.photos/seed/slmc-brand/400/150",
       "width": 400,
       "height": 150,
       "description": "SLMC Sikka Logistics Management Control Logo"
     },
     {
       "id": "hero-warehouse",
-      "url": "/assets/hero-warehouse.jpg",
+      "url": "https://picsum.photos/seed/warehouse-ops/1920/1080",
       "width": 1920,
       "height": 1080,
       "description": "Hero section warehouse background"
     },
     {
       "id": "office-1",
-      "url": "/assets/office-1.jpg",
+      "url": "https://picsum.photos/seed/office-view/800/600",
       "width": 800,
       "height": 600,
       "description": "Corporate office view 1"
     },
     {
       "id": "office-2",
-      "url": "/assets/office-2.jpg",
+      "url": "https://picsum.photos/seed/logistics-hub/800/600",
       "width": 800,
       "height": 600,
       "description": "Logistics hub operations"
     },
     {
       "id": "office-3",
-      "url": "/assets/office-3.jpg",
+      "url": "https://picsum.photos/seed/storage/800/600",
       "width": 800,
       "height": 600,
       "description": "Warehouse storage systems"
     },
     {
       "id": "office-4",
-      "url": "/assets/office-4.jpg",
+      "url": "https://picsum.photos/seed/tech/800/600",
       "width": 800,
       "height": 600,
       "description": "Supply chain technology"
     },
     {
       "id": "office-5",
-      "url": "/assets/office-5.jpg",
+      "url": "https://picsum.photos/seed/team/800/600",
       "width": 800,
       "height": 600,
       "description": "Logistics management team"

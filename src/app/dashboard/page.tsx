@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -883,7 +884,7 @@ export default function SapDashboard() {
       <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40 print:hidden">
         <div className="flex items-center px-2 py-1 gap-4">
           <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">
-             {logoAsset && <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized />}
+             {logoAsset && <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized data-ai-hint="logistics logo" />}
           </div>
           <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner relative">
             <button onClick={(e) => { e.preventDefault(); executeTCode(tCode); }} className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100 transition-colors">✓</button>
@@ -910,7 +911,7 @@ export default function SapDashboard() {
           <div className="flex-1" /><div className="flex items-center gap-3 pr-4">
              {(activeScreen === 'XD01' || activeScreen === 'VA01' || activeScreen === 'FM01') && (
                <div className="flex items-center gap-2 mr-4">
-                 <input type="file" ref={bulkInputRef} onChange={handleFileChange} className="hidden" accept=".csv" />
+                 <input type="file" min-h-svh ref={bulkInputRef} onChange={handleFileChange} className="hidden" accept=".csv" />
                  <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 h-7 bg-white border border-slate-300 hover:bg-slate-50 rounded text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]"><FileText className="h-3.5 w-3.5" /> Template</button>
                  <button onClick={handleBulkUpload} className="flex items-center gap-1.5 px-3 h-7 bg-[#1e3a8a] hover:bg-blue-900 text-white rounded text-[9px] font-black uppercase tracking-widest"><UploadCloud className="h-3.5 w-3.5" /> Bulk Upload</button>
                </div>
@@ -2074,4 +2075,8 @@ function Se38Report({ search, results, onSearchChange, allPlants, allVendors, al
 
 function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code: string) => void }) {
   return <div className="px-10 py-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{tcodes.map(t => <div key={t.code} onClick={() => onExecute(t.code)} className="bg-white p-6 border border-slate-300 hover:border-blue-500 cursor-pointer transition-all flex flex-col gap-3"><Badge className="w-fit rounded-none bg-slate-100 text-slate-600 border-slate-200 uppercase text-[8px] font-black">{t.module}</Badge><h3 className="text-xs font-black text-[#1e3a8a] uppercase">{t.code}</h3><p className="text-[10px] font-bold text-slate-500 uppercase">{t.description}</p></div>)}</div>;
+}
+
+function Se38ReportComponent({ search, results, onSearchChange, allPlants, allVendors, allCompanies, allCustomers }: any) {
+    return <Se38Report search={search} results={results} onSearchChange={onSearchChange} allPlants={allPlants} allVendors={allVendors} allCompanies={allCompanies} allCustomers={allCustomers} />;
 }

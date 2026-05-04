@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -93,6 +94,7 @@ export default function LoginPage() {
                 className="object-cover"
                 unoptimized
                 priority
+                data-ai-hint="truck logistics"
               />
             )}
           </div>
@@ -120,6 +122,7 @@ export default function LoginPage() {
                     fill
                     className="object-contain"
                     unoptimized
+                    data-ai-hint="company logo"
                   />
                 </div>
               )}
