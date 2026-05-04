@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import placeholderData from '@/app/lib/placeholder-images.json';
@@ -99,6 +100,16 @@ export default function LoginPage() {
           {/* Right Side: Login Hub */}
           <div className="w-full md:w-[52%] p-8 flex flex-col items-center justify-center relative">
             
+            {/* Back to Website Option */}
+            <div className="absolute top-4 left-4">
+              <Link 
+                href="/" 
+                className="text-[9px] font-black text-[#1e3a8a] uppercase tracking-tighter hover:underline flex items-center gap-1 transition-all active:scale-95"
+              >
+                <ArrowLeft className="h-2.5 w-2.5" /> Back to website
+              </Link>
+            </div>
+
             {/* Logo Section */}
             <div className="mb-6 flex flex-col items-center">
               {slmcLogo && (
