@@ -1703,8 +1703,8 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           </SectionGrouping>
           <SectionGrouping title="CENTRE SECTION">
              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-                <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} placeholder="HR 38 X 1234" />
-                <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} placeholder="10 DIGIT MOBILE" />
+                <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} />
+                <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} />
                 <FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle", "Arrange by Party"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} />
                 <FormInput label="ASSIGN QTY (MT)" type="number" value={assignData.assignWeight} onChange={(v: string) => {
                   const w = parseFloat(v) || 0;
@@ -1737,7 +1737,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                   />
                   <FormInput label="VENDOR FIRM" value={assignData.vendorFirmName} disabled={true} />
                   <FormInput label="MOBILE" value={assignData.vendorMobile} disabled={true} />
-                  <FormInput label="ARRANGE BY" value={assignData.arrangeBy} onChange={(v: string) => setAssignData({...assignData, arrangeBy: v})} placeholder="MANUAL ENTRY" />
+                  <FormInput label="ARRANGE BY" value={assignData.arrangeBy} onChange={(v: string) => setAssignData({...assignData, arrangeBy: v})} />
                   <FormInput label="RATE" type="number" value={assignData.rate} onChange={(v: string) => {
                     const r = parseFloat(v) || 0; 
                     const w = parseFloat(assignData.assignWeight) || 0;
