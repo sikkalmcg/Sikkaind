@@ -865,7 +865,8 @@ export default function SapDashboard() {
   };
 
   const isSuPage = activeScreen.startsWith('SU');
-  const isFlatPage = isSuPage || (activeScreen === 'TR21' && viewMode === 'tracking');
+  const isSe38Page = activeScreen === 'SE38';
+  const isFlatPage = isSuPage || (activeScreen === 'TR21' && viewMode === 'tracking') || isSe38Page;
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
@@ -1536,6 +1537,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           <Button variant="outline" size="sm" disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(p + 1)} className="h-8 px-4 text-[9px] font-black uppercase tracking-widest border-slate-300 hover:bg-white hover:text-blue-700 hover:border-blue-300 transition-all">Next Page <ChevronRight className="h-4 w-4 ml-1.5" /></Button></div></div></div>
     
     <LiveTrackingMapDialog isOpen={isLiveTrackOpen} onOpenChange={setIsLiveTrackOpen} trip={selectedLiveTrip} gpsVehicle={selectedLiveGps} customers={customers} settings={settings} isCompact={isLiveTrackCompact} />
+    
     <Dialog open={isTrackModePopupOpen} onOpenChange={setIsTrackModePopupOpen}>
       <DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
@@ -1557,6 +1559,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </div>
       </DialogContent>
     </Dialog>
+
     <Dialog open={isArrivedPopupOpen} onOpenChange={setIsArrivedPopupOpen}>
       <DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
@@ -1580,6 +1583,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </div>
       </DialogContent>
     </Dialog>
+
     <Dialog open={isRejectPopupOpen} onOpenChange={setIsRejectPopupOpen}>
       <DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
         <DialogHeader className="bg-[#e81123] px-6 py-4 flex flex-row items-center justify-between space-y-0">
@@ -1603,6 +1607,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </div>
       </DialogContent>
     </Dialog>
+
     <Dialog open={isUnloadPopupOpen} onOpenChange={setIsUnloadPopupOpen}>
       <DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
         <DialogHeader className="bg-emerald-600 px-6 py-4 flex flex-row items-center justify-between space-y-0">
@@ -1625,6 +1630,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </div>
       </DialogContent>
     </Dialog>
+
     <Dialog open={isPodPopupOpen} onOpenChange={setIsPodPopupOpen}>
       <DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
@@ -1665,6 +1671,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </div>
       </DialogContent>
     </Dialog>
+
     <Dialog open={isClosedViewPopupOpen} onOpenChange={setIsClosedViewPopupOpen}>
       <DialogContent className="max-w-2xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
@@ -1678,9 +1685,24 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
             <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black truncate">{selectedTripForClosed?.route}</span></div>
             <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle No</span><span className="text-[10px] font-black">{selectedTripForClosed?.vehicleNumber}</span></div>
           </div>
-          <div className="bg-white p-4 border border-slate-200 shadow-sm relative"><div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-slate-400 uppercase border border-slate-100">Selection Type *</div><RadioGroup value={closedViewMode} onValueChange={(v: any) => setClosedViewMode(v)} className="flex gap-8"><div className="flex items-center space-x-2"><RadioGroupItem value="view" id="cv-view" /><Label htmlFor="cv-view" className="text-xs font-black uppercase text-[#1e3a8a]">View POD</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="upload" id="cv-upload" /><Label htmlFor="cv-upload" className="text-xs font-black uppercase text-[#1e3a8a]">Upload New</Label></div></RadioGroup></div><div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-center min-h-[300px]">{closedViewMode === 'view' ? (podFile ? (podFile.startsWith('data:application/pdf') ? (<div className="flex flex-col items-center gap-4"><FileText className="h-16 w-16 text-blue-900" /><a href={podFile} download={`POD_${selectedTripForClosed?.tripId}.pdf`} className="text-blue-600 underline font-black text-[10px] uppercase">Download PDF POD</a></div>) : (<div className="relative w-full aspect-video"><Image src={podFile} alt="POD" fill className="object-contain" unoptimized /></div>)) : <p className="text-[10px] font-black text-slate-300 uppercase">No Document Synchronized</p>) : (<div className="w-full flex flex-col items-center gap-4"><input type="file" ref={fileInputRef} onChange={handlePodFileChange} className="hidden" /><Button onClick={() => fileInputRef.current?.click()} variant="outline" className="h-14 w-full max-w-sm border-2 border-dashed flex flex-col gap-1 border-slate-300 hover:bg-blue-50"><UploadCloud className="h-6 w-6 text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase">Replace POD File</span></Button>{podFile && closedViewMode === 'upload' && <p className="text-[10px] font-black text-emerald-600 uppercase italic">New Registry Loaded: Ready to Post</p>}</div>)}</div><div className="flex justify-end gap-3"><Button onClick={() => setIsClosedViewPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 text-[10px] font-black uppercase">Cancel</Button>{closedViewMode === 'upload' && <Button onClick={handleClosedUpdatePost} disabled={!podFile} className="h-10 px-8 bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-md">Post Update</Button>}</div></div>
+          <div className="bg-white p-4 border border-slate-200 shadow-sm relative">
+            <div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-slate-400 uppercase border border-slate-100">Selection Type *</div>
+            <RadioGroup value={closedViewMode} onValueChange={(v: any) => setClosedViewMode(v)} className="flex gap-8">
+              <div className="flex items-center space-x-2"><RadioGroupItem value="view" id="cv-view" /><Label htmlFor="cv-view" className="text-xs font-black uppercase text-[#1e3a8a]">View POD</Label></div>
+              <div className="flex items-center space-x-2"><RadioGroupItem value="upload" id="cv-upload" /><Label htmlFor="cv-upload" className="text-xs font-black uppercase text-[#1e3a8a]">Upload New</Label></div>
+            </RadioGroup>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-center min-h-[300px]">
+            {closedViewMode === 'view' ? (podFile ? (podFile.startsWith('data:application/pdf') ? (<div className="flex flex-col items-center gap-4"><FileText className="h-16 w-16 text-blue-900" /><a href={podFile} download={`POD_${selectedTripForClosed?.tripId}.pdf`} className="text-blue-600 underline font-black text-[10px] uppercase">Download PDF POD</a></div>) : (<div className="relative w-full aspect-video"><Image src={podFile} alt="POD" fill className="object-contain" unoptimized /></div>)) : <p className="text-[10px] font-black text-slate-300 uppercase">No Document Synchronized</p>) : (<div className="w-full flex flex-col items-center gap-4"><input type="file" ref={fileInputRef} onChange={handlePodFileChange} className="hidden" /><Button onClick={() => fileInputRef.current?.click()} variant="outline" className="h-14 w-full max-w-sm border-2 border-dashed flex flex-col gap-1 border-slate-300 hover:bg-blue-50"><UploadCloud className="h-6 w-6 text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase">Replace POD File</span></Button>{podFile && closedViewMode === 'upload' && <p className="text-[10px] font-black text-emerald-600 uppercase italic">New Registry Loaded: Ready to Post</p>}</div>)}
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button onClick={() => setIsClosedViewPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 text-[10px] font-black uppercase">Cancel</Button>
+            {closedViewMode === 'upload' && <Button onClick={handleClosedUpdatePost} disabled={!podFile} className="h-10 px-8 bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-md">Post Update</Button>}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
+
     <Dialog open={isAssignmentPopupOpen} onOpenChange={setIsAssignmentPopupOpen}>
       <DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3"><Truck className="h-4 w-4" /> Assignment Management</DialogTitle><DialogDescription className="sr-only">Edit or unassign the current vehicle assignment.</DialogDescription></DialogHeader>
@@ -1714,6 +1736,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </div>
       </DialogContent>
     </Dialog>
+
     <Dialog open={isCnPopupOpen} onOpenChange={setIsCnPopupOpen}>
       <DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
@@ -1744,6 +1767,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </div>
       </DialogContent>
     </Dialog>
+
     <Dialog open={isOutPopupOpen} onOpenChange={setIsOutPopupOpen}>
       <DialogContent className="max-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
@@ -1766,6 +1790,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </div>
       </DialogContent>
     </Dialog>
+
     <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
       <DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
@@ -1787,6 +1812,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </div>
       </DialogContent>
     </Dialog>
+
     <Dialog open={isCnPreviewOpen} onOpenChange={setIsCnPreviewOpen}>
       <DialogContent className="max-w-[1000px] w-[95vw] max-h-[95vh] overflow-y-auto bg-white p-0 rounded-none border-none">
         <DialogHeader className="bg-[#1e3a8a] text-white p-4 sticky top-0 z-[110] flex flex-row items-center justify-between space-y-0 print:hidden shadow-lg">
@@ -2161,7 +2187,7 @@ function Se38Report({ search, results, onSearchChange, allPlants, allVendors, al
         item.invoiceNo || 'N/A', item.ewaybillNo || 'N/A', item.product || 'N/A', item.unit || '0', item.uom || 'N/A', t.assignWeight, 'MT',
         t.vendorName || 'N/A', t.vendorFirmName || 'N/A', t.vendorMobile || 'N/A', t.fleetType, t.paymentTerms || 'N/A', t.employee || 'N/A', t.rate || '0', t.freightAmount || '0',
         `${t.outDate || ''} ${t.outTime || ''}`, `${t.arrivedDate || ''} ${t.arrivedTime || ''}`, `${t.unloadDate || ''} ${t.unloadTime || ''}`, `${t.rejectionDate || ''} ${t.rejectionTime || ''}`, t.status === 'CLOSED' ? 'UPLOADED' : 'PENDING',
-        '', '', '' // Empty fields for missing placeholders
+        '', '', '' 
       ].map(val => `"${val}"`).join(",");
     });
 
@@ -2186,19 +2212,19 @@ function Se38Report({ search, results, onSearchChange, allPlants, allVendors, al
 
   if (results) {
     return (
-      <div className="flex flex-col h-full space-y-6">
-        <div className="bg-slate-50 p-4 border border-slate-300 flex items-center justify-between">
+      <div className="flex flex-col h-full bg-[#f2f2f2]">
+        <div className="bg-[#f2f2f2] p-4 flex items-center justify-between border-b border-slate-300">
            <div className="flex items-center gap-4">
+             <div className="text-[11px] font-black uppercase text-slate-500">Report Output: Registry List</div>
              <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 uppercase font-black px-3 py-1">PLANT: {search.plant}</Badge>
-             <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 uppercase font-black px-3 py-1">RANGE: {search.from} TO {search.to}</Badge>
            </div>
            <div className="flex items-center gap-3">
-             <Button onClick={handleExport} className="h-9 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest shadow-md">
-               <Download className="h-3.5 w-3.5 mr-2" /> Export to CSV
+             <Button onClick={handleExport} className="h-9 px-6 bg-white border border-slate-400 text-slate-700 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest shadow-sm">
+               <Download className="h-3.5 w-3.5 mr-2" /> Export
              </Button>
            </div>
         </div>
-        <div className="flex-1 overflow-auto border border-slate-200 bg-white">
+        <div className="flex-1 overflow-auto bg-white">
           <table className="w-full text-left border-collapse min-w-[4000px]">
             <thead className="sticky top-0 bg-[#f8fafc] z-20 shadow-sm border-b border-slate-300">
               <tr className="text-[9px] font-black uppercase text-slate-500">
@@ -2252,65 +2278,73 @@ function Se38Report({ search, results, onSearchChange, allPlants, allVendors, al
             </tbody>
           </table>
         </div>
-        <div className="flex justify-between items-center px-2 py-3 bg-[#f8fafc] border-t border-slate-200">
-           <p className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest">Registry Synchronization Complete: {results.length} Nodes Rendered</p>
-           <p className="text-[10px] font-black text-blue-900 uppercase">Sikka Logistics ALV Node</p>
-        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-10 max-w-5xl mx-auto space-y-12">
-      <div className="space-y-2 border-b-2 border-[#1e3a8a] pb-2">
-        <h2 className="text-xl font-black text-[#1e3a8a] uppercase tracking-tighter italic">Selection Screen: SE38 Custom Report</h2>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Execute F8 to synchronize data nodes</p>
+    <div className="flex flex-col h-full bg-[#f2f2f2] font-body overflow-y-auto">
+      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8">
+        <h2 className="text-[16px] font-bold text-slate-800 tracking-tight">Form Processing: Custom T-Code Report</h2>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 bg-white p-8 md:p-12 border border-slate-200 shadow-2xl rounded-sm">
+
+      <div className="px-10 space-y-12 max-w-4xl">
         <div className="space-y-6">
-          <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-black uppercase text-[#1e3a8a]">Plant hub *</label>
-            <select className="h-11 w-full border border-slate-400 bg-white px-4 text-xs font-black outline-none focus:bg-yellow-50 focus:border-[#0056d2] transition-all" value={search.plant} onChange={e => onSearchChange({...search, plant: e.target.value})}>
-              <option value="">SELECT MANDATORY PLANT...</option>
-              {allPlants.map((p: any) => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
-            </select>
+          <div className="flex items-center gap-4">
+             <span className="text-[13px] font-bold text-slate-900 min-w-[120px]">Selection Criteria</span>
+             <div className="h-px bg-slate-300 flex-1" />
           </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-black uppercase text-slate-500">Vendor Node (Optional)</label>
-            <select className="h-11 w-full border border-slate-400 bg-white px-4 text-xs font-black outline-none focus:bg-yellow-50" value={search.vendor} onChange={e => onSearchChange({...search, vendor: e.target.value})}>
-              <option value="">ALL VENDORS...</option>
-              {allVendors.map((v: any) => <option key={v.id} value={v.vendorCode}>{v.vendorCode} - {v.vendorName}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-black uppercase text-slate-500">Company Hub (Optional)</label>
-            <select className="h-11 w-full border border-slate-400 bg-white px-4 text-xs font-black outline-none focus:bg-yellow-50" value={search.company} onChange={e => onSearchChange({...search, company: e.target.value})}>
-              <option value="">ALL COMPANIES...</option>
-              {allCompanies.map((c: any) => <option key={c.id} value={c.companyCode}>{c.companyCode} - {c.companyName}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-black uppercase text-slate-500">Customer Node (Optional)</label>
-            <select className="h-11 w-full border border-slate-400 bg-white px-4 text-xs font-black outline-none focus:bg-yellow-50" value={search.customer} onChange={e => onSearchChange({...search, customer: e.target.value})}>
-              <option value="">ALL CUSTOMERS...</option>
-              {allCustomers.map((c: any) => <option key={c.id} value={c.customerCode}>{c.customerCode} - {c.customerName}</option>)}
-            </select>
+          
+          <div className="space-y-4 pl-8">
+            <div className="flex items-center gap-8">
+              <label className="text-[12px] font-medium text-slate-600 w-[180px] text-right">Plant: <span className="text-red-500">*</span></label>
+              <select className="h-8 w-[320px] border border-slate-400 bg-white px-2 text-[12px] outline-none focus:ring-1 focus:ring-blue-500" value={search.plant} onChange={e => onSearchChange({...search, plant: e.target.value})}>
+                <option value="">SELECT PLANT...</option>
+                {allPlants.map((p: any) => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-8">
+              <label className="text-[12px] font-medium text-slate-600 w-[180px] text-right">Vendor Node:</label>
+              <select className="h-8 w-[320px] border border-slate-400 bg-white px-2 text-[12px] outline-none focus:ring-1 focus:ring-blue-500" value={search.vendor} onChange={e => onSearchChange({...search, vendor: e.target.value})}>
+                <option value="">ALL VENDORS...</option>
+                {allVendors.map((v: any) => <option key={v.id} value={v.vendorCode}>{v.vendorCode} - {v.vendorName}</option>)}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-8">
+              <label className="text-[12px] font-medium text-slate-600 w-[180px] text-right">Company Hub:</label>
+              <select className="h-8 w-[320px] border border-slate-400 bg-white px-2 text-[12px] outline-none focus:ring-1 focus:ring-blue-500" value={search.company} onChange={e => onSearchChange({...search, company: e.target.value})}>
+                <option value="">ALL COMPANIES...</option>
+                {allCompanies.map((c: any) => <option key={c.id} value={c.companyCode}>{c.companyCode} - {c.companyName}</option>)}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-8">
+              <label className="text-[12px] font-medium text-slate-600 w-[180px] text-right">Customer Node:</label>
+              <select className="h-8 w-[320px] border border-slate-400 bg-white px-2 text-[12px] outline-none focus:ring-1 focus:ring-blue-500" value={search.customer} onChange={e => onSearchChange({...search, customer: e.target.value})}>
+                <option value="">ALL CUSTOMERS...</option>
+                {allCustomers.map((c: any) => <option key={c.id} value={c.customerCode}>{c.customerCode} - {c.customerName}</option>)}
+              </select>
+            </div>
           </div>
         </div>
+
         <div className="space-y-6">
-          <div className="p-6 bg-slate-50 border-l-4 border-blue-600 space-y-6 rounded-r-xl">
-             <div className="flex flex-col gap-2">
-               <label className="text-[11px] font-black uppercase text-blue-900 flex items-center gap-2"><LucideCalendar className="h-3.5 w-3.5" /> From synchronization date *</label>
-               <input type="date" value={search.from} onChange={e => onSearchChange({...search, from: e.target.value})} className="h-11 w-full border border-slate-400 bg-white px-4 text-xs font-black outline-none focus:bg-yellow-50 shadow-sm" />
-             </div>
-             <div className="flex flex-col gap-2">
-               <label className="text-[11px] font-black uppercase text-blue-900 flex items-center gap-2"><LucideCalendar className="h-3.5 w-3.5" /> To synchronization date *</label>
-               <input type="date" value={search.to} onChange={e => onSearchChange({...search, to: e.target.value})} className="h-11 w-full border border-slate-400 bg-white px-4 text-xs font-black outline-none focus:bg-yellow-50 shadow-sm" />
-             </div>
+          <div className="flex items-center gap-4">
+             <span className="text-[13px] font-bold text-slate-900 min-w-[120px]">Date Range</span>
+             <div className="h-px bg-slate-300 flex-1" />
           </div>
-          <div className="p-6 bg-yellow-50 border border-yellow-100 space-y-2 rounded-sm">
-             <p className="text-[9px] font-black uppercase text-yellow-800 tracking-widest flex items-center gap-2"><Info className="h-3 w-3" /> System Instruction</p>
-             <p className="text-[10px] font-bold text-yellow-900 leading-relaxed italic">The plant field is mandatory to isolate logistical clusters. Ensure the from-date is earlier than the to-date for consistent registry output.</p>
+
+          <div className="space-y-4 pl-8 pb-12">
+            <div className="flex items-center gap-8">
+              <label className="text-[12px] font-medium text-slate-600 w-[180px] text-right">From sync date: <span className="text-red-500">*</span></label>
+              <input type="date" value={search.from} onChange={e => onSearchChange({...search, from: e.target.value})} className="h-8 w-[320px] border border-slate-400 bg-white px-2 text-[12px] outline-none focus:ring-1 focus:ring-blue-500 shadow-sm" />
+            </div>
+            <div className="flex items-center gap-8">
+              <label className="text-[12px] font-medium text-slate-600 w-[180px] text-right">To sync date: <span className="text-red-500">*</span></label>
+              <input type="date" value={search.to} onChange={e => onSearchChange({...search, to: e.target.value})} className="h-8 w-[320px] border border-slate-400 bg-white px-2 text-[12px] outline-none focus:ring-1 focus:ring-blue-500 shadow-sm" />
+            </div>
           </div>
         </div>
       </div>
