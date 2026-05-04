@@ -71,9 +71,14 @@ const MASTER_TCODES = [
 
 const SHARED_HUB_ID = 'Sikkaind'; 
 
-function VehicleLocation({ lat, lng, onClick }: { lat: number, lng: number, onClick?: (loc: string) => void }) {
-  const [loc, setLoc] = React.useState<string>('Syncing...');
+function VehicleLocation({ lat, lng, locationName, onClick }: { lat: number, lng: number, locationName?: string, onClick?: (loc: string) => void }) {
+  const [loc, setLoc] = React.useState<string>(locationName || 'Syncing...');
+  
   React.useEffect(() => {
+    if (locationName) {
+      setLoc(locationName);
+      return;
+    }
     if (!window.google) return;
     const geocoder = new window.google.maps.Geocoder();
     geocoder.geocode({ location: { lat, lng } }, (results, status) => {
@@ -90,7 +95,7 @@ function VehicleLocation({ lat, lng, onClick }: { lat: number, lng: number, onCl
         setLoc('Unknown Location');
       }
     });
-  }, [lat, lng]);
+  }, [lat, lng, locationName]);
 
   const handleClick = (e: React.MouseEvent) => {
     if (onClick) {
@@ -1471,7 +1476,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const handleTrackModeAction = (t: any) => { setSelectedTripForTrackMode(t); setTrackModeData({ mode: t.trackMode || 'GPS Tracking' }); setIsTrackModePopupOpen(true); };
   const handleTrackModePost = () => { if (!selectedTripForTrackMode) return; setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForTrackMode.id), { trackMode: trackModeData.mode, updatedAt: new Date().toISOString() }, { merge: true }); setIsTrackModePopupOpen(false); onStatusUpdate({ text: `Track Mode synchronized: ${trackModeData.mode}`, type: 'success' }); };
   const handleOpenMapPage = (t: any, gps: any) => { setTrackingNode({ trip: t, gps }); setViewMode('tracking'); };
-  const handleOutVehicle = (t: any) => { if (['Own Vehicle', 'Contract Vehicle', 'Market Vehicle'].includes(t.fleetType) && !t.cnNo) { onStatusUpdate({ text: 'Add CN Number before Out Vehicle', type: 'error' }); return; } setOutData({ tripId: t.tripId, id: t.id, vehicleNumber: t.vehicleNumber, route: t.route, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsOutPopupOpen(false); setIsOutPopupOpen(true); };
+  const handleOutVehicle = (t: any) => { if (['Own Vehicle', 'Contract Vehicle', 'Market Vehicle'].includes(t.fleetType) && !t.cnNo) { onStatusUpdate({ text: 'Add CN Number before Out Vehicle', type: 'error' }); return; } setOutData({ tripId: t.tripId, id: t.id, vehicleNumber: t.vehicleNumber, route: t.route, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsOutPopupOpen(true); };
   const handleConfirmOut = () => { if (!outData.id) return; setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', outData.id), { status: 'IN-TRANSIT', outDate: outData.date, outTime: outData.time, updatedAt: new Date().toISOString() }, { merge: true }); setIsOutPopupOpen(false); onStatusUpdate({ text: `Vehicle ${outData.vehicleNumber} is now IN-TRANSIT`, type: 'success' }); };
   const handleArrivedAction = (t: any) => { setArrivedData({ ...arrivedData, trip: t }); setIsArrivedPopupOpen(true); };
   const handleArrivedPost = () => { const { date, time, trip } = arrivedData; if (!validateDateTime(date, time)) { onStatusUpdate({ text: 'Error: Future date/time not allowed', type: 'error' }); return; } setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', trip.id), { status: 'ARRIVED', arrivedDate: date, arrivedTime: time, updatedAt: new Date().toISOString() }, { merge: true }); setIsArrivedPopupOpen(false); onStatusUpdate({ text: `Trip ${trip.tripId} status updated to ARRIVED`, type: 'success' }); };
@@ -1525,7 +1530,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                             {activeTab === 'Closed' && (<Button onClick={() => handleViewAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 px-3 uppercase tracking-tighter">View</Button>)}
                           </div>
                           {(activeTab === 'In-Transit' || activeTab === 'Arrived') && (<div className="flex flex-col gap-1 mt-1 border-t border-slate-50 pt-2"><div className="flex items-center gap-2">
-                              {gpsVehicle && (<VehicleLocation lat={gpsVehicle.latitude} lng={gpsVehicle.longitude} onClick={() => handleOpenMapPage(t, gpsVehicle)} />)}
+                              {gpsVehicle && (<VehicleLocation lat={gpsVehicle.latitude} lng={gpsVehicle.longitude} locationName={gpsVehicle.location} onClick={() => handleOpenMapPage(t, gpsVehicle)} />)}
                               <Button onClick={() => handleTrackModeAction(t)} size="sm" className="text-[8px] bg-yellow-400 hover:bg-yellow-500 text-black font-black h-6 px-2 uppercase tracking-tighter shrink-0">Track Mode</Button>
                             </div></div>)}
                         </div></td></tr>);
@@ -1842,7 +1847,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
 
 function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
   const mapRef = React.useRef<HTMLDivElement>(null);
-  const [distance, setDistance] = React.useState<string>('Calculating...');
+  const [distance, setDistance] = React.useState<string>('Syncing...');
 
   React.useEffect(() => {
     if (!window.google || !node) return;
@@ -1940,10 +1945,6 @@ function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
          <div className="flex items-center gap-3">
            <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
            <span>Live GPS Synchronization Active</span>
-         </div>
-         <div className="flex items-center gap-2 opacity-60">
-           <span>F3 Node:</span>
-           <span className="text-slate-700">Back to Registry</span>
          </div>
       </div>
     </div>
