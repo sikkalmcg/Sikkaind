@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -504,7 +505,7 @@ export default function SapDashboard() {
       const headers = parseCsvRow(rows[0]);
       const dataRows = rows.slice(1);
 
-      setStatusMsg({ text: `Synchronizing hub...`, type: 'info' });
+      setStatusMsg({ text: `Synchronizing...`, type: 'info' });
 
       if (activeScreen.startsWith('VA')) {
         const getIdx = (name: string) => headers.findIndex(h => h.toLowerCase().replace(/\s/g, '') === name.toLowerCase().replace(/\s/g, ''));
@@ -572,7 +573,7 @@ export default function SapDashboard() {
         });
 
         const savedCount = Object.keys(orderGroups).length;
-        setStatusMsg({ text: `Bulk Sync: ${savedCount} Nodes Saved, ${rejectedCount} Rows Rejected`, type: rejectedCount > 0 ? 'error' : 'success' });
+        setStatusMsg({ text: `Bulk Sync: ${savedCount} Saved, ${rejectedCount} Rejected`, type: rejectedCount > 0 ? 'error' : 'success' });
 
       } else if (activeScreen.startsWith('XD')) {
         const getIdx = (name: string) => headers.findIndex(h => h.toLowerCase().replace(/\s/g, '') === name.toLowerCase().replace(/\s/g, ''));
@@ -1015,7 +1016,7 @@ export default function SapDashboard() {
                       <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">
                         {MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen} - REGISTRY
                       </h2>
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AUTHORIZED HUB</div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AUTHORIZED</div>
                    </div>
                    <div className="px-10 pb-20 max-w-full">
                      <div className="bg-white border-b-2 border-slate-300 p-6 mb-8 flex flex-col md:flex-row items-center gap-8">
@@ -1299,12 +1300,12 @@ function VendorForm({ data, onChange, disabled, allPlants }: any) {
   return <div className="space-y-10">
     <SectionGrouping title="PLANT MAPPING">
       <div className="flex items-center gap-8">
-        <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Hubs:</label>
+        <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Plants:</label>
         <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div>
       </div>
     </SectionGrouping>
     <SectionGrouping title="IDENTIFICATION">
-      <FormInput label="VENDOR CODE" value={data.vendorCode} disabled={true} placeholder="AUTO-NODE-GEN" />
+      <FormInput label="VENDOR CODE" value={data.vendorCode} disabled={true} placeholder="AUTO-GEN" />
       <FormInput label="VENDOR NAME" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
       <FormInput label="VENDOR FIRM" value={data.vendorFirmName} onChange={(v: string) => onChange({...data, vendorFirmName: v})} disabled={disabled} />
     </SectionGrouping>
@@ -1321,7 +1322,7 @@ function CustomerForm({ data, onChange, disabled, allPlants }: any) {
   return <div className="space-y-10">
     <SectionGrouping title="PLANT">
       <div className="flex items-center gap-8">
-        <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Hubs:</label>
+        <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Plants:</label>
         <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div>
       </div>
     </SectionGrouping>
@@ -1362,53 +1363,90 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers, tri
       <FormSelect label="PLANT" value={data.plantCode} options={pOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
       <FormInput label="SALE ORDER" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
       <FormInput label="BOOKED DATE TIME" type="datetime-local" value={data.saleOrderDate} onChange={(v: string) => onChange({...data, saleOrderDate: v})} disabled={disabled} />
-    </SectionGrouping>
-    <SectionGrouping title="COORDINATION">
-      <FormSearchInput 
-        label="CONSIGNOR" 
-        value={data.consignor} 
-        options={cons.map(c => c.customerName + ' - ' + c.city)} 
-        onChange={(v: string) => {
-          const matching = cons.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase());
-          const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v;
-          onChange({...data, consignor: nameOnly, from: matching?.city || ''});
-        }} 
-        disabled={disabled} 
-      />
-      <FormInput label="FROM" value={data.from} disabled={true} />
-      <FormSearchInput 
-        label="CONSIGNEE" 
-        value={data.consignee} 
-        options={ships.map(c => c.customerName + ' - ' + c.city)} 
-        onChange={(v: string) => {
-          const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v;
-          onChange({...data, consignee: nameOnly});
-        }} 
-        disabled={disabled} 
-      />
-      <FormSearchInput 
-        label="SHIP TO PARTY" 
-        value={data.shipToParty} 
-        options={ships.map(c => c.customerName + ' - ' + c.city)} 
-        onChange={(v: string) => {
-          const matching = ships.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase());
-          const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v;
-          onChange({...data, shipToParty: nameOnly, destination: matching?.city || '', deliveryAddress: matching?.address || ''});
-        }} 
-        disabled={disabled} 
-      />
-      <FormInput label="DESTINATION" value={data.destination} disabled={true} />
-      <FormInput label="SALE ORDER WEIGHT" type="number" value={data.weight} onChange={(v: string) => onChange({...data, weight: v})} disabled={disabled} />
-      <FormSelect label="UOM" value={data.weightUom} options={["MT", "LTR"]} onChange={(v: string) => onChange({...data, weightUom: v})} disabled={disabled} />
       
       {(screen === 'VA02' || screen === 'VA03') && (
         <>
+          <FormSearchInput 
+            label="CONSIGNOR" 
+            value={data.consignor} 
+            options={cons.map(c => c.customerName + ' - ' + c.city)} 
+            onChange={(v: string) => {
+              const matching = cons.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase());
+              const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v;
+              onChange({...data, consignor: nameOnly, from: matching?.city || ''});
+            }} 
+            disabled={disabled} 
+          />
+          <FormInput label="FROM" value={data.from} disabled={true} />
+          <FormSearchInput 
+            label="CONSIGNEE" 
+            value={data.consignee} 
+            options={ships.map(c => c.customerName + ' - ' + c.city)} 
+            onChange={(v: string) => {
+              const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v;
+              onChange({...data, consignee: nameOnly});
+            }} 
+            disabled={disabled} 
+          />
+          <FormSearchInput 
+            label="SHIP TO PARTY" 
+            value={data.shipToParty} 
+            options={ships.map(c => c.customerName + ' - ' + c.city)} 
+            onChange={(v: string) => {
+              const matching = ships.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase());
+              const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v;
+              onChange({...data, shipToParty: nameOnly, destination: matching?.city || '', deliveryAddress: matching?.address || ''});
+            }} 
+            disabled={disabled} 
+          />
+          <FormInput label="DESTINATION" value={data.destination} disabled={true} />
+          <FormInput label="SALE ORDER WEIGHT" type="number" value={data.weight} onChange={(v: string) => onChange({...data, weight: v})} disabled={disabled} />
           <FormInput label="DISPATCH WEIGHT" value={dispatchWeight} disabled={true} />
           <FormInput label="BALANCE WEIGHT" value={balanceWeight.toFixed(2)} disabled={true} />
           <FormSelect label="STATUS" value={data.status} options={["Active", "Short closed"]} onChange={(v: string) => onChange({...data, status: v})} disabled={disabled} />
         </>
       )}
     </SectionGrouping>
+    {screen === 'VA01' && (
+      <SectionGrouping title="COORDINATION">
+        <FormSearchInput 
+          label="CONSIGNOR" 
+          value={data.consignor} 
+          options={cons.map(c => c.customerName + ' - ' + c.city)} 
+          onChange={(v: string) => {
+            const matching = cons.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase());
+            const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v;
+            onChange({...data, consignor: nameOnly, from: matching?.city || ''});
+          }} 
+          disabled={disabled} 
+        />
+        <FormInput label="FROM" value={data.from} disabled={true} />
+        <FormSearchInput 
+          label="CONSIGNEE" 
+          value={data.consignee} 
+          options={ships.map(c => c.customerName + ' - ' + c.city)} 
+          onChange={(v: string) => {
+            const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v;
+            onChange({...data, consignee: nameOnly});
+          }} 
+          disabled={disabled} 
+        />
+        <FormSearchInput 
+          label="SHIP TO PARTY" 
+          value={data.shipToParty} 
+          options={ships.map(c => c.customerName + ' - ' + c.city)} 
+          onChange={(v: string) => {
+            const matching = ships.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase());
+            const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v;
+            onChange({...data, shipToParty: nameOnly, destination: matching?.city || '', deliveryAddress: matching?.address || ''});
+          }} 
+          disabled={disabled} 
+        />
+        <FormInput label="DESTINATION" value={data.destination} disabled={true} />
+        <FormInput label="SALE ORDER WEIGHT" type="number" value={data.weight} onChange={(v: string) => onChange({...data, weight: v})} disabled={disabled} />
+        <FormSelect label="UOM" value={data.weightUom} options={["MT", "LTR"]} onChange={(v: string) => onChange({...data, weightUom: v})} disabled={disabled} />
+      </SectionGrouping>
+    )}
   </div>;
 }
 
@@ -1454,7 +1492,7 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
 function RegistryList({ onSelectItem, listData, activeScreen }: any) {
   const isSuPage = activeScreen?.startsWith('SU');
   const isVendorRegistry = activeScreen?.startsWith('XK');
-  const headers = isSuPage ? ['Full Name', 'Username', 'Authentication', 'Authorized Hub'] : isVendorRegistry ? ['Vendor Code', 'Vendor Name', 'Vendor Firm Name', 'Mobile', 'Special Route'] : ['ID', 'Name / Description', 'Type / Details', 'Sync Hub'];
+  const headers = isSuPage ? ['Full Name', 'Username', 'Authentication', 'Authorized HUB'] : isVendorRegistry ? ['Vendor Code', 'Vendor Name', 'Vendor Firm Name', 'Mobile', 'Special Route'] : ['ID', 'Name / Description', 'Type / Details', 'Sync Hub'];
   
   return <div className="w-full bg-white border border-slate-300 shadow-sm overflow-hidden">
     <table className="w-full text-left border-collapse min-w-[700px]">
@@ -1495,11 +1533,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const [isOutPopupOpen, setIsOutPopupOpen] = React.useState(false);
   const [outData, setOutData] = React.useState<any>({ tripId: '', vehicleNumber: '', route: '', date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
   const [isAssignmentPopupOpen, setIsAssignmentPopupOpen] = React.useState(false);
-  const [assignmentMode, setAssignmentMode] = React.useState<'edit' | 'unassign' | null>(null);
   const [selectedTripForAssignment, setSelectedTripForAssignment] = React.useState<any>(null);
-  const [isTrackModePopupOpen, setIsTrackModePopupOpen] = React.useState(false);
-  const [selectedTripForTrackMode, setSelectedTripForTrackMode] = React.useState<any>(null);
-  const [trackModeData, setTrackModeData] = React.useState({ mode: 'GPS Tracking' });
   const [isArrivedPopupOpen, setIsArrivedPopupOpen] = React.useState(false);
   const [arrivedData, setArrivedData] = React.useState<any>({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
   const [isRejectPopupOpen, setIsRejectPopupOpen] = React.useState(false);
@@ -1512,13 +1546,13 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isClosedViewPopupOpen, setIsClosedViewPopupOpen] = React.useState(false);
   const [selectedTripForClosed, setSelectedTripForClosed] = React.useState<any>(null);
-  const [closedViewMode, setClosedViewMode] = React.useState<'view' | 'upload'>('view');
   const [isCnPopupOpen, setIsCnPopupOpen] = React.useState(false);
   const [selectedTripForCn, setSelectedTripForCn] = React.useState<any>(null);
   const [cnFormData, setCnFormData] = React.useState<any>({ cnNo: '', cnDate: format(new Date(), 'yyyy-MM-dd'), paymentTerms: 'PAID', carrierName: '', items: [{ invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'Bag' }] });
   const [isCnPreviewOpen, setIsCnPreviewOpen] = React.useState(false);
   const [selectedTripForPreview, setSelectedTripForPreview] = React.useState<any>(null);
   const [previewDeliveryAddress, setPreviewDeliveryAddress] = React.useState('');
+  const [isAddressEditable, setIsAddressEditable] = React.useState(false);
   const [gpsData, setGpsData] = React.useState<any[]>([]);
 
   const [isDelayRemarkPopupOpen, setIsDelayRemarkPopupOpen] = React.useState(false);
@@ -1615,17 +1649,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     reader.readAsDataURL(file);
   };
 
-  const handleClosedUpdatePost = () => {
-    if (!selectedTripForClosed || !podFile) return;
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForClosed.id), { 
-      podFile: podFile, 
-      podUploadedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString() 
-    }, { merge: true });
-    setIsClosedViewPopupOpen(false);
-    onStatusUpdate({ text: `POD Updated`, type: 'success' });
-  };
-
   const handleAssignmentPost = () => { 
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id), { 
       vehicleNumber: assignData.vehicleNumber.toUpperCase(), 
@@ -1647,7 +1670,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const handleUnloadPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', unloadData.trip.id), { status: 'POD', unloadDate: unloadData.date, unloadTime: unloadData.time, updatedAt: new Date().toISOString() }, { merge: true }); setIsUnloadPopupOpen(false); onStatusUpdate({ text: `Unload Synced`, type: 'success' }); };
   const handlePodUploadAction = (t: any) => { setSelectedTripForPod(t); setPodFile(null); setIsPodPopupOpen(true); };
   const handlePodPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForPod.id), { status: 'CLOSED', podFile: podFile, podUploadedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true }); setIsPodPopupOpen(false); onStatusUpdate({ text: `CLOSED`, type: 'success' }); };
-  const handleViewAction = (t: any) => { setSelectedTripForClosed(t); setClosedViewMode('view'); setPodFile(t.podFile || null); setIsClosedViewPopupOpen(true); };
+  const handleViewAction = (t: any) => { setSelectedTripForClosed(t); setPodFile(t.podFile || null); setIsClosedViewPopupOpen(true); };
   
   const handleAddCn = (t: any) => { 
     setSelectedTripForCn(t); 
@@ -1695,7 +1718,15 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       shipToMaster
     }); 
     setPreviewDeliveryAddress(order?.deliveryAddress || shipToMaster?.address || '');
+    setIsAddressEditable(false);
     setIsCnPreviewOpen(true); 
+  };
+
+  const handleGeneratePdf = () => {
+    const originalTitle = document.title;
+    document.title = selectedTripForPreview?.cnNo || 'CN_Document';
+    window.print();
+    document.title = originalTitle;
   };
 
   const handleCreateTrip = () => {
@@ -1953,7 +1984,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           </SectionGrouping>
           <SectionGrouping title="CN HEADER">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-              <FormInput label="CN NUMBER" value={cnFormData.cnNo} onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v})} placeholder="MANUAL ENTRY..." />
+              <FormInput label="CN NUMBER" value={cnFormData.cnNo} onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v})} placeholder="" />
               <FormInput label="CN DATE" type="date" value={cnFormData.cnDate} onChange={(v: string) => setCnFormData({...cnFormData, cnDate: v})} />
               <FormInput label="CARRIER NAME" value={cnFormData.carrierName} disabled={true} />
               <FormSelect label="PAYMENT TERMS" value={cnFormData.paymentTerms} options={["PAID", "TO-PAY", "TBB"]} onChange={(v: string) => setCnFormData({...cnFormData, paymentTerms: v})} />
@@ -2016,7 +2047,8 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0 flex flex-row items-center justify-between space-y-0 print:hidden">
           <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Printer className="h-4 w-4" /> CN Print Registry: {selectedTripForPreview?.cnNo}</DialogTitle>
           <div className="flex items-center gap-4">
-            <Button onClick={() => window.print()} className="h-8 bg-white/10 hover:bg-white/20 text-white border-white/20 text-[9px] font-black uppercase"><Printer className="h-3.5 w-3.5 mr-2" /> Print Registry</Button>
+            <Button onClick={() => setIsAddressEditable(true)} className="h-8 bg-white/10 hover:bg-white/20 text-white border-white/20 text-[9px] font-black uppercase"><Edit3 className="h-3.5 w-3.5 mr-2" /> Edit</Button>
+            <Button onClick={handleGeneratePdf} className="h-8 bg-white/10 hover:bg-white/20 text-white border-white/20 text-[9px] font-black uppercase"><Download className="h-3.5 w-3.5 mr-2" /> Generate PDF</Button>
             <button onClick={() => setIsCnPreviewOpen(false)} className="text-white/60 hover:text-white"><X className="h-5 w-5" /></button>
           </div>
         </DialogHeader>
@@ -2084,14 +2116,22 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                   <div className="border-r-2 border-black p-3 space-y-1">
                     <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-1">Consignee</h3>
                     <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview?.order?.consignee}</p>
-                    <p className="text-[10px] font-bold text-slate-600 uppercase">{selectedTripForPreview?.consigneeMaster?.address}</p>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase">
+                      {selectedTripForPreview?.consigneeMaster?.address} 
+                      {selectedTripForPreview?.consigneeMaster?.city ? ` ${selectedTripForPreview.consigneeMaster.city}` : ''}
+                      {selectedTripForPreview?.consigneeMaster?.postalCode ? ` ${selectedTripForPreview.consigneeMaster.postalCode}` : ''}
+                    </p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">MOB: {selectedTripForPreview?.consigneeMaster?.mobile}</p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">GSTIN: {selectedTripForPreview?.consigneeMaster?.gstin || 'N/A'}</p>
                   </div>
                   <div className="p-3 space-y-1 bg-slate-50/50">
                     <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-1">Ship To Party</h3>
                     <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview?.order?.shipToParty}</p>
-                    <p className="text-[10px] font-bold text-slate-600 uppercase">{selectedTripForPreview?.shipToMaster?.address}</p>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase">
+                      {selectedTripForPreview?.shipToMaster?.address}
+                      {selectedTripForPreview?.shipToMaster?.city ? ` ${selectedTripForPreview.shipToMaster.city}` : ''}
+                      {selectedTripForPreview?.shipToMaster?.postalCode ? ` ${selectedTripForPreview.shipToMaster.postalCode}` : ''}
+                    </p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">MOB: {selectedTripForPreview?.shipToMaster?.mobile}</p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">GSTIN: {selectedTripForPreview?.shipToMaster?.gstin || 'N/A'}</p>
                   </div>
@@ -2120,32 +2160,33 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-slate-100 font-black text-[11px] uppercase border-t-2 border-black">
-                        <td colSpan={2} className="p-3 text-right border-r-2 border-black tracking-widest">Sub Total:</td>
-                        <td className="p-3 text-center border-r-2 border-black bg-yellow-50/50">
-                           Total Package: {selectedTripForPreview?.cnItems?.reduce((a: number, i: any) => a + (parseFloat(i.unit) || 0), 0)} {' '}
+                      <tr className="bg-slate-100 font-black text-[9px] uppercase border-t-2 border-black">
+                        <td colSpan={2} className="p-2 text-right border-r-2 border-black tracking-widest">Sub Total:</td>
+                        <td className="p-2 text-center border-r-2 border-black bg-yellow-50/50">
+                           {selectedTripForPreview?.cnItems?.reduce((a: number, i: any) => a + (parseFloat(i.unit) || 0), 0)} {' '}
                            {(() => {
                               const uoms = Array.from(new Set(selectedTripForPreview?.cnItems?.map((i: any) => i.uom).filter(Boolean)));
                               return uoms.length > 1 ? 'Combined' : (uoms[0] || '');
                            })()}
                         </td>
-                        <td className="p-3 border-r-2 border-black"></td>
-                        <td className="p-3 text-center text-[#1e3a8a] text-sm">
-                           Total Weight: {selectedTripForPreview?.assignWeight} {selectedTripForPreview?.weightUom || 'MT'}
+                        <td className="p-2 border-r-2 border-black"></td>
+                        <td className="p-2 text-center text-[#1e3a8a] text-[12px]">
+                           {selectedTripForPreview?.assignWeight} {selectedTripForPreview?.weightUom || 'MT'}
                         </td>
                       </tr>
                     </tfoot>
                   </table>
-                </div>
-
-                <div className="mt-4 space-y-2">
-                  <div className="border-2 border-black">
+                  <div className="border-x-2 border-b-2 border-black">
                      <div className="bg-slate-100 p-1 text-[9px] font-black uppercase border-b-2 border-black">Delivery Address:</div>
                      <div className="p-2">
                         <textarea 
+                          readOnly={!isAddressEditable}
                           value={previewDeliveryAddress} 
                           onChange={(e) => setPreviewDeliveryAddress(e.target.value)}
-                          className="w-full h-8 border-none font-black text-[12px] uppercase resize-none outline-none focus:ring-0 bg-transparent print:h-auto"
+                          className={cn(
+                            "w-full h-8 border-none font-black text-[12px] uppercase resize-none outline-none focus:ring-0 bg-transparent print:h-auto",
+                            !isAddressEditable ? "cursor-default" : "bg-yellow-50/20"
+                          )}
                         />
                      </div>
                   </div>
@@ -2209,498 +2250,3 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           </div><div className="flex justify-end gap-3 w-full"><Button onClick={() => setIsPodPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button><Button onClick={handlePodPost} disabled={!podFile} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post & Close</Button></div></div></DialogContent></Dialog>
   </div>;
 }
-
-function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
-  const mapRef = React.useRef<HTMLDivElement>(null);
-  const [distance, setDistance] = React.useState<string>('Syncing...');
-
-  React.useEffect(() => {
-    if (!window.google || !node) return;
-    const { trip, gps } = node;
-    const geocoder = new window.google.maps.Geocoder();
-    const directionsService = new window.google.maps.DirectionsService();
-    const directionsRenderer = new window.google.maps.DirectionsRenderer({
-      suppressMarkers: true,
-      polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 }
-    });
-
-    const consMaster = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.consignor?.toUpperCase());
-    const shipMaster = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.shipToParty?.toUpperCase());
-
-    const p1 = new Promise(r => { 
-      if (consMaster?.postalCode) geocoder.geocode({ address: consMaster.postalCode }, (res: any) => r(res?.[0]?.geometry?.location || null)); 
-      else r(null); 
-    });
-    const p2 = new Promise(r => { 
-      if (shipMaster?.postalCode) geocoder.geocode({ address: shipMaster.postalCode }, (res: any) => r(res?.[0]?.geometry?.location || null)); 
-      else r(null); 
-    });
-
-    Promise.all([p1, p2]).then(([origin, dest]: any) => {
-      if (!mapRef.current) return;
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: { lat: gps.latitude, lng: gps.longitude },
-        zoom: 12,
-      });
-      directionsRenderer.setMap(map);
-
-      if (origin) {
-        new window.google.maps.Marker({
-          position: origin,
-          map,
-          label: { text: 'Start Point', className: 'bg-white px-2 py-1 border border-black text-[9px] font-black uppercase rounded shadow-md mb-10' },
-          icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
-        });
-      }
-
-      if (dest) {
-        new window.google.maps.Marker({
-          position: dest,
-          map,
-          label: { text: 'Drop Point', className: 'bg-white px-2 py-1 border border-black text-[9px] font-black uppercase rounded shadow-md mb-10' },
-          icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
-        });
-      }
-
-      const vIcon = gps.speed > 0 ? settings?.activeIcon : settings?.stopIcon;
-      new window.google.maps.Marker({
-        position: { lat: gps.latitude, lng: gps.longitude },
-        map,
-        icon: { url: vIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(40, 40) }
-      });
-
-      if (origin && dest) {
-        directionsService.route({
-          origin,
-          destination: dest,
-          travelMode: window.google.maps.TravelMode.DRIVING,
-        }, (result, status) => {
-          if (status === 'OK') {
-            directionsRenderer.setDirections(result);
-            setDistance(result.routes[0].legs[0].distance?.text || 'N/A');
-          } else {
-            setDistance('N/A');
-          }
-        });
-      } else {
-        setDistance('N/A');
-      }
-    });
-  }, [node, customers, settings]);
-
-  return (
-    <div className="flex flex-col h-full bg-white border-none overflow-hidden">
-      <div className="bg-[#1e3a8a] text-white px-8 py-5 flex items-center justify-between border-b border-white/10">
-        <div className="flex items-center gap-12">
-           <button onClick={onBack} className="hover:bg-white/10 p-2 -ml-2 transition-colors">
-             <ArrowLeft className="h-6 w-6" />
-           </button>
-           <div className="flex flex-col gap-1">
-             <span className="text-[10px] font-black uppercase text-blue-200 tracking-widest opacity-70">Ship to Party</span>
-             <span className="text-[13px] font-black uppercase leading-none">{node.trip.shipToParty}</span>
-           </div>
-           <div className="h-10 w-px bg-white/20" />
-           <div className="flex flex-col gap-1">
-             <span className="text-[10px] font-black uppercase text-blue-200 tracking-widest opacity-70">Vehicle Number</span>
-             <span className="text-[13px] font-black uppercase leading-none">{node.trip.vehicleNumber}</span>
-           </div>
-           <div className="h-10 w-px bg-white/20" />
-           <div className="flex flex-col gap-1">
-             <span className="text-[10px] font-black uppercase text-blue-200 tracking-widest opacity-70">Route</span>
-             <span className="text-[13px] font-black uppercase leading-none">{node.trip.route}</span>
-           </div>
-        </div>
-        <div className="text-right flex flex-col gap-1">
-          <span className="text-[10px] font-black uppercase text-blue-200 tracking-widest opacity-70">Live Distance</span>
-          <span className="text-2xl font-black italic text-[#ffff00] tracking-tighter drop-shadow-sm">{distance}</span>
-        </div>
-      </div>
-      <div ref={mapRef} className="flex-1 bg-slate-100" />
-      <div className="px-8 py-3 bg-white border-t border-slate-200 flex justify-between items-center text-[10px] font-black uppercase text-slate-500 tracking-widest">
-         <div className="flex items-center gap-3">
-           <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-           <span>Live GPS Synchronization Active</span>
-         </div>
-      </div>
-    </div>
-  );
-}
-
-function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: any) {
-  const [activeTab, setActiveTab] = React.useState('Tracking MAP'); const [vehicles, setVehicles] = React.useState<any[]>([]); const [loading, setLoading] = React.useState(true); const [map, setMap] = React.useState<any>(null); const markersRef = React.useRef<any[]>([]); const infoWindowRef = React.useRef<any>(null);
-
-  const fetchGpsData = React.useCallback(async () => {
-    const internalApiUrl = '/api/gps'; const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 15000);
-    try { const response = await fetch(internalApiUrl, { method: "GET", headers: { "Content-Type": "application/json" }, signal: controller.signal }); clearTimeout(timeoutId); if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`); const json = await response.json(); if (json?.data?.list) setVehicles(json.data.list); setLoading(false); } catch (error: any) { clearTimeout(timeoutId); console.error("GPS API handshake failure:", error.message); setLoading(false); }
-  }, []);
-
-  React.useEffect(() => { fetchGpsData(); const interval = setInterval(fetchGpsData, 30000); return () => clearInterval(interval); }, [fetchGpsData]);
-
-  const showVehicleInfo = React.useCallback((v: any, marker?: any) => {
-    if (!window.google || !map) return; if (!infoWindowRef.current) infoWindowRef.current = new window.google.maps.InfoWindow();
-    const geocoder = new window.google.maps.Geocoder(); const latlng = { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) };
-    geocoder.geocode({ location: latlng }, (results: any, status: any) => { if (status === 'OK' && results[0]) {
-        const comps = results[0].address_components; let street = '', city = '';
-        for (const c of comps) { if (c.types.includes('route')) street = c.long_name; if (c.types.includes('locality')) city = c.long_name; }
-        const locStr = [street, city].filter(Boolean).join(', ') || results[0].formatted_address;
-        const content = `<div style="font-family: monospace; font-size: 11px; font-weight: bold; padding: 10px; min-width: 180px;"><div style="color: #1e3a8a; border-bottom: 2px solid #1e3a8a; margin-bottom: 8px; padding-bottom: 4px; font-size: 13px; letter-spacing: -0.5px;">${v.vehicleNumber}</div><div style="color: #64748b; font-size: 9px; margin-bottom: 2px; text-transform: uppercase;">Live Location:</div><div style="color: #0f172a; line-height: 1.4;">${locStr}</div><div style="margin-top: 8px; color: #1e3a8a; font-size: 9px; display: flex; justify-content: space-between; border-top: 1px dashed #cbd5e1; padding-top: 4px;"><span>SPEED: ${v.speed} KM/H</span><span>${v.createdDateReadable}</span></div></div>`;
-        infoWindowRef.current.setContent(content); if (marker) infoWindowRef.current.open(map, marker); else { infoWindowRef.current.setPosition(latlng); infoWindowRef.current.open(map); }
-        map.panTo(latlng); if (map.getZoom() < 14) map.setZoom(15);
-      }
-    });
-  }, [map]);
-
-  React.useEffect(() => {
-    if (!map || !vehicles.length || !window.google) return; markersRef.current.forEach(m => m.setMap(null)); markersRef.current = [];
-    const newMarkers: any[] = [];
-    vehicles.forEach((v: any) => {
-      const pos = { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) }; const isActive = v.speed > 0;
-      const iconUrl = isActive ? (settings?.activeIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png') : (settings?.stopIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png');
-      const marker = new window.google.maps.Marker({ position: pos, map: map, title: v.vehicleNumber, icon: { url: iconUrl, scaledSize: new window.google.maps.Size(40, 40) } });
-      marker.addListener('click', () => showVehicleInfo(v, marker)); newMarkers.push(marker);
-    });
-    markersRef.current = newMarkers;
-  }, [map, vehicles, settings, showVehicleInfo]);
-
-  const handleIconUpload = async (e: any, type: 'activeIcon' | 'stopIcon') => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => { const dataUrl = ev.target?.result as string; setDocumentNonBlocking(settingsRef, { [type]: dataUrl }, { merge: true }); onStatusUpdate({ text: `${type === 'activeIcon' ? 'Active' : 'Stop'} icon synchronized`, type: 'success' }); }; reader.readAsDataURL(file); };
-
-  return <div className="flex flex-col h-full space-y-0">
-    <div className="bg-white border-b border-slate-300 px-8 py-3 mb-4 flex items-center justify-between">
-       <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">GPS TRACKING HUB</h2>
-       <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 overflow-x-auto no-scrollbar">{['Tracking MAP', 'Setting'].map(t => (<button key={t} onClick={() => setActiveTab(t)} className={cn("px-6 py-2 text-[9px] font-black uppercase tracking-widest whitespace-nowrap", activeTab === t ? "bg-white text-[#0056d2] -mb-px" : "text-slate-500 hover:text-slate-700")}>{t}</button>))}</div>
-    </div>
-    <div className="flex-1 bg-white border border-slate-300 overflow-hidden flex flex-col md:flex-row mx-8 mb-12 shadow-sm">{activeTab === 'Tracking MAP' ? (<><div className="w-full md:w-80 border-r border-slate-200 flex flex-col h-full overflow-hidden"><div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between"><span className="text-[10px] font-black uppercase text-slate-500">Vehicle Registry</span><Badge variant="outline" className="text-[8px]">{vehicles.length} Units</Badge></div><div className="flex-1 overflow-y-auto green-scrollbar h-[350px]">{loading ? (<div className="p-10 flex flex-col items-center gap-2"><Loader2 className="h-5 w-5 animate-spin text-blue-600" /><span className="text-[8px] font-black uppercase text-slate-400">Loading GPS...</span></div>) : vehicles.map((v: any) => (<div key={v.vehicleNumber} onClick={() => showVehicleInfo(v)} className="p-4 border-b border-slate-50 hover:bg-blue-50 cursor-pointer transition-colors group flex flex-col gap-1 min-h-[70px]"><div className="flex justify-between items-start"><span className="text-[11px] font-black text-[#1e3a8a]">{v.vehicleNumber}</span><span className={cn("text-[8px] font-black px-1.5 py-0.5 rounded", v.speed > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{v.speed > 0 ? `${v.speed} KM/H` : 'STOPPED'}</span></div><p className="text-[9px] text-slate-400 font-bold uppercase truncate">{v.createdDateReadable || 'SYNCING...'}</p></div>))}</div></div><div className="flex-1 relative bg-slate-100"><div id="google-map" ref={(el) => { if (el && !map && window.google) { const newMap = new window.google.maps.Map(el, { center: { lat: 28.6139, lng: 77.2090 }, zoom: 5, disableDefaultUI: false }); setMap(newMap); } }} className="w-full h-full" /></div></>) : (<div className="p-8 space-y-10 max-w-2xl mx-auto w-full overflow-y-auto"><div className="space-y-6"><h3 className="text-sm font-black text-[#1e3a8a] uppercase tracking-tighter border-b border-slate-100 pb-2">GPS ICON SYNCHRONIZATION</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm"><label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Active Vehicle Icon</label><div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">{settings?.activeIcon ? (<div className="relative w-12 h-12 border border-slate-200 p-1"><Image src={settings.activeIcon} alt="Active" fill className="object-contain" unoptimized /></div>) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}<input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'activeIcon')} className="hidden" id="up-active-icon" /><Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300"><label htmlFor="up-active-icon" className="cursor-pointer">Upload New</label></Button></div></div><div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm"><label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500" /> Stopped Vehicle Icon</label><div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">{settings?.stopIcon ? (<div className="relative w-12 h-12 border border-slate-200 p-1"><Image src={settings.stopIcon} alt="Stop" fill className="object-contain" unoptimized /></div>) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}<input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'stopIcon')} className="hidden" id="up-stop-icon" /><Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300"><label htmlFor="up-stop-icon" className="cursor-pointer">Upload New</label></Button></div></div></div></div></div>)}</div></div>;
-}
-
-function TrackShipmentScreen({ trips, orders, customers }: any) {
-  const [refType, setRefType] = React.useState('');
-  const [refValue, setRefValue] = React.useState('');
-  const [activeStep, setActiveStep] = React.useState(-1);
-  const [trackingData, setTrackingData] = React.useState<any>(null);
-  const [linkedTrips, setLinkedTrips] = React.useState<any[]>([]);
-  const [view, setView] = React.useState<'search' | 'so_details' | 'track_view'>('search');
-  const [animating, setAnimating] = React.useState(false);
-  const mapRef = React.useRef<HTMLDivElement>(null);
-  const [gpsData, setGpsData] = React.useState<any[]>([]);
-
-  React.useEffect(() => {
-    const fetchGps = async () => { try { const res = await fetch('/api/gps'); if (res.ok) { const json = await res.json(); if (json?.data?.list) setGpsData(json.data.list); } } catch (e) {} };
-    fetchGps(); const i = setInterval(fetchGps, 30000); return () => clearInterval(i);
-  }, []);
-
-  const handleTrackNow = () => {
-    if (!refValue) return;
-    const val = refValue.trim().toUpperCase();
-    if (refType === 'Sale Order') {
-      const order = orders?.find((o: any) => o.saleOrder === val || o.id === val);
-      if (order) {
-        setTrackingData(order);
-        const tList = trips?.filter((t: any) => t.saleOrderId === order.id) || [];
-        setLinkedTrips(tList);
-        setView('so_details');
-      } else { alert("Registry Failure: Sale Order Not Found"); }
-    } else {
-      const trip = trips?.find((t: any) => t.tripId === val || t.id === val);
-      if (trip) {
-        setTrackingData(trip);
-        setLinkedTrips([trip]);
-        setView('track_view');
-        startAnimation(trip);
-      } else { alert("Registry Failure: Trip ID Not Found"); }
-    }
-  };
-
-  const startAnimation = (trip: any) => {
-    let target = 0;
-    if (trip.status === 'LOADING') target = 1;
-    else if (trip.status === 'IN-TRANSIT') target = 2;
-    else if (trip.status === 'ARRIVED') target = 3;
-    else if (trip.status === 'CLOSED') target = 4;
-    else if (trip.status === 'REJECTION') target = 4;
-
-    setAnimating(true);
-    let current = 0;
-    setActiveStep(0);
-    const interval = setInterval(() => {
-      if (current < target) {
-        current++;
-        setActiveStep(current);
-      } else {
-        clearInterval(interval);
-        setAnimating(false);
-      }
-    }, 2000);
-  };
-
-  const renderMap = () => {
-    if (!window.google || !trackingData || !linkedTrips.length) return;
-    const geocoder = new window.google.maps.Geocoder();
-    const directionsService = new window.google.maps.DirectionsService();
-    const directionsRenderer = new window.google.maps.DirectionsRenderer({ suppressMarkers: true, polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 } });
-    
-    const cons = customers?.find((c: any) => c.customerName?.toUpperCase() === trackingData.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trackingData.consignor?.toUpperCase());
-    const ship = customers?.find((c: any) => c.customerName?.toUpperCase() === trackingData.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trackingData.shipToParty?.toUpperCase());
-    
-    Promise.all([
-      new Promise(r => geocoder.geocode({ address: cons?.postalCode || 'India' }, (res: any) => r(res?.[0]?.geometry?.location))),
-      new Promise(r => geocoder.geocode({ address: ship?.postalCode || 'India' }, (res: any) => r(res?.[0]?.geometry?.location)))
-    ]).then(([origin, dest]: any) => {
-      if (!mapRef.current) return;
-      const map = new window.google.maps.Map(mapRef.current, { center: origin || { lat: 20, lng: 78 }, zoom: 5 });
-      directionsRenderer.setMap(map);
-      if (origin && dest) directionsService.route({ origin, destination: dest, travelMode: window.google.maps.TravelMode.DRIVING }, (res, stat) => { if (stat === 'OK') directionsRenderer.setDirections(res); });
-      const gps = gpsData.find(v => v.vehicleNumber === trackingData.vehicleNumber);
-      if (gps) new window.google.maps.Marker({ position: { lat: gps.latitude, lng: gps.longitude }, map, icon: { url: 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(40, 40) } });
-    });
-  };
-
-  React.useEffect(() => { if (view === 'track_view' && trackingData) renderMap(); }, [view, trackingData, gpsData]);
-
-  if (view === 'search') {
-    return <div className="space-y-0 min-h-full">
-      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10"><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">TRACK SHIPMENT REGISTRY</h2></div>
-      <div className="px-10 pb-20 space-y-12 max-w-2xl"><SectionGrouping title="SELECTION"><div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right uppercase shrink-0">Ref Type:</label><select value={refType} onChange={e => setRefType(e.target.value)} className="h-9 w-[320px] border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase"><option value="">SELECT OPTION...</option><option value="Sale Order">Sale Order</option><option value="Trip ID">Trip ID</option></select></div>
-        {refType && <FormInput label={refType.toUpperCase()} value={refValue} onChange={setRefValue} placeholder={`ENTER ${refType.toUpperCase()}...`} />}
-      </SectionGrouping><div className="pl-[212px] flex gap-4"><Button onClick={() => setRefValue('')} variant="outline" className="h-9 px-8 rounded-none text-[10px] font-black uppercase">Clear</Button><Button onClick={handleTrackNow} className="h-9 px-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Track Now</Button></div></div></div>;
-  }
-
-  if (view === 'so_details') {
-    return <div className="space-y-0 min-h-full">
-      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 flex items-center justify-between"><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">SALE ORDER</h2><Button onClick={() => setView('search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">New Search</Button></div>
-      <div className="px-10 pb-20"><SectionGrouping title="ORDER DETAILS">
-          <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-400 w-[180px] text-right uppercase">Booked On:</label><span className="text-[12px] font-black uppercase">{format(new Date(trackingData.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
-          <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-400 w-[180px] text-right uppercase">Weight:</label><span className="text-[12px] font-black text-emerald-600">{trackingData.weight} {trackingData.weightUom}</span></div>
-          <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-400 w-[180px] text-right uppercase">Route:</label><span className="text-[12px] font-black text-[#1e3a8a] uppercase">{trackingData.from} → {trackingData.destination}</span></div>
-          <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-400 w-[180px] text-right uppercase">Consignee:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignee}</span></div>
-          <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-400 w-[180px] text-right uppercase">Ship To:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.shipToParty}</span></div>
-        </SectionGrouping>
-        {linkedTrips && linkedTrips.length > 0 ? (
-          <div className="bg-blue-50 border-y border-blue-200 p-8 space-y-4">
-            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Linked Trip Found:</p>
-            <div className="flex flex-wrap gap-4">
-              {linkedTrips.map((t: any) => (
-                <button 
-                  key={t.id} 
-                  onClick={() => { setTrackingData(t); startAnimation(t); setView('track_view'); }}
-                  className="bg-white border border-[#1e3a8a] text-[#1e3a8a] px-5 py-3 text-[11px] font-black uppercase hover:bg-[#1e3a8a] hover:text-white transition-all shadow-sm flex items-center gap-2"
-                >
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  TRACK TRIP: {t.tripId}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="bg-orange-50 border-y border-orange-200 p-8 text-center"><p className="text-sm font-black italic uppercase text-slate-800 leading-relaxed">Pending Trip Synchronization...</p></div>
-        )}
-      </div></div>;
-  }
-
-  const steps = [
-    { label: 'Order Booked', icon: ShoppingCart },
-    { label: 'Loading', icon: Package },
-    { label: 'IN-Transit', icon: Truck },
-    { label: 'Arrived', icon: MapPin },
-    { label: trackingData.status === 'REJECTION' ? 'Reject' : 'Delivered', icon: trackingData.status === 'REJECTION' ? AlertTriangle : CheckCircleIcon }
-  ];
-
-  return <div className="space-y-0 min-h-full">
-      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between"><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">LIVE TRIP TRACKING</h2><Button onClick={() => setView(linkedTrips.length > 1 ? 'so_details' : 'search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">Back</Button></div>
-      <div className="px-10 pb-20 space-y-8">
-        <SectionGrouping title="REGISTRY">
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-4 border-b border-slate-100 pb-8">
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[13px] font-black uppercase text-[#1e3a8a]">{trackingData.vehicleNumber}</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Consignee</span><span className="text-[13px] font-black uppercase truncate">{trackingData.consignee}</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Assigned Qty</span><span className="text-[13px] font-black text-emerald-600">{trackingData.assignWeight} MT</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[13px] font-black uppercase text-blue-600 truncate">{trackingData.route}</span></div>
-           </div>
-           {trackingData.delayRemark && (
-             <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200">
-               <label className="text-[9px] font-black uppercase text-yellow-700 tracking-widest block mb-1">Delay Remark Registered:</label>
-               <p className="text-[11px] font-black uppercase text-[#1e3a8a]">{trackingData.delayRemark}</p>
-             </div>
-           )}
-        </SectionGrouping>
-        <div className="p-10 relative overflow-hidden bg-white border border-slate-200 shadow-sm">
-          <div className="flex justify-between relative z-10">
-            {steps.map((s, i) => {
-              const isCompleted = i < activeStep;
-              const isActive = i === activeStep;
-              const statusColor = isCompleted ? "text-emerald-600" : isActive ? "text-yellow-600" : "text-red-500";
-              const iconBg = isCompleted ? "bg-emerald-50 border-emerald-200 text-emerald-600" : isActive ? "bg-yellow-50 border-yellow-300 text-yellow-600 shadow-md scale-110" : "bg-red-50 border-red-100 text-red-500";
-              
-              return (
-                <div key={s.label} className="flex flex-col items-center gap-4 group relative">
-                  <div className={cn("w-14 h-14 rounded-none border-2 flex items-center justify-center transition-all duration-500", iconBg)}>
-                    <s.icon className="h-7 w-7" />
-                  </div>
-                  <div className="text-center space-y-1">
-                    <p className={cn("text-[10px] font-black uppercase tracking-widest", statusColor)}>{s.label}</p>
-                    {i <= activeStep && <p className="text-[10px] text-slate-400 font-bold uppercase">{format(new Date(trackingData.createdAt), 'dd-MMM-yy HH:mm')}</p>}
-                  </div>
-                </div>
-              );
-            })}
-            <div className="absolute top-[28px] left-[10%] right-[10%] h-[2px] bg-slate-100 -z-0" />
-            <div className="absolute top-[-15px] z-20 transition-all duration-[2000ms] ease-in-out" style={{ left: `${(activeStep / (steps.length - 1)) * 80 + 10}%`, transform: 'translateX(-50%)' }}>
-              <div className="bg-white p-3 shadow-2xl border border-blue-100 animate-bounce">
-                <Truck className="h-10 w-10 text-[#1e3a8a]" />
-              </div>
-            </div>
-          </div>
-        </div>
-        {trackingData.status === 'REJECTION' && <div className="bg-red-50 border border-red-200 p-4 text-center"><p className="text-[10px] font-black text-red-600 uppercase">REJECTION: {trackingData.rejectionRemark}</p></div>}
-        <div className="h-[400px] border border-slate-300 shadow-inner"><div ref={mapRef} className="w-full h-full" /></div>
-      </div></div>;
-}
-
-function Se38Report({ search, results, onSearchChange, allPlants, allVendors, allCompanies, allCustomers }: any) {
-  const handleExport = () => {
-    if (!results || results.length === 0) return;
-    const headers = [
-      'Plant', 'Sale Order', 'Sale Order Date Time', 'Consignor', 'Consignee', 'Ship to Party', 'Destination',
-      'Trip ID', 'Trip Create Date Time', 'Vehicle Number', 'Driver Mobile', 'Carrier Name', 'CN Number',
-      'Invoice Number', 'E-waybill Number', 'Product', 'Unit', 'Unit UOM', 'Assign Qty', 'Weight UOM',
-      'Vendor Name', 'Vendor Firm', 'Vendor Mobile', 'Fleet Type', 'Payment Term', 'Employee', 'Rate',
-      'Freight Amount', 'Vehicle Out Date Time', 'Vehicle Arrived Date Time', 'Unload Date Time',
-      'Reject Date Time', 'POD Status', 'Vehicle Resent Date Time', 'SRN Number', 'SRN Date'
-    ];
-
-    const rows = results.map((t: any) => [
-      t.plantCode, t.saleOrderNumber, t.saleOrderDate || '', t.consignor, t.consignee, t.shipToParty, t.destination,
-      t.tripId, t.createdAt, t.vehicleNumber, t.driverMobile, t.carrierName || '', t.cnNo || '',
-      t.invoiceNumber || '', t.ewaybillNumber || '', t.product || '', t.unit || '', t.unitUom || '', t.assignWeight, t.weightUom || 'MT',
-      t.vendorName, t.vendorFirmName || '', t.vendorMobile || '', t.fleetType || '', t.paymentTerms || '', t.employee || '', t.rate,
-      t.freightAmount, (t.outDate || '') + ' ' + (t.outTime || ''), (t.arrivedDate || '') + ' ' + (t.arrivedTime || ''), (t.unloadDate || '') + ' ' + (t.unloadTime || ''),
-      (t.rejectionDate || '') + ' ' + (t.rejectionTime || ''), t.status, '', '', ''
-    ]);
-
-    const csvContent = [headers.join(','), ...rows.map((r: any) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${search.plant}_${search.from}_${search.to}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  if (results) {
-    return (
-      <div className="flex flex-col h-full bg-white animate-fade-in">
-        <div className="bg-[#f0f0f0] border-b border-slate-300 p-2 flex items-center gap-4">
-          <Button onClick={handleExport} className="h-7 bg-white border border-slate-400 hover:bg-slate-50 text-[#1e3a8a] font-black text-[9px] uppercase px-4 rounded-none shadow-sm">
-            <Download className="h-3 w-3 mr-2" /> Export
-          </Button>
-        </div>
-        <div className="flex-1 overflow-auto green-scrollbar">
-          <table className="w-full text-left border-collapse min-w-[3500px]">
-            <thead className="sticky top-0 bg-[#f2f2f2] border-b-2 border-slate-300 z-20">
-              <tr className="text-[9px] font-black uppercase text-slate-600">
-                {[
-                  'Plant', 'Sale Order', 'Sale Order Date Time', 'Consignor', 'Consignee', 'Ship to Party', 'Destination',
-                  'Trip ID', 'Trip Create Date Time', 'Vehicle Number', 'Driver Mobile', 'Carrier Name', 'CN Number',
-                  'Invoice Number', 'E-waybill Number', 'Product', 'Unit', 'Unit UOM', 'Assign Qty', 'Weight UOM',
-                  'Vendor Name', 'Vendor Firm', 'Vendor Mobile', 'Fleet Type', 'Payment Term', 'Employee', 'Rate',
-                  'Freight Amount', 'Vehicle Out Date Time', 'Vehicle Arrived Date Time', 'Unload Date Time',
-                  'Reject Date Time', 'POD Status', 'Vehicle Resent Date Time', 'SRN Number', 'SRN Date'
-                ].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((t: any) => (
-                <tr key={t.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] text-[10px] font-bold">
-                  <td className="p-3">{t.plantCode}</td>
-                  <td className="p-3">{t.saleOrderNumber}</td>
-                  <td className="p-3">{t.saleOrderDate || ''}</td>
-                  <td className="p-3 uppercase">{t.consignor}</td>
-                  <td className="p-3 uppercase">{t.consignee}</td>
-                  <td className="p-3 uppercase">{t.shipToParty}</td>
-                  <td className="p-3 uppercase">{t.destination}</td>
-                  <td className="p-3 font-black text-blue-700">{t.tripId}</td>
-                  <td className="p-3">{format(new Date(t.createdAt), 'dd-MMM-yy HH:mm')}</td>
-                  <td className="p-3 uppercase">{t.vehicleNumber}</td>
-                  <td className="p-3">{t.driverMobile}</td>
-                  <td className="p-3 uppercase">{t.carrierName}</td>
-                  <td className="p-3">{t.cnNo}</td>
-                  <td className="p-3">{t.invoiceNumber}</td>
-                  <td className="p-3">{t.ewaybillNumber}</td>
-                  <td className="p-3 uppercase">{t.product}</td>
-                  <td className="p-3">{t.unit}</td>
-                  <td className="p-3 uppercase">{t.unitUom}</td>
-                  <td className="p-3 text-emerald-700 font-black">{t.assignWeight}</td>
-                  <td className="p-3 uppercase">{t.weightUom}</td>
-                  <td className="p-3 uppercase">{t.vendorName}</td>
-                  <td className="p-3 uppercase">{t.vendorFirmName}</td>
-                  <td className="p-3">{t.vendorMobile}</td>
-                  <td className="p-3 uppercase">{t.fleetType}</td>
-                  <td className="p-3 uppercase">{t.paymentTerms}</td>
-                  <td className="p-3 uppercase">{t.employee}</td>
-                  <td className="p-3">{t.rate}</td>
-                  <td className="p-3">{t.freightAmount}</td>
-                  <td className="p-3">{t.outDate && t.outTime ? `${t.outDate} ${t.outTime}` : ''}</td>
-                  <td className="p-3">{t.arrivedDate && t.arrivedTime ? `${t.arrivedDate} ${t.arrivedTime}` : ''}</td>
-                  <td className="p-3">{t.unloadDate && t.unloadTime ? `${t.unloadDate} ${t.unloadTime}` : ''}</td>
-                  <td className="p-3">{t.rejectionDate && t.rejectionTime ? `${t.rejectionDate} ${t.rejectionTime}` : ''}</td>
-                  <td className="p-3 uppercase">{t.status}</td>
-                  <td className="p-3"></td>
-                  <td className="p-3"></td>
-                  <td className="p-3"></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-0 min-h-full animate-fade-in">
-      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10">
-        <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Custom T-Code Report: Selection</h2>
-      </div>
-      <div className="px-10 pb-20">
-        <SectionGrouping title="Selection Criteria">
-          <FormSelect label="Plant *" value={search.plant} options={allPlants.map((p: any) => p.plantCode)} onChange={(v: string) => onSearchChange({ ...search, plant: v })} />
-          <FormSearchInput 
-            label="Vendor" 
-            value={search.vendor} 
-            options={allVendors.map((v: any) => `${v.vendorCode} - ${v.vendorName}`)} 
-            onChange={(v: string) => {
-              const code = v.includes(' - ') ? v.split(' - ')[0] : v;
-              onSearchChange({ ...search, vendor: code });
-            }} 
-          />
-          <FormSearchInput 
-            label="Carrier" 
-            value={search.company} 
-            options={allCompanies.map((c: any) => `${c.companyCode} - ${c.companyName}`)} 
-            onChange={(v: string) => {
-              const code = v.includes(' - ') ? v.split(' - ')[0] : v;
-              onSearchChange({ ...search, company: code });
-            }} 
-          />
-          <FormSearchInput 
-            label="Customer" 
-            value={search.customer} 
-            options={allCustomers.map((c: any) => `${c.customerCode} - ${c.customerName}`)} 
-            onChange={(v: string) => {
-              const code = v.includes(' - ') ? v.split(' - ')[0] : v;
-              onSearchChange({ ...search, customer: code });
-            }} 
-          />
-        </SectionGrouping>
-        <SectionGrouping title="Date Range">
-          <FormInput label="From Date *" type="date" value={search.from} onChange={(v: string) => onSearchChange({ ...search, from: v })} />
-          <FormInput label="To Date *" type="date" value={search.to} onChange={(v: string) => onSearchChange({ ...search, to: v })} />
-        </SectionGrouping>
-      </div>
-    </div>
-  );
-}
-
-function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code: string) => void }) {
-  return <div className="px-10 py-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{tcodes.map(t => <div key={t.code} onClick={() => onExecute(t.code)} className="bg-white p-6 border border-slate-300 hover:border-blue-500 cursor-pointer transition-all flex flex-col gap-3"><Badge className="w-fit rounded-none bg-slate-100 text-slate-600 border-slate-200 uppercase text-[8px] font-black">{t.module}</Badge><h3 className="text-xs font-black text-[#1e3a8a] uppercase">{t.code}</h3><p className="text-[10px] font-bold text-slate-500 uppercase">{t.description}</p></div>)}</div>;
-}
-
