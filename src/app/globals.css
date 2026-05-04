@@ -183,10 +183,10 @@
   
   html, body {
     width: 210mm;
-    height: 297mm;
+    height: 100%;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: hidden;
+    overflow: visible !important;
     background-color: white !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -206,18 +206,18 @@
     left: 0 !important;
     top: 0 !important;
     width: 210mm !important;
-    height: 297mm !important;
     display: block !important;
     margin: 0 !important;
     padding: 0 !important;
     box-sizing: border-box !important;
+    background: white !important;
   }
 
   .print\:hidden {
     display: none !important;
   }
 
-  .page-break-after-always {
+  .print\:page-break-after-always {
     page-break-after: always !important;
     break-after: page !important;
     display: block !important;
@@ -226,5 +226,6 @@
   
   table, tr, td, th {
     border-color: black !important;
+    color: black !important;
   }
 }

@@ -1502,6 +1502,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const [cnFormData, setCnFormData] = React.useState<any>({ cnNo: '', cnDate: format(new Date(), 'yyyy-MM-dd'), paymentTerms: 'PAID', carrierName: '', items: [{ invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'Bag' }] });
   const [isCnPreviewOpen, setIsCnPreviewOpen] = React.useState(false);
   const [selectedTripForPreview, setSelectedTripForPreview] = React.useState<any>(null);
+  const [previewDeliveryAddress, setPreviewDeliveryAddress] = React.useState('');
   const [gpsData, setGpsData] = React.useState<any[]>([]);
 
   const [isDelayRemarkPopupOpen, setIsDelayRemarkPopupOpen] = React.useState(false);
@@ -1656,7 +1657,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const handleArrivedAction = (t: any) => { setArrivedData({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), trip: t }); setIsArrivedPopupOpen(true); };
   const handleArrivedPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', arrivedData.trip.id), { status: 'ARRIVED', arrivedDate: arrivedData.date, arrivedTime: arrivedData.time, updatedAt: new Date().toISOString() }, { merge: true }); setIsArrivedPopupOpen(false); onStatusUpdate({ text: `Arrived Registry Synced`, type: 'success' }); };
   const handleRejectAction = (t: any) => { setRejectData({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), remark: '', trip: t }); setIsRejectPopupOpen(true); };
-  const handleRejectPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', rejectData.trip.id), { status: 'REJECTION', rejectionDate: rejectData.date, rejectionTime: rejectData.time, rejectionRemark: rejectData.remark, updatedAt: new Date().toISOString() }, { merge: true }); setIsRejectPopupOpen(false); onStatusUpdate({ text: `Node Rejected`, type: 'success' }); };
+  const handleRejectPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', rejectData.trip.id), { status: 'REJECTION', rejectionDate: rejectData.date, rejectionTime: rejectData.time, rejectionRemark: rejectData.remark, updatedAt: new Date().toISOString() }, { merge: true }); setIsRejectPopupOpen(true); onStatusUpdate({ text: `Node Rejected`, type: 'success' }); };
   const handleUnloadAction = (t: any) => { setUnloadData({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), trip: t }); setIsUnloadPopupOpen(true); };
   const handleUnloadPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', unloadData.trip.id), { status: 'POD', unloadDate: unloadData.date, unloadTime: unloadData.time, updatedAt: new Date().toISOString() }, { merge: true }); setIsUnloadPopupOpen(false); onStatusUpdate({ text: `Unload Node Synced`, type: 'success' }); };
   const handlePodUploadAction = (t: any) => { setSelectedTripForPod(t); setPodFile(null); setIsPodPopupOpen(true); };
@@ -1695,7 +1696,20 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
 
   const handleCnPreviewClick = (t: any) => { 
     const order = (orders || []).find((o: any) => o.id === t.saleOrderId); 
-    setSelectedTripForPreview({ ...t, order }); 
+    const carrier = (companies || []).find((c: any) => c.plantCodes?.includes(t.plantCode));
+    const consignorMaster = (customers || []).find((c: any) => (c.customerName?.toUpperCase() === order?.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.consignor?.toUpperCase()));
+    const consigneeMaster = (customers || []).find((c: any) => (c.customerName?.toUpperCase() === order?.consignee?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.consignee?.toUpperCase()));
+    const shipToMaster = (customers || []).find((c: any) => (c.customerName?.toUpperCase() === order?.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.shipToParty?.toUpperCase()));
+
+    setSelectedTripForPreview({ 
+      ...t, 
+      order, 
+      carrier,
+      consignorMaster,
+      consigneeMaster,
+      shipToMaster
+    }); 
+    setPreviewDeliveryAddress(order?.deliveryAddress || shipToMaster?.address || '');
     setIsCnPreviewOpen(true); 
   };
 
@@ -1813,6 +1827,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
             <Button variant="outline" size="sm" disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(p + 1)} className="h-7 px-3 text-[9px] font-black uppercase rounded-none border-slate-300">Next</Button></div></div></div>
     </div>
     
+    {/* Assignment Popup */}
     <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
       <DialogContent className="max-w-[1200px] max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
@@ -1899,6 +1914,256 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
           <Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
           <Button onClick={handleCreateTrip} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post Assignment</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* CN Registry Popup */}
+    <Dialog open={isCnPopupOpen} onOpenChange={setIsCnPopupOpen}>
+      <DialogContent className="max-w-[1200px] max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
+        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
+          <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><FileText className="h-4 w-4" /> CN Registry Management</DialogTitle>
+        </DialogHeader>
+        <div className="p-6 space-y-4 overflow-y-auto green-scrollbar flex-1">
+          <SectionGrouping title="LOGISTICAL HUB">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-y-4 gap-x-8 mb-4">
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Plant Hub</span><span className="text-[11px] font-black uppercase">{selectedTripForCn?.plantCode}</span></div>
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[11px] font-black uppercase truncate">{selectedTripForCn?.shipToParty}</span></div>
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route Hub</span><span className="text-[11px] font-black uppercase truncate">{selectedTripForCn?.route}</span></div>
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[11px] font-black uppercase">{selectedTripForCn?.vehicleNumber}</span></div>
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Assigned Qty</span><span className="text-[11px] font-black uppercase text-emerald-600">{selectedTripForCn?.assignWeight} {selectedTripForCn?.weightUom || 'MT'}</span></div>
+            </div>
+          </SectionGrouping>
+          <SectionGrouping title="CN HEADER">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+              <FormInput label="CN NUMBER" value={cnFormData.cnNo} onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v})} placeholder="MANUAL ENTRY..." />
+              <FormInput label="CN DATE" type="date" value={cnFormData.cnDate} onChange={(v: string) => setCnFormData({...cnFormData, cnDate: v})} />
+              <FormInput label="CARRIER NAME" value={cnFormData.carrierName} disabled={true} />
+              <FormSelect label="PAYMENT TERMS" value={cnFormData.paymentTerms} options={["PAID", "TO-PAY", "TBB"]} onChange={(v: string) => setCnFormData({...cnFormData, paymentTerms: v})} />
+            </div>
+          </SectionGrouping>
+          <SectionGrouping title="DOCUMENT DETAILS">
+            <div className="bg-white border border-slate-300 rounded-none overflow-hidden">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 text-[9px] font-black uppercase border-b border-slate-300 text-slate-500">
+                    <th className="p-2 border-r border-slate-200">Invoice No</th>
+                    <th className="p-2 border-r border-slate-200">E-Waybill No</th>
+                    <th className="p-2 border-r border-slate-200">Product Description</th>
+                    <th className="p-2 border-r border-slate-200">Unit</th>
+                    <th className="p-2 border-r border-slate-200">Unit UOM</th>
+                    <th className="p-2 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cnFormData.items?.map((item: any, idx: number) => (
+                    <tr key={idx} className="border-b border-slate-100 last:border-0">
+                      <td className="p-1 border-r border-slate-200"><input value={item.invoiceNo} onChange={e => { const items = [...cnFormData.items]; items[idx].invoiceNo = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items}); }} className="w-full h-7 border-none text-[11px] font-bold outline-none px-2 uppercase" /></td>
+                      <td className="p-1 border-r border-slate-200"><input value={item.ewaybillNo} onChange={e => { const items = [...cnFormData.items]; items[idx].ewaybillNo = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items}); }} className="w-full h-7 border-none text-[11px] font-bold outline-none px-2 uppercase" /></td>
+                      <td className="p-1 border-r border-slate-200"><input value={item.product} onChange={e => { const items = [...cnFormData.items]; items[idx].product = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items}); }} className="w-full h-7 border-none text-[11px] font-bold outline-none px-2 uppercase" /></td>
+                      <td className="p-1 border-r border-slate-200"><input type="number" value={item.unit} onChange={e => { const items = [...cnFormData.items]; items[idx].unit = e.target.value; setCnFormData({...cnFormData, items}); }} className="w-full h-7 border-none text-[11px] font-bold outline-none px-2" /></td>
+                      <td className="p-1 border-r border-slate-200">
+                        <select value={item.uom} onChange={e => { const items = [...cnFormData.items]; items[idx].uom = e.target.value; setCnFormData({...cnFormData, items}); }} className="w-full h-7 border-none text-[11px] font-bold outline-none px-1 uppercase bg-white">
+                          <option value="Bag">Bag</option><option value="Box">Box</option><option value="Drum">Drum</option><option value="Pieces">Pieces</option><option value="Combined">Combined</option>
+                        </select>
+                      </td>
+                      <td className="p-1 text-center"><button onClick={() => { const items = cnFormData.items.filter((_: any, i: number) => i !== idx); setCnFormData({...cnFormData, items}); }} className="text-red-400 hover:text-red-600"><X className="h-3.5 w-3.5" /></button></td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-50 text-[10px] font-black uppercase">
+                    <td colSpan={3} className="p-2 text-right border-r border-slate-200">Total Calculation:</td>
+                    <td className="p-2 border-r border-slate-200 text-[#0056d2]">{cnTableTotal.total}</td>
+                    <td className="p-2">{cnTableTotal.uom}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+              <button onClick={() => setCnFormData({...cnFormData, items: [...cnFormData.items, { invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'Bag' }]})} className="w-full py-2 bg-slate-50 border-t border-slate-300 hover:bg-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-500 flex items-center justify-center gap-2 transition-colors">
+                <PlusSquare className="h-3.5 w-3.5" /> Add Document Row
+              </button>
+            </div>
+          </SectionGrouping>
+        </div>
+        <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
+          <Button onClick={() => setIsCnPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
+          <Button onClick={handleCnPost} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post CN Node</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* CN Print Preview Popup */}
+    <Dialog open={isCnPreviewOpen} onOpenChange={setIsCnPreviewOpen}>
+      <DialogContent className="max-w-[1200px] max-h-[95vh] bg-white p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col print:shadow-none print:w-full print:max-w-none">
+        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0 flex flex-row items-center justify-between space-y-0 print:hidden">
+          <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Printer className="h-4 w-4" /> CN Print Hub: {selectedTripForPreview?.cnNo}</DialogTitle>
+          <div className="flex items-center gap-4">
+            <Button onClick={() => window.print()} className="h-8 bg-white/10 hover:bg-white/20 text-white border-white/20 text-[9px] font-black uppercase"><Printer className="h-3.5 w-3.5 mr-2" /> Print Registry</Button>
+            <button onClick={() => setIsCnPreviewOpen(false)} className="text-white/60 hover:text-white"><X className="h-5 w-5" /></button>
+          </div>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto p-12 bg-slate-100 print:p-0 print:bg-white">
+          <div id="printable-area" className="flex flex-col gap-0 mx-auto w-full max-w-[210mm] print:max-w-none print:m-0">
+            {['CONSIGNEE COPY', 'DRIVER COPY', 'CONSIGNOR COPY'].map((copyLabel) => (
+              <div key={copyLabel} className="bg-white p-[0.5in] min-h-[297mm] flex flex-col border border-slate-200 mb-8 shadow-sm print:m-0 print:shadow-none print:border-none print:page-break-after-always">
+                {/* 1. Top Header */}
+                <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-4">
+                  <div className="flex gap-6 items-center">
+                    {selectedTripForPreview?.carrier?.logo && (
+                      <div className="relative w-24 h-24 border border-slate-100 shrink-0">
+                        <Image src={selectedTripForPreview.carrier.logo} alt="Logo" fill className="object-contain" unoptimized />
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      <h1 className="text-2xl font-black uppercase text-[#1e3a8a] leading-none">{selectedTripForPreview?.carrierName || 'CARRIER HUB'}</h1>
+                      <div className="text-[10px] font-bold text-slate-700 uppercase space-y-0.5">
+                        <p>{selectedTripForPreview?.carrier?.address}</p>
+                        <p>{selectedTripForPreview?.carrier?.city} - {selectedTripForPreview?.carrier?.postalCode}</p>
+                        <p className="font-black">GSTIN: {selectedTripForPreview?.carrier?.gstin}</p>
+                        <p>MOB: {selectedTripForPreview?.carrier?.mobile} | EMAIL: {selectedTripForPreview?.carrier?.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right flex flex-col items-end gap-2">
+                    <div className="border-2 border-black px-4 py-1 font-black text-xs uppercase">{copyLabel}</div>
+                    <div className="space-y-0.5">
+                       <p className="text-lg font-black uppercase">CN No: {selectedTripForPreview?.cnNo}</p>
+                       <p className="text-[11px] font-bold uppercase">Date: {selectedTripForPreview?.cnDate}</p>
+                       <p className="text-[11px] font-bold uppercase mt-2">From: <span className="font-black">{selectedTripForPreview?.from}</span></p>
+                       <p className="text-[11px] font-bold uppercase">To: <span className="font-black text-[#1e3a8a]">{selectedTripForPreview?.order?.destination}</span></p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Vehicle Details */}
+                <table className="w-full border-collapse border-2 border-black mb-4">
+                  <thead>
+                    <tr className="bg-slate-50 border-b-2 border-black">
+                      <th className="border-r-2 border-black p-2 text-[10px] font-black uppercase">Vehicle Number</th>
+                      <th className="border-r-2 border-black p-2 text-[10px] font-black uppercase">Driver Mobile</th>
+                      <th className="border-r-2 border-black p-2 text-[10px] font-black uppercase">Payment Term</th>
+                      <th className="p-2 text-[10px] font-black uppercase">Trip ID</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="text-center font-black text-[12px] uppercase">
+                      <td className="border-r-2 border-black p-2">{selectedTripForPreview?.vehicleNumber}</td>
+                      <td className="border-r-2 border-black p-2">{selectedTripForPreview?.driverMobile}</td>
+                      <td className="border-r-2 border-black p-2 text-[#1e3a8a]">{selectedTripForPreview?.paymentTerms}</td>
+                      <td className="p-2">{selectedTripForPreview?.tripId}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* 3. Party Details Section */}
+                <div className="grid grid-cols-3 gap-0 border-2 border-black mb-4">
+                  <div className="border-r-2 border-black p-3 space-y-2">
+                    <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-2">Consignor Node</h3>
+                    <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview?.order?.consignor}</p>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase">GSTIN: {selectedTripForPreview?.consignorMaster?.gstin || 'N/A'}</p>
+                  </div>
+                  <div className="border-r-2 border-black p-3 space-y-2">
+                    <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-2">Consignee Node</h3>
+                    <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview?.order?.consignee}</p>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase">GSTIN: {selectedTripForPreview?.consigneeMaster?.gstin || 'N/A'}</p>
+                  </div>
+                  <div className="p-3 space-y-2 bg-slate-50/50">
+                    <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-2">Ship To Party</h3>
+                    <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview?.order?.shipToParty}</p>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase italic">Delivery Address:</p>
+                    <p className="text-[11px] font-bold uppercase leading-relaxed">{selectedTripForPreview?.order?.deliveryAddress}</p>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase">GSTIN: {selectedTripForPreview?.shipToMaster?.gstin || 'N/A'}</p>
+                  </div>
+                </div>
+
+                {/* 4. Document & Items Table */}
+                <div className="flex-1">
+                  <table className="w-full border-collapse border-2 border-black">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] font-black uppercase border-b-2 border-black">
+                        <th className="p-2 border-r-2 border-black w-[150px]">Invoice No</th>
+                        <th className="p-2 border-r-2 border-black w-[180px]">E-Waybill No</th>
+                        <th className="p-2 border-r-2 border-black text-center w-[120px]">Package + UOM</th>
+                        <th className="p-2 border-r-2 border-black">Description of Goods</th>
+                        <th className="p-2 text-center w-[130px]">Quantity + UOM</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedTripForPreview?.cnItems?.map((item: any, idx: number) => (
+                        <tr key={idx} className="border-b border-black text-[11px] font-bold">
+                          <td className="p-2 border-r-2 border-black uppercase">{item.invoiceNo}</td>
+                          <td className="p-2 border-r-2 border-black uppercase font-mono">{item.ewaybillNo}</td>
+                          <td className="p-2 border-r-2 border-black text-center uppercase">{item.unit} {item.uom}</td>
+                          <td className="p-2 border-r-2 border-black uppercase whitespace-pre-wrap">{item.product}</td>
+                          <td className="p-2 text-center">-</td>
+                        </tr>
+                      ))}
+                      {/* Empty filler rows */}
+                      {Array.from({ length: Math.max(0, 10 - (selectedTripForPreview?.cnItems?.length || 0)) }).map((_, i) => (
+                        <tr key={`filler-${i}`} className="border-b border-black h-8 opacity-20">
+                          <td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td className="border-r-2 border-black"></td><td></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-slate-100 font-black text-[11px] uppercase border-t-2 border-black">
+                        <td colSpan={2} className="p-3 text-right border-r-2 border-black tracking-widest">Aggregate Registry Node Total:</td>
+                        <td className="p-3 text-center border-r-2 border-black bg-yellow-50/50">
+                           {selectedTripForPreview?.cnItems?.reduce((a: number, i: any) => a + (parseFloat(i.unit) || 0), 0)} {' '}
+                           {(() => {
+                              const uoms = Array.from(new Set(selectedTripForPreview?.cnItems?.map((i: any) => i.uom).filter(Boolean)));
+                              return uoms.length > 1 ? 'Combined' : (uoms[0] || 'Units');
+                           })()}
+                        </td>
+                        <td className="p-3 border-r-2 border-black"></td>
+                        <td className="p-3 text-center text-[#1e3a8a] text-sm">
+                           {selectedTripForPreview?.assignWeight} {selectedTripForPreview?.weightUom || 'MT'}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                {/* 5. Acknowledgement Box */}
+                <div className="mt-4 space-y-4">
+                  <div className="border-2 border-black">
+                     <div className="bg-slate-100 p-1.5 text-[9px] font-black uppercase border-b-2 border-black">Delivery Address Node (Preview Edit Access Enabled):</div>
+                     <div className="p-3">
+                        <textarea 
+                          value={previewDeliveryAddress} 
+                          onChange={(e) => setPreviewDeliveryAddress(e.target.value)}
+                          className="w-full h-16 border-none font-black text-[12px] uppercase resize-none outline-none focus:ring-0 bg-transparent print:h-auto"
+                        />
+                     </div>
+                  </div>
+                  <div className="border-2 border-black min-h-[100px] flex flex-col">
+                     <div className="bg-slate-100 p-1.5 text-[9px] font-black uppercase border-b-2 border-black">Acknowledgement of Cargo Registry:</div>
+                     <div className="flex-1 p-3 flex items-end justify-between">
+                        <span className="text-[9px] font-bold text-slate-300 uppercase italic">Recipient Node Signature Space</span>
+                        <div className="text-right space-y-1">
+                          <p className="text-[10px] font-black uppercase text-[#1e3a8a]">For {selectedTripForPreview?.carrierName}</p>
+                          <div className="h-10" />
+                          <p className="text-[9px] font-black uppercase tracking-widest border-t border-slate-300 pt-1">Authorized Signatory</p>
+                        </div>
+                     </div>
+                  </div>
+                </div>
+
+                {/* 6. Terms & Conditions Section */}
+                <div className="mt-4">
+                  <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tight text-justify leading-tight border border-slate-200 p-3 italic">
+                    {selectedTripForPreview?.carrier?.termsAndConditions?.join(' | ') || 'STANDARD TRANSPORTATION TERMS APPLY AS PER THE CARRIER MASTER REGISTRY. ALL DISPUTES ARE SUBJECT TO CARRIER HEADQUARTERS JURISDICTION ONLY.'}
+                  </p>
+                </div>
+
+                {/* 7. Note Line */}
+                <div className="mt-6 text-center border-t-2 border-dashed border-black pt-4 pb-2">
+                   <p className="text-[10px] font-black uppercase italic text-[#1e3a8a]">Note: This Lorry Receipt was generated digitally and is to be considered as original.</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -2048,199 +2313,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           <div onClick={() => fileInputRef.current?.click()} className="w-full h-40 border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-blue-50 transition-all">
             {podFile ? <div className="text-emerald-600 font-black text-xs uppercase">Document Ready</div> : <><UploadCloud className="h-8 w-8 text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase">Select Registry File</span></>}
           </div><div className="flex justify-end gap-3 w-full"><Button onClick={() => setIsPodPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button><Button onClick={handlePodPost} disabled={!podFile} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post & Close</Button></div></div></DialogContent></Dialog>
-
-    <Dialog open={isCnPopupOpen} onOpenChange={setIsCnPopupOpen}>
-      <DialogContent className="max-w-[1200px] max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
-        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><FileText className="h-4 w-4" /> CN Registry Management</DialogTitle>
-        </DialogHeader>
-        <div className="p-6 space-y-4 overflow-y-auto green-scrollbar flex-1">
-          <SectionGrouping title="LOGISTICAL HUB">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-y-4 gap-x-8 mb-4">
-              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Plant Hub</span><span className="text-[11px] font-black uppercase">{selectedTripForCn?.plantCode}</span></div>
-              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[11px] font-black uppercase truncate">{selectedTripForCn?.shipToParty}</span></div>
-              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route Hub</span><span className="text-[11px] font-black uppercase truncate">{selectedTripForCn?.route}</span></div>
-              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[11px] font-black uppercase">{selectedTripForCn?.vehicleNumber}</span></div>
-              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Assigned Qty</span><span className="text-[11px] font-black uppercase text-emerald-600">{selectedTripForCn?.assignWeight} {selectedTripForCn?.weightUom || 'MT'}</span></div>
-            </div>
-          </SectionGrouping>
-          <SectionGrouping title="CN HEADER">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-              <FormInput label="CN NUMBER" value={cnFormData.cnNo} onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v})} placeholder="MANUAL ENTRY..." />
-              <FormInput label="CN DATE" type="date" value={cnFormData.cnDate} onChange={(v: string) => setCnFormData({...cnFormData, cnDate: v})} />
-              <FormInput label="CARRIER NAME" value={cnFormData.carrierName} disabled={true} />
-              <FormSelect label="PAYMENT TERMS" value={cnFormData.paymentTerms} options={["PAID", "TO-PAY", "TBB"]} onChange={(v: string) => setCnFormData({...cnFormData, paymentTerms: v})} />
-            </div>
-          </SectionGrouping>
-          <SectionGrouping title="DOCUMENT DETAILS">
-            <div className="bg-white border border-slate-300 rounded-none overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 text-[9px] font-black uppercase border-b border-slate-300 text-slate-500">
-                    <th className="p-2 border-r border-slate-200">Invoice No</th>
-                    <th className="p-2 border-r border-slate-200">E-Waybill No</th>
-                    <th className="p-2 border-r border-slate-200">Product Description</th>
-                    <th className="p-2 border-r border-slate-200">Unit</th>
-                    <th className="p-2 border-r border-slate-200">Unit UOM</th>
-                    <th className="p-2 w-10"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cnFormData.items?.map((item: any, idx: number) => (
-                    <tr key={idx} className="border-b border-slate-100 last:border-0">
-                      <td className="p-1 border-r border-slate-200"><input value={item.invoiceNo} onChange={e => { const items = [...cnFormData.items]; items[idx].invoiceNo = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items}); }} className="w-full h-7 border-none text-[11px] font-bold outline-none px-2 uppercase" /></td>
-                      <td className="p-1 border-r border-slate-200"><input value={item.ewaybillNo} onChange={e => { const items = [...cnFormData.items]; items[idx].ewaybillNo = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items}); }} className="w-full h-7 border-none text-[11px] font-bold outline-none px-2 uppercase" /></td>
-                      <td className="p-1 border-r border-slate-200"><input value={item.product} onChange={e => { const items = [...cnFormData.items]; items[idx].product = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items}); }} className="w-full h-7 border-none text-[11px] font-bold outline-none px-2 uppercase" /></td>
-                      <td className="p-1 border-r border-slate-200"><input type="number" value={item.unit} onChange={e => { const items = [...cnFormData.items]; items[idx].unit = e.target.value; setCnFormData({...cnFormData, items}); }} className="w-full h-7 border-none text-[11px] font-bold outline-none px-2" /></td>
-                      <td className="p-1 border-r border-slate-200">
-                        <select value={item.uom} onChange={e => { const items = [...cnFormData.items]; items[idx].uom = e.target.value; setCnFormData({...cnFormData, items}); }} className="w-full h-7 border-none text-[11px] font-bold outline-none px-1 uppercase bg-white">
-                          <option value="Bag">Bag</option><option value="Box">Box</option><option value="Drum">Drum</option><option value="Pieces">Pieces</option><option value="Combined">Combined</option>
-                        </select>
-                      </td>
-                      <td className="p-1 text-center"><button onClick={() => { const items = cnFormData.items.filter((_: any, i: number) => i !== idx); setCnFormData({...cnFormData, items}); }} className="text-red-400 hover:text-red-600"><X className="h-3.5 w-3.5" /></button></td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-slate-50 text-[10px] font-black uppercase">
-                    <td colSpan={3} className="p-2 text-right border-r border-slate-200">Total Calculation:</td>
-                    <td className="p-2 border-r border-slate-200 text-[#0056d2]">{cnTableTotal.total}</td>
-                    <td className="p-2">{cnTableTotal.uom}</td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
-              <button onClick={() => setCnFormData({...cnFormData, items: [...cnFormData.items, { invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'Bag' }]})} className="w-full py-2 bg-slate-50 border-t border-slate-300 hover:bg-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-500 flex items-center justify-center gap-2 transition-colors">
-                <PlusSquare className="h-3.5 w-3.5" /> Add Document Row
-              </button>
-            </div>
-          </SectionGrouping>
-        </div>
-        <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
-          <Button onClick={() => setIsCnPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
-          <Button onClick={handleCnPost} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post CN Node</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    <Dialog open={isCnPreviewOpen} onOpenChange={setIsCnPreviewOpen}>
-      <DialogContent className="max-w-4xl max-h-[95vh] bg-white p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col print:shadow-none print:w-full">
-        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0 flex flex-row items-center justify-between space-y-0 print:hidden">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Printer className="h-4 w-4" /> CN Print Hub: {selectedTripForPreview?.cnNo}</DialogTitle>
-          <div className="flex items-center gap-4">
-            <Button onClick={() => window.print()} className="h-8 bg-white/10 hover:bg-white/20 text-white border-white/20 text-[9px] font-black uppercase"><Printer className="h-3.5 w-3.5 mr-2" /> Print Registry</Button>
-            <button onClick={() => setIsCnPreviewOpen(false)} className="text-white/60 hover:text-white"><X className="h-5 w-5" /></button>
-          </div>
-        </DialogHeader>
-        <div className="flex-1 overflow-y-auto p-12 print:p-0" id="printable-area">
-          <div className="border-[3px] border-black p-8 min-h-[1000px] flex flex-col font-serif">
-             <div className="flex justify-between border-b-[2px] border-black pb-4 mb-6">
-                <div className="space-y-1">
-                   <h1 className="text-3xl font-black uppercase tracking-tighter text-blue-900 italic leading-none">{selectedTripForPreview?.carrierName || 'CARRIER HUB'}</h1>
-                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Logistics & Supply Chain Management</p>
-                </div>
-                <div className="text-right space-y-1">
-                   <h2 className="text-xl font-black uppercase italic tracking-tighter underline">Consignment Note</h2>
-                   <p className="text-[11px] font-bold uppercase">CN No: <span className="text-red-600 ml-1">{selectedTripForPreview?.cnNo}</span></p>
-                   <p className="text-[11px] font-bold uppercase">Date: {selectedTripForPreview?.cnDate}</p>
-                </div>
-             </div>
-             
-             <div className="grid grid-cols-2 gap-0 border-b-[2px] border-black mb-6">
-                <div className="border-r-[2px] border-black p-4 space-y-4">
-                   <div className="space-y-1">
-                      <p className="text-[9px] font-black uppercase text-slate-400 leading-none">Consignor Node:</p>
-                      <p className="text-sm font-black uppercase leading-relaxed">{selectedTripForPreview?.order?.consignor}</p>
-                      <p className="text-[11px] font-bold uppercase italic">{selectedTripForPreview?.from}</p>
-                   </div>
-                   <div className="space-y-1 border-t border-slate-100 pt-4">
-                      <p className="text-[9px] font-black uppercase text-slate-400 leading-none">Consignee Node:</p>
-                      <p className="text-sm font-black uppercase leading-relaxed">{selectedTripForPreview?.order?.consignee}</p>
-                      <p className="text-[11px] font-bold uppercase italic">{selectedTripForPreview?.order?.deliveryAddress}</p>
-                      <p className="text-[11px] font-bold uppercase text-blue-900">{selectedTripForPreview?.order?.destination}</p>
-                   </div>
-                </div>
-                <div className="p-4 space-y-4 bg-slate-50/30">
-                   <div className="grid grid-cols-2 gap-4">
-                      <div><p className="text-[9px] font-black uppercase text-slate-400">Vehicle Hub:</p><p className="text-[11px] font-black uppercase">{selectedTripForPreview?.vehicleNumber}</p></div>
-                      <div><p className="text-[9px] font-black uppercase text-slate-400">Hub Code:</p><p className="text-[11px] font-black uppercase">{selectedTripForPreview?.plantCode}</p></div>
-                   </div>
-                   <div className="border-t border-slate-200 pt-4 space-y-2">
-                      <p className="text-[9px] font-black uppercase text-slate-400">Dispatch Details:</p>
-                      <p className="text-[11px] font-bold uppercase">Sale Order: {selectedTripForPreview?.saleOrderNumber}</p>
-                      <p className="text-[11px] font-bold uppercase">Fleet Type: {selectedTripForPreview?.fleetType}</p>
-                      <p className="text-[11px] font-bold uppercase">Payment Mode: <span className="bg-yellow-100 px-1">{selectedTripForPreview?.paymentTerms}</span></p>
-                   </div>
-                </div>
-             </div>
-
-             <div className="flex-1">
-                <table className="w-full border-collapse border-[2px] border-black">
-                   <thead>
-                      <tr className="bg-slate-100 text-[10px] font-black uppercase border-b-[2px] border-black">
-                         <th className="p-2 border-r-[2px] border-black">Invoice / E-Waybill</th>
-                         <th className="p-2 border-r-[2px] border-black">Product Description</th>
-                         <th className="p-2 border-r-[2px] border-black text-center">Unit</th>
-                         <th className="p-2 text-center">UOM</th>
-                      </tr>
-                   </thead>
-                   <tbody>
-                      {selectedTripForPreview?.cnItems?.map((item: any, idx: number) => (
-                         <tr key={idx} className="border-b border-black">
-                            <td className="p-3 border-r-[2px] border-black text-[11px] font-bold leading-tight">
-                               INV: {item.invoiceNo}<br/>
-                               <span className="text-[9px] text-slate-500 font-mono">EWB: {item.ewaybillNo}</span>
-                            </td>
-                            <td className="p-3 border-r-[2px] border-black text-[11px] font-black uppercase">{item.product}</td>
-                            <td className="p-3 border-r-[2px] border-black text-center text-[12px] font-black">{item.unit}</td>
-                            <td className="p-3 text-center text-[10px] font-bold uppercase">{item.uom}</td>
-                         </tr>
-                      ))}
-                      {/* Fill empty rows to maintain structure */}
-                      {Array.from({ length: Math.max(0, 8 - (selectedTripForPreview?.cnItems?.length || 0)) }).map((_, i) => (
-                        <tr key={`empty-${i}`} className="border-b border-black h-10">
-                           <td className="border-r-[2px] border-black"></td><td className="border-r-[2px] border-black"></td><td className="border-r-[2px] border-black"></td><td></td>
-                        </tr>
-                      ))}
-                   </tbody>
-                   <tfoot>
-                      <tr className="bg-slate-50 font-black text-xs uppercase border-t-[2px] border-black h-12">
-                         <td colSpan={2} className="p-3 text-right border-r-[2px] border-black">Aggregated Registry Total:</td>
-                         <td className="p-3 text-center border-r-[2px] border-black text-lg underline underline-offset-4 decoration-double">
-                            {selectedTripForPreview?.cnItems?.reduce((a: number, i: any) => a + (parseFloat(i.unit) || 0), 0)}
-                         </td>
-                         <td className="p-3 text-center italic">
-                            {(() => {
-                               const uoms = Array.from(new Set(selectedTripForPreview?.cnItems?.map((i: any) => i.uom).filter(Boolean)));
-                               return uoms.length > 1 ? 'Combined' : (uoms[0] || '');
-                            })()}
-                         </td>
-                      </tr>
-                   </tfoot>
-                </table>
-             </div>
-
-             <div className="mt-12 grid grid-cols-3 gap-0 border-[2px] border-black h-32">
-                <div className="border-r-[2px] border-black p-4 flex flex-col justify-between">
-                   <p className="text-[9px] font-black uppercase text-slate-400">Driver Signature</p>
-                   <div className="h-px w-3/4 bg-slate-300 mx-auto" />
-                </div>
-                <div className="border-r-[2px] border-black p-4 flex flex-col justify-between bg-slate-50/50">
-                   <p className="text-[9px] font-black uppercase text-slate-400 text-center italic">Carrier Hub Official Seal</p>
-                   <div className="flex justify-center"><div className="w-20 h-20 border-[2px] border-blue-900/10 rounded-full flex items-center justify-center opacity-10 rotate-12"><p className="text-[8px] font-black text-center leading-none">SIKKA HUB<br/>VERIFIED</p></div></div>
-                </div>
-                <div className="p-4 flex flex-col justify-between text-right">
-                   <p className="text-[9px] font-black uppercase text-slate-400">Authorized Registry Node</p>
-                   <p className="text-[10px] font-black uppercase italic">System Node: {selectedTripForPreview?.id?.slice(0, 8)}</p>
-                </div>
-             </div>
-             <p className="mt-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center leading-relaxed">
-                This document is a computer-generated nodal consignment note for Sikka Industries & Logistics. No physical signature is mandatory for registry verification.
-             </p>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
 
     <Dialog open={isAssignmentPopupOpen} onOpenChange={setIsAssignmentPopupOpen}>
       <DialogContent className="max-w-[1200px] max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
@@ -2882,8 +2954,4 @@ function Se38Report({ search, results, onSearchChange, allPlants, allVendors, al
 
 function ZCodeRegistry({ tcodes, onExecute }: { tcodes: any[], onExecute: (code: string) => void }) {
   return <div className="px-10 py-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{tcodes.map(t => <div key={t.code} onClick={() => onExecute(t.code)} className="bg-white p-6 border border-slate-300 hover:border-blue-500 cursor-pointer transition-all flex flex-col gap-3"><Badge className="w-fit rounded-none bg-slate-100 text-slate-600 border-slate-200 uppercase text-[8px] font-black">{t.module}</Badge><h3 className="text-xs font-black text-[#1e3a8a] uppercase">{t.code}</h3><p className="text-[10px] font-bold text-slate-500 uppercase">{t.description}</p></div>)}</div>;
-}
-
-function Se38ReportComponent({ search, results, onSearchChange, allPlants, allVendors, allCompanies, allCustomers }: any) {
-    return <Se38Report search={search} results={results} onSearchChange={onSearchChange} allPlants={allPlants} allVendors={allVendors} allCompanies={allCompanies} allCustomers={allCustomers} />;
 }
