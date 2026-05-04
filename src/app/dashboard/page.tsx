@@ -1686,7 +1686,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     </div>
     
     <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
-      <DialogContent className="max-w-4xl max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
+      <DialogContent className="max-w-[1200px] max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
           <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Truck className="h-4 w-4" /> TR21 – Assign Vehicle</DialogTitle>
         </DialogHeader>
@@ -1702,22 +1702,24 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
              </div>
           </SectionGrouping>
           <SectionGrouping title="CENTRE SECTION">
-             <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} placeholder="HR 38 X 1234" />
-             <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} placeholder="10 DIGIT MOBILE" />
-             <FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle", "Arrange by Party"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} />
-             <FormInput label="ASSIGN QTY (MT)" type="number" value={assignData.assignWeight} onChange={(v: string) => {
-               const w = parseFloat(v) || 0;
-               const r = parseFloat(assignData.rate) || 0;
-               setAssignData({
-                 ...assignData, 
-                 assignWeight: v,
-                 freightAmount: !assignData.isFixedRate ? (w * r).toFixed(2) : assignData.freightAmount
-               });
-             }} />
-             <FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignData.assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} />
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} placeholder="HR 38 X 1234" />
+                <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} placeholder="10 DIGIT MOBILE" />
+                <FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle", "Arrange by Party"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} />
+                <FormInput label="ASSIGN QTY (MT)" type="number" value={assignData.assignWeight} onChange={(v: string) => {
+                  const w = parseFloat(v) || 0;
+                  const r = parseFloat(assignData.rate) || 0;
+                  setAssignData({
+                    ...assignData, 
+                    assignWeight: v,
+                    freightAmount: !assignData.isFixedRate ? (w * r).toFixed(2) : assignData.freightAmount
+                  });
+                }} />
+                <FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignData.assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} />
+             </div>
 
              {assignData.fleetType === 'Market Vehicle' && (
-                <div className="space-y-4 pt-4 border-t border-slate-200 mt-4 animate-fade-in">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 pt-4 border-t border-slate-200 mt-4 animate-fade-in">
                   <FormSelect 
                     label="VENDOR NAME" 
                     value={assignData.vendorName} 
