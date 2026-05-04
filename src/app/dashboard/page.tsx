@@ -259,6 +259,9 @@ export default function SapDashboard() {
   const [se38Search, setSe38Search] = React.useState({ plant: '', vendor: '', company: '', customer: '', from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') });
   const [se38Results, setSe38Results] = React.useState<any[] | null>(null);
 
+  const [viewMode, setViewMode] = React.useState<'list' | 'tracking'>('list');
+  const [trackingNode, setTrackingNode] = React.useState<any>(null);
+
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const monthRef = React.useRef<HTMLDivElement>(null);
   const bulkInputRef = React.useRef<HTMLInputElement>(null);
@@ -790,16 +793,16 @@ export default function SapDashboard() {
       setScreenStack(prev => [...prev, clean as Screen]);
       setActiveScreen(clean as Screen); setFormData({}); setSearchId(''); setXdSearch({ plant: '', type: '', name: '', customerId: '', postalCode: '' });
       setSe38Results(null);
+      setViewMode('list');
       setStatusMsg({ text: `Transaction ${clean} executed`, type: 'info' });
     } else { setStatusMsg({ text: `T-Code ${clean} not found`, type: 'error' }); }
     setTCode('');
   }, [isAuthorized]);
 
   const handleBack = React.useCallback(() => {
-    if (activeScreen === 'SE38' && se38Results) {
-      // In SE38, do not allow going back to selection by standard navigation if result is showing
-      // per task "Remove Back to Selection option", however global F3 still works
-      // We will let the global F3 button on top handle the actual back logic
+    if (activeScreen === 'TR21' && viewMode === 'tracking') {
+      setViewMode('list');
+      return;
     }
     if (screenStack.length <= 1) {
       setActiveScreen('HOME');
@@ -814,27 +817,12 @@ export default function SapDashboard() {
     setFormData({});
     setSearchId('');
     setStatusMsg({ text: `Navigated to ${prevScreen}`, type: 'info' });
-  }, [screenStack, activeScreen, se38Results]);
+  }, [screenStack, activeScreen, viewMode]);
 
   const handleCancel = React.useCallback(() => {
     if (activeScreen === 'HOME' || (activeScreen.endsWith('03') && activeScreen !== 'SE38')) return;
     setFormData({}); setSearchId(''); setStatusMsg({ text: 'Operation cancelled', type: 'info' });
   }, [activeScreen]);
-
-  React.useEffect(() => {
-    if (!isUserLoading && !user) router.push('/login');
-  }, [user, isUserLoading, router]);
-
-  React.useEffect(() => {
-    if (isAuthChecking || isBootstrapAdmin) return;
-    if (!isUserLoading && !isProfileLoading && !isAllUsersLoading && user) {
-      const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
-      if (userProfile === null && !registryIsEmpty) {
-        toast({ title: "Access Denied", description: "Your account is not registered.", variant: "destructive" });
-        router.push('/login');
-      }
-    }
-  }, [user, userProfile, isUserLoading, isProfileLoading, isAllUsersLoading, allUsers, router, toast, isBootstrapAdmin, isAuthChecking]);
 
   React.useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -877,6 +865,7 @@ export default function SapDashboard() {
   };
 
   const isSuPage = activeScreen.startsWith('SU');
+  const isFlatPage = isSuPage || (activeScreen === 'TR21' && viewMode === 'tracking');
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
@@ -984,10 +973,10 @@ export default function SapDashboard() {
             ) : (
               <div className={cn(
                 "animate-slide-up print:p-0 print:border-none print:shadow-none flex flex-col",
-                isSuPage 
+                isFlatPage 
                   ? "w-full bg-transparent p-0" 
                   : "bg-white shadow-xl rounded-sm border border-slate-300 overflow-hidden h-[calc(100vh-145px)] p-4 md:p-6 mx-auto",
-                !isSuPage && (hideSidebar ? "w-full" : "w-full")
+                !isFlatPage && (hideSidebar ? "w-full" : "w-full")
               )}>
                  {showForm && <div className={cn("space-y-6", isSuPage && "bg-transparent p-0")}>
                    {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
@@ -1020,7 +1009,21 @@ export default function SapDashboard() {
                    </div>
                    <RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} />
                  </div>}
-                 {activeScreen === 'TR21' && <DripBoard orders={allOrders} trips={allTrips} vendors={accessibleVendors} plants={accessiblePlants} companies={accessibleCompanies} customers={accessibleCustomers} onStatusUpdate={setStatusMsg} />}
+                 {activeScreen === 'TR21' && (
+                   <DripBoard 
+                     orders={allOrders} 
+                     trips={allTrips} 
+                     vendors={accessibleVendors} 
+                     plants={accessiblePlants} 
+                     companies={accessibleCompanies} 
+                     customers={accessibleCustomers} 
+                     onStatusUpdate={setStatusMsg}
+                     viewMode={viewMode}
+                     setViewMode={setViewMode}
+                     trackingNode={trackingNode}
+                     setTrackingNode={setTrackingNode}
+                   />
+                 )}
                  {activeScreen === 'TR24' && <TrackShipmentScreen trips={allTrips} orders={allOrders} customers={accessibleCustomers} />}
                  {activeScreen === 'WGPS24' && <GpsTrackingHub trips={allTrips} onStatusUpdate={setStatusMsg} db={db} />}
                  {activeScreen === 'SE38' && <Se38Report search={se38Search} results={se38Results} onSearchChange={setSe38Search} allPlants={accessiblePlants} allVendors={accessibleVendors} allCompanies={accessibleCompanies} allCustomers={accessibleCustomers} />}
@@ -1387,7 +1390,7 @@ function RegistryList({ onSelectItem, listData, activeScreen }: any) {
   </div>;
 }
 
-function DripBoard({ orders, trips, vendors, plants, companies, customers, onStatusUpdate }: any) {
+function DripBoard({ orders, trips, vendors, plants, companies, customers, onStatusUpdate, viewMode, setViewMode, trackingNode, setTrackingNode }: any) {
   const { user } = useUser(); const db = useFirestore(); 
   const [activeTab, setActiveTab] = React.useState('Open Orders'); 
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null); 
@@ -1433,10 +1436,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const [selectedLiveTrip, setSelectedLiveTrip] = React.useState<any>(null);
   const [selectedLiveGps, setSelectedLiveGps] = React.useState<any>(null);
 
-  // TR21 Sub-Navigation State
-  const [viewMode, setViewMode] = React.useState<'list' | 'tracking'>('list');
-  const [trackingNode, setTrackingNode] = React.useState<any>(null);
-
   const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
   const { data: settings } = useDoc(settingsRef);
 
@@ -1470,14 +1469,8 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const handleAssignmentPost = () => { if (!assignmentMode) { onStatusUpdate({ text: 'Please select an option (Edit/Unassign)', type: 'error' }); return; } if (assignmentMode === 'unassign') { deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id)); onStatusUpdate({ text: `Trip ${selectedTripForAssignment.tripId} unassigned. Order returned to Open Orders.`, type: 'success' }); } else { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id), { vehicleNumber: assignData.vehicleNumber, driverMobile: assignData.driverMobile, assignWeight: parseFloat(assignData.assignWeight || 0), fleetType: assignData.fleetType, vendorName: assignData.vendorName || '', vendorMobile: assignData.vendorMobile || '', employee: assignData.employee || '', rate: parseFloat(assignData.rate || 0) || 0, freightAmount: parseFloat(assignData.freightAmount || 0) || 0, isFixedRate: !!assignData.isFixedRate, updatedAt: new Date().toISOString() }, { merge: true }); onStatusUpdate({ text: `Trip ${selectedTripForAssignment.tripId} updated successfully.`, type: 'success' }); } setIsAssignmentPopupOpen(false); };
   const handleTrackModeAction = (t: any) => { setSelectedTripForTrackMode(t); setTrackModeData({ mode: t.trackMode || 'GPS Tracking' }); setIsTrackModePopupOpen(true); };
   const handleTrackModePost = () => { if (!selectedTripForTrackMode) return; setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForTrackMode.id), { trackMode: trackModeData.mode, updatedAt: new Date().toISOString() }, { merge: true }); setIsTrackModePopupOpen(false); onStatusUpdate({ text: `Track Mode synchronized: ${trackModeData.mode}`, type: 'success' }); };
-  
-  // Navigation trigger for Map Page
-  const handleOpenMapPage = (t: any, gps: any) => {
-    setTrackingNode({ trip: t, gps });
-    setViewMode('tracking');
-  };
-
-  const handleOutVehicle = (t: any) => { if (['Own Vehicle', 'Contract Vehicle', 'Market Vehicle'].includes(t.fleetType) && !t.cnNo) { onStatusUpdate({ text: 'Add CN Number before Out Vehicle', type: 'error' }); return; } setOutData({ tripId: t.tripId, id: t.id, vehicleNumber: t.vehicleNumber, route: t.route, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsOutPopupOpen(true); };
+  const handleOpenMapPage = (t: any, gps: any) => { setTrackingNode({ trip: t, gps }); setViewMode('tracking'); };
+  const handleOutVehicle = (t: any) => { if (['Own Vehicle', 'Contract Vehicle', 'Market Vehicle'].includes(t.fleetType) && !t.cnNo) { onStatusUpdate({ text: 'Add CN Number before Out Vehicle', type: 'error' }); return; } setOutData({ tripId: t.tripId, id: t.id, vehicleNumber: t.vehicleNumber, route: t.route, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsOutPopupOpen(false); setIsOutPopupOpen(true); };
   const handleConfirmOut = () => { if (!outData.id) return; setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', outData.id), { status: 'IN-TRANSIT', outDate: outData.date, outTime: outData.time, updatedAt: new Date().toISOString() }, { merge: true }); setIsOutPopupOpen(false); onStatusUpdate({ text: `Vehicle ${outData.vehicleNumber} is now IN-TRANSIT`, type: 'success' }); };
   const handleArrivedAction = (t: any) => { setArrivedData({ ...arrivedData, trip: t }); setIsArrivedPopupOpen(true); };
   const handleArrivedPost = () => { const { date, time, trip } = arrivedData; if (!validateDateTime(date, time)) { onStatusUpdate({ text: 'Error: Future date/time not allowed', type: 'error' }); return; } setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', trip.id), { status: 'ARRIVED', arrivedDate: date, arrivedTime: time, updatedAt: new Date().toISOString() }, { merge: true }); setIsArrivedPopupOpen(false); onStatusUpdate({ text: `Trip ${trip.tripId} status updated to ARRIVED`, type: 'success' }); };
@@ -1501,17 +1494,10 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   React.useEffect(() => { if (assignData.fleetType === 'Market Vehicle' && !assignData.isFixedRate) { const weight = parseFloat(assignData.assignWeight || 0); const rate = parseFloat(assignData.rate || 0); setAssignData(prev => ({ ...prev, freightAmount: isNaN(weight * rate) ? 0 : weight * rate })); } }, [assignData.assignWeight, assignData.rate, assignData.fleetType, assignData.isFixedRate]);
   const handlePost = () => { if (!user || !selectedOrder) return; const tId = `T${Math.floor(100000000 + Math.random() * 900000000)}`; const newId = crypto.randomUUID(); const p = { id: newId, tripId: tId, saleOrderId: selectedOrder.id, saleOrderNumber: selectedOrder.saleOrder, plantCode: assignData.plantCode, shipToParty: assignData.shipToParty, consignee: selectedOrder.consignee, route: assignData.route, consignor: selectedOrder.consignor, from: selectedOrder.from || '', destination: selectedOrder.destination || '', deliveryAddress: selectedOrder.deliveryAddress || '', vehicleNumber: assignData.vehicleNumber, driverMobile: assignData.driverMobile, fleetType: assignData.fleetType, vendorName: assignData.vendorName || '', vendorMobile: assignData.vendorMobile || '', employee: assignData.employee || '', rate: parseFloat(assignData.rate || 0) || 0, freightAmount: parseFloat(assignData.freightAmount || 0) || 0, isFixedRate: !!assignData.isFixedRate, assignWeight: parseFloat(assignData.assignWeight || 0) || 0, status: 'LOADING', createdAt: new Date().toISOString() }; setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', newId), p, { merge: true }); setIsPopupOpen(false); setSelectedOrder(null); onStatusUpdate({ text: `Trip ${tId} posted to Loading`, type: 'success' }); };
 
-  // F3 Hook for Sub-Navigation
   React.useEffect(() => {
-    const handleF3 = (e: KeyboardEvent) => {
-      if (e.key === 'F3' && viewMode === 'tracking') {
-        e.preventDefault();
-        setViewMode('list');
-      }
-    };
-    window.addEventListener('keydown', handleF3);
-    return () => window.removeEventListener('keydown', handleF3);
-  }, [viewMode]);
+    const handleF3 = (e: KeyboardEvent) => { if (e.key === 'F3' && viewMode === 'tracking') { e.preventDefault(); setViewMode('list'); } };
+    window.addEventListener('keydown', handleF3); return () => window.removeEventListener('keydown', handleF3);
+  }, [viewMode, setViewMode]);
 
   if (viewMode === 'tracking' && trackingNode) {
     return <Tr21TrackingPage node={trackingNode} onBack={() => setViewMode('list')} customers={customers} settings={settings} />;
@@ -1549,7 +1535,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           <div className="h-8 px-5 flex items-center text-[10px] font-black text-[#1e3a8a] bg-blue-50/50 rounded-sm border border-blue-100 uppercase tracking-widest min-w-[120px] justify-center">PAGE {currentPage} / {totalPages || 1}</div>
           <Button variant="outline" size="sm" disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(p + 1)} className="h-8 px-4 text-[9px] font-black uppercase tracking-widest border-slate-300 hover:bg-white hover:text-blue-700 hover:border-blue-300 transition-all">Next Page <ChevronRight className="h-4 w-4 ml-1.5" /></Button></div></div></div>
     
-    {/* Popups (Synchronized Closing Tags) */}
     <LiveTrackingMapDialog isOpen={isLiveTrackOpen} onOpenChange={setIsLiveTrackOpen} trip={selectedLiveTrip} gpsVehicle={selectedLiveGps} customers={customers} settings={settings} isCompact={isLiveTrackCompact} />
     <Dialog open={isTrackModePopupOpen} onOpenChange={setIsTrackModePopupOpen}>
       <DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
@@ -1898,22 +1883,42 @@ function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
   }, [node, customers, settings]);
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-300">
-      <div className="bg-[#1e3a8a] text-white p-6 flex items-center justify-between shadow-lg">
-        <div className="flex items-center gap-8">
-           <button onClick={onBack} className="hover:bg-white/20 p-2 rounded-full transition-colors"><ArrowLeft className="h-6 w-6" /></button>
-           <div className="flex flex-col"><span className="text-[10px] font-black uppercase text-blue-300 tracking-[0.2em]">Ship to Party</span><span className="text-sm font-black uppercase">{node.trip.shipToParty}</span></div>
-           <div className="h-8 w-px bg-white/20" />
-           <div className="flex flex-col"><span className="text-[10px] font-black uppercase text-blue-300 tracking-[0.2em]">Vehicle Number</span><span className="text-sm font-black uppercase">{node.trip.vehicleNumber}</span></div>
-           <div className="h-8 w-px bg-white/20" />
-           <div className="flex flex-col"><span className="text-[10px] font-black uppercase text-blue-300 tracking-[0.2em]">Route</span><span className="text-sm font-black uppercase">{node.trip.route}</span></div>
+    <div className="flex flex-col h-full bg-white border-none overflow-hidden">
+      <div className="bg-[#1e3a8a] text-white px-8 py-5 flex items-center justify-between border-b border-white/10">
+        <div className="flex items-center gap-12">
+           <button onClick={onBack} className="hover:bg-white/10 p-2 -ml-2 transition-colors">
+             <ArrowLeft className="h-6 w-6" />
+           </button>
+           <div className="flex flex-col gap-1">
+             <span className="text-[10px] font-black uppercase text-blue-200 tracking-widest opacity-70">Ship to Party</span>
+             <span className="text-[13px] font-black uppercase leading-none">{node.trip.shipToParty}</span>
+           </div>
+           <div className="h-10 w-px bg-white/20" />
+           <div className="flex flex-col gap-1">
+             <span className="text-[10px] font-black uppercase text-blue-200 tracking-widest opacity-70">Vehicle Number</span>
+             <span className="text-[13px] font-black uppercase leading-none">{node.trip.vehicleNumber}</span>
+           </div>
+           <div className="h-10 w-px bg-white/20" />
+           <div className="flex flex-col gap-1">
+             <span className="text-[10px] font-black uppercase text-blue-200 tracking-widest opacity-70">Route</span>
+             <span className="text-[13px] font-black uppercase leading-none">{node.trip.route}</span>
+           </div>
         </div>
-        <div className="text-right flex flex-col"><span className="text-[10px] font-black uppercase text-blue-300 tracking-[0.2em]">Live Distance</span><span className="text-2xl font-black italic text-yellow-400">{distance}</span></div>
+        <div className="text-right flex flex-col gap-1">
+          <span className="text-[10px] font-black uppercase text-blue-200 tracking-widest opacity-70">Live Distance</span>
+          <span className="text-2xl font-black italic text-[#ffff00] tracking-tighter drop-shadow-sm">{distance}</span>
+        </div>
       </div>
       <div ref={mapRef} className="flex-1 bg-slate-100" />
-      <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-[10px] font-black uppercase text-slate-500">
-         <span className="flex items-center gap-2"><Radar className="h-3 w-3 animate-pulse text-blue-600" /> Live GPS Synchronization Active</span>
-         <span>F3 Node: BACK TO REGISTRY</span>
+      <div className="px-8 py-3 bg-white border-t border-slate-200 flex justify-between items-center text-[10px] font-black uppercase text-slate-500 tracking-widest">
+         <div className="flex items-center gap-3">
+           <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+           <span>Live GPS Synchronization Active</span>
+         </div>
+         <div className="flex items-center gap-2 opacity-60">
+           <span>F3 Node:</span>
+           <span className="text-slate-700">Back to Registry</span>
+         </div>
       </div>
     </div>
   );
