@@ -3,14 +3,14 @@
   "placeholderImages": [
     {
       "id": "logo-old",
-      "url": "https://picsum.photos/seed/sikka-logo/200/100",
+      "url": "https://image2url.com/r2/default/images/1774853207394-0cf9608b-4e2e-4963-a043-10d58e94cd24.jpeg",
       "width": 200,
       "height": 100,
       "description": "Sikka Industries Logo"
     },
     {
       "id": "login-hero",
-      "url": "https://picsum.photos/seed/logistics-login/800/1200",
+      "url": "https://image2url.com/r2/default/images/1774853645073-5e08ca2f-e12f-465f-9b61-30fdb875d95c.jpeg",
       "width": 800,
       "height": 1200,
       "description": "Sikka Industries Login Hero Image"

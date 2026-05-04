@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -911,7 +910,7 @@ export default function SapDashboard() {
           <div className="flex-1" /><div className="flex items-center gap-3 pr-4">
              {(activeScreen === 'XD01' || activeScreen === 'VA01' || activeScreen === 'FM01') && (
                <div className="flex items-center gap-2 mr-4">
-                 <input type="file" min-h-svh ref={bulkInputRef} onChange={handleFileChange} className="hidden" accept=".csv" />
+                 <input type="file" ref={bulkInputRef} onChange={handleFileChange} className="hidden" accept=".csv" />
                  <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 h-7 bg-white border border-slate-300 hover:bg-slate-50 rounded text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]"><FileText className="h-3.5 w-3.5" /> Template</button>
                  <button onClick={handleBulkUpload} className="flex items-center gap-1.5 px-3 h-7 bg-[#1e3a8a] hover:bg-blue-900 text-white rounded text-[9px] font-black uppercase tracking-widest"><UploadCloud className="h-3.5 w-3.5" /> Bulk Upload</button>
                </div>
@@ -1284,7 +1283,7 @@ function VendorForm({ data, onChange, disabled, allPlants }: any) {
     <SectionGrouping title="PLANT MAPPING">
       <div className="flex items-center gap-8">
         <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Hubs:</label>
-        <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div>
+        <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handlePToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div>
       </div>
     </SectionGrouping>
     <SectionGrouping title="IDENTIFICATION">
