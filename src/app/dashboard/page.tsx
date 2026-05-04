@@ -281,7 +281,7 @@ export default function SapDashboard() {
 
   React.useEffect(() => {
     const isAdmin = localStorage.getItem('sap_bootstrap_session') === 'true';
-    const rid = localStorage.getItem('sap_registry_id');
+    const rid = registryId || localStorage.getItem('sap_registry_id');
     setIsBootstrapAdmin(isAdmin);
     setRegistryId(rid);
     setIsAuthChecking(false);
@@ -1572,6 +1572,25 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     fetchGps(); const i = setInterval(fetchGps, 30000); return () => clearInterval(i); 
   }, [fetchGps]);
 
+  const handleGeneratePdf = React.useCallback(() => {
+    const originalTitle = document.title;
+    document.title = selectedTripForPreview?.cnNo || 'CN_Document';
+    window.print();
+    document.title = originalTitle;
+  }, [selectedTripForPreview]);
+
+  React.useEffect(() => {
+    if (!isCnPreviewOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        handleGeneratePdf();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCnPreviewOpen, handleGeneratePdf]);
+
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
   const getStats = (o: any) => { const tot = parseFloat(o.weight) || 0; const ass = trips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (t.assignWeight || 0), 0) || 0; return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; };
   const fOrders = React.useMemo(() => (orders || []).filter(o => o.status !== 'CANCELLED').map(o => { const stats = getStats(o); const route = (o.from && o.destination) ? `${o.from} → ${o.destination}` : (o.route || ''); return { ...o, ...stats, route }; }).filter(o => { const bal = o.bal > 0; const itemDate = new Date(o.createdAt); return bal && isWithinInterval(itemDate, { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) }); }), [orders, trips, fromDate, toDate]);
@@ -1730,50 +1749,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     setIsCnPreviewOpen(true); 
   };
 
-  const handleGeneratePdf = () => {
-    const originalTitle = document.title;
-    document.title = selectedTripForPreview?.cnNo || 'CN_Document';
-    window.print();
-    document.title = originalTitle;
-  };
-
-  const handleCreateTrip = () => {
-    const tripId = `T-${selectedOrder.saleOrder.slice(-5)}-${Math.floor(100 + Math.random() * 899)}`;
-    const docId = crypto.randomUUID();
-    const payload = {
-      id: docId,
-      tripId,
-      saleOrderId: selectedOrder.id,
-      saleOrderNumber: selectedOrder.saleOrder,
-      saleOrderDate: selectedOrder.saleOrderDate || '',
-      plantCode: assignData.plantCode,
-      consignor: selectedOrder.consignor || '',
-      from: selectedOrder.from || '',
-      consignee: assignData.consignee,
-      shipToParty: assignData.shipToParty,
-      route: assignData.route,
-      assignWeight: parseFloat(assignData.assignWeight),
-      vehicleType: assignData.fleetType?.toUpperCase(),
-      fleetType: assignData.fleetType,
-      vehicleNumber: assignData.vehicleNumber,
-      driverMobile: assignData.driverMobile,
-      vendorName: assignData.vendorName || '',
-      vendorCode: assignData.vendorCode || '',
-      vendorFirmName: assignData.vendorFirmName || '',
-      vendorMobile: assignData.vendorMobile || '',
-      arrangeBy: assignData.arrangeBy || '',
-      rate: parseFloat(assignData.rate || 0),
-      freightAmount: parseFloat(assignData.freightAmount || 0),
-      isFixedRate: !!assignData.isFixedRate,
-      status: 'LOADING',
-      createdAt: new Date().toISOString(),
-      assignDate: assignData.assignDate || new Date().toISOString()
-    };
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', docId), payload, { merge: true });
-    setIsPopupOpen(false);
-    onStatusUpdate({ text: `Trip ${tripId} Synchronized`, type: 'success' });
-  };
-
   const cnTableTotal = React.useMemo(() => {
     const total = cnFormData.items?.reduce((acc: number, item: any) => acc + (parseFloat(item.unit) || 0), 0) || 0;
     const uoms = Array.from(new Set(cnFormData.items?.map((i: any) => i.uom).filter(Boolean)));
@@ -1835,13 +1810,18 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                           )}
                         </div>
                       </td>
-                        <td className="p-3"><div className="flex items-center gap-2">
+                        <td className="p-3">
+                          <div className="flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-2">
                               {activeTab === 'Loading' && (<><Button onClick={() => handleOutVehicle(t)} size="sm" className="text-[9px] bg-emerald-600 text-white font-black h-7 rounded-none uppercase">Out</Button><Button onClick={() => handleAssignmentClick(t)} size="sm" className="text-[9px] bg-yellow-400 text-black font-black h-7 rounded-none uppercase">Assign</Button></>)}
-                              {activeTab === 'In-Transit' && (<><Button onClick={() => handleArrivedAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 rounded-none uppercase">Arrived</Button>{gpsVehicle && <VehicleLocation lat={gpsVehicle.latitude} lng={gpsVehicle.longitude} locationName={gpsVehicle.location} onClick={() => handleOpenMapPage(t, gpsVehicle)} />}</>)}
-                              {activeTab === 'Arrived' && (<><Button onClick={() => handleUnloadAction(t)} size="sm" className="text-[9px] bg-emerald-600 text-white font-black h-7 rounded-none uppercase">Unload</Button><Button onClick={() => handleRejectAction(t)} size="sm" className="text-[9px] bg-red-600 text-white font-black h-7 rounded-none uppercase">Reject</Button>{gpsVehicle && <VehicleLocation lat={gpsVehicle.latitude} lng={gpsVehicle.longitude} locationName={gpsVehicle.location} onClick={() => handleOpenMapPage(t, gpsVehicle)} />}</>)}
+                              {activeTab === 'In-Transit' && (<><Button onClick={() => handleArrivedAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 rounded-none uppercase">Arrived</Button></>)}
+                              {activeTab === 'Arrived' && (<><Button onClick={() => handleUnloadAction(t)} size="sm" className="text-[9px] bg-emerald-600 text-white font-black h-7 rounded-none uppercase">Unload</Button><Button onClick={() => handleRejectAction(t)} size="sm" className="text-[9px] bg-red-600 text-white font-black h-7 rounded-none uppercase">Reject</Button></>)}
                               {activeTab === 'POD Verify' && (<Button onClick={() => handlePodUploadAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 rounded-none uppercase">POD</Button>)}
                               {activeTab === 'Closed' && (<Button onClick={() => handleViewAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 rounded-none uppercase">View</Button>)}
-                            </div></td></tr>);
+                            </div>
+                            {gpsVehicle && <VehicleLocation lat={gpsVehicle.latitude} lng={gpsVehicle.longitude} locationName={gpsVehicle.location} onClick={() => handleOpenMapPage(t, gpsVehicle)} />}
+                          </div>
+                        </td></tr>);
                   }
                 })}</tbody></table></div>
         <div className="p-3 bg-[#f8fafc] border-t border-slate-300 flex items-center justify-between print:hidden">
@@ -2065,21 +2045,21 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
             {['CONSIGNEE COPY', 'DRIVER COPY', 'CONSIGNOR COPY'].map((copyLabel) => (
               <div key={copyLabel} className="bg-white p-[0.5in] min-h-[297mm] flex flex-col border border-slate-200 mb-8 shadow-sm print:m-0 print:shadow-none print:border-none print:page-break-after-always">
                 <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-4">
-                  <div className="flex gap-6 items-center">
-                    {selectedTripForPreview?.carrier?.logo && (
-                      <div className="relative w-24 h-24 border border-slate-100 shrink-0">
-                        <Image src={selectedTripForPreview.carrier.logo} alt="Logo" fill className="object-contain" unoptimized />
-                      </div>
-                    )}
+                  <div className="flex gap-6 items-start">
                     <div className="space-y-1">
-                      <h1 className="text-2xl font-black uppercase text-[#1e3a8a] leading-none">{selectedTripForPreview?.carrierName || 'CARRIER'}</h1>
-                      <div className="text-[10px] font-bold text-slate-700 uppercase space-y-0.5">
-                        <p>{selectedTripForPreview?.carrier?.address}</p>
-                        <p>{selectedTripForPreview?.carrier?.city} - {selectedTripForPreview?.carrier?.postalCode}</p>
-                        <p>MOB: {selectedTripForPreview?.carrier?.mobile}</p>
-                        <p>Website: {selectedTripForPreview?.carrier?.website}</p>
-                        <p className="font-black">GSTIN: {selectedTripForPreview?.carrier?.gstin} &nbsp;&nbsp;&nbsp; PAN: {selectedTripForPreview?.carrier?.pan}</p>
-                        <p>EMAIL: {selectedTripForPreview?.carrier?.email}</p>
+                      <h1 className="text-3xl font-black uppercase text-[#1e3a8a] leading-tight">SIKKA INDUSTRIES AND LOGISTICS</h1>
+                      <div className="text-[11px] font-bold text-slate-800 uppercase space-y-0.5">
+                        <p>C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, UTTAR PRADESH, 201009</p>
+                        <p>GHAZIABAD - 201009</p>
+                        <div className="flex gap-4">
+                          <span>GSTIN: 09AYQPS6936B1ZV</span>
+                          <span>PAN: AYQPS6936B</span>
+                        </div>
+                        <div className="flex gap-4">
+                          <span>MOB: 8860091900</span>
+                          <span>EMAIL: SIL@SIKKAENTERPRISES.COM</span>
+                        </div>
+                        <p>WEBSITE: HTTPS://SIKKAIND.COM/</p>
                       </div>
                     </div>
                   </div>
@@ -2172,7 +2152,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-slate-100 font-black text-[9px] uppercase border-t-2 border-black">
+                      <tr className="bg-slate-100 font-black text-[10px] uppercase border-t-2 border-black">
                         <td colSpan={2} className="p-2 text-right border-r-2 border-black tracking-widest">Sub Total:</td>
                         <td className="p-2 text-center border-r-2 border-black bg-yellow-50/50">
                            {selectedTripForPreview?.cnItems?.reduce((a: number, i: any) => a + (parseFloat(i.unit) || 0), 0)} {' '}
@@ -2182,7 +2162,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                            })()}
                         </td>
                         <td className="p-2 border-r-2 border-black"></td>
-                        <td className="p-2 text-center text-[#1e3a8a] text-[10px]">
+                        <td className="p-2 text-center text-[#1e3a8a]">
                            {selectedTripForPreview?.assignWeight} {selectedTripForPreview?.weightUom || 'MT'}
                         </td>
                       </tr>
@@ -2261,466 +2241,4 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
             {podFile ? <div className="text-emerald-600 font-black text-xs uppercase">Document Ready</div> : <><UploadCloud className="h-8 w-8 text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase">Select Registry File</span></>}
           </div><div className="flex justify-end gap-3 w-full"><Button onClick={() => setIsPodPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button><Button onClick={handlePodPost} disabled={!podFile} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post & Close</Button></div></div></DialogContent></Dialog>
   </div>;
-}
-
-function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
-  const mapRef = React.useRef<HTMLDivElement>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [distance, setDistance] = React.useState<string>('Calculating...');
-
-  React.useEffect(() => {
-    if (!node || !window.google) return;
-    setLoading(true);
-    const geocoder = new window.google.maps.Geocoder();
-    const directionsService = new window.google.maps.DirectionsService();
-    const directionsRenderer = new window.google.maps.DirectionsRenderer({ suppressMarkers: true, polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 6 } });
-
-    const consignorMaster = customers?.find((c: any) => c.customerName?.toUpperCase() === node.trip.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === node.trip.consignor?.toUpperCase());
-    const shipToMaster = customers?.find((c: any) => c.customerName?.toUpperCase() === node.trip.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === node.trip.shipToParty?.toUpperCase());
-
-    const p1 = new Promise(resolve => { if (consignorMaster?.postalCode) geocoder.geocode({ address: consignorMaster.postalCode }, (r, s) => resolve(s === 'OK' ? r[0].geometry.location : null)); else resolve(null); });
-    const p2 = new Promise(resolve => { if (shipToMaster?.postalCode) geocoder.geocode({ address: shipToMaster.postalCode }, (r, s) => resolve(s === 'OK' ? r[0].geometry.location : null)); else resolve(null); });
-
-    Promise.all([p1, p2]).then(([origin, dest]: any) => {
-      if (!mapRef.current) return;
-      const map = new window.google.maps.Map(mapRef.current, { center: origin || { lat: 20, lng: 78 }, zoom: origin ? 12 : 5 });
-      directionsRenderer.setMap(map);
-
-      if (origin) new window.google.maps.Marker({ position: origin, map, icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png', label: { text: 'Start Point', className: 'text-[9px] font-black uppercase bg-white px-2 py-1 border border-slate-300 rounded shadow-sm mb-8' } });
-      if (dest) new window.google.maps.Marker({ position: dest, map, icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png', label: { text: 'Drop Point', className: 'text-[9px] font-black uppercase bg-white px-2 py-1 border border-slate-300 rounded shadow-sm mb-8' } });
-
-      if (node.gps) {
-        const vIcon = node.gps.speed > 0 ? settings?.activeIcon : settings?.stopIcon;
-        new window.google.maps.Marker({ position: { lat: node.gps.latitude, lng: node.gps.longitude }, map, icon: { url: vIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(42, 42) }, title: node.trip.vehicleNumber });
-      }
-
-      if (origin && dest) {
-        directionsService.route({ origin, destination: dest, travelMode: window.google.maps.TravelMode.DRIVING }, (res, status) => {
-          if (status === 'OK') {
-            directionsRenderer.setDirections(res);
-            setDistance(res.routes[0].legs[0].distance?.text || 'N/A');
-          }
-          setLoading(false);
-        });
-      } else { setLoading(false); }
-    });
-  }, [node, customers, settings]);
-
-  return (
-    <div className="flex flex-col h-full bg-[#f2f2f2] animate-fade-in font-mono overflow-hidden">
-      <div className="bg-[#1e3a8a] text-white px-8 py-4 flex items-center justify-between shadow-xl shrink-0 z-50">
-         <div className="flex items-center gap-8">
-            <div className="flex flex-col"><span className="text-[8px] font-black text-white/50 uppercase tracking-widest">Ship to Party</span><span className="text-[12px] font-black uppercase truncate max-w-[240px]">{node.trip.shipToParty}</span></div>
-            <div className="h-8 w-px bg-white/20" />
-            <div className="flex flex-col"><span className="text-[8px] font-black text-white/50 uppercase tracking-widest">Vehicle Number</span><span className="text-[12px] font-black uppercase">{node.trip.vehicleNumber}</span></div>
-            <div className="h-8 w-px bg-white/20" />
-            <div className="flex flex-col"><span className="text-[8px] font-black text-white/50 uppercase tracking-widest">Route Hub</span><span className="text-[12px] font-black uppercase truncate max-w-[240px]">{node.trip.route}</span></div>
-            <div className="h-8 w-px bg-white/20" />
-            <div className="flex flex-col"><span className="text-[8px] font-black text-white/50 uppercase tracking-widest">Live Distance</span><span className="text-[12px] font-black text-yellow-400">{distance}</span></div>
-         </div>
-         <Button onClick={onBack} variant="outline" className="h-9 px-6 bg-white/10 hover:bg-white/20 border-white/30 text-white text-[10px] font-black uppercase rounded-none transition-all active:scale-95"><ArrowLeft className="h-3.5 w-3.5 mr-2" /> Return to Board</Button>
-      </div>
-      <div className="flex-1 relative">
-         {loading && <div className="absolute inset-0 bg-white/80 z-[60] flex flex-col items-center justify-center gap-4"><Loader2 className="h-12 w-12 animate-spin text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#1e3a8a] animate-pulse">Live Map Synchronization...</span></div>}
-         <div ref={mapRef} className="w-full h-full" />
-      </div>
-    </div>
-  );
-}
-
-function TrackShipmentScreen({ trips, orders, customers }: any) {
-  const [refType, setRefType] = React.useState('');
-  const [refValue, setRefValue] = React.useState('');
-  const [loading, setLoading] = React.useState(false);
-  const [view, setView] = React.useState<'search' | 'so_details' | 'track_view'>('search');
-  const [trackingData, setTrackingData] = React.useState<any>(null);
-  const [linkedTrips, setLinkedTrips] = React.useState<any[]>([]);
-  const [activeStep, setActiveStep] = React.useState(-1);
-  const [gpsData, setGpsData] = React.useState<any[]>([]);
-  const mapRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    const fetchGps = async () => { 
-      try { 
-        const res = await fetch('/api/gps'); 
-        if (res.ok) { 
-          const json = await res.json(); 
-          if (json?.data?.list) setGpsData(json.data.list); 
-        } 
-      } catch (e) {} 
-    };
-    fetchGps(); 
-    const i = setInterval(fetchGps, 30000); 
-    return () => clearInterval(i);
-  }, []);
-
-  const handleTrackNow = () => {
-    if (!refValue) return;
-    setLoading(true);
-    const val = refValue.trim().toUpperCase();
-    
-    setTimeout(() => {
-      if (refType === 'Sale Order') {
-        const order = orders?.find((o: any) => o.saleOrder === val || o.id === val);
-        if (order) {
-          setTrackingData(order);
-          const tList = trips?.filter((t: any) => t.saleOrderId === order.id) || [];
-          setLinkedTrips(tList);
-          setView('so_details');
-        } else { alert("Registry Failure: Sale Order Not Found"); }
-      } else {
-        const trip = trips?.find((t: any) => t.tripId === val || t.id === val);
-        if (trip) {
-          setTrackingData(trip);
-          setLinkedTrips([trip]);
-          setView('track_view');
-          startAnimation(trip);
-        } else { alert("Registry Failure: Trip ID Not Found"); }
-      }
-      setLoading(false);
-    }, 800);
-  };
-
-  const startAnimation = (trip: any) => {
-    let target = 0;
-    if (trip.status === 'LOADING') target = 1;
-    else if (trip.status === 'IN-TRANSIT') target = 2;
-    else if (trip.status === 'ARRIVED') target = 3;
-    else if (trip.status === 'CLOSED') target = 4;
-    else if (trip.status === 'REJECTION') target = 4;
-
-    let current = 0;
-    setActiveStep(0);
-    const interval = setInterval(() => {
-      if (current < target) {
-        current++;
-        setActiveStep(current);
-      } else {
-        clearInterval(interval);
-      }
-    }, 2000);
-  };
-
-  const renderMap = () => {
-    if (!window.google || !trackingData) return;
-    const geocoder = new window.google.maps.Geocoder();
-    const directionsService = new window.google.maps.DirectionsService();
-    const directionsRenderer = new window.google.maps.DirectionsRenderer({ suppressMarkers: true, polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 } });
-    
-    geocoder.geocode({ address: 'India' }, (res: any) => {
-      if (!mapRef.current) return;
-      const map = new window.google.maps.Map(mapRef.current, { center: { lat: 20, lng: 78 }, zoom: 5 });
-      directionsRenderer.setMap(map);
-      const gps = gpsData.find(v => v.vehicleNumber === trackingData.vehicleNumber);
-      if (gps) new window.google.maps.Marker({ position: { lat: gps.latitude, lng: gps.longitude }, map, icon: { url: 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(40, 40) } });
-    });
-  };
-
-  React.useEffect(() => { if (view === 'track_view' && trackingData) renderMap(); }, [view, trackingData, gpsData]);
-
-  if (view === 'search') {
-    return (
-      <div className="min-h-full bg-[#f2f2f2] flex flex-col font-mono p-8 animate-fade-in">
-        <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 shadow-sm flex items-center gap-6">
-           <Radar className="h-5 w-5 text-[#1e3a8a]" />
-           <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase italic">Logistical Tracking Search</h2>
-        </div>
-        <div className="max-w-4xl mx-auto w-full">
-          <div className="bg-white border border-slate-300 p-12 space-y-10 shadow-sm">
-            <div className="space-y-6">
-              <div className="flex items-center gap-8">
-                <label className="text-[12px] font-black text-slate-500 w-[180px] text-right uppercase">Reference Type:</label>
-                <select value={refType} onChange={e => setRefType(e.target.value)} className="h-9 w-[320px] border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase">
-                  <option value="">SELECT OPTION...</option>
-                  <option value="Sale Order">Sale Order</option>
-                  <option value="Trip ID">Trip ID</option>
-                </select>
-              </div>
-              {refType && (
-                <div className="flex items-center gap-8 animate-fade-in">
-                  <label className="text-[12px] font-black text-slate-500 w-[180px] text-right uppercase">{refType}:</label>
-                  <input value={refValue} onChange={(e) => setRefValue(e.target.value)} className="h-9 w-[320px] border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase tracking-widest" placeholder={`ENTER ${refType.toUpperCase()}...`} />
-                </div>
-              )}
-            </div>
-            <div className="pl-[212px] flex gap-4">
-               <Button onClick={() => setRefValue('')} variant="outline" className="h-9 px-8 rounded-none border-slate-300 text-[10px] font-black uppercase">Clear</Button>
-               <Button onClick={handleTrackNow} disabled={loading || !refType || !refValue} className="h-9 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg disabled:opacity-50">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Execute Tracking'}
-               </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (view === 'so_details') {
-    return (
-      <div className="min-h-full bg-[#f2f2f2] font-mono animate-fade-in p-8">
-        <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 flex items-center justify-between shadow-sm">
-           <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Order Registry Details</h2>
-           <Button onClick={() => setView('search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">New Search</Button>
-        </div>
-        <div className="max-w-5xl mx-auto space-y-12">
-          <div className="bg-white border border-slate-300 p-10 space-y-8 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6">
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Booked On:</label><span className="text-[12px] font-black uppercase">{format(new Date(trackingData.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Weight:</label><span className="text-[12px] font-black text-emerald-600">{trackingData.weight} {trackingData.weightUom}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Consignor:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignor}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Consignee:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignee}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Ship To:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.shipToParty}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Route:</label><span className="text-[12px] font-black text-[#1e3a8a] uppercase">{trackingData.from} → {trackingData.destination}</span></div>
-            </div>
-            {trackingData.delayRemark && (
-              <div className="p-6 bg-yellow-50 border border-yellow-200 animate-fade-in">
-                <div className="flex items-center gap-3 mb-2">
-                  <Clock className="h-4 w-4 text-yellow-700" />
-                  <span className="text-[10px] font-black uppercase text-yellow-700 tracking-widest">Delay Registered by Logistics</span>
-                </div>
-                <p className="text-[12px] font-black uppercase text-[#1e3a8a] italic">"{trackingData.delayRemark}"</p>
-              </div>
-            )}
-            {linkedTrips && linkedTrips.length > 0 ? (
-              <div className="bg-blue-50 border border-blue-100 p-8 space-y-4">
-                <p className="text-[11px] font-black uppercase text-slate-500 tracking-tighter">Linked Logistical Elements Found:</p>
-                <div className="flex flex-wrap gap-4">
-                  {linkedTrips.map((t: any) => (
-                    <button 
-                      key={t.id} 
-                      onClick={() => { setTrackingData(t); startAnimation(t); setView('track_view'); }}
-                      className="bg-white border border-[#1e3a8a] text-[#1e3a8a] px-6 py-3 text-[12px] font-black uppercase hover:bg-[#1e3a8a] hover:text-white transition-all shadow-md flex items-center gap-3 group"
-                    >
-                      <div className="w-2 h-2 rounded-full bg-emerald-500 group-hover:bg-white animate-pulse" />
-                      TRACK TRIP: {t.tripId}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="bg-orange-50 border border-orange-100 p-8 text-center"><p className="text-sm font-black italic uppercase text-slate-800 leading-relaxed">Waiting for logistical synchronization...</p></div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const steps = [
-    { label: 'Order Booked', icon: ShoppingCart },
-    { label: 'Loading', icon: Package },
-    { label: 'IN-Transit', icon: Truck },
-    { label: 'Arrived', icon: MapPin },
-    { label: trackingData.status === 'REJECTION' ? 'Reject' : 'Delivered', icon: trackingData.status === 'REJECTION' ? AlertTriangle : CheckCircle }
-  ];
-
-  return (
-    <div className="min-h-full bg-[#f2f2f2] font-mono animate-fade-in p-8 pb-20">
-      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between shadow-sm">
-         <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Live Tracking Viewer</h2>
-         <Button onClick={() => setView(linkedTrips.length > 1 ? 'so_details' : 'search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">Back</Button>
-      </div>
-      <div className="max-w-6xl mx-auto space-y-8">
-        <div className="bg-white border border-slate-300 p-8 space-y-10 shadow-sm relative overflow-hidden">
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10 opacity-80 border-b border-slate-100 pb-8">
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[13px] font-black uppercase text-[#1e3a8a]">{trackingData.vehicleNumber}</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Driver Registry</span><span className="text-[13px] font-black">{trackingData.driverMobile}</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight Data</span><span className="text-[13px] font-black text-emerald-600">{trackingData.assignWeight} MT</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route Data</span><span className="text-[13px] font-black uppercase text-blue-600 truncate">{trackingData.route}</span></div>
-           </div>
-           <div className="py-12 relative flex justify-between px-8">
-              {steps.map((s, i) => {
-                const statusColor = i < activeStep ? "text-emerald-600" : i === activeStep ? "text-yellow-600" : "text-red-500";
-                const iconColor = i < activeStep ? "bg-emerald-50 text-emerald-600 border-emerald-200" : i === activeStep ? "bg-yellow-50 text-yellow-600 border-yellow-300 shadow-md" : "bg-red-50 text-red-500 border-red-100";
-                return (
-                  <div key={s.label} className="flex flex-col items-center gap-4 group relative z-10">
-                    <div className={cn("w-14 h-14 rounded-none border-2 flex items-center justify-center transition-all duration-500", iconColor)}>
-                       <s.icon className="h-7 w-7" />
-                    </div>
-                    <div className="text-center">
-                      <p className={cn("text-[10px] font-black uppercase tracking-widest", statusColor)}>{s.label}</p>
-                      {i <= activeStep && (
-                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
-                          {format(new Date(trackingData.createdAt), 'dd-MMM-yy HH:mm')}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-              <div className="absolute top-[40px] left-[10%] right-[10%] h-px bg-slate-200 -z-0" />
-              <div className="absolute top-[-5px] transition-all duration-[2000ms] ease-in-out" style={{ left: `${(activeStep / (steps.length - 1)) * 80 + 10}%`, transform: 'translateX(-50%)' }}>
-                 <div className="bg-white p-3 shadow-2xl border border-blue-100 animate-bounce">
-                    <Truck className={cn("h-11 w-11", trackingData.status === 'REJECTION' && activeStep === 4 ? "text-red-500 rotate-180" : "text-[#1e3a8a]")} />
-                 </div>
-              </div>
-           </div>
-           {trackingData.status === 'REJECTION' && <div className="mt-8 bg-red-50 border border-red-200 p-4 text-center"><p className="text-[10px] font-black text-red-600 uppercase italic">REJECTION REASON: {trackingData.rejectionRemark}</p></div>}
-        </div>
-        <div className="h-[450px] bg-white border border-slate-300 shadow-sm"><div ref={mapRef} className="w-full h-full" /></div>
-        <div className="flex justify-between items-center px-4"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Sync: High-Density Tracking</p><Badge variant="outline" className="text-[8px] font-black bg-blue-50 border-blue-100 text-blue-800 rounded-none">TR24 SAP INTERFACE</Badge></div>
-      </div>
-    </div>
-  );
-}
-
-function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: any) {
-  const [isConfigOpen, setIsConfigOpen] = React.useState(false);
-  const [gpsData, setGpsData] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [selectedVehicle, setSelectedVehicle] = React.useState<any>(null);
-  const [isMapOpen, setIsConfigMapOpen] = React.useState(false);
-  
-  const fetchGpsData = React.useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/gps');
-      if (res.ok) {
-        const json = await res.json();
-        if (json?.data?.list) setGpsData(json.data.list);
-      }
-    } catch (e) {}
-    setLoading(false);
-  }, []);
-
-  React.useEffect(() => { fetchGpsData(); }, [fetchGpsData]);
-
-  const activeVehicles = React.useMemo(() => {
-    if (!gpsData.length || !trips) return [];
-    return gpsData.filter(v => trips.some((t: any) => t.vehicleNumber?.toUpperCase() === v.vehicleNumber?.toUpperCase() && (t.status === 'IN-TRANSIT' || t.status === 'ARRIVED')));
-  }, [gpsData, trips]);
-
-  const handleUpdateIcons = (active: string, stop: string) => {
-    setDocumentNonBlocking(settingsRef, { activeIcon: active, stopIcon: stop, updatedAt: new Date().toISOString() }, { merge: true });
-    onStatusUpdate({ text: 'Tracking Configuration Synchronized', type: 'success' });
-    setIsConfigOpen(false);
-  };
-
-  return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-[#f2f2f2] animate-fade-in p-8">
-      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between shadow-sm">
-         <div className="flex items-center gap-6"><Radar className="h-5 w-5 text-[#1e3a8a]" /><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase italic">GPS Integration Registry</h2></div>
-         <div className="flex items-center gap-3">
-           <Button onClick={fetchGpsData} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300 bg-white"><Radar className={cn("h-3 w-3 mr-2", loading && "animate-spin")} /> Poll Data</Button>
-           <Button onClick={() => setIsConfigOpen(true)} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300 bg-white"><Settings className="h-3 w-3 mr-2" /> Configuration</Button>
-         </div>
-      </div>
-      <div className="flex-1 bg-white border border-slate-300 shadow-sm overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-auto">
-          <table className="w-full text-left border-collapse min-w-[1000px]">
-            <thead>
-              <tr className="bg-[#f0f0f0] text-[9px] font-black uppercase sticky top-0 border-b border-slate-300 z-10">
-                {['Vehicle Number', 'Live Location', 'Status', 'Speed', 'Battery', 'Last Polled', 'Map'].map(h => <th key={h} className="p-4 border-r border-slate-200">{h}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {activeVehicles.map((v) => (
-                <tr key={v.vehicleNumber} className="border-b border-slate-100 text-[11px] font-bold hover:bg-[#e8f0fe] transition-colors">
-                  <td className="p-4 font-black text-[#1e3a8a]">{v.vehicleNumber}</td>
-                  <td className="p-4 italic text-slate-500 uppercase">{v.location}</td>
-                  <td className="p-4">
-                     <span className={cn("px-2 py-0.5 rounded-none text-[9px] font-black uppercase", v.speed > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>
-                        {v.speed > 0 ? 'Moving' : 'Idle'}
-                     </span>
-                  </td>
-                  <td className="p-4">{v.speed} KM/H</td>
-                  <td className="p-4">{v.batteryPercentage}%</td>
-                  <td className="p-4 text-slate-400">{format(new Date(v.lastLocationTime), 'dd-MM-yy HH:mm:ss')}</td>
-                  <td className="p-4"><Button onClick={() => { setSelectedVehicle(v); setIsConfigMapOpen(true); }} size="sm" className="h-7 px-3 bg-[#0056d2] text-white font-black text-[9px] uppercase rounded-none">View</Button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      
-      <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
-        <DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden">
-          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Settings className="h-4 w-4" /> GPS UI Configuration</DialogTitle></DialogHeader>
-          <div className="p-8 space-y-8">
-             <SectionGrouping title="ACTIVE MARKER"><FormInput label="ICON URL" value={settings?.activeIcon} onChange={(v: string) => setDocumentNonBlocking(settingsRef, { activeIcon: v }, { merge: true })} /></SectionGrouping>
-             <SectionGrouping title="STOP MARKER"><FormInput label="ICON URL" value={settings?.stopIcon} onChange={(v: string) => setDocumentNonBlocking(settingsRef, { stopIcon: v }, { merge: true })} /></SectionGrouping>
-             <div className="flex justify-end gap-3"><Button onClick={() => setIsConfigOpen(false)} variant="outline" className="h-9 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button></div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {selectedVehicle && (
-        <Dialog open={isMapOpen} onOpenChange={setIsConfigMapOpen}>
-          <DialogContent className="max-w-5xl h-[80vh] bg-white p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
-            <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0 flex flex-row items-center justify-between space-y-0">
-               <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Radar className="h-4 w-4" /> Live Registry: {selectedVehicle.vehicleNumber}</DialogTitle>
-               <button onClick={() => setIsConfigMapOpen(false)} className="text-white hover:opacity-70"><X className="h-5 w-5" /></button>
-            </DialogHeader>
-            <div className="flex-1 w-full h-full"><iframe className="w-full h-full border-none" src={`https://maps.google.com/maps?q=${selectedVehicle.latitude},${selectedVehicle.longitude}&z=15&output=embed`} /></div>
-          </DialogContent>
-        </Dialog>
-      )}
-    </div>
-  );
-}
-
-function Se38Report({ search, results, onSearchChange, allPlants, allVendors, allCompanies, allCustomers }: any) {
-  const [isExporting, setIsExporting] = React.useState(false);
-  const handleExport = () => {
-    if (!results?.length) return;
-    setIsExporting(true);
-    const headers = "Trip ID,Plant,Vehicle,Ship to Party,Route,Assign Qty,CN No,Status,Date\n";
-    const csv = results.map((t: any) => `${t.tripId},${t.plantCode},${t.vehicleNumber},${t.shipToParty},${t.route},${t.assignWeight},${t.cnNo || ''},${t.status},${format(new Date(t.createdAt), 'dd-MM-yyyy')}`).join('\n');
-    const blob = new Blob([headers + csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `TRIP_REPORT_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`; a.click();
-    window.URL.revokeObjectURL(url);
-    setIsExporting(false);
-  };
-
-  return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-[#f2f2f2] animate-fade-in p-8">
-       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-6"><FileText className="h-5 w-5 text-[#1e3a8a]" /><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase italic">SE38 – Custom Report Generator</h2></div>
-          {results && <Button onClick={handleExport} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"><Download className="h-3.5 w-3.5 mr-2" /> Export to CSV</Button>}
-       </div>
-       <div className="bg-white border border-slate-300 p-8 mb-8 space-y-6 shadow-sm">
-          <label className="text-[11px] font-black uppercase text-slate-500 block tracking-widest border-b border-slate-100 pb-2">Filter Registry Parameters</label>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-2">
-             <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Plant *</label><select className="h-8 border border-slate-400 bg-white px-2 text-[11px] font-black outline-none" value={search.plant} onChange={e => onSearchChange({...search, plant: e.target.value})}><option value="">SELECT...</option>{allPlants.map((p: any) => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div>
-             <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Vendor</label><select className="h-8 border border-slate-400 bg-white px-2 text-[11px] font-black outline-none" value={search.vendor} onChange={e => onSearchChange({...search, vendor: e.target.value})}><option value="">ALL VENDORS</option>{allVendors.map((v: any) => <option key={v.id} value={v.vendorCode}>{v.vendorName}</option>)}</select></div>
-             <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">From Date *</label><input type="date" className="h-8 border border-slate-400 bg-white px-2 text-[11px] font-black outline-none" value={search.from} onChange={e => onSearchChange({...search, from: e.target.value})} /></div>
-             <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">To Date *</label><input type="date" className="h-8 border border-slate-400 bg-white px-2 text-[11px] font-black outline-none" value={search.to} onChange={e => onSearchChange({...search, to: e.target.value})} /></div>
-          </div>
-       </div>
-       <div className="flex-1 bg-white border border-slate-300 shadow-sm overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-auto">
-             <table className="w-full text-left border-collapse min-w-[1200px]">
-                <thead><tr className="bg-[#f0f0f0] text-[9px] font-black uppercase sticky top-0 border-b border-slate-300 z-10">{['Trip ID', 'Plant', 'Vehicle No', 'Ship to Party', 'Route', 'Assign Qty', 'CN No', 'Status', 'Date'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}</tr></thead>
-                <tbody>
-                   {results ? (results.length > 0 ? results.map((t: any) => (<tr key={t.id} className="border-b border-slate-100 text-[11px] font-bold hover:bg-[#f8fafc] transition-colors"><td className="p-3 text-[#1e3a8a]">{t.tripId}</td><td className="p-3">{t.plantCode}</td><td className="p-3">{t.vehicleNumber}</td><td className="p-3 uppercase truncate max-w-[200px]">{t.shipToParty}</td><td className="p-3 uppercase truncate max-w-[200px]">{t.route}</td><td className="p-3 text-emerald-600">{t.assignWeight} MT</td><td className="p-3 font-black">{t.cnNo || '-'}</td><td className="p-3 uppercase"><span className="px-2 py-0.5 bg-blue-50 text-[#1e3a8a] text-[9px] font-black">{t.status}</span></td><td className="p-3 text-slate-400">{format(new Date(t.createdAt), 'dd-MM-yy')}</td></tr>)) : <tr><td colSpan={9} className="p-20 text-center text-[11px] font-black text-slate-300 uppercase tracking-widest italic">No Registry Entries Found in Selected Range</td></tr>) : <tr><td colSpan={9} className="p-20 text-center text-[11px] font-black text-slate-300 uppercase tracking-widest">Execute F8 to Generate Report</td></tr>}
-                </tbody>
-             </table>
-          </div>
-       </div>
-    </div>
-  );
-}
-
-function ZCodeRegistry({ tcodes, onExecute }: any) {
-  const [filter, setFilter] = React.useState('');
-  const filtered = tcodes.filter((t: any) => t.code.includes(filter.toUpperCase()) || t.description.includes(filter.toUpperCase()));
-  return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-[#f2f2f2] animate-fade-in p-8">
-       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-6"><Grid2X2 className="h-5 w-5 text-[#1e3a8a]" /><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase italic">ZCODE – System Transaction Registry</h2></div>
-          <div className="relative w-64"><input value={filter} onChange={e => setFilter(e.target.value)} className="h-8 w-full border border-slate-400 px-3 pr-8 text-[11px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase shadow-inner" placeholder="QUICK FILTER..." /><Search className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" /></div>
-       </div>
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto green-scrollbar pr-2">
-          {filtered.map((t: any) => (
-            <div key={t.code} onClick={() => onExecute(t.code)} className="bg-white border border-slate-300 p-5 cursor-pointer hover:border-[#0056d2] hover:shadow-lg transition-all group relative overflow-hidden flex flex-col gap-4">
-               <div className="absolute top-0 left-0 w-1.5 h-full bg-[#1e3a8a] group-hover:bg-[#0056d2]" />
-               <div className="flex items-center justify-between"><span className="text-[14px] font-black text-[#1e3a8a] tracking-tight">{t.code}</span><t.icon className="h-4 w-4 text-slate-300 group-hover:text-[#0056d2] transition-colors" /></div>
-               <div className="space-y-1"><span className="text-[11px] font-black text-slate-800 uppercase leading-tight block">{t.description}</span><span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{t.module}</span></div>
-            </div>
-          ))}
-       </div>
-    </div>
-  );
 }
