@@ -2,31 +2,31 @@
 
 import * as React from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, Loader2, AlertCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import placeholderData from '@/app/lib/placeholder-images.json';
 import { useAuth, initializeFirebase } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import { cn } from '@/lib/utils';
 
 /**
  * @fileOverview Portal Login page.
- * Implements strict credential-based access control with master admin override.
+ * Strictly aligned with provided SAP-style design reference.
  */
 export default function LoginPage() {
   const router = useRouter();
   const auth = useAuth();
   const { firestore: db } = React.useMemo(() => initializeFirebase(), []);
 
-  const [showPassword, setShowPassword] = React.useState(false);
   const [credentials, setCredentials] = React.useState({ username: '', password: '' });
   const [errorMsg, setErrorMsg] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
 
-  const loginImg = placeholderData.placeholderImages.find(p => p.id === 'login-hero');
+  const loginHero = placeholderData.placeholderImages.find(p => p.id === 'login-hero');
+  const slmcLogo = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,21 +37,19 @@ export default function LoginPage() {
     const password = credentials.password.trim();
 
     try {
-      // MANDATORY: Admin Credential Verification (Super Admin Sikkaind)
+      // Admin Credential Verification
       const isMasterAdmin = username === 'Sikkaind' && password === 'Sikka@lmc2105';
 
-      // Background session handshake
       await signInAnonymously(auth);
       
       if (isMasterAdmin) {
         localStorage.setItem('sap_bootstrap_session', 'true');
         localStorage.setItem('sap_user_role', 'admin');
-        localStorage.removeItem('sap_registry_id'); // Clear user registry ID for admin
+        localStorage.removeItem('sap_registry_id');
         router.push('/dashboard');
         return;
       }
 
-      // Check registry for non-admin users
       const q = query(
         collection(db, 'user_registry'),
         where('username', '==', username),
@@ -61,18 +59,17 @@ export default function LoginPage() {
       const snapshot = await getDocs(q);
       
       if (snapshot.empty) {
-        setErrorMsg('ACCESS DENIED: INVALID CREDENTIALS OR UNREGISTERED ACCOUNT');
+        setErrorMsg('INVALID CREDENTIALS');
         await auth.signOut();
       } else {
         const userDoc = snapshot.docs[0];
-        // FIX: Store the registry document ID so the dashboard can find the profile
         localStorage.setItem('sap_registry_id', userDoc.id);
         localStorage.removeItem('sap_bootstrap_session');
         localStorage.setItem('sap_user_role', 'user');
         router.push('/dashboard');
       }
     } catch (err: any) {
-      setErrorMsg('ACCESS DENIED: SYSTEM HANDSHAKE ERROR');
+      setErrorMsg('SYSTEM HANDSHAKE ERROR');
       await auth.signOut();
     } finally {
       setIsLoading(false);
@@ -80,109 +77,101 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col font-body">
-      <div className="h-2 w-full bg-yellow-500 shrink-0" />
-
-      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
-        <div className="w-full md:w-[45%] flex items-center justify-center bg-white relative">
-          <div className="relative w-full h-full min-h-[300px] md:min-h-0 group">
-            {loginImg && (
+    <div className="min-h-screen bg-[#f0f3f9] flex items-center justify-center p-4 font-mono">
+      {/* Main SAP-Style Container */}
+      <div className="w-full max-w-[1000px] bg-white relative shadow-xl overflow-hidden border-[6px] border-[#eeb81c] rounded-sm">
+        
+        <div className="flex flex-col md:flex-row min-h-[550px]">
+          {/* Left Side: Hero Image */}
+          <div className="w-full md:w-[48%] relative bg-slate-100 min-h-[300px] md:min-h-0 border-r border-slate-200">
+            {loginHero && (
               <Image
-                src={loginImg.url}
-                alt="Login Hero"
+                src={loginHero.url}
+                alt="Logistics Operations"
                 fill
-                className="object-cover transition-transform duration-700 group-hover:scale-105"
+                className="object-cover"
                 unoptimized
-                data-ai-hint="statue logistics"
+                priority
               />
             )}
-            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 bg-white/95 p-4 md:p-6 shadow-2xl flex flex-col items-center min-w-[140px] md:min-w-[180px]">
-               <div className="w-10 h-10 md:w-14 md:h-14 bg-[#1e3a8a] flex items-center justify-center mb-2">
-                  <span className="text-white font-black text-xl md:text-3xl italic">S</span>
-               </div>
-               <div className="text-[8px] md:text-[11px] font-black text-[#1e3a8a] uppercase leading-tight text-center tracking-tighter">
-                  Sikka Industries<br/>& Logistics
-               </div>
-            </div>
           </div>
-        </div>
 
-        <div className="w-full md:w-[55%] p-8 md:p-16 lg:p-24 flex flex-col justify-center bg-white">
-          <div className="max-w-xl mx-auto w-full space-y-12 md:space-y-16">
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-[#1e3a8a] uppercase italic tracking-tighter text-center md:text-left whitespace-nowrap">
-              Sikka Industries & Logistics
-            </h1>
-
-            <form onSubmit={handleLogin} className="space-y-10">
-              {errorMsg && (
-                <div className="p-4 bg-red-50 border border-red-100 rounded-none flex items-center gap-3 animate-fade-in">
-                  <AlertCircle className="h-5 w-5 text-red-500" />
-                  <p className="text-[11px] font-black uppercase text-red-600 tracking-tight">{errorMsg}</p>
+          {/* Right Side: Login Hub */}
+          <div className="w-full md:w-[52%] p-8 flex flex-col items-center justify-center relative">
+            
+            {/* Logo Section */}
+            <div className="mb-12 flex flex-col items-center">
+              {slmcLogo && (
+                <div className="relative w-[300px] h-[100px]">
+                  <Image 
+                    src={slmcLogo.url}
+                    alt="SLMC Logo"
+                    fill
+                    className="object-contain"
+                    unoptimized
+                  />
                 </div>
               )}
+            </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
-                <label className="w-full sm:w-40 text-[11px] md:text-xs font-black text-[#1e3a8a] uppercase tracking-widest shrink-0">
-                  Username <span className="text-red-500">*</span>
-                </label>
-                <div className="flex-1">
-                  <Input 
+            {/* Login Form */}
+            <form onSubmit={handleLogin} className="w-full max-w-sm space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <label className="w-24 text-[12px] font-black text-slate-700 text-right">
+                    User <span className="text-red-500">*</span>
+                  </label>
+                  <input 
                     required
                     value={credentials.username}
                     onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
-                    className="h-11 w-full border-slate-300 rounded-none bg-slate-50 focus:ring-1 focus:ring-blue-900 transition-all text-sm font-bold"
+                    className="flex-1 h-8 border border-slate-300 px-2 text-[12px] font-bold outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
-              </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
-                <label className="w-full sm:w-40 text-[11px] md:text-xs font-black text-[#1e3a8a] uppercase tracking-widest shrink-0">
-                  Password <span className="text-red-500">*</span>
-                </label>
-                <div className="relative flex-1">
-                  <Input 
+                <div className="flex items-center gap-4">
+                  <label className="w-24 text-[12px] font-black text-slate-700 text-right">
+                    Password <span className="text-red-500">*</span>
+                  </label>
+                  <input 
                     required
-                    type={showPassword ? "text" : "password"}
+                    type="password"
                     value={credentials.password}
                     onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
-                    className="h-11 w-full border-slate-300 rounded-none bg-slate-50 pr-10 focus:ring-1 focus:ring-blue-900 transition-all text-sm font-bold"
+                    className="flex-1 h-8 border border-slate-300 px-2 text-[12px] font-bold outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <button 
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-900"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </button>
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center gap-6 pt-6">
-                <div className="hidden sm:block w-40" />
-                <div className="flex items-center gap-8 w-full sm:w-auto">
-                  <Button 
-                    type="submit" 
-                    disabled={isLoading}
-                    className="flex-1 sm:flex-none bg-white hover:bg-slate-50 text-black border-2 border-slate-800 rounded-none px-12 h-11 font-black uppercase text-[11px] tracking-widest shadow-md transition-all active:scale-95"
-                  >
-                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Log On'}
-                  </Button>
-                </div>
+              {errorMsg && (
+                <p className="text-[10px] font-black text-red-600 text-center uppercase tracking-tighter">
+                  {errorMsg}
+                </p>
+              )}
+
+              <div className="flex justify-center pt-4">
+                <button 
+                  type="submit" 
+                  disabled={isLoading}
+                  className="bg-[#f0f0f0] hover:bg-slate-200 text-black border border-black px-10 h-8 font-black text-[12px] shadow-sm transition-all active:translate-y-px"
+                >
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Log On'}
+                </button>
               </div>
             </form>
           </div>
         </div>
-      </div>
 
-      <div className="px-6 py-4 md:px-12 md:py-6 bg-white border-t border-slate-100 flex items-center justify-center shrink-0">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">
-          © {new Date().getFullYear()} Sikka Industries & Logistics. All Rights Reserved.
-        </p>
+        {/* Interior Footer */}
+        <div className="absolute bottom-4 right-6 pointer-events-none">
+          <p className="text-[10px] font-black text-[#0056d2] uppercase tracking-tighter">
+            copyright @ Sikka Industries & Logistics. All Rights Reserved.
+          </p>
+        </div>
+
+        {/* Decorative Bottom Shadow/Shape matching reference */}
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/3 h-1.5 bg-[#d4a017] rounded-t-full opacity-80" />
       </div>
-      
-      <Link href="/" className="fixed bottom-4 right-4 md:bottom-8 md:right-8 text-[10px] font-black uppercase text-slate-400 hover:text-blue-900 bg-white/80 backdrop-blur-sm p-2 rounded px-4 shadow-sm border border-slate-100">
-        Exit to Website
-      </Link>
     </div>
   );
 }
