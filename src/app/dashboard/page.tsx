@@ -10,7 +10,7 @@ import {
   PlusSquare, XCircle, Calendar as CalendarIcon, Package, Undo2,
   FileText, UploadCloud, Trash2, Plus, CheckCircle as CheckCircleIcon, Search,
   AlertTriangle, Clock, Calendar as LucideCalendar, FileCheck, Eye, EyeOff, Download,
-  Loader2, Radar, Settings, PlayCircle, ShoppingCart, CheckCircle
+  Loader2, Radar, Settings, PlayCircle, ShoppingCart, CheckCircle, ArrowLeft, Share
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,7 +71,7 @@ const MASTER_TCODES = [
 
 const SHARED_HUB_ID = 'Sikkaind'; 
 
-function VehicleLocation({ lat, lng }: { lat: number, lng: number }) {
+function VehicleLocation({ lat, lng, onClick }: { lat: number, lng: number, onClick?: (loc: string) => void }) {
   const [loc, setLoc] = React.useState<string>('Syncing...');
   React.useEffect(() => {
     if (!window.google) return;
@@ -84,13 +84,32 @@ function VehicleLocation({ lat, lng }: { lat: number, lng: number }) {
           if (c.types.includes('route')) street = c.long_name;
           if (c.types.includes('locality')) city = c.long_name;
         }
-        setLoc(`${street}${street && city ? ', ' : ''}${city}` || results[0].formatted_address);
+        const full = `${street}${street && city ? ', ' : ''}${city}` || results[0].formatted_address;
+        setLoc(full);
       } else {
         setLoc('Unknown Location');
       }
     });
   }, [lat, lng]);
-  return <span className="text-[8px] font-black text-blue-600 truncate max-w-[120px]">{loc}</span>;
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (onClick) {
+      e.stopPropagation();
+      onClick(loc);
+    }
+  };
+
+  return (
+    <span 
+      onClick={handleClick}
+      className={cn(
+        "text-[8px] font-black text-blue-600 truncate max-w-[120px]",
+        onClick && "cursor-pointer hover:underline underline-offset-2"
+      )}
+    >
+      {loc}
+    </span>
+  );
 }
 
 function LiveTrackingMapDialog({ isOpen, onOpenChange, trip, gpsVehicle, customers, settings, isCompact = false }: any) {
@@ -778,8 +797,9 @@ export default function SapDashboard() {
 
   const handleBack = React.useCallback(() => {
     if (activeScreen === 'SE38' && se38Results) {
-      setSe38Results(null);
-      return;
+      // In SE38, do not allow going back to selection by standard navigation if result is showing
+      // per task "Remove Back to Selection option", however global F3 still works
+      // We will let the global F3 button on top handle the actual back logic
     }
     if (screenStack.length <= 1) {
       setActiveScreen('HOME');
@@ -898,7 +918,7 @@ export default function SapDashboard() {
           <div className="flex-1" /><div className="flex items-center gap-3 pr-4">
              {(activeScreen === 'XD01' || activeScreen === 'VA01' || activeScreen === 'FM01') && (
                <div className="flex items-center gap-2 mr-4">
-                 <input type="file" border-slate-300 ref={bulkInputRef} onChange={handleFileChange} className="hidden" accept=".csv" />
+                 <input type="file" ref={bulkInputRef} onChange={handleFileChange} className="hidden" accept=".csv" />
                  <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 h-7 bg-white border border-slate-300 hover:bg-slate-50 rounded text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]"><FileText className="h-3.5 w-3.5" /> Template</button>
                  <button onClick={handleBulkUpload} className="flex items-center gap-1.5 px-3 h-7 bg-[#1e3a8a] hover:bg-blue-900 text-white rounded text-[9px] font-black uppercase tracking-widest"><UploadCloud className="h-3.5 w-3.5" /> Bulk Upload</button>
                </div>
@@ -967,7 +987,7 @@ export default function SapDashboard() {
                 isSuPage 
                   ? "w-full bg-transparent p-0" 
                   : "bg-white shadow-xl rounded-sm border border-slate-300 overflow-hidden h-[calc(100vh-145px)] p-4 md:p-6 mx-auto",
-                !isSuPage && (hideSidebar ? "w-full" : "w-full max-w-[1400px]")
+                !isSuPage && (hideSidebar ? "w-full" : "w-full")
               )}>
                  {showForm && <div className={cn("space-y-6", isSuPage && "bg-transparent p-0")}>
                    {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
@@ -1066,7 +1086,8 @@ function FormSearchInput({ label, value, options, onChange, disabled, placeholde
   }, [value]);
 
   const handleSelect = (val: string) => {
-    setInputValue(val);
+    const cleanName = val.includes(' - ') ? val.split(' - ').slice(0, -1).join(' - ') : val;
+    setInputValue(cleanName);
     onChange(val);
     setIsOpen(false);
     setHighlightedIndex(-1);
@@ -1189,7 +1210,7 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
       <div className="flex flex-col gap-1.5">
         <label className="text-[10px] font-bold text-slate-500 uppercase">Company Logo (Under 500 KB)</label>
         <div className="flex items-center gap-3">
-          <input type="file" border-slate-300 accept="image/*" onChange={handleFile} disabled={disabled} className="hidden" id="fm01-logo-up" />
+          <input type="file" accept="image/*" onChange={handleFile} disabled={disabled} className="hidden" id="fm01-logo-up" />
           <label htmlFor="fm01-logo-up" className={cn("flex-1 h-9 border border-slate-400 bg-white px-3 flex items-center text-[11px] font-bold cursor-pointer shadow-sm", disabled && "opacity-50 cursor-not-allowed")}>
             {data.logo ? "CHANGE IMAGE" : "UPLOAD IMAGE..."}
           </label>
@@ -1412,6 +1433,10 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const [selectedLiveTrip, setSelectedLiveTrip] = React.useState<any>(null);
   const [selectedLiveGps, setSelectedLiveGps] = React.useState<any>(null);
 
+  // TR21 Sub-Navigation State
+  const [viewMode, setViewMode] = React.useState<'list' | 'tracking'>('list');
+  const [trackingNode, setTrackingNode] = React.useState<any>(null);
+
   const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
   const { data: settings } = useDoc(settingsRef);
 
@@ -1445,8 +1470,13 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const handleAssignmentPost = () => { if (!assignmentMode) { onStatusUpdate({ text: 'Please select an option (Edit/Unassign)', type: 'error' }); return; } if (assignmentMode === 'unassign') { deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id)); onStatusUpdate({ text: `Trip ${selectedTripForAssignment.tripId} unassigned. Order returned to Open Orders.`, type: 'success' }); } else { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id), { vehicleNumber: assignData.vehicleNumber, driverMobile: assignData.driverMobile, assignWeight: parseFloat(assignData.assignWeight || 0), fleetType: assignData.fleetType, vendorName: assignData.vendorName || '', vendorMobile: assignData.vendorMobile || '', employee: assignData.employee || '', rate: parseFloat(assignData.rate || 0) || 0, freightAmount: parseFloat(assignData.freightAmount || 0) || 0, isFixedRate: !!assignData.isFixedRate, updatedAt: new Date().toISOString() }, { merge: true }); onStatusUpdate({ text: `Trip ${selectedTripForAssignment.tripId} updated successfully.`, type: 'success' }); } setIsAssignmentPopupOpen(false); };
   const handleTrackModeAction = (t: any) => { setSelectedTripForTrackMode(t); setTrackModeData({ mode: t.trackMode || 'GPS Tracking' }); setIsTrackModePopupOpen(true); };
   const handleTrackModePost = () => { if (!selectedTripForTrackMode) return; setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForTrackMode.id), { trackMode: trackModeData.mode, updatedAt: new Date().toISOString() }, { merge: true }); setIsTrackModePopupOpen(false); onStatusUpdate({ text: `Track Mode synchronized: ${trackModeData.mode}`, type: 'success' }); };
-  const handleLiveMapAction = (t: any, gps: any) => { setSelectedLiveTrip(t); setSelectedLiveGps(gps); setIsLiveTrackCompact(false); setIsLiveTrackOpen(true); };
-  const handleCompactTrackAction = (t: any, gps: any) => { setSelectedLiveTrip(t); setSelectedLiveGps(gps); setIsLiveTrackCompact(true); setIsLiveTrackOpen(true); };
+  
+  // Navigation trigger for Map Page
+  const handleOpenMapPage = (t: any, gps: any) => {
+    setTrackingNode({ trip: t, gps });
+    setViewMode('tracking');
+  };
+
   const handleOutVehicle = (t: any) => { if (['Own Vehicle', 'Contract Vehicle', 'Market Vehicle'].includes(t.fleetType) && !t.cnNo) { onStatusUpdate({ text: 'Add CN Number before Out Vehicle', type: 'error' }); return; } setOutData({ tripId: t.tripId, id: t.id, vehicleNumber: t.vehicleNumber, route: t.route, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsOutPopupOpen(true); };
   const handleConfirmOut = () => { if (!outData.id) return; setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', outData.id), { status: 'IN-TRANSIT', outDate: outData.date, outTime: outData.time, updatedAt: new Date().toISOString() }, { merge: true }); setIsOutPopupOpen(false); onStatusUpdate({ text: `Vehicle ${outData.vehicleNumber} is now IN-TRANSIT`, type: 'success' }); };
   const handleArrivedAction = (t: any) => { setArrivedData({ ...arrivedData, trip: t }); setIsArrivedPopupOpen(true); };
@@ -1470,7 +1500,22 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
 
   React.useEffect(() => { if (assignData.fleetType === 'Market Vehicle' && !assignData.isFixedRate) { const weight = parseFloat(assignData.assignWeight || 0); const rate = parseFloat(assignData.rate || 0); setAssignData(prev => ({ ...prev, freightAmount: isNaN(weight * rate) ? 0 : weight * rate })); } }, [assignData.assignWeight, assignData.rate, assignData.fleetType, assignData.isFixedRate]);
   const handlePost = () => { if (!user || !selectedOrder) return; const tId = `T${Math.floor(100000000 + Math.random() * 900000000)}`; const newId = crypto.randomUUID(); const p = { id: newId, tripId: tId, saleOrderId: selectedOrder.id, saleOrderNumber: selectedOrder.saleOrder, plantCode: assignData.plantCode, shipToParty: assignData.shipToParty, consignee: selectedOrder.consignee, route: assignData.route, consignor: selectedOrder.consignor, from: selectedOrder.from || '', destination: selectedOrder.destination || '', deliveryAddress: selectedOrder.deliveryAddress || '', vehicleNumber: assignData.vehicleNumber, driverMobile: assignData.driverMobile, fleetType: assignData.fleetType, vendorName: assignData.vendorName || '', vendorMobile: assignData.vendorMobile || '', employee: assignData.employee || '', rate: parseFloat(assignData.rate || 0) || 0, freightAmount: parseFloat(assignData.freightAmount || 0) || 0, isFixedRate: !!assignData.isFixedRate, assignWeight: parseFloat(assignData.assignWeight || 0) || 0, status: 'LOADING', createdAt: new Date().toISOString() }; setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', newId), p, { merge: true }); setIsPopupOpen(false); setSelectedOrder(null); onStatusUpdate({ text: `Trip ${tId} posted to Loading`, type: 'success' }); };
-  const mVendors = (vendors || []).filter((v: any) => v.vendorName?.toUpperCase().includes(vendorSearch.toUpperCase()));
+
+  // F3 Hook for Sub-Navigation
+  React.useEffect(() => {
+    const handleF3 = (e: KeyboardEvent) => {
+      if (e.key === 'F3' && viewMode === 'tracking') {
+        e.preventDefault();
+        setViewMode('list');
+      }
+    };
+    window.addEventListener('keydown', handleF3);
+    return () => window.removeEventListener('keydown', handleF3);
+  }, [viewMode]);
+
+  if (viewMode === 'tracking' && trackingNode) {
+    return <Tr21TrackingPage node={trackingNode} onBack={() => setViewMode('list')} customers={customers} settings={settings} />;
+  }
 
   return <div className="flex flex-col h-full space-y-4">
     <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 bg-white border border-slate-300 p-3 rounded-sm shadow-sm print:hidden">
@@ -1493,7 +1538,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                             {activeTab === 'Closed' && (<Button onClick={() => handleViewAction(t)} size="sm" className="text-[9px] bg-[#0056d2] text-white font-black h-7 px-3 uppercase tracking-tighter">View</Button>)}
                           </div>
                           {(activeTab === 'In-Transit' || activeTab === 'Arrived') && (<div className="flex flex-col gap-1 mt-1 border-t border-slate-50 pt-2"><div className="flex items-center gap-2">
-                              {gpsVehicle && (<button onClick={() => handleCompactTrackAction(t, gpsVehicle)} className="flex-1 flex items-center gap-1 group bg-slate-50 border border-slate-200 p-1 rounded"><MapPin className="h-2 w-2 text-blue-500" /><VehicleLocation lat={gpsVehicle.latitude} lng={gpsVehicle.longitude} /></button>)}
+                              {gpsVehicle && (<VehicleLocation lat={gpsVehicle.latitude} lng={gpsVehicle.longitude} onClick={() => handleOpenMapPage(t, gpsVehicle)} />)}
                               <Button onClick={() => handleTrackModeAction(t)} size="sm" className="text-[8px] bg-yellow-400 hover:bg-yellow-500 text-black font-black h-6 px-2 uppercase tracking-tighter shrink-0">Track Mode</Button>
                             </div></div>)}
                         </div></td></tr>);
@@ -1503,6 +1548,8 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         <div className="flex items-center gap-2"><Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="h-8 px-4 text-[9px] font-black uppercase tracking-widest border-slate-300 hover:bg-white hover:text-blue-700 hover:border-blue-300 transition-all"><ChevronLeft className="h-4 w-4 mr-1.5" /> Previous Page</Button>
           <div className="h-8 px-5 flex items-center text-[10px] font-black text-[#1e3a8a] bg-blue-50/50 rounded-sm border border-blue-100 uppercase tracking-widest min-w-[120px] justify-center">PAGE {currentPage} / {totalPages || 1}</div>
           <Button variant="outline" size="sm" disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(p + 1)} className="h-8 px-4 text-[9px] font-black uppercase tracking-widest border-slate-300 hover:bg-white hover:text-blue-700 hover:border-blue-300 transition-all">Next Page <ChevronRight className="h-4 w-4 ml-1.5" /></Button></div></div></div>
+    
+    {/* Popups (Synchronized Closing Tags) */}
     <LiveTrackingMapDialog isOpen={isLiveTrackOpen} onOpenChange={setIsLiveTrackOpen} trip={selectedLiveTrip} gpsVehicle={selectedLiveGps} customers={customers} settings={settings} isCompact={isLiveTrackCompact} />
     <Dialog open={isTrackModePopupOpen} onOpenChange={setIsTrackModePopupOpen}>
       <DialogContent className="max-w-md bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
@@ -1601,7 +1648,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </DialogHeader>
         <div className="p-6 space-y-6">
           <div className="bg-white border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center gap-4 text-center">
-            <input type="file" border-slate-300 accept="image/*,.pdf" ref={fileInputRef} onChange={handlePodFileChange} className="hidden" />
+            <input type="file" accept="image/*,.pdf" ref={fileInputRef} onChange={handlePodFileChange} className="hidden" />
             {podFile ? (
               <div className="w-full space-y-4">
                 <div className="relative aspect-video bg-slate-50 rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
@@ -1646,37 +1693,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
             <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black truncate">{selectedTripForClosed?.route}</span></div>
             <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle No</span><span className="text-[10px] font-black">{selectedTripForClosed?.vehicleNumber}</span></div>
           </div>
-          <div className="bg-white p-4 border border-slate-200 shadow-sm relative">
-            <div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-slate-400 uppercase border border-slate-100">Selection Type *</div>
-            <RadioGroup value={closedViewMode} onValueChange={(v: any) => setClosedViewMode(v)} className="flex gap-8">
-              <div className="flex items-center space-x-2"><RadioGroupItem value="view" id="cv-view" /><Label htmlFor="cv-view" className="text-xs font-black uppercase text-[#1e3a8a]">View POD</Label></div>
-              <div className="flex items-center space-x-2"><RadioGroupItem value="upload" id="cv-upload" /><Label htmlFor="cv-upload" className="text-xs font-black uppercase text-[#1e3a8a]">Upload New</Label></div>
-            </RadioGroup>
-          </div>
-          <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-center min-h-[300px]">
-            {closedViewMode === 'view' ? (
-              podFile ? (
-                podFile.startsWith('data:application/pdf') ? (
-                  <div className="flex flex-col items-center gap-4"><FileText className="h-16 w-16 text-blue-900" /><a href={podFile} download={`POD_${selectedTripForClosed?.tripId}.pdf`} className="text-blue-600 underline font-black text-[10px] uppercase">Download PDF POD</a></div>
-                ) : (
-                  <div className="relative w-full aspect-video"><Image src={podFile} alt="POD" fill className="object-contain" unoptimized /></div>
-                )
-              ) : <p className="text-[10px] font-black text-slate-300 uppercase">No Document Synchronized</p>
-            ) : (
-              <div className="w-full flex flex-col items-center gap-4">
-                <input type="file" border-slate-300 ref={fileInputRef} onChange={handlePodFileChange} className="hidden" />
-                <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="h-14 w-full max-w-sm border-2 border-dashed flex flex-col gap-1 border-slate-300 hover:bg-blue-50">
-                  <UploadCloud className="h-6 w-6 text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase">Replace POD File</span>
-                </Button>
-                {podFile && closedViewMode === 'upload' && <p className="text-[10px] font-black text-emerald-600 uppercase italic">New Registry Loaded: Ready to Post</p>}
-              </div>
-            )}
-          </div>
-          <div className="flex justify-end gap-3">
-            <Button onClick={() => setIsClosedViewPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 text-[10px] font-black uppercase">Cancel</Button>
-            {closedViewMode === 'upload' && <Button onClick={handleClosedUpdatePost} disabled={!podFile} className="h-10 px-8 bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-md">Post Update</Button>}
-          </div>
-        </div>
+          <div className="bg-white p-4 border border-slate-200 shadow-sm relative"><div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-slate-400 uppercase border border-slate-100">Selection Type *</div><RadioGroup value={closedViewMode} onValueChange={(v: any) => setClosedViewMode(v)} className="flex gap-8"><div className="flex items-center space-x-2"><RadioGroupItem value="view" id="cv-view" /><Label htmlFor="cv-view" className="text-xs font-black uppercase text-[#1e3a8a]">View POD</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="upload" id="cv-upload" /><Label htmlFor="cv-upload" className="text-xs font-black uppercase text-[#1e3a8a]">Upload New</Label></div></RadioGroup></div><div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-center min-h-[300px]">{closedViewMode === 'view' ? (podFile ? (podFile.startsWith('data:application/pdf') ? (<div className="flex flex-col items-center gap-4"><FileText className="h-16 w-16 text-blue-900" /><a href={podFile} download={`POD_${selectedTripForClosed?.tripId}.pdf`} className="text-blue-600 underline font-black text-[10px] uppercase">Download PDF POD</a></div>) : (<div className="relative w-full aspect-video"><Image src={podFile} alt="POD" fill className="object-contain" unoptimized /></div>)) : <p className="text-[10px] font-black text-slate-300 uppercase">No Document Synchronized</p>) : (<div className="w-full flex flex-col items-center gap-4"><input type="file" ref={fileInputRef} onChange={handlePodFileChange} className="hidden" /><Button onClick={() => fileInputRef.current?.click()} variant="outline" className="h-14 w-full max-w-sm border-2 border-dashed flex flex-col gap-1 border-slate-300 hover:bg-blue-50"><UploadCloud className="h-6 w-6 text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase">Replace POD File</span></Button>{podFile && closedViewMode === 'upload' && <p className="text-[10px] font-black text-emerald-600 uppercase italic">New Registry Loaded: Ready to Post</p>}</div>)}</div><div className="flex justify-end gap-3"><Button onClick={() => setIsClosedViewPopupOpen(false)} variant="outline" className="h-10 px-6 border-slate-300 text-[10px] font-black uppercase">Cancel</Button>{closedViewMode === 'upload' && <Button onClick={handleClosedUpdatePost} disabled={!podFile} className="h-10 px-8 bg-[#0056d2] text-white text-[10px] font-black uppercase shadow-md">Post Update</Button>}</div></div>
       </DialogContent>
     </Dialog>
     <Dialog open={isAssignmentPopupOpen} onOpenChange={setIsAssignmentPopupOpen}>
@@ -1703,28 +1720,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                 <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Assign Qty *</label><input type="number" value={assignData.assignWeight || ''} disabled className="h-10 border border-slate-200 bg-slate-50 px-3 text-xs font-black opacity-70 cursor-not-allowed" /></div>
                 <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Fleet Type *</label><select value={assignData.fleetType} onChange={e => setAssignData({...assignData, fleetType: e.target.value, vendorName: '', vendorMobile: '', employee: '', rate: 0, freightAmount: 0})} className="h-10 border border-slate-400 px-3 text-xs font-black"><option value="Own Vehicle">Own Vehicle</option><option value="Contract Vehicle">Contract Vehicle</option><option value="Market Vehicle">Market Vehicle</option><option value="Arrange by Party">Arrange by Party</option></select></div>
               </div>
-              {assignData.fleetType === 'Market Vehicle' && (
-                <div className="bg-white p-6 border border-blue-200 shadow-md relative">
-                  <div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-blue-600 uppercase border border-blue-100">Market Coordination</div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-black text-slate-500 uppercase">Vendor Name *</label>
-                      <select value={assignData.vendorName || ''} onChange={e => { const v = tripVendors.find((vend: any) => vend.vendorName === e.target.value); setAssignData({...assignData, vendorName: e.target.value, vendorMobile: v?.mobile || ''}); }} className="h-10 w-full border border-slate-400 px-3 text-xs font-black bg-white focus:bg-yellow-50 outline-none">
-                        <option value="">Select Vendor...</option>{tripVendors.map((v: any) => (<option key={v.id} value={v.vendorName}>{v.vendorName}</option>))}
-                      </select>
-                    </div>
-                    <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Employee *</label><input value={assignData.employee || ''} onChange={e => setAssignData({...assignData, employee: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" /></div>
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-black text-slate-500 uppercase">Rate</label>
-                        <div className="flex items-center gap-2"><Checkbox id="assign-fix-rate" checked={assignData.isFixedRate} onCheckedChange={(c) => setAssignData({...assignData, isFixedRate: !!c})} /><label htmlFor="assign-fix-rate" className="text-[9px] font-black text-blue-600 cursor-pointer">Fix Rate</label></div>
-                      </div>
-                      <input type="number" value={assignData.rate || ''} disabled={assignData.isFixedRate} onChange={e => setAssignData({...assignData, rate: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black" />
-                    </div>
-                    <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Freight Amount</label><input type="number" value={assignData.freightAmount || ''} onChange={e => { if (assignData.isFixedRate) setAssignData({...assignData, freightAmount: e.target.value}); }} disabled={!assignData.isFixedRate} className={cn("h-10 border px-3 text-xs font-black outline-none", !assignData.isFixedRate ? "bg-blue-50/30 border-blue-100 text-blue-800" : "border-slate-400 focus:bg-yellow-50")} /></div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
@@ -1755,21 +1750,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                 <div className="flex gap-1">{recentCns.map(cn => (<span key={cn} onClick={() => setCnFormData({...cnFormData, cnNo: cn})} className="text-[8px] font-black bg-yellow-200 text-yellow-900 px-1 cursor-pointer hover:bg-yellow-300">{cn}</span>))}</div>
               </div>
               <input value={cnFormData.cnNo} onChange={e => setCnFormData({...cnFormData, cnNo: e.target.value.toUpperCase()})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" placeholder="ENTER CN NO..." />
-            </div>
-            <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">CN Date *</label><input type="date" value={cnFormData.cnDate} onChange={e => setCnFormData({...cnFormData, cnDate: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div>
-            <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Payment Terms</label><select value={cnFormData.paymentTerms} onChange={e => setCnFormData({...cnFormData, paymentTerms: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black"><option value="PAID">PAID</option><option value="TO PAY">TO PAY</option></select></div>
-            <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Carrier Name</label><input value={cnFormData.carrierName} disabled className="h-10 border border-slate-200 bg-slate-50 px-3 text-xs font-black opacity-70" /></div>
-          </div>
-          <div className="bg-white border border-slate-200 rounded-sm shadow-sm overflow-hidden">
-            <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
-              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Document Details</span>
-              <Button onClick={() => setCnFormData({...cnFormData, items: [...cnFormData.items, { invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'BAG' }]})} size="sm" variant="outline" className="h-6 px-2 text-[8px] font-black border-blue-200 text-blue-700"><Plus className="h-3 w-3 mr-1" /> Add Row</Button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead><tr className="bg-slate-50/50 text-[8px] font-black uppercase text-slate-400"><th className="p-3 border-r">Invoice No *</th><th className="p-3 border-r">E-waybill No</th><th className="p-3 border-r">Product Description *</th><th className="p-3 border-r w-24">Unit</th><th className="p-3 border-r w-32">Unit UOM</th><th className="p-3 w-10"></th></tr></thead>
-                <tbody>{cnFormData.items.map((item: any, idx: number) => (<tr key={idx} className="border-t border-slate-100 hover:bg-slate-50/50"><td className="p-2"><input value={item.invoiceNo} onChange={e => { const newItems = [...cnFormData.items]; newItems[idx].invoiceNo = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items: newItems}); }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td><td className="p-2"><input value={item.ewaybillNo} onChange={e => { const newItems = [...cnFormData.items]; newItems[idx].ewaybillNo = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items: newItems}); }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td><td className="p-2"><input value={item.product} onChange={e => { const newItems = [...cnFormData.items]; newItems[idx].product = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items: newItems}); }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td><td className="p-2"><input type="number" value={item.unit} onChange={e => { const newItems = [...cnFormData.items]; newItems[idx].unit = e.target.value; setCnFormData({...cnFormData, items: newItems}); }} className="w-full h-8 border border-slate-300 px-2 text-[10px] font-bold outline-none focus:border-blue-400" /></td><td className="p-2"><select value={item.uom} onChange={e => { const newItems = [...cnFormData.items]; newItems[idx].uom = e.target.value; setCnFormData({...cnFormData, items: newItems}); }} className="w-full h-8 border border-slate-300 px-1 text-[10px] font-bold outline-none"><option value="BAG">BAG</option><option value="BOX">BOX</option><option value="DRUM">DRUM</option><option value="CAN">CAN</option><option value="Pices">Pices</option><option value="Others">Others</option></select></td><td className="p-2">{cnFormData.items.length > 1 && (<button onClick={() => { const newItems = cnFormData.items.filter((_:any, i:number) => i !== idx); setCnFormData({...cnFormData, items: newItems}); }} className="text-red-400 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>)}</td></tr>))}</tbody>
-              </table>
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
@@ -1804,7 +1784,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
       <DialogContent className="max-w-[90vw] md:max-w-4xl bg-[#f0f3f9] p-0 overflow-hidden rounded-xl border border-slate-300 shadow-2xl">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 flex flex-row items-center justify-between space-y-0">
-          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3"><Truck className="h-4 w-4" /> TR24 - Assign Vehicle Hub {assignData.route && <span className="ml-4 pl-4 border-l border-white/20 text-blue-300 tracking-normal font-bold lowercase first-letter:uppercase">{assignData.route}</span>}</DialogTitle>
+          <DialogTitle className="text-white text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3"><Truck className="h-4 w-4" /> TR24 - Assign Vehicle Hub</DialogTitle>
           <DialogDescription className="sr-only">Assign vehicle and details for the selected sales order.</DialogDescription>
         </DialogHeader>
         <div className="p-4 md:p-8 space-y-8 max-h-[80vh] overflow-y-auto green-scrollbar">
@@ -1815,30 +1795,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
             <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Assign Qty *</label><input type="number" value={assignData.assignWeight || ''} onChange={e => setAssignData({...assignData, assignWeight: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div>
             <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Fleet Type *</label><select value={assignData.fleetType} onChange={e => setAssignData({...assignData, fleetType: e.target.value, vendorName: '', vendorMobile: '', employee: '', rate: 0, freightAmount: 0})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50"><option value="Own Vehicle">Own Vehicle</option><option value="Contract Vehicle">Contract Vehicle</option><option value="Market Vehicle">Market Vehicle</option><option value="Arrange by Party">Arrange by Party</option></select></div>
           </div>
-          {assignData.fleetType === 'Market Vehicle' && (
-            <div className="bg-white p-6 border border-blue-200 shadow-md animate-fade-in relative">
-              <div className="absolute -top-3 left-4 bg-white px-2 text-[8px] font-black text-blue-600 uppercase border border-blue-100">Market Coordination</div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">Vendor Name *</label>
-                  <div className="relative">
-                    <input value={vendorSearch} onChange={e => { setVendorSearch(e.target.value); setShowVS(true); }} onFocus={() => setShowVS(true)} className="h-10 w-full border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" />
-                    {showVS && mVendors.length > 0 && (<div className="absolute top-full left-0 w-full bg-white border border-slate-300 shadow-xl z-50 max-h-[150px] overflow-y-auto">{mVendors.map((v:any) => (<div key={v.id} onClick={() => { setVendorSearch(v.vendorName); setAssignData({...assignData, vendorName: v.vendorName, vendorMobile: v.mobile}); setShowVS(false); }} className="px-4 py-2.5 text-[11px] font-bold hover:bg-[#e8f0fe] hover:text-[#0056d2] cursor-pointer border-b border-slate-50 last:border-0">{v.vendorName}</div>))}</div>)}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Mobile (Auto)</label><input value={assignData.vendorMobile || ''} disabled className="h-10 border border-slate-200 bg-slate-50 px-3 text-xs font-black opacity-70" /></div>
-                <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black text-slate-500 uppercase">Employee *</label><input value={assignData.employee || ''} onChange={e => setAssignData({...assignData, employee: e.target.value})} className="h-10 border border-slate-400 px-3 text-xs font-black focus:bg-yellow-50" /></div>
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black text-slate-500 uppercase">Rate</label>
-                    <div className="flex items-center gap-2"><Checkbox id="fix-rate" checked={assignData.isFixedRate} onCheckedChange={(checked) => setAssignData({...assignData, isFixedRate: checked === true})} /><label htmlFor="fix-rate" className="text-[9px] font-black text-blue-600 uppercase cursor-pointer">Fix Rate</label></div>
-                  </div>
-                  <input type="number" value={assignData.rate || ''} disabled={assignData.isFixedRate} onChange={e => setAssignData({...assignData, rate: e.target.value})} className={cn("h-10 border px-3 text-xs font-black", assignData.isFixedRate ? "bg-slate-50 border-slate-200 opacity-50" : "border-slate-400 focus:bg-yellow-50")} />
-                </div>
-                <div className="flex flex-col gap-1.5 col-span-2"><label className="text-[10px] font-black text-slate-500 uppercase">Freight Amount</label><input type="number" value={assignData.freightAmount || ''} onChange={e => { if (assignData.isFixedRate) setAssignData({...assignData, freightAmount: e.target.value}); }} disabled={!assignData.isFixedRate} className={cn("h-10 border px-3 text-xs font-black", !assignData.isFixedRate ? "bg-blue-50/30 border-blue-100 text-blue-800" : "border-slate-400 focus:bg-yellow-50")} /></div>
-              </div>
-            </div>
-          )}
           <div className="flex justify-end gap-3 pt-4">
             <Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-11 px-8 border-slate-300 hover:bg-[#e81123] hover:text-white hover:border-[#e81123] text-[10px] font-black uppercase tracking-widest transition-all">Cancel</Button>
             <Button onClick={handlePost} className="h-11 px-10 bg-[#0056d2] hover:bg-blue-900 text-white text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95">Post to Loading</Button>
@@ -1850,7 +1806,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       <DialogContent className="max-w-[1000px] w-[95vw] max-h-[95vh] overflow-y-auto bg-white p-0 rounded-none border-none">
         <DialogHeader className="bg-[#1e3a8a] text-white p-4 sticky top-0 z-[110] flex flex-row items-center justify-between space-y-0 print:hidden shadow-lg">
           <DialogTitle className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3"><FileText className="h-4 w-4" /> CN PREVIEW - {selectedTripForPreview?.cnNo}</DialogTitle>
-          <DialogDescription className="sr-only">Professional A4 preview of the Consignment Note with Three-Copy system.</DialogDescription>
           <div className="flex items-center gap-4">
             {cnPreviewStatus === 'generated' ? (
               <Button onClick={handleDownloadPdf} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase h-9 px-6 rounded-none shadow-md"><Download className="h-3.5 w-3.5 mr-2" /> Download</Button>
@@ -1872,6 +1827,96 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       </DialogContent>
     </Dialog>
   </div>;
+}
+
+function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
+  const mapRef = React.useRef<HTMLDivElement>(null);
+  const [distance, setDistance] = React.useState<string>('Calculating...');
+
+  React.useEffect(() => {
+    if (!window.google || !node) return;
+    const { trip, gps } = node;
+    const geocoder = new window.google.maps.Geocoder();
+    const directionsService = new window.google.maps.DirectionsService();
+    const directionsRenderer = new window.google.maps.DirectionsRenderer({
+      suppressMarkers: true,
+      polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 }
+    });
+
+    const cons = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.consignor?.toUpperCase());
+    const ship = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.shipToParty?.toUpperCase());
+
+    const p1 = new Promise(r => { if (cons?.postalCode) geocoder.geocode({ address: cons.postalCode }, (res: any) => r(res?.[0]?.geometry?.location)); else r(null); });
+    const p2 = new Promise(r => { if (ship?.postalCode) geocoder.geocode({ address: ship.postalCode }, (res: any) => r(res?.[0]?.geometry?.location)); else r(null); });
+
+    Promise.all([p1, p2]).then(([origin, dest]: any) => {
+      if (!mapRef.current) return;
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: { lat: gps.latitude, lng: gps.longitude },
+        zoom: 12,
+      });
+      directionsRenderer.setMap(map);
+
+      if (origin) {
+        new window.google.maps.Marker({
+          position: origin,
+          map,
+          label: { text: 'Start Point', className: 'bg-white px-2 py-1 border border-black text-[9px] font-black uppercase rounded shadow-md mb-10' },
+          icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
+        });
+      }
+
+      if (dest) {
+        new window.google.maps.Marker({
+          position: dest,
+          map,
+          label: { text: 'Drop Point', className: 'bg-white px-2 py-1 border border-black text-[9px] font-black uppercase rounded shadow-md mb-10' },
+          icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+        });
+      }
+
+      const vIcon = gps.speed > 0 ? settings?.activeIcon : settings?.stopIcon;
+      new window.google.maps.Marker({
+        position: { lat: gps.latitude, lng: gps.longitude },
+        map,
+        icon: { url: vIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(40, 40) }
+      });
+
+      if (origin && dest) {
+        directionsService.route({
+          origin,
+          destination: dest,
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        }, (result, status) => {
+          if (status === 'OK') {
+            directionsRenderer.setDirections(result);
+            setDistance(result.routes[0].legs[0].distance?.text || 'N/A');
+          }
+        });
+      }
+    });
+  }, [node, customers, settings]);
+
+  return (
+    <div className="flex flex-col h-full bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-300">
+      <div className="bg-[#1e3a8a] text-white p-6 flex items-center justify-between shadow-lg">
+        <div className="flex items-center gap-8">
+           <button onClick={onBack} className="hover:bg-white/20 p-2 rounded-full transition-colors"><ArrowLeft className="h-6 w-6" /></button>
+           <div className="flex flex-col"><span className="text-[10px] font-black uppercase text-blue-300 tracking-[0.2em]">Ship to Party</span><span className="text-sm font-black uppercase">{node.trip.shipToParty}</span></div>
+           <div className="h-8 w-px bg-white/20" />
+           <div className="flex flex-col"><span className="text-[10px] font-black uppercase text-blue-300 tracking-[0.2em]">Vehicle Number</span><span className="text-sm font-black uppercase">{node.trip.vehicleNumber}</span></div>
+           <div className="h-8 w-px bg-white/20" />
+           <div className="flex flex-col"><span className="text-[10px] font-black uppercase text-blue-300 tracking-[0.2em]">Route</span><span className="text-sm font-black uppercase">{node.trip.route}</span></div>
+        </div>
+        <div className="text-right flex flex-col"><span className="text-[10px] font-black uppercase text-blue-300 tracking-[0.2em]">Live Distance</span><span className="text-2xl font-black italic text-yellow-400">{distance}</span></div>
+      </div>
+      <div ref={mapRef} className="flex-1 bg-slate-100" />
+      <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-[10px] font-black uppercase text-slate-500">
+         <span className="flex items-center gap-2"><Radar className="h-3 w-3 animate-pulse text-blue-600" /> Live GPS Synchronization Active</span>
+         <span>F3 Node: BACK TO REGISTRY</span>
+      </div>
+    </div>
+  );
 }
 
 function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
@@ -1916,7 +1961,7 @@ function GpsTrackingHub({ trips, onStatusUpdate, db }: any) {
   const handleIconUpload = async (e: any, type: 'activeIcon' | 'stopIcon') => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => { const dataUrl = ev.target?.result as string; setDocumentNonBlocking(settingsRef, { [type]: dataUrl }, { merge: true }); onStatusUpdate({ text: `${type === 'activeIcon' ? 'Active' : 'Stop'} icon synchronized`, type: 'success' }); }; reader.readAsDataURL(file); };
 
   return <div className="flex flex-col h-full space-y-4"><div className="flex border-b border-slate-300 bg-[#dae4f1]/30 overflow-x-auto no-scrollbar">{['Tracking MAP', 'Setting'].map(t => (<button key={t} onClick={() => setActiveTab(t)} className={cn("px-6 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap", activeTab === t ? "bg-white border-x border-t border-slate-300 text-[#0056d2] shadow-sm -mb-px" : "text-slate-500 hover:text-slate-700")}>{t}</button>))}</div>
-    <div className="flex-1 bg-white border border-slate-300 overflow-hidden flex flex-col md:flex-row">{activeTab === 'Tracking MAP' ? (<><div className="w-full md:w-80 border-r border-slate-200 flex flex-col h-full overflow-hidden"><div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between"><span className="text-[10px] font-black uppercase text-slate-500">Vehicle Registry</span><Badge variant="outline" className="text-[8px]">{vehicles.length} Units</Badge></div><div className="flex-1 overflow-y-auto green-scrollbar h-[350px]">{loading ? (<div className="p-10 flex flex-col items-center gap-2"><Loader2 className="h-5 w-5 animate-spin text-blue-600" /><span className="text-[8px] font-black uppercase text-slate-400">Loading GPS Nodes...</span></div>) : vehicles.map((v: any) => (<div key={v.vehicleNumber} onClick={() => showVehicleInfo(v)} className="p-4 border-b border-slate-50 hover:bg-blue-50 cursor-pointer transition-colors group flex flex-col gap-1 min-h-[70px]"><div className="flex justify-between items-start"><span className="text-[11px] font-black text-[#1e3a8a]">{v.vehicleNumber}</span><span className={cn("text-[8px] font-black px-1.5 py-0.5 rounded", v.speed > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{v.speed > 0 ? `${v.speed} KM/H` : 'STOPPED'}</span></div><p className="text-[9px] text-slate-400 font-bold uppercase truncate">{v.createdDateReadable || 'SYNCING...'}</p></div>))}</div></div><div className="flex-1 relative bg-slate-100"><div id="google-map" ref={(el) => { if (el && !map && window.google) { const newMap = new window.google.maps.Map(el, { center: { lat: 28.6139, lng: 77.2090 }, zoom: 5, disableDefaultUI: false }); setMap(newMap); } }} className="w-full h-full" /></div></>) : (<div className="p-8 space-y-10 max-w-2xl mx-auto w-full overflow-y-auto"><div className="space-y-6"><h3 className="text-sm font-black text-[#1e3a8a] uppercase tracking-tighter border-b border-slate-100 pb-2">GPS ICON SYNCHRONIZATION</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm"><label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Active Vehicle Icon</label><div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">{settings?.activeIcon ? (<div className="relative w-12 h-12 border border-slate-200 p-1"><Image src={settings.activeIcon} alt="Active" fill className="object-contain" unoptimized /></div>) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}<input type="file" border-slate-300 accept="image/*" onChange={(e) => handleIconUpload(e, 'activeIcon')} className="hidden" id="up-active-icon" /><Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300"><label htmlFor="up-active-icon" className="cursor-pointer">Upload New Node</label></Button></div></div><div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm"><label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500" /> Stopped Vehicle Icon</label><div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">{settings?.stopIcon ? (<div className="relative w-12 h-12 border border-slate-200 p-1"><Image src={settings.stopIcon} alt="Stop" fill className="object-contain" unoptimized /></div>) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}<input type="file" border-slate-300 accept="image/*" onChange={(e) => handleIconUpload(e, 'stopIcon')} className="hidden" id="up-stop-icon" /><Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300"><label htmlFor="up-stop-icon" className="cursor-pointer">Upload New Node</label></Button></div></div></div></div></div>)}</div></div>;
+    <div className="flex-1 bg-white border border-slate-300 overflow-hidden flex flex-col md:flex-row">{activeTab === 'Tracking MAP' ? (<><div className="w-full md:w-80 border-r border-slate-200 flex flex-col h-full overflow-hidden"><div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between"><span className="text-[10px] font-black uppercase text-slate-500">Vehicle Registry</span><Badge variant="outline" className="text-[8px]">{vehicles.length} Units</Badge></div><div className="flex-1 overflow-y-auto green-scrollbar h-[350px]">{loading ? (<div className="p-10 flex flex-col items-center gap-2"><Loader2 className="h-5 w-5 animate-spin text-blue-600" /><span className="text-[8px] font-black uppercase text-slate-400">Loading GPS Nodes...</span></div>) : vehicles.map((v: any) => (<div key={v.vehicleNumber} onClick={() => showVehicleInfo(v)} className="p-4 border-b border-slate-50 hover:bg-blue-50 cursor-pointer transition-colors group flex flex-col gap-1 min-h-[70px]"><div className="flex justify-between items-start"><span className="text-[11px] font-black text-[#1e3a8a]">{v.vehicleNumber}</span><span className={cn("text-[8px] font-black px-1.5 py-0.5 rounded", v.speed > 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{v.speed > 0 ? `${v.speed} KM/H` : 'STOPPED'}</span></div><p className="text-[9px] text-slate-400 font-bold uppercase truncate">{v.createdDateReadable || 'SYNCING...'}</p></div>))}</div></div><div className="flex-1 relative bg-slate-100"><div id="google-map" ref={(el) => { if (el && !map && window.google) { const newMap = new window.google.maps.Map(el, { center: { lat: 28.6139, lng: 77.2090 }, zoom: 5, disableDefaultUI: false }); setMap(newMap); } }} className="w-full h-full" /></div></>) : (<div className="p-8 space-y-10 max-w-2xl mx-auto w-full overflow-y-auto"><div className="space-y-6"><h3 className="text-sm font-black text-[#1e3a8a] uppercase tracking-tighter border-b border-slate-100 pb-2">GPS ICON SYNCHRONIZATION</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm"><label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Active Vehicle Icon</label><div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">{settings?.activeIcon ? (<div className="relative w-12 h-12 border border-slate-200 p-1"><Image src={settings.activeIcon} alt="Active" fill className="object-contain" unoptimized /></div>) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}<input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'activeIcon')} className="hidden" id="up-active-icon" /><Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300"><label htmlFor="up-active-icon" className="cursor-pointer">Upload New Node</label></Button></div></div><div className="space-y-3 p-6 border border-slate-200 bg-white shadow-sm rounded-sm"><label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500" /> Stopped Vehicle Icon</label><div className="flex flex-col items-center gap-4 border-2 border-dashed border-slate-100 p-4">{settings?.stopIcon ? (<div className="relative w-12 h-12 border border-slate-200 p-1"><Image src={settings.stopIcon} alt="Stop" fill className="object-contain" unoptimized /></div>) : <div className="w-12 h-12 bg-slate-50 flex items-center justify-center rounded"><Truck className="h-6 w-6 text-slate-200" /></div>}<input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'stopIcon')} className="hidden" id="up-stop-icon" /><Button asChild size="sm" variant="outline" className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300"><label htmlFor="up-stop-icon" className="cursor-pointer">Upload New Node</label></Button></div></div></div></div></div>)}</div></div>;
 }
 
 function TrackShipmentScreen({ trips, orders, customers }: any) {
@@ -2012,17 +2057,17 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
 
   if (view === 'so_details') {
     return <div className="space-y-8 animate-slide-up"><SectionGrouping title="SALE ORDER Registry NODE">
-      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Booked On</span><span className="text-xs font-black uppercase">{format(new Date(trackingData.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
-      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Weight</span><span className="text-xs font-black text-emerald-600">{trackingData.weight} {trackingData.weightUom}</span></div>
-      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Consignor</span><span className="text-xs font-black uppercase truncate">{trackingData.consignor}</span></div>
-      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Consignee</span><span className="text-xs font-black uppercase truncate">{trackingData.consignee}</span></div>
-      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship To</span><span className="text-xs font-black uppercase truncate">{trackingData.shipToParty}</span></div>
-      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-xs font-black text-[#1e3a8a] uppercase">{trackingData.from} → {trackingData.destination}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Booked On</span><span className="text-[11px] font-black uppercase">{format(new Date(trackingData.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Weight</span><span className="text-[11px] font-black text-emerald-600">{trackingData.weight} {trackingData.weightUom}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Consignor</span><span className="text-[11px] font-black uppercase truncate">{trackingData.consignor}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Consignee</span><span className="text-[11px] font-black uppercase truncate">{trackingData.consignee}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Ship To</span><span className="text-[11px] font-black uppercase truncate">{trackingData.shipToParty}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[11px] font-black text-[#1e3a8a] uppercase">{trackingData.from} → {trackingData.destination}</span></div>
     </SectionGrouping>
     {linkedTrip ? (
-      <div className="bg-blue-50 border-l-[6px] border-blue-600 p-8 rounded-sm shadow-lg text-center animate-fade-in"><p className="text-sm font-black italic uppercase text-slate-800">Sale order {trackingData.saleOrder} against Trip ID <button onClick={() => { setTrackingData(linkedTrip); startAnimation(linkedTrip); setView('track_view'); }} className="text-blue-600 underline decoration-2">{linkedTrip.tripId}</button> has been generated successfully. Click on Trip ID for track your Shipment</p></div>
+      <div className="bg-blue-50 border-l-[6px] border-blue-600 p-8 rounded-sm shadow-lg text-center animate-fade-in"><p className="text-sm font-black italic uppercase text-slate-800 leading-relaxed">Sale order {trackingData.saleOrder} against Trip ID <button onClick={() => { setTrackingData(linkedTrip); startAnimation(linkedTrip); setView('track_view'); }} className="text-blue-600 underline decoration-2">{linkedTrip.tripId}</button> has been generated successfully. Click on Trip ID for track your Shipment</p></div>
     ) : (
-      <div className="bg-orange-50 border-l-[6px] border-orange-500 p-8 rounded-sm shadow-lg text-center animate-fade-in"><p className="text-sm font-black italic uppercase text-slate-800">Currently your sale order {trackingData.saleOrder} against Trip ID not generated, we will share trip ID shortly… Thanks for visit. </p></div>
+      <div className="bg-orange-50 border-l-[6px] border-orange-500 p-8 rounded-sm shadow-lg text-center animate-fade-in"><p className="text-sm font-black italic uppercase text-slate-800 leading-relaxed">Currently your sale order {trackingData.saleOrder} against Trip ID not generated, we will share trip ID shortly… Thanks for visit. </p></div>
     )}
     <div className="flex justify-start"><Button onClick={() => setView('search')} variant="outline" className="h-10 text-[9px] font-black uppercase tracking-widest border-slate-300">New Search</Button></div></div>;
   }
@@ -2038,9 +2083,9 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
   return <div className="space-y-8 animate-slide-up"><SectionGrouping title="TRIP TRACKING HUB">
       <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Vehicle</span><span className="text-sm font-black uppercase text-[#1e3a8a]">{trackingData.vehicleNumber}</span></div>
       <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Driver Mob</span><span className="text-sm font-black">{trackingData.driverMobile}</span></div>
-      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Consignee</span><span className="text-xs font-black uppercase truncate">{trackingData.consignee}</span></div>
-      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship To</span><span className="text-xs font-black uppercase truncate">{trackingData.shipToParty}</span></div>
-      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-xs font-black uppercase">{trackingData.route}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Consignee</span><span className="text-[11px] font-black uppercase truncate">{trackingData.consignee}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship To</span><span className="text-[11px] font-black uppercase truncate">{trackingData.shipToParty}</span></div>
+      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Route</span><span className="text-[11px] font-black uppercase">{trackingData.route}</span></div>
       <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Assigned Qty</span><span className="text-sm font-black text-emerald-600">{trackingData.assignWeight} MT</span></div>
     </SectionGrouping>
     <div className="p-10 rounded-sm relative overflow-hidden bg-white border border-slate-100">
@@ -2058,11 +2103,11 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
 
           return (
             <div key={s.label} className="flex flex-col items-center gap-4 group">
-              <div className={cn("w-12 h-12 rounded-2xl border-2 flex items-center justify-center transition-all duration-500 shadow-sm", iconColor)}>
-                <s.icon className="h-6 w-6 drop-shadow-md" />
+              <div className={cn("w-14 h-14 rounded-2xl border-2 flex items-center justify-center transition-all duration-500 shadow-sm", iconColor)}>
+                <s.icon className="h-7 w-7 drop-shadow-md" />
               </div>
               <div className="text-center space-y-1">
-                <p className={cn("text-[9px] font-black uppercase tracking-widest", statusColor)}>{s.label}</p>
+                <p className={cn("text-[10px] font-black uppercase tracking-widest", statusColor)}>{s.label}</p>
                 {i <= activeStep && (
                   <p className="text-[10px] text-blue-600 font-bold uppercase whitespace-nowrap">
                     {format(new Date(trackingData.createdAt), 'dd-MMM-yy HH:mm')}
@@ -2072,8 +2117,7 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
             </div>
           );
         })}
-        <div className="absolute top-[24px] left-[10%] right-[10%] h-0.5 bg-slate-100 -z-0" />
-        {/* Animated Jumbo 3D Truck */}
+        <div className="absolute top-[28px] left-[10%] right-[10%] h-0.5 bg-slate-100 -z-0" />
         <div 
           className="absolute top-[-10px] z-20 transition-all duration-[2000ms] ease-in-out"
           style={{ 
@@ -2082,14 +2126,191 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
           }}
         >
           <div className="bg-white p-3 rounded-full shadow-2xl border border-blue-100 animate-bounce">
-            <Truck className={cn("h-10 w-10", trackingData.status === 'REJECTION' && activeStep === 4 ? "text-red-500 rotate-180" : "text-[#1e3a8a]")} />
+            <Truck className={cn("h-12 w-12", trackingData.status === 'REJECTION' && activeStep === 4 ? "text-red-500 rotate-180" : "text-[#1e3a8a]")} />
           </div>
         </div>
       </div>
     </div>
-    {trackingData.status === 'REJECTION' && <div className="bg-red-50 border-red-200 border p-4 text-center"><p className="text-[10px] font-black text-red-600 uppercase italic">REJECTION REASON: {trackingData.rejectionRemark || 'NODE REJECTED BY CONSIGNEE'}</p></div>}
-    <div className="h-[400px] border border-slate-300 rounded-sm overflow-hidden"><div ref={mapRef} className="w-full h-full" /></div>
+    {trackingData.status === 'REJECTION' && <div className="bg-red-50 border-red-200 border p-4 text-center rounded-sm"><p className="text-[10px] font-black text-red-600 uppercase italic">REJECTION REASON: {trackingData.rejectionRemark || 'NODE REJECTED BY CONSIGNEE'}</p></div>}
+    <div className="h-[400px] border border-slate-300 rounded-sm overflow-hidden shadow-inner"><div ref={mapRef} className="w-full h-full" /></div>
     <div className="flex justify-between items-center"><Button onClick={() => setView('search')} variant="outline" className="h-10 text-[9px] font-black uppercase tracking-widest border-slate-300">Exit Tracking</Button><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Sync: Active node tracking</p></div></div>;
+}
+
+function Se38Report({ search, results, onSearchChange, allPlants, allVendors, allCompanies, allCustomers }: any) {
+  const handleExport = () => {
+    if (!results || results.length === 0) return;
+    const headers = [
+      "Plant", "Sale Order", "Sale Order Date Time", "Consignor", "Consignee", "Ship to Party", "Destination",
+      "Trip ID", "Trip Create Date Time", "Vehicle Number", "Driver Mobile", "Carrier Name", "CN Number",
+      "Invoice Number", "E-waybill Number", "Product", "Unit", "Unit UOM", "Assign Qty", "Weight UOM",
+      "Vendor Name", "Vendor Firm", "Vendor Mobile", "Fleet Type", "Payment Term", "Employee", "Rate", "Freight Amount",
+      "Vehicle Out Date Time", "Vehicle Arrived Date Time", "Unload Date Time", "Reject Date Time", "POD Status",
+      "Vehicle Resent Date Time", "SRN Number", "SRN Date"
+    ];
+
+    const rows = results.map((t: any) => {
+      const item = t.cnItems?.[0] || {};
+      return [
+        t.plantCode, t.saleOrderNumber || 'N/A', t.saleOrderDate || t.createdAt, t.consignor, t.consignee, t.shipToParty, t.destination,
+        t.tripId, t.createdAt, t.vehicleNumber, t.driverMobile, t.carrierName || 'N/A', t.cnNo || 'N/A',
+        item.invoiceNo || 'N/A', item.ewaybillNo || 'N/A', item.product || 'N/A', item.unit || '0', item.uom || 'N/A', t.assignWeight, 'MT',
+        t.vendorName || 'N/A', t.vendorFirmName || 'N/A', t.vendorMobile || 'N/A', t.fleetType, t.paymentTerms || 'N/A', t.employee || 'N/A', t.rate || '0', t.freightAmount || '0',
+        `${t.outDate || ''} ${t.outTime || ''}`, `${t.arrivedDate || ''} ${t.arrivedTime || ''}`, `${t.unloadDate || ''} ${t.unloadTime || ''}`, `${t.rejectionDate || ''} ${t.rejectionTime || ''}`, t.status === 'CLOSED' ? 'UPLOADED' : 'PENDING',
+        '', '', '' // Empty fields for missing placeholders
+      ].map(val => `"${val}"`).join(",");
+    });
+
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${search.plant}_${search.from}_${search.to}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const tableHeaders = [
+    "Plant", "Sale Order", "Sale Order Date Time", "Consignor", "Consignee", "Ship to Party", "Destination",
+    "Trip ID", "Trip Create Date Time", "Vehicle Number", "Driver Mobile", "Carrier Name", "CN Number",
+    "Invoice Number", "E-waybill Number", "Product", "Unit", "Unit UOM", "Assign Qty", "Weight UOM",
+    "Vendor Name", "Vendor Firm", "Vendor Mobile", "Fleet Type", "Payment Term", "Employee", "Rate", "Freight Amount",
+    "Vehicle Out Date Time", "Vehicle Arrived Date Time", "Unload Date Time", "Reject Date Time", "POD Status",
+    "Vehicle Resent Date Time", "SRN Number", "SRN Date"
+  ];
+
+  if (results) {
+    return (
+      <div className="flex flex-col h-full space-y-6">
+        <div className="bg-slate-50 p-4 border border-slate-300 flex items-center justify-between">
+           <div className="flex items-center gap-4">
+             <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 uppercase font-black px-3 py-1">PLANT: {search.plant}</Badge>
+             <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 uppercase font-black px-3 py-1">RANGE: {search.from} TO {search.to}</Badge>
+           </div>
+           <div className="flex items-center gap-3">
+             <Button onClick={handleExport} className="h-9 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest shadow-md">
+               <Download className="h-3.5 w-3.5 mr-2" /> Export to CSV
+             </Button>
+           </div>
+        </div>
+        <div className="flex-1 overflow-auto border border-slate-200 bg-white">
+          <table className="w-full text-left border-collapse min-w-[4000px]">
+            <thead className="sticky top-0 bg-[#f8fafc] z-20 shadow-sm border-b border-slate-300">
+              <tr className="text-[9px] font-black uppercase text-slate-500">
+                {tableHeaders.map(h => <th key={h} className="p-3 border-r border-slate-200 whitespace-nowrap">{h}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((t: any, idx: number) => {
+                const item = t.cnItems?.[0] || {};
+                return (
+                  <tr key={idx} className="border-b border-slate-100 hover:bg-blue-50 transition-colors text-[10px] font-bold">
+                    <td className="p-3 border-r border-slate-100">{t.plantCode}</td>
+                    <td className="p-3 border-r border-slate-100 font-black text-[#0056d2]">{t.saleOrderNumber || 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100 text-slate-400">{t.saleOrderDate || t.createdAt}</td>
+                    <td className="p-3 border-r border-slate-100 uppercase">{t.consignor}</td>
+                    <td className="p-3 border-r border-slate-100 uppercase">{t.consignee}</td>
+                    <td className="p-3 border-r border-slate-100 uppercase">{t.shipToParty}</td>
+                    <td className="p-3 border-r border-slate-100 uppercase">{t.destination}</td>
+                    <td className="p-3 border-r border-slate-100 font-black text-[#0056d2]">{t.tripId}</td>
+                    <td className="p-3 border-r border-slate-100 text-slate-400">{t.createdAt}</td>
+                    <td className="p-3 border-r border-slate-100 uppercase">{t.vehicleNumber}</td>
+                    <td className="p-3 border-r border-slate-100">{t.driverMobile}</td>
+                    <td className="p-3 border-r border-slate-100 uppercase">{t.carrierName || 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100 font-black">{t.cnNo || 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100">{item.invoiceNo || 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100">{item.ewaybillNo || 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100 italic">{item.product || 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100">{item.unit || '0'}</td>
+                    <td className="p-3 border-r border-slate-100 uppercase text-slate-400">{item.uom || 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100 font-black text-emerald-600">{t.assignWeight}</td>
+                    <td className="p-3 border-r border-slate-100 uppercase">MT</td>
+                    <td className="p-3 border-r border-slate-100 uppercase">{t.vendorName || 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100 uppercase">{t.vendorFirmName || 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100">{t.vendorMobile || 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100 uppercase text-[9px]">{t.fleetType}</td>
+                    <td className="p-3 border-r border-slate-100 uppercase">{t.paymentTerms || 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100 uppercase">{t.employee || 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100">{t.rate || '0'}</td>
+                    <td className="p-3 border-r border-slate-100 font-black">{t.freightAmount || '0'}</td>
+                    <td className="p-3 border-r border-slate-100">{t.outDate ? `${t.outDate} ${t.outTime}` : 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100">{t.arrivedDate ? `${t.arrivedDate} ${t.arrivedTime}` : 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100">{t.unloadDate ? `${t.unloadDate} ${t.unloadTime}` : 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100 text-red-600">{t.rejectionDate ? `${t.rejectionDate} ${t.rejectionTime}` : 'N/A'}</td>
+                    <td className="p-3 border-r border-slate-100"><span className={cn("px-2 py-0.5 rounded-full text-[8px] font-black uppercase", t.status === 'CLOSED' ? "bg-emerald-100 text-emerald-700" : "bg-yellow-100 text-yellow-700")}>{t.status === 'CLOSED' ? 'UPLOADED' : 'PENDING'}</span></td>
+                    <td className="p-3 border-r border-slate-100 text-slate-300 italic">SYSTEM PENDING</td>
+                    <td className="p-3 border-r border-slate-100 text-slate-300 italic">N/A</td>
+                    <td className="p-3 text-slate-300 italic">N/A</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex justify-between items-center px-2 py-3 bg-[#f8fafc] border-t border-slate-200">
+           <p className="text-[10px] font-black text-slate-400 uppercase italic tracking-widest">Registry Synchronization Complete: {results.length} Nodes Rendered</p>
+           <p className="text-[10px] font-black text-blue-900 uppercase">Sikka Logistics ALV Node</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 md:p-10 max-w-5xl mx-auto space-y-12">
+      <div className="space-y-2 border-b-2 border-[#1e3a8a] pb-2">
+        <h2 className="text-xl font-black text-[#1e3a8a] uppercase tracking-tighter italic">Selection Screen: SE38 Custom Report</h2>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Execute F8 to synchronize data nodes</p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 bg-white p-8 md:p-12 border border-slate-200 shadow-2xl rounded-sm">
+        <div className="space-y-6">
+          <div className="flex flex-col gap-2">
+            <label className="text-[11px] font-black uppercase text-[#1e3a8a]">Plant hub *</label>
+            <select className="h-11 w-full border border-slate-400 bg-white px-4 text-xs font-black outline-none focus:bg-yellow-50 focus:border-[#0056d2] transition-all" value={search.plant} onChange={e => onSearchChange({...search, plant: e.target.value})}>
+              <option value="">SELECT MANDATORY PLANT...</option>
+              {allPlants.map((p: any) => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-[11px] font-black uppercase text-slate-500">Vendor Node (Optional)</label>
+            <select className="h-11 w-full border border-slate-400 bg-white px-4 text-xs font-black outline-none focus:bg-yellow-50" value={search.vendor} onChange={e => onSearchChange({...search, vendor: e.target.value})}>
+              <option value="">ALL VENDORS...</option>
+              {allVendors.map((v: any) => <option key={v.id} value={v.vendorCode}>{v.vendorCode} - {v.vendorName}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-[11px] font-black uppercase text-slate-500">Company Hub (Optional)</label>
+            <select className="h-11 w-full border border-slate-400 bg-white px-4 text-xs font-black outline-none focus:bg-yellow-50" value={search.company} onChange={e => onSearchChange({...search, company: e.target.value})}>
+              <option value="">ALL COMPANIES...</option>
+              {allCompanies.map((c: any) => <option key={c.id} value={c.companyCode}>{c.companyCode} - {c.companyName}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-[11px] font-black uppercase text-slate-500">Customer Node (Optional)</label>
+            <select className="h-11 w-full border border-slate-400 bg-white px-4 text-xs font-black outline-none focus:bg-yellow-50" value={search.customer} onChange={e => onSearchChange({...search, customer: e.target.value})}>
+              <option value="">ALL CUSTOMERS...</option>
+              {allCustomers.map((c: any) => <option key={c.id} value={c.customerCode}>{c.customerCode} - {c.customerName}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="space-y-6">
+          <div className="p-6 bg-slate-50 border-l-4 border-blue-600 space-y-6 rounded-r-xl">
+             <div className="flex flex-col gap-2">
+               <label className="text-[11px] font-black uppercase text-blue-900 flex items-center gap-2"><LucideCalendar className="h-3.5 w-3.5" /> From synchronization date *</label>
+               <input type="date" value={search.from} onChange={e => onSearchChange({...search, from: e.target.value})} className="h-11 w-full border border-slate-400 bg-white px-4 text-xs font-black outline-none focus:bg-yellow-50 shadow-sm" />
+             </div>
+             <div className="flex flex-col gap-2">
+               <label className="text-[11px] font-black uppercase text-blue-900 flex items-center gap-2"><LucideCalendar className="h-3.5 w-3.5" /> To synchronization date *</label>
+               <input type="date" value={search.to} onChange={e => onSearchChange({...search, to: e.target.value})} className="h-11 w-full border border-slate-400 bg-white px-4 text-xs font-black outline-none focus:bg-yellow-50 shadow-sm" />
+             </div>
+          </div>
+          <div className="p-6 bg-yellow-50 border border-yellow-100 space-y-2 rounded-sm">
+             <p className="text-[9px] font-black uppercase text-yellow-800 tracking-widest flex items-center gap-2"><Info className="h-3 w-3" /> System Instruction</p>
+             <p className="text-[10px] font-bold text-yellow-900 leading-relaxed italic">The plant field is mandatory to isolate logistical clusters. Ensure the from-date is earlier than the to-date for consistent registry output.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function CnPrintLayout({ trip, company, consignor, consignee, shipTo }: any) {
