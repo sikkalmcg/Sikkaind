@@ -1529,7 +1529,13 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       isFixedRate: false, 
       rate: 0, 
       freightAmount: 0,
-      assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm")
+      assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      vendorName: '',
+      vendorFirmName: '',
+      vendorMobile: '',
+      arrangeBy: '',
+      vehicleNumber: '',
+      driverMobile: ''
     }); 
     setIsPopupOpen(true); 
   };
@@ -1616,6 +1622,9 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       driverMobile: assignData.driverMobile,
       vendorName: assignData.vendorName || '',
       vendorCode: assignData.vendorCode || '',
+      vendorFirmName: assignData.vendorFirmName || '',
+      vendorMobile: assignData.vendorMobile || '',
+      arrangeBy: assignData.arrangeBy || '',
       rate: parseFloat(assignData.rate || 0),
       freightAmount: parseFloat(assignData.freightAmount || 0),
       isFixedRate: !!assignData.isFixedRate,
@@ -1677,44 +1686,89 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     </div>
     
     <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
-      <DialogContent className="max-w-4xl bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden">
-        <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
+      <DialogContent className="max-w-4xl max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
+        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
           <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Truck className="h-4 w-4" /> TR21 – Assign Vehicle</DialogTitle>
         </DialogHeader>
-        <div className="p-10 space-y-10">
-          <SectionGrouping title="SALES ORDER NODE">
-             <div className="grid grid-cols-2 gap-8 mb-4">
-                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sale Order</span><span className="text-[12px] font-black text-[#1e3a8a]">{selectedOrder?.saleOrder}</span></div>
-                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[12px] font-black uppercase truncate">{selectedOrder?.shipToParty}</span></div>
+        <div className="p-10 space-y-10 overflow-y-auto green-scrollbar flex-1">
+          <SectionGrouping title="POPUP HEADER">
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-12 mb-4">
+                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Plant Hub</span><span className="text-[12px] font-black text-[#1e3a8a]">{selectedOrder?.plantCode}</span></div>
+                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sale Order</span><span className="text-[12px] font-black text-[#1e3a8a]">{selectedOrder?.saleOrder}</span></div>
+                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Consignee Node</span><span className="text-[12px] font-black uppercase truncate">{selectedOrder?.consignee}</span></div>
+                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[12px] font-black uppercase truncate">{selectedOrder?.shipToParty}</span></div>
+                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route Node</span><span className="text-[12px] font-black uppercase truncate">{selectedOrder?.route}</span></div>
+                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Balance Qty</span><span className="text-[12px] font-black text-red-600">{selectedOrder?.bal} {selectedOrder?.uom}</span></div>
              </div>
           </SectionGrouping>
-          <SectionGrouping title="ASSIGNMENT DETAILS">
-             <FormSelect label="VEHICLE TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract", "Market Vehicle"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} />
-             <FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignData.assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} />
-             <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} placeholder="EX: HR 38 X 1234" />
+          <SectionGrouping title="CENTRE SECTION">
+             <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} placeholder="HR 38 X 1234" />
              <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} placeholder="10 DIGIT MOBILE" />
-             <FormInput label="ASSIGN QTY (MT)" type="number" value={assignData.assignWeight} onChange={(v: string) => setAssignData({...assignData, assignWeight: v})} />
-             {assignData.fleetType !== 'Own Vehicle' && (
-                <>
-                  <FormSearchInput label="VENDOR" value={assignData.vendorName} options={vendors.map((v: any) => v.vendorName)} onChange={(v: string) => {
-                    const match = vendors.find((vend: any) => vend.vendorName === v);
-                    setAssignData({...assignData, vendorName: v, vendorCode: match?.vendorCode || ''});
+             <FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle", "Arrange by Party"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} />
+             <FormInput label="ASSIGN QTY (MT)" type="number" value={assignData.assignWeight} onChange={(v: string) => {
+               const w = parseFloat(v) || 0;
+               const r = parseFloat(assignData.rate) || 0;
+               setAssignData({
+                 ...assignData, 
+                 assignWeight: v,
+                 freightAmount: !assignData.isFixedRate ? (w * r).toFixed(2) : assignData.freightAmount
+               });
+             }} />
+             <FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignData.assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} />
+
+             {assignData.fleetType === 'Market Vehicle' && (
+                <div className="space-y-4 pt-4 border-t border-slate-200 mt-4 animate-fade-in">
+                  <FormSelect 
+                    label="VENDOR NAME" 
+                    value={assignData.vendorName} 
+                    options={vendors.map((v: any) => ({ value: v.vendorName, label: v.vendorName }))} 
+                    onChange={(v: string) => {
+                      const match = vendors.find((vend: any) => vend.vendorName === v);
+                      setAssignData({
+                        ...assignData, 
+                        vendorName: v, 
+                        vendorCode: match?.vendorCode || '', 
+                        vendorFirmName: match?.vendorFirmName || '', 
+                        vendorMobile: match?.mobile || ''
+                      });
+                    }} 
+                  />
+                  <FormInput label="VENDOR FIRM" value={assignData.vendorFirmName} disabled={true} />
+                  <FormInput label="MOBILE" value={assignData.vendorMobile} disabled={true} />
+                  <FormInput label="ARRANGE BY" value={assignData.arrangeBy} onChange={(v: string) => setAssignData({...assignData, arrangeBy: v})} placeholder="MANUAL ENTRY" />
+                  <FormInput label="RATE" type="number" value={assignData.rate} onChange={(v: string) => {
+                    const r = parseFloat(v) || 0; 
+                    const w = parseFloat(assignData.assignWeight) || 0;
+                    setAssignData({
+                      ...assignData, 
+                      rate: v, 
+                      freightAmount: !assignData.isFixedRate ? (r * w).toFixed(2) : assignData.freightAmount
+                    });
                   }} />
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2"><Checkbox checked={assignData.isFixedRate} onCheckedChange={(c) => setAssignData({...assignData, isFixedRate: !!c})} id="fixed-rate" /><label htmlFor="fixed-rate" className="text-[10px] font-black uppercase cursor-pointer">Fixed Freight</label></div>
+                  <div className="flex items-center gap-8 pl-[180px]">
+                    <div className="flex items-center gap-2">
+                      <Checkbox 
+                        checked={assignData.isFixedRate} 
+                        onCheckedChange={(c) => setAssignData({...assignData, isFixedRate: !!c})} 
+                        id="assign-fix-rate" 
+                      />
+                      <label htmlFor="assign-fix-rate" className="text-[10px] font-black uppercase cursor-pointer text-slate-500">Fix Rate Mode</label>
+                    </div>
                   </div>
-                  {!assignData.isFixedRate ? (
-                    <FormInput label="RATE" type="number" value={assignData.rate} onChange={(v: string) => {
-                      const r = parseFloat(v) || 0; const w = parseFloat(assignData.assignWeight) || 0;
-                      setAssignData({...assignData, rate: v, freightAmount: (r * w).toFixed(2)});
-                    }} />
-                  ) : (
-                    <FormInput label="FREIGHT AMT" type="number" value={assignData.freightAmount} onChange={(v: string) => setAssignData({...assignData, freightAmount: v})} />
-                  )}
-                </>
+                  <FormInput 
+                    label="FREIGHT AMOUNT" 
+                    type="number" 
+                    value={assignData.freightAmount} 
+                    disabled={!assignData.isFixedRate} 
+                    onChange={(v: string) => setAssignData({...assignData, freightAmount: v})} 
+                  />
+                </div>
              )}
           </SectionGrouping>
-          <div className="flex justify-end gap-3"><Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase">Exit</Button><Button onClick={handleCreateTrip} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post Assignment</Button></div>
+        </div>
+        <div className="p-6 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
+          <Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
+          <Button onClick={handleCreateTrip} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post Assignment</Button>
         </div>
       </DialogContent>
     </Dialog>
