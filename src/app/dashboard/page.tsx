@@ -36,7 +36,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { format, subDays, isWithinInterval, startOfDay, endOfDay, isAfter, parse } from 'date-fns';
+import { format, subDays, isWithinInterval, startOfDay, endOfDay, isAfter, parse, addHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
@@ -89,7 +89,7 @@ function VehicleLocation({ lat, lng, locationName, onClick }: { lat: number, lng
           if (c.types.includes('route')) street = c.long_name;
           if (c.types.includes('locality')) city = c.long_name;
         }
-        const full = `${street}${street && city ? ', ' : ''}${city}` || results[0].formatted_address;
+        const full = `${street}${street && city ? ' – ' : ''}${city}` || results[0].formatted_address;
         setLoc(full);
       } else {
         setLoc('Unknown Location');
@@ -108,8 +108,7 @@ function VehicleLocation({ lat, lng, locationName, onClick }: { lat: number, lng
     <span 
       onClick={handleClick}
       className={cn(
-        "text-[8px] font-black text-blue-600 truncate max-w-[120px]",
-        onClick && "cursor-pointer hover:underline underline-offset-2"
+        "text-[10px] font-black text-[#1e3a8a] truncate max-w-[200px] cursor-pointer hover:underline underline-offset-2 uppercase tracking-tighter"
       )}
     >
       {loc}
@@ -1283,7 +1282,7 @@ function VendorForm({ data, onChange, disabled, allPlants }: any) {
     <SectionGrouping title="PLANT MAPPING">
       <div className="flex items-center gap-8">
         <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Hubs:</label>
-        <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handlePToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div>
+        <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div>
       </div>
     </SectionGrouping>
     <SectionGrouping title="IDENTIFICATION">
@@ -1482,6 +1481,11 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const [cnPreviewStatus, setCnPreviewStatus] = React.useState<'idle' | 'generated'>('idle');
   const [gpsData, setGpsData] = React.useState<any[]>([]);
 
+  // Delay Remark Feature State
+  const [isDelayRemarkPopupOpen, setIsDelayRemarkPopupOpen] = React.useState(false);
+  const [selectedOrderForRemark, setSelectedOrderForRemark] = React.useState<any>(null);
+  const [delayRemarkInput, setDelayRemarkInput] = React.useState('');
+
   const fetchGps = React.useCallback(async () => {
     try {
       const res = await fetch('/api/gps');
@@ -1506,6 +1510,24 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
   const handleAssign = (o: any) => { setSelectedOrder(o); setAssignData({ plantCode: o.plantCode, consignee: o.consignee, shipToParty: o.shipToParty, route: o.route || '', orderQty: `${o.bal} ${o.uom}`, fleetType: 'Own Vehicle', assignWeight: o.bal, isFixedRate: false, rate: 0, freightAmount: 0 }); setIsPopupOpen(true); };
+  
+  // Delay Remark Handler
+  const handleDelayRemark = (o: any) => {
+    setSelectedOrderForRemark(o);
+    setDelayRemarkInput(o.delayRemark || '');
+    setIsDelayRemarkPopupOpen(true);
+  };
+
+  const handlePostDelayRemark = () => {
+    if (!selectedOrderForRemark) return;
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', selectedOrderForRemark.id), {
+      delayRemark: delayRemarkInput,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+    setIsDelayRemarkPopupOpen(false);
+    onStatusUpdate({ text: 'Delay Remark Saved', type: 'success' });
+  };
+
   const handleAssignmentClick = (t: any) => { setSelectedTripForAssignment(t); setAssignmentMode(null); setAssignData({ vehicleNumber: t.vehicleNumber, driverMobile: t.driverMobile, assignWeight: t.assignWeight, fleetType: t.fleetType, vendorName: t.vendorName, vendorMobile: t.vendorMobile, employee: t.employee, rate: t.rate, freightAmount: t.freightAmount, isFixedRate: t.isFixedRate, plantCode: t.plantCode, consignee: t.consignee, shipToParty: t.shipToParty, route: t.route }); setIsAssignmentPopupOpen(true); };
   
   const handlePodFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1571,7 +1593,16 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       <div className="flex-1 flex flex-col overflow-hidden bg-white border border-slate-300"><div className="flex-1 overflow-auto"><table className="w-full text-left border-collapse min-w-[1000px]"><thead><tr className="bg-[#f0f0f0] text-[9px] font-black uppercase sticky top-0 border-b border-slate-300 z-10 print:hidden">{activeTab === 'Open Orders' ? ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>) : ['Plant', 'Trip ID', 'Sale Order', 'Consignee', 'Ship to Party', 'Route', 'Vehicle No', 'Assign Qty', 'CN Number', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}</tr></thead>
             <tbody>{paginatedData.map((item: any) => {
                   if (activeTab === 'Open Orders') {
-                    const o = item; return (<tr key={o.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] cursor-pointer text-[11px] font-bold"><td className="p-3">{o.plantCode}</td><td className="p-3 text-[#0056d2] font-black">{o.saleOrder}</td><td className="p-3 uppercase">{o.consignor}</td><td className="p-3 uppercase">{o.consignee}</td><td className="p-3 uppercase">{o.shipToParty}</td><td className="p-3 uppercase">{o.route}</td><td className="p-3 font-black">{o.tot} {o.uom}</td><td className="p-3 text-emerald-600">{o.ass} {o.uom}</td><td className="p-3 text-red-600 font-black">{o.bal} {o.uom}</td><td className="p-3"><Button onClick={() => handleAssign(o)} size="sm" className="bg-[#0056d2] text-white font-black text-[9px] h-7 rounded-none uppercase">Assign</Button></td></tr>);
+                    const o = item; 
+                    const isDelayed = (new Date().getTime() - new Date(o.createdAt).getTime()) > 24 * 60 * 60 * 1000;
+                    return (<tr key={o.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] cursor-pointer text-[11px] font-bold"><td className="p-3">{o.plantCode}</td><td className="p-3 text-[#0056d2] font-black">{o.saleOrder}</td><td className="p-3 uppercase">{o.consignor}</td><td className="p-3 uppercase">{o.consignee}</td><td className="p-3 uppercase">{o.shipToParty}</td><td className="p-3 uppercase">{o.route}</td><td className="p-3 font-black">{o.tot} {o.uom}</td><td className="p-3 text-emerald-600">{o.ass} {o.uom}</td><td className="p-3 text-red-600 font-black">{o.bal} {o.uom}</td><td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <Button onClick={() => handleAssign(o)} size="sm" className="bg-[#0056d2] text-white font-black text-[9px] h-7 rounded-none uppercase">Assign</Button>
+                          {isDelayed && (
+                            <Button onClick={() => handleDelayRemark(o)} size="sm" className="bg-[#facc15] text-[#1e3a8a] hover:bg-[#eab308] font-black text-[9px] h-7 rounded-none uppercase">Delay Remark</Button>
+                          )}
+                        </div>
+                    </td></tr>);
                   } else {
                     const t = item; const gpsVehicle = gpsData.find(v => v.vehicleNumber === t.vehicleNumber);
                     return (<tr key={t.id} className="border-b border-slate-100 hover:bg-[#e8f0fe] cursor-pointer text-[11px] font-bold"><td className="p-3">{t.plantCode}</td><td className="p-3 text-[#0056d2] font-black">{t.tripId}</td><td className="p-3 uppercase">{t.saleOrderNumber}</td><td className="p-3 uppercase">{t.consignee}</td><td className="p-3 uppercase">{t.shipToParty}</td><td className="p-3 uppercase">{t.route}</td><td className="p-3 uppercase">{t.vehicleNumber}</td><td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td><td className="p-3"><div className="flex items-center gap-2">{t.cnNo ? (<button onClick={() => handleCnPreviewClick(t)} className="font-black text-[#0056d2] uppercase">{t.cnNo}</button>) : ""}<button onClick={() => handleAddCn(t)} className="p-1 text-slate-400 hover:text-blue-600"><Plus className="h-3 w-3" /></button></div></td>
@@ -1591,6 +1622,25 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
             <Button variant="outline" size="sm" disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(p + 1)} className="h-7 px-3 text-[9px] font-black uppercase rounded-none border-slate-300">Next</Button></div></div></div>
     </div>
     
+    <Dialog open={isDelayRemarkPopupOpen} onOpenChange={setIsDelayRemarkPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Clock className="h-4 w-4" /> Delay Remark Registry</DialogTitle></DialogHeader>
+        <div className="p-8 space-y-6">
+          <div className="bg-white p-4 border border-slate-200 rounded-none space-y-3 shadow-inner opacity-90">
+             <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Sale Order</span><span className="text-[11px] font-black text-[#1e3a8a]">{selectedOrderForRemark?.saleOrder}</span></div>
+             <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Booked On</span><span className="text-[10px] font-black">{selectedOrderForRemark?.createdAt && format(new Date(selectedOrderForRemark.createdAt), 'dd-MMM-yy HH:mm')}</span></div>
+             <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[10px] font-black uppercase truncate max-w-[200px]">{selectedOrderForRemark?.shipToParty}</span></div>
+             <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black uppercase truncate max-w-[200px]">{selectedOrderForRemark?.route}</span></div>
+             <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Balance Qty</span><span className="text-[10px] font-black text-red-600">{selectedOrderForRemark?.bal} {selectedOrderForRemark?.weightUom}</span></div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[11px] font-black text-slate-600 uppercase tracking-widest">Delay Remark *</label>
+            <textarea value={delayRemarkInput} onChange={e => setDelayRemarkInput(e.target.value)} className="w-full h-24 border border-slate-400 bg-white p-3 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase resize-none" placeholder="ENTER DELAY REASON..." />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button onClick={() => setIsDelayRemarkPopupOpen(false)} variant="outline" className="h-9 px-6 bg-red-50 border-red-200 text-red-700 hover:bg-red-100 rounded-none text-[10px] font-black uppercase">Cancel</Button>
+            <Button onClick={handlePostDelayRemark} className="h-9 px-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post Sync</Button>
+          </div>
+        </div></DialogContent></Dialog>
+
     <Dialog open={isTrackModePopupOpen} onOpenChange={setIsTrackModePopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Radar className="h-4 w-4" /> Mode Registry</DialogTitle></DialogHeader>
         <div className="p-8 space-y-8"><div className="flex items-center gap-6"><label className="text-[12px] font-bold text-slate-600 w-[120px] text-right uppercase">Track Mode:</label><select value={trackModeData.mode} onChange={e => setTrackModeData({ mode: e.target.value })} className="h-9 w-[220px] border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase"><option value="GPS Tracking">GPS Tracking</option><option value="SIM Tracking">SIM Tracking</option></select></div><div className="flex justify-end gap-3"><Button onClick={() => setIsTrackModePopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button><Button onClick={handleTrackModePost} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post Sync</Button></div></div></DialogContent></Dialog>
 
@@ -1625,11 +1675,11 @@ function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
       polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 }
     });
 
-    const cons = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.consignor?.toUpperCase());
-    const ship = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.shipToParty?.toUpperCase());
+    const consMaster = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.consignor?.toUpperCase());
+    const shipMaster = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.shipToParty?.toUpperCase());
 
-    const p1 = new Promise(r => { if (cons?.postalCode) geocoder.geocode({ address: cons.postalCode }, (res: any) => r(res?.[0]?.geometry?.location)); else r(null); });
-    const p2 = new Promise(r => { if (ship?.postalCode) geocoder.geocode({ address: ship.postalCode }, (res: any) => r(res?.[0]?.geometry?.location)); else r(null); });
+    const p1 = new Promise(r => { if (consMaster?.postalCode) geocoder.geocode({ address: consMaster.postalCode }, (res: any) => r(res?.[0]?.geometry?.location)); else r(null); });
+    const p2 = new Promise(r => { if (shipMaster?.postalCode) geocoder.geocode({ address: shipMaster.postalCode }, (res: any) => r(res?.[0]?.geometry?.location)); else r(null); });
 
     Promise.all([p1, p2]).then(([origin, dest]: any) => {
       if (!mapRef.current) return;
@@ -1892,6 +1942,12 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
               <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Assigned Qty</span><span className="text-[13px] font-black text-emerald-600">{trackingData.assignWeight} MT</span></div>
               <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route Hub</span><span className="text-[13px] font-black uppercase text-blue-600 truncate">{trackingData.route}</span></div>
            </div>
+           {trackingData.delayRemark && (
+             <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200">
+               <label className="text-[9px] font-black uppercase text-yellow-700 tracking-widest block mb-1">Delay Remark Registered:</label>
+               <p className="text-[11px] font-black uppercase text-[#1e3a8a]">{trackingData.delayRemark}</p>
+             </div>
+           )}
         </SectionGrouping>
         <div className="p-10 relative overflow-hidden bg-white border border-slate-200 shadow-sm">
           <div className="flex justify-between relative z-10">

@@ -6,7 +6,7 @@ import * as React from 'react';
 import { 
   Radar, Search, Package, Truck, CheckCircle, 
   Loader2, MapPin, ArrowLeft, 
-  ShoppingCart, AlertTriangle
+  ShoppingCart, AlertTriangle, Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -171,6 +171,15 @@ export default function TrackPage() {
               <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Ship To:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.shipToParty}</span></div>
               <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Route:</label><span className="text-[12px] font-black text-[#1e3a8a] uppercase">{trackingData.from} → {trackingData.destination}</span></div>
             </div>
+            {trackingData.delayRemark && (
+              <div className="p-6 bg-yellow-50 border border-yellow-200 animate-fade-in">
+                <div className="flex items-center gap-3 mb-2">
+                  <Clock className="h-4 w-4 text-yellow-700" />
+                  <span className="text-[10px] font-black uppercase text-yellow-700 tracking-widest">Delay Registered by Logistics Hub</span>
+                </div>
+                <p className="text-[12px] font-black uppercase text-[#1e3a8a] italic">"{trackingData.delayRemark}"</p>
+              </div>
+            )}
             {linkedTrip ? (
               <div className="bg-blue-50 border border-blue-100 p-8 text-center animate-pulse"><p className="text-sm font-black italic uppercase text-slate-800 leading-relaxed">Order {trackingData.saleOrder} is synchronized with Trip <button onClick={() => { setTrackingData(linkedTrip); startAnimation(linkedTrip); setView('track_view'); }} className="text-blue-600 underline font-black">{linkedTrip.tripId}</button></p></div>
             ) : (
