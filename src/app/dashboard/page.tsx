@@ -276,6 +276,9 @@ export default function SapDashboard() {
   const monthRef = React.useRef<HTMLDivElement>(null);
   const bulkInputRef = React.useRef<HTMLInputElement>(null);
 
+  const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
+  const { data: settings } = useDoc(settingsRef);
+
   React.useEffect(() => {
     const isAdmin = localStorage.getItem('sap_bootstrap_session') === 'true';
     const rid = localStorage.getItem('sap_registry_id');
@@ -283,7 +286,6 @@ export default function SapDashboard() {
     setRegistryId(rid);
     setIsAuthChecking(false);
 
-    // Global Google Maps script load
     const scriptId = 'google-maps-script';
     if (!document.getElementById(scriptId)) {
       const script = document.createElement('script');
@@ -326,9 +328,6 @@ export default function SapDashboard() {
   }, [user, db, isBootstrapAdmin, registryId]);
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
-
-  const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
-  const { data: settings } = useDoc(settingsRef);
 
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
@@ -1709,15 +1708,24 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     const consigneeMaster = (customers || []).find((c: any) => (c.customerName?.toUpperCase() === order?.consignee?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.consignee?.toUpperCase()));
     const shipToMaster = (customers || []).find((c: any) => (c.customerName?.toUpperCase() === order?.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.shipToParty?.toUpperCase()));
 
-    setSelectedTripForPreview({ 
+    const dataForPreview = { 
       ...t, 
       order, 
       carrier,
       consignorMaster,
       consigneeMaster,
       shipToMaster
-    }); 
-    setPreviewDeliveryAddress(order?.deliveryAddress || shipToMaster?.address || '');
+    };
+
+    setSelectedTripForPreview(dataForPreview); 
+
+    const fullShipToAddr = [
+      shipToMaster?.address,
+      shipToMaster?.city,
+      shipToMaster?.postalCode
+    ].filter(Boolean).join(', ');
+
+    setPreviewDeliveryAddress(fullShipToAddr || order?.deliveryAddress || '');
     setIsAddressEditable(false);
     setIsCnPreviewOpen(true); 
   };
@@ -2068,10 +2076,10 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                       <div className="text-[10px] font-bold text-slate-700 uppercase space-y-0.5">
                         <p>{selectedTripForPreview?.carrier?.address}</p>
                         <p>{selectedTripForPreview?.carrier?.city} - {selectedTripForPreview?.carrier?.postalCode}</p>
-                        <p className="font-black">GSTIN: {selectedTripForPreview?.carrier?.gstin}</p>
-                        <p className="font-black">PAN: {selectedTripForPreview?.carrier?.pan}</p>
+                        <p>MOB: {selectedTripForPreview?.carrier?.mobile}</p>
                         <p>Website: {selectedTripForPreview?.carrier?.website}</p>
-                        <p>MOB: {selectedTripForPreview?.carrier?.mobile} | EMAIL: {selectedTripForPreview?.carrier?.email}</p>
+                        <p className="font-black">GSTIN: {selectedTripForPreview?.carrier?.gstin} &nbsp;&nbsp;&nbsp; PAN: {selectedTripForPreview?.carrier?.pan}</p>
+                        <p>EMAIL: {selectedTripForPreview?.carrier?.email}</p>
                       </div>
                     </div>
                   </div>
@@ -2109,7 +2117,11 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                   <div className="border-r-2 border-black p-3 space-y-1">
                     <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-1">Consignor</h3>
                     <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview?.order?.consignor}</p>
-                    <p className="text-[10px] font-bold text-slate-600 uppercase">{selectedTripForPreview?.consignorMaster?.address}</p>
+                    <p className="text-[10px] font-bold text-slate-600 uppercase">
+                      {selectedTripForPreview?.consignorMaster?.address}
+                      {selectedTripForPreview?.consignorMaster?.city ? `, ${selectedTripForPreview.consignorMaster.city}` : ''}
+                      {selectedTripForPreview?.consignorMaster?.postalCode ? ` ${selectedTripForPreview.consignorMaster.postalCode}` : ''}
+                    </p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">MOB: {selectedTripForPreview?.consignorMaster?.mobile}</p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">GSTIN: {selectedTripForPreview?.consignorMaster?.gstin || 'N/A'}</p>
                   </div>
@@ -2118,18 +2130,18 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                     <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview?.order?.consignee}</p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">
                       {selectedTripForPreview?.consigneeMaster?.address} 
-                      {selectedTripForPreview?.consigneeMaster?.city ? ` ${selectedTripForPreview.consigneeMaster.city}` : ''}
+                      {selectedTripForPreview?.consigneeMaster?.city ? `, ${selectedTripForPreview.consigneeMaster.city}` : ''}
                       {selectedTripForPreview?.consigneeMaster?.postalCode ? ` ${selectedTripForPreview.consigneeMaster.postalCode}` : ''}
                     </p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">MOB: {selectedTripForPreview?.consigneeMaster?.mobile}</p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">GSTIN: {selectedTripForPreview?.consigneeMaster?.gstin || 'N/A'}</p>
                   </div>
                   <div className="p-3 space-y-1 bg-slate-50/50">
-                    <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-1">Ship To Party</h3>
+                    <h3 className="text-[11px] font-black uppercase border-b border-black pb-1 mb-1">Ship To</h3>
                     <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview?.order?.shipToParty}</p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">
                       {selectedTripForPreview?.shipToMaster?.address}
-                      {selectedTripForPreview?.shipToMaster?.city ? ` ${selectedTripForPreview.shipToMaster.city}` : ''}
+                      {selectedTripForPreview?.shipToMaster?.city ? `, ${selectedTripForPreview.shipToMaster.city}` : ''}
                       {selectedTripForPreview?.shipToMaster?.postalCode ? ` ${selectedTripForPreview.shipToMaster.postalCode}` : ''}
                     </p>
                     <p className="text-[10px] font-bold text-slate-600 uppercase">MOB: {selectedTripForPreview?.shipToMaster?.mobile}</p>
@@ -2155,7 +2167,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                           <td className="p-2 border-r-2 border-black uppercase font-mono">{item.ewaybillNo}</td>
                           <td className="p-2 border-r-2 border-black text-center uppercase">{item.unit}</td>
                           <td className="p-2 border-r-2 border-black uppercase whitespace-pre-wrap">{item.product}</td>
-                          <td className="p-2 text-center">-</td>
+                          <td className="p-2 text-center">{selectedTripForPreview?.assignWeight}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -2170,7 +2182,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                            })()}
                         </td>
                         <td className="p-2 border-r-2 border-black"></td>
-                        <td className="p-2 text-center text-[#1e3a8a] text-[12px]">
+                        <td className="p-2 text-center text-[#1e3a8a] text-[10px]">
                            {selectedTripForPreview?.assignWeight} {selectedTripForPreview?.weightUom || 'MT'}
                         </td>
                       </tr>
