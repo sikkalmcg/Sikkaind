@@ -543,7 +543,8 @@ export default function SapDashboard() {
               weight: 0,
               weightUom: uom,
               status: 'OPEN',
-              createdAt: new Date().toISOString()
+              createdAt: new Date().toISOString(),
+              saleOrderDate: format(new Date(), "yyyy-MM-dd'T'HH:mm")
             };
           }
           orderGroups[soNo].weight += weight;
@@ -1325,11 +1326,18 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers }: a
   const filtered = (allCustomers || []).filter((c: any) => c.plantCodes?.includes(data.plantCode));
   const cons = filtered.filter((c: any) => c.customerType === 'Consignor');
   const ships = filtered.filter((c: any) => c.customerType === 'Consignee - Ship to Party');
+
+  React.useEffect(() => {
+    if (!data.saleOrderDate && !disabled) {
+      onChange({ ...data, saleOrderDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") });
+    }
+  }, [data.saleOrderDate, disabled, onChange, data]);
   
   return <div className="space-y-10">
     <SectionGrouping title="HEADER">
       <FormSelect label="PLANT HUB" value={data.plantCode} options={pOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
       <FormInput label="SALE ORDER NO" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
+      <FormInput label="ORDER BOOK DATE TIME" type="datetime-local" value={data.saleOrderDate} onChange={(v: string) => onChange({...data, saleOrderDate: v})} disabled={disabled} />
     </SectionGrouping>
     <SectionGrouping title="COORDINATION">
       <FormSearchInput 
@@ -1481,7 +1489,6 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const [cnPreviewStatus, setCnPreviewStatus] = React.useState<'idle' | 'generated'>('idle');
   const [gpsData, setGpsData] = React.useState<any[]>([]);
 
-  // Delay Remark Feature State
   const [isDelayRemarkPopupOpen, setIsDelayRemarkPopupOpen] = React.useState(false);
   const [selectedOrderForRemark, setSelectedOrderForRemark] = React.useState<any>(null);
   const [delayRemarkInput, setDelayRemarkInput] = React.useState('');
@@ -1509,9 +1516,24 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const paginatedData = React.useMemo(() => { const start = (currentPage - 1) * itemsPerPage; return filteredData.slice(start, start + itemsPerPage); }, [filteredData, currentPage]);
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
-  const handleAssign = (o: any) => { setSelectedOrder(o); setAssignData({ plantCode: o.plantCode, consignee: o.consignee, shipToParty: o.shipToParty, route: o.route || '', orderQty: `${o.bal} ${o.uom}`, fleetType: 'Own Vehicle', assignWeight: o.bal, isFixedRate: false, rate: 0, freightAmount: 0 }); setIsPopupOpen(true); };
+  const handleAssign = (o: any) => { 
+    setSelectedOrder(o); 
+    setAssignData({ 
+      plantCode: o.plantCode, 
+      consignee: o.consignee, 
+      shipToParty: o.shipToParty, 
+      route: o.route || '', 
+      orderQty: `${o.bal} ${o.uom}`, 
+      fleetType: 'Own Vehicle', 
+      assignWeight: o.bal, 
+      isFixedRate: false, 
+      rate: 0, 
+      freightAmount: 0,
+      assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm")
+    }); 
+    setIsPopupOpen(true); 
+  };
   
-  // Delay Remark Handler
   const handleDelayRemark = (o: any) => {
     setSelectedOrderForRemark(o);
     setDelayRemarkInput(o.delayRemark || '');
@@ -1574,6 +1596,38 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const handleCnPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForCn.id), { cnNo: cnFormData.cnNo, cnDate: cnFormData.cnDate, paymentTerms: cnFormData.paymentTerms, carrierName: cnFormData.carrierName, cnItems: cnFormData.items, updatedAt: new Date().toISOString() }, { merge: true }); setIsCnPopupOpen(false); onStatusUpdate({ text: `CN Synced`, type: 'success' }); };
   const handleCnPreviewClick = (t: any) => { const order = (orders || []).find((o: any) => o.id === t.saleOrderId); setSelectedTripForPreview({ ...t, order }); setCnPreviewStatus('idle'); setIsCnPreviewOpen(true); };
 
+  const handleCreateTrip = () => {
+    const tripId = `T-${selectedOrder.saleOrder.slice(-5)}-${Math.floor(100 + Math.random() * 899)}`;
+    const docId = crypto.randomUUID();
+    const payload = {
+      id: docId,
+      tripId,
+      saleOrderId: selectedOrder.id,
+      saleOrderNumber: selectedOrder.saleOrder,
+      saleOrderDate: selectedOrder.saleOrderDate || '',
+      plantCode: assignData.plantCode,
+      consignee: assignData.consignee,
+      shipToParty: assignData.shipToParty,
+      route: assignData.route,
+      assignWeight: parseFloat(assignData.assignWeight),
+      vehicleType: assignData.fleetType?.toUpperCase(),
+      fleetType: assignData.fleetType,
+      vehicleNumber: assignData.vehicleNumber,
+      driverMobile: assignData.driverMobile,
+      vendorName: assignData.vendorName || '',
+      vendorCode: assignData.vendorCode || '',
+      rate: parseFloat(assignData.rate || 0),
+      freightAmount: parseFloat(assignData.freightAmount || 0),
+      isFixedRate: !!assignData.isFixedRate,
+      status: 'LOADING',
+      createdAt: new Date().toISOString(),
+      assignDate: assignData.assignDate || new Date().toISOString()
+    };
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', docId), payload, { merge: true });
+    setIsPopupOpen(false);
+    onStatusUpdate({ text: `Trip Node ${tripId} Synchronized`, type: 'success' });
+  };
+
   return <div className="flex flex-col h-full space-y-0">
     <div className="bg-white border-b border-slate-300 px-8 py-3 mb-4 print:hidden">
        <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">DRIP BOARD CONTROL</h2>
@@ -1622,6 +1676,82 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
             <Button variant="outline" size="sm" disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(p + 1)} className="h-7 px-3 text-[9px] font-black uppercase rounded-none border-slate-300">Next</Button></div></div></div>
     </div>
     
+    <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
+      <DialogContent className="max-w-4xl bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden">
+        <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
+          <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Truck className="h-4 w-4" /> TR21 – Assign Vehicle</DialogTitle>
+        </DialogHeader>
+        <div className="p-10 space-y-10">
+          <SectionGrouping title="SALES ORDER NODE">
+             <div className="grid grid-cols-2 gap-8 mb-4">
+                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sale Order</span><span className="text-[12px] font-black text-[#1e3a8a]">{selectedOrder?.saleOrder}</span></div>
+                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[12px] font-black uppercase truncate">{selectedOrder?.shipToParty}</span></div>
+             </div>
+          </SectionGrouping>
+          <SectionGrouping title="ASSIGNMENT DETAILS">
+             <FormSelect label="VEHICLE TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract", "Market Vehicle"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} />
+             <FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignData.assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} />
+             <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} placeholder="EX: HR 38 X 1234" />
+             <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} placeholder="10 DIGIT MOBILE" />
+             <FormInput label="ASSIGN QTY (MT)" type="number" value={assignData.assignWeight} onChange={(v: string) => setAssignData({...assignData, assignWeight: v})} />
+             {assignData.fleetType !== 'Own Vehicle' && (
+                <>
+                  <FormSearchInput label="VENDOR" value={assignData.vendorName} options={vendors.map((v: any) => v.vendorName)} onChange={(v: string) => {
+                    const match = vendors.find((vend: any) => vend.vendorName === v);
+                    setAssignData({...assignData, vendorName: v, vendorCode: match?.vendorCode || ''});
+                  }} />
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2"><Checkbox checked={assignData.isFixedRate} onCheckedChange={(c) => setAssignData({...assignData, isFixedRate: !!c})} id="fixed-rate" /><label htmlFor="fixed-rate" className="text-[10px] font-black uppercase cursor-pointer">Fixed Freight</label></div>
+                  </div>
+                  {!assignData.isFixedRate ? (
+                    <FormInput label="RATE" type="number" value={assignData.rate} onChange={(v: string) => {
+                      const r = parseFloat(v) || 0; const w = parseFloat(assignData.assignWeight) || 0;
+                      setAssignData({...assignData, rate: v, freightAmount: (r * w).toFixed(2)});
+                    }} />
+                  ) : (
+                    <FormInput label="FREIGHT AMT" type="number" value={assignData.freightAmount} onChange={(v: string) => setAssignData({...assignData, freightAmount: v})} />
+                  )}
+                </>
+             )}
+          </SectionGrouping>
+          <div className="flex justify-end gap-3"><Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase">Exit</Button><Button onClick={handleCreateTrip} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post Assignment</Button></div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={isAssignmentPopupOpen} onOpenChange={setIsAssignmentPopupOpen}>
+      <DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden">
+        <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
+          <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Edit3 className="h-4 w-4" /> Assignment Management</DialogTitle>
+        </DialogHeader>
+        <div className="p-8 space-y-8">
+          <RadioGroup value={assignmentMode || ''} onValueChange={(v: any) => setAssignmentMode(v)} className="grid grid-cols-2 gap-4">
+            <div className="flex items-center space-x-2 bg-white p-4 border border-slate-200">
+              <RadioGroupItem value="edit" id="r-edit" /><Label htmlFor="r-edit" className="text-[10px] font-black uppercase cursor-pointer">Edit Assignment</Label>
+            </div>
+            <div className="flex items-center space-x-2 bg-white p-4 border border-slate-200">
+              <RadioGroupItem value="unassign" id="r-unassign" /><Label htmlFor="r-unassign" className="text-[10px] font-black uppercase cursor-pointer text-red-600">Unassign Trip</Label>
+            </div>
+          </RadioGroup>
+          {assignmentMode === 'edit' && (
+            <div className="space-y-4 animate-fade-in border-t border-slate-200 pt-6">
+              <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: any) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} />
+              <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: any) => setAssignData({...assignData, driverMobile: v})} />
+              <FormInput label="ASSIGN QTY *" type="number" value={assignData.assignWeight} onChange={(v: any) => setAssignData({...assignData, assignWeight: v})} />
+              <FormInput label="RATE" type="number" value={assignData.rate} onChange={(v: any) => setAssignData({...assignData, rate: v})} />
+            </div>
+          )}
+          {assignmentMode === 'unassign' && (
+            <div className="bg-red-50 p-4 border border-red-100 text-center animate-pulse"><p className="text-[10px] font-black text-red-600 uppercase">CAUTION: This node will be permanently unassigned.</p></div>
+          )}
+          <div className="flex justify-end gap-3">
+            <Button onClick={() => setIsAssignmentPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button>
+            <Button onClick={handleAssignmentPost} disabled={!assignmentMode} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Execute Sync</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
     <Dialog open={isDelayRemarkPopupOpen} onOpenChange={setIsDelayRemarkPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Clock className="h-4 w-4" /> Delay Remark Registry</DialogTitle></DialogHeader>
         <div className="p-8 space-y-6">
           <div className="bg-white p-4 border border-slate-200 rounded-none space-y-3 shadow-inner opacity-90">
@@ -1819,7 +1949,7 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
   const [refValue, setRefValue] = React.useState('');
   const [activeStep, setActiveStep] = React.useState(-1);
   const [trackingData, setTrackingData] = React.useState<any>(null);
-  const [linkedTrip, setLinkedTrip] = React.useState<any>(null);
+  const [linkedTrips, setLinkedTrips] = React.useState<any[]>([]);
   const [view, setView] = React.useState<'search' | 'so_details' | 'track_view'>('search');
   const [animating, setAnimating] = React.useState(false);
   const mapRef = React.useRef<HTMLDivElement>(null);
@@ -1837,15 +1967,15 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
       const order = orders?.find((o: any) => o.saleOrder === val || o.id === val);
       if (order) {
         setTrackingData(order);
-        const trip = trips?.find((t: any) => t.saleOrderId === order.id);
-        setLinkedTrip(trip || null);
+        const tList = trips?.filter((t: any) => t.saleOrderId === order.id) || [];
+        setLinkedTrips(tList);
         setView('so_details');
       } else { alert("Registry Failure: Sale Order Not Found"); }
     } else {
       const trip = trips?.find((t: any) => t.tripId === val || t.id === val);
       if (trip) {
         setTrackingData(trip);
-        setLinkedTrip(trip);
+        setLinkedTrips([trip]);
         setView('track_view');
         startAnimation(trip);
       } else { alert("Registry Failure: Trip ID Not Found"); }
@@ -1875,13 +2005,13 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
   };
 
   const renderMap = () => {
-    if (!window.google || !trackingData || !linkedTrip) return;
+    if (!window.google || !trackingData || !linkedTrips.length) return;
     const geocoder = new window.google.maps.Geocoder();
     const directionsService = new window.google.maps.DirectionsService();
     const directionsRenderer = new window.google.maps.DirectionsRenderer({ suppressMarkers: true, polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 } });
     
-    const cons = customers?.find((c: any) => c.customerName?.toUpperCase() === linkedTrip.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === linkedTrip.consignor?.toUpperCase());
-    const ship = customers?.find((c: any) => c.customerName?.toUpperCase() === linkedTrip.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === linkedTrip.shipToParty?.toUpperCase());
+    const cons = customers?.find((c: any) => c.customerName?.toUpperCase() === trackingData.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trackingData.consignor?.toUpperCase());
+    const ship = customers?.find((c: any) => c.customerName?.toUpperCase() === trackingData.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trackingData.shipToParty?.toUpperCase());
     
     Promise.all([
       new Promise(r => geocoder.geocode({ address: cons?.postalCode || 'India' }, (res: any) => r(res?.[0]?.geometry?.location))),
@@ -1891,7 +2021,7 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
       const map = new window.google.maps.Map(mapRef.current, { center: origin || { lat: 20, lng: 78 }, zoom: 5 });
       directionsRenderer.setMap(map);
       if (origin && dest) directionsService.route({ origin, destination: dest, travelMode: window.google.maps.TravelMode.DRIVING }, (res, stat) => { if (stat === 'OK') directionsRenderer.setDirections(res); });
-      const gps = gpsData.find(v => v.vehicleNumber === linkedTrip.vehicleNumber);
+      const gps = gpsData.find(v => v.vehicleNumber === trackingData.vehicleNumber);
       if (gps) new window.google.maps.Marker({ position: { lat: gps.latitude, lng: gps.longitude }, map, icon: { url: 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(40, 40) } });
     });
   };
@@ -1916,10 +2046,24 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
           <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-400 w-[180px] text-right uppercase">Consignee:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignee}</span></div>
           <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-400 w-[180px] text-right uppercase">Ship To:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.shipToParty}</span></div>
         </SectionGrouping>
-        {linkedTrip ? (
-          <div className="bg-blue-50 border-y border-blue-200 p-8 text-center"><p className="text-sm font-black italic uppercase text-slate-800">Order {trackingData.saleOrder} synchronized against Trip <button onClick={() => { setTrackingData(linkedTrip); startAnimation(linkedTrip); setView('track_view'); }} className="text-blue-600 underline">{linkedTrip.tripId}</button></p></div>
+        {linkedTrips && linkedTrips.length > 0 ? (
+          <div className="bg-blue-50 border-y border-blue-200 p-8 space-y-4">
+            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Linked Trip Nodes Found:</p>
+            <div className="flex flex-wrap gap-4">
+              {linkedTrips.map((t: any) => (
+                <button 
+                  key={t.id} 
+                  onClick={() => { setTrackingData(t); startAnimation(t); setView('track_view'); }}
+                  className="bg-white border border-[#1e3a8a] text-[#1e3a8a] px-5 py-3 text-[11px] font-black uppercase hover:bg-[#1e3a8a] hover:text-white transition-all shadow-sm flex items-center gap-2"
+                >
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  TRACK TRIP: {t.tripId}
+                </button>
+              ))}
+            </div>
+          </div>
         ) : (
-          <div className="bg-orange-50 border-y border-orange-200 p-8 text-center"><p className="text-sm font-black italic uppercase text-slate-800">Pending Trip Node Synchronization...</p></div>
+          <div className="bg-orange-50 border-y border-orange-200 p-8 text-center"><p className="text-sm font-black italic uppercase text-slate-800 leading-relaxed">Pending Trip Node Synchronization...</p></div>
         )}
       </div></div>;
   }
@@ -1933,7 +2077,7 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
   ];
 
   return <div className="space-y-0 min-h-full">
-      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between"><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">LIVE TRIP TRACKING</h2><Button onClick={() => setView('search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">Back</Button></div>
+      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between"><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">LIVE TRIP TRACKING</h2><Button onClick={() => setView(linkedTrips.length > 1 ? 'so_details' : 'search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">Back</Button></div>
       <div className="px-10 pb-20 space-y-8">
         <SectionGrouping title="REGISTRY HUB">
            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-4 border-b border-slate-100 pb-8">

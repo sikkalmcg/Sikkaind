@@ -25,7 +25,7 @@ export default function TrackPage() {
   const [loading, setLoading] = React.useState(false);
   const [view, setView] = React.useState<'search' | 'so_details' | 'track_view'>('search');
   const [trackingData, setTrackingData] = React.useState<any>(null);
-  const [linkedTrip, setLinkedTrip] = React.useState<any>(null);
+  const [linkedTrips, setLinkedTrips] = React.useState<any[]>([]);
   const [activeStep, setActiveStep] = React.useState(-1);
   const mapRef = React.useRef<HTMLDivElement>(null);
   const [gpsData, setGpsData] = React.useState<any[]>([]);
@@ -61,15 +61,15 @@ export default function TrackPage() {
         const order = orders?.find((o: any) => o.saleOrder === val || o.id === val);
         if (order) {
           setTrackingData(order);
-          const trip = trips?.find((t: any) => t.saleOrderId === order.id);
-          setLinkedTrip(trip || null);
+          const tList = trips?.filter((t: any) => t.saleOrderId === order.id) || [];
+          setLinkedTrips(tList);
           setView('so_details');
         } else { alert("Registry Failure: Sale Order Not Found"); }
       } else {
         const trip = trips?.find((t: any) => t.tripId === val || t.id === val);
         if (trip) {
           setTrackingData(trip);
-          setLinkedTrip(trip);
+          setLinkedTrips([trip]);
           setView('track_view');
           startAnimation(trip);
         } else { alert("Registry Failure: Trip ID Not Found"); }
@@ -99,7 +99,7 @@ export default function TrackPage() {
   };
 
   const renderMap = () => {
-    if (!window.google || !trackingData || !linkedTrip) return;
+    if (!window.google || !trackingData || !linkedTrips.length) return;
     const geocoder = new window.google.maps.Geocoder();
     const directionsService = new window.google.maps.DirectionsService();
     const directionsRenderer = new window.google.maps.DirectionsRenderer({ suppressMarkers: true, polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 } });
@@ -108,7 +108,7 @@ export default function TrackPage() {
       if (!mapRef.current) return;
       const map = new window.google.maps.Map(mapRef.current, { center: { lat: 20, lng: 78 }, zoom: 5 });
       directionsRenderer.setMap(map);
-      const gps = gpsData.find(v => v.vehicleNumber === linkedTrip.vehicleNumber);
+      const gps = gpsData.find(v => v.vehicleNumber === trackingData.vehicleNumber);
       if (gps) new window.google.maps.Marker({ position: { lat: gps.latitude, lng: gps.longitude }, map, icon: { url: 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(40, 40) } });
     });
   };
@@ -180,8 +180,22 @@ export default function TrackPage() {
                 <p className="text-[12px] font-black uppercase text-[#1e3a8a] italic">"{trackingData.delayRemark}"</p>
               </div>
             )}
-            {linkedTrip ? (
-              <div className="bg-blue-50 border border-blue-100 p-8 text-center animate-pulse"><p className="text-sm font-black italic uppercase text-slate-800 leading-relaxed">Order {trackingData.saleOrder} is synchronized with Trip <button onClick={() => { setTrackingData(linkedTrip); startAnimation(linkedTrip); setView('track_view'); }} className="text-blue-600 underline font-black">{linkedTrip.tripId}</button></p></div>
+            {linkedTrips && linkedTrips.length > 0 ? (
+              <div className="bg-blue-50 border border-blue-100 p-8 space-y-4">
+                <p className="text-[11px] font-black uppercase text-slate-500 tracking-tighter">Linked Logistical Nodes Found:</p>
+                <div className="flex flex-wrap gap-4">
+                  {linkedTrips.map((t: any) => (
+                    <button 
+                      key={t.id} 
+                      onClick={() => { setTrackingData(t); startAnimation(t); setView('track_view'); }}
+                      className="bg-white border border-[#1e3a8a] text-[#1e3a8a] px-6 py-3 text-[12px] font-black uppercase hover:bg-[#1e3a8a] hover:text-white transition-all shadow-md flex items-center gap-3 group"
+                    >
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 group-hover:bg-white animate-pulse" />
+                      TRACK TRIP: {t.tripId}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ) : (
               <div className="bg-orange-50 border border-orange-100 p-8 text-center"><p className="text-sm font-black italic uppercase text-slate-800 leading-relaxed">Waiting for logistical node synchronization...</p></div>
             )}
@@ -203,7 +217,7 @@ export default function TrackPage() {
     <div className="min-h-screen bg-[#f2f2f2] font-mono animate-fade-in">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between shadow-sm">
          <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Live Logistical Node Tracker</h2>
-         <Button onClick={() => setView('search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">Back</Button>
+         <Button onClick={() => setView(linkedTrips.length > 1 ? 'so_details' : 'search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">Back</Button>
       </div>
       <div className="max-w-6xl mx-auto px-8 space-y-8 pb-20">
         <div className="bg-white border border-slate-300 p-8 space-y-10 shadow-sm relative overflow-hidden">
