@@ -1,3 +1,4 @@
+
 'use client';
 
 export const dynamic = 'force-dynamic';
@@ -32,9 +33,11 @@ export default function TrackPage() {
 
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
+  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
 
   const { data: orders } = useCollection(ordersQuery);
   const { data: trips } = useCollection(tripsQuery);
+  const { data: customers } = useCollection(customersQuery);
 
   React.useEffect(() => {
     const fetchGps = async () => { 
@@ -99,17 +102,107 @@ export default function TrackPage() {
   };
 
   const renderMap = () => {
-    if (!window.google || !trackingData || !linkedTrips.length) return;
+    if (!window.google || !trackingData) return;
     const geocoder = new window.google.maps.Geocoder();
     const directionsService = new window.google.maps.DirectionsService();
-    const directionsRenderer = new window.google.maps.DirectionsRenderer({ suppressMarkers: true, polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 } });
+    const directionsRenderer = new window.google.maps.DirectionsRenderer({
+      suppressMarkers: true,
+      polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 }
+    });
     
-    geocoder.geocode({ address: 'India' }, (res: any) => {
+    // Find associated order
+    const order = trackingData.saleOrderId ? orders?.find((o: any) => o.id === trackingData.saleOrderId) : trackingData;
+    
+    // Find master data for Start and Drop points from XD03 Saved Data
+    const consignorMaster = customers?.find((c: any) => 
+      c.customerName?.toUpperCase() === order?.consignor?.toUpperCase() || 
+      (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.consignor?.toUpperCase()
+    );
+    const shipToMaster = customers?.find((c: any) => 
+      c.customerName?.toUpperCase() === order?.shipToParty?.toUpperCase() || 
+      (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.shipToParty?.toUpperCase()
+    );
+
+    const gps = gpsData.find(v => v.vehicleNumber?.toUpperCase() === trackingData.vehicleNumber?.toUpperCase());
+
+    const p1 = new Promise((resolve) => {
+      if (consignorMaster?.postalCode) {
+        geocoder.geocode({ address: consignorMaster.postalCode }, (res, status) => {
+          if (status === 'OK') resolve(res[0].geometry.location);
+          else resolve(null);
+        });
+      } else resolve(null);
+    });
+
+    const p2 = new Promise((resolve) => {
+      if (shipToMaster?.postalCode) {
+        geocoder.geocode({ address: shipToMaster.postalCode }, (res, status) => {
+          if (status === 'OK') resolve(res[0].geometry.location);
+          else resolve(null);
+        });
+      } else resolve(null);
+    });
+
+    Promise.all([p1, p2]).then(([startLoc, endLoc]: any) => {
       if (!mapRef.current) return;
-      const map = new window.google.maps.Map(mapRef.current, { center: { lat: 20, lng: 78 }, zoom: 5 });
+      
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: gps ? { lat: gps.latitude, lng: gps.longitude } : { lat: 20.5937, lng: 78.9629 },
+        zoom: gps ? 12 : 5,
+        styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
+      });
       directionsRenderer.setMap(map);
-      const gps = gpsData.find(v => v.vehicleNumber === trackingData.vehicleNumber);
-      if (gps) new window.google.maps.Marker({ position: { lat: gps.latitude, lng: gps.longitude }, map, icon: { url: 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(40, 40) } });
+
+      if (startLoc) {
+        new window.google.maps.Marker({
+          position: startLoc,
+          map,
+          title: 'Start Point',
+          icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
+        });
+      }
+
+      if (endLoc) {
+        new window.google.maps.Marker({
+          position: endLoc,
+          map,
+          title: 'Drop Point',
+          icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+        });
+      }
+
+      if (gps) {
+        new window.google.maps.Marker({
+          position: { lat: gps.latitude, lng: gps.longitude },
+          map,
+          title: gps.vehicleNumber,
+          icon: {
+            url: 'https://maps.google.com/mapfiles/ms/icons/truck.png',
+            scaledSize: new window.google.maps.Size(40, 40)
+          }
+        });
+      }
+
+      if (startLoc && endLoc) {
+        const request: any = {
+          origin: startLoc,
+          destination: endLoc,
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        };
+
+        if (gps) {
+          request.waypoints = [{
+            location: { lat: gps.latitude, lng: gps.longitude },
+            stopover: false
+          }];
+        }
+
+        directionsService.route(request, (result, status) => {
+          if (status === 'OK') {
+            directionsRenderer.setDirections(result);
+          }
+        });
+      }
     });
   };
 
