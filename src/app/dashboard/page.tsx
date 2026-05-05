@@ -628,11 +628,11 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const [fromDate, setFromDate] = React.useState(format(subDays(new Date(), 4), 'yyyy-MM-dd'));
   const [toDate, setToDate] = React.useState(format(new Date(), 'yyyy-MM-dd'));
   const [isOutPopupOpen, setIsOutPopupOpen] = React.useState(false);
-  const [outData, setOutData] = React.useState<any>({ tripId: '', vehicleNumber: '', route: '', date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
+  const [outData, setOutData] = React.useState<any>({ tripId: '', vehicleNumber: '', route: '', shipToParty: '', cnNo: '', date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
   const [isAssignmentPopupOpen, setIsAssignmentPopupOpen] = React.useState(false);
   const [selectedTripForAssignment, setSelectedTripForAssignment] = React.useState<any>(null);
   const [isArrivedPopupOpen, setIsArrivedPopupOpen] = React.useState(false);
-  const [arrivedData, setArrivedData] = React.useState<any>({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
+  const [arrivedData, setArrivedData] = React.useState<any>({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), tripId: '', vehicleNumber: '', route: '', shipToParty: '', cnNo: '' });
   const [isRejectPopupOpen, setIsRejectPopupOpen] = React.useState(false);
   const [rejectData, setRejectData] = React.useState<any>({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), remark: '' });
   const [isUnloadPopupOpen, setIsUnloadPopupOpen] = React.useState(false);
@@ -817,10 +817,57 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   };
 
   const handleOpenMapPage = (t: any, gps: any) => { setTrackingNode({ trip: t, gps }); setViewMode('tracking'); };
-  const handleOutVehicle = (t: any) => { setOutData({ tripId: t.tripId, id: t.id, vehicleNumber: t.vehicleNumber, route: t.route, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsOutPopupOpen(true); };
-  const handleConfirmOut = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', outData.id), { status: 'IN-TRANSIT', outDate: outData.date, outTime: outData.time, updatedAt: new Date().toISOString() }, { merge: true }); setIsOutPopupOpen(false); onStatusUpdate({ text: `Vehicle IN-TRANSIT`, type: 'success' }); };
-  const handleArrivedAction = (t: any) => { setArrivedData({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), trip: t }); setIsArrivedPopupOpen(true); };
-  const handleArrivedPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', arrivedData.trip.id), { status: 'ARRIVED', arrivedDate: arrivedData.date, arrivedTime: arrivedData.time, updatedAt: new Date().toISOString() }, { merge: true }); setIsArrivedPopupOpen(false); onStatusUpdate({ text: `Arrived Registry Synced`, type: 'success' }); };
+  
+  const handleOutVehicle = (t: any) => { 
+    setOutData({ 
+      tripId: t.tripId, 
+      id: t.id, 
+      vehicleNumber: t.vehicleNumber, 
+      route: t.route, 
+      shipToParty: t.shipToParty,
+      cnNo: t.cnNo || 'N/A',
+      date: format(new Date(), 'yyyy-MM-dd'), 
+      time: format(new Date(), 'HH:mm') 
+    }); 
+    setIsOutPopupOpen(true); 
+  };
+
+  const handleConfirmOut = () => { 
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', outData.id), { 
+      status: 'IN-TRANSIT', 
+      outDate: outData.date, 
+      outTime: outData.time, 
+      updatedAt: new Date().toISOString() 
+    }, { merge: true }); 
+    setIsOutPopupOpen(false); 
+    onStatusUpdate({ text: `Vehicle IN-TRANSIT`, type: 'success' }); 
+  };
+
+  const handleArrivedAction = (t: any) => { 
+    setArrivedData({ 
+      id: t.id,
+      tripId: t.tripId,
+      vehicleNumber: t.vehicleNumber,
+      route: t.route,
+      shipToParty: t.shipToParty,
+      cnNo: t.cnNo || 'N/A',
+      date: format(new Date(), 'yyyy-MM-dd'), 
+      time: format(new Date(), 'HH:mm') 
+    }); 
+    setIsArrivedPopupOpen(true); 
+  };
+
+  const handleArrivedPost = () => { 
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', arrivedData.id), { 
+      status: 'ARRIVED', 
+      arrivedDate: arrivedData.date, 
+      arrivedTime: arrivedData.time, 
+      updatedAt: new Date().toISOString() 
+    }, { merge: true }); 
+    setIsArrivedPopupOpen(false); 
+    onStatusUpdate({ text: `Arrived Registry Synced`, type: 'success' }); 
+  };
+
   const handleRejectAction = (t: any) => { setRejectData({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), remark: '', trip: t }); setIsRejectPopupOpen(true); };
   const handleRejectPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', rejectData.trip.id), { status: 'REJECTION', rejectionDate: rejectData.date, rejectionTime: rejectData.time, rejectionRemark: rejectData.remark, updatedAt: new Date().toISOString() }, { merge: true }); setIsRejectPopupOpen(true); onStatusUpdate({ text: `Rejected`, type: 'success' }); };
   const handleUnloadAction = (t: any) => { setUnloadData({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), trip: t }); setIsUnloadPopupOpen(true); };
@@ -1378,8 +1425,61 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           </div>
         </div></DialogContent></Dialog>
 
-    <Dialog open={isArrivedPopupOpen} onOpenChange={setIsArrivedPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><MapPin className="h-4 w-4" /> Arrival</DialogTitle></DialogHeader>
-        <div className="p-8 space-y-6"><SectionGrouping title="DATE TIME"><FormInput label="ARRIVED DATE" type="date" value={arrivedData.date} onChange={(v: string) => setArrivedData({...arrivedData, date: v})} /><FormInput label="ARRIVED TIME" type="time" value={arrivedData.time} onChange={(v: string) => setArrivedData({...arrivedData, time: v})} /></SectionGrouping><div className="flex justify-end gap-3"><Button onClick={() => setIsArrivedPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button><Button onClick={handleArrivedPost} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Execute</Button></div></div></DialogContent></Dialog>
+    <Dialog open={isOutPopupOpen} onOpenChange={setIsOutPopupOpen}>
+      <DialogContent className="max-w-[700px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
+        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
+          <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Truck className="h-4 w-4" /> Outward Registration</DialogTitle>
+        </DialogHeader>
+        <div className="p-8 space-y-10 overflow-y-auto flex-1">
+          <SectionGrouping title="HUB HEADER">
+            <div className="grid grid-cols-2 gap-x-12 gap-y-6">
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[12px] font-black uppercase truncate">{outData.shipToParty}</span></div>
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[12px] font-black uppercase">{outData.vehicleNumber}</span></div>
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">CN Number</span><span className="text-[12px] font-black uppercase">{outData.cnNo}</span></div>
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[12px] font-black uppercase truncate">{outData.route}</span></div>
+            </div>
+          </SectionGrouping>
+          <SectionGrouping title="DATE TIME">
+            <div className="space-y-4">
+              <FormInput label="OUT DATE" type="date" value={outData.date} onChange={(v: string) => setOutData({...outData, date: v})} />
+              <FormInput label="OUT TIME" type="time" value={outData.time} onChange={(v: string) => setOutData({...outData, time: v})} />
+            </div>
+          </SectionGrouping>
+        </div>
+        <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
+          <Button onClick={() => setIsOutPopupOpen(false)} variant="outline" className="h-9 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
+          <Button onClick={handleConfirmOut} className="h-9 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={isArrivedPopupOpen} onOpenChange={setIsArrivedPopupOpen}>
+      <DialogContent className="max-w-[700px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
+        <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
+          <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><MapPin className="h-4 w-4" /> Arrival Registration</DialogTitle>
+        </DialogHeader>
+        <div className="p-8 space-y-10 overflow-y-auto flex-1">
+          <SectionGrouping title="TRACKING HEADER">
+            <div className="grid grid-cols-2 gap-x-12 gap-y-6">
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[12px] font-black uppercase truncate">{arrivedData.shipToParty}</span></div>
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[12px] font-black uppercase">{arrivedData.vehicleNumber}</span></div>
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">CN Number</span><span className="text-[12px] font-black uppercase">{arrivedData.cnNo}</span></div>
+              <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[12px] font-black uppercase truncate">{arrivedData.route}</span></div>
+            </div>
+          </SectionGrouping>
+          <SectionGrouping title="DATE TIME">
+            <div className="space-y-4">
+              <FormInput label="ARRIVED DATE" type="date" value={arrivedData.date} onChange={(v: string) => setArrivedData({...arrivedData, date: v})} />
+              <FormInput label="ARRIVED TIME" type="time" value={arrivedData.time} onChange={(v: string) => setArrivedData({...arrivedData, time: v})} />
+            </div>
+          </SectionGrouping>
+        </div>
+        <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
+          <Button onClick={() => setIsArrivedPopupOpen(false)} variant="outline" className="h-9 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
+          <Button onClick={handleArrivedPost} className="h-9 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
 
     <Dialog open={isRejectPopupOpen} onOpenChange={setIsRejectPopupOpen}><DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden"><DialogHeader className="bg-red-600 px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><XCircle className="h-4 w-4" /> Reject Registry</DialogTitle></DialogHeader>
         <div className="p-8 space-y-6"><SectionGrouping title="REJECTION DATA"><FormInput label="DATE" type="date" value={rejectData.date} onChange={(v: string) => setRejectData({...rejectData, date: v})} /><FormInput label="TIME" type="time" value={rejectData.time} onChange={(v: string) => setRejectData({...rejectData, time: v})} /><div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right uppercase shrink-0">REMARK:</label><textarea value={rejectData.remark} onChange={e => setRejectData({...rejectData, remark: e.target.value})} className="h-20 w-[320px] border border-slate-400 bg-white px-2 py-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-red-500 uppercase resize-none" placeholder="REASON..." /></div></SectionGrouping><div className="flex justify-end gap-3"><Button onClick={() => setIsRejectPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button><Button onClick={handleRejectPost} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post</Button></div></div></DialogContent></Dialog>
@@ -3048,9 +3148,9 @@ function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
         }, (result, status) => {
           if (status === 'OK') {
             directionsRenderer.setDirections(result);
-            const route = result.routes[0];
-            if (route.legs[0].distance) {
-              setDistance(route.legs[0].distance.text);
+            const line = result.routes[0];
+            if (line.legs[0].distance) {
+              setDistance(line.legs[0].distance.text);
             }
           }
         });
