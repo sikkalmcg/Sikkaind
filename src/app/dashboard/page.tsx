@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -1268,7 +1267,7 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                       </div>
                     )}
                     <div className="space-y-1">
-                      <h1 className="text-3xl font-black uppercase text-[#1e3a8a] leading-tight">SIKKA INDUSTRIES AND LOGISTICS</h1>
+                      <h1 className="text-[26px] whitespace-nowrap font-black uppercase text-[#1e3a8a] leading-tight">SIKKA INDUSTRIES AND LOGISTICS</h1>
                       <div className="text-[11px] font-bold text-slate-800 uppercase space-y-0.5">
                         <p>C-17, INDUSTRIAL AREA, SSGT ROAD, GHAZIABAD, UTTAR PRADESH, 201009</p>
                         <p>GHAZIABAD - 201009</p>
@@ -1285,9 +1284,9 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                     </div>
                   </div>
                   <div className="text-right flex flex-col items-end gap-2">
-                    <div className="border-2 border-black px-4 py-1 font-black text-xs uppercase">{copyLabel}</div>
+                    <div className="border-2 border-black px-4 py-1 font-black text-xs uppercase whitespace-nowrap">{copyLabel}</div>
                     <div className="space-y-0.5">
-                       <p className="text-lg font-black uppercase">CN No: {selectedTripForPreview?.cnNo}</p>
+                       <p className="text-base whitespace-nowrap font-black uppercase">CN No: {selectedTripForPreview?.cnNo}</p>
                        <p className="text-[11px] font-bold uppercase">Date: {selectedTripForPreview?.cnDate ? format(parseISO(selectedTripForPreview.cnDate), 'dd-MMM-yyyy').toUpperCase() : ''}</p>
                        <p className="text-[11px] font-bold uppercase mt-2">From: <span className="font-black">{selectedTripForPreview?.from}</span></p>
                        <p className="text-[11px] font-bold uppercase">To: <span className="font-black text-[#1e3a8a]">{selectedTripForPreview?.order?.destination}</span></p>
@@ -1354,9 +1353,9 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                   <table className="w-full border-collapse border-2 border-black">
                     <thead>
                       <tr className="bg-slate-50 text-[10px] font-black uppercase border-b-2 border-black">
-                        <th className="p-2 border-r-2 border-black w-[150px]">Invoice No</th>
-                        <th className="p-2 border-r-2 border-black w-[180px]">E-Waybill No</th>
-                        <th className="p-2 border-r-2 border-black text-center w-[120px]">Package</th>
+                        <th className="p-2 border-r-2 border-black w-[120px]">Invoice No</th>
+                        <th className="p-2 border-r-2 border-black w-[144px]">E-Waybill No</th>
+                        <th className="p-2 border-r-2 border-black text-center w-[96px]">Package</th>
                         <th className="p-2 border-r-2 border-black">Description of Goods</th>
                         <th className="p-2 text-center w-[130px]">Weight</th>
                       </tr>
@@ -2354,12 +2353,6 @@ export default function DashboardPage() {
     if (!authorizedPlantsList.length) return [];
     return rawOrders?.filter(o => authorizedPlantsList.includes(o.plantCode)) || [];
   }, [rawOrders, authorizedPlantsList, isBootstrapAdmin]);
-
-  const getStats = React.useCallback((o: any) => { 
-    const tot = parseFloat(o.weight) || 0; 
-    const ass = rawTrips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (t.assignWeight || 0), 0) || 0; 
-    return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; 
-  }, [rawTrips]);
 
   const homeStats = React.useMemo(() => {
     if (!allOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, pod: 0, reject: 0, closed: 0 };
