@@ -53,6 +53,9 @@ const MASTER_TCODES = [
   { code: 'XK02', description: 'VENDOR MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'XK03', description: 'VENDOR MASTER: DISPLAY', icon: Info, module: 'Master Data' },
   { code: 'XK03_LIST', description: 'VENDOR MASTER: REGISTRY', icon: Info, module: 'Master Data' },
+  { code: 'XK01', description: 'VENDOR MASTER: CREATE', icon: User, module: 'Master Data' },
+  { code: 'XK02', description: 'VENDOR MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
+  { code: 'XK03', description: 'VENDOR MASTER: DISPLAY', icon: Info, module: 'Master Data' },
   { code: 'XD01', description: 'CUSTOMER MASTER: CREATE', icon: Users, module: 'Master Data' },
   { code: 'XD02', description: 'CUSTOMER MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'XD03', description: 'CUSTOMER MASTER: DISPLAY', icon: Info, module: 'Master Data' },
@@ -77,14 +80,19 @@ function VehicleLocation({ lat, lng, locationName, onClick }: { lat: number, lng
   
   React.useEffect(() => {
     if (locationName) {
-      const parts = locationName.split(',');
-      if (parts.length >= 2) {
-        setLoc(`${parts[0].trim()} – ${parts[1].trim()}`);
-      } else {
-        setLoc(locationName);
+      // Check if location string is actually coordinates
+      const isCoords = /^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(locationName);
+      if (!isCoords) {
+        const parts = locationName.split(',').map(p => p.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          setLoc(`${parts[0]}, ${parts[1]}`);
+        } else {
+          setLoc(locationName);
+        }
+        return;
       }
-      return;
     }
+    
     if (!window.google) return;
     const geocoder = new window.google.maps.Geocoder();
     geocoder.geocode({ location: { lat, lng } }, (results, status) => {
@@ -92,10 +100,11 @@ function VehicleLocation({ lat, lng, locationName, onClick }: { lat: number, lng
         const comps = results[0].address_components;
         let street = '', city = '';
         for (const c of comps) {
-          if (c.types.includes('route')) street = c.long_name;
+          if (c.types.includes('route') || c.types.includes('sublocality')) street = c.long_name;
           if (c.types.includes('locality')) city = c.long_name;
         }
-        const full = `${street}${street && city ? ' – ' : ''}${city}` || results[0].formatted_address;
+        // Format strictly as Street, City. Fallback to clean slice of formatted address if needed.
+        const full = city ? `${street ? street + ', ' : ''}${city}` : results[0].formatted_address.split(',').slice(0, 2).join(', ');
         setLoc(full);
       } else {
         setLoc('Location Offline');
@@ -2880,16 +2889,25 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
     let city = '';
     
     if (v.location && v.location !== 'Syncing...' && v.location !== 'Syncing') {
-      const parts = v.location.split(',').map((p: string) => p.trim());
-      street = parts[0] || '';
-      city = parts[1] || '';
+      const isCoords = /^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(v.location);
+      if (isCoords) {
+        street = 'Locating Asset';
+        city = '';
+      } else {
+        const parts = v.location.split(',').map((p: string) => p.trim()).filter(Boolean);
+        street = parts[0] || 'Unknown';
+        city = parts[1] || '';
+      }
     } else {
-      street = v.latitude?.toFixed(4) || 'N/A';
-      city = v.longitude?.toFixed(4) || 'N/A';
+      // Strictly avoid displaying coordinates per user instruction
+      street = 'Locating Asset';
+      city = '';
     }
 
+    const locationText = city ? `${street}, ${city}` : street;
+
     onStatusUpdate({ 
-      text: `Vehicle Last Location: ${street}, ${city}`, 
+      text: `Vehicle Last Location: ${locationText}`, 
       type: 'info' 
     });
     
@@ -3013,7 +3031,7 @@ function Se38Report({ search, results, view, onSearchChange, onViewChange, allPl
     if (!results || results.length === 0) return;
     const headers = [
       'Plant', 'Sale Order', 'Sale order Date time', 'Consignor', 'Consignee', 'Ship to Party', 'destination', 
-      'Trip ID', 'Trip Create Date Time', 'Vehicle Number', 'Driver Mobile', 'Carrier Name', 'CN Number', 
+      'Trip ID', 'Trip ID Created', 'Vehicle Number', 'Driver Mobile', 'Carrier Name', 'CN Number', 
       'Invoice Number', 'E-waybill Number', 'Product', 'Unit', 'Unit UOM', 'Assign Qty', 'Weight UOM', 
       'Vendor Name', 'Vendor Firm', 'Vendor Mobile', 'Fleet Type', 'Payment Term', 'Employee', 'Rate', 'Freight Amount', 
       'Vehicle Out Date Time', 'Vehicle Arrived Date Time', 'Unload Date Time', 'Reject Date Time', 'POD Status'
