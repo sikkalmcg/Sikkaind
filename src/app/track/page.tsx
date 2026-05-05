@@ -39,6 +39,17 @@ export default function TrackPage() {
   const { data: customers } = useCollection(customersQuery);
 
   React.useEffect(() => {
+    // Ensure Google Maps script is loaded for public page
+    const scriptId = 'google-maps-script-public';
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
     const fetchGps = async () => { 
       try { 
         const res = await fetch('/api/gps'); 
@@ -211,7 +222,7 @@ export default function TrackPage() {
         <div className="bg-white border-b border-slate-300 px-8 py-4 mb-12 shadow-sm">
            <div className="max-w-7xl mx-auto flex items-center gap-6">
              <Radar className="h-6 w-6 text-[#1e3a8a]" />
-             <h1 className="text-xl font-black text-slate-800 tracking-tighter uppercase italic">Track Shipment Interface</h1>
+             <h1 className="text-xl font-black text-slate-800 tracking-tighter uppercase italic">SIKKA LIVE TRACK SHIPMENT PLATFORM</h1>
            </div>
         </div>
         <div className="max-w-4xl mx-auto w-full px-8 space-y-12">
@@ -248,7 +259,7 @@ export default function TrackPage() {
     return (
       <div className="min-h-screen bg-[#f2f2f2] font-mono animate-fade-in">
         <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 flex items-center justify-between shadow-sm">
-           <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Order Registry Details</h2>
+           <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">SIKKA LIVE TRACK SHIPMENT PLATFORM</h2>
            <Button onClick={() => setView('search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">New Search</Button>
         </div>
         <div className="max-w-5xl mx-auto px-8 space-y-12">
@@ -343,7 +354,7 @@ export default function TrackPage() {
   return (
     <div className="min-h-screen bg-[#f2f2f2] font-mono animate-fade-in">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between shadow-sm">
-         <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Live Logistical Tracker</h2>
+         <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">SIKKA LIVE TRACK SHIPMENT PLATFORM</h2>
          <Button onClick={() => setView(linkedTrips.length > 1 ? 'so_details' : 'search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">Back</Button>
       </div>
       <div className="max-w-6xl mx-auto px-8 space-y-8 pb-20">
@@ -384,7 +395,7 @@ export default function TrackPage() {
            {trackingData.status === 'REJECTION' && <div className="mt-8 bg-red-50 border border-red-200 p-4 text-center"><p className="text-[10px] font-black text-red-600 uppercase italic">REJECTION REASON: {trackingData.rejectionRemark}</p></div>}
         </div>
         <div className="h-[450px] bg-white border border-slate-300 shadow-sm"><div ref={mapRef} className="w-full h-full" /></div>
-        <div className="flex justify-between items-center px-4"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Sync: High-Density Tracking</p><Badge variant="outline" className="text-[8px] font-black bg-blue-50 border-blue-100 text-blue-800 rounded-none">TR24 SAP INTERFACE</Badge></div>
+        <div className="flex justify-between items-center px-4"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Sync: High-Density Tracking</p><Badge variant="outline" className="text-[8px] font-black bg-blue-50 border-blue-100 text-blue-800 rounded-none">Sikka Industries & Logistics</Badge></div>
       </div>
     </div>
   );
