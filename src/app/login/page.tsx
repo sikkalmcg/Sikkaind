@@ -1,11 +1,10 @@
-
 'use client';
 
 import * as React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import placeholderData from '@/app/lib/placeholder-images.json';
@@ -24,6 +23,7 @@ export default function LoginPage() {
   const { firestore: db } = React.useMemo(() => initializeFirebase(), []);
 
   const [credentials, setCredentials] = React.useState({ username: '', password: '' });
+  const [showPassword, setShowPassword] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
 
@@ -147,13 +147,22 @@ export default function LoginPage() {
                   <label className="w-24 text-[12px] font-black text-slate-700 text-right">
                     Password <span className="text-red-500">*</span>
                   </label>
-                  <input 
-                    required
-                    type="password"
-                    value={credentials.password}
-                    onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
-                    className="flex-1 h-8 border border-slate-300 px-2 text-[12px] font-bold outline-none focus:ring-1 focus:ring-blue-500"
-                  />
+                  <div className="flex-1 relative flex items-center">
+                    <input 
+                      required
+                      type={showPassword ? "text" : "password"}
+                      value={credentials.password}
+                      onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+                      className="w-full h-8 border border-slate-300 px-2 pr-8 text-[12px] font-bold outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    >
+                      {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
