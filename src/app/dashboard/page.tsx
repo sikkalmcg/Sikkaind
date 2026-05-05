@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -690,8 +691,8 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   }, [isCnPreviewOpen, handleGeneratePdf]);
 
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
-  const getStats = (o: any) => { const tot = parseFloat(o.weight) || 0; const ass = trips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (t.assignWeight || 0), 0) || 0; return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; };
-  const fOrders = React.useMemo(() => (orders || []).filter(o => o.status !== 'CANCELLED').map(o => { const stats = getStats(o); const route = (o.from && o.destination) ? `${o.from} → ${o.destination}` : (o.route || ''); return { ...o, ...stats, route }; }).filter(o => { const bal = o.bal > 0; const itemDate = new Date(o.createdAt); return bal && isWithinInterval(itemDate, { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) }); }), [orders, trips, fromDate, toDate]);
+  const getStats = React.useCallback((o: any) => { const tot = parseFloat(o.weight) || 0; const ass = trips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (t.assignWeight || 0), 0) || 0; return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; }, [trips]);
+  const fOrders = React.useMemo(() => (orders || []).filter(o => o.status !== 'CANCELLED').map(o => { const stats = getStats(o); const route = (o.from && o.destination) ? `${o.from} → ${o.destination}` : (o.route || ''); return { ...o, ...stats, route }; }).filter(o => { const bal = o.bal > 0; const itemDate = new Date(o.createdAt); return bal && isWithinInterval(itemDate, { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) }); }), [orders, getStats, fromDate, toDate]);
   const fTrips = React.useMemo(() => { if (!trips) return []; const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; return trips.filter(t => t.status === map[activeTab]).map(t => { const route = (t.from && t.destination && !t.route?.includes('→')) ? `${t.from} → ${t.destination}` : t.route; return { ...t, route }; }).filter(t => isWithinInterval(new Date(t.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })); }, [trips, activeTab, fromDate, toDate]);
   const tabCounts = React.useMemo(() => { const counts: Record<string, number> = {}; counts['Open Orders'] = fOrders.length; ['Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'].forEach(t => { const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; counts[t] = (trips || []).filter(tr => tr.status === map[t] && isWithinInterval(new Date(tr.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })).length; }); return counts; }, [fOrders, trips, fromDate, toDate]);
   const filteredData = React.useMemo(() => { const rawData = activeTab === 'Open Orders' ? fOrders : fTrips; if (!searchQuery) return rawData; const lowerQuery = searchQuery.toLowerCase(); return rawData.filter((item: any) => Object.values(item).some(val => String(val).toLowerCase().includes(lowerQuery))); }, [activeTab, fOrders, fTrips, searchQuery]);
@@ -1491,7 +1492,7 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           <SectionGrouping title="DATE TIME">
             <div className="space-y-4">
               <FormInput label="ARRIVED DATE" type="date" value={arrivedData.date} onChange={(v: string) => setArrivedData({...arrivedData, date: v})} />
-              <FormInput label="ARRIVED TIME" type="time" value={arrivedData.time} onChange={(v: string) => setArrivedData({...arrivedTime, time: v})} />
+              <FormInput label="ARRIVED TIME" type="time" value={arrivedData.time} onChange={(v: string) => setArrivedData({...arrivedData, time: v})} />
             </div>
           </SectionGrouping>
         </div>
@@ -2237,7 +2238,7 @@ export default function DashboardPage() {
   const [se38View, setSe38View] = React.useState<'selection' | 'result'>('selection');
 
   const [viewMode, setViewMode] = React.useState<'list' | 'tracking'>('list');
-  const [trackingNode, setTrackingNode] = React.setTrackingNode = React.useState<any>(null);
+  const [trackingNode, setTrackingNode] = React.useState<any>(null);
 
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const monthRef = React.useRef<HTMLDivElement>(null);
@@ -2262,7 +2263,7 @@ export default function DashboardPage() {
       script.defer = true;
       document.head.appendChild(script);
     }
-  }, []);
+  }, [registryId]);
 
   React.useEffect(() => {
     const updateGreeting = () => {
@@ -2354,8 +2355,14 @@ export default function DashboardPage() {
     return rawOrders?.filter(o => authorizedPlantsList.includes(o.plantCode)) || [];
   }, [rawOrders, authorizedPlantsList, isBootstrapAdmin]);
 
+  const getStats = React.useCallback((o: any) => { 
+    const tot = parseFloat(o.weight) || 0; 
+    const ass = rawTrips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (t.assignWeight || 0), 0) || 0; 
+    return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; 
+  }, [rawTrips]);
+
   const homeStats = React.useMemo(() => {
-    if (!allOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, reject: 0, closed: 0 };
+    if (!allOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, pod: 0, reject: 0, closed: 0 };
     
     const filterFn = (item: any) => {
       const matchesPlant = homePlantFilter === 'ALL' || item.plantCode === homePlantFilter;
@@ -2365,7 +2372,13 @@ export default function DashboardPage() {
       return matchesMonth;
     };
 
-    const filteredOrders = allOrders.filter(o => o.status !== 'CANCELLED' && filterFn(o));
+    const filteredOrders = allOrders.filter(o => {
+      if (o.status === 'CANCELLED') return false;
+      if (!filterFn(o)) return false;
+      const stats = getStats(o);
+      return stats.bal > 0;
+    });
+
     const filteredTrips = allTrips.filter(filterFn);
     
     return {
@@ -2373,10 +2386,11 @@ export default function DashboardPage() {
       loading: filteredTrips.filter(t => t.status === 'LOADING').length,
       transit: filteredTrips.filter(t => t.status === 'IN-TRANSIT').length,
       arrived: filteredTrips.filter(t => t.status === 'ARRIVED').length,
+      pod: filteredTrips.filter(t => t.status === 'POD').length,
       reject: filteredTrips.filter(t => t.status === 'REJECTION').length,
       closed: filteredTrips.filter(t => t.status === 'CLOSED').length,
     };
-  }, [allOrders, allTrips, homePlantFilter, homeMonthFilter]);
+  }, [allOrders, allTrips, homePlantFilter, homeMonthFilter, getStats]);
 
   const isAuthorized = React.useCallback((code: string) => {
     if (code === 'HOME' || code === '' || isBootstrapAdmin) return true;
@@ -2955,8 +2969,16 @@ export default function DashboardPage() {
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  {[{ label: 'OPEN ORDER', count: homeStats.open, color: 'text-blue-600' }, { label: 'LOADING', count: homeStats.loading, color: 'text-orange-600' }, { label: 'IN-TRANSIT', count: homeStats.transit, color: 'text-emerald-600' }, { label: 'ARRIVED', count: homeStats.arrived, color: 'text-indigo-600' }, { label: 'REJECT', count: homeStats.reject, color: 'text-red-600' }, { label: 'CLOSED', count: homeStats.closed, color: 'text-slate-600' }].map(w => (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+                  {[
+                    { label: 'OPEN ORDER', count: homeStats.open, color: 'text-blue-600' }, 
+                    { label: 'LOADING', count: homeStats.loading, color: 'text-orange-600' }, 
+                    { label: 'IN-TRANSIT', count: homeStats.transit, color: 'text-emerald-600' }, 
+                    { label: 'ARRIVED', count: homeStats.arrived, color: 'text-indigo-600' }, 
+                    { label: 'POD SECTION', count: homeStats.pod, color: 'text-purple-600' },
+                    { label: 'REJECT', count: homeStats.reject, color: 'text-red-600' }, 
+                    { label: 'CLOSED', count: homeStats.closed, color: 'text-slate-600' }
+                  ].map(w => (
                     <div key={w.label} className="p-4 md:p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-2 bg-white animate-slide-up">
                       <span className="text-[10px] font-black text-slate-400 uppercase text-center">{w.label}</span><span className={cn("text-2xl md:text-4xl font-black italic tracking-tighter", w.color)}>{w.count}</span>
                     </div>
