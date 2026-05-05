@@ -376,10 +376,12 @@ function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
         </div>
         <div className="flex items-center gap-12">
            <div className="flex items-center gap-12">
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[11px] font-black uppercase text-[#1e3a8a]">{trip.shipToParty}</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[11px] font-black uppercase text-blue-600">{trip.vehicleNumber}</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[11px] font-black uppercase text-slate-700">{trip.route}</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Distance</span><span className="text-[11px] font-black text-emerald-600">{distance}</span></div>
+              <div className="flex items-center gap-12">
+                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[11px] font-black uppercase text-[#1e3a8a]">{trip.shipToParty}</span></div>
+                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[11px] font-black uppercase text-blue-600">{trip.vehicleNumber}</span></div>
+                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[11px] font-black uppercase text-slate-700">{trip.route}</span></div>
+                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Distance</span><span className="text-[11px] font-black text-emerald-600">{distance}</span></div>
+              </div>
            </div>
         </div>
       </div>
@@ -391,7 +393,7 @@ function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
                 <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-1">
                    <span className="text-[10px] font-black uppercase text-[#1e3a8a]">Vehicle Registry</span>
                    <Badge className={cn("text-[9px] font-black uppercase h-5", currentGps.speed > 0 ? "bg-emerald-500" : "bg-red-500")}>
-                     {currentGps.speed > 0 ? 'MOVING' : 'STOPPED'}
+                     {currentGps.speed > 0 ? `${currentGps.speed} KM/H` : 'IDLE'}
                    </Badge>
                 </div>
                 <div className="flex flex-col">
@@ -2736,6 +2738,7 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
   const [gpsData, setGpsData] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(false);
   const mapRef = React.useRef<HTMLDivElement>(null);
+  const mapInstanceRef = React.useRef<google.maps.Map | null>(null);
   const { toast } = useToast();
 
   const fetchGps = React.useCallback(async () => {
@@ -2753,9 +2756,51 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
 
   React.useEffect(() => { 
     fetchGps(); 
-    const i = setInterval(fetchGps, 30000); 
+    const i = setInterval(fetchGps, 900000); // Auto sync every 15 minutes
     return () => clearInterval(i); 
   }, [fetchGps]);
+
+  const showLocationToast = React.useCallback((v: any) => {
+    if (!window.google) return;
+    const geocoder = new window.google.maps.Geocoder();
+    const coords = { lat: v.latitude, lng: v.longitude };
+
+    const display = (loc: string) => {
+      toast({ 
+        title: `Vehicle: ${v.vehicleNumber}`, 
+        description: `Vehicle Last Location: ${loc}` 
+      });
+    };
+
+    if (v.location && !/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(v.location)) {
+      const parts = v.location.split(',');
+      const streetCity = parts.length >= 2 ? `${parts[0].trim()}, ${parts[1].trim()}` : v.location;
+      display(streetCity);
+    } else {
+      geocoder.geocode({ location: coords }, (results, status) => {
+        if (status === 'OK' && results?.[0]) {
+          const comps = results[0].address_components;
+          let street = '', city = '';
+          for (const c of comps) {
+            if (c.types.includes('route')) street = c.long_name;
+            if (c.types.includes('locality')) city = c.long_name;
+          }
+          const formatted = street && city ? `${street}, ${city}` : results[0].formatted_address;
+          display(formatted);
+        } else {
+          display(`${v.latitude.toFixed(4)}, ${v.longitude.toFixed(4)}`);
+        }
+      });
+    }
+  }, [toast]);
+
+  const handleVehicleSelect = React.useCallback((v: any) => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setCenter({ lat: v.latitude, lng: v.longitude });
+      mapInstanceRef.current.setZoom(15);
+    }
+    showLocationToast(v);
+  }, [showLocationToast]);
 
   React.useEffect(() => {
     if (activeGpsTab !== 'GPS MAP' || !window.google || !gpsData.length || !mapRef.current) return;
@@ -2765,6 +2810,7 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
       zoom: 5,
       styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
     });
+    mapInstanceRef.current = map;
 
     gpsData.forEach((v) => {
       const iconUrl = v.speed > 0 ? settings?.activeIcon : settings?.stopIcon;
@@ -2775,12 +2821,9 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
         icon: iconUrl ? { url: iconUrl, scaledSize: new window.google.maps.Size(32, 32) } : undefined
       });
 
-      marker.addListener('click', () => {
-        const locText = v.location || `${v.latitude}, ${v.longitude}`;
-        toast({ title: `Vehicle: ${v.vehicleNumber}`, description: `Last Location: ${locText}` });
-      });
+      marker.addListener('click', () => handleVehicleSelect(v));
     });
-  }, [activeGpsTab, gpsData, settings, toast]);
+  }, [activeGpsTab, gpsData, settings, handleVehicleSelect]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
     const file = e.target.files?.[0];
@@ -2833,10 +2876,7 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
                     {gpsData.map((v, idx) => (
                       <tr 
                         key={idx} 
-                        onClick={() => {
-                          const locText = v.location || `${v.latitude}, ${v.longitude}`;
-                          toast({ title: v.vehicleNumber, description: `Last Location: ${locText}` });
-                        }}
+                        onClick={() => handleVehicleSelect(v)}
                         className="hover:bg-[#e8f0fe] cursor-pointer transition-colors group"
                       >
                         <td className="p-4 flex flex-col gap-1">
