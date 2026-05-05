@@ -1,7 +1,16 @@
 import './globals.css';
 import { Inter } from 'next/font/google';
 import { ReactNode } from 'react';
-import RootLayoutClient from './RootLayoutClient';
+import dynamic from 'next/dynamic';
+
+/**
+ * @fileOverview Root Layout Node (Server Component).
+ * Uses dynamic import for RootLayoutClient to handle client-side chunk loading more robustly 
+ * and mitigate ChunkLoadError timeouts in cloud environments.
+ */
+const RootLayoutClient = dynamic(() => import('./RootLayoutClient'), {
+  ssr: true,
+});
 
 const inter = Inter({
   subsets: ['latin'],
@@ -9,10 +18,6 @@ const inter = Inter({
   variable: '--font-inter',
 });
 
-/**
- * @fileOverview Root Layout Node (Server Component).
- * Delegates client-side context handling to RootLayoutClient to prevent useContext errors.
- */
 export default function RootLayout({
   children,
 }: Readonly<{
