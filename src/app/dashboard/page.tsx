@@ -126,1510 +126,6 @@ function VehicleLocation({ lat, lng, locationName, onClick }: { lat: number, lng
   );
 }
 
-function LiveTrackingMapDialog({ isOpen, onOpenChange, trip, gpsVehicle, customers, settings, isCompact = false }: any) {
-  const mapRef = React.useRef<HTMLDivElement>(null);
-  const [loading, setLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    if (!isOpen || !trip || !gpsVehicle || !window.google || isCompact) return;
-    
-    setLoading(true);
-    const geocoder = new window.google.maps.Geocoder();
-    const directionsService = new window.google.maps.DirectionsService();
-    const directionsRenderer = new window.google.maps.DirectionsRenderer({
-      suppressMarkers: true,
-      polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 }
-    });
-
-    const consignor = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.consignor?.toUpperCase());
-    const shipTo = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.shipToParty?.toUpperCase());
-
-    const p1 = new Promise((resolve) => {
-      if (consignor?.postalCode) {
-        geocoder.geocode({ address: consignor.postalCode }, (res, status) => {
-          if (status === 'OK') resolve(res[0].geometry.location);
-          else resolve(null);
-        });
-      } else resolve(null);
-    });
-
-    const p2 = new Promise((resolve) => {
-      if (shipTo?.postalCode) {
-        geocoder.geocode({ address: shipTo.postalCode }, (res, status) => {
-          if (status === 'OK') resolve(res[0].geometry.location);
-          else resolve(null);
-        });
-      } else resolve(null);
-    });
-
-    Promise.all([p1, p2]).then(([origin, dest]: any) => {
-      if (!mapRef.current) return;
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: { lat: gpsVehicle.latitude, lng: gpsVehicle.longitude },
-        zoom: 12,
-      });
-      directionsRenderer.setMap(map);
-
-      if (origin) {
-        new window.google.maps.Marker({
-          position: origin,
-          map,
-          label: { text: 'Start Point', className: 'bg-white px-2 py-1 border border-slate-300 text-[8px] font-black uppercase rounded shadow-sm mb-8' },
-          icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
-        });
-      }
-
-      if (dest) {
-        new window.google.maps.Marker({
-          position: dest,
-          map,
-          label: { text: 'Drop Point', className: 'bg-white px-2 py-1 border border-slate-300 text-[8px] font-black uppercase rounded shadow-sm mb-8' },
-          icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
-        });
-      }
-
-      const vIcon = gpsVehicle.speed > 0 ? settings?.activeIcon : settings?.stopIcon;
-      new window.google.maps.Marker({
-        position: { lat: gpsVehicle.latitude, lng: gpsVehicle.longitude },
-        map,
-        title: gpsVehicle.vehicleNumber,
-        icon: {
-          url: vIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png',
-          scaledSize: new window.google.maps.Size(40, 40)
-        }
-      });
-
-      if (origin && dest) {
-        directionsService.route({
-          origin,
-          destination: dest,
-          travelMode: window.google.maps.TravelMode.DRIVING,
-        }, (result, status) => {
-          if (status === 'OK') directionsRenderer.setDirections(result);
-        });
-      }
-      setLoading(false);
-    });
-  }, [isOpen, trip, gpsVehicle, customers, settings, isCompact]);
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className={cn("max-w-5xl p-0 overflow-hidden bg-white border-none rounded-xl", isCompact ? "h-[12vh]" : "h-[85vh]")}>
-        <DialogHeader className="bg-[#1e3a8a] text-white px-6 py-4 flex flex-row items-center justify-between space-y-0">
-          <DialogTitle className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-3">
-            <Radar className="h-4 w-4" /> {isCompact ? 'Live Tracking' : 'Live Tracking: ' + trip?.vehicleNumber}
-          </DialogTitle>
-          <button onClick={() => onOpenChange(false)} className="hover:opacity-70"><X className="h-5 w-5" /></button>
-        </DialogHeader>
-        <div className="relative w-full h-full bg-slate-50">
-          {isCompact ? (
-             <div className="p-4 grid grid-cols-3 gap-8">
-                <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Ship to Party</span><span className="text-[10px] font-black uppercase truncate">{trip?.shipToParty}</span></div>
-                <div className="flex flex-col"><span className="text-[10px] font-black text-slate-400 uppercase">Route</span><span className="text-[10px] font-black uppercase truncate">{trip?.route}</span></div>
-                <div className="flex flex-col"><span className="text-[10px] font-black text-slate-400 uppercase">Vehicle Number</span><span className="text-[10px] font-black uppercase">{trip?.vehicleNumber}</span></div>
-             </div>
-          ) : (
-            <>
-              {loading && (
-                <div className="absolute inset-0 bg-white/80 z-20 flex flex-col items-center justify-center gap-3">
-                   <Loader2 className="h-10 w-10 animate-spin text-[#1e3a8a]" />
-                   <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Live Map Synchronization...</span>
-                </div>
-              )}
-              <div ref={mapRef} className="w-full h-full" />
-            </>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
-  const [gpsData, setGpsData] = React.useState<any[]>([]);
-  const [distance, setDistance] = React.useState<string>('Calculating...');
-  const mapRef = React.useRef<HTMLDivElement>(null);
-  
-  const fetchGps = React.useCallback(async () => {
-    try {
-      const res = await fetch('/api/gps');
-      if (res.ok) {
-        const json = await res.json();
-        if (json?.data?.list) setGpsData(json.data.list);
-      }
-    } catch (e) {}
-  }, []);
-
-  React.useEffect(() => {
-    fetchGps();
-    const i = setInterval(fetchGps, 30000);
-    return () => clearInterval(i);
-  }, [fetchGps]);
-
-  React.useEffect(() => {
-    if (!node || !window.google) return;
-
-    const { trip } = node;
-    const gpsVehicle = gpsData.find(v => v.vehicleNumber?.toUpperCase() === trip.vehicleNumber?.toUpperCase());
-    
-    const geocoder = new window.google.maps.Geocoder();
-    const directionsService = new window.google.maps.DirectionsService();
-    const directionsRenderer = new window.google.maps.DirectionsRenderer({
-      suppressMarkers: true,
-      polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 }
-    });
-
-    const consignor = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.consignor?.toUpperCase());
-    const shipTo = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.shipToParty?.toUpperCase());
-
-    const p1 = new Promise((resolve) => {
-      if (consignor?.postalCode) {
-        geocoder.geocode({ address: consignor.postalCode }, (res, status) => {
-          if (status === 'OK') resolve(res[0].geometry.location);
-          else resolve(null);
-        });
-      } else resolve(null);
-    });
-
-    const p2 = new Promise((resolve) => {
-      if (shipTo?.postalCode) {
-        geocoder.geocode({ address: shipTo.postalCode }, (res, status) => {
-          if (status === 'OK') resolve(res[0].geometry.location);
-          else resolve(null);
-        });
-      } else resolve(null);
-    });
-
-    Promise.all([p1, p2]).then(([origin, dest]: any) => {
-      if (!mapRef.current) return;
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: gpsVehicle ? { lat: gpsVehicle.latitude, lng: gpsVehicle.longitude } : { lat: 20.5937, lng: 78.9629 },
-        zoom: gpsVehicle ? 12 : 5,
-        styles: [
-          { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }
-        ]
-      });
-      directionsRenderer.setMap(map);
-
-      if (origin) {
-        new window.google.maps.Marker({
-          position: origin,
-          map,
-          title: 'Start Point',
-          icon: {
-            url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
-            scaledSize: new window.google.maps.Size(32, 32)
-          }
-        });
-      }
-
-      if (dest) {
-        new window.google.maps.Marker({
-          position: dest,
-          map,
-          title: 'Drop Point',
-          icon: {
-            url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-            scaledSize: new window.google.maps.Size(32, 32)
-          }
-        });
-      }
-
-      if (gpsVehicle) {
-        const vIcon = gpsVehicle.speed > 0 ? settings?.activeIcon : settings?.stopIcon;
-        new window.google.maps.Marker({
-          position: { lat: gpsVehicle.latitude, lng: gpsVehicle.longitude },
-          map,
-          title: gpsVehicle.vehicleNumber,
-          icon: {
-            url: vIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png',
-            scaledSize: new window.google.maps.Size(40, 40)
-          }
-        });
-      }
-
-      if (origin && dest) {
-        directionsService.route({
-          origin,
-          destination: dest,
-          travelMode: window.google.maps.TravelMode.DRIVING,
-        }, (result, status) => {
-          if (status === 'OK') {
-            directionsRenderer.setDirections(result);
-            const route = result.routes[0];
-            if (route.legs[0].distance) {
-              setDistance(route.legs[0].distance.text);
-            }
-          }
-        });
-      }
-    });
-  }, [node, gpsData, customers, settings]);
-
-  const { trip } = node;
-  const currentGps = gpsData.find(v => v.vehicleNumber?.toUpperCase() === trip.vehicleNumber?.toUpperCase());
-
-  return (
-    <div className="flex flex-col h-full bg-[#f2f2f2] animate-fade-in font-mono">
-      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-4 flex items-center justify-between shadow-sm shrink-0">
-        <div className="flex items-center gap-8">
-           <button onClick={onBack} className="p-1 hover:bg-slate-100 rounded text-slate-600 transition-colors">
-              <ArrowLeft className="h-5 w-5" />
-           </button>
-           <h2 className="text-[14px] font-black text-slate-800 tracking-tight uppercase">Live Logistical Tracking</h2>
-        </div>
-        <div className="flex items-center gap-12">
-           <div className="flex items-center gap-12">
-              <div className="flex items-center gap-12">
-                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[11px] font-black uppercase text-[#1e3a8a]">{trip.shipToParty}</span></div>
-                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[11px] font-black uppercase text-blue-600">{trip.vehicleNumber}</span></div>
-                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[11px] font-black uppercase text-slate-700">{trip.route}</span></div>
-                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Distance</span><span className="text-[11px] font-black text-emerald-600">{distance}</span></div>
-              </div>
-           </div>
-        </div>
-      </div>
-      
-      <div className="flex-1 relative p-4">
-        <div className="absolute top-8 left-8 z-10 space-y-3 pointer-events-none">
-           {currentGps && (
-             <div className="bg-white/90 backdrop-blur-sm border-2 border-[#1e3a8a] p-4 shadow-2xl flex flex-col gap-2 min-w-[220px]">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-1">
-                   <span className="text-[10px] font-black uppercase text-[#1e3a8a]">Vehicle Registry</span>
-                   <Badge className={cn("text-[9px] font-black uppercase h-5", currentGps.speed > 0 ? "bg-emerald-500" : "bg-red-500")}>
-                     {currentGps.speed > 0 ? `${currentGps.speed} KM/H` : 'IDLE'}
-                   </Badge>
-                </div>
-                <div className="flex flex-col">
-                   <span className="text-[9px] font-black text-slate-400 uppercase">Speed</span>
-                   <span className="text-sm font-black italic">{currentGps.speed} KM/H</span>
-                </div>
-                <div className="flex flex-col">
-                   <span className="text-[9px] font-black text-slate-400 uppercase">Last Sync</span>
-                   <span className="text-[10px] font-bold">{currentGps.lastUpdate || 'Just Now'}</span>
-                </div>
-             </div>
-           )}
-        </div>
-        <div ref={mapRef} className="w-full h-full bg-white border border-slate-300 shadow-inner rounded-none" />
-      </div>
-    </div>
-  );
-}
-
-function TrackShipmentScreen({ trips, orders, customers }: any) {
-  const [refType, setRefType] = React.useState('');
-  const [refValue, setRefValue] = React.useState('');
-  const [loading, setLoading] = React.useState(false);
-  const [view, setView] = React.useState<'search' | 'so_details' | 'track_view'>('search');
-  const [trackingData, setTrackingData] = React.useState<any>(null);
-  const [linkedTrips, setLinkedTrips] = React.useState<any[]>([]);
-  const [activeStep, setActiveStep] = React.useState(-1);
-  const mapRef = React.useRef<HTMLDivElement>(null);
-  const [gpsData, setGpsData] = React.useState<any[]>([]);
-
-  React.useEffect(() => {
-    const fetchGps = async () => { 
-      try { 
-        const res = await fetch('/api/gps'); 
-        if (res.ok) { 
-          const json = await res.json(); 
-          if (json?.data?.list) setGpsData(json.data.list); 
-        } 
-      } catch (e) {} 
-    };
-    fetchGps(); 
-    const i = setInterval(fetchGps, 30000); 
-    return () => clearInterval(i);
-  }, []);
-
-  const handleTrackNow = () => {
-    if (!refValue) return;
-    setLoading(true);
-    const val = refValue.trim().toUpperCase();
-    
-    setTimeout(() => {
-      if (refType === 'Sale Order') {
-        const order = orders?.find((o: any) => o.saleOrder === val || o.id === val);
-        if (order) {
-          setTrackingData(order);
-          const tList = trips?.filter((t: any) => t.saleOrderId === order.id) || [];
-          setLinkedTrips(tList);
-          setView('so_details');
-        } else { alert("Registry Failure: Sale Order Not Found"); }
-      } else {
-        const trip = trips?.find((t: any) => t.tripId === val || t.id === val);
-        if (trip) {
-          setTrackingData(trip);
-          setLinkedTrips([trip]);
-          setView('track_view');
-          startAnimation(trip);
-        } else { alert("Registry Failure: Trip ID Not Found"); }
-      }
-      setLoading(false);
-    }, 800);
-  };
-
-  const startAnimation = (trip: any) => {
-    let target = 0;
-    if (trip.status === 'LOADING') target = 1;
-    else if (trip.status === 'IN-TRANSIT') target = 2;
-    else if (trip.status === 'ARRIVED') target = 3;
-    else if (trip.status === 'CLOSED') target = 4;
-    else if (trip.status === 'REJECTION') target = 4;
-
-    let current = 0;
-    setActiveStep(0);
-    const interval = setInterval(() => {
-      if (current < target) {
-        current++;
-        setActiveStep(current);
-      } else {
-        clearInterval(interval);
-      }
-    }, 2000);
-  };
-
-  const renderMap = () => {
-    if (!window.google || !trackingData) return;
-    const geocoder = new window.google.maps.Geocoder();
-    const directionsService = new window.google.maps.DirectionsService();
-    const directionsRenderer = new window.google.maps.DirectionsRenderer({
-      suppressMarkers: true,
-      polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 }
-    });
-    
-    const order = trackingData.saleOrderId ? orders?.find((o: any) => o.id === trackingData.saleOrderId) : trackingData;
-    
-    const consignorMaster = customers?.find((c: any) => 
-      c.customerName?.toUpperCase() === order?.consignor?.toUpperCase() || 
-      (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.consignor?.toUpperCase()
-    );
-    const shipToMaster = customers?.find((c: any) => 
-      c.customerName?.toUpperCase() === order?.shipToParty?.toUpperCase() || 
-      (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.shipToParty?.toUpperCase()
-    );
-
-    const gps = gpsData.find(v => v.vehicleNumber?.toUpperCase() === trackingData.vehicleNumber?.toUpperCase());
-
-    const p1 = new Promise((resolve) => {
-      if (consignorMaster?.postalCode) {
-        geocoder.geocode({ address: consignorMaster.postalCode }, (res, status) => {
-          if (status === 'OK') resolve(res[0].geometry.location);
-          else resolve(null);
-        });
-      } else resolve(null);
-    });
-
-    const p2 = new Promise((resolve) => {
-      if (shipToMaster?.postalCode) {
-        geocoder.geocode({ address: shipToMaster.postalCode }, (res, status) => {
-          if (status === 'OK') resolve(res[0].geometry.location);
-          else resolve(null);
-        });
-      } else resolve(null);
-    });
-
-    Promise.all([p1, p2]).then(([startLoc, endLoc]: any) => {
-      if (!mapRef.current) return;
-      
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: gps ? { lat: gps.latitude, lng: gps.longitude } : { lat: 20.5937, lng: 78.9629 },
-        zoom: gps ? 12 : 5,
-        styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
-      });
-      directionsRenderer.setMap(map);
-
-      if (startLoc) {
-        new window.google.maps.Marker({
-          position: startLoc,
-          map,
-          title: 'Start Point',
-          icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
-        });
-      }
-
-      if (endLoc) {
-        new window.google.maps.Marker({
-          position: endLoc,
-          map,
-          title: 'Drop Point',
-          icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
-        });
-      }
-
-      if (gps) {
-        new window.google.maps.Marker({
-          position: { lat: gps.latitude, lng: gps.longitude },
-          map,
-          title: gps.vehicleNumber,
-          icon: {
-            url: 'https://maps.google.com/mapfiles/ms/icons/truck.png',
-            scaledSize: new window.google.maps.Size(40, 40)
-          }
-        });
-      }
-
-      if (startLoc && endLoc) {
-        const request: any = {
-          origin: startLoc,
-          destination: endLoc,
-          travelMode: window.google.maps.TravelMode.DRIVING,
-        };
-
-        if (gps) {
-          request.waypoints = [{
-            location: { lat: gps.latitude, lng: gps.longitude },
-            stopover: false
-          }];
-        }
-
-        directionsService.route(request, (result, status) => {
-          if (status === 'OK') {
-            directionsRenderer.setDirections(result);
-          }
-        });
-      }
-    });
-  };
-
-  React.useEffect(() => { if (view === 'track_view' && trackingData) renderMap(); }, [view, trackingData, gpsData]);
-
-  if (view === 'search') {
-    return (
-      <div className="h-full flex flex-col font-mono">
-        <div className="bg-white border-b border-slate-300 px-8 py-3 mb-12 shadow-sm">
-           <h1 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Track Shipment Interface</h1>
-        </div>
-        <div className="max-w-4xl mx-auto w-full px-8 space-y-12">
-          <div className="bg-white border border-slate-300 p-12 space-y-10 shadow-sm animate-fade-in">
-            <div className="space-y-6">
-              <div className="flex items-center gap-8">
-                <label className="text-[12px] font-black text-slate-500 w-[180px] text-right uppercase">Reference Type:</label>
-                <select value={refType} onChange={e => setRefType(e.target.value)} className="h-9 w-[320px] border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase">
-                  <option value="">SELECT OPTION...</option>
-                  <option value="Sale Order">Sale Order</option>
-                  <option value="Trip ID">Trip ID</option>
-                </select>
-              </div>
-              {refType && (
-                <div className="flex items-center gap-8 animate-fade-in">
-                  <label className="text-[12px] font-black text-slate-500 w-[180px] text-right uppercase">{refType}:</label>
-                  <input value={refValue} onChange={(e) => setRefValue(e.target.value)} className="h-9 w-[320px] border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase tracking-widest" placeholder={`ENTER ${refType.toUpperCase()}...`} />
-                </div>
-              )}
-            </div>
-            <div className="pl-[212px] flex gap-4">
-               <Button onClick={() => setRefValue('')} variant="outline" className="h-9 px-8 rounded-none border-slate-300 text-[10px] font-black uppercase">Clear</Button>
-               <Button onClick={handleTrackNow} disabled={loading || !refType || !refValue} className="h-9 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg disabled:opacity-50">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Execute Tracking'}
-               </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (view === 'so_details') {
-    return (
-      <div className="h-full font-mono animate-fade-in">
-        <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 flex items-center justify-between shadow-sm">
-           <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Order Registry Details</h2>
-           <Button onClick={() => setView('search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">New Search</Button>
-        </div>
-        <div className="max-w-5xl mx-auto px-8 space-y-12">
-          <div className="bg-white border border-slate-300 p-10 space-y-10 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6 mb-10">
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Plant:</label><span className="text-[12px] font-black uppercase">{trackingData.plantCode}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Order Booked Date Time:</label><span className="text-[12px] font-black uppercase">{format(new Date(trackingData.saleOrderDate || trackingData.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Consignor:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignor}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Consignee:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignee}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Ship to Party:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.shipToParty}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Order Quantity:</label><span className="text-[12px] font-black text-emerald-600">{trackingData.weight} {trackingData.weightUom}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Route:</label><span className="text-[12px] font-black text-[#1e3a8a] uppercase">{trackingData.from} → {trackingData.destination}</span></div>
-            </div>
-
-            {(!linkedTrips || linkedTrips.length === 0) && (
-              <div className="space-y-4">
-                <p className="text-[13px] font-black text-[#1e3a8a] uppercase leading-relaxed">
-                  Your sale order {trackingData.saleOrder} has been booked for dispatch. Once the vehicle is assigned, we will share the Trip ID for live updates.
-                </p>
-                {trackingData.delayRemark && (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200">
-                    <p className="text-[12px] font-black text-yellow-700 uppercase italic">"{trackingData.delayRemark}"</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {linkedTrips && linkedTrips.length === 1 && (
-              <div className="space-y-4">
-                <p className="text-[13px] font-black text-[#1e3a8a] uppercase leading-relaxed">
-                  Sale order {trackingData.saleOrder} against generated Trip ID is{' '}
-                  <button 
-                    onClick={() => { setTrackingData(linkedTrips[0]); startAnimation(linkedTrips[0]); setView('track_view'); }}
-                    className="underline hover:text-blue-700 decoration-2 underline-offset-4"
-                  >
-                    {linkedTrips[0].tripId}
-                  </button>
-                  . Click on Trip ID to track your shipment.
-                </p>
-                {trackingData.delayRemark && (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200">
-                    <p className="text-[12px] font-black text-yellow-700 uppercase italic">"{trackingData.delayRemark}"</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {linkedTrips && linkedTrips.length > 1 && (
-              <div className="space-y-6">
-                <p className="text-[13px] font-black text-[#1e3a8a] uppercase leading-relaxed">
-                  Sale order {trackingData.saleOrder} against multiple Trip IDs:
-                </p>
-                <div className="space-y-3 pl-4">
-                  {linkedTrips.map((t: any) => (
-                    <div key={t.id} className="flex items-center gap-4">
-                      <button 
-                        onClick={() => { setTrackingData(t); startAnimation(t); setView('track_view'); }}
-                        className="text-[12px] font-black text-[#0056d2] uppercase hover:underline decoration-2 underline-offset-4"
-                      >
-                        Trip ID {t.tripId}
-                      </button>
-                      <span className="text-[12px] font-bold text-slate-500 uppercase tracking-tighter">
-                        – Assigned Qty – {t.assignWeight} {t.weightUom || 'MT'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest pt-4 border-t border-slate-100">
-                  Click on Trip ID to track your shipment.
-                </p>
-                {trackingData.delayRemark && (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200">
-                    <p className="text-[12px] font-black text-yellow-700 uppercase italic">"{trackingData.delayRemark}"</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const steps = [
-    { label: 'Order Booked', icon: ShoppingCart },
-    { label: 'Loading', icon: Package },
-    { label: 'IN-Transit', icon: Truck },
-    { label: 'Arrived', icon: MapPin },
-    { label: trackingData.status === 'REJECTION' ? 'Reject' : 'Delivered', icon: trackingData.status === 'REJECTION' ? AlertTriangle : CheckCircle }
-  ];
-
-  return (
-    <div className="h-full font-mono animate-fade-in flex flex-col">
-      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between shadow-sm shrink-0">
-         <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Live Logistical Tracker</h2>
-         <Button onClick={() => setView(linkedTrips.length > 1 ? 'so_details' : 'search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">Back</Button>
-      </div>
-      <div className="flex-1 overflow-y-auto px-8 space-y-8 pb-20">
-        <div className="bg-white border border-slate-300 p-8 space-y-10 shadow-sm relative overflow-hidden">
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10 opacity-80 border-b border-slate-100 pb-8">
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[13px] font-black uppercase text-[#1e3a8a]">{trackingData.vehicleNumber}</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Driver Registry</span><span className="text-[13px] font-black">{trackingData.driverMobile}</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight Data</span><span className="text-[13px] font-black text-emerald-600">{trackingData.assignWeight} MT</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[13px] font-black uppercase text-blue-600 truncate">{trackingData.route}</span></div>
-           </div>
-           <div className="py-12 relative flex justify-between px-8">
-              {steps.map((s, i) => {
-                const statusColor = i < activeStep ? "text-emerald-600" : i === activeStep ? "text-yellow-600" : "text-red-500";
-                const iconColor = i < activeStep ? "bg-emerald-50 text-emerald-600 border-emerald-200" : i === activeStep ? "bg-yellow-50 text-yellow-600 border-yellow-300 shadow-md" : "bg-red-50 text-red-500 border-red-100";
-                return (
-                  <div key={s.label} className="flex flex-col items-center gap-4 group relative z-10">
-                    <div className={cn("w-14 h-14 rounded-none border-2 flex items-center justify-center transition-all duration-500", iconColor)}>
-                       <s.icon className="h-7 w-7" />
-                    </div>
-                    <div className="text-center">
-                      <p className={cn("text-[10px] font-black uppercase tracking-widest", statusColor)}>{s.label}</p>
-                      {i <= activeStep && (
-                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
-                          {format(new Date(trackingData.createdAt), 'dd-MMM-yy HH:mm')}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-              <div className="absolute top-[40px] left-[10%] right-[10%] h-px bg-slate-200 -z-0" />
-              <div className="absolute top-[-5px] transition-all duration-[2000ms] ease-in-out" style={{ left: `${(activeStep / (steps.length - 1)) * 80 + 10}%`, transform: 'translateX(-50%)' }}>
-                 <div className="bg-white p-3 shadow-2xl border border-blue-100 animate-bounce">
-                    <Truck className={cn("h-11 w-11", trackingData.status === 'REJECTION' && activeStep === 4 ? "text-red-500 rotate-180" : "text-[#1e3a8a]")} />
-                 </div>
-              </div>
-           </div>
-           {trackingData.status === 'REJECTION' && <div className="mt-8 bg-red-50 border border-red-200 p-4 text-center"><p className="text-[10px] font-black text-red-600 uppercase italic">REJECTION REASON: {trackingData.rejectionRemark}</p></div>}
-        </div>
-        <div className="h-[450px] bg-white border border-slate-300 shadow-sm"><div ref={mapRef} className="w-full h-full" /></div>
-        <div className="flex justify-between items-center px-4"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Sync: High-Density Tracking</p><Badge variant="outline" className="text-[8px] font-black bg-blue-50 border-blue-100 text-blue-800 rounded-none">TR24 SAP INTERFACE</Badge></div>
-      </div>
-    </div>
-  );
-}
-
-export default function SapDashboard() {
-  const router = useRouter();
-  const { toast } = useToast();
-  const { user, isUserLoading } = useUser();
-  const db = useFirestore();
-
-  const [tCode, setTCode] = React.useState('');
-  const [history, setHistory] = React.useState<string[]>([]);
-  const [screenStack, setScreenStack] = React.useState<Screen[]>(['HOME']);
-  const [showHistory, setShowHistory] = React.useState(false);
-  const [historyIndex, setHistoryIndex] = React.useState(-1);
-  const [activeScreen, setActiveScreen] = React.useState<Screen>('HOME');
-  const [formData, setFormData] = React.useState<any>({});
-  const [searchId, setSearchId] = React.useState('');
-  const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
-  const [greeting, setGreeting] = React.useState('');
-  
-  const [homePlantFilter, setHomePlantFilter] = React.useState('ALL');
-  const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM'));
-  const [showMonthCalendar, setShowMonthCalendar] = React.useState(false);
-  const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
-  const [isAuthChecking, setIsAuthChecking] = React.useState(true);
-  const [registryId, setRegistryId] = React.useState<string | null>(null);
-  const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '', postalCode: '' });
-
-  const [se38Search, setSe38Search] = React.useState({ plant: '', vendor: '', company: '', customer: '', from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') });
-  const [se38Results, setSe38Results] = React.useState<any[] | null>(null);
-  const [se38View, setSe38View] = React.useState<'selection' | 'result'>('selection');
-
-  const [viewMode, setViewMode] = React.useState<'list' | 'tracking'>('list');
-  const [trackingNode, setTrackingNode] = React.useState<any>(null);
-
-  const tCodeRef = React.useRef<HTMLInputElement>(null);
-  const monthRef = React.useRef<HTMLDivElement>(null);
-  const bulkInputRef = React.useRef<HTMLInputElement>(null);
-
-  const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
-  const { data: settings } = useDoc(settingsRef);
-
-  React.useEffect(() => {
-    const isAdmin = localStorage.getItem('sap_bootstrap_session') === 'true';
-    const rid = registryId || localStorage.getItem('sap_registry_id');
-    setIsBootstrapAdmin(isAdmin);
-    setRegistryId(rid);
-    setIsAuthChecking(false);
-
-    const scriptId = 'google-maps-script';
-    if (!document.getElementById(scriptId)) {
-      const script = document.createElement('script');
-      script.id = scriptId;
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      document.head.appendChild(script);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    const updateGreeting = () => {
-      const now = new Date();
-      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-      const istTime = new Date(utc + (3600000 * 5.5));
-      const hour = istTime.getHours();
-      
-      let msg = '';
-      if (hour >= 0 && hour < 12) {
-        msg = 'Good Morning, Have a good day';
-      } else if (hour >= 12 && hour < 17) {
-        msg = 'Good Afternoon, Have a great day';
-      } else {
-        msg = 'Good Evening';
-      }
-      setGreeting(msg);
-    };
-
-    updateGreeting();
-    const interval = setInterval(updateGreeting, 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const profileRef = useMemoFirebase(() => {
-    if (!user) return null;
-    if (isBootstrapAdmin) return doc(db, 'user_registry', user.uid);
-    const rid = registryId || localStorage.getItem('sap_registry_id');
-    return rid ? doc(db, 'user_registry', rid) : null;
-  }, [user, db, isBootstrapAdmin, registryId]);
-
-  const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
-
-  const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
-  const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
-  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
-  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
-  const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
-  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
-  const usersQuery = useMemoFirebase(() => collection(db, 'user_registry'), [db]);
-  
-  const { data: rawOrders } = useCollection(ordersQuery);
-  const { data: rawTrips } = useCollection(tripsQuery);
-  const { data: rawPlants } = useCollection(plantsQuery);
-  const { data: rawCompanies } = useCollection(companiesQuery);
-  const { data: rawVendors } = useCollection(vendorsQuery);
-  const { data: rawCustomers } = useCollection(customersQuery);
-  const { data: allUsers, isLoading: isAllUsersLoading } = useCollection(usersQuery);
-
-  const authorizedPlantsList = React.useMemo(() => {
-    return userProfile?.plants || [];
-  }, [userProfile]);
-
-  const accessiblePlants = React.useMemo(() => {
-    if (isBootstrapAdmin) return rawPlants || [];
-    return (rawPlants || []).filter(p => authorizedPlantsList.includes(p.plantCode));
-  }, [rawPlants, authorizedPlantsList, isBootstrapAdmin]);
-
-  const accessibleCompanies = React.useMemo(() => {
-    if (isBootstrapAdmin) return rawCompanies || [];
-    return (rawCompanies || []).filter(c => c.plantCodes?.some((p: string) => authorizedPlantsList.includes(p)));
-  }, [rawCompanies, authorizedPlantsList, isBootstrapAdmin]);
-
-  const accessibleVendors = React.useMemo(() => {
-    if (isBootstrapAdmin) return rawVendors || [];
-    return (rawVendors || []).filter(v => v.plantCodes?.some((p: string) => authorizedPlantsList.includes(p)));
-  }, [rawVendors, authorizedPlantsList, isBootstrapAdmin]);
-
-  const accessibleCustomers = React.useMemo(() => {
-    if (isBootstrapAdmin) return rawCustomers || [];
-    return (rawCustomers || []).filter(c => c.plantCodes?.some((p: string) => authorizedPlantsList.includes(p)));
-  }, [rawCustomers, authorizedPlantsList, isBootstrapAdmin]);
-
-  const accessibleUsers = React.useMemo(() => {
-    if (isBootstrapAdmin) return allUsers || [];
-    if (!authorizedPlantsList.length) return [];
-    return (allUsers || []).filter(u => u.plants?.some((p: string) => authorizedPlantsList.includes(p)));
-  }, [allUsers, authorizedPlantsList, isBootstrapAdmin]);
-
-  const allTrips = React.useMemo(() => {
-    if (isBootstrapAdmin) return rawTrips || [];
-    if (!authorizedPlantsList.length) return [];
-    return rawTrips?.filter(t => authorizedPlantsList.includes(t.plantCode)) || [];
-  }, [rawTrips, authorizedPlantsList, isBootstrapAdmin]);
-
-  const allOrders = React.useMemo(() => {
-    if (isBootstrapAdmin) return rawOrders || [];
-    if (!authorizedPlantsList.length) return [];
-    return rawOrders?.filter(o => authorizedPlantsList.includes(o.plantCode)) || [];
-  }, [rawOrders, authorizedPlantsList, isBootstrapAdmin]);
-
-  const homeStats = React.useMemo(() => {
-    if (!allOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, reject: 0, closed: 0 };
-    
-    const filterFn = (item: any) => {
-      const matchesPlant = homePlantFilter === 'ALL' || item.plantCode === homePlantFilter;
-      if (!matchesPlant) return false;
-      const itemDate = item.createdAt || item.updatedAt || item.lrDate || item.saleOrderDate;
-      const matchesMonth = !homeMonthFilter || (itemDate && itemDate.startsWith(homeMonthFilter));
-      return matchesMonth;
-    };
-
-    const filteredOrders = allOrders.filter(o => o.status !== 'CANCELLED' && filterFn(o));
-    const filteredTrips = allTrips.filter(filterFn);
-    
-    return {
-      open: filteredOrders.length,
-      loading: filteredTrips.filter(t => t.status === 'LOADING').length,
-      transit: filteredTrips.filter(t => t.status === 'IN-TRANSIT').length,
-      arrived: filteredTrips.filter(t => t.status === 'ARRIVED').length,
-      reject: filteredTrips.filter(t => t.status === 'REJECTION').length,
-      closed: filteredTrips.filter(t => t.status === 'CLOSED').length,
-    };
-  }, [allOrders, allTrips, homePlantFilter, homeMonthFilter]);
-
-  const isAuthorized = React.useCallback((code: string) => {
-    if (code === 'HOME' || code === '' || isBootstrapAdmin) return true;
-    if (!userProfile) {
-      const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
-      return registryIsEmpty;
-    }
-    return userProfile.tcodes?.includes(code);
-  }, [userProfile, allUsers, isBootstrapAdmin]);
-
-  const getRegistryList = React.useCallback(() => {
-    if (activeScreen.startsWith('OX')) return accessiblePlants;
-    if (activeScreen.startsWith('FM')) return accessibleCompanies;
-    if (activeScreen.startsWith('XK')) return accessibleVendors;
-    if (activeScreen.startsWith('XD')) {
-      let list = accessibleCustomers;
-      if (xdSearch.plant) list = list.filter((c: any) => c.plantCodes?.includes(xdSearch.plant));
-      if (xdSearch.type) list = list.filter((c: any) => c.customerType === xdSearch.type);
-      if (xdSearch.name) list = list.filter((c: any) => c.customerName?.toUpperCase().includes(xdSearch.name.toUpperCase()));
-      if (xdSearch.customerId) list = list.filter((c: any) => (c.customerCode || c.id)?.toString().toUpperCase() === searchId.toUpperCase());
-      return list;
-    }
-    if (activeScreen.startsWith('VA')) return allOrders;
-    if (activeScreen.startsWith('SU')) return accessibleUsers;
-    return [];
-  }, [activeScreen, accessiblePlants, accessibleCompanies, accessibleVendors, accessibleCustomers, allOrders, accessibleUsers, xdSearch, searchId]);
-
-  const handleDownloadTemplate = React.useCallback(() => {
-    let headers = "";
-    let filename = "";
-    
-    if (activeScreen.startsWith('VA')) {
-      headers = "Plant,Consignor,Consignee Code,Consignee Name,Ship to Party Code,Ship to Party Name,Weight,UOM";
-      filename = "VA01_SALES_ORDER_TEMPLATE.csv";
-    } else if (activeScreen.startsWith('XD')) {
-      headers = "PlantCodes,CustomerCode,CustomerName,CustomerType,Address,City,PostalCode,Mobile No.,GSTIN";
-      filename = "XD01_CUSTOMER_MASTER_TEMPLATE.csv";
-    } else if (activeScreen.startsWith('FM')) {
-      headers = "CompanyCode,CompanyName,Address,City,State,PostalCode,GSTIN,PAN,Mobile,Email,Website";
-      filename = "FM01_COMPANY_MASTER_TEMPLATE.csv";
-    } else {
-      toast({ title: "Template Not Available", description: "No template defined for this module." });
-      return;
-    }
-
-    const blob = new Blob([headers], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    window.URL.revokeObjectURL(url);
-    setStatusMsg({ text: `Template ${filename} downloaded`, type: 'success' });
-  }, [activeScreen, toast]);
-
-  const handleBulkUpload = React.useCallback(() => {
-    if (bulkInputRef.current) bulkInputRef.current.click();
-  }, []);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const rows = text.split('\n').filter(r => r.trim());
-      if (rows.length < 2) {
-        setStatusMsg({ text: 'Error: CSV is empty or invalid', type: 'error' });
-        return;
-      }
-
-      const parseCsvRow = (rowText: string) => {
-        const result = [];
-        let currentField = '';
-        let insideQuotes = false;
-        for (let i = 0; i < rowText.length; i++) {
-          const char = rowText[i];
-          if (char === '"') {
-            insideQuotes = !insideQuotes;
-          } else if (char === ',' && !insideQuotes) {
-            result.push(currentField.trim());
-            currentField = '';
-          } else {
-            currentField += char;
-          }
-        }
-        result.push(currentField.trim());
-        return result.map(field => field.replace(/^"|"$/g, '').trim());
-      };
-
-      const headers = parseCsvRow(rows[0]);
-      const dataRows = rows.slice(1);
-
-      setStatusMsg({ text: `Synchronizing...`, type: 'info' });
-
-      if (activeScreen.startsWith('VA')) {
-        const getIdx = (name: string) => headers.findIndex(h => h.toLowerCase().replace(/\s/g, '') === name.toLowerCase().replace(/\s/g, ''));
-        const idxP = getIdx('Plant');
-        const idxCons = getIdx('Consignor');
-        const idxCeeCode = getIdx('ConsigneeCode');
-        const idxShipCode = getIdx('ShiptoPartyCode');
-        const idxW = getIdx('Weight');
-        const idxU = getIdx('UOM');
-
-        if (idxP === -1 || idxCons === -1 || idxCeeCode === -1 || idxShipCode === -1 || idxW === -1 || idxU === -1) {
-          setStatusMsg({ text: 'Error: Mandatory headers missing (Plant, Consignor, Consignee Code, Ship to Party Code, Weight, UOM)', type: 'error' });
-          return;
-        }
-
-        const orderGroups: Record<string, any> = {};
-        let rejectedCount = 0;
-
-        dataRows.forEach((row, rowIndex) => {
-          const cols = parseCsvRow(row);
-          const plant = cols[idxP];
-          const cons = cols[idxCons];
-          const ceeCode = cols[idxCeeCode];
-          const shipCode = cols[idxShipCode];
-          const weight = parseFloat(cols[idxW] || '0');
-          const uom = cols[idxU];
-
-          if (!plant || !cons || !ceeCode || !shipCode || isNaN(weight) || !uom) {
-            rejectedCount++;
-            return;
-          }
-
-          const consigneeMaster = rawCustomers?.find(c => c.customerCode?.toString().toUpperCase() === ceeCode.toUpperCase());
-          const shipToMaster = rawCustomers?.find(c => c.customerCode?.toString().toUpperCase() === shipCode.toUpperCase());
-          const consignorMaster = rawCustomers?.find(c => (c.customerName?.toUpperCase() === cons.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === cons.toUpperCase()));
-
-          const consigneeNameFinal = consigneeMaster?.customerName || 'UNKNOWN CONSIGNEE';
-          const shipToNameFinal = shipToMaster?.customerName || 'UNKNOWN SHIP TO';
-          
-          const soNo = `SO-B${Date.now().toString().slice(-6)}${rowIndex}`;
-
-          if (!orderGroups[soNo]) {
-            orderGroups[soNo] = {
-              plantCode: plant,
-              saleOrder: soNo,
-              consignor: cons,
-              from: consignorMaster?.city || '',
-              consignee: consigneeNameFinal,
-              shipToParty: shipToNameFinal,
-              destination: shipToMaster?.city || '',
-              deliveryAddress: shipToMaster?.address || '',
-              weight: 0,
-              weightUom: uom,
-              status: 'Active',
-              createdAt: new Date().toISOString(),
-              saleOrderDate: format(new Date(), "yyyy-MM-dd'T'HH:mm")
-            };
-          }
-          orderGroups[soNo].weight += weight;
-        });
-
-        Object.values(orderGroups).forEach(order => {
-          const docId = crypto.randomUUID();
-          setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { ...order, id: docId }, { merge: true });
-        });
-
-        const savedCount = Object.keys(orderGroups).length;
-        setStatusMsg({ text: `Bulk Sync: ${savedCount} Saved, ${rejectedCount} Rejected`, type: rejectedCount > 0 ? 'error' : 'success' });
-
-      } else if (activeScreen.startsWith('XD')) {
-        const getIdx = (name: string) => headers.findIndex(h => h.toLowerCase().replace(/\s/g, '') === name.toLowerCase().replace(/\s/g, ''));
-        const idxP = getIdx('PlantCodes');
-        const idxCC = getIdx('CustomerCode');
-        const idxCN = getIdx('CustomerName');
-        const idxCT = getIdx('CustomerType');
-        const idxA = getIdx('Address');
-        const idxCi = getIdx('City');
-        const idxPC = getIdx('PostalCode');
-        const idxM = getIdx('MobileNo.');
-        const idxG = getIdx('GSTIN');
-
-        if (idxP === -1 || idxCC === -1 || idxCN === -1 || idxCi === -1) {
-          setStatusMsg({ text: 'Error: Mandatory headers (PlantCodes, CustomerCode, CustomerName, City) missing', type: 'error' });
-          return;
-        }
-
-        let savedCount = 0;
-        let rejectedCount = 0;
-
-        dataRows.forEach(row => {
-          const cols = parseCsvRow(row);
-          const pCode = cols[idxP];
-          const cCode = cols[idxCC];
-          const cName = cols[idxCN];
-          const city = cols[idxCi];
-
-          if (!pCode || !cCode || !cName || !city) {
-            rejectedCount++;
-            return;
-          }
-
-          const docId = crypto.randomUUID();
-          const customer = {
-            id: docId,
-            plantCodes: pCode.split(';'),
-            customerCode: cCode,
-            customerName: cName,
-            customerType: idxCT !== -1 ? cols[idxCT] : '',
-            address: idxA !== -1 ? cols[idxA] : '',
-            city: city,
-            postalCode: idxPC !== -1 ? cols[idxPC] : '',
-            mobile: idxM !== -1 ? cols[idxM].replace(/\D/g, '').slice(-10) : '',
-            gstin: idxG !== -1 ? cols[idxG] : '',
-            updatedAt: new Date().toISOString()
-          };
-          setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'customers', docId), customer, { merge: true });
-          savedCount++;
-        });
-        setStatusMsg({ text: `Bulk Sync: ${savedCount} Customers Saved, ${rejectedCount} Rejected`, type: rejectedCount > 0 ? 'error' : 'success' });
-      }
-
-      setTimeout(() => {
-        if (bulkInputRef.current) bulkInputRef.current.value = '';
-      }, 1500);
-    };
-    reader.readAsText(file);
-  };
-
-  const handleSave = React.useCallback(() => {
-    if (!user || activeScreen === 'HOME' || (activeScreen.endsWith('03') && activeScreen !== 'SE38')) return;
-
-    if (activeScreen === 'SE38') {
-      const { plant, from, to, vendor, company, customer } = se38Search;
-      if (!plant || !from || !to) {
-        setStatusMsg({ text: 'Error: Mandatory fields (Plant, From Date, To Date) missing', type: 'error' });
-        return;
-      }
-      if (from > to) {
-        setStatusMsg({ text: 'Error: Invalid date range (From > To)', type: 'error' });
-        return;
-      }
-      
-      let results = (rawTrips || []).filter(t => {
-        const matchesPlant = t.plantCode === plant;
-        const tripDate = (t.createdAt || t.updatedAt || '').split('T')[0];
-        const matchesDate = tripDate >= from && tripDate <= to;
-        
-        if (!matchesPlant || !matchesDate) return false;
-        
-        if (vendor) {
-          if (t.vendorCode !== vendor) return false;
-        }
-        
-        if (company) {
-          const c = (rawCompanies || []).find(comp => comp.companyCode === company);
-          if (c && !c.plantCodes?.includes(t.plantCode)) return false;
-          if (!c) return false;
-        }
-        
-        if (customer) {
-          const cust = (rawCustomers || []).find(c => c.customerCode === customer);
-          if (cust && t.shipToParty !== cust.customerName && t.consignee !== cust.customerName && t.consignor !== cust.customerName) return false;
-          if (!cust) return false;
-        }
-        
-        return true;
-      });
-      
-      results = results.map(t => ({
-        ...t,
-        order: allOrders?.find(o => o.id === t.saleOrderId)
-      }));
-
-      setSe38Results(results);
-      setSe38View('result');
-      setStatusMsg({ text: `Sync complete: ${results.length} records found`, type: 'success' });
-      return;
-    }
-
-    let localData = { ...formData };
-    const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
-
-    if (!isBootstrapAdmin) {
-      if (activeScreen.startsWith('OX')) {
-        const exists = rawPlants?.some((p: any) => p.id !== localData.id && p.plantCode?.toString().toUpperCase() === localData.plantCode?.toString().toUpperCase());
-        if (exists) { setStatusMsg({ text: `Duplicate entry not allowed for Plant Code: ${localData.plantCode}`, type: 'error' }); return; }
-      }
-      if (activeScreen.startsWith('FM')) {
-        const exists = rawCompanies?.some((c: any) => c.id !== localData.id && c.companyCode?.toString().toUpperCase() === localData.companyCode?.toString().toUpperCase());
-        if (exists) { setStatusMsg({ text: `Duplicate entry not allowed for Company Code: ${localData.companyCode}`, type: 'error' }); return; }
-      }
-      if (activeScreen.startsWith('XK')) {
-        if (!(localData.plantCodes?.length && localData.mobile?.trim() && localData.address?.trim() && localData.route?.trim() && (localData.vendorName?.trim() || localData.vendorFirmName?.trim()))) {
-          setStatusMsg({ text: 'Error: Plant, Mobile, Address, Route & Name are mandatory', type: 'error' }); return;
-        }
-        const exists = rawVendors?.some((v: any) => v.id !== localData.id && v.vendorCode?.toString().toUpperCase() === localData.vendorCode?.toString().toUpperCase());
-        if (exists && localData.vendorCode) { setStatusMsg({ text: `Duplicate entry not allowed for Vendor Code: ${localData.vendorCode}`, type: 'error' }); return; }
-        if (!localData.vendorCode) localData.vendorCode = `V${Math.floor(10000 + Math.random() * 90000)}`;
-      }
-      if (activeScreen.startsWith('XD')) {
-        if (!(localData.plantCodes?.length && localData.customerCode && localData.customerName && localData.city)) {
-          setStatusMsg({ text: 'Error: Plant, Customer Code, Name & City are mandatory', type: 'error' });
-          return;
-        }
-        const duplicateInPlant = rawCustomers?.some((c: any) => {
-          if (c.id === localData.id) return false;
-          if (c.customerCode?.toString().toUpperCase() !== localData.customerCode?.toString().toUpperCase()) return false;
-          return localData.plantCodes?.some((p: string) => c.plantCodes?.includes(p));
-        });
-
-        if (duplicateInPlant) {
-          setStatusMsg({ text: `Duplicate entry not allowed for Customer Code ${localData.customerCode} in selected Plants`, type: 'error' });
-          return;
-        }
-      }
-      if (activeScreen.startsWith('VA') && activeScreen !== 'VA04') {
-        if (!(localData.plantCode && localData.saleOrder && localData.consignor && localData.from && localData.consignee && localData.shipToParty && localData.destination && localData.weight && localData.weightUom)) {
-          setStatusMsg({ text: 'Error: Mandatory fields (Plant, SO No, Consignor, From, Consignee, Ship to Party, Destination, Weight, UOM) required', type: 'error' }); return;
-        }
-        const exists = rawOrders?.some((o: any) => o.id !== localData.id && o.saleOrder?.toString().toUpperCase() === localData.saleOrder?.toString().toUpperCase());
-        if (exists && activeScreen === 'VA01') { setStatusMsg({ text: `Duplicate entry not allowed for Sale Order No: ${localData.saleOrder}`, type: 'error' }); return; }
-        if (!localData.status) localData.status = 'Active';
-      }
-      if (activeScreen === 'VA04') {
-        const o = allOrders?.find(ord => (ord.saleOrder || ord.id)?.toString().toUpperCase() === localData.saleOrder?.toString().toUpperCase());
-        if (!o) { setStatusMsg({ text: `Error: Order ${localData.saleOrder} not found`, type: 'error' }); return; }
-        setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: 'CANCELLED', updatedAt: new Date().toISOString() }, { merge: true });
-        setStatusMsg({ text: `Success: Order ${localData.saleOrder} CANCELLED`, type: 'success' }); setFormData({}); return;
-      }
-      if (activeScreen.startsWith('SU')) {
-        if (!(localData.fullName && localData.username && localData.password && localData.plants?.length && localData.tcodes?.length)) {
-          setStatusMsg({ text: 'Error: Mandatory user fields missing', type: 'error' }); return;
-        }
-        const exists = allUsers?.some((u: any) => u.id !== localData.id && u.username?.toString().toUpperCase() === localData.username?.toString().toUpperCase());
-        if (exists) { setStatusMsg({ text: `Username ${localData.username} exists`, type: 'error' }); return; }
-      }
-    }
-
-    let col = '';
-    let docId = localData.id;
-    
-    if (activeScreen.endsWith('01')) {
-      docId = (activeScreen === 'SU01' && registryIsEmpty) ? user.uid : crypto.randomUUID();
-    } else {
-      docId = docId || crypto.randomUUID();
-    }
-
-    if (activeScreen.startsWith('OX')) col = 'plants';
-    else if (activeScreen.startsWith('FM')) col = 'companies';
-    else if (activeScreen.startsWith('XK')) col = 'vendors';
-    else if (activeScreen.startsWith('XD')) col = 'customers';
-    else if (activeScreen.startsWith('VA')) col = 'sales_orders';
-    else if (activeScreen.startsWith('SU')) col = 'user_registry';
-
-    if (col) {
-      const isSys = col === 'user_registry';
-      const docRef = isSys ? doc(db, 'user_registry', docId) : doc(db, 'users', SHARED_HUB_ID, col, docId);
-      const payload = { 
-        ...localData, 
-        id: docId, 
-        updatedAt: new Date().toISOString(),
-        createdAt: localData.createdAt || new Date().toISOString()
-      };
-      setDocumentNonBlocking(docRef, payload, { merge: true });
-      setStatusMsg({ text: `Synchronized successfully`, type: 'success' });
-      
-      if (activeScreen.endsWith('01')) {
-        setFormData({});
-        setSearchId('');
-      } else if (!formData.id) {
-        setFormData(payload);
-      }
-    }
-  }, [user, activeScreen, formData, allOrders, rawPlants, allUsers, db, isBootstrapAdmin, rawCustomers, rawCompanies, rawVendors, rawOrders, se38Search, rawTrips]);
-
-  const executeTCode = React.useCallback((code: string) => {
-    const input = code.toUpperCase().trim();
-    if (!input) return;
-    
-    let clean = input;
-    let isNewSession = false;
-
-    if (input.startsWith('/N')) {
-      clean = input.substring(2).trim();
-    } else if (input.startsWith('/O')) {
-      clean = input.substring(2).trim();
-      isNewSession = true;
-    }
-
-    if (clean !== 'HOME' && clean !== '' && !isAuthorized(clean)) {
-      setStatusMsg({ text: `You are not authorized to run T-code ${clean}`, type: 'error' });
-      setTCode('');
-      return;
-    }
-
-    setHistory(p => [input, ...p.filter(h => h !== input)].slice(0, 7));
-    setShowHistory(false); setHistoryIndex(-1);
-
-    if (isNewSession) {
-      const baseUrl = window.location.origin + window.location.pathname;
-      window.open(clean ? `${baseUrl}?tcode=${clean}` : baseUrl, '_blank'); setTCode(''); return;
-    }
-
-    if (clean === 'HOME' || clean === '') { 
-      setScreenStack(prev => [...prev, 'HOME']);
-      setActiveScreen('HOME'); 
-      setTCode(''); setFormData({}); setSearchId(''); return; 
-    }
-
-    if (MASTER_TCODES.some(t => t.code === clean)) {
-      setScreenStack(prev => [...prev, clean as Screen]);
-      setActiveScreen(clean as Screen); setFormData({}); setSearchId(''); setXdSearch({ plant: '', type: '', name: '', customerId: '', postalCode: '' });
-      setSe38Results(null);
-      setSe38View('selection');
-      setViewMode('list');
-      setStatusMsg({ text: `Transaction ${clean} executed`, type: 'info' });
-    } else { setStatusMsg({ text: `T-Code ${clean} not found`, type: 'error' }); }
-    setTCode('');
-  }, [isAuthorized]);
-
-  const handleBack = React.useCallback(() => {
-    if (activeScreen === 'TR21' && viewMode === 'tracking') {
-      setViewMode('list');
-      return;
-    }
-    if (activeScreen === 'SE38' && se38View === 'result') {
-      setSe38View('selection');
-      return;
-    }
-    if (screenStack.length <= 1) {
-      setActiveScreen('HOME');
-      setFormData({});
-      return;
-    }
-    const newStack = [...screenStack];
-    newStack.pop(); 
-    const prevScreen = newStack[newStack.length - 1];
-    setScreenStack(newStack);
-    setActiveScreen(prevScreen);
-    setFormData({});
-    setSearchId('');
-    setStatusMsg({ text: `Navigated to ${prevScreen}`, type: 'info' });
-  }, [screenStack, activeScreen, viewMode, se38View]);
-
-  const handleCancel = React.useCallback(() => {
-    if (activeScreen === 'HOME' || (activeScreen.endsWith('03') && activeScreen !== 'SE38')) return;
-    setFormData({}); setSearchId(''); setStatusMsg({ text: 'Operation cancelled', type: 'info' });
-  }, [activeScreen]);
-
-  React.useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (['F3', 'F4', 'F8', 'F12'].includes(e.key)) e.preventDefault();
-      if (e.key === 'F8') handleSave();
-      if (e.key === 'F3') { if (e.shiftKey) router.push('/'); else handleBack(); }
-      if (e.key === 'F4') tCodeRef.current?.focus();
-      if (e.key === 'F12') handleCancel();
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); handleSave(); }
-      if (e.key === 'ArrowDown' && showHistory) { e.preventDefault(); setHistoryIndex(p => (p < history.length - 1 ? p + 1 : p)); }
-      if (e.key === 'ArrowUp' && showHistory) { e.preventDefault(); setHistoryIndex(p => (p > 0 ? p - 1 : 0)); }
-      if (e.key === 'Enter' && document.activeElement === tCodeRef.current) {
-        if (showHistory && historyIndex >= 0) { const s = history[historyIndex]; setTCode(s); executeTCode(s); }
-        else executeTCode(tCode);
-      }
-    };
-    window.addEventListener('keydown', handleGlobalKeyDown); return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [activeScreen, handleSave, handleCancel, executeTCode, handleBack, showHistory, historyIndex, history, router, tCode]);
-
-  if (isUserLoading || isProfileLoading || isAllUsersLoading || isAuthChecking) {
-    return <div className="h-screen w-full bg-[#f0f3f9] flex flex-col items-center justify-center font-mono space-y-4">
-      <div className="w-8 h-8 border-2 border-[#1e3a8a] border-t-transparent rounded-full animate-spin" /><span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Synchronizing...</span>
-    </div>;
-  }
-
-  const isReadOnly = activeScreen.endsWith('03');
-  const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id && activeScreen !== 'SE38';
-  const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
-  const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
-  const hideSidebar = activeScreen !== 'HOME';
-
-  const handleSearchIdEnter = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      const idToSearch = searchId || xdSearch.customerId; if (!idToSearch) return;
-      let list = getRegistryList();
-      let item = list.find((i: any) => (i.plantCode || i.customerCode || i.companyCode || i.saleOrder || i.username || i.id || i.vendorCode).toString().toUpperCase() === idToSearch.toUpperCase());
-      if (item) { setFormData(item); setSearchId(''); setXdSearch({ ...xdSearch, customerId: '' }); setStatusMsg({ text: `Record ${idToSearch} loaded`, type: 'success' }); }
-      else { setStatusMsg({ text: `Record ${idToSearch} not found`, type: 'error' }); }
-    }
-  };
-
-  return (
-    <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
-      <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50 print:hidden">
-        <div className="flex items-center gap-6">{['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(i => <button key={i} className="hover:text-blue-800 transition-colors uppercase">{i}</button>)}</div>
-        <div className="flex-1" /><div className="flex items-center h-full">
-          <button className="h-full px-2 hover:bg-white/30"><PlusSquare className="h-3.5 w-3.5 opacity-30" /></button>
-          <button className="h-full px-2 hover:bg-white/30"><Grid2X2 className="h-3 w-3 opacity-30" /></button>
-          <button onClick={() => router.push('/')} className="h-full px-3 hover:bg-[#e81123] hover:text-white"><X className="h-3.5 w-3.5" /></button>
-        </div>
-      </div>
-      <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40 print:hidden">
-        <div className="flex items-center px-2 py-1 gap-4">
-          <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">
-             {logoAsset && <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized data-ai-hint="logistics logo" />}
-          </div>
-          <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner relative">
-            <button onClick={(e) => { e.preventDefault(); executeTCode(tCode); }} className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100 transition-colors">✓</button>
-            <input ref={tCodeRef} type="text" value={tCode} onChange={(e) => { setTCode(e.target.value); if (showHistory) setShowHistory(false); }}
-              onClick={() => history.length > 0 && setShowHistory(true)} onBlur={() => setTimeout(() => setShowHistory(false), 200)}
-              className="w-48 outline-none text-xs px-1 font-bold tracking-wider"
-            />
-            {showHistory && history.length > 0 && (
-              <div className="absolute top-full left-0 w-full bg-white border border-slate-400 shadow-md z-[60] mt-0.5">
-                {history.map((h, i) => <div key={i} onClick={() => { setTCode(h); executeTCode(h); }} className={cn("px-4 py-1.5 text-xs font-bold cursor-pointer hover:bg-blue-50 transition-colors", i === historyIndex ? "bg-blue-100" : "")}>{h}</div>)}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
-             <button onClick={handleSave} disabled={activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')} 
-               className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} 
-               title={activeScreen === 'SE38' ? "Execute (F8)" : "Save (F8)"}>
-               {activeScreen === 'SE38' ? <PlayCircle className="h-4 w-4 text-blue-600" /> : <Save className="h-4 w-4 text-slate-600" />}
-             </button>
-             <button onClick={handleBack} className="p-1 hover:bg-slate-200 rounded" title="Back Step-by-Step (F3)"><Undo2 className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={handleCancel} disabled={activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title="Cancel (F12)"><XCircle className="h-4 w-4 text-slate-600" /></button>
-             <button onClick={() => window.open(window.location.href, '_blank')} className={cn("p-1 rounded hover:bg-slate-200")} title="New Session"><PlusSquare className="h-4 w-4 text-slate-600" /></button>
-          </div>
-          <div className="flex-1" /><div className="flex items-center gap-3 pr-4">
-             {(activeScreen === 'XD01' || activeScreen === 'VA01' || activeScreen === 'FM01') && (
-               <div className="flex items-center gap-2 mr-4">
-                 <input type="file" ref={bulkInputRef} onChange={handleFileChange} className="hidden" accept=".csv" />
-                 <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 h-7 bg-white border border-slate-300 hover:bg-slate-50 rounded text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]"><FileText className="h-3.5 w-3.5" /> Template</button>
-                 <button onClick={handleBulkUpload} className="flex items-center gap-1.5 px-3 h-7 bg-[#1e3a8a] hover:bg-blue-900 text-white rounded text-[9px] font-black uppercase tracking-widest"><UploadCloud className="h-3.5 w-3.5" /> Bulk Upload</button>
-               </div>
-             )}
-             <button onClick={() => window.print()} className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Printer className="h-4 w-4" /></button>
-             <button onClick={() => { localStorage.removeItem('sap_bootstrap_session'); localStorage.removeItem('sap_user_role'); router.push('/login'); }} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700"><LogOut className="h-3.5 w-3.5" /> Log Off</button>
-          </div>
-        </div>
-      </div>
-      <div className="flex-1 flex overflow-hidden">
-        {!hideSidebar && (
-          <div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden print:hidden">
-            <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div>
-            <div className="flex-1 overflow-y-auto green-scrollbar">
-              {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'TR24' || t.code === 'VA04' || t.code === 'ZCODE' || t.code === 'WGPS24' || t.code === 'SE38').map((item) => (
-                <div key={item.code} onClick={() => executeTCode(item.code)} className={cn("flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all", activeScreen === item.code ? "bg-[#0056d2] text-white" : "text-[#1e3a8a]")}>
-                  <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", activeScreen === item.code ? "bg-white" : "bg-slate-300 group-hover:bg-blue-600")} />
-                  <span className={cn("text-[10px] font-black uppercase tracking-tight", activeScreen === item.code ? "text-white" : "text-[#1e3a8a]")}>{item.code} - {item.description}</span>
-                  <div className="flex-1" /><item.icon className={cn("h-3.5 w-3.5", activeScreen === item.code ? "text-white" : "text-slate-400")} />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        <div className="flex-1 flex flex-col overflow-hidden bg-[#f0f3f9]">
-          <div className="flex-1 flex flex-col overflow-hidden bg-[#f2f2f2] print:bg-white">
-            {activeScreen === 'HOME' ? (
-              <div className="flex-1 overflow-y-auto p-2 md:p-4 relative animate-fade-in">
-                <h1 className="text-2xl md:text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter mb-8">Sikka Logistics Management Control</h1>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-4 md:p-6 border border-slate-300 shadow-sm mb-12">
-                  <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Authorized Plant</label>
-                    <select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none" value={homePlantFilter} onChange={(e) => setHomePlantFilter(e.target.value)}>
-                      <option value="ALL">ALL AUTHORIZED PLANTS</option>
-                      {accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex flex-col gap-2 relative" ref={monthRef}><label className="text-[10px] font-black uppercase text-slate-400">Period</label>
-                    <div onClick={() => setShowMonthCalendar(!showMonthCalendar)} className="h-10 border border-slate-400 bg-white px-3 flex items-center justify-between cursor-pointer shadow-sm"><span className="text-xs font-bold text-slate-700 uppercase">{format(new Date(homeMonthFilter + '-01'), 'MMMM yyyy')}</span><CalendarIcon className="h-4 w-4 text-slate-400" /></div>
-                    {showMonthCalendar && (
-                      <div className="absolute top-full left-0 mt-1 z-[60] flex flex-col border border-slate-300 bg-white rounded-lg shadow-2xl w-full max-w-[320px] animate-slide-down">
-                        <div className="flex items-center justify-between p-3 border-b border-slate-200">
-                          <button onClick={(e) => { e.stopPropagation(); const [y, m] = homeMonthFilter.split('-'); setHomeMonthFilter(`${parseInt(y) - 1}-${m}`); }} className="p-1.5 hover:bg-slate-50 rounded-md border border-slate-200"><ChevronLeft className="h-4 w-4" /></button><span className="text-sm font-black">{homeMonthFilter.split('-')[0]}</span>
-                          <button onClick={(e) => { e.stopPropagation(); const [y, m] = homeMonthFilter.split('-'); setHomeMonthFilter(`${parseInt(y) + 1}-${m}`); }} className="p-1.5 hover:bg-slate-50 rounded-md border border-slate-200"><ChevronRight className="h-4 w-4" /></button>
-                        </div>
-                        <div className="grid grid-cols-4 gap-2 p-3">
-                          {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => {
-                            const mStr = (i + 1).toString().padStart(2, '0'); const year = homeMonthFilter.split('-')[0]; const isActive = homeMonthFilter === `${year}-${mStr}`;
-                            return <button key={m} onClick={(e) => { e.stopPropagation(); setHomeMonthFilter(`${year}-${mStr}`); setShowMonthCalendar(false); }} className={cn("py-2 text-[10px] font-black border rounded-md uppercase", isActive ? "bg-[#0056d2] text-white border-[#0056d2]" : "bg-white text-slate-600 border-slate-200")}>{m}</button>;
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  {[{ label: 'OPEN ORDER', count: homeStats.open, color: 'text-blue-600' }, { label: 'LOADING', count: homeStats.loading, color: 'text-orange-600' }, { label: 'IN-TRANSIT', count: homeStats.transit, color: 'text-emerald-600' }, { label: 'ARRIVED', count: homeStats.arrived, color: 'text-indigo-600' }, { label: 'REJECT', count: homeStats.reject, color: 'text-red-600' }, { label: 'CLOSED', count: homeStats.closed, color: 'text-slate-600' }].map(w => (
-                    <div key={w.label} className="p-4 md:p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-2 bg-white animate-slide-up">
-                      <span className="text-[10px] font-black text-slate-400 uppercase text-center">{w.label}</span><span className={cn("text-2xl md:text-4xl font-black italic tracking-tighter", w.color)}>{w.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className={cn(
-                "animate-slide-up print:p-0 print:border-none print:shadow-none flex flex-col w-full h-full overflow-y-auto bg-[#f2f2f2] green-scrollbar",
-              )}>
-                 {showForm && <div className="space-y-0 min-h-full">
-                   <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10">
-                      <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">
-                        {MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen}
-                      </h2>
-                   </div>
-                   <div className="px-10 pb-20 max-w-full">
-                     {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                     {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
-                     {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
-                     {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
-                     {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} trips={allTrips} screen={activeScreen} />}
-                     {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} onPost={handleSave} onCancel={() => setFormData({})} />}
-                     {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
-                   </div>
-                 </div>}
-                 {showList && <div className="space-y-0 min-h-full">
-                   <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between">
-                      <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">
-                        {MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen} - REGISTRY
-                      </h2>
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AUTHORIZED</div>
-                   </div>
-                   <div className="px-10 pb-20 max-w-full">
-                     <div className="bg-white border-b-2 border-slate-300 p-6 mb-8 flex flex-col md:flex-row items-center gap-8">
-                       <div className="flex flex-col gap-2 flex-1 w-full"><label className="text-[11px] font-black uppercase text-slate-500 block tracking-widest">Search Criteria</label>
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pt-2">
-                             {activeScreen.startsWith('XD') ? <>
-                                 <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Customer ID</label><input className="h-8 border border-slate-400 px-3 text-xs font-black outline-none bg-white" value={xdSearch.customerId} onChange={(e) => setXdSearch({...xdSearch, customerId: e.target.value})} onKeyDown={handleSearchIdEnter} /></div>
-                                 <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Select Plant</label><select className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold" value={xdSearch.plant} onChange={(e) => setXdSearch({...xdSearch, plant: e.target.value})}><option value="">ALL PLANTS</option>{accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div>
-                                 <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Select Type</label><select className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold" value={xdSearch.type} onChange={(e) => setXdSearch({...xdSearch, type: e.target.value})}><option value="">ALL TYPES</option><option value="Consignor">Consignor</option><option value="Consignee - Ship to Party">Consignee - Ship to Party</option></select></div>
-                                 <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Enter Name</label><input className="h-8 border border-slate-400 px-3 text-xs font-black outline-none" value={xdSearch.name} onChange={(e) => setXdSearch({...xdSearch, name: e.target.value})} /></div>
-                               </> : <div className="col-span-1 md:col-span-4 flex items-center gap-4"><input className="h-9 w-full max-w-2xl border border-slate-400 px-4 text-xs font-black outline-none bg-white focus:ring-1 focus:ring-blue-500 uppercase tracking-widest" value={searchId} onChange={(e) => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER IDENTIFIER AND PRESS ENTER..." /></div>}
-                          </div>
-                       </div>
-                     </div>
-                     <RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} />
-                   </div>
-                 </div>}
-                 {activeScreen === 'TR21' && viewMode === 'list' && (
-                   <TripBoard 
-                     orders={allOrders} 
-                     trips={allTrips} 
-                     vendors={accessibleVendors} 
-                     plants={accessiblePlants} 
-                     companies={accessibleCompanies} 
-                     customers={accessibleCustomers} 
-                     onStatusUpdate={setStatusMsg}
-                     viewMode={viewMode}
-                     setViewMode={setViewMode}
-                     trackingNode={trackingNode}
-                     setTrackingNode={setTrackingNode}
-                     settings={settings}
-                   />
-                 )}
-                 {activeScreen === 'TR21' && viewMode === 'tracking' && (
-                    <Tr21TrackingPage 
-                      node={trackingNode} 
-                      onBack={() => setViewMode('list')} 
-                      customers={accessibleCustomers}
-                      settings={settings}
-                    />
-                 )}
-                 {activeScreen === 'TR24' && <TrackShipmentScreen trips={allTrips} orders={allOrders} customers={accessibleCustomers} />}
-                 {activeScreen === 'WGPS24' && <GpsTrackingHub trips={allTrips} onStatusUpdate={setStatusMsg} db={db} settings={settings} settingsRef={settingsRef} />}
-                 {activeScreen === 'SE38' && (
-                   <Se38Report 
-                     search={se38Search} 
-                     results={se38Results} 
-                     view={se38View}
-                     onSearchChange={setSe38Search} 
-                     onViewChange={setSe38View}
-                     allPlants={accessiblePlants} 
-                     allVendors={accessibleVendors} 
-                     allCompanies={accessibleCompanies} 
-                     allCustomers={accessibleCustomers} 
-                   />
-                 )}
-                 {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      <div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em] print:hidden">
-        <div className="flex items-center gap-4 md:gap-8 overflow-hidden flex-1"><span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span><span className="shrink-0">{activeScreen}</span><span className="truncate">USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.fullName || 'Authenticating...')}</span>{statusMsg.text !== 'Ready' && <span className={cn("truncate", statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span>}</div>
-        {greeting && <div className="shrink-0 ml-4 hidden sm:block text-blue-400">{greeting}</div>}
-      </div>
-    </div>
-  );
-}
-
 function SectionGrouping({ title, children }: { title: string, children: React.ReactNode }) {
   return (
     <div className="mb-10 w-full animate-fade-in">
@@ -1853,7 +349,20 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
           )}
         </div>
       </div>
-    </SectionGrouping></div>;
+    </SectionGrouping>
+    <SectionGrouping title="TERMS & CONDITIONS">
+       <div className="flex items-start gap-8 group">
+          <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase tracking-tight">TERMS:</label>
+          <textarea 
+            value={Array.isArray(data.termsAndConditions) ? data.termsAndConditions.join('\n') : (data.termsAndConditions || '')} 
+            onChange={(e) => onChange({...data, termsAndConditions: e.target.value.split('\n')})} 
+            disabled={disabled}
+            className="w-[450px] h-32 border border-slate-400 bg-white px-2 py-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase shadow-sm disabled:opacity-60 resize-none"
+            placeholder="ENTER TERMS AND CONDITIONS (ONE PER LINE)..."
+          />
+       </div>
+    </SectionGrouping>
+  </div>;
 }
 
 function VendorForm({ data, onChange, disabled, allPlants }: any) {
@@ -2619,7 +1128,7 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
               <FormInput label="CN NUMBER" value={cnFormData.cnNo} onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v})} placeholder="" />
               <FormInput label="CN DATE" type="date" value={cnFormData.cnDate} onChange={(v: string) => setCnFormData({...cnFormData, cnDate: v})} />
               <FormInput label="CARRIER NAME" value={cnFormData.carrierName} disabled={true} />
-              <FormSelect label="PAYMENT TERMS" value={data.paymentTerms} options={["PAID", "TO-PAY", "TBB"]} onChange={(v: string) => setCnFormData({...cnFormData, paymentTerms: v})} />
+              <FormSelect label="PAYMENT TERMS" value={cnFormData.paymentTerms} options={["PAID", "TO-PAY", "TBB"]} onChange={(v: string) => setCnFormData({...cnFormData, paymentTerms: v})} />
             </div>
           </SectionGrouping>
           <SectionGrouping title="DOCUMENT DETAILS">
@@ -3213,6 +1722,1389 @@ function ZCodeRegistry({ tcodes, onExecute }: any) {
            </div>
          ))}
        </div>
+    </div>
+  );
+}
+
+function TrackShipmentScreen({ trips, orders, customers }: any) {
+  const [refType, setRefType] = React.useState('');
+  const [refValue, setRefValue] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [view, setView] = React.useState<'search' | 'so_details' | 'track_view'>('search');
+  const [trackingData, setTrackingData] = React.useState<any>(null);
+  const [linkedTrips, setLinkedTrips] = React.useState<any[]>([]);
+  const [activeStep, setActiveStep] = React.useState(-1);
+  const mapRef = React.useRef<HTMLDivElement>(null);
+  const [gpsData, setGpsData] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchGps = async () => { 
+      try { 
+        const res = await fetch('/api/gps'); 
+        if (res.ok) { 
+          const json = await res.json(); 
+          if (json?.data?.list) setGpsData(json.data.list); 
+        } 
+      } catch (e) {} 
+    };
+    fetchGps(); 
+    const i = setInterval(fetchGps, 30000); 
+    return () => clearInterval(i);
+  }, []);
+
+  const handleTrackNow = () => {
+    if (!refValue) return;
+    setLoading(true);
+    const val = refValue.trim().toUpperCase();
+    
+    setTimeout(() => {
+      if (refType === 'Sale Order') {
+        const order = orders?.find((o: any) => o.saleOrder === val || o.id === val);
+        if (order) {
+          setTrackingData(order);
+          const tList = trips?.filter((t: any) => t.saleOrderId === order.id) || [];
+          setLinkedTrips(tList);
+          setView('so_details');
+        } else { alert("Registry Failure: Sale Order Not Found"); }
+      } else {
+        const trip = trips?.find((t: any) => t.tripId === val || t.id === val);
+        if (trip) {
+          setTrackingData(trip);
+          setLinkedTrips([trip]);
+          setView('track_view');
+          startAnimation(trip);
+        } else { alert("Registry Failure: Trip ID Not Found"); }
+      }
+      setLoading(false);
+    }, 800);
+  };
+
+  const startAnimation = (trip: any) => {
+    let target = 0;
+    if (trip.status === 'LOADING') target = 1;
+    else if (trip.status === 'IN-TRANSIT') target = 2;
+    else if (trip.status === 'ARRIVED') target = 3;
+    else if (trip.status === 'CLOSED') target = 4;
+    else if (trip.status === 'REJECTION') target = 4;
+
+    let current = 0;
+    setActiveStep(0);
+    const interval = setInterval(() => {
+      if (current < target) {
+        current++;
+        setActiveStep(current);
+      } else {
+        clearInterval(interval);
+      }
+    }, 2000);
+  };
+
+  const renderMap = () => {
+    if (!window.google || !trackingData) return;
+    const geocoder = new window.google.maps.Geocoder();
+    const directionsService = new window.google.maps.DirectionsService();
+    const directionsRenderer = new window.google.maps.DirectionsRenderer({
+      suppressMarkers: true,
+      polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 }
+    });
+    
+    const order = trackingData.saleOrderId ? orders?.find((o: any) => o.id === trackingData.saleOrderId) : trackingData;
+    
+    const consignorMaster = customers?.find((c: any) => 
+      c.customerName?.toUpperCase() === order?.consignor?.toUpperCase() || 
+      (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.consignor?.toUpperCase()
+    );
+    const shipToMaster = customers?.find((c: any) => 
+      c.customerName?.toUpperCase() === order?.shipToParty?.toUpperCase() || 
+      (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.shipToParty?.toUpperCase()
+    );
+
+    const gps = gpsData.find(v => v.vehicleNumber?.toUpperCase() === trackingData.vehicleNumber?.toUpperCase());
+
+    const p1 = new Promise((resolve) => {
+      if (consignorMaster?.postalCode) {
+        geocoder.geocode({ address: consignorMaster.postalCode }, (res, status) => {
+          if (status === 'OK') resolve(res[0].geometry.location);
+          else resolve(null);
+        });
+      } else resolve(null);
+    });
+
+    const p2 = new Promise((resolve) => {
+      if (shipToMaster?.postalCode) {
+        geocoder.geocode({ address: shipToMaster.postalCode }, (res, status) => {
+          if (status === 'OK') resolve(res[0].geometry.location);
+          else resolve(null);
+        });
+      } else resolve(null);
+    });
+
+    Promise.all([p1, p2]).then(([startLoc, endLoc]: any) => {
+      if (!mapRef.current) return;
+      
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: gps ? { lat: gps.latitude, lng: gps.longitude } : { lat: 20.5937, lng: 78.9629 },
+        zoom: gps ? 12 : 5,
+        styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
+      });
+      directionsRenderer.setMap(map);
+
+      if (startLoc) {
+        new window.google.maps.Marker({
+          position: startLoc,
+          map,
+          title: 'Start Point',
+          icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
+        });
+      }
+
+      if (endLoc) {
+        new window.google.maps.Marker({
+          position: endLoc,
+          map,
+          title: 'Drop Point',
+          icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+        });
+      }
+
+      if (gps) {
+        new window.google.maps.Marker({
+          position: { lat: gps.latitude, lng: gps.longitude },
+          map,
+          title: gps.vehicleNumber,
+          icon: {
+            url: 'https://maps.google.com/mapfiles/ms/icons/truck.png',
+            scaledSize: new window.google.maps.Size(40, 40)
+          }
+        });
+      }
+
+      if (startLoc && endLoc) {
+        const request: any = {
+          origin: startLoc,
+          destination: endLoc,
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        };
+
+        if (gps) {
+          request.waypoints = [{
+            location: { lat: gps.latitude, lng: gps.longitude },
+            stopover: false
+          }];
+        }
+
+        directionsService.route(request, (result, status) => {
+          if (status === 'OK') {
+            directionsRenderer.setDirections(result);
+          }
+        });
+      }
+    });
+  };
+
+  React.useEffect(() => { if (view === 'track_view' && trackingData) renderMap(); }, [view, trackingData, gpsData]);
+
+  if (view === 'search') {
+    return (
+      <div className="h-full flex flex-col font-mono">
+        <div className="bg-white border-b border-slate-300 px-8 py-3 mb-12 shadow-sm">
+           <h1 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Track Shipment Interface</h1>
+        </div>
+        <div className="max-w-4xl mx-auto w-full px-8 space-y-12">
+          <div className="bg-white border border-slate-300 p-12 space-y-10 shadow-sm animate-fade-in">
+            <div className="space-y-6">
+              <div className="flex items-center gap-8">
+                <label className="text-[12px] font-black text-slate-500 w-[180px] text-right uppercase">Reference Type:</label>
+                <select value={refType} onChange={e => setRefType(e.target.value)} className="h-9 w-[320px] border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase">
+                  <option value="">SELECT OPTION...</option>
+                  <option value="Sale Order">Sale Order</option>
+                  <option value="Trip ID">Trip ID</option>
+                </select>
+              </div>
+              {refType && (
+                <div className="flex items-center gap-8 animate-fade-in">
+                  <label className="text-[12px] font-black text-slate-500 w-[180px] text-right uppercase">{refType}:</label>
+                  <input value={refValue} onChange={(e) => setRefValue(e.target.value)} className="h-9 w-[320px] border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase tracking-widest" placeholder={`ENTER ${refType.toUpperCase()}...`} />
+                </div>
+              )}
+            </div>
+            <div className="pl-[212px] flex gap-4">
+               <Button onClick={() => setRefValue('')} variant="outline" className="h-9 px-8 rounded-none border-slate-300 text-[10px] font-black uppercase">Clear</Button>
+               <Button onClick={handleTrackNow} disabled={loading || !refType || !refValue} className="h-9 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg disabled:opacity-50">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Execute Tracking'}
+               </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'so_details') {
+    return (
+      <div className="h-full font-mono animate-fade-in">
+        <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 flex items-center justify-between shadow-sm">
+           <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Order Registry Details</h2>
+           <Button onClick={() => setView('search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">New Search</Button>
+        </div>
+        <div className="max-w-5xl mx-auto px-8 space-y-12">
+          <div className="bg-white border border-slate-300 p-10 space-y-10 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6 mb-10">
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Plant:</label><span className="text-[12px] font-black uppercase">{trackingData.plantCode}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Order Booked Date Time:</label><span className="text-[12px] font-black uppercase">{format(new Date(trackingData.saleOrderDate || trackingData.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Consignor:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignor}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Consignee:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignee}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Ship to Party:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.shipToParty}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Order Quantity:</label><span className="text-[12px] font-black text-emerald-600">{trackingData.weight} {trackingData.weightUom}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Route:</label><span className="text-[12px] font-black text-[#1e3a8a] uppercase">{trackingData.from} → {trackingData.destination}</span></div>
+            </div>
+
+            {(!linkedTrips || linkedTrips.length === 0) && (
+              <div className="space-y-4">
+                <p className="text-[13px] font-black text-[#1e3a8a] uppercase leading-relaxed">
+                  Your sale order {trackingData.saleOrder} has been booked for dispatch. Once the vehicle is assigned, we will share the Trip ID for live updates.
+                </p>
+                {trackingData.delayRemark && (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200">
+                    <p className="text-[12px] font-black text-yellow-700 uppercase italic">"{trackingData.delayRemark}"</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {linkedTrips && linkedTrips.length === 1 && (
+              <div className="space-y-4">
+                <p className="text-[13px] font-black text-[#1e3a8a] uppercase leading-relaxed">
+                  Sale order {trackingData.saleOrder} against generated Trip ID is{' '}
+                  <button 
+                    onClick={() => { setTrackingData(linkedTrips[0]); startAnimation(linkedTrips[0]); setView('track_view'); }}
+                    className="underline hover:text-blue-700 decoration-2 underline-offset-4"
+                  >
+                    {linkedTrips[0].tripId}
+                  </button>
+                  . Click on Trip ID to track your shipment.
+                </p>
+                {trackingData.delayRemark && (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200">
+                    <p className="text-[12px] font-black text-yellow-700 uppercase italic">"{trackingData.delayRemark}"</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {linkedTrips && linkedTrips.length > 1 && (
+              <div className="space-y-6">
+                <p className="text-[13px] font-black text-[#1e3a8a] uppercase leading-relaxed">
+                  Sale order {trackingData.saleOrder} against multiple Trip IDs:
+                </p>
+                <div className="space-y-3 pl-4">
+                  {linkedTrips.map((t: any) => (
+                    <div key={t.id} className="flex items-center gap-4">
+                      <button 
+                        onClick={() => { setTrackingData(t); startAnimation(t); setView('track_view'); }}
+                        className="text-[12px] font-black text-[#0056d2] uppercase hover:underline decoration-2 underline-offset-4"
+                      >
+                        Trip ID {t.tripId}
+                      </button>
+                      <span className="text-[12px] font-bold text-slate-500 uppercase tracking-tighter">
+                        – Assigned Qty – {t.assignWeight} {t.weightUom || 'MT'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest pt-4 border-t border-slate-100">
+                  Click on Trip ID to track your shipment.
+                </p>
+                {trackingData.delayRemark && (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200">
+                    <p className="text-[12px] font-black text-yellow-700 uppercase italic">"{trackingData.delayRemark}"</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const steps = [
+    { label: 'Order Booked', icon: ShoppingCart },
+    { label: 'Loading', icon: Package },
+    { label: 'IN-Transit', icon: Truck },
+    { label: 'Arrived', icon: MapPin },
+    { label: trackingData.status === 'REJECTION' ? 'Reject' : 'Delivered', icon: trackingData.status === 'REJECTION' ? AlertTriangle : CheckCircle }
+  ];
+
+  return (
+    <div className="h-full font-mono animate-fade-in flex flex-col">
+      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between shadow-sm shrink-0">
+         <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Live Logistical Tracker</h2>
+         <Button onClick={() => setView(linkedTrips.length > 1 ? 'so_details' : 'search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">Back</Button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-8 space-y-8 pb-20">
+        <div className="bg-white border border-slate-300 p-8 space-y-10 shadow-sm relative overflow-hidden">
+           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10 opacity-80 border-b border-slate-100 pb-8">
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[13px] font-black uppercase text-[#1e3a8a]">{trackingData.vehicleNumber}</span></div>
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Driver Registry</span><span className="text-[13px] font-black">{trackingData.driverMobile}</span></div>
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight Data</span><span className="text-[13px] font-black text-emerald-600">{trackingData.assignWeight} MT</span></div>
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[13px] font-black uppercase text-blue-600 truncate">{trackingData.route}</span></div>
+           </div>
+           <div className="py-12 relative flex justify-between px-8">
+              {steps.map((s, i) => {
+                const statusColor = i < activeStep ? "text-emerald-600" : i === activeStep ? "text-yellow-600" : "text-red-500";
+                const iconColor = i < activeStep ? "bg-emerald-50 text-emerald-600 border-emerald-200" : i === activeStep ? "bg-yellow-50 text-yellow-600 border-yellow-300 shadow-md" : "bg-red-50 text-red-500 border-red-100";
+                return (
+                  <div key={s.label} className="flex flex-col items-center gap-4 group relative z-10">
+                    <div className={cn("w-14 h-14 rounded-none border-2 flex items-center justify-center transition-all duration-500", iconColor)}>
+                       <s.icon className="h-7 w-7" />
+                    </div>
+                    <div className="text-center">
+                      <p className={cn("text-[10px] font-black uppercase tracking-widest", statusColor)}>{s.label}</p>
+                      {i <= activeStep && (
+                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
+                          {format(new Date(trackingData.createdAt), 'dd-MMM-yy HH:mm')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="absolute top-[40px] left-[10%] right-[10%] h-px bg-slate-200 -z-0" />
+              <div className="absolute top-[-5px] transition-all duration-[2000ms] ease-in-out" style={{ left: `${(activeStep / (steps.length - 1)) * 80 + 10}%`, transform: 'translateX(-50%)' }}>
+                 <div className="bg-white p-3 shadow-2xl border border-blue-100 animate-bounce">
+                    <Truck className={cn("h-11 w-11", trackingData.status === 'REJECTION' && activeStep === 4 ? "text-red-500 rotate-180" : "text-[#1e3a8a]")} />
+                 </div>
+              </div>
+           </div>
+           {trackingData.status === 'REJECTION' && <div className="mt-8 bg-red-50 border border-red-200 p-4 text-center"><p className="text-[10px] font-black text-red-600 uppercase italic">REJECTION REASON: {trackingData.rejectionRemark}</p></div>}
+        </div>
+        <div className="h-[450px] bg-white border border-slate-300 shadow-sm"><div ref={mapRef} className="w-full h-full" /></div>
+        <div className="flex justify-between items-center px-4"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Sync: High-Density Tracking</p><Badge variant="outline" className="text-[8px] font-black bg-blue-50 border-blue-100 text-blue-800 rounded-none">TR24 SAP INTERFACE</Badge></div>
+      </div>
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
+  const db = useFirestore();
+
+  const [tCode, setTCode] = React.useState('');
+  const [history, setHistory] = React.useState<string[]>([]);
+  const [screenStack, setScreenStack] = React.useState<Screen[]>(['HOME']);
+  const [showHistory, setShowHistory] = React.useState(false);
+  const [historyIndex, setHistoryIndex] = React.useState(-1);
+  const [activeScreen, setActiveScreen] = React.useState<Screen>('HOME');
+  const [formData, setFormData] = React.useState<any>({});
+  const [searchId, setSearchId] = React.useState('');
+  const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' });
+  const [greeting, setGreeting] = React.useState('');
+  
+  const [homePlantFilter, setHomePlantFilter] = React.useState('ALL');
+  const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM'));
+  const [showMonthCalendar, setShowMonthCalendar] = React.useState(false);
+  const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
+  const [isAuthChecking, setIsAuthChecking] = React.useState(true);
+  const [registryId, setRegistryId] = React.useState<string | null>(null);
+  const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '', postalCode: '' });
+
+  const [se38Search, setSe38Search] = React.useState({ plant: '', vendor: '', company: '', customer: '', from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') });
+  const [se38Results, setSe38Results] = React.useState<any[] | null>(null);
+  const [se38View, setSe38View] = React.useState<'selection' | 'result'>('selection');
+
+  const [viewMode, setViewMode] = React.useState<'list' | 'tracking'>('list');
+  const [trackingNode, setTrackingNode] = React.useState<any>(null);
+
+  const tCodeRef = React.useRef<HTMLInputElement>(null);
+  const monthRef = React.useRef<HTMLDivElement>(null);
+  const bulkInputRef = React.useRef<HTMLInputElement>(null);
+
+  const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
+  const { data: settings } = useDoc(settingsRef);
+
+  React.useEffect(() => {
+    const isAdmin = localStorage.getItem('sap_bootstrap_session') === 'true';
+    const rid = registryId || localStorage.getItem('sap_registry_id');
+    setIsBootstrapAdmin(isAdmin);
+    setRegistryId(rid);
+    setIsAuthChecking(false);
+
+    const scriptId = 'google-maps-script';
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    const updateGreeting = () => {
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const istTime = new Date(utc + (3600000 * 5.5));
+      const hour = istTime.getHours();
+      
+      let msg = '';
+      if (hour >= 0 && hour < 12) {
+        msg = 'Good Morning, Have a good day';
+      } else if (hour >= 12 && hour < 17) {
+        msg = 'Good Afternoon, Have a great day';
+      } else {
+        msg = 'Good Evening';
+      }
+      setGreeting(msg);
+    };
+
+    updateGreeting();
+    const interval = setInterval(updateGreeting, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const profileRef = useMemoFirebase(() => {
+    if (!user) return null;
+    if (isBootstrapAdmin) return doc(db, 'user_registry', user.uid);
+    const rid = registryId || localStorage.getItem('sap_registry_id');
+    return rid ? doc(db, 'user_registry', rid) : null;
+  }, [user, db, isBootstrapAdmin, registryId]);
+
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(profileRef);
+
+  const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
+  const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
+  const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
+  const companiesQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'companies'), [db]);
+  const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
+  const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
+  const usersQuery = useMemoFirebase(() => collection(db, 'user_registry'), [db]);
+  
+  const { data: rawOrders } = useCollection(ordersQuery);
+  const { data: rawTrips } = useCollection(tripsQuery);
+  const { data: rawPlants } = useCollection(plantsQuery);
+  const { data: rawCompanies } = useCollection(companiesQuery);
+  const { data: rawVendors } = useCollection(vendorsQuery);
+  const { data: rawCustomers } = useCollection(customersQuery);
+  const { data: allUsers, isLoading: isAllUsersLoading } = useCollection(usersQuery);
+
+  const authorizedPlantsList = React.useMemo(() => {
+    return userProfile?.plants || [];
+  }, [userProfile]);
+
+  const accessiblePlants = React.useMemo(() => {
+    if (isBootstrapAdmin) return rawPlants || [];
+    return (rawPlants || []).filter(p => authorizedPlantsList.includes(p.plantCode));
+  }, [rawPlants, authorizedPlantsList, isBootstrapAdmin]);
+
+  const accessibleCompanies = React.useMemo(() => {
+    if (isBootstrapAdmin) return rawCompanies || [];
+    return (rawCompanies || []).filter(c => c.plantCodes?.some((p: string) => authorizedPlantsList.includes(p)));
+  }, [rawCompanies, authorizedPlantsList, isBootstrapAdmin]);
+
+  const accessibleVendors = React.useMemo(() => {
+    if (isBootstrapAdmin) return rawVendors || [];
+    return (rawVendors || []).filter(v => v.plantCodes?.some((p: string) => authorizedPlantsList.includes(p)));
+  }, [rawVendors, authorizedPlantsList, isBootstrapAdmin]);
+
+  const accessibleCustomers = React.useMemo(() => {
+    if (isBootstrapAdmin) return rawCustomers || [];
+    return (rawCustomers || []).filter(c => c.plantCodes?.some((p: string) => authorizedPlantsList.includes(p)));
+  }, [rawCustomers, authorizedPlantsList, isBootstrapAdmin]);
+
+  const accessibleUsers = React.useMemo(() => {
+    if (isBootstrapAdmin) return allUsers || [];
+    if (!authorizedPlantsList.length) return [];
+    return (allUsers || []).filter(u => u.plants?.some((p: string) => authorizedPlantsList.includes(p)));
+  }, [allUsers, authorizedPlantsList, isBootstrapAdmin]);
+
+  const allTrips = React.useMemo(() => {
+    if (isBootstrapAdmin) return rawTrips || [];
+    if (!authorizedPlantsList.length) return [];
+    return rawTrips?.filter(t => authorizedPlantsList.includes(t.plantCode)) || [];
+  }, [rawTrips, authorizedPlantsList, isBootstrapAdmin]);
+
+  const allOrders = React.useMemo(() => {
+    if (isBootstrapAdmin) return rawOrders || [];
+    if (!authorizedPlantsList.length) return [];
+    return rawOrders?.filter(o => authorizedPlantsList.includes(o.plantCode)) || [];
+  }, [rawOrders, authorizedPlantsList, isBootstrapAdmin]);
+
+  const homeStats = React.useMemo(() => {
+    if (!allOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, reject: 0, closed: 0 };
+    
+    const filterFn = (item: any) => {
+      const matchesPlant = homePlantFilter === 'ALL' || item.plantCode === homePlantFilter;
+      if (!matchesPlant) return false;
+      const itemDate = item.createdAt || item.updatedAt || item.lrDate || item.saleOrderDate;
+      const matchesMonth = !homeMonthFilter || (itemDate && itemDate.startsWith(homeMonthFilter));
+      return matchesMonth;
+    };
+
+    const filteredOrders = allOrders.filter(o => o.status !== 'CANCELLED' && filterFn(o));
+    const filteredTrips = allTrips.filter(filterFn);
+    
+    return {
+      open: filteredOrders.length,
+      loading: filteredTrips.filter(t => t.status === 'LOADING').length,
+      transit: filteredTrips.filter(t => t.status === 'IN-TRANSIT').length,
+      arrived: filteredTrips.filter(t => t.status === 'ARRIVED').length,
+      reject: filteredTrips.filter(t => t.status === 'REJECTION').length,
+      closed: filteredTrips.filter(t => t.status === 'CLOSED').length,
+    };
+  }, [allOrders, allTrips, homePlantFilter, homeMonthFilter]);
+
+  const isAuthorized = React.useCallback((code: string) => {
+    if (code === 'HOME' || code === '' || isBootstrapAdmin) return true;
+    if (!userProfile) {
+      const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
+      return registryIsEmpty;
+    }
+    return userProfile.tcodes?.includes(code);
+  }, [userProfile, allUsers, isBootstrapAdmin]);
+
+  const getRegistryList = React.useCallback(() => {
+    if (activeScreen.startsWith('OX')) return accessiblePlants;
+    if (activeScreen.startsWith('FM')) return accessibleCompanies;
+    if (activeScreen.startsWith('XK')) return accessibleVendors;
+    if (activeScreen.startsWith('XD')) {
+      let list = accessibleCustomers;
+      if (xdSearch.plant) list = list.filter((c: any) => c.plantCodes?.includes(xdSearch.plant));
+      if (xdSearch.type) list = list.filter((c: any) => c.customerType === xdSearch.type);
+      if (xdSearch.name) list = list.filter((c: any) => c.customerName?.toUpperCase().includes(xdSearch.name.toUpperCase()));
+      return list;
+    }
+    if (activeScreen.startsWith('VA')) return allOrders;
+    if (activeScreen.startsWith('SU')) return accessibleUsers;
+    return [];
+  }, [activeScreen, accessiblePlants, accessibleCompanies, accessibleVendors, accessibleCustomers, allOrders, accessibleUsers, xdSearch]);
+
+  const handleDownloadTemplate = React.useCallback(() => {
+    let headers = "";
+    let filename = "";
+    
+    if (activeScreen.startsWith('VA')) {
+      headers = "Plant,Consignor,Consignee Code,Consignee Name,Ship to Party Code,Ship to Party Name,Weight,UOM";
+      filename = "VA01_SALES_ORDER_TEMPLATE.csv";
+    } else if (activeScreen.startsWith('XD')) {
+      headers = "PlantCodes,CustomerCode,CustomerName,CustomerType,Address,City,PostalCode,Mobile No.,GSTIN";
+      filename = "XD01_CUSTOMER_MASTER_TEMPLATE.csv";
+    } else if (activeScreen.startsWith('FM')) {
+      headers = "CompanyCode,CompanyName,Address,City,State,PostalCode,GSTIN,PAN,Mobile,Email,Website";
+      filename = "FM01_COMPANY_MASTER_TEMPLATE.csv";
+    } else {
+      toast({ title: "Template Not Available", description: "No template defined for this module." });
+      return;
+    }
+
+    const blob = new Blob([headers], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    setStatusMsg({ text: `Template ${filename} downloaded`, type: 'success' });
+  }, [activeScreen, toast]);
+
+  const handleBulkUpload = React.useCallback(() => {
+    if (bulkInputRef.current) bulkInputRef.current.click();
+  }, []);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const rows = text.split('\n').filter(r => r.trim());
+      if (rows.length < 2) {
+        setStatusMsg({ text: 'Error: CSV is empty or invalid', type: 'error' });
+        return;
+      }
+
+      const parseCsvRow = (rowText: string) => {
+        const result = [];
+        let currentField = '';
+        let insideQuotes = false;
+        for (let i = 0; i < rowText.length; i++) {
+          const char = rowText[i];
+          if (char === '"') {
+            insideQuotes = !insideQuotes;
+          } else if (char === ',' && !insideQuotes) {
+            result.push(currentField.trim());
+            currentField = '';
+          } else {
+            currentField += char;
+          }
+        }
+        result.push(currentField.trim());
+        return result.map(field => field.replace(/^"|"$/g, '').trim());
+      };
+
+      const headers = parseCsvRow(rows[0]);
+      const dataRows = rows.slice(1);
+
+      setStatusMsg({ text: `Synchronizing...`, type: 'info' });
+
+      if (activeScreen.startsWith('VA')) {
+        const getIdx = (name: string) => headers.findIndex(h => h.toLowerCase().replace(/\s/g, '') === name.toLowerCase().replace(/\s/g, ''));
+        const idxP = getIdx('Plant');
+        const idxCons = getIdx('Consignor');
+        const idxCeeCode = getIdx('ConsigneeCode');
+        const idxShipCode = getIdx('ShiptoPartyCode');
+        const idxW = getIdx('Weight');
+        const idxU = getIdx('UOM');
+
+        if (idxP === -1 || idxCons === -1 || idxCeeCode === -1 || idxShipCode === -1 || idxW === -1 || idxU === -1) {
+          setStatusMsg({ text: 'Error: Mandatory headers missing (Plant, Consignor, Consignee Code, Ship to Party Code, Weight, UOM)', type: 'error' });
+          return;
+        }
+
+        const orderGroups: Record<string, any> = {};
+        let rejectedCount = 0;
+
+        dataRows.forEach((row, rowIndex) => {
+          const cols = parseCsvRow(row);
+          const plant = cols[idxP];
+          const cons = cols[idxCons];
+          const ceeCode = cols[idxCeeCode];
+          const shipCode = cols[idxShipCode];
+          const weight = parseFloat(cols[idxW] || '0');
+          const uom = cols[idxU];
+
+          if (!plant || !cons || !ceeCode || !shipCode || isNaN(weight) || !uom) {
+            rejectedCount++;
+            return;
+          }
+
+          const consigneeMaster = rawCustomers?.find(c => c.customerCode?.toString().toUpperCase() === ceeCode.toUpperCase());
+          const shipToMaster = rawCustomers?.find(c => c.customerCode?.toString().toUpperCase() === shipCode.toUpperCase());
+          const consignorMaster = rawCustomers?.find(c => (c.customerName?.toUpperCase() === cons.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === cons.toUpperCase()));
+
+          const consigneeNameFinal = consigneeMaster?.customerName || 'UNKNOWN CONSIGNEE';
+          const shipToNameFinal = shipToMaster?.customerName || 'UNKNOWN SHIP TO';
+          
+          const soNo = `SO-B${Date.now().toString().slice(-6)}${rowIndex}`;
+
+          if (!orderGroups[soNo]) {
+            orderGroups[soNo] = {
+              plantCode: plant,
+              saleOrder: soNo,
+              consignor: cons,
+              from: consignorMaster?.city || '',
+              consignee: consigneeNameFinal,
+              shipToParty: shipToNameFinal,
+              destination: shipToMaster?.city || '',
+              deliveryAddress: shipToMaster?.address || '',
+              weight: 0,
+              weightUom: uom,
+              status: 'Active',
+              createdAt: new Date().toISOString(),
+              saleOrderDate: format(new Date(), "yyyy-MM-dd'T'HH:mm")
+            };
+          }
+          orderGroups[soNo].weight += weight;
+        });
+
+        Object.values(orderGroups).forEach(order => {
+          const docId = crypto.randomUUID();
+          setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { ...order, id: docId }, { merge: true });
+        });
+
+        const savedCount = Object.keys(orderGroups).length;
+        setStatusMsg({ text: `Bulk Sync: ${savedCount} Saved, ${rejectedCount} Rejected`, type: rejectedCount > 0 ? 'error' : 'success' });
+
+      } else if (activeScreen.startsWith('XD')) {
+        const getIdx = (name: string) => headers.findIndex(h => h.toLowerCase().replace(/\s/g, '') === name.toLowerCase().replace(/\s/g, ''));
+        const idxP = getIdx('PlantCodes');
+        const idxCC = getIdx('CustomerCode');
+        const idxCN = getIdx('CustomerName');
+        const idxCT = getIdx('CustomerType');
+        const idxA = getIdx('Address');
+        const idxCi = getIdx('City');
+        const idxPC = getIdx('PostalCode');
+        const idxM = getIdx('MobileNo.');
+        const idxG = getIdx('GSTIN');
+
+        if (idxP === -1 || idxCC === -1 || idxCN === -1 || idxCi === -1) {
+          setStatusMsg({ text: 'Error: Mandatory headers (PlantCodes, CustomerCode, CustomerName, City) missing', type: 'error' });
+          return;
+        }
+
+        let savedCount = 0;
+        let rejectedCount = 0;
+
+        dataRows.forEach(row => {
+          const cols = parseCsvRow(row);
+          const pCode = cols[idxP];
+          const cCode = cols[idxCC];
+          const cName = cols[idxCN];
+          const city = cols[idxCi];
+
+          if (!pCode || !cCode || !cName || !city) {
+            rejectedCount++;
+            return;
+          }
+
+          const docId = crypto.randomUUID();
+          const customer = {
+            id: docId,
+            plantCodes: pCode.split(';'),
+            customerCode: cCode,
+            customerName: cName,
+            customerType: idxCT !== -1 ? cols[idxCT] : '',
+            address: idxA !== -1 ? cols[idxA] : '',
+            city: city,
+            postalCode: idxPC !== -1 ? cols[idxPC] : '',
+            mobile: idxM !== -1 ? cols[idxM].replace(/\D/g, '').slice(-10) : '',
+            gstin: idxG !== -1 ? cols[idxG] : '',
+            updatedAt: new Date().toISOString()
+          };
+          setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'customers', docId), customer, { merge: true });
+          savedCount++;
+        });
+        setStatusMsg({ text: `Bulk Sync: ${savedCount} Customers Saved, ${rejectedCount} Rejected`, type: rejectedCount > 0 ? 'error' : 'success' });
+      }
+
+      setTimeout(() => {
+        if (bulkInputRef.current) bulkInputRef.current.value = '';
+      }, 1500);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleSave = React.useCallback(() => {
+    if (!user || activeScreen === 'HOME' || (activeScreen.endsWith('03') && activeScreen !== 'SE38')) return;
+
+    if (activeScreen === 'SE38') {
+      const { plant, from, to, vendor, company, customer } = se38Search;
+      if (!plant || !from || !to) {
+        setStatusMsg({ text: 'Error: Mandatory fields (Plant, From Date, To Date) missing', type: 'error' });
+        return;
+      }
+      if (from > to) {
+        setStatusMsg({ text: 'Error: Invalid date range (From > To)', type: 'error' });
+        return;
+      }
+      
+      let results = (rawTrips || []).filter(t => {
+        const matchesPlant = t.plantCode === plant;
+        const tripDate = (t.createdAt || t.updatedAt || '').split('T')[0];
+        const matchesDate = tripDate >= from && tripDate <= to;
+        
+        if (!matchesPlant || !matchesDate) return false;
+        
+        if (vendor) {
+          if (t.vendorCode !== vendor) return false;
+        }
+        
+        if (company) {
+          const c = (rawCompanies || []).find(comp => comp.companyCode === company);
+          if (c && !c.plantCodes?.includes(t.plantCode)) return false;
+          if (!c) return false;
+        }
+        
+        if (customer) {
+          const cust = (rawCustomers || []).find(c => c.customerCode === customer);
+          if (cust && t.shipToParty !== cust.customerName && t.consignee !== cust.customerName && t.consignor !== cust.customerName) return false;
+          if (!cust) return false;
+        }
+        
+        return true;
+      });
+      
+      results = results.map(t => ({
+        ...t,
+        order: allOrders?.find(o => o.id === t.saleOrderId)
+      }));
+
+      setSe38Results(results);
+      setSe38View('result');
+      setStatusMsg({ text: `Sync complete: ${results.length} records found`, type: 'success' });
+      return;
+    }
+
+    let localData = { ...formData };
+    const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0;
+
+    if (!isBootstrapAdmin) {
+      if (activeScreen.startsWith('OX')) {
+        const exists = rawPlants?.some((p: any) => p.id !== localData.id && p.plantCode?.toString().toUpperCase() === localData.plantCode?.toString().toUpperCase());
+        if (exists) { setStatusMsg({ text: `Duplicate entry not allowed for Plant Code: ${localData.plantCode}`, type: 'error' }); return; }
+      }
+      if (activeScreen.startsWith('FM')) {
+        const exists = rawCompanies?.some((c: any) => c.id !== localData.id && c.companyCode?.toString().toUpperCase() === localData.companyCode?.toString().toUpperCase());
+        if (exists) { setStatusMsg({ text: `Duplicate entry not allowed for Company Code: ${localData.companyCode}`, type: 'error' }); return; }
+      }
+      if (activeScreen.startsWith('XK')) {
+        if (!(localData.plantCodes?.length && localData.mobile?.trim() && localData.address?.trim() && localData.route?.trim() && (localData.vendorName?.trim() || localData.vendorFirmName?.trim()))) {
+          setStatusMsg({ text: 'Error: Plant, Mobile, Address, Route & Name are mandatory', type: 'error' }); return;
+        }
+        const exists = rawVendors?.some((v: any) => v.id !== localData.id && v.vendorCode?.toString().toUpperCase() === localData.vendorCode?.toString().toUpperCase());
+        if (exists && localData.vendorCode) { setStatusMsg({ text: `Duplicate entry not allowed for Vendor Code: ${localData.vendorCode}`, type: 'error' }); return; }
+        if (!localData.vendorCode) localData.vendorCode = `V${Math.floor(10000 + Math.random() * 90000)}`;
+      }
+      if (activeScreen.startsWith('XD')) {
+        if (!(localData.plantCodes?.length && localData.customerCode && localData.customerName && localData.city)) {
+          setStatusMsg({ text: 'Error: Plant, Customer Code, Name & City are mandatory', type: 'error' });
+          return;
+        }
+        const duplicateInPlant = rawCustomers?.some((c: any) => {
+          if (c.id === localData.id) return false;
+          if (c.customerCode?.toString().toUpperCase() !== localData.customerCode?.toString().toUpperCase()) return false;
+          return localData.plantCodes?.some((p: string) => c.plantCodes?.includes(p));
+        });
+
+        if (duplicateInPlant) {
+          setStatusMsg({ text: `Duplicate entry not allowed for Customer Code ${localData.customerCode} in selected Plants`, type: 'error' });
+          return;
+        }
+      }
+      if (activeScreen.startsWith('VA') && activeScreen !== 'VA04') {
+        if (!(localData.plantCode && localData.saleOrder && localData.consignor && localData.from && localData.consignee && localData.shipToParty && localData.destination && localData.weight && localData.weightUom)) {
+          setStatusMsg({ text: 'Error: Mandatory fields (Plant, SO No, Consignor, From, Consignee, Ship to Party, Destination, Weight, UOM) required', type: 'error' }); return;
+        }
+        const exists = rawOrders?.some((o: any) => o.id !== localData.id && o.saleOrder?.toString().toUpperCase() === localData.saleOrder?.toString().toUpperCase());
+        if (exists && activeScreen === 'VA01') { setStatusMsg({ text: `Duplicate entry not allowed for Sale Order No: ${localData.saleOrder}`, type: 'error' }); return; }
+        if (!localData.status) localData.status = 'Active';
+      }
+      if (activeScreen === 'VA04') {
+        const o = allOrders?.find(ord => (ord.saleOrder || ord.id)?.toString().toUpperCase() === localData.saleOrder?.toString().toUpperCase());
+        if (!o) { setStatusMsg({ text: `Error: Order ${localData.saleOrder} not found`, type: 'error' }); return; }
+        setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: 'CANCELLED', updatedAt: new Date().toISOString() }, { merge: true });
+        setStatusMsg({ text: `Success: Order ${localData.saleOrder} CANCELLED`, type: 'success' }); setFormData({}); return;
+      }
+      if (activeScreen.startsWith('SU')) {
+        if (!(localData.fullName && localData.username && localData.password && localData.plants?.length && localData.tcodes?.length)) {
+          setStatusMsg({ text: 'Error: Mandatory user fields missing', type: 'error' }); return;
+        }
+        const exists = allUsers?.some((u: any) => u.id !== localData.id && u.username?.toString().toUpperCase() === localData.username?.toString().toUpperCase());
+        if (exists) { setStatusMsg({ text: `Username ${localData.username} exists`, type: 'error' }); return; }
+      }
+    }
+
+    let col = '';
+    let docId = localData.id;
+    
+    if (activeScreen.endsWith('01')) {
+      docId = (activeScreen === 'SU01' && registryIsEmpty) ? user.uid : crypto.randomUUID();
+    } else {
+      docId = docId || crypto.randomUUID();
+    }
+
+    if (activeScreen.startsWith('OX')) col = 'plants';
+    else if (activeScreen.startsWith('FM')) col = 'companies';
+    else if (activeScreen.startsWith('XK')) col = 'vendors';
+    else if (activeScreen.startsWith('XD')) col = 'customers';
+    else if (activeScreen.startsWith('VA')) col = 'sales_orders';
+    else if (activeScreen.startsWith('SU')) col = 'user_registry';
+
+    if (col) {
+      const isSys = col === 'user_registry';
+      const docRef = isSys ? doc(db, 'user_registry', docId) : doc(db, 'users', SHARED_HUB_ID, col, docId);
+      const payload = { 
+        ...localData, 
+        id: docId, 
+        updatedAt: new Date().toISOString(),
+        createdAt: localData.createdAt || new Date().toISOString()
+      };
+      setDocumentNonBlocking(docRef, payload, { merge: true });
+      setStatusMsg({ text: `Synchronized successfully`, type: 'success' });
+      
+      if (activeScreen.endsWith('01')) {
+        setFormData({});
+        setSearchId('');
+      } else if (!formData.id) {
+        setFormData(payload);
+      }
+    }
+  }, [user, activeScreen, formData, allOrders, rawPlants, allUsers, db, isBootstrapAdmin, rawCustomers, rawCompanies, rawVendors, rawOrders, se38Search, rawTrips]);
+
+  const executeTCode = React.useCallback((code: string) => {
+    const input = code.toUpperCase().trim();
+    if (!input) return;
+    
+    let clean = input;
+    let isNewSession = false;
+
+    if (input.startsWith('/N')) {
+      clean = input.substring(2).trim();
+    } else if (input.startsWith('/O')) {
+      clean = input.substring(2).trim();
+      isNewSession = true;
+    }
+
+    if (clean !== 'HOME' && clean !== '' && !isAuthorized(clean)) {
+      setStatusMsg({ text: `You are not authorized to run T-code ${clean}`, type: 'error' });
+      setTCode('');
+      return;
+    }
+
+    setHistory(p => [input, ...p.filter(h => h !== input)].slice(0, 7));
+    setShowHistory(false); setHistoryIndex(-1);
+
+    if (isNewSession) {
+      const baseUrl = window.location.origin + window.location.pathname;
+      window.open(clean ? `${baseUrl}?tcode=${clean}` : baseUrl, '_blank'); setTCode(''); return;
+    }
+
+    if (clean === 'HOME' || clean === '') { 
+      setScreenStack(prev => [...prev, 'HOME']);
+      setActiveScreen('HOME'); 
+      setTCode(''); setFormData({}); setSearchId(''); return; 
+    }
+
+    if (MASTER_TCODES.some(t => t.code === clean)) {
+      setScreenStack(prev => [...prev, clean as Screen]);
+      setActiveScreen(clean as Screen); setFormData({}); setSearchId(''); setXdSearch({ plant: '', type: '', name: '', customerId: '', postalCode: '' });
+      setSe38Results(null);
+      setSe38View('selection');
+      setViewMode('list');
+      setStatusMsg({ text: `Transaction ${clean} executed`, type: 'info' });
+    } else { setStatusMsg({ text: `T-Code ${clean} not found`, type: 'error' }); }
+    setTCode('');
+  }, [isAuthorized]);
+
+  const handleBack = React.useCallback(() => {
+    if (activeScreen === 'TR21' && viewMode === 'tracking') {
+      setViewMode('list');
+      return;
+    }
+    if (activeScreen === 'SE38' && se38View === 'result') {
+      setSe38View('selection');
+      return;
+    }
+    if (screenStack.length <= 1) {
+      setActiveScreen('HOME');
+      setFormData({});
+      return;
+    }
+    const newStack = [...screenStack];
+    newStack.pop(); 
+    const prevScreen = newStack[newStack.length - 1];
+    setScreenStack(newStack);
+    setActiveScreen(prevScreen);
+    setFormData({});
+    setSearchId('');
+    setStatusMsg({ text: `Navigated to ${prevScreen}`, type: 'info' });
+  }, [screenStack, activeScreen, viewMode, se38View]);
+
+  const handleCancel = React.useCallback(() => {
+    if (activeScreen === 'HOME' || (activeScreen.endsWith('03') && activeScreen !== 'SE38')) return;
+    setFormData({}); setSearchId(''); setStatusMsg({ text: 'Operation cancelled', type: 'info' });
+  }, [activeScreen]);
+
+  React.useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (['F3', 'F4', 'F8', 'F12'].includes(e.key)) e.preventDefault();
+      if (e.key === 'F8') handleSave();
+      if (e.key === 'F3') { if (e.shiftKey) router.push('/'); else handleBack(); }
+      if (e.key === 'F4') tCodeRef.current?.focus();
+      if (e.key === 'F12') handleCancel();
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); handleSave(); }
+      if (e.key === 'ArrowDown' && showHistory) { e.preventDefault(); setHistoryIndex(p => (p < history.length - 1 ? p + 1 : p)); }
+      if (e.key === 'ArrowUp' && showHistory) { e.preventDefault(); setHistoryIndex(p => (p > 0 ? p - 1 : 0)); }
+      if (e.key === 'Enter' && document.activeElement === tCodeRef.current) {
+        if (showHistory && historyIndex >= 0) { const s = history[historyIndex]; setTCode(s); executeTCode(s); }
+        else executeTCode(tCode);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown); return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [activeScreen, handleSave, handleCancel, executeTCode, handleBack, showHistory, historyIndex, history, router, tCode]);
+
+  if (isUserLoading || isProfileLoading || isAllUsersLoading || isAuthChecking) {
+    return <div className="h-screen w-full bg-[#f0f3f9] flex flex-col items-center justify-center font-mono space-y-4">
+      <div className="w-8 h-8 border-2 border-[#1e3a8a] border-t-transparent rounded-full animate-spin" /><span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Synchronizing...</span>
+    </div>;
+  }
+
+  const isReadOnly = activeScreen.endsWith('03');
+  const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id && activeScreen !== 'SE38';
+  const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id);
+  const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
+  const hideSidebar = activeScreen !== 'HOME';
+
+  const handleSearchIdEnter = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      const idToSearch = searchId; if (!idToSearch) return;
+      let list = getRegistryList();
+      let item = list.find((i: any) => (i.plantCode || i.customerCode || i.companyCode || i.saleOrder || i.username || i.id || i.vendorCode).toString().toUpperCase() === idToSearch.toUpperCase());
+      if (item) { setFormData(item); setSearchId(''); setStatusMsg({ text: `Record ${idToSearch} loaded`, type: 'success' }); }
+      else { setStatusMsg({ text: `Record ${idToSearch} not found`, type: 'error' }); }
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
+      <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50 print:hidden">
+        <div className="flex items-center gap-6">{['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(i => <button key={i} className="hover:text-blue-800 transition-colors uppercase">{i}</button>)}</div>
+        <div className="flex-1" /><div className="flex items-center h-full">
+          <button className="h-full px-2 hover:bg-white/30"><PlusSquare className="h-3.5 w-3.5 opacity-30" /></button>
+          <button className="h-full px-2 hover:bg-white/30"><Grid2X2 className="h-3 w-3 opacity-30" /></button>
+          <button onClick={() => router.push('/')} className="h-full px-3 hover:bg-[#e81123] hover:text-white"><X className="h-3.5 w-3.5" /></button>
+        </div>
+      </div>
+      <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40 print:hidden">
+        <div className="flex items-center px-2 py-1 gap-4">
+          <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">
+             {logoAsset && <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized data-ai-hint="logistics logo" />}
+          </div>
+          <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner relative">
+            <button onClick={(e) => { e.preventDefault(); executeTCode(tCode); }} className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100 transition-colors">✓</button>
+            <input ref={tCodeRef} type="text" value={tCode} onChange={(e) => { setTCode(e.target.value); if (showHistory) setShowHistory(false); }}
+              onClick={() => history.length > 0 && setShowHistory(true)} onBlur={() => setTimeout(() => setShowHistory(false), 200)}
+              className="w-48 outline-none text-xs px-1 font-bold tracking-wider"
+            />
+            {showHistory && history.length > 0 && (
+              <div className="absolute top-full left-0 w-full bg-white border border-slate-400 shadow-md z-[60] mt-0.5">
+                {history.map((h, i) => <div key={i} onClick={() => { setTCode(h); executeTCode(h); }} className={cn("px-4 py-1.5 text-xs font-bold cursor-pointer hover:bg-blue-50 transition-colors", i === historyIndex ? "bg-blue-100" : "")}>{h}</div>)}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
+             <button onClick={handleSave} disabled={activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')} 
+               className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} 
+               title={activeScreen === 'SE38' ? "Execute (F8)" : "Save (F8)"}>
+               {activeScreen === 'SE38' ? <PlayCircle className="h-4 w-4 text-blue-600" /> : <Save className="h-4 w-4 text-slate-600" />}
+             </button>
+             <button onClick={handleBack} className="p-1 hover:bg-slate-200 rounded" title="Back Step-by-Step (F3)"><Undo2 className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={handleCancel} disabled={activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title="Cancel (F12)"><XCircle className="h-4 w-4 text-slate-600" /></button>
+             <button onClick={() => window.open(window.location.href, '_blank')} className={cn("p-1 rounded hover:bg-slate-200")} title="New Session"><PlusSquare className="h-4 w-4 text-slate-600" /></button>
+          </div>
+          <div className="flex-1" /><div className="flex items-center gap-3 pr-4">
+             {(activeScreen === 'XD01' || activeScreen === 'VA01' || activeScreen === 'FM01') && (
+               <div className="flex items-center gap-2 mr-4">
+                 <input type="file" ref={bulkInputRef} onChange={handleFileChange} className="hidden" accept=".csv" />
+                 <button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 h-7 bg-white border border-slate-300 hover:bg-slate-50 rounded text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]"><FileText className="h-3.5 w-3.5" /> Template</button>
+                 <button onClick={handleBulkUpload} className="flex items-center gap-1.5 px-3 h-7 bg-[#1e3a8a] hover:bg-blue-900 text-white rounded text-[9px] font-black uppercase tracking-widest"><UploadCloud className="h-3.5 w-3.5" /> Bulk Upload</button>
+               </div>
+             )}
+             <button onClick={() => window.print()} className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Printer className="h-4 w-4" /></button>
+             <button onClick={() => { localStorage.removeItem('sap_bootstrap_session'); localStorage.removeItem('sap_user_role'); router.push('/login'); }} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700"><LogOut className="h-3.5 w-3.5" /> Log Off</button>
+          </div>
+        </div>
+      </div>
+      <div className="flex-1 flex overflow-hidden">
+        {!hideSidebar && (
+          <div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden print:hidden">
+            <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div>
+            <div className="flex-1 overflow-y-auto green-scrollbar">
+              {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'TR24' || t.code === 'VA04' || t.code === 'ZCODE' || t.code === 'WGPS24' || t.code === 'SE38').map((item) => (
+                <div key={item.code} onClick={() => executeTCode(item.code)} className={cn("flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all", activeScreen === item.code ? "bg-[#0056d2] text-white" : "text-[#1e3a8a]")}>
+                  <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", activeScreen === item.code ? "bg-white" : "bg-slate-300 group-hover:bg-blue-600")} />
+                  <span className={cn("text-[10px] font-black uppercase tracking-tight", activeScreen === item.code ? "text-white" : "text-[#1e3a8a]")}>{item.code} - {item.description}</span>
+                  <div className="flex-1" /><item.icon className={cn("h-3.5 w-3.5", activeScreen === item.code ? "text-white" : "text-slate-400")} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="flex-1 flex flex-col overflow-hidden bg-[#f0f3f9]">
+          <div className="flex-1 flex flex-col overflow-hidden bg-[#f2f2f2] print:bg-white">
+            {activeScreen === 'HOME' ? (
+              <div className="flex-1 overflow-y-auto p-2 md:p-4 relative animate-fade-in">
+                <h1 className="text-2xl md:text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter mb-8">Sikka Logistics Management Control</h1>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-4 md:p-6 border border-slate-300 shadow-sm mb-12">
+                  <div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Authorized Plant</label>
+                    <select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none" value={homePlantFilter} onChange={(e) => setHomePlantFilter(e.target.value)}>
+                      <option value="ALL">ALL AUTHORIZED PLANTS</option>
+                      {accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-2 relative" ref={monthRef}><label className="text-[10px] font-black uppercase text-slate-400">Period</label>
+                    <div onClick={() => setShowMonthCalendar(!showMonthCalendar)} className="h-10 border border-slate-400 bg-white px-3 flex items-center justify-between cursor-pointer shadow-sm"><span className="text-xs font-bold text-slate-700 uppercase">{format(new Date(homeMonthFilter + '-01'), 'MMMM yyyy')}</span><CalendarIcon className="h-4 w-4 text-slate-400" /></div>
+                    {showMonthCalendar && (
+                      <div className="absolute top-full left-0 mt-1 z-[60] flex flex-col border border-slate-300 bg-white rounded-lg shadow-2xl w-full max-w-[320px] animate-slide-down">
+                        <div className="flex items-center justify-between p-3 border-b border-slate-200">
+                          <button onClick={(e) => { e.stopPropagation(); const [y, m] = homeMonthFilter.split('-'); setHomeMonthFilter(`${parseInt(y) - 1}-${m}`); }} className="p-1.5 hover:bg-slate-50 rounded-md border border-slate-200"><ChevronLeft className="h-4 w-4" /></button><span className="text-sm font-black">{homeMonthFilter.split('-')[0]}</span>
+                          <button onClick={(e) => { e.stopPropagation(); const [y, m] = homeMonthFilter.split('-'); setHomeMonthFilter(`${parseInt(y) + 1}-${m}`); }} className="p-1.5 hover:bg-slate-50 rounded-md border border-slate-200"><ChevronRight className="h-4 w-4" /></button>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2 p-3">
+                          {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => {
+                            const mStr = (i + 1).toString().padStart(2, '0'); const year = homeMonthFilter.split('-')[0]; const isActive = homeMonthFilter === `${year}-${mStr}`;
+                            return <button key={m} onClick={(e) => { e.stopPropagation(); setHomeMonthFilter(`${year}-${mStr}`); setShowMonthCalendar(false); }} className={cn("py-2 text-[10px] font-black border rounded-md uppercase", isActive ? "bg-[#0056d2] text-white border-[#0056d2]" : "bg-white text-slate-600 border-slate-200")}>{m}</button>;
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  {[{ label: 'OPEN ORDER', count: homeStats.open, color: 'text-blue-600' }, { label: 'LOADING', count: homeStats.loading, color: 'text-orange-600' }, { label: 'IN-TRANSIT', count: homeStats.transit, color: 'text-emerald-600' }, { label: 'ARRIVED', count: homeStats.arrived, color: 'text-indigo-600' }, { label: 'REJECT', count: homeStats.reject, color: 'text-red-600' }, { label: 'CLOSED', count: homeStats.closed, color: 'text-slate-600' }].map(w => (
+                    <div key={w.label} className="p-4 md:p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-2 bg-white animate-slide-up">
+                      <span className="text-[10px] font-black text-slate-400 uppercase text-center">{w.label}</span><span className={cn("text-2xl md:text-4xl font-black italic tracking-tighter", w.color)}>{w.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className={cn(
+                "animate-slide-up print:p-0 print:border-none print:shadow-none flex flex-col w-full h-full overflow-y-auto bg-[#f2f2f2] green-scrollbar",
+              )}>
+                 {showForm && <div className="space-y-0 min-h-full">
+                   <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10">
+                      <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">
+                        {MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen}
+                      </h2>
+                   </div>
+                   <div className="px-10 pb-20 max-w-full">
+                     {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
+                     {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
+                     {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
+                     {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
+                     {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} trips={allTrips} screen={activeScreen} />}
+                     {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} onPost={handleSave} onCancel={() => setFormData({})} />}
+                     {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
+                   </div>
+                 </div>}
+                 {showList && <div className="space-y-0 min-h-full">
+                   <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between">
+                      <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">
+                        {MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen} - REGISTRY
+                      </h2>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AUTHORIZED</div>
+                   </div>
+                   <div className="px-10 pb-20 max-w-full">
+                     <div className="bg-white border-b-2 border-slate-300 p-6 mb-8 flex flex-col md:flex-row items-center gap-8">
+                       <div className="flex flex-col gap-2 flex-1 w-full"><label className="text-[11px] font-black uppercase text-slate-500 block tracking-widest">Search Criteria</label>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+                             {activeScreen.startsWith('XD') ? <>
+                                 <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Select Plant</label><select className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold" value={xdSearch.plant} onChange={(e) => setXdSearch({...xdSearch, plant: e.target.value})}><option value="">ALL PLANTS</option>{accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div>
+                                 <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Select Type</label><select className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold" value={xdSearch.type} onChange={(e) => setXdSearch({...xdSearch, type: e.target.value})}><option value="">ALL TYPES</option><option value="Consignor">Consignor</option><option value="Consignee - Ship to Party">Consignee - Ship to Party</option></select></div>
+                                 <div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Enter Name</label><input className="h-8 border border-slate-400 px-3 text-xs font-black outline-none" value={xdSearch.name} onChange={(e) => setXdSearch({...xdSearch, name: e.target.value})} /></div>
+                               </> : <div className="col-span-1 md:col-span-3 flex items-center gap-4"><input className="h-9 w-full max-w-2xl border border-slate-400 px-4 text-xs font-black outline-none bg-white focus:ring-1 focus:ring-blue-500 uppercase tracking-widest" value={searchId} onChange={(e) => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER IDENTIFIER AND PRESS ENTER..." /></div>}
+                          </div>
+                       </div>
+                     </div>
+                     <RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} />
+                   </div>
+                 </div>}
+                 {activeScreen === 'TR21' && viewMode === 'list' && (
+                   <TripBoard 
+                     orders={allOrders} 
+                     trips={allTrips} 
+                     vendors={accessibleVendors} 
+                     plants={accessiblePlants} 
+                     companies={accessibleCompanies} 
+                     customers={accessibleCustomers} 
+                     onStatusUpdate={setStatusMsg}
+                     viewMode={viewMode}
+                     setViewMode={setViewMode}
+                     trackingNode={trackingNode}
+                     setTrackingNode={setTrackingNode}
+                     settings={settings}
+                   />
+                 )}
+                 {activeScreen === 'TR21' && viewMode === 'tracking' && (
+                    <Tr21TrackingPage 
+                      node={trackingNode} 
+                      onBack={() => setViewMode('list')} 
+                      customers={accessibleCustomers}
+                      settings={settings}
+                    />
+                 )}
+                 {activeScreen === 'TR24' && <TrackShipmentScreen trips={allTrips} orders={allOrders} customers={accessibleCustomers} />}
+                 {activeScreen === 'WGPS24' && <GpsTrackingHub trips={allTrips} onStatusUpdate={setStatusMsg} db={db} settings={settings} settingsRef={settingsRef} />}
+                 {activeScreen === 'SE38' && (
+                   <Se38Report 
+                     search={se38Search} 
+                     results={se38Results} 
+                     view={se38View}
+                     onSearchChange={setSe38Search} 
+                     onViewChange={setSe38View}
+                     allPlants={accessiblePlants} 
+                     allVendors={accessibleVendors} 
+                     allCompanies={accessibleCompanies} 
+                     allCustomers={accessibleCustomers} 
+                   />
+                 )}
+                 {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em] print:hidden">
+        <div className="flex items-center gap-4 md:gap-8 overflow-hidden flex-1"><span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span><span className="shrink-0">{activeScreen}</span><span className="truncate">USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.fullName || 'Authenticating...')}</span>{statusMsg.text !== 'Ready' && <span className={cn("truncate", statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span>}</div>
+        {greeting && <div className="shrink-0 ml-4 hidden sm:block text-blue-400">{greeting}</div>}
+      </div>
+    </div>
+  );
+}
+
+function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
+  const [gpsData, setGpsData] = React.useState<any[]>([]);
+  const [distance, setDistance] = React.useState<string>('Calculating...');
+  const mapRef = React.useRef<HTMLDivElement>(null);
+  
+  const fetchGps = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/gps');
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.data?.list) setGpsData(json.data.list);
+      }
+    } catch (e) {}
+  }, []);
+
+  React.useEffect(() => {
+    fetchGps();
+    const i = setInterval(fetchGps, 30000);
+    return () => clearInterval(i);
+  }, [fetchGps]);
+
+  React.useEffect(() => {
+    if (!node || !window.google) return;
+
+    const { trip } = node;
+    const gpsVehicle = gpsData.find(v => v.vehicleNumber?.toUpperCase() === trip.vehicleNumber?.toUpperCase());
+    
+    const geocoder = new window.google.maps.Geocoder();
+    const directionsService = new window.google.maps.DirectionsService();
+    const directionsRenderer = new window.google.maps.DirectionsRenderer({
+      suppressMarkers: true,
+      polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 }
+    });
+
+    const consignor = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.consignor?.toUpperCase());
+    const shipTo = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.shipToParty?.toUpperCase());
+
+    const p1 = new Promise((resolve) => {
+      if (consignor?.postalCode) {
+        geocoder.geocode({ address: consignor.postalCode }, (res, status) => {
+          if (status === 'OK') resolve(res[0].geometry.location);
+          else resolve(null);
+        });
+      } else resolve(null);
+    });
+
+    const p2 = new Promise((resolve) => {
+      if (shipTo?.postalCode) {
+        geocoder.geocode({ address: shipTo.postalCode }, (res, status) => {
+          if (status === 'OK') resolve(res[0].geometry.location);
+          else resolve(null);
+        });
+      } else resolve(null);
+    });
+
+    Promise.all([p1, p2]).then(([origin, dest]: any) => {
+      if (!mapRef.current) return;
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: gpsVehicle ? { lat: gpsVehicle.latitude, lng: gpsVehicle.longitude } : { lat: 20.5937, lng: 78.9629 },
+        zoom: gpsVehicle ? 12 : 5,
+        styles: [
+          { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }
+        ]
+      });
+      directionsRenderer.setMap(map);
+
+      if (origin) {
+        new window.google.maps.Marker({
+          position: origin,
+          map,
+          title: 'Start Point',
+          icon: {
+            url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+            scaledSize: new window.google.maps.Size(32, 32)
+          }
+        });
+      }
+
+      if (dest) {
+        new window.google.maps.Marker({
+          position: dest,
+          map,
+          title: 'Drop Point',
+          icon: {
+            url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+            scaledSize: new window.google.maps.Size(32, 32)
+          }
+        });
+      }
+
+      if (gpsVehicle) {
+        const vIcon = gpsVehicle.speed > 0 ? settings?.activeIcon : settings?.stopIcon;
+        new window.google.maps.Marker({
+          position: { lat: gpsVehicle.latitude, lng: gpsVehicle.longitude },
+          map,
+          title: gpsVehicle.vehicleNumber,
+          icon: {
+            url: vIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png',
+            scaledSize: new window.google.maps.Size(40, 40)
+          }
+        });
+      }
+
+      if (origin && dest) {
+        directionsService.route({
+          origin,
+          destination: dest,
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        }, (result, status) => {
+          if (status === 'OK') {
+            directionsRenderer.setDirections(result);
+            const route = result.routes[0];
+            if (route.legs[0].distance) {
+              setDistance(route.legs[0].distance.text);
+            }
+          }
+        });
+      }
+    });
+  }, [node, gpsData, customers, settings]);
+
+  const { trip } = node;
+  const currentGps = gpsData.find(v => v.vehicleNumber?.toUpperCase() === trip.vehicleNumber?.toUpperCase());
+
+  return (
+    <div className="flex flex-col h-full bg-[#f2f2f2] animate-fade-in font-mono">
+      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-4 flex items-center justify-between shadow-sm shrink-0">
+        <div className="flex items-center gap-8">
+           <button onClick={onBack} className="p-1 hover:bg-slate-100 rounded text-slate-600 transition-colors">
+              <ArrowLeft className="h-5 w-5" />
+           </button>
+           <h2 className="text-[14px] font-black text-slate-800 tracking-tight uppercase">Live Logistical Tracking</h2>
+        </div>
+        <div className="flex items-center gap-12">
+           <div className="flex items-center gap-12">
+              <div className="flex items-center gap-12">
+                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[11px] font-black uppercase text-[#1e3a8a]">{trip.shipToParty}</span></div>
+                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[11px] font-black uppercase text-blue-600">{trip.vehicleNumber}</span></div>
+                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[11px] font-black uppercase text-slate-700">{trip.route}</span></div>
+                <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Distance</span><span className="text-[11px] font-black text-emerald-600">{distance}</span></div>
+              </div>
+           </div>
+        </div>
+      </div>
+      
+      <div className="flex-1 relative p-4">
+        <div className="absolute top-8 left-8 z-10 space-y-3 pointer-events-none">
+           {currentGps && (
+             <div className="bg-white/90 backdrop-blur-sm border-2 border-[#1e3a8a] p-4 shadow-2xl flex flex-col gap-2 min-w-[220px]">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-1">
+                   <span className="text-[10px] font-black uppercase text-[#1e3a8a]">Vehicle Registry</span>
+                   <Badge className={cn("text-[9px] font-black uppercase h-5", currentGps.speed > 0 ? "bg-emerald-500" : "bg-red-500")}>
+                     {currentGps.speed > 0 ? `${currentGps.speed} KM/H` : 'IDLE'}
+                   </Badge>
+                </div>
+                <div className="flex flex-col">
+                   <span className="text-[9px] font-black text-slate-400 uppercase">Speed</span>
+                   <span className="text-sm font-black italic">{currentGps.speed} KM/H</span>
+                </div>
+                <div className="flex flex-col">
+                   <span className="text-[9px] font-black text-slate-400 uppercase">Last Sync</span>
+                   <span className="text-[10px] font-bold">{currentGps.lastUpdate || 'Just Now'}</span>
+                </div>
+             </div>
+           )}
+        </div>
+        <div ref={mapRef} className="w-full h-full bg-white border border-slate-300 shadow-inner rounded-none" />
+      </div>
     </div>
   );
 }
