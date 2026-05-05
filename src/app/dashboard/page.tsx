@@ -690,7 +690,7 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   }, [isCnPreviewOpen, handleGeneratePdf]);
 
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
-  const getStats = React.useCallback((o: any) => { const tot = parseFloat(o.weight) || 0; const ass = trips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (t.assignWeight || 0), 0) || 0; return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; }, [trips]);
+  const getStats = React.useCallback((o: any) => { const tot = parseFloat(o.weight) || 0; const ass = trips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (parseFloat(t.assignWeight) || 0), 0) || 0; return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; }, [trips]);
   const fOrders = React.useMemo(() => (orders || []).filter(o => o.status !== 'CANCELLED').map(o => { const stats = getStats(o); const route = (o.from && o.destination) ? `${o.from} → ${o.destination}` : (o.route || ''); return { ...o, ...stats, route }; }).filter(o => { const bal = o.bal > 0; const itemDate = new Date(o.createdAt); return bal && isWithinInterval(itemDate, { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) }); }), [orders, getStats, fromDate, toDate]);
   const fTrips = React.useMemo(() => { if (!trips) return []; const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; return trips.filter(t => t.status === map[activeTab]).map(t => { const route = (t.from && t.destination && !t.route?.includes('→')) ? `${t.from} → ${t.destination}` : t.route; return { ...t, route }; }).filter(t => isWithinInterval(new Date(t.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })); }, [trips, activeTab, fromDate, toDate]);
   const tabCounts = React.useMemo(() => { const counts: Record<string, number> = {}; counts['Open Orders'] = fOrders.length; ['Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'].forEach(t => { const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; counts[t] = (trips || []).filter(tr => tr.status === map[t] && isWithinInterval(new Date(tr.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })).length; }); return counts; }, [fOrders, trips, fromDate, toDate]);
@@ -1078,7 +1078,7 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                       });
                     }} 
                   />
-                  <FormInput label="VENDOR FIRM" value={assignData.vendorFirmName} disabled={true} />
+                  <FormInput label="VENDOR FIR" value={assignData.vendorFirmName} disabled={true} />
                   <FormInput label="MOBILE" value={assignData.vendorMobile} disabled={true} />
                   <FormInput label="ARRANGE BY" value={assignData.arrangeBy} onChange={(v: string) => setAssignData({...assignData, arrangeBy: v})} />
                   <FormInput label="RATE" type="number" value={assignData.rate} onChange={(v: string) => {
@@ -2353,6 +2353,12 @@ export default function DashboardPage() {
     if (!authorizedPlantsList.length) return [];
     return rawOrders?.filter(o => authorizedPlantsList.includes(o.plantCode)) || [];
   }, [rawOrders, authorizedPlantsList, isBootstrapAdmin]);
+
+  const getStats = React.useCallback((o: any) => { 
+    const tot = parseFloat(o.weight) || 0; 
+    const ass = allTrips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (parseFloat(t.assignWeight) || 0), 0) || 0; 
+    return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; 
+  }, [allTrips]);
 
   const homeStats = React.useMemo(() => {
     if (!allOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, pod: 0, reject: 0, closed: 0 };
