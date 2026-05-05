@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -2732,9 +2733,11 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
 }
 
 function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: any) {
+  const [activeGpsTab, setActiveGpsTab] = React.useState<'GPS MAP' | 'Setting'>('GPS MAP');
   const [gpsData, setGpsData] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(false);
-  const [editIcons, setEditIcons] = React.useState(false);
+  const mapRef = React.useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   const fetchGps = React.useCallback(async () => {
     setLoading(true);
@@ -2743,76 +2746,162 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
       if (res.ok) {
         const json = await res.json();
         if (json?.data?.list) setGpsData(json.data.list);
-        onStatusUpdate({ text: 'GPS Registry Synced', type: 'success' });
       }
-    } catch (e) {
-      onStatusUpdate({ text: 'GPS Sync Failed', type: 'error' });
-    } finally {
+    } catch (e) {} finally {
       setLoading(false);
     }
-  }, [onStatusUpdate]);
+  }, []);
 
-  React.useEffect(() => { fetchGps(); }, [fetchGps]);
+  React.useEffect(() => { 
+    fetchGps(); 
+    const i = setInterval(fetchGps, 30000); 
+    return () => clearInterval(i); 
+  }, [fetchGps]);
 
-  const handleUpdateIcon = (type: 'active' | 'stop', url: string) => {
-    setDocumentNonBlocking(settingsRef, { [type === 'active' ? 'activeIcon' : 'stopIcon']: url }, { merge: true });
-    onStatusUpdate({ text: 'Map Configuration Updated', type: 'success' });
+  React.useEffect(() => {
+    if (activeGpsTab !== 'GPS MAP' || !window.google || !gpsData.length || !mapRef.current) return;
+
+    const map = new window.google.maps.Map(mapRef.current, {
+      center: { lat: 20.5937, lng: 78.9629 },
+      zoom: 5,
+      styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
+    });
+
+    gpsData.forEach((v) => {
+      const iconUrl = v.speed > 0 ? settings?.activeIcon : settings?.stopIcon;
+      const marker = new window.google.maps.Marker({
+        position: { lat: v.latitude, lng: v.longitude },
+        map,
+        title: v.vehicleNumber,
+        icon: iconUrl ? { url: iconUrl, scaledSize: new window.google.maps.Size(32, 32) } : undefined
+      });
+
+      marker.addListener('click', () => {
+        toast({ title: `Vehicle: ${v.vehicleNumber}`, description: `Location: ${v.location}` });
+      });
+    });
+  }, [activeGpsTab, gpsData, settings, toast]);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) {
+      alert("Error: Image size must be under 500 KB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setDocumentNonBlocking(settingsRef, { [field]: ev.target?.result as string }, { merge: true });
+      onStatusUpdate({ text: 'Icon Synchronization Success', type: 'success' });
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
-    <div className="h-full flex flex-col font-mono">
-      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-6 flex items-center justify-between shadow-sm">
-        <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">GPS TRACKING HUB</h2>
-        <div className="flex items-center gap-4">
-          <button onClick={() => setEditIcons(!editIcons)} className="text-[9px] font-black uppercase flex items-center gap-2 border border-slate-300 px-3 py-1.5 hover:bg-slate-50 transition-colors"><Settings className="h-3.5 w-3.5" /> Config</button>
-          <button onClick={fetchGps} disabled={loading} className="bg-[#1e3a8a] text-white text-[9px] font-black uppercase px-4 py-1.5 shadow-sm hover:bg-[#162a63] transition-colors">{loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Manual Sync'}</button>
+    <div className="h-full flex flex-col font-mono overflow-hidden">
+      <div className="bg-[#dae4f1]/30 border-b border-slate-300 flex items-center shrink-0">
+        {['GPS MAP', 'Setting'].map(t => (
+          <button 
+            key={t} 
+            onClick={() => setActiveGpsTab(t as any)} 
+            className={cn(
+              "px-10 py-2.5 text-[10px] font-black uppercase tracking-widest border-r border-slate-300 transition-all",
+              activeGpsTab === t ? "bg-white text-[#0056d2] -mb-px" : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            {t}
+          </button>
+        ))}
+        <div className="flex-1" />
+        <div className="px-6 flex items-center gap-3">
+           <button onClick={fetchGps} disabled={loading} className="text-[9px] font-black uppercase flex items-center gap-2 text-[#1e3a8a] hover:opacity-70">
+             {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Radar className="h-3 w-3" />} SYNC HUB
+           </button>
         </div>
       </div>
 
-      {editIcons && (
-        <div className="mx-8 mb-8 p-6 bg-white border border-slate-300 shadow-sm grid grid-cols-2 gap-12 animate-slide-down">
-          <div className="space-y-4">
-             <label className="text-[10px] font-black uppercase text-slate-400">Active Truck Icon URL</label>
-             <input className="h-9 w-full border border-slate-400 px-3 text-xs font-bold" defaultValue={settings?.activeIcon} onBlur={(e) => handleUpdateIcon('active', e.target.value)} />
+      <div className="flex-1 overflow-hidden relative">
+        {activeGpsTab === 'GPS MAP' ? (
+          <div className="flex h-full animate-fade-in">
+            <div className="w-1/4 bg-white border-r border-slate-300 flex flex-col shadow-sm">
+              <div className="bg-[#f0f0f0] p-3 border-b border-slate-300 text-[9px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
+                <Truck className="h-3.5 w-3.5" /> Vehicle Registry
+              </div>
+              <div className="flex-1 overflow-y-auto green-scrollbar">
+                <table className="w-full text-left border-collapse">
+                  <tbody className="divide-y divide-slate-100">
+                    {gpsData.map((v, idx) => (
+                      <tr 
+                        key={idx} 
+                        onClick={() => toast({ title: v.vehicleNumber, description: v.location })}
+                        className="hover:bg-[#e8f0fe] cursor-pointer transition-colors group"
+                      >
+                        <td className="p-4 flex flex-col gap-1">
+                          <span className="text-[11px] font-black text-[#1e3a8a] uppercase">{v.vehicleNumber}</span>
+                          <div className="flex items-center gap-3">
+                            <Badge className={cn("text-[7px] h-4 font-black uppercase", v.speed > 0 ? "bg-emerald-500" : "bg-red-500")}>
+                               {v.speed > 0 ? `${v.speed} KM/H` : 'IDLE'}
+                            </Badge>
+                            <span className={cn("text-[8px] font-black", v.ignition ? "text-emerald-600" : "text-slate-400")}>
+                               IGN: {v.ignition ? 'ON' : 'OFF'}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="flex-1 relative bg-slate-50">
+              {loading && (
+                <div className="absolute inset-0 bg-white/50 z-20 flex flex-col items-center justify-center gap-2">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#1e3a8a]" />
+                  <span className="text-[9px] font-black uppercase tracking-[0.3em]">Map Sync...</span>
+                </div>
+              )}
+              <div ref={mapRef} className="w-full h-full" />
+            </div>
           </div>
-          <div className="space-y-4">
-             <label className="text-[10px] font-black uppercase text-slate-400">Stopped Truck Icon URL</label>
-             <input className="h-9 w-full border border-slate-400 px-3 text-xs font-bold" defaultValue={settings?.stopIcon} onBlur={(e) => handleUpdateIcon('stop', e.target.value)} />
-          </div>
-        </div>
-      )}
+        ) : (
+          <div className="p-10 space-y-12 animate-slide-up max-w-4xl mx-auto">
+             <SectionGrouping title="ICON CONFIGURATION">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-4">
+                   <div className="bg-white border border-slate-300 p-8 shadow-sm flex flex-col items-center gap-6">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Running Vehicle Icon</span>
+                      <div className="relative h-24 w-24 border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50 rounded-xl overflow-hidden group">
+                         {settings?.activeIcon ? (
+                           <Image src={settings.activeIcon} alt="Running" fill className="object-contain p-2" unoptimized />
+                         ) : <Truck className="h-10 w-10 text-slate-200" />}
+                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <label className="cursor-pointer text-white text-[9px] font-black uppercase border border-white px-3 py-1">Change</label>
+                            <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'activeIcon')} />
+                         </div>
+                      </div>
+                      <input type="file" id="running-icon-up" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'activeIcon')} />
+                      <label htmlFor="running-icon-up" className="bg-white border border-[#1e3a8a] text-[#1e3a8a] px-6 py-2 text-[10px] font-black uppercase cursor-pointer hover:bg-blue-50 transition-all shadow-sm">Upload Image</label>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase">Limit: 500 KB per asset</p>
+                   </div>
 
-      <div className="flex-1 overflow-auto px-8 pb-10">
-        <div className="bg-white border border-slate-300 shadow-sm">
-          <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 bg-[#f0f0f0] border-b-2 border-slate-300 z-10">
-              <tr className="text-[9px] font-black uppercase text-slate-600">
-                <th className="p-3 border-r border-slate-200">Vehicle Number</th>
-                <th className="p-3 border-r border-slate-200">Current Location</th>
-                <th className="p-3 border-r border-slate-200">Speed</th>
-                <th className="p-3 border-r border-slate-200">Ignition</th>
-                <th className="p-3 border-r border-slate-200">Last Registry Update</th>
-                <th className="p-3">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {gpsData.map((v, idx) => (
-                <tr key={idx} className="border-b border-slate-100 text-[11px] font-bold hover:bg-blue-50 transition-colors">
-                  <td className="p-3 text-[#1e3a8a] font-black uppercase">{v.vehicleNumber}</td>
-                  <td className="p-3 uppercase truncate max-w-[350px] italic text-slate-600">{v.location}</td>
-                  <td className="p-3">{v.speed} KM/H</td>
-                  <td className="p-3 font-black text-center">{v.ignition ? <span className="text-emerald-600">ON</span> : <span className="text-red-600">OFF</span>}</td>
-                  <td className="p-3 text-slate-500 uppercase">{v.lastUpdate}</td>
-                  <td className="p-3">
-                    <Badge className={cn("text-[8px] font-black uppercase", v.speed > 0 ? "bg-emerald-500" : "bg-red-500")}>
-                      {v.speed > 0 ? 'MOVING' : 'STATIONARY'}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                   <div className="bg-white border border-slate-300 p-8 shadow-sm flex flex-col items-center gap-6">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Stop Vehicle Icon</span>
+                      <div className="relative h-24 w-24 border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50 rounded-xl overflow-hidden group">
+                         {settings?.stopIcon ? (
+                           <Image src={settings.stopIcon} alt="Stopped" fill className="object-contain p-2" unoptimized />
+                         ) : <Truck className="h-10 w-10 text-slate-200 opacity-50" />}
+                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <label className="cursor-pointer text-white text-[9px] font-black uppercase border border-white px-3 py-1">Change</label>
+                            <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'stopIcon')} />
+                         </div>
+                      </div>
+                      <input type="file" id="stop-icon-up" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'stopIcon')} />
+                      <label htmlFor="stop-icon-up" className="bg-white border border-slate-400 text-slate-700 px-6 py-2 text-[10px] font-black uppercase cursor-pointer hover:bg-slate-50 transition-all shadow-sm">Upload Image</label>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase">Limit: 500 KB per asset</p>
+                   </div>
+                </div>
+             </SectionGrouping>
+          </div>
+        )}
       </div>
     </div>
   );
