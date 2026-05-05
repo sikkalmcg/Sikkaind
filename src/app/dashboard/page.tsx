@@ -53,9 +53,6 @@ const MASTER_TCODES = [
   { code: 'XK02', description: 'VENDOR MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'XK03', description: 'VENDOR MASTER: DISPLAY', icon: Info, module: 'Master Data' },
   { code: 'XK03_LIST', description: 'VENDOR MASTER: REGISTRY', icon: Info, module: 'Master Data' },
-  { code: 'XK01', description: 'VENDOR MASTER: CREATE', icon: User, module: 'Master Data' },
-  { code: 'XK02', description: 'VENDOR MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
-  { code: 'XK03', description: 'VENDOR MASTER: DISPLAY', icon: Info, module: 'Master Data' },
   { code: 'XD01', description: 'CUSTOMER MASTER: CREATE', icon: Users, module: 'Master Data' },
   { code: 'XD02', description: 'CUSTOMER MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'XD03', description: 'CUSTOMER MASTER: DISPLAY', icon: Info, module: 'Master Data' },
@@ -80,7 +77,6 @@ function VehicleLocation({ lat, lng, locationName, onClick }: { lat: number, lng
   
   React.useEffect(() => {
     if (locationName) {
-      // Check if location string is actually coordinates
       const isCoords = /^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(locationName);
       if (!isCoords) {
         const parts = locationName.split(',').map(p => p.trim()).filter(Boolean);
@@ -103,7 +99,6 @@ function VehicleLocation({ lat, lng, locationName, onClick }: { lat: number, lng
           if (c.types.includes('route') || c.types.includes('sublocality')) street = c.long_name;
           if (c.types.includes('locality')) city = c.long_name;
         }
-        // Format strictly as Street, City. Fallback to clean slice of formatted address if needed.
         const full = city ? `${street ? street + ', ' : ''}${city}` : results[0].formatted_address.split(',').slice(0, 2).join(', ');
         setLoc(full);
       } else {
@@ -987,7 +982,7 @@ export default function SapDashboard() {
       headers = "Plant,Consignor,Consignee Code,Consignee Name,Ship to Party Code,Ship to Party Name,Weight,UOM";
       filename = "VA01_SALES_ORDER_TEMPLATE.csv";
     } else if (activeScreen.startsWith('XD')) {
-      headers = "PlantCodes,CustomerCode,CustomerName,CustomerType,Address,City,PostalCode,Mobile,GSTIN";
+      headers = "PlantCodes,CustomerCode,CustomerName,CustomerType,Address,City,PostalCode,Mobile No.,GSTIN";
       filename = "XD01_CUSTOMER_MASTER_TEMPLATE.csv";
     } else if (activeScreen.startsWith('FM')) {
       headers = "CompanyCode,CompanyName,Address,City,State,PostalCode,GSTIN,PAN,Mobile,Email,Website";
@@ -1125,7 +1120,7 @@ export default function SapDashboard() {
         const idxA = getIdx('Address');
         const idxCi = getIdx('City');
         const idxPC = getIdx('PostalCode');
-        const idxM = getIdx('Mobile');
+        const idxM = getIdx('MobileNo.');
         const idxG = getIdx('GSTIN');
 
         if (idxP === -1 || idxCC === -1 || idxCN === -1 || idxCi === -1) {
@@ -1158,7 +1153,7 @@ export default function SapDashboard() {
             address: idxA !== -1 ? cols[idxA] : '',
             city: city,
             postalCode: idxPC !== -1 ? cols[idxPC] : '',
-            mobile: idxM !== -1 ? cols[idxM] : '',
+            mobile: idxM !== -1 ? cols[idxM].replace(/\D/g, '').slice(-10) : '',
             gstin: idxG !== -1 ? cols[idxG] : '',
             updatedAt: new Date().toISOString()
           };
@@ -1651,18 +1646,26 @@ function SectionGrouping({ title, children }: { title: string, children: React.R
   );
 }
 
-function FormInput({ label, value, onChange, type = "text", disabled, placeholder, rightElement }: any) {
+function FormInput({ label, value, onChange, type = "text", disabled, placeholder, rightElement, leftElement }: any) {
   return (
     <div className="flex items-center gap-8 group">
       <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase tracking-tight">{label}:</label>
       <div className="relative w-[320px]">
+        {leftElement && (
+          <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+            {leftElement}
+          </div>
+        )}
         <input 
           type={type} 
           value={value || ''} 
           onChange={(e: any) => onChange(e.target.value)} 
           disabled={disabled} 
           placeholder={placeholder} 
-          className="h-8 w-full border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase shadow-sm disabled:opacity-60" 
+          className={cn(
+            "h-8 w-full border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase shadow-sm disabled:opacity-60",
+            leftElement && "pl-10"
+          )} 
         />
         {rightElement && <div className="absolute right-2 top-1/2 -translate-y-1/2">{rightElement}</div>}
       </div>
@@ -1895,6 +1898,16 @@ function CustomerForm({ data, onChange, disabled, allPlants }: any) {
       <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
       <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
       <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
+      <FormInput 
+        label="MOBILE NO." 
+        value={data.mobile} 
+        onChange={(v: string) => {
+          const val = v.replace(/\D/g, '').slice(0, 10);
+          onChange({...data, mobile: val});
+        }} 
+        disabled={disabled} 
+        leftElement={<span className="text-[12px] font-black text-slate-400">+91</span>}
+      />
       <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
     </SectionGrouping></div>;
 }
@@ -2052,7 +2065,14 @@ function CancelOrderForm({ data, onChange, allOrders, onPost, onCancel }: any) {
 function RegistryList({ onSelectItem, listData, activeScreen }: any) {
   const isSuPage = activeScreen?.startsWith('SU');
   const isVendorRegistry = activeScreen?.startsWith('XK');
-  const headers = isSuPage ? ['Full Name', 'Username', 'Authentication', 'Authorized HUB'] : isVendorRegistry ? ['Vendor Code', 'Vendor Name', 'Vendor Firm Name', 'Mobile', 'Special Route'] : ['ID', 'Name / Description', 'Type / Details', 'Sync Hub'];
+  const isCustomerRegistry = activeScreen?.startsWith('XD');
+  const headers = isSuPage 
+    ? ['Full Name', 'Username', 'Authentication', 'Authorized HUB'] 
+    : isVendorRegistry 
+      ? ['Vendor Code', 'Vendor Name', 'Vendor Firm Name', 'Mobile', 'Special Route'] 
+      : isCustomerRegistry
+        ? ['Customer Code', 'Customer Name', 'Type / Details', 'Mobile No.', 'Sync Hub']
+        : ['ID', 'Name / Description', 'Type / Details', 'Sync Hub'];
   
   return <div className="w-full bg-white border border-slate-300 shadow-sm overflow-hidden">
     <table className="w-full text-left border-collapse min-w-[700px]">
@@ -2068,6 +2088,14 @@ function RegistryList({ onSelectItem, listData, activeScreen }: any) {
               <><td className="p-4 font-black text-[#0056d2] uppercase">{item.fullName}</td><td className="p-4 uppercase">{item.username}</td><td className="p-4"><span className="bg-slate-50 px-2 py-1 border border-slate-200 text-slate-500 font-mono">{item.password}</span></td><td className="p-4 uppercase text-slate-500 italic tracking-tight">{item.plants?.join(', ') || 'NOT REGISTERED'}</td></>
             ) : isVendorRegistry ? (
               <><td className="p-3 font-black text-[#0056d2]">{item.vendorCode}</td><td className="p-3 uppercase">{item.vendorName}</td><td className="p-3 uppercase">{item.vendorFirmName}</td><td className="p-3">{item.mobile}</td><td className="p-3 italic text-slate-500">{item.route}</td></>
+            ) : isCustomerRegistry ? (
+              <>
+                <td className="p-3 font-black text-[#0056d2]">{item.customerCode || item.id.slice(0, 8)}</td>
+                <td className="p-3 uppercase">{item.customerName}</td>
+                <td className="p-3 italic text-slate-500">{item.city} - {item.customerType}</td>
+                <td className="p-3 font-black">{item.mobile ? `+91 ${item.mobile}` : '-'}</td>
+                <td className="p-3 text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td>
+              </>
             ) : (
               <><td className="p-3 font-black text-[#0056d2]">{item.saleOrder || item.plantCode || item.customerCode || item.vendorCode || item.companyCode || item.id.slice(0, 8)}</td><td className="p-3 uppercase">{item.customerName || item.plantName || item.vendorName || item.companyName || item.fullName || item.username || `${item.consignor} → ${item.consignee}`}</td><td className="p-3 italic text-slate-500">{item.city || item.customerType || item.vendorCode || 'DATA'}</td><td className="p-3 text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></>
             )}
@@ -2591,7 +2619,7 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
               <FormInput label="CN NUMBER" value={cnFormData.cnNo} onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v})} placeholder="" />
               <FormInput label="CN DATE" type="date" value={cnFormData.cnDate} onChange={(v: string) => setCnFormData({...cnFormData, cnDate: v})} />
               <FormInput label="CARRIER NAME" value={cnFormData.carrierName} disabled={true} />
-              <FormSelect label="PAYMENT TERMS" value={cnFormData.paymentTerms} options={["PAID", "TO-PAY", "TBB"]} onChange={(v: string) => setCnFormData({...cnFormData, paymentTerms: v})} />
+              <FormSelect label="PAYMENT TERMS" value={data.paymentTerms} options={["PAID", "TO-PAY", "TBB"]} onChange={(v: string) => setCnFormData({...cnFormData, paymentTerms: v})} />
             </div>
           </SectionGrouping>
           <SectionGrouping title="DOCUMENT DETAILS">
@@ -2899,7 +2927,6 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
         city = parts[1] || '';
       }
     } else {
-      // Strictly avoid displaying coordinates per user instruction
       street = 'Locating Asset';
       city = '';
     }
