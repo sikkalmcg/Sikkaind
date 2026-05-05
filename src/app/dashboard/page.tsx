@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -1738,7 +1737,7 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const [isPodPopupOpen, setIsPodPopupOpen] = React.useState(false);
   const [selectedTripForPod, setSelectedTripForPod] = React.useState<any>(null);
   const [podFile, setPodFile] = React.useState<string | null>(null);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = React.useRef<HTMLDivElement>(null);
   const [isClosedViewPopupOpen, setIsClosedViewPopupOpen] = React.useState(false);
   const [selectedTripForClosed, setSelectedTripForClosed] = React.useState<any>(null);
   const [isCnPopupOpen, setIsCnPopupOpen] = React.useState(false);
@@ -2777,7 +2776,8 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
       });
 
       marker.addListener('click', () => {
-        toast({ title: `Vehicle: ${v.vehicleNumber}`, description: `Location: ${v.location}` });
+        const locText = v.location || `${v.latitude}, ${v.longitude}`;
+        toast({ title: `Vehicle: ${v.vehicleNumber}`, description: `Last Location: ${locText}` });
       });
     });
   }, [activeGpsTab, gpsData, settings, toast]);
@@ -2833,7 +2833,10 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
                     {gpsData.map((v, idx) => (
                       <tr 
                         key={idx} 
-                        onClick={() => toast({ title: v.vehicleNumber, description: v.location })}
+                        onClick={() => {
+                          const locText = v.location || `${v.latitude}, ${v.longitude}`;
+                          toast({ title: v.vehicleNumber, description: `Last Location: ${locText}` });
+                        }}
                         className="hover:bg-[#e8f0fe] cursor-pointer transition-colors group"
                       >
                         <td className="p-4 flex flex-col gap-1">
