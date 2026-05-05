@@ -40,7 +40,7 @@ import { format, subDays, isWithinInterval, startOfDay, endOfDay, isAfter, parse
 import { cn } from '@/lib/utils';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
-type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XK03_LIST' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'TR24' | 'WGPS24' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE' | 'SE38';
+type Screen = 'HOME' | 'OX01' | 'OX02' | 'OX03' | 'FM01' | 'FM02' | 'FM03' | 'XK01' | 'XK02' | 'XK03' | 'XK03_LIST' | 'XK01_LIST' | 'XD01' | 'XD02' | 'XD03' | 'VA01' | 'VA02' | 'VA03' | 'VA04' | 'TR21' | 'TR24' | 'WGPS24' | 'SU01' | 'SU02' | 'SU03' | 'ZCODE' | 'SE38';
 
 const MASTER_TCODES = [
   { code: 'OX01', description: 'PLANT MASTER: CREATE', icon: Package, module: 'Master Data' },
@@ -701,7 +701,7 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const [isPodPopupOpen, setIsPodPopupOpen] = React.useState(false);
   const [selectedTripForPod, setSelectedTripForPod] = React.useState<any>(null);
   const [podFile, setPodFile] = React.useState<string | null>(null);
-  const fileInputRef = React.useRef<HTMLDivElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isClosedViewPopupOpen, setIsClosedViewPopupOpen] = React.useState(false);
   const [selectedTripForClosed, setSelectedTripForClosed] = React.useState<any>(null);
   const [isCnPopupOpen, setIsCnPopupOpen] = React.useState(false);
@@ -770,18 +770,6 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     window.print();
     document.title = originalTitle;
   }, [selectedTripForPreview]);
-
-  React.useEffect(() => {
-    if (!isCnPreviewOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
-        e.preventDefault();
-        handleGeneratePdf();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isCnPreviewOpen, handleGeneratePdf]);
 
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
   const getStatsLocal = React.useCallback((o: any) => { const tot = parseFloat(o.weight) || 0; const ass = trips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (parseFloat(t.assignWeight) || 0), 0) || 0; return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; }, [trips]);
@@ -1354,7 +1342,227 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           <div onClick={() => fileInputRef.current?.click()} className="w-full h-40 border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-blue-50 transition-all">
             {podFile ? <div className="text-emerald-600 font-black text-xs uppercase">Document Ready</div> : <><UploadCloud className="h-8 w-8 text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase">Select Registry File</span></>}
           </div><div className="flex justify-end gap-3 w-full"><Button onClick={() => setIsPodPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button><Button onClick={handlePodPost} disabled={!podFile} className="h-9 px-8 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post & Close</Button></div></div></DialogContent></Dialog>
+
+    {isCnPreviewOpen && selectedTripForPreview && (
+      <div id="printable-area" className="fixed inset-0 z-[1000] bg-white overflow-auto flex flex-col font-mono text-black">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className={cn("w-[210mm] min-h-[297mm] p-[10mm] mx-auto bg-white relative border-b border-dashed border-slate-300 last:border-0", i < 2 && "print:page-break-after-always")}>
+            <div className="border-[1.5px] border-black h-full p-4 flex flex-col">
+              <div className="flex justify-between items-start border-b-[1.5px] border-black pb-4 mb-4">
+                <div className="flex gap-4 items-center">
+                  {selectedTripForPreview.carrier?.logo && (
+                    <div className="relative w-14 h-14 shrink-0">
+                      <Image src={selectedTripForPreview.carrier.logo} alt="Logo" fill className="object-contain" unoptimized />
+                    </div>
+                  )}
+                  <div className="flex flex-col">
+                    <h1 className="text-[26px] font-black uppercase italic tracking-tighter leading-none whitespace-nowrap">{selectedTripForPreview.carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
+                    <p className="text-[10px] font-bold mt-1 uppercase max-w-[450px]">{selectedTripForPreview.carrier?.address}, {selectedTripForPreview.carrier?.city} - {selectedTripForPreview.carrier?.postalCode}</p>
+                    <p className="text-[9px] font-bold mt-0.5">GSTIN: {selectedTripForPreview.carrier?.gstin} | PAN: {selectedTripForPreview.carrier?.pan}</p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="border border-black px-3 py-1 text-[11px] font-black uppercase bg-slate-50 whitespace-nowrap">{i === 0 ? 'CONSIGNEE COPY' : i === 1 ? 'DRIVER COPY' : 'CONSIGNOR COPY'}</span>
+                  <div className="text-right mt-2">
+                    <p className="text-[16px] font-black leading-none whitespace-nowrap">CN NO: <span className="text-blue-800">{selectedTripForPreview.cnNo}</span></p>
+                    <p className="text-[10px] font-black mt-1">DATE: {format(new Date(selectedTripForPreview.cnDate || new Date()), 'dd-MM-yyyy')}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-x-8 mb-6">
+                <div className="space-y-4">
+                  <div className="border border-black p-3 bg-slate-50/50 h-[120px]">
+                    <p className="text-[9px] font-black text-slate-500 uppercase mb-1">CONSIGNOR (FROM):</p>
+                    <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview.consignorMaster?.customerName || selectedTripForPreview.order?.consignor}</p>
+                    <p className="text-[10px] font-bold uppercase mt-1 leading-tight">{selectedTripForPreview.consignorMaster?.address}, {selectedTripForPreview.consignorMaster?.city}</p>
+                    <p className="text-[10px] font-black mt-1 uppercase">GSTIN: {selectedTripForPreview.consignorMaster?.gstin || 'N/A'}</p>
+                  </div>
+                  <div className="border border-black p-3 h-[120px]">
+                    <p className="text-[9px] font-black text-slate-500 uppercase mb-1">CONSIGNEE (TO):</p>
+                    <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview.consigneeMaster?.customerName || selectedTripForPreview.order?.consignee}</p>
+                    <p className="text-[10px] font-bold uppercase mt-1 leading-tight">{selectedTripForPreview.consigneeMaster?.address}, {selectedTripForPreview.consigneeMaster?.city}</p>
+                    <p className="text-[10px] font-black mt-1 uppercase">GSTIN: {selectedTripForPreview.consigneeMaster?.gstin || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="border border-black p-3 bg-slate-50/50 h-[120px]">
+                    <p className="text-[9px] font-black text-slate-500 uppercase mb-1">SHIP TO PARTY (DELIVERY):</p>
+                    <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview.shipToMaster?.customerName || selectedTripForPreview.shipToParty}</p>
+                    <div className="relative group">
+                      <p className={cn("text-[10px] font-bold uppercase mt-1 leading-tight", isAddressEditable && "bg-white p-1 ring-1 ring-blue-500")}>
+                        {isAddressEditable ? (
+                          <textarea value={previewDeliveryAddress} onChange={e => setPreviewDeliveryAddress(e.target.value)} onBlur={() => setIsAddressEditable(false)} autoFocus className="w-full h-16 outline-none resize-none border-none p-0 text-[10px] font-bold uppercase" />
+                        ) : (
+                          <span onClick={() => setIsAddressEditable(true)} title="Click to edit address" className="cursor-text">{previewDeliveryAddress}</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="border border-black p-3 h-[120px] flex flex-col justify-between">
+                     <div className="grid grid-cols-2 gap-2">
+                       <div><p className="text-[9px] font-black text-slate-500 uppercase">VEHICLE NO:</p><p className="text-[11px] font-black uppercase">{selectedTripForPreview.vehicleNumber}</p></div>
+                       <div><p className="text-[9px] font-black text-slate-500 uppercase">DRIVER NO:</p><p className="text-[11px] font-black">{selectedTripForPreview.driverMobile}</p></div>
+                       <div><p className="text-[9px] font-black text-slate-400 uppercase">PAYMENT TERMS:</p><p className="text-[11px] font-black uppercase">{selectedTripForPreview.paymentTerms}</p></div>
+                       <div className="text-right"><p className="text-[9px] font-black text-slate-400 uppercase">TRIP ID:</p><p className="text-[11px] font-black uppercase">{selectedTripForPreview.tripId}</p></div>
+                     </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex-1">
+                <table className="w-full border-collapse border border-black">
+                  <thead className="bg-slate-100">
+                    <tr className="text-[10px] font-black uppercase">
+                      <th className="border border-black p-2 w-[120px] text-center">Invoice No</th>
+                      <th className="border border-black p-2 w-[144px] text-center">E-Waybill No</th>
+                      <th className="border border-black p-2 text-left">Description of Goods</th>
+                      <th className="border border-black p-2 w-[96px] text-center">Package</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(selectedTripForPreview.cnItems || [{}]).map((item: any, idx: number) => (
+                      <tr key={idx} className="text-[11px] font-bold uppercase h-10">
+                        <td className="border border-black p-2 text-center">{item.invoiceNo}</td>
+                        <td className="border border-black p-2 text-center">{item.ewaybillNo}</td>
+                        <td className="border border-black p-2">{item.product}</td>
+                        <td className="border border-black p-2 text-center">{item.unit} {item.uom}</td>
+                      </tr>
+                    ))}
+                    {[...Array(Math.max(0, 5 - (selectedTripForPreview.cnItems?.length || 0)))].map((_, i) => (
+                      <tr key={`empty-${i}`} className="h-10"><td className="border border-black p-2" /><td className="border border-black p-2" /><td className="border border-black p-2" /><td className="border border-black p-2" /></tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-slate-50 font-black">
+                    <tr>
+                      <td colSpan={2} className="border border-black p-2 text-[10px] italic">Sikka Logistics Handshake Sync</td>
+                      <td className="border border-black p-2 text-right uppercase text-[10px]">Total Consolidated Quantity:</td>
+                      <td className="border border-black p-2 text-center text-[12px]">{selectedTripForPreview.cnItems?.reduce((a: number, c: any) => a + (parseFloat(c.unit) || 0), 0)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <div className="mt-8 grid grid-cols-3 gap-12">
+                <div className="border-t border-black pt-2 text-center"><p className="text-[9px] font-black uppercase text-slate-500">Receiver Signature & Stamp</p></div>
+                <div className="border-t border-black pt-2 text-center"><p className="text-[9px] font-black uppercase text-slate-500">Driver Signature</p></div>
+                <div className="border-t border-black pt-2 text-center">
+                  <p className="text-[9px] font-black uppercase text-slate-500 mb-8">For {selectedTripForPreview.carrier?.companyName || 'Sikka Industries'}</p>
+                  <p className="text-[10px] font-black uppercase">Authorized Signatory</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+        <div className="fixed top-6 right-6 flex flex-col gap-3 print:hidden z-[1100]">
+          <Button onClick={handleGeneratePdf} className="h-12 w-12 rounded-full bg-[#1e3a8a] text-white shadow-2xl hover:scale-110 transition-transform"><Printer className="h-6 w-6" /></Button>
+          <Button onClick={() => setIsCnPreviewOpen(false)} className="h-12 w-12 rounded-full bg-red-600 text-white shadow-2xl hover:scale-110 transition-transform"><X className="h-6 w-6" /></Button>
+        </div>
+      </div>
+    )}
+
+    {isDelayRemarkPopupOpen && selectedOrderForRemark && (
+      <Dialog open={isDelayRemarkPopupOpen} onOpenChange={setIsDelayRemarkPopupOpen}>
+        <DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden">
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
+            <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Clock className="h-4 w-4" /> Log Delay Remark</DialogTitle>
+          </DialogHeader>
+          <div className="p-8 space-y-6">
+             <div className="space-y-4">
+                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sale Order</span><span className="text-[12px] font-black text-[#1e3a8a]">{selectedOrderForRemark.saleOrder}</span></div>
+                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[12px] font-black uppercase">{selectedOrderForRemark.shipToParty}</span></div>
+                <div className="flex flex-col gap-2 mt-4"><label className="text-[11px] font-black uppercase text-slate-500">Delay Remark:</label><textarea value={delayRemarkInput} onChange={e => setDelayRemarkInput(e.target.value)} className="h-24 w-full border border-slate-400 bg-white px-2 py-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase resize-none" placeholder="ENTER REASON FOR DELAY..." /></div>
+             </div>
+             <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                <Button onClick={() => setIsDelayRemarkPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button>
+                <Button onClick={handlePostDelayRemark} className="h-9 px-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post Remark</Button>
+             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )}
+
+    {isCnPopupOpen && selectedTripForCn && (
+      <Dialog open={isCnPopupOpen} onOpenChange={setIsCnPopupOpen}>
+        <DialogContent className="max-w-[1000px] max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
+            <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><FileText className="h-4 w-4" /> CN - Consignment Note Entry</DialogTitle>
+          </DialogHeader>
+          <div className="p-8 space-y-10 overflow-y-auto green-scrollbar flex-1">
+            <SectionGrouping title="CN HEADER">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                 <FormInput label="CN NUMBER" value={cnFormData.cnNo} onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v})} />
+                 <FormInput label="CN DATE" type="date" value={cnFormData.cnDate} onChange={(v: string) => setCnFormData({...cnFormData, cnDate: v})} />
+                 <FormSelect label="PAYMENT TERMS" value={cnFormData.paymentTerms} options={['PAID', 'TO PAY', 'TBB', 'FOC']} onChange={(v: string) => setCnFormData({...cnFormData, paymentTerms: v})} />
+                 <FormInput label="CARRIER NAME" value={cnFormData.carrierName} disabled={true} />
+              </div>
+            </SectionGrouping>
+            <SectionGrouping title="ITEM DETAILS">
+              <div className="bg-white border border-slate-300 shadow-inner overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-slate-50 border-b border-slate-300 text-[10px] font-black uppercase">
+                    <tr>
+                      <th className="p-2 border-r border-slate-200">Invoice No</th>
+                      <th className="p-2 border-r border-slate-200">E-Waybill No</th>
+                      <th className="p-2 border-r border-slate-200">Product</th>
+                      <th className="p-2 border-r border-slate-200">Qty</th>
+                      <th className="p-2 border-r border-slate-200">UOM</th>
+                      <th className="p-2 w-10 text-center">X</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cnFormData.items?.map((item: any, idx: number) => (
+                      <tr key={idx} className="border-b border-slate-100 h-8">
+                        <td className="p-0 border-r border-slate-100"><input value={item.invoiceNo} onChange={(e) => { const itms = [...cnFormData.items]; itms[idx].invoiceNo = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-full px-2 text-[11px] font-bold outline-none uppercase" /></td>
+                        <td className="p-0 border-r border-slate-100"><input value={item.ewaybillNo} onChange={(e) => { const itms = [...cnFormData.items]; itms[idx].ewaybillNo = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-full px-2 text-[11px] font-bold outline-none uppercase" /></td>
+                        <td className="p-0 border-r border-slate-100"><input value={item.product} onChange={(e) => { const itms = [...cnFormData.items]; itms[idx].product = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-full px-2 text-[11px] font-bold outline-none uppercase" /></td>
+                        <td className="p-0 border-r border-slate-100"><input type="number" value={item.unit} onChange={(e) => { const itms = [...cnFormData.items]; itms[idx].unit = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-full px-2 text-[11px] font-bold outline-none uppercase" /></td>
+                        <td className="p-0 border-r border-slate-100"><select value={item.uom} onChange={(e) => { const itms = [...cnFormData.items]; itms[idx].uom = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-full px-1 text-[11px] font-bold outline-none uppercase"><option value="Bag">Bag</option><option value="Box">Box</option><option value="Drum">Drum</option><option value="Pallet">Pallet</option><option value="Roll">Roll</option><option value="MT">MT</option><option value="KG">KG</option><option value="LTR">LTR</option></select></td>
+                        <td className="p-0 text-center"><button onClick={() => { if (cnFormData.items.length > 1) { const itms = cnFormData.items.filter((_: any, i: number) => i !== idx); setCnFormData({...cnFormData, items: itms}); } }} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 className="h-3 w-3" /></button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-slate-50 font-black">
+                     <tr className="h-10">
+                        <td colSpan={3} className="px-3">
+                          <button onClick={() => setCnFormData({...cnFormData, items: [...cnFormData.items, { invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'Bag' }]})} className="flex items-center gap-1 text-[9px] uppercase text-[#1e3a8a] hover:underline transition-all"><Plus className="h-3 w-3" /> Add Item Line</button>
+                        </td>
+                        <td className="px-2 text-center text-[11px] text-[#0056d2]">{cnTableTotal.total}</td>
+                        <td className="px-2 text-center text-[10px] text-[#0056d2]">{cnTableTotal.uom}</td>
+                        <td />
+                     </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </SectionGrouping>
+          </div>
+          <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
+            <Button onClick={() => setIsCnPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
+            <Button onClick={handleCnPost} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post CN</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )}
   </div>;
+}
+
+function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
+  const [gpsData, setGpsData] = React.useState<any[]>([]); const [distance, setDistance] = React.useState<string>('Calculating...'); const mapRef = React.useRef<HTMLDivElement>(null);
+  const fetchGps = React.useCallback(async () => { try { const res = await fetch('/api/gps'); if (res.ok) { const json = await res.json(); if (json?.data?.list) setGpsData(json.data.list); } } catch (e) {} }, []);
+  React.useEffect(() => { fetchGps(); const i = setInterval(fetchGps, 30000); return () => clearInterval(i); }, [fetchGps]);
+  React.useEffect(() => {
+    if (!node || !window.google) return; const { trip } = node; const gpsVehicle = gpsData.find(v => v.vehicleNumber?.toUpperCase() === trip.vehicleNumber?.toUpperCase()); const geocoder = new window.google.maps.Geocoder(); const directionsService = new window.google.maps.DirectionsService(); const directionsRenderer = new window.google.maps.DirectionsRenderer({ suppressMarkers: true, polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 } });
+    const cons = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.consignor?.toUpperCase());
+    const ship = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.shipToParty?.toUpperCase());
+    const p1 = new Promise((resolve) => { if (cons?.postalCode) { geocoder.geocode({ address: cons.postalCode }, (res, status) => { if (status === 'OK') resolve(res[0].geometry.location); else resolve(null); }); } else resolve(null); });
+    const p2 = new Promise((resolve) => { if (ship?.postalCode) { geocoder.geocode({ address: ship.postalCode }, (res, status) => { if (status === 'OK') resolve(res[0].geometry.location); else resolve(null); }); } else resolve(null); });
+    Promise.all([p1, p2]).then(([origin, dest]: any) => {
+      if (!mapRef.current) return; const map = new window.google.maps.Map(mapRef.current, { center: gpsVehicle ? { lat: gpsVehicle.latitude, lng: gpsVehicle.longitude } : { lat: 20.5937, lng: 78.9629 }, zoom: gpsVehicle ? 12 : 5, styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }] }); directionsRenderer.setMap(map);
+      if (origin) new window.google.maps.Marker({ position: origin, map, title: 'Start Point', icon: { url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png', scaledSize: new window.google.maps.Size(32, 32) } });
+      if (dest) new window.google.maps.Marker({ position: dest, map, title: 'Drop Point', icon: { url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png', scaledSize: new window.google.maps.Size(32, 32) } });
+      if (gpsVehicle) { const vIcon = gpsVehicle.speed > 0 ? settings?.activeIcon : settings?.stopIcon; new window.google.maps.Marker({ position: { lat: gpsVehicle.latitude, lng: gpsVehicle.longitude }, map, title: gpsVehicle.vehicleNumber, icon: { url: vIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(40, 40) } }); }
+      if (origin && dest) directionsService.route({ origin, destination: dest, travelMode: window.google.maps.TravelMode.DRIVING }, (result, status) => { if (status === 'OK') { directionsRenderer.setDirections(result); if (result.routes[0].legs[0].distance) setDistance(result.routes[0].legs[0].distance.text); } });
+    });
+  }, [node, gpsData, customers, settings]);
+  const { trip } = node; const currentGps = gpsData.find(v => v.vehicleNumber?.toUpperCase() === trip.vehicleNumber?.toUpperCase());
+  return (<div className="flex flex-col h-full bg-[#f2f2f2] animate-fade-in font-mono"><div className="bg-white border-b border-slate-300 px-8 py-3 mb-4 flex items-center justify-between shadow-sm shrink-0"><div className="flex items-center gap-8"><button onClick={onBack} className="p-1 hover:bg-slate-100 rounded text-slate-600 transition-colors"><ArrowLeft className="h-5 w-5" /></button><h2 className="text-[14px] font-black text-slate-800 tracking-tight uppercase">Live Logistical Tracking</h2></div><div className="flex items-center gap-12"><div className="flex items-center gap-12"><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[11px] font-black uppercase text-[#1e3a8a]">{trip.shipToParty}</span></div><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[11px] font-black uppercase text-blue-600">{trip.vehicleNumber}</span></div><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[11px] font-black uppercase text-slate-700">{trip.route}</span></div><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Distance</span><span className="text-[11px] font-black text-emerald-600">{distance}</span></div></div></div></div><div className="flex-1 relative p-4"><div className="absolute top-8 left-8 z-10 space-y-3 pointer-events-none">{currentGps && (<div className="bg-white/90 backdrop-blur-sm border-2 border-[#1e3a8a] p-4 shadow-2xl flex flex-col gap-2 min-w-[220px]"><div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-1"><span className="text-[10px] font-black uppercase text-[#1e3a8a]">Vehicle Registry</span><Badge className={cn("text-[9px] font-black uppercase h-5", currentGps.speed > 0 ? "bg-emerald-500" : "bg-red-500")}>{currentGps.speed > 0 ? `${currentGps.speed} KM/H` : 'IDLE'}</Badge></div><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase">Speed</span><span className="text-sm font-black italic">{currentGps.speed} KM/H</span></div><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase">Last Sync</span><span className="text-[10px] font-bold">{currentGps.lastUpdate || 'Just Now'}</span></div></div>)}</div><div ref={mapRef} className="w-full h-full bg-white border border-slate-300 shadow-inner rounded-none" /></div></div>);
 }
 
 function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: any) {
@@ -1630,225 +1838,5 @@ export default function DashboardPage() {
   const isReadOnly = activeScreen.endsWith('03'); const showList = (activeScreen.endsWith('02') || activeScreen.endsWith('03')) && !formData.id && activeScreen !== 'SE38'; const showForm = activeScreen.endsWith('01') || activeScreen === 'VA04' || ((activeScreen.endsWith('02') || activeScreen.endsWith('03')) && formData.id); const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
   const handleSearchIdEnter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { const idToSearch = searchId; if (!idToSearch) return; let list = getRegistryList(); let item = list.find((i: any) => (i.plantCode || i.customerCode || i.companyCode || i.saleOrder || i.username || i.id || i.vendorCode).toString().toUpperCase() === idToSearch.toUpperCase()); if (item) { setFormData(item); setSearchId(''); setStatusMsg({ text: `Record ${idToSearch} loaded`, type: 'success' }); } else setStatusMsg({ text: `Record ${idToSearch} not found`, type: 'error' }); } };
 
-  return (<div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden"><div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50 print:hidden"><div className="flex items-center gap-6">{['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(i => <button key={i} className="hover:text-blue-800 transition-colors uppercase">{i}</button>)}</div><div className="flex-1" /><div className="flex items-center h-full"><button className="h-full px-2 hover:bg-white/30"><PlusSquare className="h-3.5 w-3.5 opacity-30" /></button><button className="h-full px-2 hover:bg-white/30"><Grid2X2 className="h-3 w-3 opacity-30" /></button><button onClick={() => router.push('/')} className="h-full px-3 hover:bg-[#e81123] hover:text-white"><X className="h-3.5 w-3.5" /></button></div></div><div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40 print:hidden"><div className="flex items-center px-2 py-1 gap-4"><div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">{logoAsset && <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized data-ai-hint="logistics logo" />}</div><div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner relative"><button onClick={(e) => { e.preventDefault(); executeTCode(tCode); }} className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100 transition-colors">✓</button><input ref={tCodeRef} type="text" value={tCode} onChange={(e) => { setTCode(e.target.value); if (showHistory) setShowHistory(false); }} onClick={() => history.length > 0 && setShowHistory(true)} onBlur={() => setTimeout(() => setShowHistory(false), 200)} className="w-48 outline-none text-xs px-1 font-bold tracking-wider" />{showHistory && history.length > 0 && (<div className="absolute top-full left-0 w-full bg-white border border-slate-400 shadow-md z-[60] mt-0.5">{history.map((h, i) => <div key={i} onClick={() => { setTCode(h); executeTCode(h); }} className={cn("px-4 py-1.5 text-xs font-bold cursor-pointer hover:bg-blue-50 transition-colors", i === historyIndex ? "bg-blue-100" : "")}>{h}</div>)}</div>)}</div><div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7"><button onClick={handleSave} disabled={activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title={activeScreen === 'SE38' ? "Execute (F8)" : "Save (F8)"}>{activeScreen === 'SE38' ? <PlayCircle className="h-4 w-4 text-blue-600" /> : <Save className="h-4 w-4 text-slate-600" />}</button><button onClick={handleBack} className="p-1 hover:bg-slate-200 rounded" title="Back Step-by-Step (F3)"><Undo2 className="h-4 w-4 text-slate-600" /></button><button onClick={handleCancel} disabled={activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title="Cancel (F12)"><XCircle className="h-4 w-4 text-slate-600" /></button><button onClick={() => window.open(window.location.href, '_blank')} className={cn("p-1 rounded hover:bg-slate-200")} title="New Session"><PlusSquare className="h-4 w-4 text-slate-600" /></button></div><div className="flex-1" /><div className="flex items-center gap-3 pr-4">{(activeScreen === 'XD01' || activeScreen === 'VA01' || activeScreen === 'FM01') && (<div className="flex items-center gap-2 mr-4"><input type="file" ref={bulkInputRef} onChange={handleFileChange} className="hidden" accept=".csv" /><button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 h-7 bg-white border border-slate-300 hover:bg-slate-50 rounded text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]"><FileText className="h-3.5 w-3.5" /> Template</button><button onClick={handleBulkUpload} className="flex items-center gap-1.5 px-3 h-7 bg-[#1e3a8a] hover:bg-blue-900 text-white rounded text-[9px] font-black uppercase tracking-widest"><UploadCloud className="h-3.5 w-3.5" /> Bulk Upload</button></div>)}<button onClick={() => window.print()} className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Printer className="h-4 w-4" /></button><button onClick={() => { localStorage.removeItem('sap_bootstrap_session'); localStorage.removeItem('sap_user_role'); router.push('/login'); }} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700"><LogOut className="h-3.5 w-3.5" /> Log Off</button></div></div></div><div className="flex-1 flex overflow-hidden">{activeScreen === 'HOME' && (<div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden print:hidden"><div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div><div className="flex-1 overflow-y-auto green-scrollbar">{MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'TR24' || t.code === 'VA04' || t.code === 'ZCODE' || t.code === 'WGPS24' || t.code === 'SE38').map((item) => (<div key={item.code} onClick={() => executeTCode(item.code)} className={cn("flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all", activeScreen === item.code ? "bg-[#0056d2] text-white" : "text-[#1e3a8a]")}><div className={cn("w-1.5 h-1.5 rounded-full shrink-0", activeScreen === item.code ? "bg-white" : "bg-slate-300 group-hover:bg-blue-600")} /><span className={cn("text-[10px] font-black uppercase tracking-tight", activeScreen === item.code ? "text-white" : "text-[#1e3a8a]")}>{item.code} - {item.description}</span><div className="flex-1" /><item.icon className={cn("h-3.5 w-3.5", activeScreen === item.code ? "text-white" : "text-slate-400")} /></div>))}</div></div>)}<div className="flex-1 flex flex-col overflow-hidden bg-[#f0f3f9]"><div className="flex-1 flex flex-col overflow-hidden bg-[#f2f2f2] print:bg-white">{activeScreen === 'HOME' ? (<div className="flex-1 overflow-y-auto p-2 md:p-4 relative animate-fade-in"><h1 className="text-2xl md:text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter mb-8">Sikka Logistics Management Control</h1><div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-4 md:p-6 border border-slate-300 shadow-sm mb-12"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Authorized Plant</label><select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none" value={homePlantFilter} onChange={(e) => setHomePlantFilter(e.target.value)}><option value="ALL">ALL AUTHORIZED PLANTS</option>{accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div><div className="flex flex-col gap-2 relative" ref={monthRef}><label className="text-[10px] font-black uppercase text-slate-400">Period</label><div onClick={() => setShowMonthCalendar(!showMonthCalendar)} className="h-10 border border-slate-400 bg-white px-3 flex items-center justify-between cursor-pointer shadow-sm"><span className="text-xs font-bold text-slate-700 uppercase">{format(new Date(homeMonthFilter + '-01'), 'MMMM yyyy')}</span><CalendarIcon className="h-4 w-4 text-slate-400" /></div>{showMonthCalendar && (<div className="absolute top-full left-0 mt-1 z-[60] flex flex-col border border-slate-300 bg-white rounded-lg shadow-2xl w-full max-w-[320px] animate-slide-down"><div className="flex items-center justify-between p-3 border-b border-slate-200"><button onClick={(e) => { e.stopPropagation(); const [y, m] = homeMonthFilter.split('-'); setHomeMonthFilter(`${parseInt(y) - 1}-${m}`); }} className="p-1.5 hover:bg-slate-50 rounded-md border border-slate-200"><ChevronLeft className="h-4 w-4" /></button><span className="text-sm font-black">{homeMonthFilter.split('-')[0]}</span><button onClick={(e) => { e.stopPropagation(); const [y, m] = homeMonthFilter.split('-'); setHomeMonthFilter(`${parseInt(y) + 1}-${m}`); }} className="p-1.5 hover:bg-slate-50 rounded-md border border-slate-200"><ChevronRight className="h-4 w-4" /></button></div><div className="grid grid-cols-4 gap-2 p-3">{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => { const mStr = (i + 1).toString().padStart(2, '0'); const year = homeMonthFilter.split('-')[0]; const isActive = homeMonthFilter === `${year}-${mStr}`; return <button key={m} onClick={(e) => { e.stopPropagation(); setHomeMonthFilter(`${year}-${mStr}`); setShowMonthCalendar(false); }} className={cn("py-2 text-[10px] font-black border rounded-md uppercase", isActive ? "bg-[#0056d2] text-white border-[#0056d2]" : "bg-white text-slate-600 border-slate-200")}>{m}</button>; })}</div></div>)}</div></div><div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">{[{ label: 'OPEN ORDER', count: homeStats.open, color: 'text-blue-600' }, { label: 'LOADING', count: homeStats.loading, color: 'text-orange-600' }, { label: 'IN-TRANSIT', count: homeStats.transit, color: 'text-emerald-600' }, { label: 'ARRIVED', count: homeStats.arrived, color: 'text-indigo-600' }, { label: 'POD SECTION', count: homeStats.pod, color: 'text-purple-600' }, { label: 'REJECT', count: homeStats.reject, color: 'text-red-600' }, { label: 'CLOSED', count: homeStats.closed, color: 'text-slate-600' }].map(w => (<div key={w.label} className="p-4 md:p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-2 bg-white animate-slide-up"><span className="text-[10px] font-black text-slate-400 uppercase text-center">{w.label}</span><span className={cn("text-2xl md:text-4xl font-black italic tracking-tighter", w.color)}>{w.count}</span></div>))}</div></div>) : (<div className={cn("animate-slide-up print:p-0 print:border-none print:shadow-none flex flex-col w-full h-full overflow-y-auto bg-[#f2f2f2] green-scrollbar")}>{showForm && <div className="space-y-0 min-h-full"><div className="bg-white border-b border-slate-300 px-8 py-3 mb-10"><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">{MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen}</h2></div><div className="px-10 pb-20 max-w-full">{activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}{activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} trips={allTrips} screen={activeScreen} />}{activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} allTrips={allTrips} onPost={handleSave} onCancel={() => setFormData({})} />}{activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}</div></div>}{showList && <div className="space-y-0 min-h-full"><div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between"><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">{MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen} - REGISTRY</h2><div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AUTHORIZED</div></div><div className="px-10 pb-20 max-w-full"><div className="bg-white border-b-2 border-slate-300 p-6 mb-8 flex flex-col md:flex-row items-center gap-8"><div className="flex flex-col gap-2 flex-1 w-full"><label className="text-[11px] font-black uppercase text-slate-500 block tracking-widest">Search Criteria</label><div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">{activeScreen.startsWith('XD') ? (<><div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Select Plant</label><select className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold" value={xdSearch.plant} onChange={(e) => setXdSearch({...xdSearch, plant: e.target.value})}><option value="">ALL PLANTS</option>{accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div><div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Select Type</label><select className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold" value={xdSearch.type} onChange={(e) => setXdSearch({...xdSearch, type: e.target.value})}><option value="">ALL TYPES</option><option value="Consignor">Consignor</option><option value="Consignee - Ship to Party">Consignee - Ship to Party</option></select></div><div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Enter Name</label><input className="h-8 border border-slate-400 px-3 text-xs font-black outline-none" value={xdSearch.name} onChange={(e) => setXdSearch({...xdSearch, name: e.target.value})} /></div></>) : (<div className="col-span-1 md:col-span-3 flex items-center gap-4"><input className="h-9 w-full max-w-2xl border border-slate-400 px-4 text-xs font-black outline-none bg-white focus:ring-1 focus:ring-blue-500 uppercase tracking-widest" value={searchId} onChange={(e) => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER IDENTIFIER AND PRESS ENTER..." /></div>)}</div></div></div><RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} /></div></div>}{activeScreen === 'TR21' && viewMode === 'list' && (<TripBoard orders={allOrders} trips={allTrips} vendors={accessibleVendors} plants={accessiblePlants} companies={accessibleCompanies} customers={accessibleCustomers} onStatusUpdate={setStatusMsg} viewMode={viewMode} setViewMode={setViewMode} trackingNode={trackingNode} setTrackingNode={setTrackingNode} settings={settings} />)}{activeScreen === 'TR21' && viewMode === 'tracking' && (<Tr21TrackingPage node={trackingNode} onBack={() => setViewMode('list')} customers={accessibleCustomers} settings={settings} />)}{activeScreen === 'TR24' && <TrackShipmentScreen trips={allTrips} orders={allOrders} customers={accessibleCustomers} />}{activeScreen === 'WGPS24' && <GpsTrackingHub trips={allTrips} onStatusUpdate={setStatusMsg} db={db} settings={settings} settingsRef={settingsRef} />}{activeScreen === 'SE38' && (<Se38Report search={se38Search} results={se38Results} view={se38View} onSearchChange={setSe38Search} onViewChange={setSe38View} allPlants={accessiblePlants} allVendors={accessibleVendors} allCompanies={accessibleCompanies} allCustomers={accessibleCustomers} />)}{activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}</div>)}</div></div></div><div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em] print:hidden"><div className="flex items-center gap-4 md:gap-8 overflow-hidden flex-1"><span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span><span className="shrink-0">{activeScreen}</span><span className="truncate">USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.fullName || 'Authenticating...')}</span>{statusMsg.text !== 'Ready' && <span className={cn("truncate", statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span>}</div>{greeting && <div className="shrink-0 ml-4 hidden sm:block text-blue-400">{greeting}</div>}</div>
-      {isCnPreviewOpen && selectedTripForPreview && (
-        <div id="printable-area" className="fixed inset-0 z-[1000] bg-white overflow-auto flex flex-col font-mono text-black">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className={cn("w-[210mm] min-h-[297mm] p-[10mm] mx-auto bg-white relative border-b border-dashed border-slate-300 last:border-0", i < 2 && "print:page-break-after-always")}>
-              <div className="border-[1.5px] border-black h-full p-4 flex flex-col">
-                <div className="flex justify-between items-start border-b-[1.5px] border-black pb-4 mb-4">
-                  <div className="flex gap-4 items-center">
-                    {selectedTripForPreview.carrier?.logo && (
-                      <div className="relative w-14 h-14 shrink-0">
-                        <Image src={selectedTripForPreview.carrier.logo} alt="Logo" fill className="object-contain" unoptimized />
-                      </div>
-                    )}
-                    <div className="flex flex-col">
-                      <h1 className="text-[26px] font-black uppercase italic tracking-tighter leading-none whitespace-nowrap">{selectedTripForPreview.carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
-                      <p className="text-[10px] font-bold mt-1 uppercase max-w-[450px]">{selectedTripForPreview.carrier?.address}, {selectedTripForPreview.carrier?.city} - {selectedTripForPreview.carrier?.postalCode}</p>
-                      <p className="text-[9px] font-bold mt-0.5">GSTIN: {selectedTripForPreview.carrier?.gstin} | PAN: {selectedTripForPreview.carrier?.pan}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="border border-black px-3 py-1 text-[11px] font-black uppercase bg-slate-50 whitespace-nowrap">{i === 0 ? 'CONSIGNEE COPY' : i === 1 ? 'DRIVER COPY' : 'CONSIGNOR COPY'}</span>
-                    <div className="text-right mt-2">
-                      <p className="text-[16px] font-black leading-none whitespace-nowrap">CN NO: <span className="text-blue-800">{selectedTripForPreview.cnNo}</span></p>
-                      <p className="text-[10px] font-black mt-1">DATE: {format(new Date(selectedTripForPreview.cnDate || new Date()), 'dd-MM-yyyy')}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-x-8 mb-6">
-                  <div className="space-y-4">
-                    <div className="border border-black p-3 bg-slate-50/50 h-[120px]">
-                      <p className="text-[9px] font-black text-slate-500 uppercase mb-1">CONSIGNOR (FROM):</p>
-                      <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview.consignorMaster?.customerName || selectedTripForPreview.order?.consignor}</p>
-                      <p className="text-[10px] font-bold uppercase mt-1 leading-tight">{selectedTripForPreview.consignorMaster?.address}, {selectedTripForPreview.consignorMaster?.city}</p>
-                      <p className="text-[10px] font-black mt-1 uppercase">GSTIN: {selectedTripForPreview.consignorMaster?.gstin || 'N/A'}</p>
-                    </div>
-                    <div className="border border-black p-3 h-[120px]">
-                      <p className="text-[9px] font-black text-slate-500 uppercase mb-1">CONSIGNEE (TO):</p>
-                      <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview.consigneeMaster?.customerName || selectedTripForPreview.order?.consignee}</p>
-                      <p className="text-[10px] font-bold uppercase mt-1 leading-tight">{selectedTripForPreview.consigneeMaster?.address}, {selectedTripForPreview.consigneeMaster?.city}</p>
-                      <p className="text-[10px] font-black mt-1 uppercase">GSTIN: {selectedTripForPreview.consigneeMaster?.gstin || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="border border-black p-3 bg-slate-50/50 h-[120px]">
-                      <p className="text-[9px] font-black text-slate-500 uppercase mb-1">SHIP TO PARTY (DELIVERY):</p>
-                      <p className="text-[12px] font-black uppercase leading-tight">{selectedTripForPreview.shipToMaster?.customerName || selectedTripForPreview.shipToParty}</p>
-                      <div className="relative group">
-                        <p className={cn("text-[10px] font-bold uppercase mt-1 leading-tight", isAddressEditable && "bg-white p-1 ring-1 ring-blue-500")}>
-                          {isAddressEditable ? (
-                            <textarea value={previewDeliveryAddress} onChange={e => setPreviewDeliveryAddress(e.target.value)} onBlur={() => setIsAddressEditable(false)} autoFocus className="w-full h-16 outline-none resize-none border-none p-0 text-[10px] font-bold uppercase" />
-                          ) : (
-                            <span onClick={() => setIsAddressEditable(true)} title="Click to edit address" className="cursor-text">{previewDeliveryAddress}</span>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="border border-black p-3 h-[120px] flex flex-col justify-between">
-                       <div className="grid grid-cols-2 gap-2">
-                         <div><p className="text-[9px] font-black text-slate-500 uppercase">VEHICLE NO:</p><p className="text-[11px] font-black uppercase">{selectedTripForPreview.vehicleNumber}</p></div>
-                         <div><p className="text-[9px] font-black text-slate-500 uppercase">DRIVER NO:</p><p className="text-[11px] font-black">{selectedTripForPreview.driverMobile}</p></div>
-                         <div><p className="text-[9px] font-black text-slate-400 uppercase">PAYMENT TERMS:</p><p className="text-[11px] font-black uppercase">{selectedTripForPreview.paymentTerms}</p></div>
-                         <div className="text-right"><p className="text-[9px] font-black text-slate-400 uppercase">TRIP ID:</p><p className="text-[11px] font-black uppercase">{selectedTripForPreview.tripId}</p></div>
-                       </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <table className="w-full border-collapse border border-black">
-                    <thead className="bg-slate-100">
-                      <tr className="text-[10px] font-black uppercase">
-                        <th className="border border-black p-2 w-[120px] text-center">Invoice No</th>
-                        <th className="border border-black p-2 w-[144px] text-center">E-Waybill No</th>
-                        <th className="border border-black p-2 text-left">Description of Goods</th>
-                        <th className="border border-black p-2 w-[96px] text-center">Package</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(selectedTripForPreview.cnItems || [{}]).map((item: any, idx: number) => (
-                        <tr key={idx} className="text-[11px] font-bold uppercase h-10">
-                          <td className="border border-black p-2 text-center">{item.invoiceNo}</td>
-                          <td className="border border-black p-2 text-center">{item.ewaybillNo}</td>
-                          <td className="border border-black p-2">{item.product}</td>
-                          <td className="border border-black p-2 text-center">{item.unit} {item.uom}</td>
-                        </tr>
-                      ))}
-                      {[...Array(Math.max(0, 5 - (selectedTripForPreview.cnItems?.length || 0)))].map((_, i) => (
-                        <tr key={`empty-${i}`} className="h-10"><td className="border border-black p-2" /><td className="border border-black p-2" /><td className="border border-black p-2" /><td className="border border-black p-2" /></tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-slate-50 font-black">
-                      <tr>
-                        <td colSpan={2} className="border border-black p-2 text-[10px] italic">Sikka Logistics Handshake Sync</td>
-                        <td className="border border-black p-2 text-right uppercase text-[10px]">Total Consolidated Quantity:</td>
-                        <td className="border border-black p-2 text-center text-[12px]">{selectedTripForPreview.cnItems?.reduce((a: number, c: any) => a + (parseFloat(c.unit) || 0), 0)}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-                <div className="mt-8 grid grid-cols-3 gap-12">
-                  <div className="border-t border-black pt-2 text-center"><p className="text-[9px] font-black uppercase text-slate-500">Receiver Signature & Stamp</p></div>
-                  <div className="border-t border-black pt-2 text-center"><p className="text-[9px] font-black uppercase text-slate-500">Driver Signature</p></div>
-                  <div className="border-t border-black pt-2 text-center">
-                    <p className="text-[9px] font-black uppercase text-slate-500 mb-8">For {selectedTripForPreview.carrier?.companyName || 'Sikka Industries'}</p>
-                    <p className="text-[10px] font-black uppercase">Authorized Signatory</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-          <div className="fixed top-6 right-6 flex flex-col gap-3 print:hidden z-[1100]">
-            <Button onClick={handleGeneratePdf} className="h-12 w-12 rounded-full bg-[#1e3a8a] text-white shadow-2xl hover:scale-110 transition-transform"><Printer className="h-6 w-6" /></Button>
-            <Button onClick={() => setIsCnPreviewOpen(false)} className="h-12 w-12 rounded-full bg-red-600 text-white shadow-2xl hover:scale-110 transition-transform"><X className="h-6 w-6" /></Button>
-          </div>
-        </div>
-      )}
-
-      {isDelayRemarkPopupOpen && selectedOrderForRemark && (
-        <Dialog open={isDelayRemarkPopupOpen} onOpenChange={setIsDelayRemarkPopupOpen}>
-          <DialogContent className="max-w-md bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden">
-            <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
-              <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Clock className="h-4 w-4" /> Log Delay Remark</DialogTitle>
-            </DialogHeader>
-            <div className="p-8 space-y-6">
-               <div className="space-y-4">
-                  <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sale Order</span><span className="text-[12px] font-black text-[#1e3a8a]">{selectedOrderForRemark.saleOrder}</span></div>
-                  <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[12px] font-black uppercase">{selectedOrderForRemark.shipToParty}</span></div>
-                  <div className="flex flex-col gap-2 mt-4"><label className="text-[11px] font-black uppercase text-slate-500">Delay Remark:</label><textarea value={delayRemarkInput} onChange={e => setDelayRemarkInput(e.target.value)} className="h-24 w-full border border-slate-400 bg-white px-2 py-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase resize-none" placeholder="ENTER REASON FOR DELAY..." /></div>
-               </div>
-               <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-                  <Button onClick={() => setIsDelayRemarkPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Cancel</Button>
-                  <Button onClick={handlePostDelayRemark} className="h-9 px-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-md">Post Remark</Button>
-               </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {isCnPopupOpen && selectedTripForCn && (
-        <Dialog open={isCnPopupOpen} onOpenChange={setIsCnPopupOpen}>
-          <DialogContent className="max-w-[1000px] max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
-            <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
-              <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><FileText className="h-4 w-4" /> CN - Consignment Note Entry</DialogTitle>
-            </DialogHeader>
-            <div className="p-8 space-y-10 overflow-y-auto green-scrollbar flex-1">
-              <SectionGrouping title="CN HEADER">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-                   <FormInput label="CN NUMBER" value={cnFormData.cnNo} onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v})} />
-                   <FormInput label="CN DATE" type="date" value={cnFormData.cnDate} onChange={(v: string) => setCnFormData({...cnFormData, cnDate: v})} />
-                   <FormSelect label="PAYMENT TERMS" value={cnFormData.paymentTerms} options={['PAID', 'TO PAY', 'TBB', 'FOC']} onChange={(v: string) => setCnFormData({...cnFormData, paymentTerms: v})} />
-                   <FormInput label="CARRIER NAME" value={cnFormData.carrierName} disabled={true} />
-                </div>
-              </SectionGrouping>
-              <SectionGrouping title="ITEM DETAILS">
-                <div className="bg-white border border-slate-300 shadow-inner overflow-hidden">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50 border-b border-slate-300 text-[10px] font-black uppercase">
-                      <tr>
-                        <th className="p-2 border-r border-slate-200">Invoice No</th>
-                        <th className="p-2 border-r border-slate-200">E-Waybill No</th>
-                        <th className="p-2 border-r border-slate-200">Product</th>
-                        <th className="p-2 border-r border-slate-200">Qty</th>
-                        <th className="p-2 border-r border-slate-200">UOM</th>
-                        <th className="p-2 w-10 text-center">X</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cnFormData.items?.map((item: any, idx: number) => (
-                        <tr key={idx} className="border-b border-slate-100 h-8">
-                          <td className="p-0 border-r border-slate-100"><input value={item.invoiceNo} onChange={(e) => { const itms = [...cnFormData.items]; itms[idx].invoiceNo = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-full px-2 text-[11px] font-bold outline-none uppercase" /></td>
-                          <td className="p-0 border-r border-slate-100"><input value={item.ewaybillNo} onChange={(e) => { const itms = [...cnFormData.items]; itms[idx].ewaybillNo = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-full px-2 text-[11px] font-bold outline-none uppercase" /></td>
-                          <td className="p-0 border-r border-slate-100"><input value={item.product} onChange={(e) => { const itms = [...cnFormData.items]; itms[idx].product = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-full px-2 text-[11px] font-bold outline-none uppercase" /></td>
-                          <td className="p-0 border-r border-slate-100"><input type="number" value={item.unit} onChange={(e) => { const itms = [...cnFormData.items]; itms[idx].unit = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-full px-2 text-[11px] font-bold outline-none uppercase" /></td>
-                          <td className="p-0 border-r border-slate-100"><select value={item.uom} onChange={(e) => { const itms = [...cnFormData.items]; itms[idx].uom = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-full px-1 text-[11px] font-bold outline-none uppercase"><option value="Bag">Bag</option><option value="Box">Box</option><option value="Drum">Drum</option><option value="Pallet">Pallet</option><option value="Roll">Roll</option><option value="MT">MT</option><option value="KG">KG</option><option value="LTR">LTR</option></select></td>
-                          <td className="p-0 text-center"><button onClick={() => { if (cnFormData.items.length > 1) { const itms = cnFormData.items.filter((_: any, i: number) => i !== idx); setCnFormData({...cnFormData, items: itms}); } }} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 className="h-3 w-3" /></button></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-slate-50 font-black">
-                       <tr className="h-10">
-                          <td colSpan={3} className="px-3">
-                            <button onClick={() => setCnFormData({...cnFormData, items: [...cnFormData.items, { invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'Bag' }]})} className="flex items-center gap-1 text-[9px] uppercase text-[#1e3a8a] hover:underline transition-all"><Plus className="h-3 w-3" /> Add Item Line</button>
-                          </td>
-                          <td className="px-2 text-center text-[11px] text-[#0056d2]">{cnTableTotal.total}</td>
-                          <td className="px-2 text-center text-[10px] text-[#0056d2]">{cnTableTotal.uom}</td>
-                          <td />
-                       </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </SectionGrouping>
-            </div>
-            <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
-              <Button onClick={() => setIsCnPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
-              <Button onClick={handleCnPost} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post CN</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-    </div>);
-}
-
-function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
-  const [gpsData, setGpsData] = React.useState<any[]>([]); const [distance, setDistance] = React.useState<string>('Calculating...'); const mapRef = React.useRef<HTMLDivElement>(null);
-  const fetchGps = React.useCallback(async () => { try { const res = await fetch('/api/gps'); if (res.ok) { const json = await res.json(); if (json?.data?.list) setGpsData(json.data.list); } } catch (e) {} }, []);
-  React.useEffect(() => { fetchGps(); const i = setInterval(fetchGps, 30000); return () => clearInterval(i); }, [fetchGps]);
-  React.useEffect(() => {
-    if (!node || !window.google) return; const { trip } = node; const gpsVehicle = gpsData.find(v => v.vehicleNumber?.toUpperCase() === trip.vehicleNumber?.toUpperCase()); const geocoder = new window.google.maps.Geocoder(); const directionsService = new window.google.maps.DirectionsService(); const directionsRenderer = new window.google.maps.DirectionsRenderer({ suppressMarkers: true, polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 } });
-    const cons = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.consignor?.toUpperCase());
-    const ship = customers?.find((c: any) => c.customerName?.toUpperCase() === trip.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === trip.shipToParty?.toUpperCase());
-    const p1 = new Promise((resolve) => { if (cons?.postalCode) { geocoder.geocode({ address: cons.postalCode }, (res, status) => { if (status === 'OK') resolve(res[0].geometry.location); else resolve(null); }); } else resolve(null); });
-    const p2 = new Promise((resolve) => { if (ship?.postalCode) { geocoder.geocode({ address: ship.postalCode }, (res, status) => { if (status === 'OK') resolve(res[0].geometry.location); else resolve(null); }); } else resolve(null); });
-    Promise.all([p1, p2]).then(([origin, dest]: any) => {
-      if (!mapRef.current) return; const map = new window.google.maps.Map(mapRef.current, { center: gpsVehicle ? { lat: gpsVehicle.latitude, lng: gpsVehicle.longitude } : { lat: 20.5937, lng: 78.9629 }, zoom: gpsVehicle ? 12 : 5, styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }] }); directionsRenderer.setMap(map);
-      if (origin) new window.google.maps.Marker({ position: origin, map, title: 'Start Point', icon: { url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png', scaledSize: new window.google.maps.Size(32, 32) } });
-      if (dest) new window.google.maps.Marker({ position: dest, map, title: 'Drop Point', icon: { url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png', scaledSize: new window.google.maps.Size(32, 32) } });
-      if (gpsVehicle) { const vIcon = gpsVehicle.speed > 0 ? settings?.activeIcon : settings?.stopIcon; new window.google.maps.Marker({ position: { lat: gpsVehicle.latitude, lng: gpsVehicle.longitude }, map, title: gpsVehicle.vehicleNumber, icon: { url: vIcon || 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(40, 40) } }); }
-      if (origin && dest) directionsService.route({ origin, destination: dest, travelMode: window.google.maps.TravelMode.DRIVING }, (result, status) => { if (status === 'OK') { directionsRenderer.setDirections(result); if (result.routes[0].legs[0].distance) setDistance(result.routes[0].legs[0].distance.text); } });
-    });
-  }, [node, gpsData, customers, settings]);
-  const { trip } = node; const currentGps = gpsData.find(v => v.vehicleNumber?.toUpperCase() === trip.vehicleNumber?.toUpperCase());
-  return (<div className="flex flex-col h-full bg-[#f2f2f2] animate-fade-in font-mono"><div className="bg-white border-b border-slate-300 px-8 py-3 mb-4 flex items-center justify-between shadow-sm shrink-0"><div className="flex items-center gap-8"><button onClick={onBack} className="p-1 hover:bg-slate-100 rounded text-slate-600 transition-colors"><ArrowLeft className="h-5 w-5" /></button><h2 className="text-[14px] font-black text-slate-800 tracking-tight uppercase">Live Logistical Tracking</h2></div><div className="flex items-center gap-12"><div className="flex items-center gap-12"><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[11px] font-black uppercase text-[#1e3a8a]">{trip.shipToParty}</span></div><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[11px] font-black uppercase text-blue-600">{trip.vehicleNumber}</span></div><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[11px] font-black uppercase text-slate-700">{trip.route}</span></div><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Distance</span><span className="text-[11px] font-black text-emerald-600">{distance}</span></div></div></div></div><div className="flex-1 relative p-4"><div className="absolute top-8 left-8 z-10 space-y-3 pointer-events-none">{currentGps && (<div className="bg-white/90 backdrop-blur-sm border-2 border-[#1e3a8a] p-4 shadow-2xl flex flex-col gap-2 min-w-[220px]"><div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-1"><span className="text-[10px] font-black uppercase text-[#1e3a8a]">Vehicle Registry</span><Badge className={cn("text-[9px] font-black uppercase h-5", currentGps.speed > 0 ? "bg-emerald-500" : "bg-red-500")}>{currentGps.speed > 0 ? `${currentGps.speed} KM/H` : 'IDLE'}</Badge></div><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase">Speed</span><span className="text-sm font-black italic">{currentGps.speed} KM/H</span></div><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase">Last Sync</span><span className="text-[10px] font-bold">{currentGps.lastUpdate || 'Just Now'}</span></div></div>)}</div><div ref={mapRef} className="w-full h-full bg-white border border-slate-300 shadow-inner rounded-none" /></div></div>);
+  return (<div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden"><div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50 print:hidden"><div className="flex items-center gap-6">{['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(i => <button key={i} className="hover:text-blue-800 transition-colors uppercase">{i}</button>)}</div><div className="flex-1" /><div className="flex items-center h-full"><button className="h-full px-2 hover:bg-white/30"><PlusSquare className="h-3.5 w-3.5 opacity-30" /></button><button className="h-full px-2 hover:bg-white/30"><Grid2X2 className="h-3 w-3 opacity-30" /></button><button onClick={() => router.push('/')} className="h-full px-3 hover:bg-[#e81123] hover:text-white"><X className="h-3.5 w-3.5" /></button></div></div><div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40 print:hidden"><div className="flex items-center px-2 py-1 gap-4"><div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">{logoAsset && <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized data-ai-hint="logistics logo" />}</div><div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner relative"><button onClick={(e) => { e.preventDefault(); executeTCode(tCode); }} className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100 transition-colors">✓</button><input ref={tCodeRef} type="text" value={tCode} onChange={(e) => { setTCode(e.target.value); if (showHistory) setShowHistory(false); }} onClick={() => history.length > 0 && setShowHistory(true)} onBlur={() => setTimeout(() => setShowHistory(false), 200)} className="w-48 outline-none text-xs px-1 font-bold tracking-wider" />{showHistory && history.length > 0 && (<div className="absolute top-full left-0 w-full bg-white border border-slate-400 shadow-md z-[60] mt-0.5">{history.map((h, i) => <div key={i} onClick={() => { setTCode(h); executeTCode(h); }} className={cn("px-4 py-1.5 text-xs font-bold cursor-pointer hover:bg-blue-50 transition-colors", i === historyIndex ? "bg-blue-100" : "")}>{h}</div>)}</div>)}</div><div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7"><button onClick={handleSave} disabled={activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title={activeScreen === 'SE38' ? "Execute (F8)" : "Save (F8)"}>{activeScreen === 'SE38' ? <PlayCircle className="h-4 w-4 text-blue-600" /> : <Save className="h-4 w-4 text-slate-600" />}</button><button onClick={handleBack} className="p-1 hover:bg-slate-200 rounded" title="Back Step-by-Step (F3)"><Undo2 className="h-4 w-4 text-slate-600" /></button><button onClick={handleCancel} disabled={activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')} className={cn("p-1 rounded", (activeScreen === 'HOME' || (isReadOnly && activeScreen !== 'SE38')) ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-200")} title="Cancel (F12)"><XCircle className="h-4 w-4 text-slate-600" /></button><button onClick={() => window.open(window.location.href, '_blank')} className={cn("p-1 rounded hover:bg-slate-200")} title="New Session"><PlusSquare className="h-4 w-4 text-slate-600" /></button></div><div className="flex-1" /><div className="flex items-center gap-3 pr-4">{(activeScreen === 'XD01' || activeScreen === 'VA01' || activeScreen === 'FM01') && (<div className="flex items-center gap-2 mr-4"><input type="file" ref={bulkInputRef} onChange={handleFileChange} className="hidden" accept=".csv" /><button onClick={handleDownloadTemplate} className="flex items-center gap-1.5 px-3 h-7 bg-white border border-slate-300 hover:bg-slate-50 rounded text-[9px] font-black uppercase tracking-widest text-[#1e3a8a]"><FileText className="h-3.5 w-3.5" /> Template</button><button onClick={handleBulkUpload} className="flex items-center gap-1.5 px-3 h-7 bg-[#1e3a8a] hover:bg-blue-900 text-white rounded text-[9px] font-black uppercase tracking-widest"><UploadCloud className="h-3.5 w-3.5" /> Bulk Upload</button></div>)}<button onClick={() => window.print()} className="p-1.5 hover:bg-slate-200 rounded text-slate-600"><Printer className="h-4 w-4" /></button><button onClick={() => { localStorage.removeItem('sap_bootstrap_session'); localStorage.removeItem('sap_user_role'); router.push('/login'); }} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700"><LogOut className="h-3.5 w-3.5" /> Log Off</button></div></div></div><div className="flex-1 flex overflow-hidden">{activeScreen === 'HOME' && (<div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden print:hidden"><div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div><div className="flex-1 overflow-y-auto green-scrollbar">{MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'TR24' || t.code === 'VA04' || t.code === 'ZCODE' || t.code === 'WGPS24' || t.code === 'SE38').map((item) => (<div key={item.code} onClick={() => executeTCode(item.code)} className={cn("flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all", activeScreen === item.code ? "bg-[#0056d2] text-white" : "text-[#1e3a8a]")}><div className={cn("w-1.5 h-1.5 rounded-full shrink-0", activeScreen === item.code ? "bg-white" : "bg-slate-300 group-hover:bg-blue-600")} /><span className={cn("text-[10px] font-black uppercase tracking-tight", activeScreen === item.code ? "text-white" : "text-[#1e3a8a]")}>{item.code} - {item.description}</span><div className="flex-1" /><item.icon className={cn("h-3.5 w-3.5", activeScreen === item.code ? "text-white" : "text-slate-400")} /></div>))}</div></div>)}<div className="flex-1 flex flex-col overflow-hidden bg-[#f0f3f9]"><div className="flex-1 flex flex-col overflow-hidden bg-[#f2f2f2] print:bg-white">{activeScreen === 'HOME' ? (<div className="flex-1 overflow-y-auto p-2 md:p-4 relative animate-fade-in"><h1 className="text-2xl md:text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter mb-8">Sikka Logistics Management Control</h1><div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-4 md:p-6 border border-slate-300 shadow-sm mb-12"><div className="flex flex-col gap-1.5"><label className="text-[10px] font-black uppercase text-slate-400">Authorized Plant</label><select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none" value={homePlantFilter} onChange={(e) => setHomePlantFilter(e.target.value)}><option value="ALL">ALL AUTHORIZED PLANTS</option>{accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div><div className="flex flex-col gap-2 relative" ref={monthRef}><label className="text-[10px] font-black uppercase text-slate-400">Period</label><div onClick={() => setShowMonthCalendar(!showMonthCalendar)} className="h-10 border border-slate-400 bg-white px-3 flex items-center justify-between cursor-pointer shadow-sm"><span className="text-xs font-bold text-slate-700 uppercase">{format(new Date(homeMonthFilter + '-01'), 'MMMM yyyy')}</span><CalendarIcon className="h-4 w-4 text-slate-400" /></div>{showMonthCalendar && (<div className="absolute top-full left-0 mt-1 z-[60] flex flex-col border border-slate-300 bg-white rounded-lg shadow-2xl w-full max-w-[320px] animate-slide-down"><div className="flex items-center justify-between p-3 border-b border-slate-200"><button onClick={(e) => { e.stopPropagation(); const [y, m] = homeMonthFilter.split('-'); setHomeMonthFilter(`${parseInt(y) - 1}-${m}`); }} className="p-1.5 hover:bg-slate-50 rounded-md border border-slate-200"><ChevronLeft className="h-4 w-4" /></button><span className="text-sm font-black">{homeMonthFilter.split('-')[0]}</span><button onClick={(e) => { e.stopPropagation(); const [y, m] = homeMonthFilter.split('-'); setHomeMonthFilter(`${parseInt(y) + 1}-${m}`); }} className="p-1.5 hover:bg-slate-50 rounded-md border border-slate-200"><ChevronRight className="h-4 w-4" /></button></div><div className="grid grid-cols-4 gap-2 p-3">{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => { const mStr = (i + 1).toString().padStart(2, '0'); const year = homeMonthFilter.split('-')[0]; const isActive = homeMonthFilter === `${year}-${mStr}`; return <button key={m} onClick={(e) => { e.stopPropagation(); setHomeMonthFilter(`${year}-${mStr}`); setShowMonthCalendar(false); }} className={cn("py-2 text-[10px] font-black border rounded-md uppercase", isActive ? "bg-[#0056d2] text-white border-[#0056d2]" : "bg-white text-slate-600 border-slate-200")}>{m}</button>; })}</div></div>)}</div></div><div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">{[{ label: 'OPEN ORDER', count: homeStats.open, color: 'text-blue-600' }, { label: 'LOADING', count: homeStats.loading, color: 'text-orange-600' }, { label: 'IN-TRANSIT', count: homeStats.transit, color: 'text-emerald-600' }, { label: 'ARRIVED', count: homeStats.arrived, color: 'text-indigo-600' }, { label: 'POD SECTION', count: homeStats.pod, color: 'text-purple-600' }, { label: 'REJECT', count: homeStats.reject, color: 'text-red-600' }, { label: 'CLOSED', count: homeStats.closed, color: 'text-slate-600' }].map(w => (<div key={w.label} className="p-4 md:p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-2 bg-white animate-slide-up"><span className="text-[10px] font-black text-slate-400 uppercase text-center">{w.label}</span><span className={cn("text-2xl md:text-4xl font-black italic tracking-tighter", w.color)}>{w.count}</span></div>))}</div></div>) : (<div className={cn("animate-slide-up print:p-0 print:border-none print:shadow-none flex flex-col w-full h-full overflow-y-auto bg-[#f2f2f2] green-scrollbar")}>{showForm && <div className="space-y-0 min-h-full"><div className="bg-white border-b border-slate-300 px-8 py-3 mb-10"><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">{MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen}</h2></div><div className="px-10 pb-20 max-w-full">{activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}{activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} trips={allTrips} screen={activeScreen} />}{activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} allTrips={allTrips} onPost={handleSave} onCancel={() => setFormData({})} />}{activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}</div></div>}{showList && <div className="space-y-0 min-h-full"><div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between"><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">{MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen} - REGISTRY</h2><div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AUTHORIZED</div></div><div className="px-10 pb-20 max-w-full"><div className="bg-white border-b-2 border-slate-300 p-6 mb-8 flex flex-col md:flex-row items-center gap-8"><div className="flex flex-col gap-2 flex-1 w-full"><label className="text-[11px] font-black uppercase text-slate-500 block tracking-widest">Search Criteria</label><div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">{activeScreen.startsWith('XD') ? (<><div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Select Plant</label><select className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold" value={xdSearch.plant} onChange={(e) => setXdSearch({...xdSearch, plant: e.target.value})}><option value="">ALL PLANTS</option>{accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div><div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Select Type</label><select className="h-8 border border-slate-400 bg-white px-2 text-xs font-bold" value={xdSearch.type} onChange={(e) => setXdSearch({...xdSearch, type: e.target.value})}><option value="">ALL TYPES</option><option value="Consignor">Consignor</option><option value="Consignee - Ship to Party">Consignee - Ship to Party</option></select></div><div className="flex flex-col gap-1.5"><label className="text-[9px] font-black text-slate-400 uppercase">Enter Name</label><input className="h-8 border border-slate-400 px-3 text-xs font-black outline-none" value={xdSearch.name} onChange={(e) => setXdSearch({...xdSearch, name: e.target.value})} /></div></>) : (<div className="col-span-1 md:col-span-3 flex items-center gap-4"><input className="h-9 w-full max-w-2xl border border-slate-400 px-4 text-xs font-black outline-none bg-white focus:ring-1 focus:ring-blue-500 uppercase tracking-widest" value={searchId} onChange={(e) => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER IDENTIFIER AND PRESS ENTER..." /></div>)}</div></div></div><RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} /></div></div>}{activeScreen === 'TR21' && viewMode === 'list' && (<TripBoard orders={allOrders} trips={allTrips} vendors={accessibleVendors} plants={accessiblePlants} companies={accessibleCompanies} customers={accessibleCustomers} onStatusUpdate={setStatusMsg} viewMode={viewMode} setViewMode={setViewMode} trackingNode={trackingNode} setTrackingNode={setTrackingNode} settings={settings} />)}{activeScreen === 'TR21' && viewMode === 'tracking' && (<Tr21TrackingPage node={trackingNode} onBack={() => setViewMode('list')} customers={accessibleCustomers} settings={settings} />)}{activeScreen === 'TR24' && <TrackShipmentScreen trips={allTrips} orders={allOrders} customers={accessibleCustomers} />}{activeScreen === 'WGPS24' && <GpsTrackingHub trips={allTrips} onStatusUpdate={setStatusMsg} db={db} settings={settings} settingsRef={settingsRef} />}{activeScreen === 'SE38' && (<Se38Report search={se38Search} results={se38Results} view={se38View} onSearchChange={setSe38Search} onViewChange={setSe38View} allPlants={accessiblePlants} allVendors={accessibleVendors} allCompanies={accessibleCompanies} allCustomers={accessibleCustomers} />)}{activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}</div>)}</div></div></div><div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em] print:hidden"><div className="flex items-center gap-4 md:gap-8 overflow-hidden flex-1"><span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span><span className="shrink-0">{activeScreen}</span><span className="truncate">USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.fullName || 'Authenticating...')}</span>{statusMsg.text !== 'Ready' && <span className={cn("truncate", statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span>}</div>{greeting && <div className="shrink-0 ml-4 hidden sm:block text-blue-400">{greeting}</div>}</div></div>);
 }
