@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -496,10 +495,8 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
       polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 }
     });
     
-    // Find associated order
     const order = trackingData.saleOrderId ? orders?.find((o: any) => o.id === trackingData.saleOrderId) : trackingData;
     
-    // Find master data for Start and Drop points from XD03 Saved Data
     const consignorMaster = customers?.find((c: any) => 
       c.customerName?.toUpperCase() === order?.consignor?.toUpperCase() || 
       (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.consignor?.toUpperCase()
@@ -1172,7 +1169,6 @@ export default function SapDashboard() {
         return true;
       });
       
-      // Inject associated order data for deeper reporting
       results = results.map(t => ({
         ...t,
         order: allOrders?.find(o => o.id === t.saleOrderId)
@@ -1393,10 +1389,6 @@ export default function SapDashboard() {
       else { setStatusMsg({ text: `Record ${idToSearch} not found`, type: 'error' }); }
     }
   };
-
-  const isSuPage = activeScreen.startsWith('SU');
-  const isSe38Page = activeScreen === 'SE38';
-  const isFlatPage = isSuPage || (activeScreen === 'TR21' && viewMode === 'tracking') || (isSe38Page && se38View === 'result') || (showForm && activeScreen !== 'HOME') || (showList && activeScreen !== 'HOME');
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
@@ -1887,7 +1879,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers, tri
       <FormInput label="BOOKED DATE TIME" type="datetime-local" value={data.saleOrderDate} onChange={(v: string) => onChange({...data, saleOrderDate: v})} disabled={disabled} />
       
       {(screen === 'VA02' || screen === 'VA03') && (
-        <>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-4 pt-4 border-t border-slate-200 mt-6 animate-fade-in">
           <FormSearchInput 
             label="CONSIGNOR" 
             value={data.consignor} 
@@ -1926,7 +1918,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers, tri
           <FormInput label="DISPATCH WEIGHT" value={dispatchWeight} disabled={true} />
           <FormInput label="BALANCE WEIGHT" value={balanceWeight.toFixed(2)} disabled={true} />
           <FormSelect label="STATUS" value={data.status} options={["Active", "Short closed"]} onChange={(v: string) => onChange({...data, status: v})} disabled={disabled} />
-        </>
+        </div>
       )}
     </SectionGrouping>
     {screen === 'VA01' && (
@@ -2397,7 +2389,6 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
             <Button variant="outline" size="sm" disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(p + 1)} className="h-7 px-3 text-[9px] font-black uppercase rounded-none border-slate-300">Next</Button></div></div></div>
     </div>
     
-    {/* Assignment Popup */}
     <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
       <DialogContent className="max-w-[1200px] max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
@@ -2488,7 +2479,6 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       </DialogContent>
     </Dialog>
 
-    {/* Assignment Edit/Update Popup */}
     <Dialog open={isAssignmentPopupOpen} onOpenChange={setIsAssignmentPopupOpen}>
       <DialogContent className="max-w-[1200px] max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
@@ -2535,7 +2525,6 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       </DialogContent>
     </Dialog>
 
-    {/* CN Registry Popup */}
     <Dialog open={isCnPopupOpen} onOpenChange={setIsCnPopupOpen}>
       <DialogContent className="max-w-[1200px] max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
@@ -2610,7 +2599,6 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       </DialogContent>
     </Dialog>
 
-    {/* CN Print Preview Popup */}
     <Dialog open={isCnPreviewOpen} onOpenChange={setIsCnPreviewOpen}>
       <DialogContent className="max-w-[1200px] max-h-[95vh] bg-white p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col print:shadow-none print:w-full print:max-w-none">
         <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0 flex flex-row items-center justify-between space-y-0 print:hidden">
@@ -2844,15 +2832,29 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
 
   React.useEffect(() => {
     fetchGps();
-    const interval = setInterval(fetchGps, 900000); // 15 Minute Sync
+    const interval = setInterval(fetchGps, 900000); 
     return () => clearInterval(interval);
   }, [fetchGps]);
 
   const onVehicleSelect = (v: any) => {
     setSelectedVehicle(v);
-    const street = v.location?.split(',')[0] || v.latitude;
-    const city = v.location?.split(',')[1] || v.longitude;
-    onStatusUpdate({ text: `Vehicle Last Location: ${street}, ${city}`, type: 'info' });
+    
+    let street = '';
+    let city = '';
+    
+    if (v.location && v.location !== 'Syncing...' && v.location !== 'Syncing') {
+      const parts = v.location.split(',').map((p: string) => p.trim());
+      street = parts[0] || '';
+      city = parts[1] || '';
+    } else {
+      street = v.latitude?.toFixed(4) || 'N/A';
+      city = v.longitude?.toFixed(4) || 'N/A';
+    }
+
+    onStatusUpdate({ 
+      text: `Vehicle Last Location: ${street}, ${city}`, 
+      type: 'info' 
+    });
     
     if (googleMap.current) {
       googleMap.current.setCenter({ lat: v.latitude, lng: v.longitude });
@@ -2976,7 +2978,7 @@ function Se38Report({ search, results, view, onSearchChange, onViewChange, allPl
       'Plant', 'Sale Order', 'Sale order Date time', 'Consignor', 'Consignee', 'Ship to Party', 'destination', 
       'Trip ID', 'Trip Create Date Time', 'Vehicle Number', 'Driver Mobile', 'Carrier Name', 'CN Number', 
       'Invoice Number', 'E-waybill Number', 'Product', 'Unit', 'Unit UOM', 'Assign Qty', 'Weight UOM', 
-      'Vendor Name', 'Vendor Firm', 'Vendor Mobile', 'Fleet Type', 'Payment Term', 'Rate', 'Freight Amount', 
+      'Vendor Name', 'Vendor Firm', 'Vendor Mobile', 'Fleet Type', 'Payment Term', 'Employee', 'Rate', 'Freight Amount', 
       'Vehicle Out Date Time', 'Vehicle Arrived Date Time', 'Unload Date Time', 'Reject Date Time', 'POD Status'
     ];
     
