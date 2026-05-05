@@ -1,6 +1,13 @@
 import './globals.css';
+import { Inter } from 'next/font/google';
 import { ReactNode } from 'react';
 import RootLayoutClient from './RootLayoutClient';
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+});
 
 /**
  * @fileOverview Root Layout Node (Server Component).
@@ -12,15 +19,7 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body className="font-body antialiased bg-background">
         <RootLayoutClient>{children}</RootLayoutClient>
       </body>

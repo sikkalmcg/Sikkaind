@@ -22,15 +22,19 @@ export default function RootLayoutClient({ children }: { children: ReactNode }) 
   // Show header/footer on website pages including /track
   // Hide only on login and dashboard pages
   const isDashboardOrLogin = pathname?.startsWith('/login') || pathname?.startsWith('/dashboard');
+  
+  // Use 'mounted' to ensure client-specific UI (Header/Footer) only renders after hydration
   const showHeaderFooter = mounted && !isDashboardOrLogin;
 
   return (
     <FirebaseClientProvider>
-      <Suspense fallback={null}>
-        {showHeaderFooter && <Header />}
-        <main className={showHeaderFooter ? 'block' : 'contents'}>{children}</main>
-        {showHeaderFooter && <Footer />}
-      </Suspense>
+      {showHeaderFooter && <Header />}
+      <main className={showHeaderFooter ? 'block' : 'contents'}>
+        <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400">Loading Registry...</div>}>
+          {children}
+        </Suspense>
+      </main>
+      {showHeaderFooter && <Footer />}
       <Toaster />
     </FirebaseClientProvider>
   );
