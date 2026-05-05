@@ -99,7 +99,7 @@ function VehicleLocation({ lat, lng, locationName, onClick }: { lat: number, lng
           if (c.types.includes('route') || c.types.includes('sublocality')) street = c.long_name;
           if (c.types.includes('locality')) city = c.long_name;
         }
-        const full = city ? `${street ? street + ', ' : ''}${city}` : results[0].formatted_address.split(',').slice(0, 2).join(', ');
+        const full = city ? `${street}, ${city}` : results[0].formatted_address.split(',').slice(0, 2).join(', ');
         setLoc(full);
       } else {
         setLoc('Location Offline');
@@ -833,7 +833,7 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       id: t.id, 
       vehicleNumber: t.vehicleNumber, 
       route: t.route, 
-      shipToParty: t.shipToParty,
+      shipToParty: t.shipToParty, 
       cnNo: t.cnNo || 'N/A',
       date: format(new Date(), 'yyyy-MM-dd'), 
       time: format(new Date(), 'HH:mm') 
@@ -1254,6 +1254,18 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
               <div key={copyLabel} className="bg-white p-[0.5in] min-h-[297mm] flex flex-col border border-slate-200 mb-8 shadow-sm print:m-0 print:shadow-none print:border-none print:page-break-after-always">
                 <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-4">
                   <div className="flex gap-6 items-start">
+                    {/* Carrier Logofetched from FM03 record */}
+                    {selectedTripForPreview?.carrier?.logo && (
+                      <div className="relative w-14 h-14 shrink-0 mt-1">
+                        <Image 
+                          src={selectedTripForPreview.carrier.logo} 
+                          alt="Carrier Logo" 
+                          fill 
+                          className="object-contain object-left-top" 
+                          unoptimized 
+                        />
+                      </div>
+                    )}
                     <div className="space-y-1">
                       <h1 className="text-3xl font-black uppercase text-[#1e3a8a] leading-tight">SIKKA INDUSTRIES AND LOGISTICS</h1>
                       <div className="text-[11px] font-bold text-slate-800 uppercase space-y-0.5">
@@ -2225,7 +2237,7 @@ export default function DashboardPage() {
   const [se38View, setSe38View] = React.useState<'selection' | 'result'>('selection');
 
   const [viewMode, setViewMode] = React.useState<'list' | 'tracking'>('list');
-  const [trackingNode, setTrackingNode] = React.useState<any>(null);
+  const [trackingNode, setTrackingNode] = React.setTrackingNode = React.useState<any>(null);
 
   const tCodeRef = React.useRef<HTMLInputElement>(null);
   const monthRef = React.useRef<HTMLDivElement>(null);
