@@ -63,7 +63,7 @@ const MASTER_TCODES = [
   { code: 'TR21', description: 'TRIP BOARD CONTROL', icon: Truck, module: 'Logistics' },
   { code: 'TR24', description: 'TRACK SHIPMENT', icon: Radar, module: 'Logistics' },
   { code: 'WGPS24', description: 'GPS TRACKING HUB', icon: Radar, module: 'Logistics' },
-  { code: 'SE38', description: 'CUSTOM T-CODE REPORT', icon: FileText, module: 'System' },
+  { code: 'SE38', description: 'CUSTOM REPORT EXECUTION', icon: FileText, module: 'System' },
   { code: 'SU01', description: 'USER MANAGEMENT: CREATE', icon: ShieldAlert, module: 'System' },
   { code: 'SU02', description: 'USER MANAGEMENT: CHANGE', icon: Edit3, module: 'System' },
   { code: 'SU03', description: 'USER MANAGEMENT: DISPLAY', icon: Info, module: 'System' },
@@ -375,10 +375,12 @@ function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
            <h2 className="text-[14px] font-black text-slate-800 tracking-tight uppercase">Live Logistical Tracking</h2>
         </div>
         <div className="flex items-center gap-12">
-           <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[11px] font-black uppercase text-[#1e3a8a]">{trip.shipToParty}</span></div>
-           <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[11px] font-black uppercase text-blue-600">{trip.vehicleNumber}</span></div>
-           <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[11px] font-black uppercase text-slate-700">{trip.route}</span></div>
-           <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Distance</span><span className="text-[11px] font-black text-emerald-600">{distance}</span></div>
+           <div className="flex items-center gap-12">
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[11px] font-black uppercase text-[#1e3a8a]">{trip.shipToParty}</span></div>
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[11px] font-black uppercase text-blue-600">{trip.vehicleNumber}</span></div>
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[11px] font-black uppercase text-slate-700">{trip.route}</span></div>
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Distance</span><span className="text-[11px] font-black text-emerald-600">{distance}</span></div>
+           </div>
         </div>
       </div>
       
@@ -436,6 +438,7 @@ export default function SapDashboard() {
 
   const [se38Search, setSe38Search] = React.useState({ plant: '', vendor: '', company: '', customer: '', from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') });
   const [se38Results, setSe38Results] = React.useState<any[] | null>(null);
+  const [se38View, setSe38View] = React.useState<'selection' | 'result'>('selection');
 
   const [viewMode, setViewMode] = React.useState<'list' | 'tracking'>('list');
   const [trackingNode, setTrackingNode] = React.useState<any>(null);
@@ -597,7 +600,7 @@ export default function SapDashboard() {
       if (xdSearch.plant) list = list.filter((c: any) => c.plantCodes?.includes(xdSearch.plant));
       if (xdSearch.type) list = list.filter((c: any) => c.customerType === xdSearch.type);
       if (xdSearch.name) list = list.filter((c: any) => c.customerName?.toUpperCase().includes(xdSearch.name.toUpperCase()));
-      if (xdSearch.customerId) list = list.filter((c: any) => (c.customerCode || c.id)?.toString().toUpperCase() === xdSearch.customerId.toUpperCase());
+      if (xdSearch.customerId) list = list.filter((c: any) => (c.customerCode || c.id)?.toString().toUpperCase() === idToSearch.toUpperCase());
       return list;
     }
     if (activeScreen.startsWith('VA')) return allOrders;
@@ -841,7 +844,14 @@ export default function SapDashboard() {
         return true;
       });
       
+      // Inject associated order data for deeper reporting
+      results = results.map(t => ({
+        ...t,
+        order: allOrders?.find(o => o.id === t.saleOrderId)
+      }));
+
       setSe38Results(results);
+      setSe38View('result');
       setStatusMsg({ text: `Sync complete: ${results.length} records found`, type: 'success' });
       return;
     }
@@ -980,6 +990,7 @@ export default function SapDashboard() {
       setScreenStack(prev => [...prev, clean as Screen]);
       setActiveScreen(clean as Screen); setFormData({}); setSearchId(''); setXdSearch({ plant: '', type: '', name: '', customerId: '', postalCode: '' });
       setSe38Results(null);
+      setSe38View('selection');
       setViewMode('list');
       setStatusMsg({ text: `Transaction ${clean} executed`, type: 'info' });
     } else { setStatusMsg({ text: `T-Code ${clean} not found`, type: 'error' }); }
@@ -989,6 +1000,10 @@ export default function SapDashboard() {
   const handleBack = React.useCallback(() => {
     if (activeScreen === 'TR21' && viewMode === 'tracking') {
       setViewMode('list');
+      return;
+    }
+    if (activeScreen === 'SE38' && se38View === 'result') {
+      setSe38View('selection');
       return;
     }
     if (screenStack.length <= 1) {
@@ -1004,7 +1019,7 @@ export default function SapDashboard() {
     setFormData({});
     setSearchId('');
     setStatusMsg({ text: `Navigated to ${prevScreen}`, type: 'info' });
-  }, [screenStack, activeScreen, viewMode]);
+  }, [screenStack, activeScreen, viewMode, se38View]);
 
   const handleCancel = React.useCallback(() => {
     if (activeScreen === 'HOME' || (activeScreen.endsWith('03') && activeScreen !== 'SE38')) return;
@@ -1053,7 +1068,7 @@ export default function SapDashboard() {
 
   const isSuPage = activeScreen.startsWith('SU');
   const isSe38Page = activeScreen === 'SE38';
-  const isFlatPage = isSuPage || (activeScreen === 'TR21' && viewMode === 'tracking') || isSe38Page || (showForm && activeScreen !== 'HOME') || (showList && activeScreen !== 'HOME');
+  const isFlatPage = isSuPage || (activeScreen === 'TR21' && viewMode === 'tracking') || (isSe38Page && se38View === 'result') || (showForm && activeScreen !== 'HOME') || (showList && activeScreen !== 'HOME');
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
@@ -1202,7 +1217,7 @@ export default function SapDashboard() {
                    </div>
                  </div>}
                  {activeScreen === 'TR21' && viewMode === 'list' && (
-                   <DripBoard 
+                   <TripBoard 
                      orders={allOrders} 
                      trips={allTrips} 
                      vendors={accessibleVendors} 
@@ -1227,7 +1242,19 @@ export default function SapDashboard() {
                  )}
                  {activeScreen === 'TR24' && <TrackShipmentScreen trips={allTrips} orders={allOrders} customers={accessibleCustomers} />}
                  {activeScreen === 'WGPS24' && <GpsTrackingHub trips={allTrips} onStatusUpdate={setStatusMsg} db={db} settings={settings} settingsRef={settingsRef} />}
-                 {activeScreen === 'SE38' && <Se38Report search={se38Search} results={se38Results} onSearchChange={setSe38Search} allPlants={accessiblePlants} allVendors={accessibleVendors} allCompanies={accessibleCompanies} allCustomers={accessibleCustomers} />}
+                 {activeScreen === 'SE38' && (
+                   <Se38Report 
+                     search={se38Search} 
+                     results={se38Results} 
+                     view={se38View}
+                     onSearchChange={setSe38Search} 
+                     onViewChange={setSe38View}
+                     allPlants={accessiblePlants} 
+                     allVendors={accessibleVendors} 
+                     allCompanies={accessibleCompanies} 
+                     allCustomers={accessibleCustomers} 
+                   />
+                 )}
                  {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               </div>
             )}
@@ -1685,7 +1712,7 @@ function RegistryList({ onSelectItem, listData, activeScreen }: any) {
   </div>;
 }
 
-function DripBoard({ orders, trips, vendors, plants, companies, customers, onStatusUpdate, viewMode, setViewMode, trackingNode, setTrackingNode, settings }: any) {
+function TripBoard({ orders, trips, vendors, plants, companies, customers, onStatusUpdate, viewMode, setViewMode, trackingNode, setTrackingNode, settings }: any) {
   const { user } = useUser(); const db = useFirestore(); 
   const [activeTab, setActiveTab] = React.useState('Open Orders'); 
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null); 
@@ -1823,10 +1850,7 @@ function DripBoard({ orders, trips, vendors, plants, companies, customers, onSta
 
   const handleUnassignTrip = () => {
     if (!selectedTripForAssignment) return;
-    
-    // Non-blocking delete of the trip document
     deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id));
-    
     onStatusUpdate({ text: `Trip Unassigned Successfully`, type: 'success' });
     setIsAssignmentPopupOpen(false);
   };
@@ -2740,8 +2764,8 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-6 flex items-center justify-between shadow-sm">
         <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">GPS TRACKING HUB</h2>
         <div className="flex items-center gap-4">
-          <Button onClick={() => setEditIcons(!editIcons)} variant="outline" size="sm" className="text-[9px] font-black uppercase rounded-none"><Settings className="h-3.5 w-3.5 mr-2" /> Config</Button>
-          <Button onClick={fetchGps} disabled={loading} size="sm" className="bg-[#1e3a8a] text-white text-[9px] font-black uppercase rounded-none tracking-widest">{loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Manual Sync'}</Button>
+          <button onClick={() => setEditIcons(!editIcons)} className="text-[9px] font-black uppercase flex items-center gap-2 border border-slate-300 px-3 py-1.5 hover:bg-slate-50 transition-colors"><Settings className="h-3.5 w-3.5" /> Config</button>
+          <button onClick={fetchGps} disabled={loading} className="bg-[#1e3a8a] text-white text-[9px] font-black uppercase px-4 py-1.5 shadow-sm hover:bg-[#162a63] transition-colors">{loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Manual Sync'}</button>
         </div>
       </div>
 
@@ -2794,15 +2818,172 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
   );
 }
 
-function Se38Report({ search, results, onSearchChange, allPlants, allVendors, allCompanies, allCustomers }: any) {
+function Se38Report({ search, results, view, onSearchChange, onViewChange, allPlants, allVendors, allCompanies, allCustomers }: any) {
+  const handleExport = () => {
+    if (!results || results.length === 0) return;
+    
+    const headers = [
+      "Plant", "Sale Order", "Sale order Date time", "Consignor", "Consignee", "Ship to Party", "destination", 
+      "Trip ID", "Trip Create Date Time", "Vehicle Number", "Driver Mobile", "Carrier Name", "CN Number", 
+      "Invoice Number", "E-waybill Number", "Product", "Unit", "Unit UOM", "Assign Qty", "Weight UOM", 
+      "Vendor Name", "Vendor Firm", "Vendor Mobile", "Fleet Type", "Payment Term", "Employee", "Rate", 
+      "Freight Amount", "Vehicle Out Date Time", "Vehicle Arrived Date Time", "Unload Date Time", 
+      "Reject Date Time", "POD Status", "Vehicle Resent Date Time", "SRN Number", "SRN Date"
+    ];
+
+    const csvRows = [headers.join(",")];
+
+    results.forEach((r: any) => {
+      const item = r.cnItems?.[0] || {};
+      const row = [
+        r.plantCode || "",
+        r.saleOrderNumber || "",
+        r.order?.saleOrderDate || "",
+        `"${r.consignor || ""}"`,
+        `"${r.consignee || ""}"`,
+        `"${r.shipToParty || ""}"`,
+        `"${r.order?.destination || ""}"`,
+        r.tripId || "",
+        r.createdAt || "",
+        r.vehicleNumber || "",
+        r.driverMobile || "",
+        `"${r.carrierName || ""}"`,
+        r.cnNo || "",
+        item.invoiceNo || "",
+        item.ewaybillNo || "",
+        `"${item.product || ""}"`,
+        item.unit || "",
+        item.uom || "",
+        r.assignWeight || "",
+        r.weightUom || "",
+        `"${r.vendorName || ""}"`,
+        `"${r.vendorFirmName || ""}"`,
+        r.vendorMobile || "",
+        r.fleetType || "",
+        r.paymentTerms || "",
+        "SYSTEM", // Employee Placeholder
+        r.rate || "0",
+        r.freightAmount || "0",
+        `${r.outDate || ""} ${r.outTime || ""}`.trim(),
+        `${r.arrivedDate || ""} ${r.arrivedTime || ""}`.trim(),
+        `${r.unloadDate || ""} ${r.unloadTime || ""}`.trim(),
+        `${r.rejectionDate || ""} ${r.rejectionTime || ""}`.trim(),
+        r.status === 'CLOSED' ? 'Verified' : 'Pending',
+        "", // Resent placeholder
+        "", // SRN Number placeholder
+        ""  // SRN Date placeholder
+      ];
+      csvRows.push(row.join(","));
+    });
+
+    const csvString = csvRows.join("\n");
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const fileName = `${search.plant}_Report_${search.from}_to_${search.to}.csv`;
+    link.setAttribute("href", url);
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  if (view === 'result') {
+    return (
+      <div className="h-full flex flex-col font-mono animate-fade-in bg-white">
+        <div className="bg-[#f0f0f0] border-b border-slate-300 px-8 py-3 flex items-center justify-between shadow-sm sticky top-0 z-20">
+          <div className="flex items-center gap-6">
+            <button onClick={() => onViewChange('selection')} className="p-1 hover:bg-slate-200 rounded text-slate-600 transition-colors">
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <h2 className="text-[14px] font-black text-slate-800 tracking-tight uppercase">ALV LIST: {search.plant} ({results?.length || 0} Records)</h2>
+          </div>
+          <div className="flex items-center gap-3">
+             <button onClick={handleExport} className="flex items-center gap-2 px-4 h-8 bg-[#1e3a8a] text-white hover:bg-blue-900 rounded-none text-[10px] font-black uppercase tracking-widest shadow-md">
+                <Download className="h-3.5 w-3.5" /> Export .CSV
+             </button>
+             <button onClick={() => onViewChange('selection')} className="flex items-center gap-2 px-4 h-8 bg-white border border-slate-300 hover:bg-slate-50 rounded-none text-[10px] font-black uppercase tracking-widest">
+                <Undo2 className="h-3.5 w-3.5" /> Selection
+             </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto green-scrollbar">
+          <table className="w-full text-left border-collapse table-fixed min-w-[5000px]">
+            <thead className="sticky top-0 bg-[#f0f0f0] border-b-2 border-slate-300 z-10 shadow-sm">
+              <tr className="text-[9px] font-black uppercase text-slate-600 h-10">
+                {["Plant", "Sale Order", "Sale order Date time", "Consignor", "Consignee", "Ship to Party", "destination", "Trip ID", "Trip Create Date Time", "Vehicle Number", "Driver Mobile", "Carrier Name", "CN Number", "Invoice Number", "E-waybill Number", "Product", "Unit", "Unit UOM", "Assign Qty", "Weight UOM", "Vendor Name", "Vendor Firm", "Vendor Mobile", "Fleet Type", "Payment Term", "Employee", "Rate", "Freight Amount", "Vehicle Out Date Time", "Vehicle Arrived Date Time", "Unload Date Time", "Reject Date Time", "POD Status", "Vehicle Resent Date Time", "SRN Number", "SRN Date"].map(h => (
+                  <th key={h} className="px-3 border-r border-slate-200 whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {results?.map((r: any, idx: number) => {
+                const item = r.cnItems?.[0] || {};
+                return (
+                  <tr key={idx} className="border-b border-slate-100 text-[10.5px] font-bold hover:bg-blue-50 transition-colors h-9">
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.plantCode}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate text-blue-800">{r.saleOrderNumber}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.order?.saleOrderDate ? format(parseISO(r.order.saleOrderDate), 'dd-MM-yy HH:mm') : '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.consignor}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.consignee}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.shipToParty}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.order?.destination}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate text-emerald-800">{r.tripId}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.createdAt ? format(new Date(r.createdAt), 'dd-MM-yy HH:mm') : '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.vehicleNumber}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.driverMobile}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.carrierName || '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate font-black text-indigo-700">{r.cnNo || '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{item.invoiceNo || '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{item.ewaybillNo || '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{item.product || '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{item.unit || '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{item.uom || '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate text-emerald-700">{r.assignWeight}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.weightUom}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.vendorName || '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.vendorFirmName || '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.vendorMobile || '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate text-slate-500 italic">{r.fleetType}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.paymentTerms || '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate text-slate-400">SYSTEM</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.rate || '0'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate font-black">₹{r.freightAmount?.toLocaleString() || '0'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.outDate ? `${r.outDate} ${r.outTime}` : '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.arrivedDate ? `${r.arrivedDate} ${r.arrivedTime}` : '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">{r.unloadDate ? `${r.unloadDate} ${r.unloadTime}` : '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate text-red-600">{r.rejectionDate ? `${r.rejectionDate} ${r.rejectionTime}` : '-'}</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">
+                      <Badge className={cn("text-[8px] font-black", r.status === 'CLOSED' ? "bg-emerald-500" : "bg-orange-500")}>
+                        {r.status === 'CLOSED' ? 'VERIFIED' : 'PENDING'}
+                      </Badge>
+                    </td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">-</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">-</td>
+                    <td className="px-3 border-r border-slate-50 uppercase truncate">-</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="bg-slate-900 px-8 py-2 text-[10px] font-black text-white/80 uppercase tracking-widest flex justify-between shrink-0">
+           <span>Records Registry: {results?.length || 0} Items</span>
+           <span className="text-blue-400">Total Synchronized Freight: ₹{results?.reduce((acc: number, cur: any) => acc + (parseFloat(cur.freightAmount) || 0), 0).toLocaleString()}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-full flex flex-col font-mono overflow-hidden">
+    <div className="h-full flex flex-col font-mono overflow-hidden bg-[#f2f2f2]">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-6 flex items-center justify-between shadow-sm shrink-0">
-        <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">CUSTOM TRANSACTION REPORT (SE38)</h2>
+        <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">CUSTOM REPORT EXECUTION (SE38)</h2>
       </div>
       
       <div className="px-8 space-y-6 flex-1 flex flex-col overflow-hidden pb-10">
-        <div className="bg-white border border-slate-300 p-8 shadow-sm shrink-0">
+        <div className="bg-white border border-slate-300 p-8 shadow-sm shrink-0 animate-fade-in">
            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="flex flex-col gap-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plant *</label>
                 <select value={search.plant} onChange={e => onSearchChange({...search, plant: e.target.value})} className="h-9 border border-slate-400 bg-white px-3 text-[11px] font-black uppercase outline-none focus:ring-1 focus:ring-blue-500">
@@ -2837,52 +3018,9 @@ function Se38Report({ search, results, onSearchChange, allPlants, allVendors, al
            </div>
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden bg-white border border-slate-300 shadow-sm relative">
-           {results ? (
-             <>
-               <div className="flex-1 overflow-auto">
-                 <table className="w-full text-left border-collapse">
-                   <thead className="sticky top-0 bg-[#f0f0f0] border-b-2 border-slate-300 z-10">
-                     <tr className="text-[9px] font-black uppercase text-slate-600">
-                       <th className="p-3 border-r border-slate-200">Plant</th>
-                       <th className="p-3 border-r border-slate-200">Trip ID</th>
-                       <th className="p-3 border-r border-slate-200">Date</th>
-                       <th className="p-3 border-r border-slate-200">Sale Order</th>
-                       <th className="p-3 border-r border-slate-200">Ship to Party</th>
-                       <th className="p-3 border-r border-slate-200">Vehicle</th>
-                       <th className="p-3 border-r border-slate-200">Weight</th>
-                       <th className="p-3 border-r border-slate-200">Freight</th>
-                       <th className="p-3">Status</th>
-                     </tr>
-                   </thead>
-                   <tbody>
-                     {results.map((r: any, idx: number) => (
-                       <tr key={idx} className="border-b border-slate-100 text-[11px] font-bold hover:bg-blue-50 transition-colors">
-                         <td className="p-3 uppercase">{r.plantCode}</td>
-                         <td className="p-3 text-[#1e3a8a] font-black">{r.tripId}</td>
-                         <td className="p-3">{r.createdAt ? format(new Date(r.createdAt), 'dd-MM-yy') : 'N/A'}</td>
-                         <td className="p-3 uppercase">{r.saleOrderNumber}</td>
-                         <td className="p-3 uppercase truncate max-w-[200px]">{r.shipToParty}</td>
-                         <td className="p-3 uppercase font-black">{r.vehicleNumber}</td>
-                         <td className="p-3 text-emerald-600 font-black">{r.assignWeight} MT</td>
-                         <td className="p-3 font-mono">₹{r.freightAmount?.toLocaleString() || '0'}</td>
-                         <td className="p-3 uppercase italic text-slate-500 text-[10px]">{r.status}</td>
-                       </tr>
-                     ))}
-                   </tbody>
-                 </table>
-               </div>
-               <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-[10px] font-black uppercase">
-                  <span>Total Records: {results.length}</span>
-                  <span className="text-[#1e3a8a]">Total Freight: ₹{results.reduce((acc: number, cur: any) => acc + (parseFloat(cur.freightAmount) || 0), 0).toLocaleString()}</span>
-               </div>
-             </>
-           ) : (
-             <div className="flex-1 flex flex-col items-center justify-center opacity-40 gap-4">
-                <FileText className="h-16 w-16 text-slate-300" />
-                <p className="text-xs font-black uppercase tracking-widest text-slate-500">ENTER CRITERIA AND EXECUTE (F8) TO GENERATE LOGISTICAL REPORT</p>
-             </div>
-           )}
+        <div className="flex-1 flex flex-col items-center justify-center opacity-40 gap-4 border border-dashed border-slate-300 bg-white shadow-inner">
+           <FileText className="h-20 w-20 text-slate-300" />
+           <p className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">ENTER CRITERIA AND EXECUTE (F8) TO GENERATE REGISTRY REPORT</p>
         </div>
       </div>
     </div>
