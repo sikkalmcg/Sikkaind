@@ -784,7 +784,16 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
 
   const handleCreateTrip = () => {
     if (!assignData.vehicleNumber) { onStatusUpdate({ text: 'Error: Vehicle Number Required', type: 'error' }); return; }
-    const tripId = `TRIP-${Date.now().toString().slice(-8)}`;
+    
+    // Generate Unique Random 9-digit Trip ID prefixed with "T"
+    let tripId = '';
+    let isUnique = false;
+    while (!isUnique) {
+      const randomDigits = Math.floor(100000000 + Math.random() * 900000000).toString();
+      tripId = `T${randomDigits}`;
+      isUnique = !trips?.some((t: any) => t.tripId === tripId);
+    }
+
     const docId = crypto.randomUUID();
     const payload = {
       id: docId,
@@ -1470,7 +1479,7 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           <SectionGrouping title="DATE TIME">
             <div className="space-y-4">
               <FormInput label="ARRIVED DATE" type="date" value={arrivedData.date} onChange={(v: string) => setArrivedData({...arrivedData, date: v})} />
-              <FormInput label="ARRIVED TIME" type="time" value={arrivedData.time} onChange={(v: string) => setArrivedData({...arrivedData, time: v})} />
+              <FormInput label="ARRIVED TIME" type="time" value={arrivedData.time} onChange={(v: string) => setArrivedData({...arrivedTime, time: v})} />
             </div>
           </SectionGrouping>
         </div>
