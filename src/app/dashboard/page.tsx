@@ -635,42 +635,79 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
            <Button onClick={() => setView('search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">New Search</Button>
         </div>
         <div className="max-w-5xl mx-auto px-8 space-y-12">
-          <div className="bg-white border border-slate-300 p-10 space-y-8 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6">
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Booked On:</label><span className="text-[12px] font-black uppercase">{format(new Date(trackingData.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Weight:</label><span className="text-[12px] font-black text-emerald-600">{trackingData.weight} {trackingData.weightUom}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Consignor:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignor}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Consignee:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignee}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Ship To:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.shipToParty}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-32 uppercase tracking-tighter">Route:</label><span className="text-[12px] font-black text-[#1e3a8a] uppercase">{trackingData.from} → {trackingData.destination}</span></div>
+          <div className="bg-white border border-slate-300 p-10 space-y-10 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6 mb-10">
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Plant:</label><span className="text-[12px] font-black uppercase">{trackingData.plantCode}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Order Booked Date Time:</label><span className="text-[12px] font-black uppercase">{format(new Date(trackingData.saleOrderDate || trackingData.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Consignor:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignor}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Consignee:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignee}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Ship to Party:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.shipToParty}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Order Quantity:</label><span className="text-[12px] font-black text-emerald-600">{trackingData.weight} {trackingData.weightUom}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Route:</label><span className="text-[12px] font-black text-[#1e3a8a] uppercase">{trackingData.from} → {trackingData.destination}</span></div>
             </div>
-            {trackingData.delayRemark && (
-              <div className="p-6 bg-yellow-50 border border-yellow-200 animate-fade-in">
-                <div className="flex items-center gap-3 mb-2">
-                  <Clock className="h-4 w-4 text-yellow-700" />
-                  <span className="text-[10px] font-black uppercase text-yellow-700 tracking-widest">Delay Registered by Logistics</span>
-                </div>
-                <p className="text-[12px] font-black uppercase text-[#1e3a8a] italic">"{trackingData.delayRemark}"</p>
+
+            {(!linkedTrips || linkedTrips.length === 0) && (
+              <div className="space-y-4">
+                <p className="text-[13px] font-black text-[#1e3a8a] uppercase leading-relaxed">
+                  Your sale order {trackingData.saleOrder} has been booked for dispatch. Once the vehicle is assigned, we will share the Trip ID for live updates.
+                </p>
+                {trackingData.delayRemark && (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200">
+                    <p className="text-[12px] font-black text-yellow-700 uppercase italic">"{trackingData.delayRemark}"</p>
+                  </div>
+                )}
               </div>
             )}
-            {linkedTrips && linkedTrips.length > 0 ? (
-              <div className="bg-blue-50 border border-blue-100 p-8 space-y-4">
-                <p className="text-[11px] font-black uppercase text-slate-500 tracking-tighter">Linked Logistical Data Found:</p>
-                <div className="flex flex-wrap gap-4">
+
+            {linkedTrips && linkedTrips.length === 1 && (
+              <div className="space-y-4">
+                <p className="text-[13px] font-black text-[#1e3a8a] uppercase leading-relaxed">
+                  Sale order {trackingData.saleOrder} against generated Trip ID is{' '}
+                  <button 
+                    onClick={() => { setTrackingData(linkedTrips[0]); startAnimation(linkedTrips[0]); setView('track_view'); }}
+                    className="underline hover:text-blue-700 decoration-2 underline-offset-4"
+                  >
+                    {linkedTrips[0].tripId}
+                  </button>
+                  . Click on Trip ID to track your shipment.
+                </p>
+                {trackingData.delayRemark && (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200">
+                    <p className="text-[12px] font-black text-yellow-700 uppercase italic">"{trackingData.delayRemark}"</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {linkedTrips && linkedTrips.length > 1 && (
+              <div className="space-y-6">
+                <p className="text-[13px] font-black text-[#1e3a8a] uppercase leading-relaxed">
+                  Sale order {trackingData.saleOrder} against multiple Trip IDs:
+                </p>
+                <div className="space-y-3 pl-4">
                   {linkedTrips.map((t: any) => (
-                    <button 
-                      key={t.id} 
-                      onClick={() => { setTrackingData(t); startAnimation(t); setView('track_view'); }}
-                      className="bg-white border border-[#1e3a8a] text-[#1e3a8a] px-6 py-3 text-[12px] font-black uppercase hover:bg-[#1e3a8a] hover:text-white transition-all shadow-md flex items-center gap-3 group"
-                    >
-                      <div className="w-2 h-2 rounded-full bg-emerald-500 group-hover:bg-white animate-pulse" />
-                      TRACK TRIP: {t.tripId}
-                    </button>
+                    <div key={t.id} className="flex items-center gap-4">
+                      <button 
+                        onClick={() => { setTrackingData(t); startAnimation(t); setView('track_view'); }}
+                        className="text-[12px] font-black text-[#0056d2] uppercase hover:underline decoration-2 underline-offset-4"
+                      >
+                        Trip ID {t.tripId}
+                      </button>
+                      <span className="text-[12px] font-bold text-slate-500 uppercase tracking-tighter">
+                        – Assigned Qty – {t.assignWeight} {t.weightUom || 'MT'}
+                      </span>
+                    </div>
                   ))}
                 </div>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest pt-4 border-t border-slate-100">
+                  Click on Trip ID to track your shipment.
+                </p>
+                {trackingData.delayRemark && (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200">
+                    <p className="text-[12px] font-black text-yellow-700 uppercase italic">"{trackingData.delayRemark}"</p>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="bg-orange-50 border border-orange-100 p-8 text-center"><p className="text-sm font-black italic uppercase text-slate-800 leading-relaxed">Waiting for logistical synchronization...</p></div>
             )}
           </div>
         </div>
@@ -2320,7 +2357,7 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
       <div className="flex flex-col md:flex-row items-center gap-6 bg-white border border-slate-300 p-4 rounded-none shadow-sm print:hidden">
         <div className="flex items-center gap-4 flex-1">
           <label className="text-[11px] font-black uppercase text-slate-500 min-w-[60px]">Search:</label>
-          <input value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} className="h-8 w-full max-w-sm border border-slate-300 px-3 text-[11px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase tracking-widest" placeholder="FILTER..." />
+          <input value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} className="h-8 w-full max-sm border border-slate-300 px-3 text-[11px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase tracking-widest" placeholder="FILTER..." />
         </div>
         <div className="flex items-center gap-6 border-l border-slate-200 pl-6">
           <div className="flex items-center gap-3"><label className="text-[10px] font-black uppercase text-slate-400">From:</label><input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="h-8 border border-slate-300 px-2 text-[10px] font-black outline-none" /></div>
