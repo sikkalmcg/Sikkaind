@@ -53,6 +53,7 @@ const MASTER_TCODES = [
   { code: 'XK02', description: 'VENDOR MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'XK03', description: 'VENDOR MASTER: DISPLAY', icon: Info, module: 'Master Data' },
   { code: 'XK03_LIST', description: 'VENDOR MASTER: REGISTRY', icon: Info, module: 'Master Data' },
+  { code: 'XK01_LIST', description: 'VENDOR MASTER: REGISTRY', icon: Info, module: 'Master Data' },
   { code: 'XD01', description: 'CUSTOMER MASTER: CREATE', icon: Users, module: 'Master Data' },
   { code: 'XD02', description: 'CUSTOMER MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'XD03', description: 'CUSTOMER MASTER: DISPLAY', icon: Info, module: 'Master Data' },
@@ -317,7 +318,7 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
     <SectionGrouping title="PLANT ASSIGNMENT">
       <div className="flex items-center gap-8">
         <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Plants:</label>
-        <div className="flex flex-wrap gap-2 w-full max-w-[600px]">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300 hover:border-blue-500")}>{p}</button>)}</div>
+        <div className="flex wrap gap-2 w-full max-w-[600px]">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300 hover:border-blue-500")}>{p}</button>)}</div>
       </div>
     </SectionGrouping>
     <SectionGrouping title="IDENTIFICATION">
@@ -373,7 +374,7 @@ function VendorForm({ data, onChange, disabled, allPlants }: any) {
     <SectionGrouping title="PLANT MAPPING">
       <div className="flex items-center gap-8">
         <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Plants:</label>
-        <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div>
+        <div className="flex wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div>
       </div>
     </SectionGrouping>
     <SectionGrouping title="IDENTIFICATION">
@@ -395,7 +396,7 @@ function CustomerForm({ data, onChange, disabled, allPlants }: any) {
     <SectionGrouping title="PLANT">
       <div className="flex items-center gap-8">
         <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Plants:</label>
-        <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div>
+        <div className="flex wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div>
       </div>
     </SectionGrouping>
     <SectionGrouping title="IDENTIFICATION">
@@ -548,13 +549,13 @@ function UserForm({ data, onChange, disabled, allPlants }: any) {
     <SectionGrouping title="PLANT ACCESS">
       <div className="flex items-center gap-8">
         <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Authorized Plants:</label>
-        <div className="flex flex-wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handlePToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none", data.plants?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div>
+        <div className="flex wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handlePToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none", data.plants?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div>
       </div>
     </SectionGrouping>
     <SectionGrouping title="TRANSACTION ACCESS">
       <div className="flex items-center gap-8">
         <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">T-Code Registry:</label>
-        <div className="flex flex-wrap gap-2">{MASTER_TCODES.map(t => <button key={t.code} onClick={() => handleTToggle(t.code)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none", data.tcodes?.includes(t.code) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{t.code}</button>)}</div>
+        <div className="flex wrap gap-2">{MASTER_TCODES.map(t => <button key={t.code} onClick={() => handleTToggle(t.code)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none", data.tcodes?.includes(t.code) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{t.code}</button>)}</div>
       </div>
     </SectionGrouping>
   </div>;
@@ -1350,21 +1351,16 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
             <div className="border-[1.5px] border-black h-full p-4 flex flex-col">
               <div className="flex justify-between items-start border-b-[1.5px] border-black pb-4 mb-4">
                 <div className="flex gap-4 items-center">
-                  {selectedTripForPreview.carrier?.logo && (
-                    <div className="relative w-14 h-14 shrink-0">
-                      <Image src={selectedTripForPreview.carrier.logo} alt="Logo" fill className="object-contain" unoptimized />
-                    </div>
-                  )}
                   <div className="flex flex-col">
-                    <h1 className="text-[26px] font-black uppercase italic tracking-tighter leading-none whitespace-nowrap">{selectedTripForPreview.carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
+                    <h1 className="text-[30px] font-black uppercase italic tracking-tighter leading-none">{selectedTripForPreview.carrier?.companyName || 'SIKKA INDUSTRIES & LOGISTICS'}</h1>
                     <p className="text-[10px] font-bold mt-1 uppercase max-w-[450px]">{selectedTripForPreview.carrier?.address}, {selectedTripForPreview.carrier?.city} - {selectedTripForPreview.carrier?.postalCode}</p>
                     <p className="text-[9px] font-bold mt-0.5">GSTIN: {selectedTripForPreview.carrier?.gstin} | PAN: {selectedTripForPreview.carrier?.pan}</p>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <span className="border border-black px-3 py-1 text-[11px] font-black uppercase bg-slate-50 whitespace-nowrap">{i === 0 ? 'CONSIGNEE COPY' : i === 1 ? 'DRIVER COPY' : 'CONSIGNOR COPY'}</span>
+                  <span className="border border-black px-3 py-1 text-[11px] font-black uppercase bg-slate-50">{i === 0 ? 'CONSIGNEE COPY' : i === 1 ? 'DRIVER COPY' : 'CONSIGNOR COPY'}</span>
                   <div className="text-right mt-2">
-                    <p className="text-[16px] font-black leading-none whitespace-nowrap">CN NO: <span className="text-blue-800">{selectedTripForPreview.cnNo}</span></p>
+                    <p className="text-[18px] font-black leading-none">CN NO: <span className="text-blue-800">{selectedTripForPreview.cnNo}</span></p>
                     <p className="text-[10px] font-black mt-1">DATE: {format(new Date(selectedTripForPreview.cnDate || new Date()), 'dd-MM-yyyy')}</p>
                   </div>
                 </div>
@@ -1412,10 +1408,10 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                 <table className="w-full border-collapse border border-black">
                   <thead className="bg-slate-100">
                     <tr className="text-[10px] font-black uppercase">
-                      <th className="border border-black p-2 w-[120px] text-center">Invoice No</th>
-                      <th className="border border-black p-2 w-[144px] text-center">E-Waybill No</th>
+                      <th className="border border-black p-2 w-[150px] text-center">Invoice No</th>
+                      <th className="border border-black p-2 w-[180px] text-center">E-Waybill No</th>
                       <th className="border border-black p-2 text-left">Description of Goods</th>
-                      <th className="border border-black p-2 w-[96px] text-center">Package</th>
+                      <th className="border border-black p-2 w-[120px] text-center">Package</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1573,7 +1569,7 @@ function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: an
   const googleMap = React.useRef<any>(null);
   const markers = React.useRef<Record<string, any>>({});
   const fetchGps = React.useCallback(async () => { try { const res = await fetch('/api/gps'); if (res.ok) { const json = await res.json(); if (json?.data?.list) setGpsData(json.data.list); } } catch (e) {} }, []);
-  React.useEffect(() => { fetchGps(); const interval = setInterval(fetchGps, 900000); return () => clearInterval(interval); }, [fetchGps]);
+  React.useEffect(() => { fetchGps(); const interval = setInterval(fetchGps, 30000); return () => clearInterval(interval); }, [fetchGps]);
   const onVehicleSelect = (v: any) => {
     setSelectedVehicle(v); let street = ''; let city = '';
     if (v.location && v.location !== 'Syncing...' && v.location !== 'Syncing') {
@@ -1663,6 +1659,13 @@ export default function DashboardPage() {
   const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
   const { data: settings } = useDoc(settingsRef);
 
+  const getStats = React.useCallback((o: any, trips: any[] | null) => { 
+    if (!o.id || !trips) return { tot: 0, ass: 0, bal: 0, uom: o.weightUom || 'MT' };
+    const tot = parseFloat(o.weight) || 0; 
+    const ass = trips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (parseFloat(t.assignWeight) || 0), 0) || 0; 
+    return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; 
+  }, []);
+
   React.useEffect(() => {
     const isAdmin = localStorage.getItem('sap_bootstrap_session') === 'true'; const rid = registryId || localStorage.getItem('sap_registry_id'); setIsBootstrapAdmin(isAdmin); setRegistryId(rid); setIsAuthChecking(false);
     const scriptId = 'google-maps-script'; if (!document.getElementById(scriptId)) { const script = document.createElement('script'); script.id = scriptId; script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU&libraries=places`; script.async = true; script.defer = true; document.head.appendChild(script); }
@@ -1691,13 +1694,6 @@ export default function DashboardPage() {
   const { data: rawCustomers } = useCollection(customersQuery);
   const { data: allUsers, isLoading: isAllUsersLoading } = useCollection(usersQuery);
 
-  const getStats = React.useCallback((o: any) => { 
-    if (!o.id || !rawTrips) return { tot: 0, ass: 0, bal: 0, uom: o.weightUom || 'MT' };
-    const tot = parseFloat(o.weight) || 0; 
-    const ass = rawTrips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (parseFloat(t.assignWeight) || 0), 0) || 0; 
-    return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; 
-  }, [rawTrips]);
-
   const authorizedPlantsList = React.useMemo(() => userProfile?.plants || [], [userProfile]);
   const accessiblePlants = React.useMemo(() => { if (isBootstrapAdmin) return rawPlants || []; return (rawPlants || []).filter(p => authorizedPlantsList.includes(p.plantCode)); }, [rawPlants, authorizedPlantsList, isBootstrapAdmin]);
   const accessibleCompanies = React.useMemo(() => { if (isBootstrapAdmin) return rawCompanies || []; return (rawCompanies || []).filter(c => c.plantCodes?.some((p: string) => authorizedPlantsList.includes(p))); }, [rawCompanies, authorizedPlantsList, isBootstrapAdmin]);
@@ -1710,7 +1706,7 @@ export default function DashboardPage() {
   const homeStats = React.useMemo(() => {
     if (!allOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, pod: 0, reject: 0, closed: 0 };
     const filterFn = (item: any) => { const matchesPlant = homePlantFilter === 'ALL' || item.plantCode === homePlantFilter; if (!matchesPlant) return false; const itemDate = item.createdAt || item.updatedAt || item.lrDate || item.saleOrderDate; const matchesMonth = !homeMonthFilter || (itemDate && itemDate.startsWith(homeMonthFilter)); return matchesMonth; };
-    const filteredOrders = allOrders.filter(o => { if (o.status === 'CANCELLED' || o.status === 'Short closed') return false; if (!filterFn(o)) return false; const stats = getStats(o); return stats.bal > 0; });
+    const filteredOrders = allOrders.filter(o => { if (o.status === 'CANCELLED' || o.status === 'Short closed') return false; if (!filterFn(o)) return false; const stats = getStats(o, rawTrips); return stats.bal > 0; });
     const filteredTrips = allTrips.filter(filterFn);
     return {
       open: filteredOrders.length, loading: filteredTrips.filter(t => t.status === 'LOADING').length,
@@ -1718,7 +1714,7 @@ export default function DashboardPage() {
       pod: filteredTrips.filter(t => t.status === 'POD').length, reject: filteredTrips.filter(t => t.status === 'REJECTION').length,
       closed: filteredTrips.filter(t => t.status === 'CLOSED').length,
     };
-  }, [allOrders, allTrips, homePlantFilter, homeMonthFilter, getStats]);
+  }, [allOrders, allTrips, rawTrips, homePlantFilter, homeMonthFilter, getStats]);
 
   const isAuthorized = React.useCallback((code: string) => { if (code === 'HOME' || code === '' || isBootstrapAdmin) return true; if (!userProfile) { const registryIsEmpty = Array.isArray(allUsers) && allUsers.length === 0; return registryIsEmpty; } return userProfile.tcodes?.includes(code); }, [userProfile, allUsers, isBootstrapAdmin]);
   const getRegistryList = React.useCallback(() => { if (activeScreen.startsWith('OX')) return accessiblePlants; if (activeScreen.startsWith('FM')) return accessibleCompanies; if (activeScreen.startsWith('XK')) return accessibleVendors; if (activeScreen.startsWith('XD')) { let list = accessibleCustomers; if (xdSearch.plant) list = list.filter((c: any) => c.plantCodes?.includes(xdSearch.plant)); if (xdSearch.type) list = list.filter((c: any) => c.customerType === xdSearch.type); if (xdSearch.name) list = list.filter((c: any) => c.customerName?.toUpperCase().includes(xdSearch.name.toUpperCase())); return list; } if (activeScreen.startsWith('VA')) return allOrders; if (activeScreen.startsWith('SU')) return accessibleUsers; return []; }, [activeScreen, accessiblePlants, accessibleCompanies, accessibleVendors, accessibleCustomers, allOrders, accessibleUsers, xdSearch]);
@@ -1792,7 +1788,7 @@ export default function DashboardPage() {
     if (activeScreen === 'VA04') {
       const o = allOrders?.find(ord => (ord.saleOrder || ord.id)?.toString().toUpperCase() === localData.saleOrder?.toString().toUpperCase());
       if (!o) { setStatusMsg({ text: `Order Not Found`, type: 'error' }); return; }
-      const stats = getStats(o);
+      const stats = getStats(o, rawTrips);
       if (stats.bal <= 0) { setStatusMsg({ text: `Error: Fully assigned order cannot be closed`, type: 'error' }); return; }
       const newStatus = stats.ass === 0 ? 'CANCELLED' : 'Short closed';
       setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: newStatus, updatedAt: new Date().toISOString() }, { merge: true });
@@ -1817,7 +1813,7 @@ export default function DashboardPage() {
       setDocumentNonBlocking(docRef, payload, { merge: true }); setStatusMsg({ text: `Synchronized successfully`, type: 'success' });
       if (activeScreen.endsWith('01')) { setFormData({}); setSearchId(''); } else if (!formData.id) setFormData(payload);
     }
-  }, [user, activeScreen, formData, allOrders, rawPlants, allUsers, db, isBootstrapAdmin, rawCustomers, rawCompanies, rawVendors, rawOrders, se38Search, rawTrips, getStats]);
+  }, [user, activeScreen, formData, allOrders, rawPlants, allUsers, db, isBootstrapAdmin, rawCustomers, rawCompanies, rawVendors, rawOrders, rawTrips, se38Search, getStats]);
 
   const executeTCode = React.useCallback((code: string) => {
     const input = code.toUpperCase().trim(); if (!input) return; let clean = input; let isNewSession = false;
