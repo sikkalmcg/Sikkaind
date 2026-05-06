@@ -16,7 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useUser, useCollection, useDoc, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, query, where, getDocs } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -123,7 +123,6 @@ function FormSelect({ label, value, options, onChange, disabled, placeholder }: 
 function FormSearchInput({ label, value, options, onChange, disabled, placeholder }: any) {
   const [inputValue, setInputValue] = React.useState(value || '');
   const [isOpen, setIsOpen] = React.useState(false);
-  const [highlightedIndex, setHighlightedIndex] = React.useState(-1);
   
   const filteredOptions = React.useMemo(() => {
     if (!inputValue) return [];
@@ -170,30 +169,84 @@ function FormSearchInput({ label, value, options, onChange, disabled, placeholde
 // --- MASTER FORMS ---
 
 function PlantForm({ data, onChange, disabled }: any) {
-  return <div className="space-y-10"><SectionGrouping title="PRIMARY DATA"><FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} /><FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} /></SectionGrouping><SectionGrouping title="LOCATION DATA"><FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} /><FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} /><FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} /><FormInput label="STATE" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} /></SectionGrouping></div>;
+  return (
+    <div className="space-y-10">
+      <SectionGrouping title="PRIMARY DATA">
+        <FormInput label="PLANT CODE" value={data.plantCode} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormInput label="PLANT NAME" value={data.plantName} onChange={(v: string) => onChange({...data, plantName: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="LOCATION DATA">
+        <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
+        <FormInput label="STATE" value={data.state} onChange={(v: string) => onChange({...data, state: v})} disabled={disabled} />
+      </SectionGrouping>
+    </div>
+  );
 }
 
 function CompanyForm({ data, onChange, disabled, allPlants }: any) {
   const pList = (allPlants || []).map((p: any) => p.plantCode);
   const handleToggle = (p: string) => { if (disabled) return; const curr = data.plantCodes || []; onChange({...data, plantCodes: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); };
-  return <div className="space-y-10">
-    <SectionGrouping title="PLANT ASSIGNMENT">
-      <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Plants:</label><div className="flex wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div></div>
-    </SectionGrouping>
-    <SectionGrouping title="IDENTIFICATION"><FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} /><FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} /></SectionGrouping>
-    <SectionGrouping title="LOCATION"><FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} /><FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} /></SectionGrouping></div>;
+  return (
+    <div className="space-y-10">
+      <SectionGrouping title="PLANT ASSIGNMENT">
+        <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Plants:</label><div className="flex wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div></div>
+      </SectionGrouping>
+      <SectionGrouping title="IDENTIFICATION">
+        <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
+        <FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="LOCATION">
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+      </SectionGrouping>
+    </div>
+  );
 }
 
 function VendorForm({ data, onChange, disabled, allPlants }: any) {
   const pList = (allPlants || []).map((p: any) => p.plantCode);
   const handleToggle = (p: string) => { if (disabled) return; const curr = data.plantCodes || []; onChange({...data, plantCodes: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); };
-  return <div className="space-y-10"><SectionGrouping title="PLANT MAPPING"><div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Plants:</label><div className="flex wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div></div></SectionGrouping><SectionGrouping title="IDENTIFICATION"><FormInput label="VENDOR NAME" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} /><FormInput label="VENDOR FIRM" value={data.vendorFirmName} onChange={(v: string) => onChange({...data, vendorFirmName: v})} disabled={disabled} /></SectionGrouping><SectionGrouping title="DETAILS"><FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} /><FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} /><FormInput label="SPECIAL ROUTE" value={data.route} onChange={(v: string) => onChange({...data, route: v})} disabled={disabled} /></SectionGrouping></div>;
+  return (
+    <div className="space-y-10">
+      <SectionGrouping title="PLANT MAPPING">
+        <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Plants:</label><div className="flex wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div></div>
+      </SectionGrouping>
+      <SectionGrouping title="IDENTIFICATION">
+        <FormInput label="VENDOR NAME" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
+        <FormInput label="VENDOR FIRM" value={data.vendorFirmName} onChange={(v: string) => onChange({...data, vendorFirmName: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="DETAILS">
+        <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="SPECIAL ROUTE" value={data.route} onChange={(v: string) => onChange({...data, route: v})} disabled={disabled} />
+      </SectionGrouping>
+    </div>
+  );
 }
 
 function CustomerForm({ data, onChange, disabled, allPlants }: any) {
   const pList = (allPlants || []).map((p: any) => p.plantCode);
   const handleToggle = (p: string) => { if (disabled) return; const curr = data.plantCodes || []; onChange({...data, plantCodes: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); };
-  return <div className="space-y-10"><SectionGrouping title="PLANT"><div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Plants:</label><div className="flex wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div></div></SectionGrouping><SectionGrouping title="IDENTIFICATION"><FormInput label="CUSTOMER CODE" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} /><FormInput label="CUSTOMER NAME" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} /><FormSelect label="CUSTOMER TYPE" value={data.customerType} options={["Consignor", "Consignee - Ship to Party"]} onChange={(v: string) => onChange({...data, customerType: v})} disabled={disabled} /></SectionGrouping><SectionGrouping title="LOCATION"><FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} /><FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} /><FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} /><FormInput label="MOBILE NO." value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} leftElement={<span className="text-[12px] font-black text-slate-400">+91</span>} /></SectionGrouping></div>;
+  return (
+    <div className="space-y-10">
+      <SectionGrouping title="PLANT">
+        <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Plants:</label><div className="flex wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div></div>
+      </SectionGrouping>
+      <SectionGrouping title="IDENTIFICATION">
+        <FormInput label="CUSTOMER CODE" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} />
+        <FormInput label="CUSTOMER NAME" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
+        <FormSelect label="CUSTOMER TYPE" value={data.customerType} options={["Consignor", "Consignee - Ship to Party"]} onChange={(v: string) => onChange({...data, customerType: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="LOCATION">
+        <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+        <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+        <FormInput label="POSTAL CODE" value={data.postalCode} onChange={(v: string) => onChange({...data, postalCode: v})} disabled={disabled} />
+        <FormInput label="MOBILE NO." value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} leftElement={<span className="text-[12px] font-black text-slate-400">+91</span>} />
+      </SectionGrouping>
+    </div>
+  );
 }
 
 function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers, trips, screen }: any) {
@@ -201,36 +254,109 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers, tri
   const filtered = (allCustomers || []).filter((c: any) => c.plantCodes?.includes(data.plantCode));
   const cons = filtered.filter((c: any) => c.customerType === 'Consignor');
   const ships = filtered.filter((c: any) => c.customerType === 'Consignee - Ship to Party');
-  const dispatchWeight = React.useMemo(() => { if (!data.id || !trips) return 0; return trips.filter((t: any) => t.saleOrderId === data.id).reduce((acc: number, t: any) => acc + (parseFloat(t.assignWeight) || 0), 0); }, [data.id, trips]);
-  const balanceWeight = (parseFloat(data.weight) || 0) - dispatchWeight;
-  return <div className="space-y-10"><SectionGrouping title="HEADER"><FormSelect label="PLANT" value={data.plantCode} options={pOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} /><FormInput label="SALE ORDER" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} /><FormInput label="BOOKED DATE TIME" type="datetime-local" value={data.saleOrderDate} onChange={(v: string) => onChange({...data, saleOrderDate: v})} disabled={disabled} /></SectionGrouping><SectionGrouping title="COORDINATION"><FormSearchInput label="CONSIGNOR" value={data.consignor} options={cons.map(c => c.customerName + ' - ' + c.city)} onChange={(v: string) => { const matching = cons.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase()); const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v; onChange({...data, consignor: nameOnly, from: matching?.city || ''}); }} disabled={disabled} /><FormInput label="FROM" value={data.from} disabled={true} /><FormSearchInput label="CONSIGNEE" value={data.consignee} options={ships.map(c => c.customerName + ' - ' + c.city)} onChange={(v: string) => { const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v; onChange({...data, consignee: nameOnly}); }} disabled={disabled} /><FormSearchInput label="SHIP TO PARTY" value={data.shipToParty} options={ships.map(c => c.customerName + ' - ' + c.city)} onChange={(v: string) => { const matching = ships.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase()); const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v; onChange({...data, shipToParty: nameOnly, destination: matching?.city || '', deliveryAddress: matching?.address || ''}); }} disabled={disabled} /><FormInput label="DESTINATION" value={data.destination} disabled={true} /><FormInput label="SALE ORDER WEIGHT" type="number" value={data.weight} onChange={(v: string) => onChange({...data, weight: v})} disabled={disabled} /><FormSelect label="UOM" value={data.weightUom} options={["MT", "LTR"]} onChange={(v: string) => onChange({...data, weightUom: v})} disabled={disabled} /></SectionGrouping></div>;
+  return (
+    <div className="space-y-10">
+      <SectionGrouping title="HEADER">
+        <FormSelect label="PLANT" value={data.plantCode} options={pOpts} onChange={(v: string) => onChange({...data, plantCode: v})} disabled={disabled} />
+        <FormInput label="SALE ORDER" value={data.saleOrder} onChange={(v: string) => onChange({...data, saleOrder: v})} disabled={disabled} />
+        <FormInput label="BOOKED DATE TIME" type="datetime-local" value={data.saleOrderDate} onChange={(v: string) => onChange({...data, saleOrderDate: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="COORDINATION">
+        <FormSearchInput label="CONSIGNOR" value={data.consignor} options={cons.map(c => c.customerName + ' - ' + c.city)} onChange={(v: string) => { const matching = cons.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase()); const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v; onChange({...data, consignor: nameOnly, from: matching?.city || ''}); }} disabled={disabled} />
+        <FormInput label="FROM" value={data.from} disabled={true} />
+        <FormSearchInput label="CONSIGNEE" value={data.consignee} options={ships.map(c => c.customerName + ' - ' + c.city)} onChange={(v: string) => { const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v; onChange({...data, consignee: nameOnly}); }} disabled={disabled} />
+        <FormSearchInput label="SHIP TO PARTY" value={data.shipToParty} options={ships.map(c => c.customerName + ' - ' + c.city)} onChange={(v: string) => { const matching = ships.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase()); const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v; onChange({...data, shipToParty: nameOnly, destination: matching?.city || '', deliveryAddress: matching?.address || ''}); }} disabled={disabled} />
+        <FormInput label="DESTINATION" value={data.destination} disabled={true} />
+        <FormInput label="SALE ORDER WEIGHT" type="number" value={data.weight} onChange={(v: string) => onChange({...data, weight: v})} disabled={disabled} />
+        <FormSelect label="UOM" value={data.weightUom} options={["MT", "LTR"]} onChange={(v: string) => onChange({...data, weightUom: v})} disabled={disabled} />
+      </SectionGrouping>
+    </div>
+  );
 }
 
 function UserForm({ data, onChange, disabled, allPlants }: any) {
   const pList = (allPlants || []).map((p: any) => p.plantCode);
   const handlePToggle = (p: string) => { if (disabled) return; const curr = data.plants || []; onChange({...data, plants: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); };
   const handleTToggle = (c: string) => { if (disabled) return; const curr = data.tcodes || []; onChange({...data, tcodes: curr.includes(c) ? curr.filter((i: string) => i !== c) : [...curr, c]}); };
-  return <div className="space-y-12"><SectionGrouping title="USER IDENTIFICATION"><FormInput label="FULL NAME" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} /><FormInput label="USERNAME" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} /><FormInput label="PASSWORD" type="password" value={data.password} onChange={(v: string) => onChange({...data, password: v})} disabled={disabled} /><FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} /></SectionGrouping><SectionGrouping title="PLANT ACCESS"><div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Authorized Plants:</label><div className="flex wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handlePToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none", data.plants?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div></div></SectionGrouping><SectionGrouping title="TRANSACTION ACCESS"><div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">T-Code Registry:</label><div className="flex wrap gap-2">{MASTER_TCODES.map(t => <button key={t.code} onClick={() => handleTToggle(t.code)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none", data.tcodes?.includes(t.code) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{t.code}</button>)}</div></div></SectionGrouping></div>;
+  return (
+    <div className="space-y-12">
+      <SectionGrouping title="USER IDENTIFICATION">
+        <FormInput label="FULL NAME" value={data.fullName} onChange={(v: string) => onChange({...data, fullName: v})} disabled={disabled} />
+        <FormInput label="USERNAME" value={data.username} onChange={(v: string) => onChange({...data, username: v})} disabled={disabled} />
+        <FormInput label="PASSWORD" type="password" value={data.password} onChange={(v: string) => onChange({...data, password: v})} disabled={disabled} />
+        <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="PLANT ACCESS">
+        <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Authorized Plants:</label><div className="flex wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handlePToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none", data.plants?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div></div>
+      </SectionGrouping>
+      <SectionGrouping title="TRANSACTION ACCESS">
+        <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">T-Code Registry:</label><div className="flex wrap gap-2">{MASTER_TCODES.map(t => <button key={t.code} onClick={() => handleTToggle(t.code)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none", data.tcodes?.includes(t.code) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{t.code}</button>)}</div></div>
+      </SectionGrouping>
+    </div>
+  );
 }
 
 function CancelOrderForm({ data, onChange, allOrders, allTrips, onPost, onCancel }: any) {
   const stats = React.useMemo(() => { if (!data.id || !allTrips) return { tot: 0, ass: 0, bal: 0, uom: '' }; const tot = parseFloat(data.weight) || 0; const ass = allTrips.filter((t: any) => t.saleOrderId === data.id).reduce((acc: number, t: any) => acc + (parseFloat(t.assignWeight) || 0), 0); return { tot, ass, bal: tot - ass, uom: data.weightUom || 'MT' }; }, [data, allTrips]);
   const handleEnter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { const o = allOrders?.find((ord: any) => (ord.saleOrder || ord.id).toString().toUpperCase() === data.saleOrder?.toString().toUpperCase()); if (o) onChange({ ...data, ...o }); } };
-  return <div className="space-y-12"><SectionGrouping title="CANCELLATION / SHORT CLOSE"><div className="flex items-center gap-8"><label className="text-[12px] font-bold text-red-600 w-[180px] text-right shrink-0 uppercase">Order Number:</label><input className="h-10 w-[320px] border border-red-200 px-3 text-[12px] font-black outline-none bg-red-50/20" value={data.saleOrder || ''} onChange={e => onChange({ ...data, saleOrder: e.target.value.toUpperCase() })} onKeyDown={handleEnter} /></div></SectionGrouping>{data.id && (<div className="space-y-6 animate-fade-in"><SectionGrouping title="ORDER REGISTRY DATA"><div className="grid grid-cols-1 md:grid-cols-2 gap-y-4"><FormInput label="PLANT" value={data.plantCode} disabled={true} /><FormInput label="CONSIGNOR" value={data.consignor} disabled={true} /><FormInput label="SALE ORDER QTY" value={`${stats.tot} ${stats.uom}`} disabled={true} /><FormInput label="BALANCE QTY" value={`${stats.bal.toFixed(2)} ${stats.uom}`} disabled={true} /></div></SectionGrouping><div className="pl-[212px] flex gap-4"><Button onClick={onCancel} variant="outline" className="h-10 px-8 text-[10px] font-black uppercase">Exit</Button><Button onClick={onPost} disabled={stats.bal <= 0} className={cn("font-black uppercase text-[10px] px-10 h-10", stats.bal <= 0 ? "bg-slate-400" : "bg-red-600 text-white")}>{stats.ass === 0 ? "Execute Cancellation" : "Execute Short Close"}</Button></div></div>)}</div>;
+  return (
+    <div className="space-y-12">
+      <SectionGrouping title="CANCELLATION / SHORT CLOSE">
+        <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-red-600 w-[180px] text-right shrink-0 uppercase">Order Number:</label><input className="h-10 w-[320px] border border-red-200 px-3 text-[12px] font-black outline-none bg-red-50/20" value={data.saleOrder || ''} onChange={e => onChange({ ...data, saleOrder: e.target.value.toUpperCase() })} onKeyDown={handleEnter} /></div>
+      </SectionGrouping>
+      {data.id && (
+        <div className="space-y-6 animate-fade-in">
+          <SectionGrouping title="ORDER REGISTRY DATA">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4">
+              <FormInput label="PLANT" value={data.plantCode} disabled={true} />
+              <FormInput label="CONSIGNOR" value={data.consignor} disabled={true} />
+              <FormInput label="SALE ORDER QTY" value={`${stats.tot} ${stats.uom}`} disabled={true} />
+              <FormInput label="BALANCE QTY" value={`${stats.bal.toFixed(2)} ${stats.uom}`} disabled={true} />
+            </div>
+          </SectionGrouping>
+          <div className="pl-[212px] flex gap-4">
+            <Button onClick={onCancel} variant="outline" className="h-10 px-8 text-[10px] font-black uppercase">Exit</Button>
+            <Button onClick={onPost} disabled={stats.bal <= 0} className={cn("font-black uppercase text-[10px] px-10 h-10", stats.bal <= 0 ? "bg-slate-400" : "bg-red-600 text-white")}>{stats.ass === 0 ? "Execute Cancellation" : "Execute Short Close"}</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // --- LOGISTICAL MODULES ---
 
 function TripBoard({ orders, trips, vendors, plants, companies, customers, onStatusUpdate, viewMode, setViewMode, trackingNode, setTrackingNode, settings, isPdfPreviewOpen, setIsPdfPreviewOpen, selectedTripForPreview, setSelectedTripForPreview, previewDeliveryAddress, setPreviewDeliveryAddress, isAddressEditable, setIsAddressEditable, isAddressDirty, setIsAddressDirty }: any) {
-  const db = useFirestore(); const [activeTab, setActiveTab] = React.useState('Open Orders'); const [selectedOrder, setSelectedOrder] = React.useState<any>(null); const [isPopupOpen, setIsPopupOpen] = React.useState(false); const [assignData, setAssignData] = React.useState<any>({ fleetType: 'Own Vehicle', isFixedRate: false, rate: 0, freightAmount: 0 }); const [searchQuery, setSearchQuery] = React.useState(''); const [fromDate, setFromDate] = React.useState(format(subDays(new Date(), 4), 'yyyy-MM-dd')); const [toDate, setToDate] = React.useState(format(new Date(), 'yyyy-MM-dd'));
-  const [isOutPopupOpen, setIsOutPopupOpen] = React.useState(false); const [outData, setOutData] = React.useState<any>({});
-  const [isAssignmentPopupOpen, setIsAssignmentPopupOpen] = React.useState(false); const [assignmentMode, setAssignmentMode] = React.useState<'edit' | 'unassign'>('edit'); const [unassignRemark, setUnassignRemark] = React.useState(''); const [selectedTripForAssignment, setSelectedTripForAssignment] = React.useState<any>(null);
-  const [isArrivedPopupOpen, setIsArrivedPopupOpen] = React.useState(false); const [arrivedData, setArrivedData] = React.useState<any>({});
-  const [isRejectPopupOpen, setIsRejectPopupOpen] = React.useState(false); const [rejectData, setRejectData] = React.useState<any>({});
-  const [isUnloadPopupOpen, setIsUnloadPopupOpen] = React.useState(false); const [unloadData, setUnloadData] = React.useState<any>({});
-  const [isPodPopupOpen, setIsPodPopupOpen] = React.useState(false); const [selectedTripForPod, setSelectedTripForPod] = React.useState<any>(null); const [podFile, setPodFile] = React.useState<string | null>(null);
-  const [isCnPopupOpen, setIsCnPopupOpen] = React.useState(false); const [selectedTripForCn, setSelectedTripForCn] = React.useState<any>(null); const [cnFormData, setCnFormData] = React.useState<any>({ items: [{ invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'Bag' }] });
-  const [zoomScale, setZoomScale] = React.useState(1); const [gpsData, setGpsData] = React.useState<any[]>([]);
+  const db = useFirestore(); 
+  const [activeTab, setActiveTab] = React.useState('Open Orders'); 
+  const [selectedOrder, setSelectedOrder] = React.useState<any>(null); 
+  const [isPopupOpen, setIsPopupOpen] = React.useState(false); 
+  const [assignData, setAssignData] = React.useState<any>({ fleetType: 'Own Vehicle', isFixedRate: false, rate: 0, freightAmount: 0 }); 
+  const [searchQuery, setSearchQuery] = React.useState(''); 
+  const [fromDate, setFromDate] = React.useState(format(subDays(new Date(), 4), 'yyyy-MM-dd')); 
+  const [toDate, setToDate] = React.useState(format(new Date(), 'yyyy-MM-dd'));
+  const [isOutPopupOpen, setIsOutPopupOpen] = React.useState(false); 
+  const [outData, setOutData] = React.useState<any>({});
+  const [isAssignmentPopupOpen, setIsAssignmentPopupOpen] = React.useState(false); 
+  const [assignmentMode, setAssignmentMode] = React.useState<'edit' | 'unassign'>('edit'); 
+  const [unassignRemark, setUnassignRemark] = React.useState(''); 
+  const [selectedTripForAssignment, setSelectedTripForAssignment] = React.useState<any>(null);
+  const [isArrivedPopupOpen, setIsArrivedPopupOpen] = React.useState(false); 
+  const [arrivedData, setArrivedData] = React.useState<any>({});
+  const [isRejectPopupOpen, setIsRejectPopupOpen] = React.useState(false); 
+  const [rejectData, setRejectData] = React.useState<any>({});
+  const [isUnloadPopupOpen, setIsUnloadPopupOpen] = React.useState(false); 
+  const [unloadData, setUnloadData] = React.useState<any>({});
+  const [isPodPopupOpen, setIsPodPopupOpen] = React.useState(false); 
+  const [selectedTripForPod, setSelectedTripForPod] = React.useState<any>(null); 
+  const [podFile, setPodFile] = React.useState<string | null>(null);
+  const [isCnPopupOpen, setIsCnPopupOpen] = React.useState(false); 
+  const [selectedTripForCn, setSelectedTripForCn] = React.useState<any>(null); 
+  const [cnFormData, setCnFormData] = React.useState<any>({ items: [{ invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'Bag' }] });
+  const [zoomScale, setZoomScale] = React.useState(1); 
+  const [gpsData, setGpsData] = React.useState<any[]>([]);
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const fetchGps = React.useCallback(async () => { try { const res = await fetch('/api/gps'); if (res.ok) { const json = await res.json(); if (json?.data?.list) setGpsData(json.data.list); } } catch (e) {} }, []);
   React.useEffect(() => { fetchGps(); const i = setInterval(fetchGps, 30000); return () => clearInterval(i); }, [fetchGps]);
@@ -299,12 +425,33 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
         </div>
       </div>
 
+      {/* --- Dialogs --- */}
       <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}><DialogContent className="max-w-[1000px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase">Assign Vehicle</DialogTitle></DialogHeader><div className="p-8 space-y-6 overflow-y-auto"><SectionGrouping title="DETAILS"><div className="grid grid-cols-2 gap-x-12 gap-y-4"><FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} /><FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} /><FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle", "Arrange by Party"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} /><FormInput label="ASSIGN QTY" type="number" value={assignData.assignWeight} onChange={(v: string) => setAssignData({...assignData, assignWeight: v})} /></div></SectionGrouping></div><div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3"><Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button><Button onClick={handleCreateTrip} className="h-9 px-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button></div></DialogContent></Dialog>
 
       <Dialog open={isAssignmentPopupOpen} onOpenChange={setIsAssignmentPopupOpen}><DialogContent className="max-w-[1000px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase">Assignment Management</DialogTitle></DialogHeader><div className="p-8 space-y-6 overflow-y-auto"><div className="flex gap-12 mb-6 bg-white p-4 border border-slate-200"><RadioGroup value={assignmentMode} onValueChange={(v: any) => setAssignmentMode(v)} className="flex items-center gap-12"><div className="flex items-center space-x-2"><RadioGroupItem value="edit" id="r-edit" /><Label htmlFor="r-edit" className="text-[11px] font-black uppercase">Edit Assign</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="unassign" id="r-unassign" /><Label htmlFor="r-unassign" className="text-[11px] font-black uppercase text-red-600">Unassign</Label></div></RadioGroup></div>{assignmentMode === 'edit' ? (<div className="space-y-4"><FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} /><FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} /><FormInput label="ASSIGN QTY" type="number" value={assignData.assignWeight} onChange={(v: string) => setAssignData({...assignData, assignWeight: v})} /></div>) : (<FormInput label="UNASSIGN REMARK" value={unassignRemark} onChange={setUnassignRemark} placeholder="ENTER REASON..." />)}</div><div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3"><Button onClick={() => setIsAssignmentPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button><Button onClick={handleAssignmentPost} className="h-9 px-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button></div></DialogContent></Dialog>
 
       <Dialog open={isCnPopupOpen} onOpenChange={setIsCnPopupOpen}><DialogContent className="max-w-[1000px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase">CN Entry</DialogTitle></DialogHeader><div className="p-8 space-y-6 overflow-y-auto"><div className="grid grid-cols-2 gap-6"><FormInput label="CN NUMBER" value={cnFormData.cnNo} onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v})} /><FormInput label="CN DATE" type="date" value={cnFormData.cnDate} onChange={(v: string) => setCnFormData({...cnFormData, cnDate: v})} /></div><div className="bg-white border border-slate-300 shadow-inner overflow-hidden"><table className="w-full text-left border-collapse"><thead className="bg-slate-50 border-b border-slate-300 text-[10px] font-black uppercase"><tr><th className="p-2">Invoice No</th><th className="p-2">Product</th><th className="p-2">Unit</th><th className="p-2 w-10">X</th></tr></thead><tbody>{cnFormData.items?.map((item: any, idx: number) => (<tr key={idx} className="border-b border-slate-100 h-8"><td className="p-0"><input value={item.invoiceNo} onChange={(e) => { const itms = [...cnFormData.items]; itms[idx].invoiceNo = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-full px-2 text-[11px] font-bold outline-none uppercase" /></td><td className="p-0"><input value={item.product} onChange={(e) => { const itms = [...cnFormData.items]; itms[idx].product = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-full px-2 text-[11px] font-bold outline-none uppercase" /></td><td className="p-0"><input type="number" value={item.unit} onChange={(e) => { const itms = [...cnFormData.items]; itms[idx].unit = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-full px-2 text-[11px] font-bold outline-none uppercase" /></td><td className="p-0 text-center"><button onClick={() => { if (cnFormData.items.length > 1) { const itms = cnFormData.items.filter((_: any, i: number) => i !== idx); setCnFormData({...cnFormData, items: itms}); } }} className="text-red-400"><Trash2 className="h-3 w-3" /></button></td></tr>))}</tbody></table><button onClick={() => setCnFormData({...cnFormData, items: [...cnFormData.items, { invoiceNo: '', product: '', unit: '', uom: 'Bag' }]})} className="p-2 text-[9px] font-black uppercase text-blue-700">+ Add Line</button></div></div><div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3"><Button onClick={() => setIsCnPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button><Button onClick={handleCnPost} className="h-9 px-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button></div></DialogContent></Dialog>
 
+      <Dialog open={isPodPopupOpen} onOpenChange={setIsPodPopupOpen}>
+        <DialogContent className="max-w-[500px] bg-white p-0 rounded-none border-none shadow-2xl">
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
+            <DialogTitle className="text-white text-xs font-black uppercase">POD Registry Synchronization</DialogTitle>
+          </DialogHeader>
+          <div className="p-8 space-y-6 flex flex-col items-center justify-center">
+            <input type="file" accept="image/*,.pdf" ref={fileInputRef} onChange={handlePodFileChange} className="hidden" />
+            <div onClick={() => fileInputRef.current?.click()} className="w-full h-40 border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-blue-50 transition-all">
+              {podFile ? <div className="text-emerald-600 font-black text-xs uppercase">Document Ready</div> : <><UploadCloud className="h-8 w-8 text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase">Select Registry File</span></>}
+            </div>
+            <p className="text-[9px] font-bold text-slate-400 uppercase text-center italic">Supported Formats: PDF, PNG, JPG (Auto-Compression Active)</p>
+          </div>
+          <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+             <Button onClick={() => setIsPodPopupOpen(false)} variant="outline" className="h-8 px-6 text-[10px] font-black uppercase">Cancel</Button>
+             <Button disabled={!podFile} className="h-8 px-10 bg-emerald-600 text-white text-[10px] font-black uppercase">Synchronize POD</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* --- Adobe Reader Style Preview Hub --- */}
       {isPdfPreviewOpen && selectedTripForPreview && (
         <div className="fixed inset-0 z-[200] bg-[#525659] flex flex-col font-mono animate-fade-in overflow-hidden">
            <div className="bg-[#c5e0b4] border-b border-slate-400 h-9 flex items-center justify-between px-4 shrink-0">
@@ -361,9 +508,9 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                          ].map((c, idx) => (
                            <div key={idx} className="flex flex-col border-r last:border-0 border-black p-3">
                               <p className="text-[10px] font-black uppercase text-center border-b border-black pb-1 mb-2">{c.title}</p>
-                              <p className="text-[11px] font-black uppercase truncate">{c.master?.customerName || c.fallback}</p>
-                              <p className="text-[9px] font-bold uppercase leading-relaxed text-slate-700 line-clamp-2">{c.master?.address || 'REGISTERED ADDRESS'}</p>
-                              <div className="mt-auto flex flex-col items-center space-y-0.5">
+                              <p className="text-[11px] font-black uppercase truncate text-center">{c.master?.customerName || c.fallback}</p>
+                              <p className="text-[9px] font-bold uppercase leading-relaxed text-slate-700 line-clamp-2 text-center">{c.master?.address || 'REGISTERED ADDRESS'}</p>
+                              <div className="mt-auto flex flex-col items-center space-y-0">
                                  <span className="text-[9px] font-bold">Mobile: {c.master?.mobile || '-'}</span>
                                  <span className="text-[9px] font-bold">GSTIN: {c.master?.gstin || 'N/A'}</span>
                               </div>
@@ -399,51 +546,85 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   );
 }
 
-function Tr21TrackingPage({ node, onBack, customers, settings }: any) {
-  const mapRef = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => {
-    if (!node || !window.google || !mapRef.current) return;
-    const map = new window.google.maps.Map(mapRef.current, { center: { lat: 20.5937, lng: 78.9629 }, zoom: 5 });
-  }, [node]);
-  return (<div className="h-full flex flex-col"><div className="bg-white p-4 border-b border-slate-300 flex items-center gap-4"><button onClick={onBack}><ArrowLeft className="h-5 w-5" /></button><h2 className="text-sm font-black uppercase">Logistical Tracking</h2></div><div ref={mapRef} className="flex-1 bg-slate-100" /></div>);
+function Tr21TrackingPage({ node, onBack }: any) {
+  return (<div className="h-full flex flex-col"><div className="bg-white p-4 border-b border-slate-300 flex items-center gap-4"><button onClick={onBack}><ArrowLeft className="h-5 w-5" /></button><h2 className="text-sm font-black uppercase italic">Logistical Tracking Node</h2></div><div className="flex-1 bg-slate-100 flex items-center justify-center p-20 text-center"><div className="space-y-6"><Radar className="h-12 w-12 text-[#1e3a8a] mx-auto animate-pulse" /><p className="text-xs font-black uppercase">Live Tracking Interface Synchronized for Trip: {node?.tripId}</p></div></div></div>);
 }
 
-function GpsTrackingHub({ trips, onStatusUpdate, db, settings, settingsRef }: any) {
+function GpsTrackingHub() {
   return (<div className="h-full flex flex-col bg-slate-100 items-center justify-center"><Radar className="h-12 w-12 text-[#1e3a8a] mb-4" /><p className="text-xs font-black uppercase">GPS HUB - INTERFACE READY</p></div>);
 }
 
-function Se38Report({ search, results, view, onSearchChange, onViewChange, allPlants, allVendors, allCompanies, allCustomers }: any) {
-  return (<div className="h-full flex flex-col bg-white p-12 space-y-8"><h2 className="text-sm font-black uppercase border-b border-slate-200 pb-2 italic">SE38 – Custom Report Hub</h2><div className="grid grid-cols-2 gap-8"><FormSelect label="PLANT" value={search.plant} options={allPlants.map((p: any) => p.plantCode)} onChange={(v: string) => onSearchChange({...search, plant: v})} /><FormInput label="FROM DATE" type="date" value={search.from} onChange={(v: string) => onSearchChange({...search, from: v})} /></div></div>);
+function Se38Report({ search, onSearchChange }: any) {
+  return (<div className="h-full flex flex-col bg-white p-12 space-y-8"><h2 className="text-sm font-black uppercase border-b border-slate-200 pb-2 italic">SE38 – Custom Report Hub</h2><div className="grid grid-cols-2 gap-8"><FormInput label="FROM DATE" type="date" value={search.from} onChange={(v: string) => onSearchChange({...search, from: v})} /><FormInput label="TO DATE" type="date" value={search.to} onChange={(v: string) => onSearchChange({...search, to: v})} /></div></div>);
 }
 
 function ZCodeRegistry({ tcodes, onExecute }: any) {
   return (<div className="p-12 grid grid-cols-3 gap-6">{tcodes.map((t: any) => (<div key={t.code} onClick={() => onExecute(t.code)} className="bg-white border border-slate-300 p-6 hover:shadow-xl cursor-pointer"><h3 className="text-sm font-black text-[#1e3a8a]">{t.code}</h3><p className="text-[10px] text-slate-400 uppercase mt-2">{t.description}</p></div>))}</div>);
 }
 
-function TrackShipmentScreen({ trips, orders, customers }: any) {
+function TrackShipmentScreen() {
   return (<div className="h-full flex flex-col items-center justify-center font-mono"><Radar className="h-10 w-10 text-[#1e3a8a] mb-6" /><h2 className="text-sm font-black uppercase">TR24 - LIVE TRACKER</h2></div>);
 }
 
 function RegistryList({ onSelectItem, listData, activeScreen }: any) {
-  return (<div className="bg-white border border-slate-300 overflow-hidden"><table className="w-full text-left border-collapse"><thead className="bg-slate-50 border-b border-slate-300 text-[10px] font-black uppercase"><tr><th className="p-3">Identifier</th><th className="p-3">Name / Description</th><th className="p-3">Updated</th></tr></thead><tbody>{listData?.map((item: any) => (<tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-50 hover:bg-blue-50 cursor-pointer text-[11px] font-bold"><td className="p-3 text-[#0056d2]">{item.plantCode || item.customerCode || item.saleOrder || item.username || item.id.slice(0, 8)}</td><td className="p-3 uppercase">{item.customerName || item.plantName || item.fullName || item.saleOrder}</td><td className="p-3 text-slate-400">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy')}</td></tr>))}</tbody></table></div>);
+  return (
+    <div className="bg-white border border-slate-300 overflow-hidden rounded-sm shadow-sm">
+      <table className="w-full text-left border-collapse">
+        <thead className="bg-slate-50 border-b border-slate-300 text-[10px] font-black uppercase tracking-widest">
+          <tr><th className="p-4 border-r border-slate-200 w-48">Identifier</th><th className="p-4 border-r border-slate-200">Name / Description</th><th className="p-4">Updated</th></tr>
+        </thead>
+        <tbody>
+          {listData?.map((item: any) => (
+            <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-100 hover:bg-blue-50/50 cursor-pointer text-[11px] font-bold group">
+              <td className="p-4 border-r border-slate-200 text-[#0056d2] font-black">{item.plantCode || item.customerCode || item.saleOrder || item.username || item.id.slice(0, 8)}</td>
+              <td className="p-4 border-r border-slate-200 uppercase text-slate-700">{item.customerName || item.plantName || item.fullName || item.saleOrder}</td>
+              <td className="p-4 text-slate-400 font-medium">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy HH:mm')}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 // --- MAIN PAGE ---
 
 export default function DashboardPage() {
-  const router = useRouter(); const { user, isUserLoading } = useUser(); const db = useFirestore();
-  const [tCode, setTCode] = React.useState(''); const [history, setHistory] = React.useState<string[]>([]); const [screenStack, setScreenStack] = React.useState<string[]>(['HOME']); const [showHistory, setShowHistory] = React.useState(false); const [activeScreen, setActiveScreen] = React.useState<string>('HOME'); const [formData, setFormData] = React.useState<any>({}); const [searchId, setSearchId] = React.useState(''); const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' }); const [greeting, setGreeting] = React.useState('');
-  const [homePlantFilter, setHomePlantFilter] = React.useState('ALL'); const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM')); const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
-  const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '', postalCode: '' });
-  const [se38Search, setSe38Search] = React.useState({ plant: '', from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') }); const [se38Results, setSe38Results] = React.useState<any[] | null>(null); const [se38View, setSe38View] = React.useState<'selection' | 'result'>('selection');
-  const [viewMode, setViewMode] = React.useState<'list' | 'tracking'>('list'); const [trackingNode, setTrackingNode] = React.useState<any>(null);
-  const [isCnPreviewOpen, setIsCnPreviewOpen] = React.useState(false); const [selectedTripForPreview, setSelectedTripForPreview] = React.useState<any>(null); const [previewDeliveryAddress, setPreviewDeliveryAddress] = React.useState(''); const [isAddressEditable, setIsAddressEditable] = React.useState(false); const [isAddressDirty, setIsAddressDirty] = React.useState(false);
+  const router = useRouter(); 
+  const { user, isUserLoading } = useUser(); 
+  const db = useFirestore();
+  
+  const [tCode, setTCode] = React.useState(''); 
+  const [history, setHistory] = React.useState<string[]>([]); 
+  const [screenStack, setScreenStack] = React.useState<string[]>(['HOME']); 
+  const [showHistory, setShowHistory] = React.useState(false); 
+  const [activeScreen, setActiveScreen] = React.useState<string>('HOME'); 
+  const [formData, setFormData] = React.useState<any>({}); 
+  const [searchId, setSearchId] = React.useState(''); 
+  const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' }); 
+  const [greeting, setGreeting] = React.useState('');
+  const [homePlantFilter, setHomePlantFilter] = React.useState('ALL'); 
+  const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM')); 
+  const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
+  const [se38Search, setSe38Search] = React.useState({ plant: '', from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') });
+  const [viewMode, setViewMode] = React.useState<'list' | 'tracking'>('list'); 
+  const [trackingNode, setTrackingNode] = React.useState<any>(null);
+  
+  // PDF Preview State
+  const [isPdfPreviewOpen, setIsPdfPreviewOpen] = React.useState(false);
+  const [selectedTripForPreview, setSelectedTripForPreview] = React.useState<any>(null);
+  const [previewDeliveryAddress, setPreviewDeliveryAddress] = React.useState('');
+  const [isAddressEditable, setIsAddressEditable] = React.useState(false);
+  const [isAddressDirty, setIsAddressDirty] = React.useState(false);
 
-  const tCodeRef = React.useRef<HTMLInputElement>(null); const bulkInputRef = React.useRef<HTMLInputElement>(null);
+  const tCodeRef = React.useRef<HTMLInputElement>(null); 
+  const bulkInputRef = React.useRef<HTMLInputElement>(null);
   const settingsRef = useMemoFirebase(() => doc(db, 'users', SHARED_HUB_ID, 'settings', 'gps_config'), [db]);
   const { data: settings } = useDoc(settingsRef);
+  
   const profileRef = useMemoFirebase(() => { if (!user) return null; const rid = localStorage.getItem('sap_registry_id'); return rid ? doc(db, 'user_registry', rid) : doc(db, 'user_registry', user.uid); }, [user, db]);
   const { data: userProfile } = useDoc(profileRef);
+  
   const ordersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'sales_orders'), [db]);
   const tripsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'trips'), [db]);
   const plantsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'plants'), [db]);
@@ -451,6 +632,7 @@ export default function DashboardPage() {
   const vendorsQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'vendors'), [db]);
   const customersQuery = useMemoFirebase(() => collection(db, 'users', SHARED_HUB_ID, 'customers'), [db]);
   const usersQuery = useMemoFirebase(() => collection(db, 'user_registry'), [db]);
+  
   const { data: rawOrders } = useCollection(ordersQuery);
   const { data: rawTrips } = useCollection(tripsQuery);
   const { data: rawPlants } = useCollection(plantsQuery);
@@ -460,6 +642,7 @@ export default function DashboardPage() {
   const { data: allUsers } = useCollection(usersQuery);
 
   React.useEffect(() => { const isAdmin = localStorage.getItem('sap_bootstrap_session') === 'true'; setIsBootstrapAdmin(isAdmin); }, []);
+  
   const authorizedPlantsList = userProfile?.plants || [];
   const accessiblePlants = isBootstrapAdmin ? (rawPlants || []) : (rawPlants || []).filter(p => authorizedPlantsList.includes(p.plantCode));
   const accessibleCompanies = isBootstrapAdmin ? (rawCompanies || []) : (rawCompanies || []).filter(c => c.plantCodes?.some((p: string) => authorizedPlantsList.includes(p)));
@@ -471,7 +654,7 @@ export default function DashboardPage() {
 
   const homeStats = React.useMemo(() => {
     if (!allOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, pod: 0, reject: 0, closed: 0 };
-    const filteredOrders = allOrders.filter(o => { const itemDate = o.createdAt; return o.status === 'Active' && (homePlantFilter === 'ALL' || o.plantCode === homePlantFilter) && (!homeMonthFilter || (itemDate && itemDate.startsWith(homeMonthFilter))); });
+    const filteredOrders = allOrders.filter(o => { const itemDate = o.createdAt; return o.status !== 'CANCELLED' && (homePlantFilter === 'ALL' || o.plantCode === homePlantFilter) && (!homeMonthFilter || (itemDate && itemDate.startsWith(homeMonthFilter))); });
     const filteredTrips = allTrips.filter(t => { const itemDate = t.createdAt; return (homePlantFilter === 'ALL' || t.plantCode === homePlantFilter) && (!homeMonthFilter || (itemDate && itemDate.startsWith(homeMonthFilter))); });
     return { open: filteredOrders.length, loading: filteredTrips.filter(t => t.status === 'LOADING').length, transit: filteredTrips.filter(t => t.status === 'IN-TRANSIT').length, arrived: filteredTrips.filter(t => t.status === 'ARRIVED').length, pod: filteredTrips.filter(t => t.status === 'POD').length, reject: filteredTrips.filter(t => t.status === 'REJECTION').length, closed: filteredTrips.filter(t => t.status === 'CLOSED').length };
   }, [allOrders, allTrips, homePlantFilter, homeMonthFilter]);
@@ -483,15 +666,27 @@ export default function DashboardPage() {
     else { setStatusMsg({ text: `T-Code ${input} not found`, type: 'error' }); }
   }, []);
 
-  const handleSave = React.useCallback(() => {
+  const validateOrder = async (order: any) => {
+    const isDuplicate = allOrders.some(o => o.saleOrder === order.saleOrder && o.id !== order.id);
+    if (isDuplicate) return { valid: false, reason: 'Duplicate Sale Order' };
+    const findCust = (name: string) => accessibleCustomers.some(c => c.customerName?.toUpperCase() === name?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === name?.toUpperCase());
+    if (!findCust(order.consignor) || !findCust(order.consignee) || !findCust(order.shipToParty)) return { valid: false, reason: 'Customer Registry Missing (XD03)' };
+    return { valid: true };
+  };
+
+  const handleSave = React.useCallback(async () => {
     if (activeScreen === 'TR21' && selectedTripForPreview) {
       setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForPreview.id), { deliveryAddress: previewDeliveryAddress, updatedAt: new Date().toISOString() }, { merge: true });
       setIsAddressDirty(false); setIsAddressEditable(false); setStatusMsg({ text: 'Registry Synchronized (F8)', type: 'success' }); return;
     }
     if (activeScreen === 'VA04') {
       const o = allOrders?.find(ord => ord.saleOrder?.toString().toUpperCase() === formData.saleOrder?.toString().toUpperCase());
-      if (o) { const tid = crypto.randomUUID(); setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: 'CANCELLED' }, { merge: true }); setStatusMsg({ text: 'Order Cancelled', type: 'success' }); setFormData({}); }
+      if (o) { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: 'CANCELLED' }, { merge: true }); setStatusMsg({ text: 'Order Cancelled', type: 'success' }); setFormData({}); }
       return;
+    }
+    if (activeScreen === 'VA01') {
+      const validation = await validateOrder(formData);
+      if (!validation.valid) { setStatusMsg({ text: `Rejection: ${validation.reason}`, type: 'error' }); return; }
     }
     let col = ''; if (activeScreen.startsWith('OX')) col = 'plants'; else if (activeScreen.startsWith('FM')) col = 'companies'; else if (activeScreen.startsWith('XK')) col = 'vendors'; else if (activeScreen.startsWith('XD')) col = 'customers'; else if (activeScreen.startsWith('VA')) col = 'sales_orders'; else if (activeScreen.startsWith('SU')) col = 'user_registry';
     if (col) {
@@ -500,17 +695,51 @@ export default function DashboardPage() {
       setDocumentNonBlocking(ref, { ...formData, id: docId, updatedAt: new Date().toISOString(), createdAt: formData.createdAt || new Date().toISOString() }, { merge: true });
       setStatusMsg({ text: 'Synchronized (F8)', type: 'success' }); setFormData({});
     }
-  }, [activeScreen, formData, db, allOrders, selectedTripForPreview, previewDeliveryAddress]);
+  }, [activeScreen, formData, db, allOrders, accessibleCustomers, selectedTripForPreview, previewDeliveryAddress]);
 
   const handleBack = () => { if (screenStack.length > 1) { const newStack = [...screenStack]; newStack.pop(); const prev = newStack[newStack.length - 1]; setScreenStack(newStack); setActiveScreen(prev); setFormData({}); } };
+  
+  const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const text = ev.target?.result as string;
+      const rows = text.split('\n').slice(1);
+      let successCount = 0; let failCount = 0;
+      for (const row of rows) {
+        const cols = row.split(',');
+        if (cols.length < 5) continue;
+        const newOrder = { plantCode: cols[0]?.trim(), saleOrder: cols[1]?.trim(), consignor: cols[2]?.trim(), consignee: cols[3]?.trim(), shipToParty: cols[4]?.trim(), weight: cols[5]?.trim(), weightUom: cols[6]?.trim() || 'MT', status: 'Active', createdAt: new Date().toISOString() };
+        const validation = await validateOrder(newOrder);
+        if (validation.valid) {
+          const docId = crypto.randomUUID();
+          setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { ...newOrder, id: docId }, { merge: true });
+          successCount++;
+        } else { failCount++; }
+      }
+      setStatusMsg({ text: `Bulk: ${successCount} Processed, ${failCount} Rejected`, type: successCount > 0 ? 'success' : 'error' });
+    };
+    reader.readAsText(file);
+  };
+
+  const handleDownloadTemplate = () => {
+    const headers = "Plant,Sale Order,Consignor,Consignee,Ship to Party,Weight,WeightUom\nPL01,SO9999,CLIENT-A,CLIENT-B,SHIP-C,25,MT";
+    const blob = new Blob([headers], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'VA01_Template.csv'; a.click();
+  };
+
   const getRegistryList = () => { if (activeScreen.startsWith('OX')) return accessiblePlants; if (activeScreen.startsWith('FM')) return accessibleCompanies; if (activeScreen.startsWith('XK')) return accessibleVendors; if (activeScreen.startsWith('XD')) return accessibleCustomers; if (activeScreen.startsWith('VA')) return allOrders; if (activeScreen.startsWith('SU')) return accessibleUsers; return []; };
   const handleSearchIdEnter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { const item = getRegistryList().find((i: any) => (i.plantCode || i.customerCode || i.saleOrder || i.username || i.id).toString().toUpperCase() === searchId.toUpperCase()); if (item) { setFormData(item); setStatusMsg({ text: 'Record Loaded', type: 'success' }); } else setStatusMsg({ text: 'Not Found', type: 'error' }); } };
 
-  if (isUserLoading) return <div className="h-screen w-full bg-[#f0f3f9] flex flex-col items-center justify-center font-mono space-y-4"><Loader2 className="h-8 w-8 animate-spin text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Synchronizing...</span></div>;
-  const isReadOnly = activeScreen.endsWith('03'); const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
+  if (isUserLoading) return <div className="h-screen w-full bg-[#f0f3f9] flex flex-col items-center justify-center font-mono space-y-4"><Loader2 className="h-8 w-8 animate-spin text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Synchronizing Hub...</span></div>;
+  
+  const isReadOnly = activeScreen.endsWith('03'); 
+  const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
+      {/* --- Top Global Bar --- */}
       <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50 print:hidden">
         <div className="flex items-center gap-6">{['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(i => <button key={i} className="hover:text-blue-800 transition-colors uppercase">{i}</button>)}</div>
         <div className="flex-1" />
@@ -518,6 +747,8 @@ export default function DashboardPage() {
           <button onClick={() => router.push('/')} className="h-full px-3 hover:bg-[#e81123] hover:text-white transition-all"><X className="h-3.5 w-3.5" /></button>
         </div>
       </div>
+
+      {/* --- T-Code Toolbar --- */}
       <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40 print:hidden">
         <div className="flex items-center px-2 py-1 gap-4">
           <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">{logoAsset && <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized />}</div>
@@ -536,11 +767,20 @@ export default function DashboardPage() {
           </div>
           <div className="flex-1" />
           <div className="flex items-center gap-3 pr-4">
+            {activeScreen === 'VA01' && (
+              <div className="flex items-center gap-2 mr-4">
+                <input type="file" ref={bulkInputRef} onChange={handleBulkUpload} className="hidden" accept=".csv" />
+                <button onClick={handleDownloadTemplate} className="px-3 h-7 bg-white border border-slate-300 rounded text-[9px] font-black uppercase">Template</button>
+                <button onClick={() => bulkInputRef.current?.click()} className="px-3 h-7 bg-[#1e3a8a] text-white rounded text-[9px] font-black uppercase shadow-sm">Bulk Upload</button>
+              </div>
+            )}
             <button onClick={() => { localStorage.removeItem('sap_bootstrap_session'); router.push('/login'); }} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700 transition-all"><LogOut className="h-3.5 w-3.5" /> Log Off</button>
           </div>
         </div>
       </div>
+
       <div className="flex-1 flex overflow-hidden">
+        {/* --- Sidebar Favorites --- */}
         {activeScreen === 'HOME' && (
           <div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden print:hidden shadow-sm">
             <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div>
@@ -551,6 +791,8 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+
+        {/* --- Work Canvas --- */}
         <div className="flex-1 flex flex-col overflow-hidden bg-[#f2f2f2] print:bg-white">
           {activeScreen === 'HOME' ? (
             <div className="flex-1 overflow-y-auto p-8 animate-fade-in">
@@ -573,10 +815,10 @@ export default function DashboardPage() {
                   isPdfPreviewOpen={isPdfPreviewOpen} setIsPdfPreviewOpen={setIsPdfPreviewOpen} selectedTripForPreview={selectedTripForPreview} setSelectedTripForPreview={setSelectedTripForPreview} previewDeliveryAddress={previewDeliveryAddress} setPreviewDeliveryAddress={setPreviewDeliveryAddress} isAddressEditable={isAddressEditable} setIsAddressEditable={setIsAddressEditable} isAddressDirty={isAddressDirty} setIsAddressDirty={setIsAddressDirty}
                 />
               )}
-              {activeScreen === 'TR21' && viewMode === 'tracking' && <Tr21TrackingPage node={trackingNode} onBack={() => setViewMode('list')} customers={accessibleCustomers} settings={settings} />}
-              {activeScreen === 'TR24' && <TrackShipmentScreen trips={allTrips} orders={allOrders} customers={accessibleCustomers} />}
-              {activeScreen === 'WGPS24' && <GpsTrackingHub trips={allTrips} onStatusUpdate={setStatusMsg} db={db} settings={settings} settingsRef={settingsRef} />}
-              {activeScreen === 'SE38' && <Se38Report search={se38Search} results={se38Results} view={se38View} onSearchChange={setSe38Search} onViewChange={setSe38View} allPlants={accessiblePlants} allVendors={accessibleVendors} allCompanies={accessibleCompanies} allCustomers={accessibleCustomers} />}
+              {activeScreen === 'TR21' && viewMode === 'tracking' && <Tr21TrackingPage node={trackingNode} onBack={() => setViewMode('list')} />}
+              {activeScreen === 'TR24' && <TrackShipmentScreen />}
+              {activeScreen === 'WGPS24' && <GpsTrackingHub />}
+              {activeScreen === 'SE38' && <Se38Report search={se38Search} onSearchChange={setSe38Search} />}
               {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               {!['TR21', 'TR24', 'WGPS24', 'SE38', 'ZCODE'].includes(activeScreen) && (
                 <div className="flex-1 flex flex-col overflow-y-auto green-scrollbar">
@@ -605,6 +847,8 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* --- Footer Taskbar --- */}
       <div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em] shrink-0 z-50 print:hidden shadow-[0_-2px_10px_rgba(0,0,0,0.2)]">
         <div className="flex items-center gap-8 overflow-hidden flex-1">
           <span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span>
