@@ -381,7 +381,7 @@ function VendorForm({ data, onChange, disabled, allPlants }: any) {
     </SectionGrouping>
     <SectionGrouping title="DETAILS">
       <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
-      <FormInput label="ADDRESS" value={data.mobile} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+      <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
       <FormInput label="SPECIAL ROUTE" value={data.route} onChange={(v: string) => onChange({...data, route: v})} disabled={disabled} />
     </SectionGrouping></div>;
 }
@@ -783,10 +783,70 @@ function TripBoard({
       onStatusUpdate({ text: 'Error: Save mandatory before print', type: 'error' });
       return;
     }
-    const originalTitle = document.title;
-    document.title = selectedTripForPreview?.cnNo || 'CN_Document';
-    window.print();
-    document.title = originalTitle;
+    
+    const printContent = document.getElementById('printable-area');
+    if (!printContent) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert("Please allow popups to print the CN.");
+      return;
+    }
+
+    const html = `
+      <html>
+        <head>
+          <title>${selectedTripForPreview?.cnNo || 'CN_Document'}</title>
+          <style>
+            @media print {
+              @page { size: A4 portrait; margin: 0mm; }
+              body { margin: 0; padding: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+              * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              .page { width: 210mm; min-height: 297mm; padding: 10mm; margin: 0 auto; background: white; border-bottom: 1px dashed #ccc; page-break-after: always; }
+              .page:last-child { border-bottom: none; page-break-after: auto; }
+              table { border-collapse: collapse; width: 100%; border: 1px solid black !important; }
+              th, td { border: 1px solid black !important; padding: 8px; text-align: left; }
+              .border-black { border: 1px solid black !important; }
+              .border-t-black { border-top: 1px solid black !important; }
+              .border-b-black { border-bottom: 1px solid black !important; }
+              .border-l-black { border-left: 1px solid black !important; }
+              .border-r-black { border-right: 1px solid black !important; }
+              .font-black { font-weight: 900 !important; }
+              .uppercase { text-transform: uppercase !important; }
+              .text-center { text-align: center !important; }
+            }
+            body { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+            .page { width: 210mm; min-height: 297mm; padding: 10mm; margin: 10px auto; background: white; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+            table { border-collapse: collapse; width: 100%; border: 1px solid black; }
+            th, td { border: 1px solid black; padding: 8px; text-align: left; font-size: 11px; }
+            .text-center { text-align: center !important; }
+            .text-right { text-align: right !important; }
+            .font-black { font-weight: 900 !important; }
+            .uppercase { text-transform: uppercase !important; }
+            .flex { display: flex; }
+            .justify-between { justify-content: space-between; }
+            .items-start { align-items: flex-start; }
+            .items-end { align-items: flex-end; }
+            .flex-col { flex-direction: column; }
+            .gap-4 { gap: 16px; }
+            .grid { display: grid; }
+            .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+            .w-full { width: 100%; }
+          </style>
+        </head>
+        <body>
+          ${printContent.innerHTML}
+          <script>
+            window.onload = () => {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
   }, [selectedTripForPreview, isAddressDirty, onStatusUpdate]);
 
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
@@ -1034,27 +1094,96 @@ function TripBoard({
         <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 overflow-x-auto print:hidden">{TABS.map(t => (<button key={t} onClick={() => setActiveTab(t)} className={cn("px-6 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-r border-slate-300 transition-all", activeTab === t ? "bg-white text-[#0056d2] -mb-px" : "text-slate-500 hover:text-slate-700")}>{t} ({tabCounts[t] || 0})</button>))}</div>
         <div className="flex-1 flex flex-col overflow-hidden bg-white border border-slate-300">
           <div className="flex-1 overflow-auto">
-            <table className="w-full text-left border-collapse min-w-[1000px]">
+            <table className="w-full text-left border-collapse min-w-[1200px]">
               <thead>
                 <tr className="bg-[#f0f0f0] text-[9px] font-black uppercase sticky top-0 border-b border-slate-300 z-10 print:hidden">
-                  {activeTab === 'Open Orders' ? ['Plant', 'Sale Order', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>) : ['Plant', 'Trip ID', 'Sale Order', 'Ship to Party', 'Route', 'Vehicle No', 'Assign Qty', 'CN Number', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}
+                  {activeTab === 'Open Orders' ? (
+                    ['Plant', 'Sale Order / Date Time', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => {
+                      const parts = h.split(' / ');
+                      return (
+                        <th key={h} className="p-3 border-r border-slate-200">
+                          <div className="flex flex-col">
+                            <span>{parts[0]}</span>
+                            {parts[1] && <span>{parts[1]}</span>}
+                          </div>
+                        </th>
+                      );
+                    })
+                  ) : (
+                    ['Plant', 'Trip ID / Date Time', 'Sale Order / Date Time', 'Ship to Party', 'Route', 'Vehicle No / Driver Mobile', 'Vendor Name / ARRANGE BY', 'Assign Qty', 'CN Number', 'Action'].map(h => {
+                      const parts = h.split(' / ');
+                      return (
+                        <th key={h} className="p-3 border-r border-slate-200">
+                          <div className="flex flex-col">
+                            <span>{parts[0]}</span>
+                            {parts[1] && <span>{parts[1]}</span>}
+                          </div>
+                        </th>
+                      );
+                    })
+                  )}
                 </tr>
               </thead>
               <tbody>{paginatedData.map((item: any) => {
                   if (activeTab === 'Open Orders') {
                     const o = item; const isDelayed = (new Date().getTime() - new Date(o.createdAt).getTime()) > 24 * 60 * 60 * 1000;
-                    return (<tr key={o.id} className="border-b border-slate-100 text-[11px] font-bold"><td className="p-3">{o.plantCode}</td><td className="p-3 text-[#0056d2] font-black">{o.saleOrder}</td><td className="p-3 uppercase">{o.consignor}</td><td className="p-3 uppercase">{o.consignee}</td><td className="p-3 uppercase">{o.shipToParty}</td><td className="p-3 uppercase">{o.route}</td><td className="p-3 font-black">{o.tot} {o.uom}</td><td className="p-3 text-emerald-600">{o.ass} {o.uom}</td><td className="p-3 text-red-600 font-black">{o.bal} {o.uom}</td><td className="p-3">
-                        <div className="flex flex-col items-end gap-1">
-                          <div className="flex items-center gap-2">
-                            <Button onClick={() => handleAssign(o)} size="sm" className="bg-[#0056d2] text-white font-black text-[9px] h-7 rounded-none uppercase">Assign</Button>
-                            {isDelayed && ( <Button onClick={() => handleDelayRemark(o)} size="sm" className="bg-[#facc15] text-[#1e3a8a] hover:bg-[#eab308] font-black text-[9px] h-7 rounded-none uppercase">Delay Remark</Button> )}
+                    return (<tr key={o.id} className="border-b border-slate-100 text-[11px] font-bold">
+                        <td className="p-3">{o.plantCode}</td>
+                        <td className="p-3">
+                          <div className="flex flex-col">
+                            <span className="text-[#0056d2] font-black">{o.saleOrder}</span>
+                            <span className="text-slate-400 font-black">{format(new Date(o.saleOrderDate || o.createdAt), 'dd-MM-yy HH:mm')}</span>
                           </div>
-                        </div>
-                    </td></tr>);
+                        </td>
+                        <td className="p-3 uppercase">{o.consignor}</td>
+                        <td className="p-3 uppercase">{o.consignee}</td>
+                        <td className="p-3 uppercase">{o.shipToParty}</td>
+                        <td className="p-3 uppercase">{o.route}</td>
+                        <td className="p-3 font-black">{o.tot} {o.uom}</td>
+                        <td className="p-3 text-emerald-600">{o.ass} {o.uom}</td>
+                        <td className="p-3 text-red-600 font-black">{o.bal} {o.uom}</td>
+                        <td className="p-3">
+                          <div className="flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-2">
+                              <Button onClick={() => handleAssign(o)} size="sm" className="bg-[#0056d2] text-white font-black text-[9px] h-7 rounded-none uppercase">Assign</Button>
+                              {isDelayed && ( <Button onClick={() => handleDelayRemark(o)} size="sm" className="bg-[#facc15] text-[#1e3a8a] hover:bg-[#eab308] font-black text-[9px] h-7 rounded-none uppercase">Delay Remark</Button> )}
+                            </div>
+                          </div>
+                        </td>
+                    </tr>);
                   } else {
                     const t = item; const gpsVehicle = gpsData.find(v => v.vehicleNumber?.toUpperCase() === t.vehicleNumber?.toUpperCase());
                     const canEditCn = ['Loading', 'In-Transit', 'Arrived'].includes(activeTab); const isArrangeBy = t.fleetType === 'Arrange by Party';
-                    return (<tr key={t.id} className="border-b border-slate-100 text-[11px] font-bold"><td className="p-3">{t.plantCode}</td><td className="p-3 text-[#0056d2] font-black">{t.tripId}</td><td className="p-3 uppercase">{t.saleOrderNumber}</td><td className="p-3 uppercase">{t.shipToParty}</td><td className="p-3 uppercase">{t.route}</td><td className="p-3 uppercase cursor-pointer hover:underline" onDoubleClick={(e) => { e.stopPropagation(); handleAssignmentClick(t); }}>{t.vehicleNumber}</td><td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td><td className="p-3">
+                    return (<tr key={t.id} className="border-b border-slate-100 text-[11px] font-bold">
+                        <td className="p-3">{t.plantCode}</td>
+                        <td className="p-3">
+                           <div className="flex flex-col">
+                             <span className="text-[#0056d2] font-black">{t.tripId}</span>
+                             <span className="text-slate-400 font-black">{format(new Date(t.createdAt), 'dd-MM-yy HH:mm')}</span>
+                           </div>
+                        </td>
+                        <td className="p-3">
+                           <div className="flex flex-col">
+                             <span className="font-black uppercase">{t.saleOrderNumber}</span>
+                             <span className="text-slate-400 font-black">{format(new Date(t.saleOrderDate || t.createdAt), 'dd-MM-yy HH:mm')}</span>
+                           </div>
+                        </td>
+                        <td className="p-3 uppercase">{t.shipToParty}</td>
+                        <td className="p-3 uppercase">{t.route}</td>
+                        <td className="p-3">
+                           <div className="flex flex-col">
+                             <span className="font-black uppercase cursor-pointer hover:underline" onDoubleClick={(e) => { e.stopPropagation(); handleAssignmentClick(t); }}>{t.vehicleNumber}</span>
+                             <span className="text-slate-500 font-black">{t.driverMobile}</span>
+                           </div>
+                        </td>
+                        <td className="p-3">
+                           <div className="flex flex-col">
+                             <span className="uppercase">{t.vendorName || '-'}</span>
+                             <span className="text-slate-500 uppercase">{t.arrangeBy || '-'}</span>
+                           </div>
+                        </td>
+                        <td className="p-3 text-emerald-600 font-black">{t.assignWeight} MT</td>
+                        <td className="p-3">
                         <div className="flex items-center gap-2">
                           {t.cnNo ? (
                             <div className="flex items-center gap-1.5">
@@ -1521,8 +1650,7 @@ function TripBoard({
             
             return (
               <div key={i} className={cn("w-[210mm] min-h-[297mm] p-[10mm] mx-auto bg-white relative border-b border-dashed border-slate-300 last:border-0", i < 2 && "print:page-break-after-always")}>
-                <div className="border-[1px] border-black h-full p-4 flex flex-col">
-                  {/* Top Header Section */}
+                <div className="border-[1px] border-black h-full p-4 flex flex-col" style={{ border: '1px solid black' }}>
                   <div className="flex justify-between items-start mb-6">
                     <div className="flex gap-4">
                       {selectedTripForPreview.carrier?.logo && (
@@ -1545,7 +1673,7 @@ function TripBoard({
                       </div>
                     </div>
                     <div className="text-right space-y-2">
-                      <div className="border-[1.5px] border-black px-4 py-1.5 inline-block"><span className="text-[12px] font-black uppercase tracking-widest whitespace-nowrap">{copyLabel}</span></div>
+                      <div className="border-[1.5px] border-black px-4 py-1.5 inline-block" style={{ border: '1.5px solid black' }}><span className="text-[12px] font-black uppercase tracking-widest whitespace-nowrap">{copyLabel}</span></div>
                       <div className="pt-2 flex flex-col items-end">
                         <p className="text-[16px] font-black leading-none uppercase whitespace-nowrap">CN No: {selectedTripForPreview.cnNo}</p>
                         <div className="flex flex-col items-end mt-2 text-[10px] font-black uppercase space-y-0.5 tracking-tight">
@@ -1557,37 +1685,35 @@ function TripBoard({
                     </div>
                   </div>
                   
-                  {/* Vehicle Details Section */}
                   <div className="mb-6">
-                     <table className="w-full border-collapse border border-black text-[11px]">
+                     <table className="w-full border-collapse border border-black text-[11px]" style={{ border: '1px solid black' }}>
                         <thead>
                            <tr className="bg-slate-50 h-8 font-black uppercase">
-                              <th className="border border-black p-1 w-1/4 text-center">Vehicle Number</th>
-                              <th className="border border-black p-1 w-1/4 text-center">Driver Mobile</th>
-                              <th className="border border-black p-1 w-1/4 text-center">Payment Term</th>
-                              <th className="border border-black p-1 w-1/4 text-center">Trip ID</th>
+                              <th className="border border-black p-1 w-1/4 text-center" style={{ border: '1px solid black' }}>Vehicle Number</th>
+                              <th className="border border-black p-1 w-1/4 text-center" style={{ border: '1px solid black' }}>Driver Mobile</th>
+                              <th className="border border-black p-1 w-1/4 text-center" style={{ border: '1px solid black' }}>Payment Term</th>
+                              <th className="border border-black p-1 w-1/4 text-center" style={{ border: '1px solid black' }}>Trip ID</th>
                            </tr>
                         </thead>
                         <tbody>
                            <tr className="h-10 font-bold text-center uppercase align-middle">
-                              <td className="border border-black p-1">{selectedTripForPreview.vehicleNumber}</td>
-                              <td className="border border-black p-1">{selectedTripForPreview.driverMobile}</td>
-                              <td className="border border-black p-1">{selectedTripForPreview.paymentTerms}</td>
-                              <td className="border border-black p-1">{selectedTripForPreview.tripId}</td>
+                              <td className="border border-black p-1" style={{ border: '1px solid black' }}>{selectedTripForPreview.vehicleNumber}</td>
+                              <td className="border border-black p-1" style={{ border: '1px solid black' }}>{selectedTripForPreview.driverMobile}</td>
+                              <td className="border border-black p-1" style={{ border: '1px solid black' }}>{selectedTripForPreview.paymentTerms}</td>
+                              <td className="border border-black p-1" style={{ border: '1px solid black' }}>{selectedTripForPreview.tripId}</td>
                            </tr>
                         </tbody>
                      </table>
                   </div>
 
-                  {/* Party Details Section */}
-                  <div className="grid grid-cols-3 gap-x-0 mb-6 border border-black">
+                  <div className="grid grid-cols-3 gap-x-0 mb-6 border border-black" style={{ border: '1px solid black' }}>
                     {[
                       { title: 'CONSIGNOR', master: selectedTripForPreview.consignorMaster, fallback: selectedTripForPreview.order?.consignor },
                       { title: 'Consignee', master: selectedTripForPreview.consigneeMaster, fallback: selectedTripForPreview.order?.consignee },
                       { title: 'Ship to Party', master: selectedTripForPreview.shipToMaster, fallback: selectedTripForPreview.shipToParty }
                     ].map((c, idx) => (
-                      <div key={idx} className={cn("flex flex-col min-h-[140px] border-r last:border-0 border-black")}>
-                        <div className="bg-slate-50 border-b border-black p-1.5"><p className="text-[11px] font-black uppercase text-center">{c.title}</p></div>
+                      <div key={idx} className={cn("flex flex-col min-h-[140px] border-r last:border-0 border-black")} style={{ borderRight: idx < 2 ? '1px solid black' : 'none' }}>
+                        <div className="bg-slate-50 border-b border-black p-1.5" style={{ borderBottom: '1px solid black' }}><p className="text-[11px] font-black uppercase text-center">{c.title}</p></div>
                         <div className="p-3 space-y-2 flex-1 bg-white">
                            <div className="space-y-1">
                               <p className="text-[11px] font-black uppercase leading-tight">{c.master?.customerName || c.fallback}</p>
@@ -1602,40 +1728,39 @@ function TripBoard({
                     ))}
                   </div>
 
-                  {/* Document & Items Table */}
                   <div className="flex-1">
-                    <table className="w-full border-collapse border border-black">
+                    <table className="w-full border-collapse border border-black" style={{ border: '1px solid black' }}>
                       <thead>
                         <tr className="bg-slate-100 text-[11px] font-black uppercase h-10">
-                          <th className="border border-black p-2 w-[120px] text-center">Invoice No</th>
-                          <th className="border border-black p-2 w-[144px] text-center">E-waybill No</th>
-                          <th className="border border-black p-2 text-left w-[310px]">Description</th>
-                          <th className="border border-black p-2 w-[96px] text-center">Package</th>
-                          <th className="border border-black p-2 w-[96px] text-center">Weight</th>
+                          <th className="border border-black p-2 w-[120px] text-center" style={{ border: '1px solid black' }}>Invoice No</th>
+                          <th className="border border-black p-2 w-[144px] text-center" style={{ border: '1px solid black' }}>E-waybill No</th>
+                          <th className="border border-black p-2 text-left w-[310px]" style={{ border: '1px solid black' }}>Description</th>
+                          <th className="border border-black p-2 w-[96px] text-center" style={{ border: '1px solid black' }}>Package</th>
+                          <th className="border border-black p-2 w-[96px] text-center" style={{ border: '1px solid black' }}>Weight</th>
                         </tr>
                       </thead>
                       <tbody>
                         {tableItems.map((item: any, idx: number) => (
                           <tr key={idx} className="text-[11px] font-bold uppercase h-12 align-top">
-                            <td className="border border-black p-2 text-center pt-3">{item.invoiceNo}</td>
-                            <td className="border border-black p-2 text-center pt-3">{item.ewaybillNo}</td>
-                            <td className="border border-black p-2 pt-3 leading-tight">{item.product}</td>
-                            <td className="border border-black p-2 text-center pt-3">{item.unit}</td>
-                            <td className="border border-black p-2 text-center pt-3">{selectedTripForPreview.assignWeight}</td>
+                            <td className="border border-black p-2 text-center pt-3" style={{ border: '1px solid black' }}>{item.invoiceNo}</td>
+                            <td className="border border-black p-2 text-center pt-3" style={{ border: '1px solid black' }}>{item.ewaybillNo}</td>
+                            <td className="border border-black p-2 pt-3 leading-tight" style={{ border: '1px solid black' }}>{item.product}</td>
+                            <td className="border border-black p-2 text-center pt-3" style={{ border: '1px solid black' }}>{item.unit}</td>
+                            <td className="border border-black p-2 text-center pt-3" style={{ border: '1px solid black' }}>{selectedTripForPreview.assignWeight}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot>
                         <tr className="bg-slate-50 font-black h-10 align-middle">
-                          <td colSpan={3} className="border border-black p-2 text-right uppercase text-[11px] tracking-widest">GROSS Total:</td>
-                          <td className="border border-black p-2 text-center text-[12px]">{pkgDisplay}</td>
-                          <td className="border border-black p-2 text-center text-[12px]">{selectedTripForPreview.assignWeight} {selectedTripForPreview.order?.weightUom || selectedTripForPreview.weightUom || 'MT'}</td>
+                          <td colSpan={3} className="border border-black p-2 text-right uppercase text-[11px] tracking-widest" style={{ border: '1px solid black' }}>GROSS Total:</td>
+                          <td className="border border-black p-2 text-center text-[12px]" style={{ border: '1px solid black' }}>{pkgDisplay}</td>
+                          <td className="border border-black p-2 text-center text-[12px]" style={{ border: '1px solid black' }}>{selectedTripForPreview.assignWeight} {selectedTripForPreview.order?.weightUom || selectedTripForPreview.weightUom || 'MT'}</td>
                         </tr>
                       </tfoot>
                     </table>
 
-                    <div className="mt-4 border border-black">
-                      <div className="bg-slate-50 border-b border-black p-1.5"><p className="text-[11px] font-black uppercase">Delivery Address:</p></div>
+                    <div className="mt-4 border border-black" style={{ border: '1px solid black' }}>
+                      <div className="bg-slate-50 border-b border-black p-1.5" style={{ borderBottom: '1px solid black' }}><p className="text-[11px] font-black uppercase">Delivery Address:</p></div>
                       <div className="p-4 relative group min-h-[80px]">
                         {isAddressEditable ? (
                           <textarea 
@@ -1664,7 +1789,7 @@ function TripBoard({
                          </div>
                       </div>
                       <div className="text-right pb-10">
-                         <p className="text-[11px] font-black uppercase border-t border-black pt-2 px-6 inline-block">Authorized Signatory</p>
+                         <p className="text-[11px] font-black uppercase border-t border-black pt-2 px-6 inline-block" style={{ borderTop: '1px solid black' }}>Authorized Signatory</p>
                       </div>
                   </div>
 
