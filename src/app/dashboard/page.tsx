@@ -933,6 +933,21 @@ function TripBoard({
   const handleUnloadPost = () => { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', unloadData.trip.id), { status: 'POD', unloadDate: unloadData.date, unloadTime: unloadData.time, updatedAt: new Date().toISOString() }, { merge: true }); setIsUnloadPopupOpen(false); onStatusUpdate({ text: `Unload Synced`, type: 'success' }); };
   const handlePodUploadAction = (t: any) => { setSelectedTripForPod(t); setPodFile(null); setIsPodPopupOpen(true); };
   const handlePodPost = async () => { if (!podFile) return; const compressed = await compressImage(podFile); setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForPod.id), { status: 'CLOSED', podFile: compressed, podUploadedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true }); setIsPodPopupOpen(false); onStatusUpdate({ text: `CLOSED`, type: 'success' }); };
+  
+  const handlePodFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2048 * 1024) {
+      alert("Error: File size must be under 2MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setPodFile(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleViewAction = (t: any) => { setSelectedTripForClosed(t); setPodFile(t.podFile || null); setIsClosedViewPopupOpen(true); };
   
   const handleDownloadPod = (t: any) => {
@@ -1081,7 +1096,6 @@ function TripBoard({
         </div>
       </div>
 
-      {/* TRIP BOARD DIALOGS */}
       <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
         <DialogContent className="max-w-[1200px] max-h-[90vh] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
           <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
@@ -1975,7 +1989,7 @@ export function DashboardPage() {
       setDocumentNonBlocking(docRef, payload, { merge: true }); setStatusMsg({ text: `Synchronized successfully`, type: 'success' });
       if (activeScreen.endsWith('01')) { setFormData({}); setSearchId(''); } else if (!formData.id) setFormData(payload);
     }
-  }, [user, activeScreen, formData, allOrders, rawPlants, allUsers, db, isBootstrapAdmin, rawCustomers, rawCompanies, rawVendors, rawOrders, rawTrips, se38Search, getStats, isCnPreviewOpen, selectedTripForPreview, previewDeliveryAddress]);
+  }, [user, activeScreen, formData, allOrders, rawPlants, allUsers, db, isBootstrapAdmin, rawCustomers, rawCompanies, rawVendors, rawOrders, rawTrips, getStats, isCnPreviewOpen, selectedTripForPreview, previewDeliveryAddress]);
 
   const executeTCode = React.useCallback((code: string) => {
     const input = code.toUpperCase().trim(); if (!input) return; let clean = input; let isNewSession = false;
