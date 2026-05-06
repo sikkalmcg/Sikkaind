@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -680,7 +679,7 @@ function TripBoard({
   orders, trips, vendors, plants, companies, customers, onStatusUpdate, viewMode, setViewMode, trackingNode, setTrackingNode, settings,
   isCnPreviewOpen, setIsCnPreviewOpen, selectedTripForPreview, setSelectedTripForPreview, previewDeliveryAddress, setPreviewDeliveryAddress,
   isAddressEditable, setIsAddressEditable, isAddressDirty, setIsAddressDirty
-}) {
+}: any) {
   const { user } = useUser(); const db = useFirestore(); 
   const [activeTab, setActiveTab] = React.useState('Open Orders'); 
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null); 
@@ -1536,7 +1535,7 @@ function TripBoard({
                               <p className="text-[11px] font-black uppercase leading-tight">{c.master?.customerName || c.fallback}</p>
                               <p className="text-[10px] font-bold uppercase leading-relaxed text-slate-700">{[c.master?.address, c.master?.city, c.master?.postalCode].filter(Boolean).join(', ') || 'REGISTERED ADDRESS'}</p>
                            </div>
-                           <div className="pt-2 space-y-1">
+                           <div className="pt-1.5 space-y-0">
                               <div className="flex justify-between items-center"><span className="text-[10px] font-black uppercase tracking-tighter">Mobile:</span> <span className="text-[10px] font-bold uppercase">{c.master?.mobile?.replace(/\D/g, '').slice(-10) || '-'}</span></div>
                               <div className="flex justify-between items-center"><span className="text-[10px] font-black uppercase tracking-tighter">GSTIN:</span> <span className="text-[10px] font-bold uppercase">{c.master?.gstin || 'N/A'}</span></div>
                            </div>
@@ -1747,15 +1746,14 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
   return (<div className="h-full font-mono animate-fade-in flex flex-col"><div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between shadow-sm shrink-0"><h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Live Logistical Tracker</h2><Button onClick={() => setView(linkedTrips.length > 1 ? 'so_details' : 'search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">Back</Button></div><div className="flex-1 overflow-y-auto px-8 space-y-8 pb-20"><div className="bg-white border border-slate-300 p-8 space-y-10 shadow-sm relative overflow-hidden"><div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10 opacity-80 border-b border-slate-100 pb-8"><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[13px] font-black uppercase text-[#1e3a8a]">{trackingData.vehicleNumber}</span></div><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Driver Registry</span><span className="text-[13px] font-black">{trackingData.driverMobile}</span></div><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight Data</span><span className="text-[13px] font-black text-emerald-600">{trackingData.assignWeight} MT</span></div><div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[13px] font-black uppercase text-blue-600 truncate">{trackingData.route}</span></div></div><div className="py-12 relative flex justify-between px-8">{steps.map((s, i) => { const statusColor = i < activeStep ? "text-emerald-600" : i === activeStep ? "text-yellow-600" : "text-red-500"; const iconColor = i < activeStep ? "bg-emerald-50 text-emerald-600 border-emerald-200" : i === activeStep ? "bg-yellow-50 text-yellow-600 border-yellow-300 shadow-md" : "bg-red-50 text-red-500 border-red-100"; return (<div key={s.label} className="flex flex-col items-center gap-4 group relative z-10"><div className={cn("w-14 h-14 rounded-none border-2 flex items-center justify-center transition-all duration-500", iconColor)}><s.icon className="h-7 w-7" /></div><div className="text-center"><p className={cn("text-[10px] font-black uppercase tracking-widest", statusColor)}>{s.label}</p>{i <= activeStep && (<p className="text-[10px] text-slate-400 font-bold uppercase mt-1">{format(new Date(trackingData.createdAt), 'dd-MMM-yy HH:mm')}</p>)}</div></div>); })}<div className="absolute top-[40px] left-[10%] right-[10%] h-px bg-slate-200 -z-0" /><div className="absolute top-[-5px] transition-all duration-[2000ms] ease-in-out" style={{ left: `${(activeStep / (steps.length - 1)) * 80 + 10}%`, transform: 'translateX(-50%)' }}><div className="bg-white p-3 shadow-2xl border border-blue-100 animate-bounce"><Truck className={cn("h-11 w-11", trackingData.status === 'REJECTION' && activeStep === 4 ? "text-red-500 rotate-180" : "text-[#1e3a8a]")} /></div></div></div>{trackingData.status === 'REJECTION' && <div className="mt-8 bg-red-50 border border-blue-100 p-4 text-center"><p className="text-[10px] font-black text-red-600 uppercase italic">REJECTION REASON: {trackingData.rejectionRemark}</p></div>}</div><div className="h-[450px] bg-white border border-slate-300 shadow-sm"><div ref={mapRef} className="w-full h-full" /></div><div className="flex justify-between items-center px-4"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Sync: High-Density Tracking</p><Badge variant="outline" className="text-[8px] font-black bg-blue-50 border-blue-100 text-blue-800 rounded-none">TR24 SAP INTERFACE</Badge></div></div></div>);
 }
 
-export default function DashboardPage() {
+export function DashboardPage() {
   const router = useRouter(); const { user, isUserLoading } = useUser(); const db = useFirestore();
-  const [tCode, setTCode] = React.useState(''); const [history, setHistory] = React.useState<string[]>([]); const [screenStack, setScreenStack] = React.useState<Screen[]>(['HOME']); const [showHistory, setShowHistory] = React.useState(false); const [historyIndex, setHistoryIndex] = React.useState(-1); const [activeScreen, setActiveScreen] = React.useState<Screen>('HOME'); const [formData, setFormData] = React.useState<any>({}); const [searchId, setSearchId] = React.useState(''); const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' }); const [greeting, setGreeting] = React.useState('');
+  const [tCode, setTCode] = React.useState(''); const [history, setHistory] = React.useState<string[]>([]); const [screenStack, setScreenStack] = React.useState<string[]>(['HOME']); const [showHistory, setShowHistory] = React.useState(false); const [historyIndex, setHistoryIndex] = React.useState(-1); const [activeScreen, setActiveScreen] = React.useState<string>('HOME'); const [formData, setFormData] = React.useState<any>({}); const [searchId, setSearchId] = React.useState(''); const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' }); const [greeting, setGreeting] = React.useState('');
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL'); const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM')); const [showMonthCalendar, setShowMonthCalendar] = React.useState(false); const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false); const [isAuthChecking, setIsAuthChecking] = React.useState(true); const [registryId, setRegistryId] = React.useState<string | null>(null); const [xdSearch, setXdSearch] = React.useState({ plant: '', type: '', name: '', customerId: '', postalCode: '' });
   const [se38Search, setSe38Search] = React.useState({ plant: '', vendor: '', company: '', customer: '', from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') }); const [se38Results, setSe38Results] = React.useState<any[] | null>(null); const [se38View, setSe38View] = React.useState<'selection' | 'result'>('selection');
   const [viewMode, setViewMode] = React.useState<'list' | 'tracking'>('list'); const [trackingNode, setTrackingNode] = React.useState<any>(null);
   const tCodeRef = React.useRef<HTMLInputElement>(null); const monthRef = React.useRef<HTMLDivElement>(null); const bulkInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Lifted CN Preview States
   const [isCnPreviewOpen, setIsCnPreviewOpen] = React.useState(false);
   const [selectedTripForPreview, setSelectedTripForPreview] = React.useState<any>(null);
   const [previewDeliveryAddress, setPreviewDeliveryAddress] = React.useState('');
@@ -1880,7 +1878,6 @@ export default function DashboardPage() {
   const handleSave = React.useCallback(() => {
     if (!user || activeScreen === 'HOME' || (activeScreen.endsWith('03') && activeScreen !== 'SE38')) return;
 
-    // Special Case: TR21 CN Address Save
     if (activeScreen === 'TR21' && isCnPreviewOpen && selectedTripForPreview) {
       setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForPreview.id), {
         deliveryAddress: previewDeliveryAddress,
@@ -1944,7 +1941,7 @@ export default function DashboardPage() {
     setHistory(p => [input, ...p.filter(h => h !== input)].slice(0, 7)); setShowHistory(false); setHistoryIndex(-1);
     if (isNewSession) { const baseUrl = window.location.origin + window.location.pathname; window.open(clean ? `${baseUrl}?tcode=${clean}` : baseUrl, '_blank'); setTCode(''); return; }
     if (clean === 'HOME' || clean === '') { setScreenStack(prev => [...prev, 'HOME']); setActiveScreen('HOME'); setTCode(''); setFormData({}); setSearchId(''); return; }
-    if (MASTER_TCODES.some(t => t.code === clean)) { setScreenStack(prev => [...prev, clean as Screen]); setActiveScreen(clean as Screen); setFormData({}); setSearchId(''); setXdSearch({ plant: '', type: '', name: '', customerId: '', postalCode: '' }); setSe38Results(null); setSe38View('selection'); setViewMode('list'); setStatusMsg({ text: `Transaction ${clean} executed`, type: 'info' }); }
+    if (MASTER_TCODES.some(t => t.code === clean)) { setScreenStack(prev => [...prev, clean]); setActiveScreen(clean); setFormData({}); setSearchId(''); setXdSearch({ plant: '', type: '', name: '', customerId: '', postalCode: '' }); setSe38Results(null); setSe38View('selection'); setViewMode('list'); setStatusMsg({ text: `Transaction ${clean} executed`, type: 'info' }); }
     else setStatusMsg({ text: `T-Code ${clean} not found`, type: 'error' }); setTCode('');
   }, [isAuthorized]);
 
@@ -1982,3 +1979,5 @@ export default function DashboardPage() {
             setIsAddressDirty={setIsAddressDirty}
           />)}{activeScreen === 'TR21' && viewMode === 'tracking' && (<Tr21TrackingPage node={trackingNode} onBack={() => setViewMode('list')} customers={accessibleCustomers} settings={settings} />)}{activeScreen === 'TR24' && <TrackShipmentScreen trips={allTrips} orders={allOrders} customers={accessibleCustomers} />}{activeScreen === 'WGPS24' && <GpsTrackingHub trips={allTrips} onStatusUpdate={setStatusMsg} db={db} settings={settings} settingsRef={settingsRef} />}{activeScreen === 'SE38' && (<Se38Report search={se38Search} results={se38Results} view={se38View} onSearchChange={setSe38Search} onViewChange={setSe38View} allPlants={accessiblePlants} allVendors={accessibleVendors} allCompanies={accessibleCompanies} allCustomers={accessibleCustomers} />)}{activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}</div>)}</div></div></div><div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em] print:hidden"><div className="flex items-center gap-4 md:gap-8 overflow-hidden flex-1"><span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span><span className="shrink-0">{activeScreen}</span><span className="truncate">USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.fullName || 'Authenticating...')}</span>{statusMsg.text !== 'Ready' && <span className={cn("truncate", statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span>}</div>{greeting && <div className="shrink-0 ml-4 hidden sm:block text-blue-400">{greeting}</div>}</div></div>);
 }
+
+export default DashboardPage;
