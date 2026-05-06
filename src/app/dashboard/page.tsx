@@ -692,6 +692,8 @@ function TripBoard({
   const [isOutPopupOpen, setIsOutPopupOpen] = React.useState(false);
   const [outData, setOutData] = React.useState<any>({ tripId: '', vehicleNumber: '', route: '', shipToParty: '', cnNo: '', date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') });
   const [isAssignmentPopupOpen, setIsAssignmentPopupOpen] = React.useState(false);
+  const [assignmentMode, setAssignmentMode] = React.useState<'edit' | 'unassign'>('edit');
+  const [unassignRemark, setUnassignRemark] = React.useState('');
   const [selectedTripForAssignment, setSelectedTripForAssignment] = React.useState<any>(null);
   const [isArrivedPopupOpen, setIsArrivedPopupOpen] = React.useState(false);
   const [arrivedData, setArrivedData] = React.useState<any>({ date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm'), tripId: '', vehicleNumber: '', route: '', shipToParty: '', cnNo: '' });
@@ -824,36 +826,44 @@ function TripBoard({
 
   const handleAssignmentClick = (t: any) => { 
     setSelectedTripForAssignment(t); 
+    setAssignmentMode('edit');
+    setUnassignRemark('');
     setAssignData({ 
-      vehicleNumber: t.vehicleNumber, 
-      driverMobile: t.driverMobile, 
-      plantCode: t.plantCode, 
-      shipToParty: t.shipToParty, 
-      route: t.route
+      vehicleNumber: t.vehicleNumber || '', 
+      driverMobile: t.driverMobile || '', 
+      plantCode: t.plantCode || '', 
+      shipToParty: t.shipToParty || '', 
+      route: t.route || '',
+      fleetType: t.fleetType || 'Own Vehicle',
+      assignWeight: t.assignWeight || 0,
+      assignDate: t.assignDate || format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      rate: t.rate || 0,
+      isFixedRate: t.isFixedRate || false,
+      freightAmount: t.freightAmount || 0,
+      vendorName: t.vendorName || '',
+      vendorCode: t.vendorCode || '',
+      vendorFirmName: t.vendorFirmName || '',
+      vendorMobile: t.vendorMobile || '',
+      arrangeBy: t.arrangeBy || ''
     }); 
     setIsAssignmentPopupOpen(true); 
   };
 
-  const handleUnassignTrip = () => {
-    if (!selectedTripForAssignment) return;
-    deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id));
-    onStatusUpdate({ text: `Trip Unassigned Successfully`, type: 'success' });
-    setIsAssignmentPopupOpen(false);
-  };
-  
-  const handlePodFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2048 * 1024) { alert("Error: File size must be under 2MB"); return; }
-    const reader = new FileReader();
-    reader.onload = (ev) => { setPodFile(ev.target?.result as string); };
-    reader.readAsDataURL(file);
-  };
-
   const handleAssignmentPost = () => { 
+    if (assignmentMode === 'unassign') {
+      if (!unassignRemark.trim()) {
+        onStatusUpdate({ text: 'Error: Unassign Remark is mandatory', type: 'error' });
+        return;
+      }
+      deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id));
+      onStatusUpdate({ text: `Trip ${selectedTripForAssignment.tripId} Unassigned Successfully`, type: 'success' });
+      setIsAssignmentPopupOpen(false);
+      return;
+    }
+
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id), { 
+      ...assignData,
       vehicleNumber: assignData.vehicleNumber.toUpperCase(), 
-      driverMobile: assignData.driverMobile, 
       updatedAt: new Date().toISOString() 
     }, { merge: true }); 
     onStatusUpdate({ text: `Assignment Updated`, type: 'success' }); 
@@ -1122,25 +1132,60 @@ function TripBoard({
             <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-3"><Edit3 className="h-4 w-4" /> Assignment Management</DialogTitle>
           </DialogHeader>
           <div className="p-6 space-y-6 overflow-y-auto green-scrollbar flex-1">
-            <div className="flex items-center justify-between mb-4 bg-white p-4 border border-slate-200">
-              <div className="grid grid-cols-2 gap-12 flex-1">
+            <div className="flex flex-col gap-6 mb-4 bg-white p-6 border border-slate-200">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
                 <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[12px] font-black uppercase truncate">{selectedTripForAssignment?.shipToParty}</span></div>
                 <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[12px] font-black uppercase truncate">{selectedTripForAssignment?.route}</span></div>
+                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[12px] font-black uppercase">{selectedTripForAssignment?.vehicleNumber}</span></div>
+                <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Assigned Qty</span><span className="text-[12px] font-black uppercase">{selectedTripForAssignment?.assignWeight} {selectedTripForAssignment?.weightUom}</span></div>
               </div>
-              <div className="flex items-center gap-4 pl-12 border-l border-slate-200 ml-12">
-                 <RadioGroup defaultValue="edit" onValueChange={(v) => { if (v === 'unassign') handleUnassignTrip(); }} className="flex items-center gap-6">
-                   <div className="flex items-center space-x-2"><RadioGroupItem value="edit" id="r-edit" className="border-[#1e3a8a] text-[#1e3a8a]" /><Label htmlFor="r-edit" className="text-[10px] font-black uppercase tracking-widest cursor-pointer text-[#1e3a8a]">Edit Assignment</Label></div>
-                   <div className="flex items-center space-x-2"><RadioGroupItem value="unassign" id="r-unassign" className="border-red-600 text-red-600" /><Label htmlFor="r-unassign" className="text-[10px] font-black uppercase tracking-widest cursor-pointer text-red-600">Unassign Trip</Label></div>
+              <div className="h-px bg-slate-100" />
+              <div className="flex items-center gap-4">
+                 <RadioGroup value={assignmentMode} onValueChange={(v: any) => setAssignmentMode(v)} className="flex items-center gap-12">
+                   <div className="flex items-center space-x-2"><RadioGroupItem value="edit" id="r-edit" className="border-[#1e3a8a] text-[#1e3a8a]" /><Label htmlFor="r-edit" className="text-[11px] font-black uppercase tracking-widest cursor-pointer text-[#1e3a8a]">Edit Assignment</Label></div>
+                   <div className="flex items-center space-x-2"><RadioGroupItem value="unassign" id="r-unassign" className="border-red-600 text-red-600" /><Label htmlFor="r-unassign" className="text-[11px] font-black uppercase tracking-widest cursor-pointer text-red-600">Unassign Trip</Label></div>
                  </RadioGroup>
               </div>
             </div>
-            <div className="space-y-4 animate-fade-in border-t border-slate-200 pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-                <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} />
-                <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} />
-                <FormInput label="ASSIGN QTY (MT)" type="number" value={assignData.assignWeight} onChange={(v: string) => setAssignData({...assignData, assignWeight: v})} />
+            
+            {assignmentMode === 'edit' ? (
+              <div className="space-y-4 animate-fade-in border-t border-slate-200 pt-6">
+                <SectionGrouping title="CENTRE SECTION">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                    <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} />
+                    <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} />
+                    <FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle", "Arrange by Party"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} />
+                    <FormInput label="ASSIGN QTY (MT)" type="number" value={assignData.assignWeight} onChange={(v: string) => { const w = parseFloat(v) || 0; const r = parseFloat(assignData.rate) || 0; setAssignData({ ...assignData, assignWeight: v, freightAmount: !assignData.isFixedRate ? (w * r).toFixed(2) : assignData.freightAmount }); }} />
+                    <FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignData.assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} />
+                  </div>
+                  {assignData.fleetType === 'Market Vehicle' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 pt-4 border-t border-slate-200 mt-4 animate-fade-in">
+                      <FormSelect label="VENDOR NAME" value={assignData.vendorName} options={vendors.map((v: any) => ({ value: v.vendorName, label: v.vendorName }))} onChange={(v: string) => { const match = vendors.find((vend: any) => vend.vendorName === v); setAssignData({ ...assignData, vendorName: v, vendorCode: match?.vendorCode || '', vendorFirmName: match?.vendorFirmName || '', vendorMobile: match?.mobile || '' }); }} />
+                      <FormInput label="VENDOR FIR" value={assignData.vendorFirmName} disabled={true} />
+                      <FormInput label="MOBILE" value={assignData.vendorMobile} disabled={true} />
+                      <FormInput label="ARRANGE BY" value={assignData.arrangeBy} onChange={(v: string) => setAssignData({...assignData, arrangeBy: v})} />
+                      <FormInput label="RATE" type="number" value={assignData.rate} onChange={(v: string) => { const r = parseFloat(v) || 0; const w = parseFloat(assignData.assignWeight) || 0; setAssignData({ ...assignData, rate: v, freightAmount: !assignData.isFixedRate ? (r * w).toFixed(2) : assignData.freightAmount }); }} />
+                      <div className="flex items-center gap-8 pl-[180px]"><div className="flex items-center gap-2"><Checkbox checked={assignData.isFixedRate} onCheckedChange={(c) => setAssignData({...assignData, isFixedRate: !!c})} id="edit-assign-fix-rate" /><label htmlFor="edit-assign-fix-rate" className="text-[10px] font-black uppercase cursor-pointer text-slate-500">Fix Rate Mode</label></div></div>
+                      <FormInput label="FREIGHT AMOUNT" type="number" value={assignData.freightAmount} disabled={!assignData.isFixedRate} onChange={(v: string) => setAssignData({...assignData, freightAmount: v})} />
+                    </div>
+                  )}
+                </SectionGrouping>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-4 animate-fade-in border-t border-slate-200 pt-6">
+                <SectionGrouping title="UNASSIGN DETAILS">
+                  <div className="flex items-center gap-8 group">
+                    <label className="text-[12px] font-bold text-red-600 w-[180px] text-right shrink-0 uppercase tracking-tight">REMARK *:</label>
+                    <textarea 
+                      value={unassignRemark} 
+                      onChange={(e) => setUnassignRemark(e.target.value)} 
+                      className="h-24 w-[450px] border border-red-300 bg-red-50/10 px-2 py-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-red-500 uppercase resize-none shadow-sm"
+                      placeholder="ENTER REASON FOR UNASSIGNMENT (MANDATORY)..."
+                    />
+                  </div>
+                </SectionGrouping>
+              </div>
+            )}
           </div>
           <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3 shrink-0">
             <Button onClick={() => setIsAssignmentPopupOpen(false)} variant="outline" className="h-10 px-8 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
@@ -1727,8 +1772,8 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
     const consignorMaster = customers?.find((c: any) => c.customerName?.toUpperCase() === order?.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.consignor?.toUpperCase());
     const shipToMaster = customers?.find((c: any) => c.customerName?.toUpperCase() === order?.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.shipToParty?.toUpperCase());
     const gps = gpsData.find(v => v.vehicleNumber?.toUpperCase() === trackingData.vehicleNumber?.toUpperCase());
-    const p1 = new Promise((resolve) => { if (cons?.postalCode) { geocoder.geocode({ address: cons.postalCode }, (res, status) => { if (status === 'OK') resolve(res[0].geometry.location); else resolve(null); }); } else resolve(null); });
-    const p2 = new Promise((resolve) => { if (ship?.postalCode) { geocoder.geocode({ address: ship.postalCode }, (res, status) => { if (status === 'OK') resolve(res[0].geometry.location); else resolve(null); }); } else resolve(null); });
+    const p1 = new Promise((resolve) => { if (consignorMaster?.postalCode) { geocoder.geocode({ address: consignorMaster.postalCode }, (res, status) => { if (status === 'OK') resolve(res[0].geometry.location); else resolve(null); }); } else resolve(null); });
+    const p2 = new Promise((resolve) => { if (shipToMaster?.postalCode) { geocoder.geocode({ address: shipToMaster.postalCode }, (res, status) => { if (status === 'OK') resolve(res[0].geometry.location); else resolve(null); }); } else resolve(null); });
     Promise.all([p1, p2]).then(([startLoc, endLoc]: any) => {
       if (!mapRef.current) return; const map = new window.google.maps.Map(mapRef.current, { center: gps ? { lat: gps.latitude, lng: gps.longitude } : { lat: 20.5937, lng: 78.9629 }, zoom: gps ? 12 : 5, styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }] }); directionsRenderer.setMap(map);
       if (startLoc) { new window.google.maps.Marker({ position: startLoc, map, title: 'Start Point', icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png' }); }
@@ -1799,14 +1844,14 @@ export function DashboardPage() {
   const { data: rawCustomers } = useCollection(customersQuery);
   const { data: allUsers, isLoading: isAllUsersLoading } = useCollection(usersQuery);
 
-  const authorizedPlantsList = React.useMemo(() => userProfile?.plants || [], [userProfile]);
-  const accessiblePlants = React.useMemo(() => { if (isBootstrapAdmin) return rawPlants || []; return (rawPlants || []).filter(p => authorizedPlantsList.includes(p.plantCode)); }, [rawPlants, authorizedPlantsList, isBootstrapAdmin]);
-  const accessibleCompanies = React.useMemo(() => { if (isBootstrapAdmin) return rawCompanies || []; return (rawCompanies || []).filter(c => c.plantCodes?.some((p: string) => authorizedPlantsList.includes(p))); }, [rawCompanies, authorizedPlantsList, isBootstrapAdmin]);
-  const accessibleVendors = React.useMemo(() => { if (isBootstrapAdmin) return rawVendors || []; return (rawVendors || []).filter(v => v.plantCodes?.some((p: string) => authorizedPlantsList.includes(p))); }, [rawVendors, authorizedPlantsList, isBootstrapAdmin]);
-  const accessibleCustomers = React.useMemo(() => { if (isBootstrapAdmin) return rawCustomers || []; return (rawCustomers || []).filter(c => c.plantCodes?.some((p: string) => authorizedPlantsList.includes(p))); }, [rawCustomers, authorizedPlantsList, isBootstrapAdmin]);
-  const accessibleUsers = React.useMemo(() => { if (isBootstrapAdmin) return allUsers || []; if (!authorizedPlantsList.length) return []; return (allUsers || []).filter(u => u.plants?.some((p: string) => authorizedPlantsList.includes(p))); }, [allUsers, authorizedPlantsList, isBootstrapAdmin]);
-  const allTrips = React.useMemo(() => { if (isBootstrapAdmin) return rawTrips || []; if (!authorizedPlantsList.length) return []; return rawTrips?.filter(t => authorizedPlantsList.includes(t.plantCode)) || []; }, [rawTrips, authorizedPlantsList, isBootstrapAdmin]);
-  const allOrders = React.useMemo(() => { if (isBootstrapAdmin) return rawOrders || []; if (!authorizedPlantsList.length) return []; return rawOrders?.filter(o => authorizedPlantsList.includes(o.plantCode)) || []; }, [rawOrders, authorizedPlantsList, isBootstrapAdmin]);
+  const authorizedPlantsList = userProfile?.plants || [];
+  const accessiblePlants = isBootstrapAdmin ? (rawPlants || []) : (rawPlants || []).filter(p => authorizedPlantsList.includes(p.plantCode));
+  const accessibleCompanies = isBootstrapAdmin ? (rawCompanies || []) : (rawCompanies || []).filter(c => c.plantCodes?.some((p: string) => authorizedPlantsList.includes(p)));
+  const accessibleVendors = isBootstrapAdmin ? (rawVendors || []) : (rawVendors || []).filter(v => v.plantCodes?.some((p: string) => authorizedPlantsList.includes(p)));
+  const accessibleCustomers = isBootstrapAdmin ? (rawCustomers || []) : (rawCustomers || []).filter(c => c.plantCodes?.some((p: string) => authorizedPlantsList.includes(p)));
+  const accessibleUsers = isBootstrapAdmin ? (allUsers || []) : (allUsers || []).filter(u => u.plants?.some((p: string) => authorizedPlantsList.includes(p)));
+  const allTrips = isBootstrapAdmin ? (rawTrips || []) : (rawTrips || []).filter(t => authorizedPlantsList.includes(t.plantCode));
+  const allOrders = isBootstrapAdmin ? (rawOrders || []) : (rawOrders || []).filter(o => authorizedPlantsList.includes(o.plantCode));
 
   const homeStats = React.useMemo(() => {
     if (!allOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, pod: 0, reject: 0, closed: 0 };
@@ -1826,7 +1871,7 @@ export function DashboardPage() {
 
   const handleDownloadTemplate = React.useCallback(() => {
     let headers = ""; let filename = "";
-    if (activeScreen.startsWith('VA')) { headers = "Plant,Consignor,Consignee Code,Consignee Name,Ship to Party Code,Ship to Party Name,Weight,UOM"; filename = "VA01_SALES_ORDER_TEMPLATE.csv"; }
+    if (activeScreen.startsWith('VA')) { headers = "Plant,Sale Order,Consignor,Consignee Code,Consignee Name,Ship to Party Code,Ship to Party Name,Weight,UOM"; filename = "VA01_SALES_ORDER_TEMPLATE.csv"; }
     else if (activeScreen.startsWith('XD')) { headers = "PlantCodes,CustomerCode,CustomerName,CustomerType,Address,City,PostalCode,Mobile No.,GSTIN"; filename = "XD01_CUSTOMER_MASTER_TEMPLATE.csv"; }
     else if (activeScreen.startsWith('FM')) { headers = "CompanyCode,CompanyName,Address,City,State,PostalCode,GSTIN,PAN,Mobile,Email,Website"; filename = "FM01_COMPANY_MASTER_TEMPLATE.csv"; }
     else { setStatusMsg({ text: "Template Not Available", type: 'error' }); return; }
@@ -1842,7 +1887,7 @@ export function DashboardPage() {
       const headers = parseCsvRow(rows[0]); const dataRows = rows.slice(1); setStatusMsg({ text: `Synchronizing...`, type: 'info' });
       if (activeScreen.startsWith('VA')) {
         const getIdx = (name: string) => headers.findIndex(h => h.toLowerCase().replace(/\s/g, '') === name.toLowerCase().replace(/\s/g, ''));
-        const idxP = getIdx('Plant'); const idxCons = getIdx('Consignor'); const idxCeeCode = getIdx('ConsigneeCode'); const idxShipCode = getIdx('ShiptoPartyCode'); const idxW = getIdx('Weight'); const idxU = getIdx('UOM');
+        const idxP = getIdx('Plant'); const idxSO = getIdx('SaleOrder'); const idxCons = getIdx('Consignor'); const idxCeeCode = getIdx('ConsigneeCode'); const idxShipCode = getIdx('ShiptoPartyCode'); const idxW = getIdx('Weight'); const idxU = getIdx('UOM');
         if (idxP === -1 || idxCons === -1 || idxCeeCode === -1 || idxShipCode === -1 || idxW === -1 || idxU === -1) { setStatusMsg({ text: 'Error: Mandatory headers missing', type: 'error' }); return; }
         const orderGroups: Record<string, any> = {}; let rejectedCount = 0;
         dataRows.forEach((row, rowIndex) => {
@@ -1851,7 +1896,7 @@ export function DashboardPage() {
           const ceeMaster = rawCustomers?.find(c => c.customerCode?.toString().toUpperCase() === ceeCode.toUpperCase());
           const shipMaster = rawCustomers?.find(c => c.customerCode?.toString().toUpperCase() === shipCode.toUpperCase());
           const consMaster = rawCustomers?.find(c => (c.customerName?.toUpperCase() === cons.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === cons.toUpperCase()));
-          const soNo = `SO-B${Date.now().toString().slice(-6)}${rowIndex}`;
+          const soNo = idxSO !== -1 && cols[idxSO] ? cols[idxSO] : `SO-B${Date.now().toString().slice(-6)}${rowIndex}`;
           if (!orderGroups[soNo]) { orderGroups[soNo] = { plantCode: plant, saleOrder: soNo, consignor: cons, from: consMaster?.city || '', consignee: ceeMaster?.customerName || 'UNKNOWN', shipToParty: shipMaster?.customerName || 'UNKNOWN', destination: shipMaster?.city || '', deliveryAddress: shipMaster?.address || '', weight: 0, weightUom: uom, status: 'Active', createdAt: new Date().toISOString(), saleOrderDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") }; }
           orderGroups[soNo].weight += weight;
         });
