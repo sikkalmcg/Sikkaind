@@ -50,8 +50,6 @@ const MASTER_TCODES = [
   { code: 'XK01', description: 'VENDOR MASTER: CREATE', icon: User, module: 'Master Data' },
   { code: 'XK02', description: 'VENDOR MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'XK03', description: 'VENDOR MASTER: DISPLAY', icon: Info, module: 'Master Data' },
-  { code: 'XK03_LIST', description: 'VENDOR MASTER: REGISTRY', icon: Info, module: 'Master Data' },
-  { code: 'XK01_LIST', description: 'VENDOR MASTER: REGISTRY', icon: Info, module: 'Master Data' },
   { code: 'XD01', description: 'CUSTOMER MASTER: CREATE', icon: Users, module: 'Master Data' },
   { code: 'XD02', description: 'CUSTOMER MASTER: CHANGE', icon: Edit3, module: 'Master Data' },
   { code: 'XD03', description: 'CUSTOMER MASTER: DISPLAY', icon: Info, module: 'Master Data' },
@@ -1535,9 +1533,9 @@ function TripBoard({
                               <p className="text-[11px] font-black uppercase leading-tight">{c.master?.customerName || c.fallback}</p>
                               <p className="text-[10px] font-bold uppercase leading-relaxed text-slate-700">{[c.master?.address, c.master?.city, c.master?.postalCode].filter(Boolean).join(', ') || 'REGISTERED ADDRESS'}</p>
                            </div>
-                           <div className="pt-1.5 space-y-0">
-                              <div className="flex justify-between items-center"><span className="text-[10px] font-black uppercase tracking-tighter">Mobile:</span> <span className="text-[10px] font-bold uppercase">{c.master?.mobile?.replace(/\D/g, '').slice(-10) || '-'}</span></div>
-                              <div className="flex justify-between items-center"><span className="text-[10px] font-black uppercase tracking-tighter">GSTIN:</span> <span className="text-[10px] font-bold uppercase">{c.master?.gstin || 'N/A'}</span></div>
+                           <div className="pt-1.5 space-y-0 flex flex-col items-center">
+                              <div className="flex items-center gap-2"><span className="text-[10px] font-black uppercase tracking-tighter">Mobile:</span> <span className="text-[10px] font-bold uppercase">{c.master?.mobile?.replace(/\D/g, '').slice(-10) || '-'}</span></div>
+                              <div className="flex items-center gap-2"><span className="text-[10px] font-black uppercase tracking-tighter">GSTIN:</span> <span className="text-[10px] font-bold uppercase">{c.master?.gstin || 'N/A'}</span></div>
                            </div>
                         </div>
                       </div>
@@ -1729,8 +1727,8 @@ function TrackShipmentScreen({ trips, orders, customers }: any) {
     const consignorMaster = customers?.find((c: any) => c.customerName?.toUpperCase() === order?.consignor?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.consignor?.toUpperCase());
     const shipToMaster = customers?.find((c: any) => c.customerName?.toUpperCase() === order?.shipToParty?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.shipToParty?.toUpperCase());
     const gps = gpsData.find(v => v.vehicleNumber?.toUpperCase() === trackingData.vehicleNumber?.toUpperCase());
-    const p1 = new Promise((resolve) => { if (consignorMaster?.postalCode) { geocoder.geocode({ address: consignorMaster.postalCode }, (res, status) => { if (status === 'OK') resolve(res[0].geometry.location); else resolve(null); }); } else resolve(null); });
-    const p2 = new Promise((resolve) => { if (shipToMaster?.postalCode) { geocoder.geocode({ address: shipToMaster.postalCode }, (res, status) => { if (status === 'OK') resolve(res[0].geometry.location); else resolve(null); }); } else resolve(null); });
+    const p1 = new Promise((resolve) => { if (cons?.postalCode) { geocoder.geocode({ address: cons.postalCode }, (res, status) => { if (status === 'OK') resolve(res[0].geometry.location); else resolve(null); }); } else resolve(null); });
+    const p2 = new Promise((resolve) => { if (ship?.postalCode) { geocoder.geocode({ address: ship.postalCode }, (res, status) => { if (status === 'OK') resolve(res[0].geometry.location); else resolve(null); }); } else resolve(null); });
     Promise.all([p1, p2]).then(([startLoc, endLoc]: any) => {
       if (!mapRef.current) return; const map = new window.google.maps.Map(mapRef.current, { center: gps ? { lat: gps.latitude, lng: gps.longitude } : { lat: 20.5937, lng: 78.9629 }, zoom: gps ? 12 : 5, styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }] }); directionsRenderer.setMap(map);
       if (startLoc) { new window.google.maps.Marker({ position: startLoc, map, title: 'Start Point', icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png' }); }
