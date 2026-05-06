@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -380,7 +381,7 @@ function VendorForm({ data, onChange, disabled, allPlants }: any) {
     </SectionGrouping>
     <SectionGrouping title="DETAILS">
       <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
-      <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
+      <FormInput label="ADDRESS" value={data.mobile} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
       <FormInput label="SPECIAL ROUTE" value={data.route} onChange={(v: string) => onChange({...data, route: v})} disabled={disabled} />
     </SectionGrouping></div>;
 }
@@ -749,6 +750,20 @@ function TripBoard({
     });
   };
 
+  const handlePodFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2048 * 1024) {
+      alert("Error: File size must be under 2MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setPodFile(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const fetchGps = React.useCallback(async () => {
     try {
       const res = await fetch('/api/gps');
@@ -934,20 +949,6 @@ function TripBoard({
   const handlePodUploadAction = (t: any) => { setSelectedTripForPod(t); setPodFile(null); setIsPodPopupOpen(true); };
   const handlePodPost = async () => { if (!podFile) return; const compressed = await compressImage(podFile); setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForPod.id), { status: 'CLOSED', podFile: compressed, podUploadedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true }); setIsPodPopupOpen(false); onStatusUpdate({ text: `CLOSED`, type: 'success' }); };
   
-  const handlePodFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2048 * 1024) {
-      alert("Error: File size must be under 2MB");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setPodFile(ev.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
   const handleViewAction = (t: any) => { setSelectedTripForClosed(t); setPodFile(t.podFile || null); setIsClosedViewPopupOpen(true); };
   
   const handleDownloadPod = (t: any) => {
@@ -1906,11 +1907,14 @@ export function DashboardPage() {
         const orderGroups: Record<string, any> = {}; let rejectedCount = 0;
         dataRows.forEach((row, rowIndex) => {
           const cols = parseCsvRow(row); const plant = cols[idxP]; const cons = cols[idxCons]; const ceeCode = cols[idxCeeCode]; const shipCode = cols[idxShipCode]; const weight = parseFloat(cols[idxW] || '0'); const uom = cols[idxU];
-          if (!plant || !cons || !ceeCode || !shipCode || isNaN(weight) || !uom) { rejectedCount++; return; }
+          const soNo = idxSO !== -1 && cols[idxSO] ? cols[idxSO] : `SO-B${Date.now().toString().slice(-6)}${rowIndex}`;
           const ceeMaster = rawCustomers?.find(c => c.customerCode?.toString().toUpperCase() === ceeCode.toUpperCase());
           const shipMaster = rawCustomers?.find(c => c.customerCode?.toString().toUpperCase() === shipCode.toUpperCase());
           const consMaster = rawCustomers?.find(c => (c.customerName?.toUpperCase() === cons.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === cons.toUpperCase()));
-          const soNo = idxSO !== -1 && cols[idxSO] ? cols[idxSO] : `SO-B${Date.now().toString().slice(-6)}${rowIndex}`;
+          const isSystemDuplicate = allOrders?.some(o => o.saleOrder?.toString().toUpperCase() === soNo.toUpperCase());
+          if (!plant || !cons || !ceeCode || !shipCode || isNaN(weight) || !uom || !ceeMaster || !shipMaster || !consMaster || isSystemDuplicate) {
+            rejectedCount++; return;
+          }
           if (!orderGroups[soNo]) { orderGroups[soNo] = { plantCode: plant, saleOrder: soNo, consignor: cons, from: consMaster?.city || '', consignee: ceeMaster?.customerName || 'UNKNOWN', shipToParty: shipMaster?.customerName || 'UNKNOWN', destination: shipMaster?.city || '', deliveryAddress: shipMaster?.address || '', weight: 0, weightUom: uom, status: 'Active', createdAt: new Date().toISOString(), saleOrderDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") }; }
           orderGroups[soNo].weight += weight;
         });
@@ -1976,7 +1980,15 @@ export function DashboardPage() {
       if (activeScreen.startsWith('FM')) { if (rawCompanies?.some((c: any) => c.id !== localData.id && c.companyCode?.toString().toUpperCase() === localData.companyCode?.toString().toUpperCase())) { setStatusMsg({ text: `Duplicate Company Code`, type: 'error' }); return; } }
       if (activeScreen.startsWith('XK')) { if (!(localData.plantCodes?.length && localData.mobile?.trim() && (localData.vendorName?.trim() || localData.vendorFirmName?.trim()))) { setStatusMsg({ text: 'Error: Missing mandatory data', type: 'error' }); return; } if (!localData.vendorCode) localData.vendorCode = `V${Math.floor(10000 + Math.random() * 90000)}`; }
       if (activeScreen.startsWith('XD')) { if (!(localData.plantCodes?.length && localData.customerCode && localData.customerName && localData.city)) { setStatusMsg({ text: 'Error: Missing mandatory data', type: 'error' }); return; } }
-      if (activeScreen.startsWith('VA') && activeScreen !== 'VA04') { if (!(localData.plantCode && localData.saleOrder && localData.consignor && localData.weight)) { setStatusMsg({ text: 'Error: Missing mandatory data', type: 'error' }); return; } }
+      if (activeScreen.startsWith('VA') && activeScreen !== 'VA04') {
+        const isDuplicate = allOrders?.some(o => o.id !== localData.id && o.saleOrder?.toString().toUpperCase() === localData.saleOrder?.toString().toUpperCase());
+        if (isDuplicate) { setStatusMsg({ text: `Error: Duplicate Sale Order ${localData.saleOrder}`, type: 'error' }); return; }
+        const checkCustomer = (name: string) => accessibleCustomers?.some(c => c.customerName?.toUpperCase() === name?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === name?.toUpperCase());
+        if (!checkCustomer(localData.consignor) || !checkCustomer(localData.consignee) || !checkCustomer(localData.shipToParty)) {
+          setStatusMsg({ text: 'Error: Customer Registry Not Found (XD03 Check failed)', type: 'error' }); return;
+        }
+        if (!(localData.plantCode && localData.saleOrder && localData.consignor && localData.weight)) { setStatusMsg({ text: 'Error: Missing mandatory data', type: 'error' }); return; }
+      }
       if (activeScreen.startsWith('SU')) { if (!(localData.fullName && localData.username && localData.password && localData.plants?.length)) { setStatusMsg({ text: 'Error: Missing user data', type: 'error' }); return; } }
     }
     let col = ''; let docId = localData.id;
