@@ -435,15 +435,84 @@ function TripBoard({
   };
 
   const getStatsLocal = React.useCallback((o: any) => { const tot = parseFloat(o.weight) || 0; const ass = trips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (parseFloat(t.assignWeight) || 0), 0) || 0; return { tot, ass, bal: tot - ass, uom: o.weightUom || 'MT' }; }, [trips]);
+  
   const TABS = ['Open Orders', 'Loading', 'In-Transit', 'Arrived', 'Reject', 'POD Verify', 'Closed'];
+  
   const fOrders = React.useMemo(() => (orders || []).filter((o: any) => o.status !== 'CANCELLED' && o.status !== 'Short closed').map((o: any) => ({ ...o, ...getStatsLocal(o), route: `${o.from} → ${o.destination}` })).filter((o: any) => o.bal > 0 && isWithinInterval(new Date(o.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })), [orders, getStatsLocal, fromDate, toDate]);
-  const fTrips = React.useMemo(() => { if (!trips) return []; const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; return trips.filter((t: any) => t.status === map[activeTab] && isWithinInterval(new Date(t.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })); }, [trips, activeTab, fromDate, toDate]);
+  
+  const fTrips = React.useMemo(() => { 
+    if (!trips) return []; 
+    const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' }; 
+    return trips.filter((t: any) => t.status === map[activeTab] && isWithinInterval(new Date(t.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })); 
+  }, [trips, activeTab, fromDate, toDate]);
+
+  const getCountForTab = (tab: string) => {
+    if (tab === 'Open Orders') return fOrders.length;
+    const map: any = { 'Loading': 'LOADING', 'In-Transit': 'IN-TRANSIT', 'Arrived': 'ARRIVED', 'Reject': 'REJECTION', 'POD Verify': 'POD', 'Closed': 'CLOSED' };
+    return trips?.filter((t: any) => t.status === map[tab] && isWithinInterval(new Date(t.createdAt), { start: startOfDay(new Date(fromDate)), end: endOfDay(new Date(toDate)) })).length || 0;
+  };
+
   const filteredData = searchQuery ? (activeTab === 'Open Orders' ? fOrders : fTrips).filter((item: any) => Object.values(item).some(val => String(val).toLowerCase().includes(searchQuery.toLowerCase()))) : (activeTab === 'Open Orders' ? fOrders : fTrips);
 
-  const handleAssign = (o: any) => { setSelectedOrder(o); setAssignData({ plantCode: o.plantCode, shipToParty: o.shipToParty, route: `${o.from} → ${o.destination}`, fleetType: 'Own Vehicle', assignWeight: o.bal, isFixedRate: false, rate: 0, freightAmount: 0, assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") }); setIsPopupOpen(true); };
-  const handleAssignmentClick = (t: any) => { setSelectedTripForAssignment(t); setAssignmentMode('edit'); setAssignData({ ...t }); setIsAssignmentPopupOpen(true); };
-  const handleCreateTrip = () => { if (!assignData.vehicleNumber) { onStatusUpdate({ text: 'Error: Vehicle No Required', type: 'error' }); return; } const tid = `T${Math.floor(100000000 + Math.random() * 900000000)}`; const docId = crypto.randomUUID(); setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', docId), { ...assignData, id: docId, tripId: tid, saleOrderId: selectedOrder.id, saleOrderNumber: selectedOrder.saleOrder, status: 'LOADING', createdAt: new Date().toISOString() }, { merge: true }); setIsPopupOpen(false); onStatusUpdate({ text: `Trip ${tid} Created`, type: 'success' }); };
-  const handleAssignmentPost = () => { if (assignmentMode === 'unassign') { if (!unassignRemark) { onStatusUpdate({ text: 'Error: Remark Required', type: 'error' }); return; } deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id)); setIsAssignmentPopupOpen(false); onStatusUpdate({ text: 'Trip Unassigned', type: 'success' }); return; } setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id), { ...assignData, updatedAt: new Date().toISOString() }, { merge: true }); setIsAssignmentPopupOpen(false); onStatusUpdate({ text: 'Assignment Updated', type: 'success' }); };
+  const handleAssign = (o: any) => { 
+    setSelectedOrder(o); 
+    setAssignData({ 
+      plantCode: o.plantCode, 
+      shipToParty: o.shipToParty, 
+      route: `${o.from} → ${o.destination}`, 
+      fleetType: 'Own Vehicle', 
+      assignWeight: o.bal, 
+      isFixedRate: false, 
+      rate: 0, 
+      freightAmount: 0, 
+      assignDate: format(new Date(), "yyyy-MM-dd'T'HH:mm") 
+    }); 
+    setIsPopupOpen(true); 
+  };
+
+  const handleAssignmentClick = (t: any) => { 
+    setSelectedTripForAssignment(t); 
+    setAssignmentMode('edit'); 
+    setAssignData({ ...t }); 
+    setIsAssignmentPopupOpen(true); 
+  };
+
+  const handleCreateTrip = () => { 
+    if (!assignData.vehicleNumber) { 
+      onStatusUpdate({ text: 'Error: Vehicle No Required', type: 'error' }); 
+      return; 
+    } 
+    const tid = `T${Math.floor(100000000 + Math.random() * 900000000)}`; 
+    const docId = crypto.randomUUID(); 
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', docId), { 
+      ...assignData, 
+      id: docId, 
+      tripId: tid, 
+      saleOrderId: selectedOrder.id, 
+      saleOrderNumber: selectedOrder.saleOrder, 
+      status: 'LOADING', 
+      createdAt: new Date().toISOString() 
+    }, { merge: true }); 
+    setIsPopupOpen(false); 
+    onStatusUpdate({ text: `Trip ${tid} Created`, type: 'success' }); 
+  };
+
+  const handleAssignmentPost = () => { 
+    if (assignmentMode === 'unassign') { 
+      if (!unassignRemark) { 
+        onStatusUpdate({ text: 'Error: Remark Required', type: 'error' }); 
+        return; 
+      } 
+      deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id)); 
+      setIsAssignmentPopupOpen(false); 
+      onStatusUpdate({ text: 'Trip Unassigned', type: 'success' }); 
+      return; 
+    } 
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id), { ...assignData, updatedAt: new Date().toISOString() }, { merge: true }); 
+    setIsAssignmentPopupOpen(false); 
+    onStatusUpdate({ text: 'Assignment Updated', type: 'success' }); 
+  };
+
   const handleOutVehicle = (t: any) => { setOutData({ ...t, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsOutPopupOpen(true); };
   const handleArrivedAction = (t: any) => { setArrivedData({ ...t, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsArrivedPopupOpen(true); };
   const handleUnloadAction = (t: any) => { setUnloadData({ trip: t, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsUnloadPopupOpen(true); };
@@ -465,9 +534,27 @@ function TripBoard({
 
   return (
     <div className="flex flex-col h-full space-y-0">
-      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-4 print:hidden flex items-center justify-between"><h2 className="text-[16px] font-bold text-slate-800 uppercase">TRIP BOARD CONTROL</h2><div className="flex gap-4"><input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="h-8 border border-slate-300 px-2 text-[10px] font-black" /><input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="h-8 border border-slate-300 px-2 text-[10px] font-black" /></div></div>
+      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-4 print:hidden flex items-center justify-between">
+        <h2 className="text-[16px] font-bold text-slate-800 uppercase">TRIP BOARD CONTROL</h2>
+        <div className="flex items-center gap-6">
+          <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Total Entries: {filteredData.length}</div>
+          <div className="flex gap-4">
+            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="h-8 border border-slate-300 px-2 text-[10px] font-black" />
+            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="h-8 border border-slate-300 px-2 text-[10px] font-black" />
+          </div>
+        </div>
+      </div>
       <div className="px-8 space-y-4 flex-1 overflow-hidden flex flex-col">
-        <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 print:hidden">{TABS.map(t => (<button key={t} onClick={() => setActiveTab(t)} className={cn("px-6 py-2.5 text-[10px] font-black uppercase tracking-widest border-r border-slate-300", activeTab === t ? "bg-white text-[#0056d2]" : "text-slate-500")}>{t}</button>))}</div>
+        <div className="flex border-b border-slate-300 bg-[#dae4f1]/30 print:hidden">
+          {TABS.map(t => {
+            const count = getCountForTab(t);
+            return (
+              <button key={t} onClick={() => setActiveTab(t)} className={cn("px-6 py-2.5 text-[10px] font-black uppercase tracking-widest border-r border-slate-300 transition-all", activeTab === t ? "bg-white text-[#0056d2] shadow-sm" : "text-slate-500 hover:bg-white/50")}>
+                {t} ({count})
+              </button>
+            );
+          })}
+        </div>
         <div className="flex-1 overflow-auto bg-white border border-slate-300">
           <table className="w-full text-left border-collapse min-w-[1200px]">
             <thead>
@@ -504,8 +591,88 @@ function TripBoard({
         </div>
       </div>
 
-      {/* --- Dialogs --- */}
-      <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}><DialogContent className="max-w-[1000px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase">Assign Vehicle</DialogTitle></DialogHeader><div className="p-8 space-y-6 overflow-y-auto"><SectionGrouping title="DETAILS"><div className="grid grid-cols-2 gap-x-12 gap-y-4"><FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} /><FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} /><FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle", "Arrange by Party"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} /><FormInput label="ASSIGN QTY" type="number" value={assignData.assignWeight} onChange={(v: string) => setAssignData({...assignData, assignWeight: v})} /></div></SectionGrouping></div><div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3"><Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button><Button onClick={handleCreateTrip} className="h-9 px-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button></div></DialogContent></Dialog>
+      {/* --- Assign Vehicle Popup --- */}
+      <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
+        <DialogContent className="max-w-[1000px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
+            <DialogTitle className="text-white text-[11px] font-black uppercase tracking-widest flex items-center justify-between w-full">
+              <span>Assign Vehicle Portal</span>
+              <div className="flex gap-6 pr-8">
+                <span className="opacity-70">SO: {selectedOrder?.saleOrder}</span>
+                <span className="opacity-70">Qty: {selectedOrder?.tot} {selectedOrder?.uom}</span>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-8 space-y-6 overflow-y-auto max-h-[70vh]">
+            <div className="grid grid-cols-2 gap-4 mb-4 bg-white p-4 border border-slate-200 shadow-sm">
+               <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">Consignee</span><span className="text-[11px] font-black uppercase text-slate-700">{selectedOrder?.consignee}</span></div>
+               <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">Ship To Party</span><span className="text-[11px] font-black uppercase text-slate-700">{selectedOrder?.shipToParty}</span></div>
+               <div className="flex flex-col gap-1 col-span-2"><span className="text-[9px] font-black text-slate-400 uppercase">Route</span><span className="text-[11px] font-black uppercase text-blue-600">{selectedOrder?.route}</span></div>
+            </div>
+            
+            <SectionGrouping title="ASSIGNMENT DETAILS">
+              <div className="grid grid-cols-2 gap-x-12 gap-y-4">
+                <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} />
+                <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} />
+                <FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignData.assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} />
+                <FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} />
+                <FormInput label="ASSIGN QTY" type="number" value={assignData.assignWeight} onChange={(v: string) => setAssignData({...assignData, assignWeight: v})} />
+              </div>
+            </SectionGrouping>
+
+            {assignData.fleetType === 'Market Vehicle' && (
+              <SectionGrouping title="MARKET VENDOR REGISTRY">
+                <div className="grid grid-cols-2 gap-x-12 gap-y-4">
+                  <FormSearchInput 
+                    label="VENDOR NAME" 
+                    value={assignData.vendorName} 
+                    options={(vendors || []).map((v: any) => v.vendorName)} 
+                    onChange={(v: string) => {
+                      const master = (vendors || []).find((ven: any) => ven.vendorName === v);
+                      setAssignData({...assignData, vendorName: v, vendorMobile: master?.mobile || ''});
+                    }} 
+                  />
+                  <FormInput label="VENDOR MOBILE" value={assignData.vendorMobile} disabled={true} />
+                  <FormInput label="ARRANGE BY" value={assignData.arrangeBy} onChange={(v: string) => setAssignData({...assignData, arrangeBy: v.toUpperCase()})} />
+                  <FormInput 
+                    label="RATE" 
+                    type="number" 
+                    value={assignData.rate} 
+                    disabled={assignData.isFixedRate}
+                    onChange={(v: string) => {
+                      const r = parseFloat(v) || 0;
+                      const q = parseFloat(assignData.assignWeight) || 0;
+                      setAssignData({...assignData, rate: r, freightAmount: r * q});
+                    }} 
+                  />
+                  <FormInput 
+                    label="FREIGHT AMOUNT" 
+                    type="number" 
+                    value={assignData.freightAmount} 
+                    disabled={!assignData.isFixedRate}
+                    onChange={(v: string) => setAssignData({...assignData, freightAmount: v})} 
+                  />
+                  <div className="flex items-center gap-8">
+                    <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase tracking-tight">FIX RATE:</label>
+                    <div className="flex items-center gap-2">
+                      <Checkbox 
+                        checked={assignData.isFixedRate} 
+                        onCheckedChange={(checked) => setAssignData({...assignData, isFixedRate: checked})} 
+                        className="rounded-none border-slate-400"
+                      />
+                      <span className="text-[10px] font-black text-slate-400 uppercase">ENABLE MANUAL OVERRIDE</span>
+                    </div>
+                  </div>
+                </div>
+              </SectionGrouping>
+            )}
+          </div>
+          <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3">
+            <Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
+            <Button onClick={handleCreateTrip} className="h-9 px-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isAssignmentPopupOpen} onOpenChange={setIsAssignmentPopupOpen}><DialogContent className="max-w-[1000px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col"><DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase">Assignment Management</DialogTitle></DialogHeader><div className="p-8 space-y-6 overflow-y-auto"><div className="flex gap-12 mb-6 bg-white p-4 border border-slate-200"><RadioGroup value={assignmentMode} onValueChange={(v: any) => setAssignmentMode(v)} className="flex items-center gap-12"><div className="flex items-center space-x-2"><RadioGroupItem value="edit" id="r-edit" /><Label htmlFor="r-edit" className="text-[11px] font-black uppercase">Edit Assign</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="unassign" id="r-unassign" /><Label htmlFor="r-unassign" className="text-[11px] font-black uppercase text-red-600">Unassign</Label></div></RadioGroup></div>{assignmentMode === 'edit' ? (<div className="space-y-4"><FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} /><FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} /><FormInput label="ASSIGN QTY" type="number" value={assignData.assignWeight} onChange={(v: string) => setAssignData({...assignData, assignWeight: v})} /></div>) : (<FormInput label="UNASSIGN REMARK" value={unassignRemark} onChange={setUnassignRemark} placeholder="ENTER REASON..." />)}</div><div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3"><Button onClick={() => setIsAssignmentPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button><Button onClick={handleAssignmentPost} className="h-9 px-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button></div></DialogContent></Dialog>
 
@@ -627,6 +794,9 @@ export default function DashboardPage() {
   const { data: rawVendors } = useCollection(vendorsQuery);
   const { data: rawCustomers } = useCollection(customersQuery);
   const { data: allUsers } = useCollection(usersQuery);
+
+  const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
+  const isReadOnly = activeScreen.endsWith('03');
 
   React.useEffect(() => { const isAdmin = localStorage.getItem('sap_bootstrap_session') === 'true'; setIsBootstrapAdmin(isAdmin); }, []);
   
@@ -860,9 +1030,6 @@ export default function DashboardPage() {
 
   const getRegistryList = () => { if (activeScreen.startsWith('OX')) return accessiblePlants; if (activeScreen.startsWith('FM')) return accessibleCompanies; if (activeScreen.startsWith('XK')) return accessibleVendors; if (activeScreen.startsWith('XD')) return accessibleCustomers; if (activeScreen.startsWith('VA')) return allOrders; if (activeScreen.startsWith('SU')) return accessibleUsers; return []; };
   const handleSearchIdEnter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { const item = getRegistryList().find((i: any) => (i.plantCode || i.customerCode || i.saleOrder || i.username || i.id).toString().toUpperCase() === searchId.toUpperCase()); if (item) { setFormData(item); setStatusMsg({ text: 'Record Loaded', type: 'success' }); } else setStatusMsg({ text: 'Not Found', type: 'error' }); } };
-
-  const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
-  const isReadOnly = activeScreen.endsWith('03');
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
