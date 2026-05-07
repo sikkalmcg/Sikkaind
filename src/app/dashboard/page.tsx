@@ -754,8 +754,9 @@ function TripBoard({
 
           if (start && end) {
             directionsService.route({
-              origin: vehiclePos,
+              origin: start as any,
               destination: end as any,
+              waypoints: [{ location: vehiclePos, stopover: false }],
               travelMode: window.google.maps.TravelMode.DRIVING
             }, (result: any, status: any) => {
               if (status === 'OK') {
@@ -835,9 +836,6 @@ function TripBoard({
                   <td className="p-3">
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
-                        {(item.trackMode === 'GPS' && (activeTab === 'Loading' || activeTab === 'In-Transit' || activeTab === 'Arrived')) && (
-                          <button onClick={() => handleLocationTrackClick(item)} className="text-emerald-600 hover:text-emerald-700"><MapPin className="h-3.5 w-3.5" /></button>
-                        )}
                         {(activeTab === 'In-Transit' || activeTab === 'Arrived') ? (
                           <button onClick={() => handleVehicleClick(item)} className="text-[#0056d2] font-black hover:underline uppercase transition-all">{item.vehicleNumber || 'SET VEHICLE'}</button>
                         ) : (
@@ -894,7 +892,12 @@ function TripBoard({
                       </div>
                       
                       {(activeTab === 'Loading' || activeTab === 'In-Transit' || activeTab === 'Arrived') && (
-                        <div className="pt-1 border-t border-slate-100 flex justify-start">
+                        <div className="pt-1 border-t border-slate-100 flex justify-start items-center gap-2">
+                          {gpsData?.some((v: any) => v.vehicleNumber?.toUpperCase() === item.vehicleNumber?.toUpperCase()) && (
+                            <button onClick={() => handleLocationTrackClick(item)} className="p-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 transition-colors rounded-sm" title="Live Vehicle Location">
+                              <MapPin className="h-3 w-3" />
+                            </button>
+                          )}
                           <button onClick={() => handleTrackModeClick(item)} className="flex items-center gap-1.5 p-1 bg-slate-100 hover:bg-blue-100 text-[#1e3a8a] transition-colors rounded-sm" title="Track Mode Settings">
                             <Radar className="h-3 w-3" />
                             <span className="text-[8px] font-black uppercase">Track Settings</span>
@@ -972,6 +975,8 @@ function TripBoard({
                 <span>Live Shipment Tracking</span>
                 <span className="opacity-60">|</span>
                 <span>Vehicle: {selectedTripForTrack?.vehicleNumber}</span>
+                <span className="opacity-60">|</span>
+                <span>Qty: {selectedTripForTrack?.assignWeight} {selectedTripForTrack?.weightUom}</span>
                 <span className="opacity-60">|</span>
                 <span>ETA: {eta || 'Calculating...'}</span>
               </div>
