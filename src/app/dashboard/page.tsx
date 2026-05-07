@@ -557,12 +557,7 @@ function TripBoard({
   const handleArrivedAction = (t: any) => { setArrivedData({ ...t, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsArrivedPopupOpen(true); };
   
   const handleArrivedPost = () => {
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', arrivedData.id), { 
-      status: 'ARRIVED', 
-      arrivedDate: arrivedData.date, 
-      arrivedTime: arrivedData.time, 
-      updatedAt: new Date().toISOString() 
-    }, { merge: true });
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', arrivedData.id), { status: 'ARRIVED', arrivedDate: arrivedData.date, arrivedTime: arrivedData.time, updatedAt: new Date().toISOString() }, { merge: true });
     setIsArrivedPopupOpen(false);
     onStatusUpdate({ text: 'Vehicle Arrival Registered', type: 'success' });
   };
@@ -570,12 +565,7 @@ function TripBoard({
   const handleUnloadAction = (t: any) => { setUnloadData({ trip: t, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); setIsUnloadPopupOpen(true); };
   
   const handleUnloadPost = () => {
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', unloadData.trip.id), { 
-      status: 'POD', 
-      unloadDate: unloadData.date, 
-      unloadTime: unloadData.time, 
-      updatedAt: new Date().toISOString() 
-    }, { merge: true });
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', unloadData.trip.id), { status: 'POD', unloadDate: unloadData.date, unloadTime: unloadData.time, updatedAt: new Date().toISOString() }, { merge: true });
     setIsUnloadPopupOpen(false);
     onStatusUpdate({ text: 'Unloading Registered (Pending POD)', type: 'success' });
   };
@@ -584,13 +574,7 @@ function TripBoard({
   
   const handleRejectPost = () => {
     if (!rejectData.reason) { onStatusUpdate({ text: 'Rejection Reason Required', type: 'error' }); return; }
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', rejectData.trip.id), { 
-      status: 'REJECTION', 
-      rejectionDate: rejectData.date, 
-      rejectionTime: rejectData.time, 
-      rejectionRemark: rejectData.reason, 
-      updatedAt: new Date().toISOString() 
-    }, { merge: true });
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', rejectData.trip.id), { status: 'REJECTION', rejectionDate: rejectData.date, rejectionTime: rejectData.time, rejectionRemark: rejectData.reason, updatedAt: new Date().toISOString() }, { merge: true });
     setIsRejectPopupOpen(false);
     onStatusUpdate({ text: 'Trip Rejected', type: 'error' });
   };
@@ -619,13 +603,7 @@ function TripBoard({
     if (!cnFormData.cnNo) { onStatusUpdate({ text: 'Error: CN Number Required', type: 'error' }); return; }
     const isDuplicate = trips.some((t: any) => t.cnNo?.toUpperCase() === cnFormData.cnNo.toUpperCase() && t.id !== selectedTripForCn.id);
     if (isDuplicate) { onStatusUpdate({ text: 'Duplicate CN Number is not allowed.', type: 'error' }); return; }
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForCn.id), { 
-      cnNo: cnFormData.cnNo.toUpperCase(), 
-      cnDate: cnFormData.cnDate, 
-      paymentTerms: cnFormData.paymentTerms,
-      cnItems: cnFormData.items, 
-      updatedAt: new Date().toISOString() 
-    }, { merge: true }); 
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForCn.id), { cnNo: cnFormData.cnNo.toUpperCase(), cnDate: cnFormData.cnDate, paymentTerms: cnFormData.paymentTerms, cnItems: cnFormData.items, updatedAt: new Date().toISOString() }, { merge: true }); 
     setIsCnPopupOpen(false); 
     onStatusUpdate({ text: cnFormData.cnNo ? 'CN Registry Updated' : 'CN Registered', type: 'success' }); 
   };
@@ -640,22 +618,14 @@ function TripBoard({
 
   const handleSrnPost = () => {
     if (!srnFormData.srnNo) { onStatusUpdate({ text: 'SRN Number Required', type: 'error' }); return; }
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForSrn.id), { 
-      srnNo: srnFormData.srnNo.toUpperCase(), 
-      srnDate: srnFormData.srnDate, 
-      updatedAt: new Date().toISOString() 
-    }, { merge: true });
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForSrn.id), { srnNo: srnFormData.srnNo.toUpperCase(), srnDate: srnFormData.srnDate, updatedAt: new Date().toISOString() }, { merge: true });
     setIsSrnPopupOpen(false);
     onStatusUpdate({ text: 'SRN Registered Successfully', type: 'success' });
   };
 
   const handleResentConfirm = () => {
     if (tripToResent) {
-      setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', tripToResent.id), { 
-        status: 'LOADING', 
-        rejectionRemark: '',
-        updatedAt: new Date().toISOString() 
-      }, { merge: true });
+      setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', tripToResent.id), { status: 'LOADING', rejectionRemark: '', updatedAt: new Date().toISOString() }, { merge: true });
       setIsResentDialogOpen(false);
       onStatusUpdate({ text: 'Trip Resent to Loading', type: 'success' });
     }
@@ -663,11 +633,7 @@ function TripBoard({
 
   const handlePodPost = () => {
     if (!podFile) { onStatusUpdate({ text: 'Error: POD File Required', type: 'error' }); return; }
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForPod.id), { 
-      status: 'CLOSED', 
-      podAttachment: podFile, 
-      podUploadedAt: new Date().toISOString() 
-    }, { merge: true });
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForPod.id), { status: 'CLOSED', podAttachment: podFile, podUploadedAt: new Date().toISOString() }, { merge: true });
     setIsPodPopupOpen(false);
     onStatusUpdate({ text: 'POD Synchronized and Trip Closed', type: 'success' });
   };
@@ -698,11 +664,7 @@ function TripBoard({
 
   const handleVehicleUpdatePost = () => {
     if (!vehicleUpdateData.vehicleNumber) { onStatusUpdate({ text: 'Vehicle Number Required', type: 'error' }); return; }
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForVehicleUpdate.id), { 
-      vehicleNumber: vehicleUpdateData.vehicleNumber.toUpperCase(), 
-      driverMobile: vehicleUpdateData.driverMobile, 
-      updatedAt: new Date().toISOString() 
-    }, { merge: true });
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForVehicleUpdate.id), { vehicleNumber: vehicleUpdateData.vehicleNumber.toUpperCase(), driverMobile: vehicleUpdateData.driverMobile, updatedAt: new Date().toISOString() }, { merge: true });
     setIsVehiclePopupOpen(false);
     onStatusUpdate({ text: 'Vehicle Information Updated', type: 'success' });
   };
@@ -718,11 +680,7 @@ function TripBoard({
   };
 
   const handleTrackModePost = () => {
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForTrack.id), { 
-      trackMode: trackModeSettings.mode, 
-      driverMobile: trackModeSettings.driverNumber,
-      updatedAt: new Date().toISOString() 
-    }, { merge: true });
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForTrack.id), { trackMode: trackModeSettings.mode, driverMobile: trackModeSettings.driverNumber, updatedAt: new Date().toISOString() }, { merge: true });
     setIsTrackModePopupOpen(false);
     onStatusUpdate({ text: 'Track Mode Settings Updated', type: 'success' });
   };
@@ -1598,7 +1556,7 @@ export default function DashboardPage() {
     if (!document.getElementById(scriptId)) {
       const script = document.createElement('script');
       script.id = scriptId;
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU&libraries=places,directions`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU&libraries=places`;
       script.async = true;
       script.defer = true;
       document.head.appendChild(script);
