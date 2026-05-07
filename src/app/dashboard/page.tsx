@@ -600,9 +600,24 @@ function TripBoard({
   };
 
   const handleCnPost = () => { 
-    if (!cnFormData.cnNo) { onStatusUpdate({ text: 'Error: CN Number Required', type: 'error' }); return; }
+    if (!cnFormData.cnNo) { onStatusUpdate({ text: 'CN Number is mandatory.', type: 'error' }); return; }
+    if (!cnFormData.cnDate) { onStatusUpdate({ text: 'CN Date is mandatory.', type: 'error' }); return; }
+    if (!cnFormData.paymentTerms) { onStatusUpdate({ text: 'Payment Terms is mandatory.', type: 'error' }); return; }
+    
+    // Line-Item Validation
+    if (!cnFormData.items || cnFormData.items.length === 0) {
+      onStatusUpdate({ text: 'At least one document row is required.', type: 'error' });
+      return;
+    }
+
+    for (const item of cnFormData.items) {
+      if (!item.invoice) { onStatusUpdate({ text: 'Invoice Number is mandatory.', type: 'error' }); return; }
+      if (!item.description) { onStatusUpdate({ text: 'Goods Description is mandatory.', type: 'error' }); return; }
+    }
+
     const isDuplicate = trips.some((t: any) => t.cnNo?.toUpperCase() === cnFormData.cnNo.toUpperCase() && t.id !== selectedTripForCn.id);
     if (isDuplicate) { onStatusUpdate({ text: 'Duplicate CN Number is not allowed.', type: 'error' }); return; }
+    
     setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForCn.id), { cnNo: cnFormData.cnNo.toUpperCase(), cnDate: cnFormData.cnDate, paymentTerms: cnFormData.paymentTerms, cnItems: cnFormData.items, updatedAt: new Date().toISOString() }, { merge: true }); 
     setIsCnPopupOpen(false); 
     onStatusUpdate({ text: cnFormData.cnNo ? 'CN Registry Updated' : 'CN Registered', type: 'success' }); 
@@ -1831,3 +1846,4 @@ function Se38Report({ search, onSearchChange }: any) {
     </div>
   );
 }
+
