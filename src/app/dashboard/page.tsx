@@ -645,12 +645,98 @@ export default function DashboardPage() {
     return { open: filteredOrders.length, loading: filteredTrips.filter(t => t.status === 'LOADING').length, transit: filteredTrips.filter(t => t.status === 'IN-TRANSIT').length, arrived: filteredTrips.filter(t => t.status === 'ARRIVED').length, pod: filteredTrips.filter(t => t.status === 'POD').length, reject: filteredTrips.filter(t => t.status === 'REJECTION').length, closed: filteredTrips.filter(t => t.status === 'CLOSED').length };
   }, [allOrders, allTrips, homePlantFilter, homeMonthFilter]);
 
-  const executeTCode = React.useCallback((code: string) => {
-    const input = code.toUpperCase().trim(); if (!input) return;
-    if (MASTER_TCODES.some(t => t.code === input)) { setScreenStack(prev => [...prev, input]); setActiveScreen(input); setFormData({}); setTCode(''); setStatusMsg({ text: `Transaction ${input} executed`, type: 'info' }); }
-    else if (input === 'HOME') { setActiveScreen('HOME'); setScreenStack(['HOME']); setTCode(''); }
-    else { setStatusMsg({ text: `T-Code ${input} not found`, type: 'error' }); }
-  }, []);
+  const executeTCode = React.useCallback((cmd: string) => {
+    const input = cmd.toUpperCase().trim();
+    if (!input) return;
+
+    // 1. Authorization Node
+    const authorizedTcodes = isBootstrapAdmin ? MASTER_TCODES.map(t => t.code) : (userProfile?.tcodes || []);
+
+    // 2. Immediate Exit Commands
+    if (input === '/NEND' || input === '/NEX') {
+      localStorage.removeItem('sap_bootstrap_session');
+      localStorage.removeItem('sap_user_role');
+      localStorage.removeItem('sap_registry_id');
+      router.push('/login');
+      return;
+    }
+
+    // 3. Return to Home / Exit Current
+    if (input === '/N' || input === 'HOME') {
+      setActiveScreen('HOME');
+      setScreenStack(['HOME']);
+      setTCode('');
+      setStatusMsg({ text: 'Session Reset to Home', type: 'info' });
+      return;
+    }
+
+    // 4. Mode Selection (/N or /O or Direct)
+    let mode: 'REPLACE' | 'NEW_TAB' | 'NORMAL' = 'NORMAL';
+    let code = input;
+
+    if (input.startsWith('/N')) {
+      mode = 'REPLACE';
+      code = input.substring(2);
+    } else if (input.startsWith('/O')) {
+      mode = 'NEW_TAB';
+      code = input.substring(2);
+    }
+
+    // If only prefix typed
+    if (!code) {
+      setStatusMsg({ text: 'Specify a valid transaction code', type: 'error' });
+      return;
+    }
+
+    // 5. Validation Check
+    const exists = MASTER_TCODES.find(t => t.code === code);
+    if (!exists) {
+      setStatusMsg({ text: `Transaction ${code} does not exist`, type: 'error' });
+      setTCode('');
+      return;
+    }
+
+    // 6. Authorization Check
+    if (!authorizedTcodes.includes(code)) {
+      setStatusMsg({ text: `No authorization for transaction ${code}`, type: 'error' });
+      setTCode('');
+      return;
+    }
+
+    // 7. Execution Handshake
+    if (mode === 'NEW_TAB') {
+      window.open(`${window.location.origin}${window.location.pathname}?tcode=${code}`, '_blank');
+      setTCode('');
+      setStatusMsg({ text: `Opening ${code} in new session...`, type: 'info' });
+    } else {
+      // For NORMAL or REPLACE, we update stack. 
+      // SAP /N replaces current session. In our SPA, we'll reset stack to [HOME, code].
+      setScreenStack(['HOME', code]);
+      setActiveScreen(code);
+      setFormData({});
+      setTCode('');
+      setStatusMsg({ text: `Transaction ${code} executed`, type: 'info' });
+      
+      // Close history if open
+      setShowHistory(false);
+      
+      // Update local history for dropdown
+      setHistory(prev => {
+        const next = [input, ...prev.filter(h => h !== input)].slice(0, 10);
+        return next;
+      });
+    }
+  }, [isBootstrapAdmin, userProfile, router]);
+
+  // Handle /O new tab requests via URL param
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('tcode');
+    if (code) {
+      executeTCode(code);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [executeTCode]);
 
   const validateOrder = async (order: any) => {
     const isDuplicate = allOrders.some(o => o.saleOrder === order.saleOrder && o.id !== order.id);
@@ -738,7 +824,17 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">{logoAsset && <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized />}</div>
           <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner relative">
             <button onClick={() => executeTCode(tCode)} className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100">✓</button>
-            <input ref={tCodeRef} type="text" value={tCode} onChange={e => setTCode(e.target.value)} onClick={() => history.length > 0 && setShowHistory(true)} onBlur={() => setTimeout(() => setShowHistory(false), 200)} className="w-48 outline-none text-xs px-1 font-bold tracking-wider" placeholder="T-CODE..." />
+            <input 
+              ref={tCodeRef} 
+              type="text" 
+              value={tCode} 
+              onChange={e => setTCode(e.target.value)} 
+              onKeyDown={(e) => { if (e.key === 'Enter') executeTCode(tCode); }}
+              onClick={() => history.length > 0 && setShowHistory(true)} 
+              onBlur={() => setTimeout(() => setShowHistory(false), 200)} 
+              className="w-48 outline-none text-xs px-1 font-bold tracking-wider" 
+              placeholder="T-CODE..." 
+            />
             {showHistory && (<div className="absolute top-full left-0 w-full bg-white border border-slate-400 shadow-md z-[60]">{history.map((h, i) => <div key={i} onClick={() => executeTCode(h)} className="px-4 py-1.5 text-xs font-bold cursor-pointer hover:bg-blue-50">{h}</div>)}</div>)}
           </div>
           <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
@@ -786,7 +882,7 @@ export default function DashboardPage() {
                 <div className="flex flex-col gap-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fiscal Period</label><input type="month" className="h-10 border border-slate-400 px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500" value={homeMonthFilter} onChange={e => setHomeMonthFilter(e.target.value)} /></div>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-                {[{ l: 'OPEN ORDER', c: homeStats.open, cl: 'text-blue-600' }, { l: 'LOADING', c: homeStats.loading, cl: 'text-orange-600' }, { l: 'IN-TRANSIT', c: homeStats.transit, cl: 'text-emerald-600' }, { l: 'ARRIVED', c: homeStats.arrived, cl: 'text-indigo-600' }, { l: 'POD SECTION', c: homeStats.pod, cl: 'text-purple-600' }, { l: 'REJECT', c: homeStats.reject, cl: 'text-red-600' }, { l: 'CLOSED', c: homeStats.closed, cl: 'text-slate-600' }].map(w => (
+                {[{ l: 'OPEN ORDER', c: homeStats.open, cl: 'text-blue-600' }, { l: 'LOADING', c: homeStats.loading, cl: 'text-orange-600' }, { l: 'IN-TRANSIT', c: homeStats.transit, cl: 'text-emerald-600' }, { l: 'ARRIVED', c: homeStats.arrived, cl: 'text-indigo-600' }, { l: 'POD', c: homeStats.pod, cl: 'text-purple-600' }, { l: 'REJECT', c: homeStats.reject, cl: 'text-red-600' }, { l: 'CLOSED', c: homeStats.closed, cl: 'text-slate-600' }].map(w => (
                   <div key={w.l} className="p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-3 bg-white hover:scale-105 transition-transform duration-300"><span className="text-[9px] font-black text-slate-400 uppercase text-center tracking-widest leading-none h-6 flex items-center">{w.l}</span><span className={cn("text-3xl font-black italic tracking-tighter", w.cl)}>{w.c}</span></div>
                 ))}
               </div>
@@ -855,7 +951,6 @@ export default function DashboardPage() {
                 <span className="text-white text-[11px] font-bold">1 of 3</span>
                 <div className="h-4 w-px bg-white/20" />
                 <div className="flex items-center gap-3">
-                   {/* Zoom buttons could be implemented with scale state if needed */}
                    <button className="text-white/70 hover:text-white"><ChevronLeft className="h-4 w-4" /></button>
                    <span className="text-white text-[11px] font-bold w-12 text-center">100%</span>
                    <button className="text-white/70 hover:text-white"><ChevronRight className="h-4 w-4" /></button>
@@ -901,10 +996,10 @@ export default function DashboardPage() {
                          ].map((c, idx) => (
                            <div key={idx} className="flex flex-col border-r last:border-0 border-black p-3">
                               <p className="text-[10px] font-black uppercase text-center border-b border-black pb-1 mb-2">{c.title}</p>
-                              <div className="flex-1 flex flex-col items-center justify-center space-y-0.5">
-                                <p className="text-[11px] font-black uppercase truncate text-center">{c.master?.customerName || c.fallback}</p>
-                                <p className="text-[9px] font-bold uppercase leading-relaxed text-slate-700 line-clamp-2 text-center">{c.master?.address || 'REGISTERED ADDRESS'}</p>
-                                <div className="mt-1 flex flex-col items-center space-y-0">
+                              <div className="flex-1 flex flex-col items-center justify-center space-y-0.5 text-center">
+                                <p className="text-[11px] font-black uppercase truncate">{c.master?.customerName || c.fallback}</p>
+                                <p className="text-[9px] font-bold uppercase leading-relaxed text-slate-700 line-clamp-2">{c.master?.address || 'REGISTERED ADDRESS'}</p>
+                                <div className="mt-1 flex flex-col items-center space-y-0 text-center">
                                    <span className="text-[9px] font-bold">Mobile: {c.master?.mobile || '-'}</span>
                                    <span className="text-[9px] font-bold">GSTIN: {c.master?.gstin || 'N/A'}</span>
                                 </div>
