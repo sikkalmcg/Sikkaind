@@ -848,21 +848,29 @@ function TripBoard({
 
       {/* --- Out Portal --- */}
       <Dialog open={isOutPopupOpen} onOpenChange={setIsOutPopupOpen}>
-        <DialogContent className="max-w-[500px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl">
+        <DialogContent className="max-w-[600px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl">
           <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
             <DialogTitle className="text-white text-xs font-black uppercase tracking-widest">Gate-Out Control</DialogTitle>
           </DialogHeader>
           <div className="p-8 space-y-6">
-            <div className="bg-white p-4 border border-slate-200 space-y-2 mb-4">
-              <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Vehicle:</span><span className="text-slate-700">{outData.trip?.vehicleNumber}</span></div>
-              <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Route:</span><span className="text-blue-700">{outData.trip?.route}</span></div>
+            <div className="bg-white p-6 border border-slate-200 shadow-sm mb-4">
+              <div className="flex justify-between items-center text-[10px] font-black uppercase mb-3">
+                <span className="text-slate-400">Vehicle:</span>
+                <span className="text-slate-700">{outData.trip?.vehicleNumber}</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                <span className="text-slate-400">Route:</span>
+                <span className="text-blue-700 text-right max-w-[300px]">{outData.trip?.route}</span>
+              </div>
             </div>
-            <FormInput label="OUT DATE" type="date" value={outData.date} onChange={(v: string) => setOutData({...outData, date: v})} />
-            <FormInput label="OUT TIME" type="time" value={outData.time} onChange={(v: string) => setOutData({...outData, time: v})} />
+            <div className="space-y-4">
+              <FormInput label="OUT DATE" type="date" value={outData.date} onChange={(v: string) => setOutData({...outData, date: v})} />
+              <FormInput label="OUT TIME" type="time" value={outData.time} onChange={(v: string) => setOutData({...outData, time: v})} />
+            </div>
           </div>
-          <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3">
-            <Button onClick={() => setIsOutPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase">Exit</Button>
-            <Button onClick={handleOutPost} className="h-9 px-10 bg-emerald-600 text-white rounded-none text-[10px] font-black uppercase shadow-lg">Dispatch Vehicle</Button>
+          <div className="p-4 bg-white border-t border-slate-300 flex justify-end gap-4">
+            <Button onClick={() => setIsOutPopupOpen(false)} variant="ghost" className="h-10 px-8 rounded-none text-[11px] font-black uppercase border border-slate-200 bg-slate-50 hover:bg-slate-100">Exit</Button>
+            <Button onClick={handleOutPost} className="h-10 px-12 bg-emerald-600 text-white rounded-none text-[11px] font-black uppercase shadow-lg hover:bg-emerald-700 transition-all">Dispatch Vehicle</Button>
           </div>
         </DialogContent>
       </Dialog>
