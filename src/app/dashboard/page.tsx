@@ -263,6 +263,24 @@ function CompanyForm({ data, onChange, disabled, allPlants }: any) {
           </div>
         </div>
       </SectionGrouping>
+      <SectionGrouping title="TERMS AND CONDITIONS">
+        <div className="space-y-2">
+          {[...Array(8)].map((_, i) => (
+            <FormInput 
+              key={i}
+              label={`CONDITION ${i + 1}`} 
+              value={data.termsAndConditions?.[i] || ''} 
+              onChange={(v: string) => {
+                const newTerms = [...(data.termsAndConditions || [])];
+                while (newTerms.length <= i) newTerms.push('');
+                newTerms[i] = v;
+                onChange({...data, termsAndConditions: newTerms});
+              }} 
+              disabled={disabled} 
+            />
+          ))}
+        </div>
+      </SectionGrouping>
     </div>
   );
 }
