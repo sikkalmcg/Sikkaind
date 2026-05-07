@@ -2107,7 +2107,7 @@ export default function DashboardPage() {
   }, [fetchGps]);
 
   React.useEffect(() => {
-    const scriptId = 'google-maps-script-global';
+    const scriptId = 'google-maps-api-loader';
     if (!document.getElementById(scriptId)) {
       const script = document.createElement('script');
       script.id = scriptId;
