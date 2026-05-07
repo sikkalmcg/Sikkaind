@@ -1028,7 +1028,7 @@ function TripBoard({
           <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-[11px] font-black uppercase tracking-widest flex items-center justify-between w-full"><span>Assign Vehicle Portal</span><div className="flex gap-6 pr-8"><span className="opacity-70">SO: {selectedOrder?.saleOrder}</span><span className="opacity-70">Qty: {selectedOrder?.tot} {selectedOrder?.uom}</span></div></DialogTitle></DialogHeader>
           <div className="p-8 space-y-6 overflow-y-auto max-h-[70vh]">
             <div className="grid grid-cols-2 gap-4 mb-4 bg-white p-4 border border-slate-200 shadow-sm"><div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">Consignee</span><span className="text-[11px] font-black uppercase text-slate-700">{selectedOrder?.consignee}</span></div><div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">Ship To Party</span><span className="text-[11px] font-black uppercase text-slate-700">{selectedOrder?.shipToParty}</span></div><div className="flex flex-col gap-1 col-span-2"><span className="text-[9px] font-black text-slate-400 uppercase">Route</span><span className="text-[11px] font-black uppercase text-blue-600">{selectedOrder?.route}</span></div></div>
-            <SectionGrouping title="ASSIGNMENT DETAILS"><div className="grid grid-cols-2 gap-x-12 gap-y-4"><FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} /><FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} /><FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignData.assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} /><FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} /><FormInput label="ASSIGN QTY" type="number" value={assignData.assignWeight} onChange={(v: string) => setAssignData({...assignData, assignWeight: v})} /></div></SectionGrouping>
+            <SectionGrouping title="ASSIGNMENT DETAILS"><div className="grid grid-cols-2 gap-x-12 gap-y-4"><FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} /><FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} /><FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} /><FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} /><FormInput label="ASSIGN QTY" type="number" value={assignData.assignWeight} onChange={(v: string) => setAssignData({...assignData, assignWeight: v})} /></div></SectionGrouping>
             {assignData.fleetType === 'Market Vehicle' && (
               <SectionGrouping title="MARKET VENDOR REGISTRY"><div className="grid grid-cols-2 gap-x-12 gap-y-4"><FormSearchInput label="VENDOR NAME" value={assignData.vendorName} options={(vendors || []).map((v: any) => v.vendorName)} onChange={(v: string) => { const master = (vendors || []).find((ven: any) => ven.vendorName === v); setAssignData({...assignData, vendorName: v, vendorMobile: master?.mobile || ''}); }} /><FormInput label="VENDOR MOBILE" value={assignData.vendorMobile} disabled={true} /><FormInput label="ARRANGE BY" value={assignData.arrangeBy} onChange={(v: string) => setAssignData({...assignData, arrangeBy: v.toUpperCase()})} /><FormInput label="RATE" type="number" value={assignData.rate} disabled={assignData.isFixedRate} onChange={(v: string) => { const r = parseFloat(v) || 0; const q = parseFloat(assignData.assignWeight) || 0; setAssignData({...assignData, rate: r, freightAmount: r * q}); }} /><FormInput label="FREIGHT AMOUNT" type="number" value={assignData.freightAmount} disabled={!assignData.isFixedRate} onChange={(v: string) => setAssignData({...assignData, freightAmount: v})} /><div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase tracking-tight">FIX RATE:</label><div className="flex items-center gap-2"><Checkbox checked={assignData.isFixedRate} onCheckedChange={(checked) => setAssignData({...assignData, isFixedRate: checked})} className="rounded-none border-slate-400" /><span className="text-[10px] font-black text-slate-400 uppercase">ENABLE MANUAL OVERRIDE</span></div></div></div></SectionGrouping>
             )}
@@ -1039,7 +1039,8 @@ function TripBoard({
 
       <Dialog open={isCnPopupOpen} onOpenChange={setIsCnPopupOpen}>
         <DialogContent className="max-w-[1000px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
-          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center justify-between w-full"><span>Consignment Note Interface</span><div className="flex gap-6 pr-8 opacity-70"><span>Ship To: {selectedTripForCn?.shipToParty}</span><span>Vehicle: {selectedTripForCn?.vehicleNumber}</span></div></DialogTitle></DialogHeader>
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
+            <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center justify-between w-full"><span>Consignment Note Interface</span><div className="flex gap-6 pr-8 opacity-70"><span>Ship To: {selectedTripForCn?.shipToParty}</span><span>Vehicle: {selectedTripForCn?.vehicleNumber}</span></div></DialogTitle></DialogHeader>
           <div className="p-8 space-y-6 overflow-y-auto">
             <div className="grid grid-cols-3 gap-8 bg-white p-6 border border-slate-200 shadow-sm mb-4">
               <FormInput label="CN NUMBER" value={cnFormData.cnNo || ''} onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v.toUpperCase()})} placeholder="Enter CN Number..." />
@@ -1256,6 +1257,46 @@ function GpsTrackingHub({ settings, settingsRef, gpsData, loading }: any) {
   const googleMap = React.useRef<any>(null);
   const markers = React.useRef<any>({});
   const infoWindow = React.useRef<any>(null);
+  const geocoder = React.useRef<any>(null);
+
+  const handleVehicleSelection = React.useCallback((v: any) => {
+    if (!window.google) return;
+    if (!geocoder.current) geocoder.current = new window.google.maps.Geocoder();
+    
+    setSelectedVehicle(v);
+    const pos = { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) };
+    
+    if (googleMap.current) {
+      googleMap.current.setCenter(pos);
+      googleMap.current.setZoom(15);
+    }
+
+    geocoder.current.geocode({ location: pos }, (results: any, status: any) => {
+      let resolvedAddress = 'No Location Details';
+      if (status === 'OK' && results[0]) {
+        const comps = results[0].address_components;
+        const street = comps.find((c: any) => c.types.includes('route'))?.long_name || '';
+        const area = comps.find((c: any) => c.types.includes('sublocality_level_1'))?.long_name || 
+                     comps.find((c: any) => c.types.includes('locality'))?.long_name || '';
+        const city = comps.find((c: any) => c.types.includes('administrative_area_level_2'))?.long_name || 
+                     comps.find((c: any) => c.types.includes('locality'))?.long_name || '';
+        
+        resolvedAddress = [street, area, city].filter(Boolean).join(', ');
+      }
+
+      if (infoWindow.current && markers.current[v.vehicleNumber]) {
+        infoWindow.current.setContent(`
+          <div style="font-family: monospace; padding: 10px; min-width: 220px;">
+            <div style="font-weight: 900; color: #1e3a8a; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 5px; font-size: 14px;">${v.vehicleNumber}</div>
+            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: ${v.status === 'RUNNING' ? '#059669' : '#dc2626'}">${v.status || 'N/A'}</div>
+            <div style="font-size: 11px; color: #1e293b; margin-top: 8px; line-height: 1.4; font-weight: 700;">${resolvedAddress}</div>
+            <div style="font-size: 9px; color: #94a3b8; margin-top: 8px; text-transform: uppercase;">Last Signal: ${v.lastUpdated || 'RECENT'}</div>
+          </div>
+        `);
+        infoWindow.current.open(googleMap.current, markers.current[v.vehicleNumber]);
+      }
+    });
+  }, []);
 
   React.useEffect(() => {
     if (!window.google || !mapRef.current || activeTab !== 'GPS MAP') return;
@@ -1292,27 +1333,15 @@ function GpsTrackingHub({ settings, settingsRef, gpsData, loading }: any) {
         markers.current[v.vehicleNumber].setIcon({ url: iconUrl, scaledSize: new window.google.maps.Size(32, 32) });
       }
     });
-  }, [gpsData, activeTab, settings]);
+  }, [gpsData, activeTab, settings, handleVehicleSelection]);
 
-  const handleVehicleSelection = (v: any) => {
-    setSelectedVehicle(v);
-    const pos = { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) };
-    if (googleMap.current) {
-      googleMap.current.setCenter(pos);
-      googleMap.current.setZoom(15);
+  // Effect to re-trigger geocoding and update content if selected vehicle data changes (every 30s polling)
+  React.useEffect(() => {
+    if (selectedVehicle) {
+      const updated = gpsData.find((v: any) => v.vehicleNumber === selectedVehicle.vehicleNumber);
+      if (updated) handleVehicleSelection(updated);
     }
-    if (infoWindow.current && markers.current[v.vehicleNumber]) {
-      infoWindow.current.setContent(`
-        <div style="font-family: monospace; padding: 10px; min-width: 220px;">
-          <div style="font-weight: 900; color: #1e3a8a; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 5px; font-size: 14px;">${v.vehicleNumber}</div>
-          <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: ${v.status === 'RUNNING' ? '#059669' : '#dc2626'}">${v.status || 'N/A'}</div>
-          <div style="font-size: 11px; color: #1e293b; margin-top: 8px; line-height: 1.4; font-weight: 700;">${v.lastLocation || (v.street && v.city ? v.street + ', ' + v.city : 'No Location Details')}</div>
-          <div style="font-size: 9px; color: #94a3b8; margin-top: 8px; text-transform: uppercase;">Last Signal: ${v.lastUpdated || 'RECENT'}</div>
-        </div>
-      `);
-      infoWindow.current.open(googleMap.current, markers.current[v.vehicleNumber]);
-    }
-  };
+  }, [gpsData, selectedVehicle, handleVehicleSelection]);
 
   const handleIconUpload = async (e: any, type: 'stopIcon' | 'runningIcon') => {
     const file = e.target.files?.[0];
