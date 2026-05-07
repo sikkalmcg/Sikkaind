@@ -650,10 +650,8 @@ export default function DashboardPage() {
     const input = cmd.toUpperCase().trim();
     if (!input) return;
 
-    // 1. Authorization Node
     const authorizedTcodes = isBootstrapAdmin ? MASTER_TCODES.map(t => t.code) : (userProfile?.tcodes || []);
 
-    // 2. Immediate Exit Commands
     if (input === '/NEND' || input === '/NEX') {
       localStorage.removeItem('sap_bootstrap_session');
       localStorage.removeItem('sap_user_role');
@@ -662,7 +660,6 @@ export default function DashboardPage() {
       return;
     }
 
-    // 3. Return to Home / Exit Current
     if (input === '/N' || input === 'HOME') {
       setActiveScreen('HOME');
       setScreenStack(['HOME']);
@@ -671,7 +668,6 @@ export default function DashboardPage() {
       return;
     }
 
-    // 4. Mode Selection (/N or /O or Direct)
     let mode: 'REPLACE' | 'NEW_TAB' | 'NORMAL' = 'NORMAL';
     let code = input;
 
@@ -683,13 +679,11 @@ export default function DashboardPage() {
       code = input.substring(2);
     }
 
-    // If only prefix typed
     if (!code) {
       setStatusMsg({ text: 'Specify a valid transaction code', type: 'error' });
       return;
     }
 
-    // 5. Validation Check
     const exists = MASTER_TCODES.find(t => t.code === code);
     if (!exists) {
       setStatusMsg({ text: `Transaction ${code} does not exist`, type: 'error' });
@@ -697,31 +691,33 @@ export default function DashboardPage() {
       return;
     }
 
-    // 6. Authorization Check
     if (!authorizedTcodes.includes(code)) {
       setStatusMsg({ text: `No authorization for transaction ${code}`, type: 'error' });
       setTCode('');
       return;
     }
 
-    // 7. Execution Handshake
     if (mode === 'NEW_TAB') {
       window.open(`${window.location.origin}${window.location.pathname}?tcode=${code}`, '_blank');
       setTCode('');
       setStatusMsg({ text: `Opening ${code} in new session...`, type: 'info' });
     } else {
-      // For NORMAL or REPLACE, we update stack. 
-      // SAP /N replaces current session. In our SPA, we'll reset stack to [HOME, code].
       setScreenStack(['HOME', code]);
       setActiveScreen(code);
-      setFormData({});
+      
+      // VA01 Initialization: Default system date time
+      if (code === 'VA01') {
+        setFormData({
+          saleOrderDate: new Date().toISOString().slice(0, 16),
+          status: 'Active'
+        });
+      } else {
+        setFormData({});
+      }
+      
       setTCode('');
       setStatusMsg({ text: `Transaction ${code} executed`, type: 'info' });
-      
-      // Close history if open
       setShowHistory(false);
-      
-      // Update local history for dropdown
       setHistory(prev => {
         const next = [input, ...prev.filter(h => h !== input)].slice(0, 10);
         return next;
@@ -729,7 +725,6 @@ export default function DashboardPage() {
     }
   }, [isBootstrapAdmin, userProfile, router]);
 
-  // Handle /O new tab requests via URL param
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('tcode');
@@ -740,10 +735,22 @@ export default function DashboardPage() {
   }, [executeTCode]);
 
   const validateOrder = async (order: any) => {
-    const isDuplicate = allOrders.some(o => o.saleOrder === order.saleOrder && o.id !== order.id);
-    if (isDuplicate) return { valid: false, reason: 'Duplicate Sale Order' };
-    const findCust = (name: string) => accessibleCustomers.some(c => c.customerName?.toUpperCase() === name?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === name?.toUpperCase());
-    if (!findCust(order.consignor) || !findCust(order.consignee) || !findCust(order.shipToParty)) return { valid: false, reason: 'Customer Registry Missing (XD03)' };
+    const isDuplicate = allOrders.some(o => 
+      o.saleOrder?.toString().toUpperCase() === order.saleOrder?.toString().toUpperCase() && 
+      o.id !== order.id
+    );
+    if (isDuplicate) return { valid: false, reason: 'Duplicate Sale Order Number' };
+    
+    const findCust = (val: string) => accessibleCustomers.some(c => 
+      c.customerName?.toUpperCase() === val?.toUpperCase() || 
+      c.customerCode?.toUpperCase() === val?.toUpperCase() ||
+      (c.customerName + ' - ' + c.city)?.toUpperCase() === val?.toUpperCase()
+    );
+
+    if (!findCust(order.consignor)) return { valid: false, reason: 'Unknown Consignor (No record in XD03)' };
+    if (!findCust(order.consignee)) return { valid: false, reason: 'Unknown Consignee (No record in XD03)' };
+    if (!findCust(order.shipToParty)) return { valid: false, reason: 'Unknown Ship to Party (No record in XD03)' };
+
     return { valid: true };
   };
 
@@ -787,8 +794,19 @@ export default function DashboardPage() {
       if (activeScreen === 'VA01') {
         for (const row of rows) {
           const cols = row.split(',');
-          if (cols.length < 5) continue;
-          const newOrder = { plantCode: cols[0]?.trim(), saleOrder: cols[1]?.trim(), consignor: cols[2]?.trim(), consignee: cols[3]?.trim(), shipToParty: cols[4]?.trim(), weight: cols[5]?.trim(), weightUom: cols[6]?.trim() || 'MT', status: 'Active', createdAt: new Date().toISOString() };
+          if (cols.length < 8) continue;
+          const newOrder = { 
+            plantCode: cols[0]?.trim(), 
+            saleOrder: cols[1]?.trim(), 
+            consignor: cols[2]?.trim(), 
+            consignee: cols[4]?.trim(), 
+            shipToParty: cols[6]?.trim(), 
+            weight: cols[7]?.trim(), 
+            weightUom: cols[8]?.trim() || 'MT', 
+            status: 'Active', 
+            createdAt: new Date().toISOString(),
+            saleOrderDate: new Date().toISOString().slice(0, 16)
+          };
           const validation = await validateOrder(newOrder);
           if (validation.valid) {
             const docId = crypto.randomUUID();
@@ -828,7 +846,7 @@ export default function DashboardPage() {
   const handleDownloadTemplate = () => {
     let headers = ""; let filename = "";
     if (activeScreen === 'VA01') {
-      headers = "Plant,Sale Order,Consignor,Consignee,Ship to Party,Weight,WeightUom\nPL01,SO9999,CLIENT-A,CLIENT-B,SHIP-C,25,MT";
+      headers = "Plant,Sale Order,Consignor,Consignee Code,Consignee,Ship to Party Code,Ship to Party,Weight,WeightUom\nPL01,SO9999,CONSIGNOR-NAME,C-CODE,CONSIGNEE-NAME,S-CODE,SHIP-TO-NAME,25,MT";
       filename = 'VA01_Template.csv';
     } else if (activeScreen === 'XD01') {
       headers = "Customer Code,Customer Name,Customer Type,Address,City,Postal Code,Mobile,GSTIN\nC1000,CLIENT-NAME,Consignor,STREET-ADDRESS,CITY-NAME,123456,9999999999,GSTIN12345";
