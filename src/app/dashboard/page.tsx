@@ -20,7 +20,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { format, subDays, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format, subDays, isWithinInterval, startOfDay, endOfDay, parse, startOfMonth } from 'date-fns';
 import { cn } from '@/lib/utils';
 import placeholderData from '@/app/lib/placeholder-images.json';
 
@@ -2036,7 +2037,7 @@ export default function DashboardPage() {
   const [statusMsg, setStatusMsg] = React.useState<{ text: string, type: 'success' | 'error' | 'info' | 'none' }>({ text: 'Ready', type: 'none' }); 
   const [greeting, setGreeting] = React.useState('');
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL'); 
-  const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM')); 
+  const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'MMM-yyyy').toUpperCase()); 
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
   const [se38Search, setSe38Search] = React.useState({ plant: '', from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd'), fleetType: '', customer: '', vendor: '' });
   const [viewMode, setViewMode] = React.useState<'list' | 'tracking'>('list'); 
@@ -2124,9 +2125,46 @@ export default function DashboardPage() {
 
   const homeStats = React.useMemo(() => {
     if (!allOrders || !allTrips) return { open: 0, loading: 0, transit: 0, arrived: 0, pod: 0, reject: 0, closed: 0 };
-    const filteredOrders = allOrders.filter(o => { const itemDate = o.createdAt; return o.status !== 'CANCELLED' && (homePlantFilter === 'ALL' || o.plantCode === homePlantFilter) && (!homeMonthFilter || (itemDate && itemDate.startsWith(homeMonthFilter))); });
-    const filteredTrips = allTrips.filter(t => { const itemDate = t.createdAt; return (homePlantFilter === 'ALL' || t.plantCode === homePlantFilter) && (!homeMonthFilter || (itemDate && itemDate.startsWith(homeMonthFilter))); });
-    return { open: filteredOrders.length, loading: filteredTrips.filter(t => t.status === 'LOADING').length, transit: filteredTrips.filter(t => t.status === 'IN-TRANSIT').length, arrived: filteredTrips.filter(t => t.status === 'ARRIVED').length, pod: filteredTrips.filter(t => t.status === 'POD').length, reject: filteredTrips.filter(t => t.status === 'REJECTION').length, closed: filteredTrips.filter(t => t.status === 'CLOSED').length };
+    
+    // Month filter parsing: JAN-2026 -> 2026-01
+    let filterPrefix = '';
+    if (homeMonthFilter) {
+      try {
+        const d = parse(homeMonthFilter, 'MMM-yyyy', new Date());
+        filterPrefix = format(d, 'yyyy-MM');
+      } catch (e) {}
+    }
+
+    const filteredOrders = allOrders.filter(o => { 
+      const itemDate = o.createdAt; 
+      const matchMonth = !filterPrefix || (itemDate && itemDate.startsWith(filterPrefix));
+      const matchPlant = homePlantFilter === 'ALL' || o.plantCode === homePlantFilter;
+      return o.status !== 'CANCELLED' && o.status !== 'Short closed' && matchPlant && matchMonth; 
+    });
+
+    // Calculate "Open Orders" widget: Only those with remaining balance > 0
+    const openOrdersCount = filteredOrders.filter(o => {
+      const tot = parseFloat(o.weight) || 0;
+      const ass = allTrips?.filter((t: any) => t.saleOrderId === o.id).reduce((a: number, t: any) => a + (parseFloat(t.assignWeight) || 0), 0) || 0;
+      return (tot - ass) > 0;
+    }).length;
+
+    const filteredTrips = allTrips.filter(t => { 
+      const itemDate = t.createdAt; 
+      const matchMonth = !filterPrefix || (itemDate && itemDate.startsWith(filterPrefix));
+      const matchPlant = homePlantFilter === 'ALL' || t.plantCode === homePlantFilter;
+      return matchPlant && matchMonth; 
+    });
+
+    return { 
+      open: openOrdersCount, 
+      loading: filteredTrips.filter(t => t.status === 'LOADING').length, 
+      transit: filteredTrips.filter(t => t.status === 'IN-TRANSIT').length, 
+      arrived: filteredTrips.filter(t => t.status === 'ARRIVED').length, 
+      pod: filteredTrips.filter(t => t.status === 'POD').length, 
+      reject: filteredTrips.filter(t => t.status === 'REJECTION').length, 
+      closed: filteredTrips.filter(t => t.status === 'CLOSED').length 
+    };
   }, [allOrders, allTrips, homePlantFilter, homeMonthFilter]);
 
   const executeTCode = React.useCallback((cmd: string) => {
@@ -2227,6 +2265,43 @@ export default function DashboardPage() {
   const getRegistryList = () => { if (activeScreen.startsWith('OX')) return accessiblePlants; if (activeScreen.startsWith('FM')) return accessibleCompanies; if (activeScreen.startsWith('XK')) return accessibleVendors; if (activeScreen.startsWith('XD')) return accessibleCustomers; if (activeScreen.startsWith('VA')) return allOrders; if (activeScreen.startsWith('SU')) return accessibleUsers; return []; };
   const handleSearchIdEnter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { const item = getRegistryList().find((i: any) => (i.plantCode || i.customerCode || i.saleOrder || i.username || i.id).toString().toUpperCase() === searchId.toUpperCase()); if (item) { setFormData(item); setStatusMsg({ text: 'Record Loaded', type: 'success' }); } else setStatusMsg({ text: 'Not Found', type: 'error' }); } };
 
+  // --- MONTH PICKER COMPONENT ---
+  const MonthPicker = () => {
+    const [viewYear, setViewYear] = React.useState(new Date().getFullYear());
+    const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+    const handleMonthSelect = (m: string) => {
+      setHomeMonthFilter(`${m}-${viewYear}`);
+    };
+
+    return (
+      <div className="p-4 w-[280px] font-mono">
+        <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
+          <button onClick={() => setViewYear(v => v - 1)} className="p-1 hover:bg-slate-100 rounded text-slate-600"><ChevronLeft className="h-4 w-4" /></button>
+          <span className="text-[13px] font-black text-[#1e3a8a]">{viewYear}</span>
+          <button onClick={() => setViewYear(v => v + 1)} className="p-1 hover:bg-slate-100 rounded text-slate-600"><ChevronRight className="h-4 w-4" /></button>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {months.map(m => {
+            const isSelected = homeMonthFilter === `${m}-${viewYear}`;
+            return (
+              <button 
+                key={m} 
+                onClick={() => handleMonthSelect(m)}
+                className={cn(
+                  "py-2 text-[10px] font-black uppercase tracking-tight transition-all rounded-sm",
+                  isSelected ? "bg-[#1e3a8a] text-white" : "hover:bg-blue-50 text-slate-500"
+                )}
+              >
+                {m}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
       <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50 print:hidden"><div className="flex items-center gap-6">{['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(i => <button key={i} className="hover:text-blue-800 transition-colors uppercase">{i}</button>)}</div><div className="flex-1" /><div className="flex items-center h-full"><button onClick={() => router.push('/')} className="h-full px-3 hover:bg-[#e81123] hover:text-white transition-all"><X className="h-3.5 w-3.5" /></button></div></div>
@@ -2242,7 +2317,40 @@ export default function DashboardPage() {
         {activeScreen === 'HOME' && (<div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden print:hidden shadow-sm"><div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div><div className="flex-1 overflow-y-auto green-scrollbar">{MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'TR24' || t.code === 'WGPS24').map(t => (<div key={t.code} onClick={() => executeTCode(t.code)} className="flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all"><span className="text-[10px] font-black uppercase tracking-tight text-[#1e3a8a]">{t.code} - {t.description}</span><div className="flex-1" /><t.icon className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-600" /></div>))}</div></div>)}
         <div className="flex-1 flex flex-col overflow-hidden bg-[#f2f2f2] print:bg-white">
           {activeScreen === 'HOME' ? (
-            <div className="flex-1 overflow-y-auto p-8 animate-fade-in"><h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter mb-10">Sikka Logistics Management Control</h1><div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-8 border border-slate-300 shadow-sm mb-12"><div className="flex flex-col gap-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plant Filter</label><select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500" value={homePlantFilter} onChange={e => setHomePlantFilter(e.target.value)}><option value="ALL">ALL AUTHORIZED PLANTS</option>{accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div><div className="flex flex-col gap-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fiscal Period</label><input type="month" className="h-10 border border-slate-400 px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500" value={homeMonthFilter} onChange={e => setHomeMonthFilter(e.target.value)} /></div></div><div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">{[{ l: 'OPEN ORDER', c: homeStats.open, cl: 'text-blue-600' }, { l: 'LOADING', c: homeStats.loading, cl: 'text-orange-600' }, { l: 'IN-TRANSIT', c: homeStats.transit, cl: 'text-emerald-600' }, { l: 'ARRIVED', c: homeStats.arrived, cl: 'text-indigo-600' }, { l: 'POD', c: homeStats.pod, cl: 'text-purple-600' }, { l: 'REJECT', c: homeStats.reject, cl: 'text-red-600' }, { l: 'CLOSED', c: homeStats.closed, cl: 'text-slate-600' }].map(w => (<div key={w.l} className="p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-3 bg-white hover:scale-105 transition-transform duration-300"><span className="text-[9px] font-black text-slate-400 uppercase text-center tracking-widest h-6 flex items-center">{w.l}</span><span className={cn("text-3xl font-black italic tracking-tighter", w.cl)}>{w.c}</span></div>))}</div></div>
+            <div className="flex-1 overflow-y-auto p-8 animate-fade-in">
+              <h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter mb-10">Sikka Logistics Management Control</h1>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-8 border border-slate-300 shadow-sm mb-12">
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plant Filter</label>
+                  <select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500" value={homePlantFilter} onChange={e => setHomePlantFilter(e.target.value)}>
+                    <option value="ALL">ALL AUTHORIZED PLANTS</option>
+                    {accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Month</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="h-10 border border-slate-400 bg-white px-3 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500 flex items-center justify-between shadow-sm hover:border-slate-500 transition-all">
+                        <span>{homeMonthFilter || 'SELECT MONTH...'}</span>
+                        <CalendarIcon className="h-3.5 w-3.5 text-slate-400" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0 border border-slate-300 shadow-2xl rounded-none">
+                      <MonthPicker />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                {[{ l: 'OPEN ORDER', c: homeStats.open, cl: 'text-blue-600' }, { l: 'LOADING', c: homeStats.loading, cl: 'text-orange-600' }, { l: 'IN-TRANSIT', c: homeStats.transit, cl: 'text-emerald-600' }, { l: 'ARRIVED', c: homeStats.arrived, cl: 'text-indigo-600' }, { l: 'POD', c: homeStats.pod, cl: 'text-purple-600' }, { l: 'REJECT', c: homeStats.reject, cl: 'text-red-600' }, { l: 'CLOSED', c: homeStats.closed, cl: 'text-slate-600' }].map(w => (
+                  <div key={w.l} className="p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-3 bg-white hover:scale-105 transition-transform duration-300">
+                    <span className="text-[9px] font-black text-slate-400 uppercase text-center tracking-widest h-6 flex items-center">{w.l}</span>
+                    <span className={cn("text-3xl font-black italic tracking-tighter", w.cl)}>{w.c}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
             <div className="flex flex-col w-full h-full overflow-hidden bg-[#f2f2f2]">
               {activeScreen === 'TR21' && viewMode === 'list' && (
@@ -2338,4 +2446,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
