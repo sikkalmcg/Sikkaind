@@ -78,11 +78,11 @@ function SectionGrouping({ title, children }: { title: string, children: React.R
   );
 }
 
-function FormInput({ label, value, onChange, onBlur, type = "text", disabled, placeholder, rightElement, leftElement }: any) {
+function FormInput({ label, value, onChange, onBlur, type = "text", disabled, placeholder, rightElement, leftElement, className, inputWidth = "w-[320px]", labelWidth = "w-[180px]", gapClass = "gap-8" }: any) {
   return (
-    <div className="flex items-center gap-8 group">
-      <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase tracking-tight">{label}:</label>
-      <div className="relative w-[320px]">
+    <div className={cn("flex items-center group", gapClass, className)}>
+      <label className={cn("text-[12px] font-bold text-slate-600 text-right shrink-0 uppercase tracking-tight", labelWidth)}>{label}:</label>
+      <div className={cn("relative", inputWidth)}>
         {leftElement && (
           <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
             {leftElement}
@@ -106,15 +106,15 @@ function FormInput({ label, value, onChange, onBlur, type = "text", disabled, pl
   );
 }
 
-function FormSelect({ label, value, options, onChange, disabled, placeholder }: any) {
+function FormSelect({ label, value, options, onChange, disabled, placeholder, className, inputWidth = "w-[320px]", labelWidth = "w-[180px]", gapClass = "gap-8" }: any) {
   return (
-    <div className="flex items-center gap-8 group">
-      <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase tracking-tight">{label}:</label>
+    <div className={cn("flex items-center group", gapClass, className)}>
+      <label className={cn("text-[12px] font-bold text-slate-600 text-right shrink-0 uppercase tracking-tight", labelWidth)}>{label}:</label>
       <select 
         value={value || ''} 
         onChange={(e) => onChange(e.target.value)} 
         disabled={disabled} 
-        className="h-8 w-[320px] border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase shadow-sm disabled:opacity-60"
+        className={cn("h-8 border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase shadow-sm disabled:opacity-60", inputWidth)}
       >
         <option value="">{placeholder || 'Select...'}</option>
         {options.map((o: any, idx: number) => {
@@ -534,6 +534,7 @@ function TripBoard({
       route: `${o.from} → ${o.destination}`, 
       fleetType: 'Own Vehicle', 
       assignWeight: formatWeight(o.bal), 
+      weightUom: o.weightUom || 'MT',
       isFixedRate: false, 
       rate: 0, 
       freightAmount: 0, 
@@ -1080,10 +1081,35 @@ function TripBoard({
           <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
             <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center justify-between w-full"><span>Consignment Note Interface</span><div className="flex gap-6 pr-8 opacity-70"><span>Ship To: {selectedTripForCn?.shipToParty}</span><span>Vehicle: {selectedTripForCn?.vehicleNumber}</span></div></DialogTitle></DialogHeader>
           <div className="p-8 space-y-6 overflow-y-auto">
-            <div className="grid grid-cols-3 gap-8 bg-white p-6 border border-slate-200 shadow-sm mb-4">
-              <FormInput label="CN NUMBER" value={cnFormData.cnNo || ''} onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v.toUpperCase()})} placeholder="Enter CN Number..." />
-              <FormInput label="CN DATE" type="date" value={cnFormData.cnDate || ''} onChange={(v: string) => setCnFormData({...cnFormData, cnDate: v})} />
-              <FormSelect label="PAYMENT TERMS" value={cnFormData.paymentTerms || 'Paid'} options={["Paid", "To Pay"]} onChange={(v: string) => setCnFormData({...cnFormData, paymentTerms: v})} />
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-4 bg-white p-6 border border-slate-200 shadow-sm mb-4">
+              <FormInput 
+                label="CN NUMBER" 
+                value={cnFormData.cnNo || ''} 
+                onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v.toUpperCase()})} 
+                placeholder="Enter CN Number..." 
+                inputWidth="w-[480px]" 
+                labelWidth="w-[140px]" 
+                gapClass="gap-4"
+                className="-ml-4"
+              />
+              <FormInput 
+                label="CN DATE" 
+                type="date" 
+                value={cnFormData.cnDate || ''} 
+                onChange={(v: string) => setCnFormData({...cnFormData, cnDate: v})} 
+                inputWidth="w-[160px]" 
+                labelWidth="w-[80px]" 
+                gapClass="gap-4"
+              />
+              <FormSelect 
+                label="PAYMENT TERMS" 
+                value={cnFormData.paymentTerms || 'Paid'} 
+                options={["Paid", "To Pay"]} 
+                onChange={(v: string) => setCnFormData({...cnFormData, paymentTerms: v})} 
+                inputWidth="w-[120px]" 
+                labelWidth="w-[120px]" 
+                gapClass="gap-4"
+              />
             </div>
             <div className="bg-white border border-slate-300 shadow-inner overflow-hidden">
               <div className="bg-slate-50 border-b border-slate-300 p-2 flex justify-between items-center">
@@ -2452,3 +2478,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
