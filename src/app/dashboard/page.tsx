@@ -604,7 +604,6 @@ function TripBoard({
     if (!cnFormData.cnDate) { onStatusUpdate({ text: 'CN Date is mandatory.', type: 'error' }); return; }
     if (!cnFormData.paymentTerms) { onStatusUpdate({ text: 'Payment Terms is mandatory.', type: 'error' }); return; }
     
-    // Line-Item Validation
     if (!cnFormData.items || cnFormData.items.length === 0) {
       onStatusUpdate({ text: 'At least one document row is required.', type: 'error' });
       return;
@@ -835,7 +834,7 @@ function TripBoard({
                   <td className="p-3">
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
-                        {(item.trackMode === 'GPS' && (activeTab === 'Loading' || activeTab === 'In-Transit')) && (
+                        {(item.trackMode === 'GPS' && (activeTab === 'Loading' || activeTab === 'In-Transit' || activeTab === 'Arrived')) && (
                           <button onClick={() => handleLocationTrackClick(item)} className="text-emerald-600 hover:text-emerald-700"><MapPin className="h-3.5 w-3.5" /></button>
                         )}
                         {(activeTab === 'In-Transit' || activeTab === 'Arrived') ? (
@@ -852,7 +851,7 @@ function TripBoard({
                   <td className="p-3">
                     <div className="flex items-center gap-2">
                       <button onClick={() => handleCnClick(item)} className="font-black text-[#0056d2] uppercase hover:underline">{item.cnNo || '-'}</button>
-                      {(activeTab === 'In-Transit' || activeTab === 'Arrived') && item.cnNo && (
+                      {(activeTab === 'In-Transit' || activeTab === 'Arrived') && (
                         <button onClick={() => handleAddCn(item)} className="text-slate-400 hover:text-blue-600 print:hidden transition-colors">
                           <Edit3 className="h-3.5 w-3.5" />
                         </button>
@@ -870,31 +869,37 @@ function TripBoard({
                     </td>
                   )}
                   <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      {(activeTab === 'Loading' || activeTab === 'In-Transit') && (
-                        <button onClick={() => handleTrackModeClick(item)} className="p-1.5 bg-slate-100 hover:bg-blue-100 text-[#1e3a8a] transition-colors rounded-sm" title="Track Mode">
-                          <Radar className="h-3.5 w-3.5" />
-                        </button>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        {activeTab === 'Loading' && <>
+                          <Button onClick={() => handleOutVehicle(item)} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Out</Button>
+                          <Button onClick={() => { setTripToUnassign(item); setIsUnassignDialogOpen(true); }} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unassign</Button>
+                          <Button onClick={() => handleAddCn(item)} size="sm" className="bg-blue-900 text-white text-[9px] font-black h-7 rounded-none uppercase">{item.cnNo ? 'CN Edit' : 'CN Entry'}</Button>
+                        </>}
+                        {activeTab === 'In-Transit' && <Button onClick={() => handleArrivedAction(item)} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Arrived</Button>}
+                        {activeTab === 'Arrived' && <>
+                          <Button onClick={() => handleUnloadAction(item)} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unload</Button>
+                          <Button onClick={() => handleRejectAction(item)} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Reject</Button>
+                        </>}
+                        {activeTab === 'Reject' && <>
+                          <Button onClick={() => { setTripToResent(item); setIsResentDialogOpen(true); }} disabled={!!item.srnNo} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Resent</Button>
+                          <Button onClick={() => { setSelectedTripForSrn(item); setSrnFormData({ srnNo: item.srnNo || '', srnDate: item.srnDate || format(new Date(), 'yyyy-MM-dd') }); setIsSrnPopupOpen(true); }} disabled={!!item.srnNo} size="sm" className="bg-amber-600 text-white text-[9px] font-black h-7 rounded-none uppercase">SRN</Button>
+                        </>}
+                        {activeTab === 'POD Verify' && <Button onClick={() => { setSelectedTripForPod(item); setPodFile(item.podAttachment || null); setIsPodPopupOpen(true); }} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Upload POD</Button>}
+                        {activeTab === 'Closed' && <>
+                          <Button onClick={() => handleDownloadPod(item)} disabled={!item.podAttachment} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Download</Button>
+                          <Button onClick={() => { setSelectedTripForPod(item); setPodFile(item.podAttachment || null); setIsPodPopupOpen(true); }} size="sm" className="bg-blue-900 text-white text-[9px] font-black h-7 rounded-none uppercase">Update POD</Button>
+                        </>}
+                      </div>
+                      
+                      {(activeTab === 'Loading' || activeTab === 'In-Transit' || activeTab === 'Arrived') && (
+                        <div className="pt-1 border-t border-slate-100 flex justify-start">
+                          <button onClick={() => handleTrackModeClick(item)} className="flex items-center gap-1.5 p-1 bg-slate-100 hover:bg-blue-100 text-[#1e3a8a] transition-colors rounded-sm" title="Track Mode Settings">
+                            <Radar className="h-3 w-3" />
+                            <span className="text-[8px] font-black uppercase">Track Settings</span>
+                          </button>
+                        </div>
                       )}
-                      {activeTab === 'Loading' && <>
-                        <Button onClick={() => handleOutVehicle(item)} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Out</Button>
-                        <Button onClick={() => { setTripToUnassign(item); setIsUnassignDialogOpen(true); }} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unassign</Button>
-                        <Button onClick={() => handleAddCn(item)} size="sm" className="bg-blue-900 text-white text-[9px] font-black h-7 rounded-none uppercase">{item.cnNo ? 'CN Edit' : 'CN Entry'}</Button>
-                      </>}
-                      {activeTab === 'In-Transit' && <Button onClick={() => handleArrivedAction(item)} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Arrived</Button>}
-                      {activeTab === 'Arrived' && <>
-                        <Button onClick={() => handleUnloadAction(item)} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unload</Button>
-                        <Button onClick={() => handleRejectAction(item)} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Reject</Button>
-                      </>}
-                      {activeTab === 'Reject' && <>
-                        <Button onClick={() => { setTripToResent(item); setIsResentDialogOpen(true); }} disabled={!!item.srnNo} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Resent</Button>
-                        <Button onClick={() => { setSelectedTripForSrn(item); setSrnFormData({ srnNo: item.srnNo || '', srnDate: item.srnDate || format(new Date(), 'yyyy-MM-dd') }); setIsSrnPopupOpen(true); }} disabled={!!item.srnNo} size="sm" className="bg-amber-600 text-white text-[9px] font-black h-7 rounded-none uppercase">SRN</Button>
-                      </>}
-                      {activeTab === 'POD Verify' && <Button onClick={() => { setSelectedTripForPod(item); setPodFile(item.podAttachment || null); setIsPodPopupOpen(true); }} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Upload POD</Button>}
-                      {activeTab === 'Closed' && <>
-                        <Button onClick={() => handleDownloadPod(item)} disabled={!item.podAttachment} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Download</Button>
-                        <Button onClick={() => { setSelectedTripForPod(item); setPodFile(item.podAttachment || null); setIsPodPopupOpen(true); }} size="sm" className="bg-blue-900 text-white text-[9px] font-black h-7 rounded-none uppercase">Update POD</Button>
-                      </>}
                     </div>
                   </td>
                 </tr>;
@@ -905,13 +910,13 @@ function TripBoard({
       </div>
 
       <Dialog open={isTrackModePopupOpen} onOpenChange={setIsTrackModePopupOpen}>
-        <DialogContent className="max-w-[700px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl">
-          <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
+        <DialogContent className="max-w-[700px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col max-h-[70vh]">
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
             <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center justify-between">
               <span>Track Mode Configuration</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="p-8 space-y-8">
+          <div className="p-8 space-y-8 overflow-y-auto green-scrollbar flex-1">
             <div className="bg-white p-6 border border-slate-200 shadow-sm">
               <div className="grid grid-cols-1 gap-y-3 text-[10px] font-black uppercase">
                 <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-slate-400">Route:</span><span className="text-blue-700">{selectedTripForTrack?.route}</span></div>
@@ -951,9 +956,9 @@ function TripBoard({
               </div>
             )}
           </div>
-          <div className="p-4 bg-white border-t border-slate-300 flex justify-end gap-4">
+          <div className="p-4 bg-white border-t border-slate-300 flex justify-end gap-4 shrink-0">
             <Button onClick={() => setIsTrackModePopupOpen(false)} variant="outline" className="h-10 px-8 text-[11px] font-black uppercase rounded-none">Exit</Button>
-            <Button onClick={handleTrackModePost} className="h-10 px-12 bg-blue-600 text-white rounded-none text-[11px] font-black uppercase shadow-lg">Update</Button>
+            <Button onClick={handleTrackModePost} className="h-10 px-12 bg-blue-600 text-white rounded-none text-[11px] font-black uppercase shadow-lg">Post</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1846,4 +1851,3 @@ function Se38Report({ search, onSearchChange }: any) {
     </div>
   );
 }
-
