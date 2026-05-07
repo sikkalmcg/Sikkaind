@@ -54,6 +54,12 @@ const MASTER_TCODES = [
 
 const SHARED_HUB_ID = 'Sikkaind'; 
 
+// --- UTILITIES ---
+const formatWeight = (val: any) => {
+  const num = parseFloat(val);
+  return isNaN(num) ? "0.000" : num.toFixed(3);
+};
+
 // --- SHARED COMPONENTS ---
 
 function SectionGrouping({ title, children }: { title: string, children: React.ReactNode }) {
@@ -72,7 +78,7 @@ function SectionGrouping({ title, children }: { title: string, children: React.R
   );
 }
 
-function FormInput({ label, value, onChange, type = "text", disabled, placeholder, rightElement, leftElement }: any) {
+function FormInput({ label, value, onChange, onBlur, type = "text", disabled, placeholder, rightElement, leftElement }: any) {
   return (
     <div className="flex items-center gap-8 group">
       <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase tracking-tight">{label}:</label>
@@ -86,6 +92,7 @@ function FormInput({ label, value, onChange, type = "text", disabled, placeholde
           type={type} 
           value={value || ''} 
           onChange={(e: any) => onChange(e.target.value)} 
+          onBlur={onBlur}
           disabled={disabled} 
           placeholder={placeholder} 
           className={cn(
@@ -350,7 +357,7 @@ function SalesOrderForm({ data, onChange, disabled, allPlants, allCustomers, tri
         <FormSearchInput label="CONSIGNEE" value={data.consignee} options={ships.map(c => c.customerName + ' - ' + c.city)} onChange={(v: string) => { const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v; onChange({...data, consignee: nameOnly}); }} disabled={disabled} />
         <FormSearchInput label="SHIP TO PARTY" value={data.shipToParty} options={ships.map(c => c.customerName + ' - ' + c.city)} onChange={(v: string) => { const matching = ships.find(c => (c.customerName + ' - ' + c.city).toUpperCase() === v?.toUpperCase()); const nameOnly = v.includes(' - ') ? v.split(' - ').slice(0, -1).join(' - ') : v; onChange({...data, shipToParty: nameOnly, destination: matching?.city || '', deliveryAddress: matching?.address || ''}); }} disabled={disabled} />
         <FormInput label="DESTINATION" value={data.destination} disabled={true} />
-        <FormInput label="SALE ORDER WEIGHT" type="number" value={data.weight} onChange={(v: string) => onChange({...data, weight: v})} disabled={disabled} />
+        <FormInput label="SALE ORDER WEIGHT" type="number" value={data.weight} onChange={(v: string) => onChange({...data, weight: v})} onBlur={() => onChange({...data, weight: formatWeight(data.weight)})} disabled={disabled} />
         <FormSelect label="UOM" value={data.weightUom} options={["MT", "LTR"]} onChange={(v: string) => onChange({...data, weightUom: v})} disabled={disabled} />
       </SectionGrouping>
     </div>
@@ -393,8 +400,8 @@ function CancelOrderForm({ data, onChange, allOrders, allTrips, onPost, onCancel
             <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4">
               <FormInput label="PLANT" value={data.plantCode} disabled={true} />
               <FormInput label="CONSIGNOR" value={data.consignor} disabled={true} />
-              <FormInput label="SALE ORDER QTY" value={`${stats.tot} ${stats.uom}`} disabled={true} />
-              <FormInput label="BALANCE QTY" value={`${stats.bal.toFixed(2)} ${stats.uom}`} disabled={true} />
+              <FormInput label="SALE ORDER QTY" value={`${formatWeight(stats.tot)} ${stats.uom}`} disabled={true} />
+              <FormInput label="BALANCE QTY" value={`${formatWeight(stats.bal)} ${stats.uom}`} disabled={true} />
             </div>
           </SectionGrouping>
           <div className="pl-[212px] flex gap-4">
@@ -526,7 +533,7 @@ function TripBoard({
       shipToParty: o.shipToParty, 
       route: `${o.from} → ${o.destination}`, 
       fleetType: 'Own Vehicle', 
-      assignWeight: o.bal, 
+      assignWeight: formatWeight(o.bal), 
       isFixedRate: false, 
       rate: 0, 
       freightAmount: 0, 
@@ -850,7 +857,7 @@ function TripBoard({
             </thead>
             <tbody>{filteredData.map((item: any) => {
               if (activeTab === 'Open Orders') {
-                return <tr key={item.id} className="border-b border-slate-100 text-[11px] font-bold"><td className="p-3">{item.plantCode}</td><td className="p-3"><div className="text-[#0056d2] font-black">{item.saleOrder}</div><div className="text-slate-400">{format(new Date(item.saleOrderDate || item.createdAt), 'dd-MM-yy HH:mm')}</div></td><td className="p-3 uppercase">{item.consignor}</td><td className="p-3 uppercase">{item.consignee}</td><td className="p-3 uppercase">{item.shipToParty}</td><td className="p-3 uppercase">{item.route}</td><td className="p-3">{item.tot} {item.uom}</td><td className="p-3 text-emerald-600">{item.ass} {item.uom}</td><td className="p-3 text-red-600">{item.bal} {item.uom}</td><td className="p-3"><Button onClick={() => handleAssign(item)} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black uppercase h-7 rounded-none">Assign</Button></td></tr>;
+                return <tr key={item.id} className="border-b border-slate-100 text-[11px] font-bold"><td className="p-3">{item.plantCode}</td><td className="p-3"><div className="text-[#0056d2] font-black">{item.saleOrder}</div><div className="text-slate-400">{format(new Date(item.saleOrderDate || item.createdAt), 'dd-MM-yy HH:mm')}</div></td><td className="p-3 uppercase">{item.consignor}</td><td className="p-3 uppercase">{item.consignee}</td><td className="p-3 uppercase">{item.shipToParty}</td><td className="p-3 uppercase">{item.route}</td><td className="p-3">{formatWeight(item.tot)} {item.uom}</td><td className="p-3 text-emerald-600">{formatWeight(item.ass)} {item.uom}</td><td className="p-3 text-red-600">{formatWeight(item.bal)} {item.uom}</td><td className="p-3"><Button onClick={() => handleAssign(item)} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black uppercase h-7 rounded-none">Assign</Button></td></tr>;
               } else {
                 return <tr key={item.id} className="border-b border-slate-100 text-[11px] font-bold">
                   <td className="p-3">{item.plantCode}</td>
@@ -871,7 +878,7 @@ function TripBoard({
                     </div>
                   </td>
                   {activeTab !== 'Reject' && <td className="p-3"><div>{item.vendorName || '-'}</div><div className="text-slate-500 uppercase">{item.arrangeBy || '-'}</div></td>}
-                  <td className="p-3 text-emerald-600">{item.assignWeight} {item.weightUom}</td>
+                  <td className="p-3 text-emerald-600">{formatWeight(item.assignWeight)} {item.weightUom}</td>
                   <td className="p-3">
                     <div className="flex items-center gap-2">
                       <button onClick={() => handleCnClick(item)} className="font-black text-[#0056d2] uppercase hover:underline">{item.cnNo || '-'}</button>
@@ -1001,7 +1008,7 @@ function TripBoard({
                 <span className="opacity-60">|</span>
                 <span>Vehicle: {selectedTripForTrack?.vehicleNumber}</span>
                 <span className="opacity-60">|</span>
-                <span>Qty: {selectedTripForTrack?.assignWeight} {selectedTripForTrack?.weightUom}</span>
+                <span>Qty: {formatWeight(selectedTripForTrack?.assignWeight)} {selectedTripForTrack?.weightUom}</span>
                 <span className="opacity-60">|</span>
                 <span>ETA: {eta || 'Calculating...'}</span>
               </div>
@@ -1056,10 +1063,10 @@ function TripBoard({
 
       <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
         <DialogContent className="max-w-[1000px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
-          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-[11px] font-black uppercase tracking-widest flex items-center justify-between w-full"><span>Assign Vehicle Portal</span><div className="flex gap-6 pr-8"><span className="opacity-70">SO: {selectedOrder?.saleOrder}</span><span className="opacity-70">Qty: {selectedOrder?.tot} {selectedOrder?.uom}</span></div></DialogTitle></DialogHeader>
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-[11px] font-black uppercase tracking-widest flex items-center justify-between w-full"><span>Assign Vehicle Portal</span><div className="flex gap-6 pr-8"><span className="opacity-70">SO: {selectedOrder?.saleOrder}</span><span className="opacity-70">Qty: {formatWeight(selectedOrder?.tot)} {selectedOrder?.uom}</span></div></DialogTitle></DialogHeader>
           <div className="p-8 space-y-6 overflow-y-auto max-h-[70vh]">
             <div className="grid grid-cols-2 gap-4 mb-4 bg-white p-4 border border-slate-200 shadow-sm"><div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">Consignee</span><span className="text-[11px] font-black uppercase text-slate-700">{selectedOrder?.consignee}</span></div><div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">Ship To Party</span><span className="text-[11px] font-black uppercase text-slate-700">{selectedOrder?.shipToParty}</span></div><div className="flex flex-col gap-1 col-span-2"><span className="text-[9px] font-black text-slate-400 uppercase">Route</span><span className="text-[11px] font-black uppercase text-blue-600">{selectedOrder?.route}</span></div></div>
-            <SectionGrouping title="ASSIGNMENT DETAILS"><div className="grid grid-cols-2 gap-x-12 gap-y-4"><FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} /><FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} /><FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignData.assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} /><FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} /><FormInput label="ASSIGN QTY" type="number" value={assignData.assignWeight} onChange={(v: string) => setAssignData({...assignData, assignWeight: v})} /></div></SectionGrouping>
+            <SectionGrouping title="ASSIGNMENT DETAILS"><div className="grid grid-cols-2 gap-x-12 gap-y-4"><FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} /><FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} /><FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignData.assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} /><FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} /><FormInput label="ASSIGN QTY" type="number" value={assignData.assignWeight} onChange={(v: string) => setAssignData({...assignData, assignWeight: v})} onBlur={() => setAssignData({...assignData, assignWeight: formatWeight(assignData.assignWeight)})} /></div></SectionGrouping>
             {assignData.fleetType === 'Market Vehicle' && (
               <SectionGrouping title="MARKET VENDOR REGISTRY"><div className="grid grid-cols-2 gap-x-12 gap-y-4"><FormSearchInput label="VENDOR NAME" value={assignData.vendorName} options={(vendors || []).map((v: any) => v.vendorName)} onChange={(v: string) => { const master = (vendors || []).find((ven: any) => ven.vendorName === v); setAssignData({...assignData, vendorName: v, vendorMobile: master?.mobile || ''}); }} /><FormInput label="VENDOR MOBILE" value={assignData.vendorMobile} disabled={true} /><FormInput label="ARRANGE BY" value={assignData.arrangeBy} onChange={(v: string) => setAssignData({...assignData, arrangeBy: v.toUpperCase()})} /><FormInput label="RATE" type="number" value={assignData.rate} disabled={assignData.isFixedRate} onChange={(v: string) => { const r = parseFloat(v) || 0; const q = parseFloat(assignData.assignWeight) || 0; setAssignData({...assignData, rate: r, freightAmount: r * q}); }} /><FormInput label="FREIGHT AMOUNT" type="number" value={assignData.freightAmount} disabled={!assignData.isFixedRate} onChange={(v: string) => setAssignData({...assignData, freightAmount: v})} /><div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase tracking-tight">FIX RATE:</label><div className="flex items-center gap-2"><Checkbox checked={assignData.isFixedRate} onCheckedChange={(checked) => setAssignData({...assignData, isFixedRate: checked})} className="rounded-none border-slate-400" /><span className="text-[10px] font-black text-slate-400 uppercase">ENABLE MANUAL OVERRIDE</span></div></div></div></SectionGrouping>
             )}
@@ -1435,7 +1442,7 @@ function Tr24TrackShipmentScreen({ orders, trips, customers, gpsData }: any) {
           <div className="bg-white border border-slate-300 p-8 space-y-8 shadow-sm">
             <div className="grid grid-cols-2 gap-x-12 gap-y-4">
               <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Booked Date:</span><span className="text-[12px] font-black">{format(new Date(selectedOrder.saleOrderDate || selectedOrder.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
-              <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Weight:</span><span className="text-[12px] font-black text-emerald-600">{selectedOrder.weight} {selectedOrder.weightUom}</span></div>
+              <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Weight:</span><span className="text-[12px] font-black text-emerald-600">{formatWeight(selectedOrder.weight)} {selectedOrder.weightUom}</span></div>
               <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Consignor:</span><span className="text-[12px] font-black uppercase truncate max-w-[200px]">{selectedOrder.consignor}</span></div>
               <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Consignee:</span><span className="text-[12px] font-black uppercase truncate max-w-[200px]">{selectedOrder.consignee}</span></div>
               <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Ship To Party:</span><span className="text-[12px] font-black uppercase truncate max-w-[200px]">{selectedOrder.shipToParty}</span></div>
@@ -1472,7 +1479,7 @@ function Tr24TrackShipmentScreen({ orders, trips, customers, gpsData }: any) {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10 opacity-80 border-b border-slate-100 pb-10">
             <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship To Party</span><span className="text-[12px] font-black uppercase text-slate-800 truncate">{selectedTrip.shipToParty}</span></div>
             <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[12px] font-black uppercase text-[#1e3a8a]">{selectedTrip.vehicleNumber}</span></div>
-            <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight Data</span><span className="text-[12px] font-black text-emerald-600">{selectedTrip.assignWeight} {selectedTrip.weightUom}</span></div>
+            <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight</span><span className="text-[12px] font-black text-emerald-600">{formatWeight(selectedTrip.assignWeight)} {selectedTrip.weightUom}</span></div>
             <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Driver Mobile</span><span className="text-[12px] font-black">{selectedTrip.driverMobile}</span></div>
           </div>
 
@@ -1849,7 +1856,7 @@ function Se38Report({ search, onSearchChange, trips, orders, customers, vendors,
       r.plantCode, r.saleOrderNumber, r.order?.saleOrderDate || '', r.order?.consignor || '', r.order?.consignee || '', r.shipToParty, r.order?.destination || '',
       r.tripId, r.createdAt, r.vehicleNumber, r.driverMobile, r.carrier?.companyName || '', r.cnNo || '',
       r.cnItems?.[0]?.invoice || '', r.cnItems?.[0]?.ewaybill || '', r.order?.product || '', r.order?.unit || '', r.order?.unitUom || '',
-      r.assignWeight, r.weightUom, r.vendorName || '', r.vendorMaster?.vendorFirmName || '', r.vendorMaster?.mobile || '',
+      formatWeight(r.assignWeight), r.weightUom, r.vendorName || '', r.vendorMaster?.vendorFirmName || '', r.vendorMaster?.mobile || '',
       r.fleetType, r.paymentTerms || '', 'SYSTEM', r.rate || 0, r.freightAmount || 0,
       r.outDate ? `${r.outDate} ${r.outTime}` : '', r.arrivedDate ? `${r.arrivedDate} ${r.arrivedTime}` : '',
       r.unloadDate ? `${r.unloadDate} ${r.unloadTime}` : '', r.rejectionDate ? `${r.rejectionDate} ${r.rejectionTime}` : '',
@@ -1912,7 +1919,7 @@ function Se38Report({ search, onSearchChange, trips, orders, customers, vendors,
                   <td className="p-3 border-r border-slate-100">{r.order?.product || 'GOODS'}</td>
                   <td className="p-3 border-r border-slate-100">{r.order?.unit || '-'}</td>
                   <td className="p-3 border-r border-slate-100">{r.order?.unitUom || '-'}</td>
-                  <td className="p-3 border-r border-slate-100 text-emerald-600">{r.assignWeight}</td>
+                  <td className="p-3 border-r border-slate-100 text-emerald-600">{formatWeight(r.assignWeight)}</td>
                   <td className="p-3 border-r border-slate-100">{r.weightUom}</td>
                   <td className="p-3 border-r border-slate-100">{r.vendorName}</td>
                   <td className="p-3 border-r border-slate-100">{r.vendorMaster?.vendorFirmName}</td>
@@ -1954,7 +1961,6 @@ function Se38Report({ search, onSearchChange, trips, orders, customers, vendors,
         
         <SectionGrouping title="PRIMARY SELECTION NODES">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-20 gap-y-6">
-            {/* Filter Layout Position Update: From/To Dates under Plant */}
             <div className="flex flex-col gap-6">
               <FormSelect label="PLANT" value={search.plant} options={(plants || []).map((p: any) => p.plantCode)} onChange={(v: string) => onSearchChange({ ...search, plant: v })} placeholder="Select Plant..." />
               <FormInput label="From Date" type="date" value={search.from} onChange={(v: string) => onSearchChange({ ...search, from: v })} />
@@ -2239,7 +2245,7 @@ export default function DashboardPage() {
       if (activeScreen === 'VA01') {
         for (const row of rows) {
           const cols = row.split(','); if (cols.length < 8) continue;
-          const newOrder = { plantCode: cols[0]?.trim(), saleOrder: cols[1]?.trim(), consignor: cols[2]?.trim(), consignee: cols[4]?.trim(), shipToParty: cols[6]?.trim(), weight: cols[7]?.trim(), weightUom: cols[8]?.trim() || 'MT', status: 'Active', createdAt: new Date().toISOString(), saleOrderDate: new Date().toISOString().slice(0, 16) };
+          const newOrder = { plantCode: cols[0]?.trim(), saleOrder: cols[1]?.trim(), consignor: cols[2]?.trim(), consignee: cols[4]?.trim(), shipToParty: cols[6]?.trim(), weight: formatWeight(cols[7]?.trim()), weightUom: cols[8]?.trim() || 'MT', status: 'Active', createdAt: new Date().toISOString(), saleOrderDate: new Date().toISOString().slice(0, 16) };
           const validation = await validateOrder(newOrder); if (validation.valid) { const docId = crypto.randomUUID(); setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { ...newOrder, id: docId }, { merge: true }); successCount++; } else { failCount++; }
         }
       } else if (activeScreen === 'XD01') {
@@ -2257,7 +2263,7 @@ export default function DashboardPage() {
 
   const handleDownloadTemplate = () => {
     let headers = ""; let filename = "";
-    if (activeScreen === 'VA01') { headers = "Plant,Sale Order,Consignor,Consignee Code,Consignee,Ship to Party Code,Ship to Party,Weight,WeightUom\nPL01,SO9999,CONSIGNOR-NAME,C-CODE,CONSIGNEE-NAME,S-CODE,SHIP-TO-NAME,25,MT"; filename = 'VA01_Template.csv'; } 
+    if (activeScreen === 'VA01') { headers = "Plant,Sale Order,Consignor,Consignee Code,Consignee,Ship to Party Code,Ship to Party,Weight,WeightUom\nPL01,SO9999,CONSIGNOR-NAME,C-CODE,CONSIGNEE-NAME,S-CODE,SHIP-TO-NAME,25.000,MT"; filename = 'VA01_Template.csv'; } 
     else if (activeScreen === 'XD01') { headers = "Customer Code,Customer Name,Customer Type,Address,City,Postal Code,Mobile,GSTIN\nC1000,CLIENT-NAME,Consignor,STREET-ADDRESS,CITY-NAME,123456,9999999999,GSTIN12345"; filename = 'XD01_Template.csv'; }
     if (!headers) return; const blob = new Blob([headers], { type: 'text/csv' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
   };
@@ -2412,8 +2418,8 @@ export default function DashboardPage() {
                       <div className="flex-1">
                         <table className="w-full border-collapse border border-black">
                           <thead><tr className="bg-slate-100 text-[10px] font-black uppercase h-8"><th className="border border-black p-2 w-[120px]">Invoice</th><th className="border border-black p-2 w-[144px]">E-waybill No</th><th className="border border-black p-2 text-left w-[310px]">Description</th><th className="border border-black p-2 w-[96px]">Package</th><th className="border border-black p-2 w-[96px]">Weight</th></tr></thead>
-                          <tbody>{tableItems.map((itm: any, idx: number) => (<tr key={idx} className="text-[10px] font-bold uppercase h-10 border-b border-black"><td className="border border-black p-2 text-center">{itm.invoice}</td><td className="border border-black p-2 text-center">{itm.ewaybill}</td><td className="border border-black p-2">{itm.description}</td><td className="border border-black p-2 text-center">{itm.package}</td><td className="border border-black p-2 text-center">{selectedTripForPreview.assignWeight}</td></tr>))}</tbody>
-                          <tfoot className="bg-slate-50 font-black h-8"><tr className="border-t border-black"><td colSpan={3} className="border border-black p-2 text-right uppercase text-[10px]">Gross Total:</td><td className="border border-black p-2 text-center text-[11px]">{pkgDisplay}</td><td className="border border-black p-2 text-center text-[11px]">{selectedTripForPreview.assignWeight} {selectedTripForPreview.weightUom}</td></tr></tfoot>
+                          <tbody>{tableItems.map((itm: any, idx: number) => (<tr key={idx} className="text-[10px] font-bold uppercase h-10 border-b border-black"><td className="border border-black p-2 text-center">{itm.invoice}</td><td className="border border-black p-2 text-center">{itm.ewaybill}</td><td className="border border-black p-2">{itm.description}</td><td className="border border-black p-2 text-center">{itm.package}</td><td className="border border-black p-2 text-center">{formatWeight(selectedTripForPreview.assignWeight)}</td></tr>))}</tbody>
+                          <tfoot className="bg-slate-50 font-black h-8"><tr className="border-t border-black"><td colSpan={3} className="border border-black p-2 text-right uppercase text-[10px]">Gross Total:</td><td className="border border-black p-2 text-center text-[11px]">{pkgDisplay}</td><td className="border border-black p-2 text-center text-[11px]">{formatWeight(selectedTripForPreview.assignWeight)} {selectedTripForPreview.weightUom}</td></tr></tfoot>
                         </table>
                         <div className="mt-4 border border-black"><div className="bg-slate-50 border-b border-black p-1"><p className="text-[10px] font-black uppercase">Delivery Address:</p></div><div className="p-3 min-h-[60px] relative group">{isAddressEditable ? <textarea value={previewDeliveryAddress} onChange={e => { setPreviewDeliveryAddress(e.target.value); setIsAddressDirty(true); }} className="w-full h-full text-[10px] font-bold uppercase outline-none bg-yellow-50 resize-none" /> : <p className="text-[10px] font-bold uppercase leading-relaxed pr-10">{previewDeliveryAddress}</p>}<button onClick={() => setIsAddressEditable(true)} className="absolute top-2 right-2 p-1 text-[#1e3a8a] opacity-0 group-hover:opacity-100 print:hidden"><Edit3 className="h-3.5 w-3.5" /></button></div></div>
                       </div>

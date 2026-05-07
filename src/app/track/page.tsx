@@ -16,6 +16,11 @@ import { Badge } from '@/components/ui/badge';
 
 const SHARED_HUB_ID = 'Sikkaind';
 
+const formatWeight = (val: any) => {
+  const num = parseFloat(val);
+  return isNaN(num) ? "0.000" : num.toFixed(3);
+};
+
 export default function TrackPage() {
   const db = useFirestore();
   const [searchSo, setSearchSo] = React.useState('');
@@ -214,7 +219,7 @@ export default function TrackPage() {
               <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Consignor:</label><span className="text-[12px] font-black uppercase truncate">{selectedOrder.consignor}</span></div>
               <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Consignee:</label><span className="text-[12px] font-black uppercase truncate">{selectedOrder.consignee}</span></div>
               <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Ship to Party:</label><span className="text-[12px] font-black uppercase truncate">{selectedOrder.shipToParty}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Order Weight:</label><span className="text-[12px] font-black text-emerald-600">{selectedOrder.weight} {selectedOrder.weightUom}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Order Weight:</label><span className="text-[12px] font-black text-emerald-600">{formatWeight(selectedOrder.weight)} {selectedOrder.weightUom}</span></div>
               <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Route:</label><span className="text-[12px] font-black text-[#1e3a8a] uppercase">{selectedOrder.from} → {selectedOrder.destination}</span></div>
             </div>
 
@@ -259,7 +264,7 @@ export default function TrackPage() {
            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-12 gap-y-6 mb-8 opacity-80 border-b border-slate-100 pb-10">
               <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[12px] font-black uppercase truncate">{selectedTrip.shipToParty}</span></div>
               <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Node</span><span className="text-[12px] font-black uppercase text-[#1e3a8a]">{selectedTrip.vehicleNumber}</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight Details</span><span className="text-[12px] font-black text-emerald-600">{selectedTrip.assignWeight} {selectedTrip.weightUom}</span></div>
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight</span><span className="text-[12px] font-black text-emerald-600">{formatWeight(selectedTrip.assignWeight)} {selectedTrip.weightUom}</span></div>
               <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Driver Mobile</span><span className="text-[12px] font-black">{selectedTrip.driverMobile}</span></div>
            </div>
            
@@ -309,4 +314,3 @@ export default function TrackPage() {
     </div>
   );
 }
-
