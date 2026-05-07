@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -187,19 +186,82 @@ function PlantForm({ data, onChange, disabled }: any) {
 
 function CompanyForm({ data, onChange, disabled, allPlants }: any) {
   const pList = (allPlants || []).map((p: any) => p.plantCode);
-  const handleToggle = (p: string) => { if (disabled) return; const curr = data.plantCodes || []; onChange({...data, plantCodes: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); };
+  const handleToggle = (p: string) => { 
+    if (disabled) return; 
+    const curr = data.plantCodes || []; 
+    onChange({...data, plantCodes: curr.includes(p) ? curr.filter((i: string) => i !== p) : [...curr, p]}); 
+  };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) {
+      alert("Logo file size must be under 500KB");
+      e.target.value = ''; // clear input
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      onChange({ ...data, logo: ev.target?.result as string });
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="space-y-10">
       <SectionGrouping title="PLANT ASSIGNMENT">
-        <div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Plants:</label><div className="flex wrap gap-2">{pList.map((p: string) => <button key={p} onClick={() => handleToggle(p)} disabled={disabled} className={cn("px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300")}>{p}</button>)}</div></div>
+        <div className="flex items-center gap-8">
+          <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">Assigned Plants:</label>
+          <div className="flex wrap gap-2">
+            {pList.map((p: string) => (
+              <button 
+                key={p} 
+                onClick={() => handleToggle(p)} 
+                disabled={disabled} 
+                className={cn(
+                  "px-4 py-1.5 text-[10px] font-black border uppercase rounded-none transition-all", 
+                  data.plantCodes?.includes(p) ? "bg-[#1e3a8a] text-white border-[#1e3a8a]" : "bg-white text-slate-500 border-slate-300"
+                )}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
       </SectionGrouping>
       <SectionGrouping title="IDENTIFICATION">
         <FormInput label="COMPANY CODE" value={data.companyCode} onChange={(v: string) => onChange({...data, companyCode: v})} disabled={disabled} />
         <FormInput label="COMPANY NAME" value={data.companyName} onChange={(v: string) => onChange({...data, companyName: v})} disabled={disabled} />
+        <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
+        <FormInput label="PAN" value={data.pan} onChange={(v: string) => onChange({...data, pan: v})} disabled={disabled} />
       </SectionGrouping>
       <SectionGrouping title="LOCATION">
         <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
         <FormInput label="CITY" value={data.city} onChange={(v: string) => onChange({...data, city: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="CONTACT DETAILS">
+        <FormInput label="MOBILE" placeholder="Numbers separated by comma" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
+        <FormInput label="EMAIL" value={data.email} onChange={(v: string) => onChange({...data, email: v})} disabled={disabled} />
+        <FormInput label="WEBSITE" value={data.website} onChange={(v: string) => onChange({...data, website: v})} disabled={disabled} />
+      </SectionGrouping>
+      <SectionGrouping title="CORPORATE ASSETS">
+        <div className="flex items-center gap-8">
+          <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase">LOGO (MAX 500KB):</label>
+          <div className="flex items-center gap-4 w-[320px]">
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={handleLogoChange} 
+              disabled={disabled}
+              className="text-[10px] font-black uppercase text-slate-500 w-full cursor-pointer file:mr-4 file:py-1 file:px-4 file:rounded-none file:border file:border-slate-300 file:text-[10px] file:font-black file:bg-slate-50 hover:file:bg-slate-100"
+            />
+            {data.logo && (
+              <div className="relative w-12 h-12 border border-slate-300 shrink-0 overflow-hidden bg-white">
+                <img src={data.logo} alt="Logo Preview" className="w-full h-full object-contain" />
+              </div>
+            )}
+          </div>
+        </div>
       </SectionGrouping>
     </div>
   );
@@ -508,11 +570,13 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
                          ].map((c, idx) => (
                            <div key={idx} className="flex flex-col border-r last:border-0 border-black p-3">
                               <p className="text-[10px] font-black uppercase text-center border-b border-black pb-1 mb-2">{c.title}</p>
-                              <p className="text-[11px] font-black uppercase truncate text-center">{c.master?.customerName || c.fallback}</p>
-                              <p className="text-[9px] font-bold uppercase leading-relaxed text-slate-700 line-clamp-2 text-center">{c.master?.address || 'REGISTERED ADDRESS'}</p>
-                              <div className="mt-auto flex flex-col items-center space-y-0">
-                                 <span className="text-[9px] font-bold">Mobile: {c.master?.mobile || '-'}</span>
-                                 <span className="text-[9px] font-bold">GSTIN: {c.master?.gstin || 'N/A'}</span>
+                              <div className="flex-1 flex flex-col items-center justify-center space-y-0.5">
+                                <p className="text-[11px] font-black uppercase truncate text-center">{c.master?.customerName || c.fallback}</p>
+                                <p className="text-[9px] font-bold uppercase leading-relaxed text-slate-700 line-clamp-2 text-center">{c.master?.address || 'REGISTERED ADDRESS'}</p>
+                                <div className="mt-1 flex flex-col items-center space-y-0">
+                                   <span className="text-[9px] font-bold">Mobile: {c.master?.mobile || '-'}</span>
+                                   <span className="text-[9px] font-bold">GSTIN: {c.master?.gstin || 'N/A'}</span>
+                                </div>
                               </div>
                            </div>
                          ))}
@@ -731,11 +795,6 @@ export default function DashboardPage() {
 
   const getRegistryList = () => { if (activeScreen.startsWith('OX')) return accessiblePlants; if (activeScreen.startsWith('FM')) return accessibleCompanies; if (activeScreen.startsWith('XK')) return accessibleVendors; if (activeScreen.startsWith('XD')) return accessibleCustomers; if (activeScreen.startsWith('VA')) return allOrders; if (activeScreen.startsWith('SU')) return accessibleUsers; return []; };
   const handleSearchIdEnter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { const item = getRegistryList().find((i: any) => (i.plantCode || i.customerCode || i.saleOrder || i.username || i.id).toString().toUpperCase() === searchId.toUpperCase()); if (item) { setFormData(item); setStatusMsg({ text: 'Record Loaded', type: 'success' }); } else setStatusMsg({ text: 'Not Found', type: 'error' }); } };
-
-  if (isUserLoading) return <div className="h-screen w-full bg-[#f0f3f9] flex flex-col items-center justify-center font-mono space-y-4"><Loader2 className="h-8 w-8 animate-spin text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#1e3a8a]">Synchronizing Hub...</span></div>;
-  
-  const isReadOnly = activeScreen.endsWith('03'); 
-  const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'slmc-logo');
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
