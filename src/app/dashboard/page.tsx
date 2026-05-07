@@ -451,6 +451,10 @@ function TripBoard({
   const [isResentDialogOpen, setIsResentDialogOpen] = React.useState(false);
   const [tripToResent, setTripToResent] = React.useState<any>(null);
 
+  const [isVehiclePopupOpen, setIsVehiclePopupOpen] = React.useState(false);
+  const [selectedTripForVehicleUpdate, setSelectedTripForVehicleUpdate] = React.useState<any>(null);
+  const [vehicleUpdateData, setVehicleUpdateData] = React.useState<any>({ vehicleNumber: '', driverMobile: '' });
+
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handlePodFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -679,6 +683,23 @@ function TripBoard({
     onOpenPdfPreview(previewData);
   };
 
+  const handleVehicleClick = (t: any) => {
+    setSelectedTripForVehicleUpdate(t);
+    setVehicleUpdateData({ vehicleNumber: t.vehicleNumber || '', driverMobile: t.driverMobile || '' });
+    setIsVehiclePopupOpen(true);
+  };
+
+  const handleVehicleUpdatePost = () => {
+    if (!vehicleUpdateData.vehicleNumber) { onStatusUpdate({ text: 'Vehicle Number Required', type: 'error' }); return; }
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForVehicleUpdate.id), { 
+      vehicleNumber: vehicleUpdateData.vehicleNumber.toUpperCase(), 
+      driverMobile: vehicleUpdateData.driverMobile, 
+      updatedAt: new Date().toISOString() 
+    }, { merge: true });
+    setIsVehiclePopupOpen(false);
+    onStatusUpdate({ text: 'Vehicle Information Updated', type: 'success' });
+  };
+
   return (
     <div className="flex flex-col h-full space-y-0">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-4 print:hidden flex items-center justify-between">
@@ -740,7 +761,16 @@ function TripBoard({
                   <td className="p-3"><div>{item.saleOrderNumber}</div><div className="text-slate-400">{format(new Date(item.saleOrderDate || item.createdAt), 'dd-MM-yy HH:mm')}</div></td>
                   <td className="p-3 uppercase">{item.shipToParty}</td>
                   <td className="p-3 uppercase">{item.route}</td>
-                  <td className="p-3"><div>{item.vehicleNumber}</div><div className="text-slate-500">{item.driverMobile}</div></td>
+                  <td className="p-3">
+                    <div>
+                      {(activeTab === 'In-Transit' || activeTab === 'Arrived') ? (
+                        <button onClick={() => handleVehicleClick(item)} className="text-[#0056d2] font-black hover:underline uppercase transition-all">{item.vehicleNumber || 'SET VEHICLE'}</button>
+                      ) : (
+                        item.vehicleNumber
+                      )}
+                    </div>
+                    <div className="text-slate-500">{item.driverMobile}</div>
+                  </td>
                   {activeTab !== 'Reject' && <td className="p-3"><div>{item.vendorName || '-'}</div><div className="text-slate-500 uppercase">{item.arrangeBy || '-'}</div></td>}
                   <td className="p-3 text-emerald-600">{item.assignWeight} {item.weightUom}</td>
                   <td className="p-3">
@@ -1013,6 +1043,28 @@ function TripBoard({
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isVehiclePopupOpen} onOpenChange={setIsVehiclePopupOpen}>
+        <DialogContent className="max-w-[600px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest">Vehicle Update Portal</DialogTitle></DialogHeader>
+          <div className="p-8 space-y-6">
+            <div className="bg-white p-6 border border-slate-200 shadow-sm mb-4">
+              <div className="grid grid-cols-2 gap-y-3 text-[10px] font-black uppercase">
+                <span className="text-slate-400">Ship To Party:</span><span className="text-slate-700 text-right">{selectedTripForVehicleUpdate?.shipToParty}</span>
+                <span className="text-slate-400">Route:</span><span className="text-blue-700 text-right">{selectedTripForVehicleUpdate?.route}</span>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <FormInput label="VEHICLE NUMBER" value={vehicleUpdateData.vehicleNumber} onChange={(v: string) => setVehicleUpdateData({...vehicleUpdateData, vehicleNumber: v.toUpperCase()})} />
+              <FormInput label="DRIVER MOBILE" value={vehicleUpdateData.driverMobile} onChange={(v: string) => setVehicleUpdateData({...vehicleUpdateData, driverMobile: v})} />
+            </div>
+          </div>
+          <div className="p-4 bg-white border-t border-slate-300 flex justify-end gap-4">
+            <Button onClick={() => setIsVehiclePopupOpen(false)} variant="outline" className="h-10 px-8 text-[11px] font-black uppercase rounded-none border-slate-300">Exit</Button>
+            <Button onClick={handleVehicleUpdatePost} className="h-10 px-12 bg-[#0056d2] text-white rounded-none text-[11px] font-black uppercase shadow-lg">Update</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1227,7 +1279,7 @@ export default function DashboardPage() {
         {activeScreen === 'HOME' && (<div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden print:hidden shadow-sm"><div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div><div className="flex-1 overflow-y-auto green-scrollbar">{MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'WGPS24').map(t => (<div key={t.code} onClick={() => executeTCode(t.code)} className="flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all"><span className="text-[10px] font-black uppercase tracking-tight text-[#1e3a8a]">{t.code} - {t.description}</span><div className="flex-1" /><t.icon className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-600" /></div>))}</div></div>)}
         <div className="flex-1 flex flex-col overflow-hidden bg-[#f2f2f2] print:bg-white">
           {activeScreen === 'HOME' ? (
-            <div className="flex-1 overflow-y-auto p-8 animate-fade-in"><h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter mb-10">Sikka Logistics Management Control</h1><div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-8 border border-slate-300 shadow-sm mb-12"><div className="flex flex-col gap-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plant Filter</label><select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500" value={homePlantFilter} onChange={e => setHomePlantFilter(e.target.value)}><option value="ALL">ALL AUTHORIZED PLANTS</option>{accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div><div className="flex flex-col gap-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fiscal Period</label><input type="month" className="h-10 border border-slate-400 px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500" value={homeMonthFilter} onChange={e => setHomeMonthFilter(e.target.value)} /></div></div><div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">{[{ l: 'OPEN ORDER', c: homeStats.open, cl: 'text-blue-600' }, { l: 'LOADING', c: homeStats.loading, cl: 'text-orange-600' }, { l: 'IN-TRANSIT', c: homeStats.transit, cl: 'text-emerald-600' }, { l: 'ARRIVED', c: homeStats.arrived, cl: 'text-indigo-600' }, { l: 'POD', c: homeStats.pod, cl: 'text-purple-600' }, { l: 'REJECT', c: homeStats.reject, cl: 'text-red-600' }, { l: 'CLOSED', c: homeStats.closed, cl: 'text-slate-600' }].map(w => (<div key={w.l} className="p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-3 bg-white hover:scale-105 transition-transform duration-300"><span className="text-[9px] font-black text-slate-400 uppercase text-center tracking-widest leading-none h-6 flex items-center">{w.l}</span><span className={cn("text-3xl font-black italic tracking-tighter", w.cl)}>{w.c}</span></div>))}</div></div>
+            <div className="flex-1 overflow-y-auto p-8 animate-fade-in"><h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter mb-10">Sikka Logistics Management Control</h1><div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-8 border border-slate-300 shadow-sm mb-12"><div className="flex flex-col gap-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plant Filter</label><select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500" value={homePlantFilter} onChange={e => setHomePlantFilter(e.target.value)}><option value="ALL">ALL AUTHORIZED PLANTS</option>{accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div><div className="flex flex-col gap-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fiscal Period</label><input type="month" className="h-10 border border-slate-400 px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500" value={homeMonthFilter} onChange={e => setHomeMonthFilter(e.target.value)} /></div></div><div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">{[{ l: 'OPEN ORDER', c: homeStats.open, cl: 'text-blue-600' }, { l: 'LOADING', c: homeStats.loading, cl: 'text-orange-600' }, { l: 'IN-TRANSIT', c: homeStats.transit, cl: 'text-emerald-600' }, { l: 'ARRIVED', c: homeStats.arrived, cl: 'text-indigo-600' }, { l: 'POD', c: homeStats.pod, cl: 'text-purple-600' }, { l: 'REJECT', c: homeStats.reject, cl: 'text-red-600' }, { l: 'CLOSED', c: homeStats.closed, cl: 'text-slate-600' }].map(w => (<div key={w.l} className="p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-3 bg-white hover:scale-105 transition-transform duration-300"><span className="text-[9px] font-black text-slate-400 uppercase text-center tracking-widest h-6 flex items-center">{w.l}</span><span className={cn("text-3xl font-black italic tracking-tighter", w.cl)}>{w.c}</span></div>))}</div></div>
           ) : (
             <div className="flex flex-col w-full h-full overflow-hidden bg-[#f2f2f2]">
               {activeScreen === 'TR21' && viewMode === 'list' && (
@@ -1259,7 +1311,7 @@ export default function DashboardPage() {
         <div className="fixed inset-0 z-[200] bg-[#525659] flex flex-col font-mono animate-fade-in overflow-hidden">
            <div className="bg-[#c5e0b4] border-b border-slate-400 h-9 flex items-center justify-between px-4 shrink-0"><div className="text-[11px] font-black uppercase tracking-widest text-[#1e3a8a]">PDF Preview Portal</div><button onClick={() => setIsPdfPreviewOpen(false)} className="text-slate-600 hover:text-red-600 transition-colors"><X className="h-4 w-4" /></button></div>
            <div className="bg-[#323639] h-10 flex items-center justify-between px-8 shrink-0 shadow-lg"><div className="flex items-center gap-6"><span className="text-white text-[11px] font-bold">1 of 3</span><div className="h-4 w-px bg-white/20" /><div className="flex items-center gap-3"><button onClick={() => setPdfZoom(Math.max(0.5, pdfZoom - 0.1))} className="text-white/70 hover:text-white"><ChevronLeft className="h-4 w-4" /></button><span className="text-white text-[11px] font-bold w-12 text-center">{Math.round(pdfZoom * 100)}%</span><button onClick={() => setPdfZoom(Math.min(2, pdfZoom + 0.1))} className="text-white/70 hover:text-white"><ChevronRight className="h-4 w-4" /></button></div></div><div className="flex items-center gap-6"><button className="text-white/70 hover:text-white"><Search className="h-4 w-4" /></button><button onClick={() => window.print()} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Printer className="h-4 w-4" /></button><button disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Download className="h-4 w-4" /></button></div></div>
-           <div className="flex-1 overflow-auto p-12 flex justify-center custom-scrollbar">
+           <div className="flex-1 overflow-auto p-12 flex justify-center custom-scrollbar" id="printable-area">
              <div style={{ transform: `scale(${pdfZoom})`, transformOrigin: 'top center' }} className="transition-transform duration-200">
                {[...Array(3)].map((_, i) => {
                  const copyLabel = i === 0 ? 'CONSIGNEE COPY' : i === 1 ? 'DRIVER COPY' : 'CONSIGNOR COPY';
@@ -1289,10 +1341,10 @@ export default function DashboardPage() {
                       <div className="flex-1">
                         <table className="w-full border-collapse border border-black">
                           <thead><tr className="bg-slate-100 text-[10px] font-black uppercase h-8"><th className="border border-black p-2 w-[120px]">Invoice</th><th className="border border-black p-2 w-[144px]">E-waybill No</th><th className="border border-black p-2 text-left w-[310px]">Description</th><th className="border border-black p-2 w-[96px]">Package</th><th className="border border-black p-2 w-[96px]">Weight</th></tr></thead>
-                          <tbody>{tableItems.map((itm: any, idx: number) => (<tr key={idx} className="text-[10px] font-bold uppercase h-10 border-b border-black"><td className="p-2 text-center">{itm.invoice}</td><td className="p-2 text-center">{itm.ewaybill}</td><td className="p-2">{itm.description}</td><td className="p-2 text-center">{itm.package}</td><td className="p-2 text-center">{selectedTripForPreview.assignWeight}</td></tr>))}</tbody>
-                          <tfoot className="bg-slate-50 font-black h-8"><tr className="border-t border-black"><td colSpan={3} className="p-2 text-right uppercase text-[10px]">Gross Total:</td><td className="p-2 text-center text-[11px] border-l border-black">{pkgDisplay}</td><td className="p-2 text-center text-[11px] border-l border-black">{selectedTripForPreview.assignWeight} {selectedTripForPreview.weightUom}</td></tr></tfoot>
+                          <tbody>{tableItems.map((itm: any, idx: number) => (<tr key={idx} className="text-[10px] font-bold uppercase h-10 border-b border-black"><td className="border border-black p-2 text-center">{itm.invoice}</td><td className="border border-black p-2 text-center">{itm.ewaybill}</td><td className="border border-black p-2">{itm.description}</td><td className="border border-black p-2 text-center">{itm.package}</td><td className="border border-black p-2 text-center">{selectedTripForPreview.assignWeight}</td></tr>))}</tbody>
+                          <tfoot className="bg-slate-50 font-black h-8"><tr className="border-t border-black"><td colSpan={3} className="border border-black p-2 text-right uppercase text-[10px]">Gross Total:</td><td className="border border-black p-2 text-center text-[11px]">{pkgDisplay}</td><td className="border border-black p-2 text-center text-[11px]">{selectedTripForPreview.assignWeight} {selectedTripForPreview.weightUom}</td></tr></tfoot>
                         </table>
-                        <div className="mt-4 border border-black"><div className="bg-slate-50 border-b border-black p-1"><p className="text-[10px] font-black uppercase">Delivery Address:</p></div><div className="p-3 min-h-[60px] relative group">{isAddressEditable ? <textarea value={previewDeliveryAddress} onChange={e => { setPreviewDeliveryAddress(e.target.value); setIsAddressDirty(true); }} className="w-full h-full text-[10px] font-bold uppercase outline-none bg-yellow-50 resize-none" /> : <p className="text-[10px] font-bold uppercase leading-relaxed pr-10">{previewDeliveryAddress}</p>}<button onClick={() => setIsAddressEditable(true)} className="absolute top-2 right-2 p-1 text-[#1e3a8a] opacity-0 group-hover:opacity-100 print:hidden"><Edit3 className="h-3 w-3" /></button></div></div>
+                        <div className="mt-4 border border-black"><div className="bg-slate-50 border-b border-black p-1"><p className="text-[10px] font-black uppercase">Delivery Address:</p></div><div className="p-3 min-h-[60px] relative group">{isAddressEditable ? <textarea value={previewDeliveryAddress} onChange={e => { setPreviewDeliveryAddress(e.target.value); setIsAddressDirty(true); }} className="w-full h-full text-[10px] font-bold uppercase outline-none bg-yellow-50 resize-none" /> : <p className="text-[10px] font-bold uppercase leading-relaxed pr-10">{previewDeliveryAddress}</p>}<button onClick={() => setIsAddressEditable(true)} className="absolute top-2 right-2 p-1 text-[#1e3a8a] opacity-0 group-hover:opacity-100 print:hidden"><Edit3 className="h-3.5 w-3.5" /></button></div></div>
                       </div>
                       <div className="mt-8 space-y-6">
                         {selectedTripForPreview.carrier?.instructions && (
