@@ -1231,8 +1231,7 @@ function TripBoard({
 
       <Dialog open={isSrnPopupOpen} onOpenChange={setIsSrnPopupOpen}>
         <DialogContent className="max-w-[600px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl">
-          <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
-            <DialogTitle className="text-white text-xs font-black uppercase tracking-widest">SRN Registration Hub</DialogTitle></DialogHeader>
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest">SRN Registration Hub</DialogTitle></DialogHeader>
           <div className="p-8 space-y-6">
              <div className="bg-white p-6 border border-slate-200 shadow-sm mb-4">
                 <div className="grid grid-cols-2 gap-y-3 text-[10px] font-black uppercase">
@@ -1255,8 +1254,7 @@ function TripBoard({
 
       <Dialog open={isPodPopupOpen} onOpenChange={setIsPodPopupOpen}>
         <DialogContent className="max-w-[800px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
-          <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
-            <DialogTitle className="text-white text-xs font-black uppercase tracking-widest">POD Registry Portal</DialogTitle></DialogHeader>
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest">POD Registry Portal</DialogTitle></DialogHeader>
           <div className="p-8 space-y-6 overflow-y-auto">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 bg-white p-4 border border-slate-200 shadow-sm">
               <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">Plant</span><span className="text-[11px] font-black uppercase">{selectedTripForPod?.plantCode}</span></div>
@@ -1289,8 +1287,7 @@ function TripBoard({
 
       <Dialog open={isVehiclePopupOpen} onOpenChange={setIsVehiclePopupOpen}>
         <DialogContent className="max-w-[600px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
-          <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
-            <DialogTitle className="text-white text-xs font-black uppercase tracking-widest">Vehicle Update Portal</DialogTitle></DialogHeader>
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest">Vehicle Update Portal</DialogTitle></DialogHeader>
           <div className="p-8 space-y-6">
             <div className="bg-white p-6 border border-slate-200 shadow-sm mb-4">
               <div className="grid grid-cols-2 gap-y-3 text-[10px] font-black uppercase">
@@ -1803,20 +1800,56 @@ function Tr24TrackShipmentScreenPlaceholder() {
 }
 
 function RegistryList({ onSelectItem, listData, activeScreen }: any) {
+  const isFM = activeScreen === 'FM02' || activeScreen === 'FM03';
+  const isXK = activeScreen === 'XK02' || activeScreen === 'XK03';
+  const isXD = activeScreen === 'XD02' || activeScreen === 'XD03';
+  const isVA = activeScreen === 'VA02' || activeScreen === 'VA03';
+  const isSU = activeScreen === 'SU02' || activeScreen === 'SU03';
+
+  let headers = ['Identifier', 'Name / Description', 'Updated'];
+  if (isFM) headers = ['Identifier', 'Company Code', 'Company Name', 'GSTIN', 'City'];
+  if (isXK) headers = ['Identifier', 'Vendor Name', 'Mobile', 'Route'];
+  if (isXD) headers = ['Identifier', 'Customer Name', 'City', 'GSTIN', 'Mobile'];
+  if (isVA) headers = ['Plant', 'Sale Order', 'Consignor', 'From', 'Consignee', 'Ship To Party', 'Destination', 'Weight'];
+  if (isSU) headers = ['Identifier', 'Username', 'Password', 'Authorized Plant'];
+
   return (
     <div className="bg-white border border-slate-300 overflow-hidden rounded-sm shadow-sm">
       <table className="w-full text-left border-collapse">
         <thead className="bg-slate-50 border-b border-slate-300 text-[10px] font-black uppercase tracking-widest">
-          <tr><th className="p-4 border-r border-slate-200 w-48">Identifier</th><th className="p-4 border-r border-slate-200">Name / Description</th><th className="p-4">Updated</th></tr>
+          <tr>
+            {headers.map((h, i) => (
+              <th key={i} className="p-4 border-r border-slate-200">{h}</th>
+            ))}
+            <th className="p-4">Updated</th>
+          </tr>
         </thead>
         <tbody>
-          {listData?.map((item: any) => (
-            <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-100 hover:bg-blue-50/50 cursor-pointer text-[11px] font-bold group">
-              <td className="p-4 border-r border-slate-200 text-[#0056d2] font-black">{item.plantCode || item.customerCode || item.saleOrder || item.username || item.id.slice(0, 8)}</td>
-              <td className="p-4 border-r border-slate-200 uppercase text-slate-700">{item.customerName || item.plantName || item.fullName || item.saleOrder}</td>
-              <td className="p-4 text-slate-400 font-medium">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy HH:mm')}</td>
-            </tr>
-          ))}
+          {listData?.map((item: any) => {
+            let cells = [];
+            if (isFM) {
+              cells = [item.id.slice(0,8), item.companyCode, item.companyName, item.gstin, item.city];
+            } else if (isXK) {
+              cells = [item.vendorCode, item.vendorName, item.mobile, item.route];
+            } else if (isXD) {
+              cells = [item.customerCode, item.customerName, item.city, item.gstin, item.mobile];
+            } else if (isVA) {
+              cells = [item.plantCode, item.saleOrder, item.consignor, item.from, item.consignee, item.shipToParty, item.destination, `${formatWeight(item.weight)} ${item.weightUom || 'MT'}`];
+            } else if (isSU) {
+              cells = [item.id.slice(0,8), item.username, '********', (item.plants || []).join(', ')];
+            } else {
+              cells = [item.plantCode || item.customerCode || item.saleOrder || item.username || item.id.slice(0, 8), item.customerName || item.plantName || item.fullName || item.saleOrder];
+            }
+
+            return (
+              <tr key={item.id} onClick={() => onSelectItem(item)} className="border-b border-slate-100 hover:bg-blue-50/50 cursor-pointer text-[11px] font-bold group">
+                {cells.map((c, i) => (
+                  <td key={i} className={cn("p-4 border-r border-slate-200 uppercase", i === 0 && "text-[#0056d2] font-black")}>{c}</td>
+                ))}
+                <td className="p-4 text-slate-400 font-medium whitespace-nowrap">{format(new Date(item.updatedAt || new Date()), 'dd-MM-yyyy HH:mm')}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -2260,7 +2293,7 @@ export default function DashboardPage() {
     }
   }, [activeScreen, formData, db, allOrders, accessibleCustomers, accessibleVendors, selectedTripForPreview, previewDeliveryAddress]);
 
-  const handleBack = () => { if (screenStack.length > 1) { const newStack = [...screenStack]; newStack.pop(); const prev = newStack[newStack.length - 1]; setScreenStack(newStack); setActiveScreen(prev); setFormData({}); } };
+  const handleBack = React.useCallback(() => { if (screenStack.length > 1) { const newStack = [...screenStack]; newStack.pop(); const prev = newStack[newStack.length - 1]; setScreenStack(newStack); setActiveScreen(prev); setFormData({}); } }, [screenStack]);
   
   const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -2296,6 +2329,24 @@ export default function DashboardPage() {
 
   const getRegistryList = () => { if (activeScreen.startsWith('OX')) return accessiblePlants; if (activeScreen.startsWith('FM')) return accessibleCompanies; if (activeScreen.startsWith('XK')) return accessibleVendors; if (activeScreen.startsWith('XD')) return accessibleCustomers; if (activeScreen.startsWith('VA')) return allOrders; if (activeScreen.startsWith('SU')) return accessibleUsers; return []; };
   const handleSearchIdEnter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { const item = getRegistryList().find((i: any) => (i.plantCode || i.customerCode || i.saleOrder || i.username || i.id).toString().toUpperCase() === searchId.toUpperCase()); if (item) { setFormData(item); setStatusMsg({ text: 'Record Loaded', type: 'success' }); } else setStatusMsg({ text: 'Not Found', type: 'error' }); } };
+
+  // Global Keyboard Shortcut Support
+  React.useEffect(() => {
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      if (e.key === 'F3') {
+        e.preventDefault();
+        handleBack();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (activeScreen === 'FM02' || activeScreen === 'FM03') {
+          handleSave();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalShortcuts);
+    return () => window.removeEventListener('keydown', handleGlobalShortcuts);
+  }, [handleBack, handleSave, activeScreen]);
 
   // --- MONTH PICKER COMPONENT ---
   const MonthPicker = () => {
@@ -2341,7 +2392,7 @@ export default function DashboardPage() {
         <div className="flex items-center px-2 py-1 gap-4">
           <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">{logoAsset && <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized />}</div>
           <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner relative"><button onClick={() => executeTCode(tCode)} className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100">✓</button><input ref={tCodeRef} type="text" value={tCode} onChange={e => setTCode(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') executeTCode(tCode); }} onClick={() => history.length > 0 && setShowHistory(true)} onBlur={() => setTimeout(() => setShowHistory(false), 200)} className="w-48 outline-none text-xs px-1 font-bold tracking-wider" placeholder="T-CODE..." />{showHistory && (<div className="absolute top-full left-0 w-full bg-white border border-slate-400 shadow-md z-[60]">{history.map((h, i) => <div key={i} onClick={() => executeTCode(h)} className="px-4 py-1.5 text-xs font-bold cursor-pointer hover:bg-blue-50">{h}</div>)}</div>)}</div>
-          <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7"><button onClick={handleSave} className="p-1 hover:bg-slate-200 rounded" title="Save (F8)"><Save className="h-4 w-4 text-slate-600" /></button><button onClick={handleBack} className="p-1 hover:bg-slate-200 rounded" title="Back (F3)"><Undo2 className="h-4 w-4 text-slate-600" /></button><button onClick={() => setFormData({})} className="p-1 hover:bg-slate-200 rounded" title="Clear (F12)"><XCircle className="h-4 w-4 text-slate-600" /></button>{activeScreen === 'TR21' && selectedTripForPreview && (<button onClick={() => setIsPdfPreviewOpen(true)} className="p-1 hover:bg-slate-200 rounded" title="CN Print Preview"><Printer className="h-4 w-4 text-blue-600" /></button>)}</div>
+          <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7"><button onClick={handleSave} className="p-1 hover:bg-slate-200 rounded" title="Save (Ctrl+S / F8)"><Save className="h-4 w-4 text-slate-600" /></button><button onClick={handleBack} className="p-1 hover:bg-slate-200 rounded" title="Back (F3)"><Undo2 className="h-4 w-4 text-slate-600" /></button><button onClick={() => setFormData({})} className="p-1 hover:bg-slate-200 rounded" title="Clear (F12)"><XCircle className="h-4 w-4 text-slate-600" /></button>{activeScreen === 'TR21' && selectedTripForPreview && (<button onClick={() => setIsPdfPreviewOpen(true)} className="p-1 hover:bg-slate-200 rounded" title="CN Print Preview"><Printer className="h-4 w-4 text-blue-600" /></button>)}</div>
           <div className="flex-1" /><div className="flex items-center gap-3 pr-4">{(activeScreen === 'VA01' || activeScreen === 'XD01') && (<div className="flex items-center gap-2 mr-4"><input type="file" ref={bulkInputRef} onChange={handleBulkUpload} className="hidden" accept=".csv" /><button onClick={handleDownloadTemplate} className="px-3 h-7 bg-white border border-slate-300 rounded text-[9px] font-black uppercase">Template</button><button onClick={() => bulkInputRef.current?.click()} className="px-3 h-7 bg-[#1e3a8a] text-white rounded text-[9px] font-black uppercase shadow-sm">Bulk Upload</button></div>)}<button onClick={() => { localStorage.removeItem('sap_bootstrap_session'); router.push('/login'); }} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700 transition-all"><LogOut className="h-3.5 w-3.5" /> Log Off</button></div>
         </div>
       </div>
@@ -2478,4 +2529,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
