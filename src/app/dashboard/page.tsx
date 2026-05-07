@@ -388,7 +388,13 @@ function CancelOrderForm({ data, onChange, allOrders, allTrips, onPost, onCancel
 
 // --- LOGISTICAL MODULES ---
 
-function TripBoard({ orders, trips, vendors, plants, companies, customers, onStatusUpdate, viewMode, setViewMode, trackingNode, setTrackingNode, settings, isPdfPreviewOpen, setIsPdfPreviewOpen, selectedTripForPreview, setSelectedTripForPreview, previewDeliveryAddress, setPreviewDeliveryAddress, isAddressEditable, setIsAddressEditable, isAddressDirty, setIsAddressDirty }: any) {
+function TripBoard({ 
+  orders, trips, vendors, plants, companies, customers, onStatusUpdate, 
+  viewMode, setViewMode, trackingNode, setTrackingNode, settings,
+  isPdfPreviewOpen, setIsPdfPreviewOpen, selectedTripForPreview, setSelectedTripForPreview, 
+  previewDeliveryAddress, setPreviewDeliveryAddress, isAddressEditable, setIsAddressEditable, 
+  isAddressDirty, setIsAddressDirty 
+}: any) {
   const db = useFirestore(); 
   const [activeTab, setActiveTab] = React.useState('Open Orders'); 
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null); 
@@ -415,7 +421,6 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
   const [isCnPopupOpen, setIsCnPopupOpen] = React.useState(false); 
   const [selectedTripForCn, setSelectedTripForCn] = React.useState<any>(null); 
   const [cnFormData, setCnFormData] = React.useState<any>({ items: [{ invoiceNo: '', ewaybillNo: '', product: '', unit: '', uom: 'Bag' }] });
-  const [zoomScale, setZoomScale] = React.useState(1); 
   const [gpsData, setGpsData] = React.useState<any[]>([]);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -457,9 +462,6 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
     onStatusUpdate({ text: `Trip ${t.tripId} Selected for Print. Execute via Toolbar.`, type: 'info' });
   };
 
-  const handlePrintPdf = () => { if (isAddressDirty) return; window.print(); };
-  const handleDownloadPdf = () => { if (isAddressDirty) return; const link = document.createElement('a'); link.href = '#'; link.download = `${selectedTripForPreview?.cnNo || 'CN'}.pdf`; link.click(); };
-
   return (
     <div className="flex flex-col h-full space-y-0">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-4 print:hidden flex items-center justify-between"><h2 className="text-[16px] font-bold text-slate-800 uppercase">TRIP BOARD CONTROL</h2><div className="flex gap-4"><input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="h-8 border border-slate-300 px-2 text-[10px] font-black" /><input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="h-8 border border-slate-300 px-2 text-[10px] font-black" /></div></div>
@@ -469,7 +471,21 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           <table className="w-full text-left border-collapse min-w-[1200px]">
             <thead>
               <tr className="bg-[#f0f0f0] text-[9px] font-black uppercase sticky top-0 z-10 border-b border-slate-300">
-                {activeTab === 'Open Orders' ? ['Plant', 'Sale Order / Date Time', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200"><div>{h.split(' / ')[0]}</div>{h.includes(' / ') && <div>{h.split(' / ')[1]}</div>}</th>) : ['Plant', 'Trip ID / Date Time', 'Sale Order / Date Time', 'Ship to Party', 'Route', 'Vehicle No / Driver Mobile', 'Vendor Name / ARRANGE BY', 'Assign Qty', 'CN Number', 'Action'].map(h => <th key={h} className="p-3 border-r border-slate-200"><div>{h.split(' / ')[0]}</div>{h.includes(' / ') && <div>{h.split(' / ')[1]}</div>}</th>)}
+                {activeTab === 'Open Orders' ? [
+                  'Plant', 'Sale Order / Date Time', 'Consignor', 'Consignee', 'Ship to Party', 'Route', 'Order Qty', 'Assign Qty', 'Balance Qty', 'Action'
+                ].map(h => (
+                  <th key={h} className="p-3 border-r border-slate-200">
+                    <div>{h.split(' / ')[0]}</div>
+                    {h.includes(' / ') && <div>{h.split(' / ')[1]}</div>}
+                  </th>
+                )) : [
+                  'Plant', 'Trip ID / Date Time', 'Sale Order / Date Time', 'Ship to Party', 'Route', 'Vehicle No / Driver Mobile', 'Vendor Name / ARRANGE BY', 'Assign Qty', 'CN Number', 'Action'
+                ].map(h => (
+                  <th key={h} className="p-3 border-r border-slate-200">
+                    <div>{h.split(' / ')[0]}</div>
+                    {h.includes(' / ') && <div>{h.split(' / ')[1]}</div>}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>{filteredData.map((item: any) => {
@@ -512,100 +528,6 @@ function TripBoard({ orders, trips, vendors, plants, companies, customers, onSta
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* --- Adobe Reader Style Preview Hub --- */}
-      {isPdfPreviewOpen && selectedTripForPreview && (
-        <div className="fixed inset-0 z-[200] bg-[#525659] flex flex-col font-mono animate-fade-in overflow-hidden">
-           <div className="bg-[#c5e0b4] border-b border-slate-400 h-9 flex items-center justify-between px-4 shrink-0">
-             <div className="text-[11px] font-black uppercase tracking-widest text-[#1e3a8a]">PDF Preview Portal</div>
-             <button onClick={() => setIsPdfPreviewOpen(false)} className="text-slate-600 hover:text-red-600 transition-colors"><X className="h-4 w-4" /></button>
-           </div>
-           <div className="bg-[#323639] h-10 flex items-center justify-between px-8 shrink-0 shadow-lg">
-             <div className="flex items-center gap-6">
-                <span className="text-white text-[11px] font-bold">1 of 3</span>
-                <div className="h-4 w-px bg-white/20" />
-                <div className="flex items-center gap-3">
-                   <button onClick={() => setZoomScale(s => Math.max(0.5, s - 0.1))} className="text-white/70 hover:text-white"><ChevronLeft className="h-4 w-4" /></button>
-                   <span className="text-white text-[11px] font-bold w-12 text-center">{Math.round(zoomScale * 100)}%</span>
-                   <button onClick={() => setZoomScale(s => Math.min(2, s + 0.1))} className="text-white/70 hover:text-white"><ChevronRight className="h-4 w-4" /></button>
-                </div>
-             </div>
-             <div className="flex items-center gap-6">
-                <button className="text-white/70 hover:text-white"><Search className="h-4 w-4" /></button>
-                <button onClick={handlePrintPdf} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Printer className="h-4 w-4" /></button>
-                <button onClick={handleDownloadPdf} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Download className="h-4 w-4" /></button>
-             </div>
-           </div>
-           <div className="flex-1 overflow-auto p-12 flex justify-center custom-scrollbar">
-             <div style={{ transform: `scale(${zoomScale})`, transformOrigin: 'top center' }} className="transition-transform duration-200">
-               {[...Array(3)].map((_, i) => {
-                 const copyLabel = i === 0 ? 'CONSIGNEE COPY' : i === 1 ? 'DRIVER COPY' : 'CONSIGNOR COPY';
-                 const tableItems = selectedTripForPreview.cnItems || [];
-                 const totalUnits = tableItems.reduce((acc: number, itm: any) => acc + (parseFloat(itm.unit) || 0), 0);
-                 const uoms = Array.from(new Set(tableItems.map((itm: any) => itm.uom).filter(Boolean)));
-                 const pkgDisplay = uoms.length > 1 ? `${totalUnits} Combined` : `${totalUnits} ${uoms[0] || 'MT'}`;
-                 return (
-                   <div key={i} className={cn("w-[210mm] min-h-[297mm] p-[10mm] bg-white shadow-2xl mb-8 relative border border-black", i < 2 && "print:page-break-after-always")}>
-                      <div className="flex justify-between items-start mb-6">
-                        <div className="flex gap-4">
-                          {selectedTripForPreview.carrier?.logo && <Image src={selectedTripForPreview.carrier.logo} alt="Logo" width={60} height={60} className="object-contain" unoptimized />}
-                          <div className="flex flex-col">
-                            <h1 className="text-[26px] font-black uppercase italic tracking-tighter leading-none">{selectedTripForPreview.carrier?.companyName || 'CARRIER NAME'}</h1>
-                            <p className="text-[10px] font-bold mt-2 uppercase">{selectedTripForPreview.carrier?.address}, {selectedTripForPreview.carrier?.city}</p>
-                            <div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>Mobile: {selectedTripForPreview.carrier?.mobile}</span><span>Email: {selectedTripForPreview.carrier?.email}</span></div>
-                            <div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>GSTIN: {selectedTripForPreview.carrier?.gstin}</span><span>PAN: {selectedTripForPreview.carrier?.pan || 'N/A'}</span></div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="border border-black px-4 py-1.5 inline-block mb-4"><span className="text-[12px] font-black uppercase">{copyLabel}</span></div>
-                          <p className="text-[16px] font-black uppercase">CN No: {selectedTripForPreview.cnNo}</p>
-                          <p className="text-[10px] font-bold uppercase mt-1">Date: {format(new Date(selectedTripForPreview.cnDate || new Date()), 'dd-MMM-yyyy')}</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-0 mb-6 border border-black h-32">
-                         {[
-                           { title: 'CONSIGNOR', master: selectedTripForPreview.consignorMaster, fallback: selectedTripForPreview.order?.consignor },
-                           { title: 'CONSIGNEE', master: selectedTripForPreview.consigneeMaster, fallback: selectedTripForPreview.order?.consignee },
-                           { title: 'SHIP TO PARTY', master: selectedTripForPreview.shipToMaster, fallback: selectedTripForPreview.shipToParty }
-                         ].map((c, idx) => (
-                           <div key={idx} className="flex flex-col border-r last:border-0 border-black p-3">
-                              <p className="text-[10px] font-black uppercase text-center border-b border-black pb-1 mb-2">{c.title}</p>
-                              <div className="flex-1 flex flex-col items-center justify-center space-y-0.5">
-                                <p className="text-[11px] font-black uppercase truncate text-center">{c.master?.customerName || c.fallback}</p>
-                                <p className="text-[9px] font-bold uppercase leading-relaxed text-slate-700 line-clamp-2 text-center">{c.master?.address || 'REGISTERED ADDRESS'}</p>
-                                <div className="mt-1 flex flex-col items-center space-y-0">
-                                   <span className="text-[9px] font-bold">Mobile: {c.master?.mobile || '-'}</span>
-                                   <span className="text-[9px] font-bold">GSTIN: {c.master?.gstin || 'N/A'}</span>
-                                </div>
-                              </div>
-                           </div>
-                         ))}
-                      </div>
-                      <div className="flex-1">
-                        <table className="w-full border-collapse border border-black">
-                          <thead><tr className="bg-slate-100 text-[10px] font-black uppercase h-8"><th className="border border-black p-2 w-[120px]">Invoice No</th><th className="border border-black p-2 w-[144px]">E-waybill No</th><th className="border border-black p-2 text-left w-[310px]">Description</th><th className="border border-black p-2 w-[96px]">Package</th><th className="border border-black p-2 w-[96px]">Weight</th></tr></thead>
-                          <tbody>{tableItems.map((itm: any, idx: number) => (<tr key={idx} className="text-[10px] font-bold uppercase h-10 border-b border-black"><td className="p-2 text-center">{itm.invoiceNo}</td><td className="p-2 text-center">{itm.ewaybillNo}</td><td className="p-2">{itm.product}</td><td className="p-2 text-center">{itm.unit}</td><td className="p-2 text-center">{selectedTripForPreview.assignWeight}</td></tr>))}</tbody>
-                          <tfoot className="bg-slate-50 font-black h-8"><tr className="border-t border-black"><td colSpan={3} className="p-2 text-right uppercase text-[10px]">Gross Total:</td><td className="p-2 text-center text-[11px] border-l border-black">{pkgDisplay}</td><td className="p-2 text-center text-[11px] border-l border-black">{selectedTripForPreview.assignWeight} {selectedTripForPreview.weightUom}</td></tr></tfoot>
-                        </table>
-                        <div className="mt-4 border border-black">
-                           <div className="bg-slate-50 border-b border-black p-1"><p className="text-[10px] font-black uppercase">Delivery Address:</p></div>
-                           <div className="p-3 min-h-[60px] relative group">
-                              {isAddressEditable ? <textarea value={previewDeliveryAddress} onChange={e => { setPreviewDeliveryAddress(e.target.value); setIsAddressDirty(true); }} className="w-full h-full text-[10px] font-bold uppercase outline-none bg-yellow-50 resize-none" /> : <p className="text-[10px] font-bold uppercase leading-relaxed pr-10">{previewDeliveryAddress}</p>}
-                              <button onClick={() => setIsAddressEditable(true)} className="absolute top-2 right-2 p-1 text-[#1e3a8a] opacity-0 group-hover:opacity-100 print:hidden"><Edit3 className="h-3 w-3" /></button>
-                           </div>
-                        </div>
-                      </div>
-                      <div className="mt-8 flex items-end justify-between px-2">
-                        <div className="flex-1 max-w-[65%] text-[8px] font-bold text-slate-500 uppercase italic">Notes – Terms and conditions as per company registry. Original copy for record.</div>
-                        <div className="text-right pb-10"><p className="text-[11px] font-black uppercase border-t border-black pt-2 px-6 inline-block">Authorized Signatory</p></div>
-                      </div>
-                   </div>
-                 );
-               })}
-             </div>
-           </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -796,6 +718,9 @@ export default function DashboardPage() {
   const getRegistryList = () => { if (activeScreen.startsWith('OX')) return accessiblePlants; if (activeScreen.startsWith('FM')) return accessibleCompanies; if (activeScreen.startsWith('XK')) return accessibleVendors; if (activeScreen.startsWith('XD')) return accessibleCustomers; if (activeScreen.startsWith('VA')) return allOrders; if (activeScreen.startsWith('SU')) return accessibleUsers; return []; };
   const handleSearchIdEnter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { const item = getRegistryList().find((i: any) => (i.plantCode || i.customerCode || i.saleOrder || i.username || i.id).toString().toUpperCase() === searchId.toUpperCase()); if (item) { setFormData(item); setStatusMsg({ text: 'Record Loaded', type: 'success' }); } else setStatusMsg({ text: 'Not Found', type: 'error' }); } };
 
+  const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
+  const isReadOnly = activeScreen.endsWith('03');
+
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
       {/* --- Top Global Bar --- */}
@@ -917,6 +842,101 @@ export default function DashboardPage() {
         </div>
         {greeting && <div className="shrink-0 ml-4 hidden sm:block text-blue-400 italic">{greeting}</div>}
       </div>
+
+      {/* --- Adobe Reader Style Preview Hub --- */}
+      {isPdfPreviewOpen && selectedTripForPreview && (
+        <div className="fixed inset-0 z-[200] bg-[#525659] flex flex-col font-mono animate-fade-in overflow-hidden">
+           <div className="bg-[#c5e0b4] border-b border-slate-400 h-9 flex items-center justify-between px-4 shrink-0">
+             <div className="text-[11px] font-black uppercase tracking-widest text-[#1e3a8a]">PDF Preview Portal</div>
+             <button onClick={() => setIsPdfPreviewOpen(false)} className="text-slate-600 hover:text-red-600 transition-colors"><X className="h-4 w-4" /></button>
+           </div>
+           <div className="bg-[#323639] h-10 flex items-center justify-between px-8 shrink-0 shadow-lg">
+             <div className="flex items-center gap-6">
+                <span className="text-white text-[11px] font-bold">1 of 3</span>
+                <div className="h-4 w-px bg-white/20" />
+                <div className="flex items-center gap-3">
+                   {/* Zoom buttons could be implemented with scale state if needed */}
+                   <button className="text-white/70 hover:text-white"><ChevronLeft className="h-4 w-4" /></button>
+                   <span className="text-white text-[11px] font-bold w-12 text-center">100%</span>
+                   <button className="text-white/70 hover:text-white"><ChevronRight className="h-4 w-4" /></button>
+                </div>
+             </div>
+             <div className="flex items-center gap-6">
+                <button className="text-white/70 hover:text-white"><Search className="h-4 w-4" /></button>
+                <button onClick={() => window.print()} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Printer className="h-4 w-4" /></button>
+                <button disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Download className="h-4 w-4" /></button>
+             </div>
+           </div>
+           <div className="flex-1 overflow-auto p-12 flex justify-center custom-scrollbar">
+             <div className="transition-transform duration-200">
+               {[...Array(3)].map((_, i) => {
+                 const copyLabel = i === 0 ? 'CONSIGNEE COPY' : i === 1 ? 'DRIVER COPY' : 'CONSIGNOR COPY';
+                 const tableItems = selectedTripForPreview.cnItems || [];
+                 const totalUnits = tableItems.reduce((acc: number, itm: any) => acc + (parseFloat(itm.unit) || 0), 0);
+                 const uoms = Array.from(new Set(tableItems.map((itm: any) => itm.uom).filter(Boolean)));
+                 const pkgDisplay = uoms.length > 1 ? `${totalUnits} Combined` : `${totalUnits} ${uoms[0] || 'MT'}`;
+                 return (
+                   <div key={i} className={cn("w-[210mm] min-h-[297mm] p-[10mm] bg-white shadow-2xl mb-8 relative border border-black", i < 2 && "print:page-break-after-always")}>
+                      <div className="flex justify-between items-start mb-6">
+                        <div className="flex gap-4">
+                          {selectedTripForPreview.carrier?.logo && <Image src={selectedTripForPreview.carrier.logo} alt="Logo" width={60} height={60} className="object-contain" unoptimized />}
+                          <div className="flex flex-col">
+                            <h1 className="text-[26px] font-black uppercase italic tracking-tighter leading-none">{selectedTripForPreview.carrier?.companyName || 'CARRIER NAME'}</h1>
+                            <p className="text-[10px] font-bold mt-2 uppercase">{selectedTripForPreview.carrier?.address}, {selectedTripForPreview.carrier?.city}</p>
+                            <div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>Mobile: {selectedTripForPreview.carrier?.mobile}</span><span>Email: {selectedTripForPreview.carrier?.email}</span></div>
+                            <div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>GSTIN: {selectedTripForPreview.carrier?.gstin}</span><span>PAN: {selectedTripForPreview.carrier?.pan || 'N/A'}</span></div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="border border-black px-4 py-1.5 inline-block mb-4"><span className="text-[12px] font-black uppercase">{copyLabel}</span></div>
+                          <p className="text-[16px] font-black uppercase">CN No: {selectedTripForPreview.cnNo}</p>
+                          <p className="text-[10px] font-bold uppercase mt-1">Date: {format(new Date(selectedTripForPreview.cnDate || new Date()), 'dd-MMM-yyyy')}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-0 mb-6 border border-black h-32">
+                         {[
+                           { title: 'CONSIGNOR', master: selectedTripForPreview.consignorMaster, fallback: selectedTripForPreview.order?.consignor },
+                           { title: 'CONSIGNEE', master: selectedTripForPreview.consigneeMaster, fallback: selectedTripForPreview.order?.consignee },
+                           { title: 'SHIP TO PARTY', master: selectedTripForPreview.shipToMaster, fallback: selectedTripForPreview.shipToParty }
+                         ].map((c, idx) => (
+                           <div key={idx} className="flex flex-col border-r last:border-0 border-black p-3">
+                              <p className="text-[10px] font-black uppercase text-center border-b border-black pb-1 mb-2">{c.title}</p>
+                              <div className="flex-1 flex flex-col items-center justify-center space-y-0.5">
+                                <p className="text-[11px] font-black uppercase truncate text-center">{c.master?.customerName || c.fallback}</p>
+                                <p className="text-[9px] font-bold uppercase leading-relaxed text-slate-700 line-clamp-2 text-center">{c.master?.address || 'REGISTERED ADDRESS'}</p>
+                                <div className="mt-1 flex flex-col items-center space-y-0">
+                                   <span className="text-[9px] font-bold">Mobile: {c.master?.mobile || '-'}</span>
+                                   <span className="text-[9px] font-bold">GSTIN: {c.master?.gstin || 'N/A'}</span>
+                                </div>
+                              </div>
+                           </div>
+                         ))}
+                      </div>
+                      <div className="flex-1">
+                        <table className="w-full border-collapse border border-black">
+                          <thead><tr className="bg-slate-100 text-[10px] font-black uppercase h-8"><th className="border border-black p-2 w-[120px]">Invoice No</th><th className="border border-black p-2 w-[144px]">E-waybill No</th><th className="border border-black p-2 text-left w-[310px]">Description</th><th className="border border-black p-2 w-[96px]">Package</th><th className="border border-black p-2 w-[96px]">Weight</th></tr></thead>
+                          <tbody>{tableItems.map((itm: any, idx: number) => (<tr key={idx} className="text-[10px] font-bold uppercase h-10 border-b border-black"><td className="p-2 text-center">{itm.invoiceNo}</td><td className="p-2 text-center">{itm.ewaybillNo}</td><td className="p-2">{itm.product}</td><td className="p-2 text-center">{itm.unit}</td><td className="p-2 text-center">{selectedTripForPreview.assignWeight}</td></tr>))}</tbody>
+                          <tfoot className="bg-slate-50 font-black h-8"><tr className="border-t border-black"><td colSpan={3} className="p-2 text-right uppercase text-[10px]">Gross Total:</td><td className="p-2 text-center text-[11px] border-l border-black">{pkgDisplay}</td><td className="p-2 text-center text-[11px] border-l border-black">{selectedTripForPreview.assignWeight} {selectedTripForPreview.weightUom}</td></tr></tfoot>
+                        </table>
+                        <div className="mt-4 border border-black">
+                           <div className="bg-slate-50 border-b border-black p-1"><p className="text-[10px] font-black uppercase">Delivery Address:</p></div>
+                           <div className="p-3 min-h-[60px] relative group">
+                              {isAddressEditable ? <textarea value={previewDeliveryAddress} onChange={e => { setPreviewDeliveryAddress(e.target.value); setIsAddressDirty(true); }} className="w-full h-full text-[10px] font-bold uppercase outline-none bg-yellow-50 resize-none" /> : <p className="text-[10px] font-bold uppercase leading-relaxed pr-10">{previewDeliveryAddress}</p>}
+                              <button onClick={() => setIsAddressEditable(true)} className="absolute top-2 right-2 p-1 text-[#1e3a8a] opacity-0 group-hover:opacity-100 print:hidden"><Edit3 className="h-3 w-3" /></button>
+                           </div>
+                        </div>
+                      </div>
+                      <div className="mt-8 flex items-end justify-between px-2">
+                        <div className="flex-1 max-w-[65%] text-[8px] font-bold text-slate-500 uppercase italic">Notes – Terms and conditions as per company registry. Original copy for record.</div>
+                        <div className="text-right pb-10"><p className="text-[11px] font-black uppercase border-t border-black pt-2 px-6 inline-block">Authorized Signatory</p></div>
+                      </div>
+                   </div>
+                 );
+               })}
+             </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 }
