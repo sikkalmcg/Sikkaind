@@ -392,9 +392,7 @@ function CancelOrderForm({ data, onChange, allOrders, allTrips, onPost, onCancel
 function TripBoard({ 
   orders, trips, vendors, plants, companies, customers, onStatusUpdate, 
   viewMode, setViewMode, trackingNode, setTrackingNode, settings,
-  isPdfPreviewOpen, setIsPdfPreviewOpen, selectedTripForPreview, setSelectedTripForPreview, 
-  previewDeliveryAddress, setPreviewDeliveryAddress, isAddressEditable, setIsAddressEditable, 
-  isAddressDirty, setIsAddressDirty 
+  onOpenPdfPreview
 }: any) {
   const db = useFirestore(); 
   const [activeTab, setActiveTab] = React.useState('Open Orders'); 
@@ -424,12 +422,8 @@ function TripBoard({
   const [cnFormData, setCnFormData] = React.useState<any>({ items: [{ invoice: '', ewaybill: '', description: '', package: '', uom: 'BAG' }] });
   const [isUnassignDialogOpen, setIsUnassignDialogOpen] = React.useState(false);
   const [tripToUnassign, setTripToUnassign] = React.useState<any>(null);
-  const [gpsData, setGpsData] = React.useState<any[]>([]);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  const fetchGps = React.useCallback(async () => { try { const res = await fetch('/api/gps'); if (res.ok) { const json = await res.json(); if (json?.data?.list) setGpsData(json.data.list); } } catch (e) {} }, []);
-  React.useEffect(() => { fetchGps(); const i = setInterval(fetchGps, 30000); return () => clearInterval(i); }, [fetchGps]);
 
   const handlePodFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader();
@@ -472,69 +466,23 @@ function TripBoard({
     setIsPopupOpen(true); 
   };
 
-  const handleAssignmentClick = (t: any) => { 
-    setSelectedTripForAssignment(t); 
-    setAssignmentMode('edit'); 
-    setAssignData({ ...t }); 
-    setIsAssignmentPopupOpen(true); 
-  };
-
   const handleCreateTrip = () => { 
-    if (!assignData.vehicleNumber) { 
-      onStatusUpdate({ text: 'Error: Vehicle No Required', type: 'error' }); 
-      return; 
-    } 
+    if (!assignData.vehicleNumber) { onStatusUpdate({ text: 'Error: Vehicle No Required', type: 'error' }); return; } 
     const tid = `T${Math.floor(100000000 + Math.random() * 900000000)}`; 
     const docId = crypto.randomUUID(); 
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', docId), { 
-      ...assignData, 
-      id: docId, 
-      tripId: tid, 
-      saleOrderId: selectedOrder.id, 
-      saleOrderNumber: selectedOrder.saleOrder, 
-      status: 'LOADING', 
-      createdAt: new Date().toISOString() 
-    }, { merge: true }); 
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', docId), { ...assignData, id: docId, tripId: tid, saleOrderId: selectedOrder.id, saleOrderNumber: selectedOrder.saleOrder, status: 'LOADING', createdAt: new Date().toISOString() }, { merge: true }); 
     setIsPopupOpen(false); 
     onStatusUpdate({ text: `Trip ${tid} Created`, type: 'success' }); 
   };
 
-  const handleAssignmentPost = () => { 
-    if (assignmentMode === 'unassign') { 
-      if (!unassignRemark) { 
-        onStatusUpdate({ text: 'Error: Remark Required', type: 'error' }); 
-        return; 
-      } 
-      deleteDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id)); 
-      setIsAssignmentPopupOpen(false); 
-      onStatusUpdate({ text: 'Trip Unassigned', type: 'success' }); 
-      return; 
-    } 
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForAssignment.id), { ...assignData, updatedAt: new Date().toISOString() }, { merge: true }); 
-    setIsAssignmentPopupOpen(false); 
-    onStatusUpdate({ text: 'Assignment Updated', type: 'success' }); 
-  };
-
   const handleOutVehicle = (t: any) => { 
-    if (!t.cnNo) {
-      onStatusUpdate({ text: 'CN Number required before Out process.', type: 'error' });
-      return;
-    }
-    setOutData({ 
-      trip: t, 
-      date: format(new Date(), 'yyyy-MM-dd'), 
-      time: format(new Date(), 'HH:mm') 
-    }); 
+    if (!t.cnNo) { onStatusUpdate({ text: 'CN Number required before Out process.', type: 'error' }); return; }
+    setOutData({ trip: t, date: format(new Date(), 'yyyy-MM-dd'), time: format(new Date(), 'HH:mm') }); 
     setIsOutPopupOpen(true); 
   };
 
   const handleOutPost = () => {
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', outData.trip.id), {
-      status: 'IN-TRANSIT',
-      outDate: outData.date,
-      outTime: outData.time,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', outData.trip.id), { status: 'IN-TRANSIT', outDate: outData.date, outTime: outData.time, updatedAt: new Date().toISOString() }, { merge: true });
     setIsOutPopupOpen(false);
     onStatusUpdate({ text: 'Vehicle Dispatched (In-Transit)', type: 'success' });
   };
@@ -546,61 +494,20 @@ function TripBoard({
   const handleAddCn = (t: any) => { 
     setSelectedTripForCn(t); 
     if (t.cnNo) {
-      // Edit Mode
-      setCnFormData({ 
-        cnNo: t.cnNo || '', 
-        cnDate: t.cnDate || format(new Date(), 'yyyy-MM-dd'), 
-        items: t.cnItems || [{ invoice: '', ewaybill: '', description: '', package: '', uom: 'BAG' }] 
-      }); 
+      setCnFormData({ cnNo: t.cnNo || '', cnDate: t.cnDate || format(new Date(), 'yyyy-MM-dd'), items: t.cnItems || [{ invoice: '', ewaybill: '', description: '', package: '', uom: 'BAG' }] }); 
     } else {
-      // New Entry Mode
-      setCnFormData({ 
-        cnNo: '', 
-        cnDate: format(new Date(), 'yyyy-MM-dd'), 
-        items: [{ invoice: '', ewaybill: '', description: '', package: '', uom: 'BAG' }] 
-      });
+      setCnFormData({ cnNo: '', cnDate: format(new Date(), 'yyyy-MM-dd'), items: [{ invoice: '', ewaybill: '', description: '', package: '', uom: 'BAG' }] });
     }
     setIsCnPopupOpen(true); 
   };
 
   const handleCnPost = () => { 
-    if (!cnFormData.cnNo) {
-      onStatusUpdate({ text: 'Error: CN Number Required', type: 'error' });
-      return;
-    }
-    
-    // High Priority Validation: Duplicate CN
-    const isDuplicate = trips.some((t: any) => 
-      t.cnNo?.toUpperCase() === cnFormData.cnNo.toUpperCase() && 
-      t.id !== selectedTripForCn.id
-    );
-    
-    if (isDuplicate) {
-      onStatusUpdate({ text: 'Duplicate CN Number is not allowed.', type: 'error' });
-      return;
-    }
-
-    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForCn.id), { 
-      cnNo: cnFormData.cnNo.toUpperCase(), 
-      cnDate: cnFormData.cnDate, 
-      cnItems: cnFormData.items, 
-      updatedAt: new Date().toISOString() 
-    }, { merge: true }); 
-    
+    if (!cnFormData.cnNo) { onStatusUpdate({ text: 'Error: CN Number Required', type: 'error' }); return; }
+    const isDuplicate = trips.some((t: any) => t.cnNo?.toUpperCase() === cnFormData.cnNo.toUpperCase() && t.id !== selectedTripForCn.id);
+    if (isDuplicate) { onStatusUpdate({ text: 'Duplicate CN Number is not allowed.', type: 'error' }); return; }
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForCn.id), { cnNo: cnFormData.cnNo.toUpperCase(), cnDate: cnFormData.cnDate, cnItems: cnFormData.items, updatedAt: new Date().toISOString() }, { merge: true }); 
     setIsCnPopupOpen(false); 
     onStatusUpdate({ text: cnFormData.cnNo ? 'CN Registry Updated' : 'CN Registered', type: 'success' }); 
-  };
-
-  const handleCnClick = (t: any) => {
-    const order = (orders || []).find((o: any) => o.id === t.saleOrderId);
-    const carrier = (companies || []).find((c: any) => c.plantCodes?.includes(t.plantCode));
-    const findCust = (name: string) => (customers || []).find((c: any) => c.customerName?.toUpperCase() === name?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === name?.toUpperCase());
-    const previewData = { ...t, order, carrier, consignorMaster: findCust(order?.consignor), consigneeMaster: findCust(order?.consignee), shipToMaster: findCust(order?.shipToParty) };
-    setSelectedTripForPreview(previewData);
-    const fullShipToAddr = [previewData.shipToMaster?.address, previewData.shipToMaster?.city, previewData.shipToMaster?.postalCode].filter(Boolean).join(', ');
-    setPreviewDeliveryAddress(t.deliveryAddress || fullShipToAddr || order?.deliveryAddress || '');
-    setIsAddressEditable(false); setIsAddressDirty(false);
-    onStatusUpdate({ text: `Trip ${t.tripId} Selected for Print. Execute via Toolbar.`, type: 'info' });
   };
 
   const handleConfirmUnassign = () => {
@@ -609,6 +516,14 @@ function TripBoard({
       setIsUnassignDialogOpen(false);
       onStatusUpdate({ text: 'Trip Assignment Cancelled', type: 'success' });
     }
+  };
+
+  const handleCnClick = (t: any) => {
+    const order = (orders || []).find((o: any) => o.id === t.saleOrderId);
+    const carrier = (companies || []).find((c: any) => c.plantCodes?.includes(t.plantCode));
+    const findCust = (name: string) => (customers || []).find((c: any) => c.customerName?.toUpperCase() === name?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === name?.toUpperCase());
+    const previewData = { ...t, order, carrier, consignorMaster: findCust(order?.consignor), consigneeMaster: findCust(order?.consignee), shipToMaster: findCust(order?.shipToParty) };
+    onOpenPdfPreview(previewData);
   };
 
   return (
@@ -659,16 +574,14 @@ function TripBoard({
               if (activeTab === 'Open Orders') {
                 return <tr key={item.id} className="border-b border-slate-100 text-[11px] font-bold"><td className="p-3">{item.plantCode}</td><td className="p-3"><div className="text-[#0056d2] font-black">{item.saleOrder}</div><div className="text-slate-400">{format(new Date(item.saleOrderDate || item.createdAt), 'dd-MM-yy HH:mm')}</div></td><td className="p-3 uppercase">{item.consignor}</td><td className="p-3 uppercase">{item.consignee}</td><td className="p-3 uppercase">{item.shipToParty}</td><td className="p-3 uppercase">{item.route}</td><td className="p-3">{item.tot} {item.uom}</td><td className="p-3 text-emerald-600">{item.ass} {item.uom}</td><td className="p-3 text-red-600">{item.bal} {item.uom}</td><td className="p-3"><Button onClick={() => handleAssign(item)} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black uppercase h-7 rounded-none">Assign</Button></td></tr>;
               } else {
-                return <tr key={item.id} onClick={() => handleCnClick(item)} className={cn("border-b border-slate-100 text-[11px] font-bold cursor-pointer", selectedTripForPreview?.id === item.id && "bg-blue-50")}><td className="p-3">{item.plantCode}</td><td className="p-3"><div className="text-[#0056d2] font-black">{item.tripId}</div><div className="text-slate-400">{format(new Date(item.createdAt), 'dd-MM-yy HH:mm')}</div></td><td className="p-3"><div>{item.saleOrderNumber}</div><div className="text-slate-400">{format(new Date(item.saleOrderDate || item.createdAt), 'dd-MM-yy HH:mm')}</div></td><td className="p-3 uppercase">{item.shipToParty}</td><td className="p-3 uppercase">{item.route}</td><td className="p-3"><div>{item.vehicleNumber}</div><div className="text-slate-500">{item.driverMobile}</div></td><td className="p-3"><div>{item.vendorName || '-'}</div><div className="text-slate-500 uppercase">{item.arrangeBy || '-'}</div></td><td className="p-3 text-emerald-600">{item.assignWeight} {item.weightUom}</td><td className="p-3 font-black text-[#0056d2] uppercase">{item.cnNo || '-'}</td><td className="p-3"><div className="flex gap-2">
+                return <tr key={item.id} className="border-b border-slate-100 text-[11px] font-bold"><td className="p-3">{item.plantCode}</td><td className="p-3"><div className="text-[#0056d2] font-black">{item.tripId}</div><div className="text-slate-400">{format(new Date(item.createdAt), 'dd-MM-yy HH:mm')}</div></td><td className="p-3"><div>{item.saleOrderNumber}</div><div className="text-slate-400">{format(new Date(item.saleOrderDate || item.createdAt), 'dd-MM-yy HH:mm')}</div></td><td className="p-3 uppercase">{item.shipToParty}</td><td className="p-3 uppercase">{item.route}</td><td className="p-3"><div>{item.vehicleNumber}</div><div className="text-slate-500">{item.driverMobile}</div></td><td className="p-3"><div>{item.vendorName || '-'}</div><div className="text-slate-500 uppercase">{item.arrangeBy || '-'}</div></td><td className="p-3 text-emerald-600">{item.assignWeight} {item.weightUom}</td><td className="p-3"><button onClick={() => handleCnClick(item)} className="font-black text-[#0056d2] uppercase hover:underline">{item.cnNo || '-'}</button></td><td className="p-3"><div className="flex gap-2">
                   {activeTab === 'Loading' && <>
-                    <Button onClick={(e) => { e.stopPropagation(); handleOutVehicle(item); }} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Out</Button>
-                    <Button onClick={(e) => { e.stopPropagation(); setTripToUnassign(item); setIsUnassignDialogOpen(true); }} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unassign</Button>
-                    <Button onClick={(e) => { e.stopPropagation(); handleAddCn(item); }} size="sm" className="bg-blue-900 text-white text-[9px] font-black h-7 rounded-none uppercase">
-                      {item.cnNo ? 'CN Edit' : 'CN Entry'}
-                    </Button>
+                    <Button onClick={() => handleOutVehicle(item)} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Out</Button>
+                    <Button onClick={() => { setTripToUnassign(item); setIsUnassignDialogOpen(true); }} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unassign</Button>
+                    <Button onClick={() => handleAddCn(item)} size="sm" className="bg-blue-900 text-white text-[9px] font-black h-7 rounded-none uppercase">{item.cnNo ? 'CN Edit' : 'CN Entry'}</Button>
                   </>}
-                  {activeTab === 'In-Transit' && <Button onClick={(e) => { e.stopPropagation(); handleArrivedAction(item); }} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Arrived</Button>}
-                  {activeTab === 'Arrived' && <><Button onClick={(e) => { e.stopPropagation(); handleUnloadAction(item); }} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unload</Button><Button onClick={(e) => { e.stopPropagation(); handleRejectAction(item); }} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Reject</Button></>}
+                  {activeTab === 'In-Transit' && <Button onClick={() => handleArrivedAction(item)} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Arrived</Button>}
+                  {activeTab === 'Arrived' && <><Button onClick={() => handleUnloadAction(item)} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unload</Button><Button onClick={() => handleRejectAction(item)} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Reject</Button></>}
                 </div></td></tr>;
               }
             })}</tbody>
@@ -676,12 +589,9 @@ function TripBoard({
         </div>
       </div>
 
-      {/* --- Unassign Dialog --- */}
       <Dialog open={isUnassignDialogOpen} onOpenChange={setIsUnassignDialogOpen}>
         <DialogContent className="max-w-[400px] p-0 rounded-none border-none">
-          <DialogHeader className="bg-red-600 px-6 py-4">
-            <DialogTitle className="text-white text-xs font-black uppercase">Confirmation Required</DialogTitle>
-          </DialogHeader>
+          <DialogHeader className="bg-red-600 px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase">Confirmation Required</DialogTitle></DialogHeader>
           <div className="p-8 text-center space-y-6">
             <p className="text-[12px] font-bold uppercase text-slate-700">Do you want to cancel this trip assignment?</p>
             <div className="flex justify-center gap-4">
@@ -692,205 +602,41 @@ function TripBoard({
         </DialogContent>
       </Dialog>
 
-      {/* --- Assign Vehicle Popup --- */}
       <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
         <DialogContent className="max-w-[1000px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
-          <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
-            <DialogTitle className="text-white text-[11px] font-black uppercase tracking-widest flex items-center justify-between w-full">
-              <span>Assign Vehicle Portal</span>
-              <div className="flex gap-6 pr-8">
-                <span className="opacity-70">SO: {selectedOrder?.saleOrder}</span>
-                <span className="opacity-70">Qty: {selectedOrder?.tot} {selectedOrder?.uom}</span>
-              </div>
-            </DialogTitle>
-          </DialogHeader>
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-[11px] font-black uppercase tracking-widest flex items-center justify-between w-full"><span>Assign Vehicle Portal</span><div className="flex gap-6 pr-8"><span className="opacity-70">SO: {selectedOrder?.saleOrder}</span><span className="opacity-70">Qty: {selectedOrder?.tot} {selectedOrder?.uom}</span></div></DialogTitle></DialogHeader>
           <div className="p-8 space-y-6 overflow-y-auto max-h-[70vh]">
-            <div className="grid grid-cols-2 gap-4 mb-4 bg-white p-4 border border-slate-200 shadow-sm">
-               <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">Consignee</span><span className="text-[11px] font-black uppercase text-slate-700">{selectedOrder?.consignee}</span></div>
-               <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">Ship To Party</span><span className="text-[11px] font-black uppercase text-slate-700">{selectedOrder?.shipToParty}</span></div>
-               <div className="flex flex-col gap-1 col-span-2"><span className="text-[9px] font-black text-slate-400 uppercase">Route</span><span className="text-[11px] font-black uppercase text-blue-600">{selectedOrder?.route}</span></div>
-            </div>
-            
-            <SectionGrouping title="ASSIGNMENT DETAILS">
-              <div className="grid grid-cols-2 gap-x-12 gap-y-4">
-                <FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} />
-                <FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} />
-                <FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignData.assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} />
-                <FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} />
-                <FormInput label="ASSIGN QTY" type="number" value={assignData.assignWeight} onChange={(v: string) => setAssignData({...assignData, assignWeight: v})} />
-              </div>
-            </SectionGrouping>
-
+            <div className="grid grid-cols-2 gap-4 mb-4 bg-white p-4 border border-slate-200 shadow-sm"><div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">Consignee</span><span className="text-[11px] font-black uppercase text-slate-700">{selectedOrder?.consignee}</span></div><div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">Ship To Party</span><span className="text-[11px] font-black uppercase text-slate-700">{selectedOrder?.shipToParty}</span></div><div className="flex flex-col gap-1 col-span-2"><span className="text-[9px] font-black text-slate-400 uppercase">Route</span><span className="text-[11px] font-black uppercase text-blue-600">{selectedOrder?.route}</span></div></div>
+            <SectionGrouping title="ASSIGNMENT DETAILS"><div className="grid grid-cols-2 gap-x-12 gap-y-4"><FormInput label="VEHICLE NO" value={assignData.vehicleNumber} onChange={(v: string) => setAssignData({...assignData, vehicleNumber: v.toUpperCase()})} /><FormInput label="DRIVER MOBILE" value={assignData.driverMobile} onChange={(v: string) => setAssignData({...assignData, driverMobile: v})} /><FormInput label="ASSIGN DATE TIME" type="datetime-local" value={assignData.assignDate} onChange={(v: string) => setAssignData({...assignData, assignDate: v})} /><FormSelect label="FLEET TYPE" value={assignData.fleetType} options={["Own Vehicle", "Contract Vehicle", "Market Vehicle"]} onChange={(v: string) => setAssignData({...assignData, fleetType: v})} /><FormInput label="ASSIGN QTY" type="number" value={assignData.assignWeight} onChange={(v: string) => setAssignData({...assignData, assignWeight: v})} /></div></SectionGrouping>
             {assignData.fleetType === 'Market Vehicle' && (
-              <SectionGrouping title="MARKET VENDOR REGISTRY">
-                <div className="grid grid-cols-2 gap-x-12 gap-y-4">
-                  <FormSearchInput 
-                    label="VENDOR NAME" 
-                    value={assignData.vendorName} 
-                    options={(vendors || []).map((v: any) => v.vendorName)} 
-                    onChange={(v: string) => {
-                      const master = (vendors || []).find((ven: any) => ven.vendorName === v);
-                      setAssignData({...assignData, vendorName: v, vendorMobile: master?.mobile || ''});
-                    }} 
-                  />
-                  <FormInput label="VENDOR MOBILE" value={assignData.vendorMobile} disabled={true} />
-                  <FormInput label="ARRANGE BY" value={assignData.arrangeBy} onChange={(v: string) => setAssignData({...assignData, arrangeBy: v.toUpperCase()})} />
-                  <FormInput 
-                    label="RATE" 
-                    type="number" 
-                    value={assignData.rate} 
-                    disabled={assignData.isFixedRate}
-                    onChange={(v: string) => {
-                      const r = parseFloat(v) || 0;
-                      const q = parseFloat(assignData.assignWeight) || 0;
-                      setAssignData({...assignData, rate: r, freightAmount: r * q});
-                    }} 
-                  />
-                  <FormInput 
-                    label="FREIGHT AMOUNT" 
-                    type="number" 
-                    value={assignData.freightAmount} 
-                    disabled={!assignData.isFixedRate}
-                    onChange={(v: string) => setAssignData({...assignData, freightAmount: v})} 
-                  />
-                  <div className="flex items-center gap-8">
-                    <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase tracking-tight">FIX RATE:</label>
-                    <div className="flex items-center gap-2">
-                      <Checkbox 
-                        checked={assignData.isFixedRate} 
-                        onCheckedChange={(checked) => setAssignData({...assignData, isFixedRate: checked})} 
-                        className="rounded-none border-slate-400"
-                      />
-                      <span className="text-[10px] font-black text-slate-400 uppercase">ENABLE MANUAL OVERRIDE</span>
-                    </div>
-                  </div>
-                </div>
-              </SectionGrouping>
+              <SectionGrouping title="MARKET VENDOR REGISTRY"><div className="grid grid-cols-2 gap-x-12 gap-y-4"><FormSearchInput label="VENDOR NAME" value={assignData.vendorName} options={(vendors || []).map((v: any) => v.vendorName)} onChange={(v: string) => { const master = (vendors || []).find((ven: any) => ven.vendorName === v); setAssignData({...assignData, vendorName: v, vendorMobile: master?.mobile || ''}); }} /><FormInput label="VENDOR MOBILE" value={assignData.vendorMobile} disabled={true} /><FormInput label="ARRANGE BY" value={assignData.arrangeBy} onChange={(v: string) => setAssignData({...assignData, arrangeBy: v.toUpperCase()})} /><FormInput label="RATE" type="number" value={assignData.rate} disabled={assignData.isFixedRate} onChange={(v: string) => { const r = parseFloat(v) || 0; const q = parseFloat(assignData.assignWeight) || 0; setAssignData({...assignData, rate: r, freightAmount: r * q}); }} /><FormInput label="FREIGHT AMOUNT" type="number" value={assignData.freightAmount} disabled={!assignData.isFixedRate} onChange={(v: string) => setAssignData({...assignData, freightAmount: v})} /><div className="flex items-center gap-8"><label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase tracking-tight">FIX RATE:</label><div className="flex items-center gap-2"><Checkbox checked={assignData.isFixedRate} onCheckedChange={(checked) => setAssignData({...assignData, isFixedRate: checked})} className="rounded-none border-slate-400" /><span className="text-[10px] font-black text-slate-400 uppercase">ENABLE MANUAL OVERRIDE</span></div></div></div></SectionGrouping>
             )}
           </div>
-          <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3">
-            <Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
-            <Button onClick={handleCreateTrip} className="h-9 px-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button>
-          </div>
+          <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3"><Button onClick={() => setIsPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button><Button onClick={handleCreateTrip} className="h-9 px-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Post</Button></div>
         </DialogContent>
       </Dialog>
 
-      {/* --- CN Entry / Edit Popup --- */}
       <Dialog open={isCnPopupOpen} onOpenChange={setIsCnPopupOpen}>
         <DialogContent className="max-w-[1000px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
-          <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
-            <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center justify-between w-full">
-              <span>Consignment Note Interface</span>
-              <div className="flex gap-6 pr-8 opacity-70">
-                <span>Ship To: {selectedTripForCn?.shipToParty}</span>
-                <span>Vehicle: {selectedTripForCn?.vehicleNumber}</span>
-              </div>
-            </DialogTitle>
-          </DialogHeader>
-          <div className="p-8 space-y-6 overflow-y-auto">
-            <div className="grid grid-cols-2 gap-8 bg-white p-6 border border-slate-200 shadow-sm mb-4">
-               <FormInput label="CN NUMBER" value={cnFormData.cnNo} onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v.toUpperCase()})} placeholder="Enter CN Number..." />
-               <FormInput label="CN DATE" type="date" value={cnFormData.cnDate} onChange={(v: string) => setCnFormData({...cnFormData, cnDate: v})} />
-            </div>
-
-            <div className="bg-white border border-slate-300 shadow-inner overflow-hidden">
-              <div className="bg-slate-50 border-b border-slate-300 p-2 flex justify-between items-center">
-                <span className="text-[10px] font-black uppercase text-slate-500 px-2">Document registry table</span>
-                <Button onClick={() => setCnFormData({...cnFormData, items: [...cnFormData.items, { invoice: '', ewaybill: '', description: '', package: '', uom: 'BAG' }]})} size="sm" variant="ghost" className="h-6 text-[9px] font-black uppercase text-[#1e3a8a] hover:bg-blue-50">
-                  <Plus className="h-3 w-3 mr-1" /> Add Row
-                </Button>
-              </div>
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-100 text-[10px] font-black uppercase border-b border-slate-300">
-                  <tr>
-                    <th className="p-3 border-r border-slate-200">Invoice</th>
-                    <th className="p-3 border-r border-slate-200">E-Waybill No.</th>
-                    <th className="p-3 border-r border-slate-200">Goods Description</th>
-                    <th className="p-3 border-r border-slate-200 w-24">Package</th>
-                    <th className="p-3 border-r border-slate-200 w-32">UOM</th>
-                    <th className="p-3 w-10">X</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cnFormData.items?.map((item: any, idx: number) => (
-                    <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="p-0 border-r border-slate-200"><input value={item.invoice} onChange={e => { const itms = [...cnFormData.items]; itms[idx].invoice = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items: itms}); }} className="w-full h-9 px-3 text-[11px] font-bold outline-none bg-transparent" /></td>
-                      <td className="p-0 border-r border-slate-200"><input value={item.ewaybill} onChange={e => { const itms = [...cnFormData.items]; itms[idx].ewaybill = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items: itms}); }} className="w-full h-9 px-3 text-[11px] font-bold outline-none bg-transparent" /></td>
-                      <td className="p-0 border-r border-slate-200"><input value={item.description} onChange={e => { const itms = [...cnFormData.items]; itms[idx].description = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items: itms}); }} className="w-full h-9 px-3 text-[11px] font-bold outline-none bg-transparent" /></td>
-                      <td className="p-0 border-r border-slate-200"><input type="number" value={item.package} onChange={e => { const itms = [...cnFormData.items]; itms[idx].package = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-9 px-3 text-[11px] font-bold outline-none bg-transparent" /></td>
-                      <td className="p-0 border-r border-slate-200">
-                        <select value={item.uom} onChange={e => { const itms = [...cnFormData.items]; itms[idx].uom = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-9 px-2 text-[10px] font-black uppercase outline-none bg-transparent">
-                          <option value="BAG">BAG</option>
-                          <option value="BOX">BOX</option>
-                          <option value="DRUM">DRUM</option>
-                          <option value="MIX">MIX</option>
-                        </select>
-                      </td>
-                      <td className="p-0 text-center">
-                        <button onClick={() => { if (cnFormData.items.length > 1) { const itms = cnFormData.items.filter((_: any, i: number) => i !== idx); setCnFormData({...cnFormData, items: itms}); } }} className="text-red-400 hover:text-red-600 transition-colors">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3">
-            <Button onClick={() => setIsCnPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button>
-            <Button onClick={handleCnPost} className="h-9 px-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">
-              {selectedTripForCn?.cnNo ? 'Update' : 'Post'}
-            </Button>
-          </div>
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center justify-between w-full"><span>Consignment Note Interface</span><div className="flex gap-6 pr-8 opacity-70"><span>Ship To: {selectedTripForCn?.shipToParty}</span><span>Vehicle: {selectedTripForCn?.vehicleNumber}</span></div></DialogTitle></DialogHeader>
+          <div className="p-8 space-y-6 overflow-y-auto"><div className="grid grid-cols-2 gap-8 bg-white p-6 border border-slate-200 shadow-sm mb-4"><FormInput label="CN NUMBER" value={cnFormData.cnNo} onChange={(v: string) => setCnFormData({...cnFormData, cnNo: v.toUpperCase()})} placeholder="Enter CN Number..." /><FormInput label="CN DATE" type="date" value={cnFormData.cnDate} onChange={(v: string) => setCnFormData({...cnFormData, cnDate: v})} /></div><div className="bg-white border border-slate-300 shadow-inner overflow-hidden"><div className="bg-slate-50 border-b border-slate-300 p-2 flex justify-between items-center"><span className="text-[10px] font-black uppercase text-slate-500 px-2">Document registry table</span><Button onClick={() => setCnFormData({...cnFormData, items: [...cnFormData.items, { invoice: '', ewaybill: '', description: '', package: '', uom: 'BAG' }]})} size="sm" variant="ghost" className="h-6 text-[9px] font-black uppercase text-[#1e3a8a] hover:bg-blue-50"><Plus className="h-3 w-3 mr-1" /> Add Row</Button></div><table className="w-full text-left border-collapse"><thead className="bg-slate-100 text-[10px] font-black uppercase border-b border-slate-300"><tr><th className="p-3 border-r border-slate-200">Invoice</th><th className="p-3 border-r border-slate-200">E-Waybill No.</th><th className="p-3 border-r border-slate-200">Goods Description</th><th className="p-3 border-r border-slate-200 w-24">Package</th><th className="p-3 border-r border-slate-200 w-32">UOM</th><th className="p-3 w-10">X</th></tr></thead><tbody>{cnFormData.items?.map((item: any, idx: number) => (<tr key={idx} className="border-b border-slate-100 hover:bg-slate-50"><td className="p-0 border-r border-slate-200"><input value={item.invoice} onChange={e => { const itms = [...cnFormData.items]; itms[idx].invoice = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items: itms}); }} className="w-full h-9 px-3 text-[11px] font-bold outline-none bg-transparent" /></td><td className="p-0 border-r border-slate-200"><input value={item.ewaybill} onChange={e => { const itms = [...cnFormData.items]; itms[idx].ewaybill = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items: itms}); }} className="w-full h-9 px-3 text-[11px] font-bold outline-none bg-transparent" /></td><td className="p-0 border-r border-slate-200"><input value={item.description} onChange={e => { const itms = [...cnFormData.items]; itms[idx].description = e.target.value.toUpperCase(); setCnFormData({...cnFormData, items: itms}); }} className="w-full h-9 px-3 text-[11px] font-bold outline-none bg-transparent" /></td><td className="p-0 border-r border-slate-200"><input type="number" value={item.package} onChange={e => { const itms = [...cnFormData.items]; itms[idx].package = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-9 px-3 text-[11px] font-bold outline-none bg-transparent" /></td><td className="p-0 border-r border-slate-200"><select value={item.uom} onChange={e => { const itms = [...cnFormData.items]; itms[idx].uom = e.target.value; setCnFormData({...cnFormData, items: itms}); }} className="w-full h-9 px-2 text-[10px] font-black uppercase outline-none bg-transparent"><option value="BAG">BAG</option><option value="BOX">BOX</option><option value="DRUM">DRUM</option><option value="MIX">MIX</option></select></td><td className="p-0 text-center"><button onClick={() => { if (cnFormData.items.length > 1) { const itms = cnFormData.items.filter((_: any, i: number) => i !== idx); setCnFormData({...cnFormData, items: itms}); } }} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button></td></tr>))}</tbody></table></div></div>
+          <div className="p-3 bg-white border-t border-slate-300 flex justify-end gap-3"><Button onClick={() => setIsCnPopupOpen(false)} variant="outline" className="h-9 px-6 rounded-none text-[10px] font-black uppercase border-slate-400">Exit</Button><Button onClick={handleCnPost} className="h-9 px-10 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">{selectedTripForCn?.cnNo ? 'Update' : 'Post'}</Button></div>
         </DialogContent>
       </Dialog>
 
-      {/* --- Out Portal --- */}
       <Dialog open={isOutPopupOpen} onOpenChange={setIsOutPopupOpen}>
         <DialogContent className="max-w-[600px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl">
-          <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
-            <DialogTitle className="text-white text-xs font-black uppercase tracking-widest">Gate-Out Control</DialogTitle>
-          </DialogHeader>
-          <div className="p-8 space-y-6">
-            <div className="bg-white p-6 border border-slate-200 shadow-sm mb-4">
-              <div className="flex justify-between items-center text-[10px] font-black uppercase mb-3">
-                <span className="text-slate-400">Vehicle:</span>
-                <span className="text-slate-700">{outData.trip?.vehicleNumber}</span>
-              </div>
-              <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                <span className="text-slate-400">Route:</span>
-                <span className="text-blue-700 text-right max-w-[300px]">{outData.trip?.route}</span>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <FormInput label="OUT DATE" type="date" value={outData.date} onChange={(v: string) => setOutData({...outData, date: v})} />
-              <FormInput label="OUT TIME" type="time" value={outData.time} onChange={(v: string) => setOutData({...outData, time: v})} />
-            </div>
-          </div>
-          <div className="p-4 bg-white border-t border-slate-300 flex justify-end gap-4">
-            <Button onClick={() => setIsOutPopupOpen(false)} variant="ghost" className="h-10 px-8 rounded-none text-[11px] font-black uppercase border border-slate-200 bg-slate-50 hover:bg-slate-100">Exit</Button>
-            <Button onClick={handleOutPost} className="h-10 px-12 bg-emerald-600 text-white rounded-none text-[11px] font-black uppercase shadow-lg hover:bg-emerald-700 transition-all">Dispatch Vehicle</Button>
-          </div>
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest">Gate-Out Control</DialogTitle></DialogHeader>
+          <div className="p-8 space-y-6"><div className="bg-white p-6 border border-slate-200 shadow-sm mb-4"><div className="flex justify-between items-center text-[10px] font-black uppercase mb-3"><span className="text-slate-400">Vehicle:</span><span className="text-slate-700">{outData.trip?.vehicleNumber}</span></div><div className="flex justify-between items-center text-[10px] font-black uppercase"><span className="text-slate-400">Route:</span><span className="text-blue-700 text-right max-w-[300px]">{outData.trip?.route}</span></div></div><div className="space-y-4"><FormInput label="OUT DATE" type="date" value={outData.date} onChange={(v: string) => setOutData({...outData, date: v})} /><FormInput label="OUT TIME" type="time" value={outData.time} onChange={(v: string) => setOutData({...outData, time: v})} /></div></div>
+          <div className="p-4 bg-white border-t border-slate-300 flex justify-end gap-4"><Button onClick={() => setIsOutPopupOpen(false)} variant="ghost" className="h-10 px-8 rounded-none text-[11px] font-black uppercase border border-slate-200 bg-slate-50 hover:bg-slate-100">Exit</Button><Button onClick={handleOutPost} className="h-10 px-12 bg-emerald-600 text-white rounded-none text-[11px] font-black uppercase shadow-lg hover:bg-emerald-700 transition-all">Dispatch Vehicle</Button></div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isPodPopupOpen} onOpenChange={setIsPodPopupOpen}>
         <DialogContent className="max-w-[500px] bg-white p-0 rounded-none border-none shadow-2xl">
-          <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
-            <DialogTitle className="text-white text-xs font-black uppercase">POD Registry Synchronization</DialogTitle>
-          </DialogHeader>
-          <div className="p-8 space-y-6 flex flex-col items-center justify-center">
-            <input type="file" accept="image/*,.pdf" ref={fileInputRef} onChange={handlePodFileChange} className="hidden" />
-            <div onClick={() => fileInputRef.current?.click()} className="w-full h-40 border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-blue-50 transition-all">
-              {podFile ? <div className="text-emerald-600 font-black text-xs uppercase">Document Ready</div> : <><UploadCloud className="h-8 w-8 text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase">Select Registry File</span></>}
-            </div>
-            <p className="text-[9px] font-bold text-slate-400 uppercase text-center italic">Supported Formats: PDF, PNG, JPG (Auto-Compression Active)</p>
-          </div>
-          <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-             <Button onClick={() => setIsPodPopupOpen(false)} variant="outline" className="h-8 px-6 text-[10px] font-black uppercase">Cancel</Button>
-             <Button disabled={!podFile} className="h-8 px-10 bg-emerald-600 text-white text-[10px] font-black uppercase">Synchronize POD</Button>
-          </div>
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase">POD Registry Synchronization</DialogTitle></DialogHeader>
+          <div className="p-8 space-y-6 flex flex-col items-center justify-center"><input type="file" accept="image/*,.pdf" ref={fileInputRef} onChange={handlePodFileChange} className="hidden" /><div onClick={() => fileInputRef.current?.click()} className="w-full h-40 border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-blue-50 transition-all">{podFile ? <div className="text-emerald-600 font-black text-xs uppercase">Document Ready</div> : <><UploadCloud className="h-8 w-8 text-[#1e3a8a]" /><span className="text-[10px] font-black uppercase">Select Registry File</span></>}</div><p className="text-[9px] font-bold text-slate-400 uppercase text-center italic">Supported Formats: PDF, PNG, JPG (Auto-Compression Active)</p></div>
+          <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-3"><Button onClick={() => setIsPodPopupOpen(false)} variant="outline" className="h-8 px-6 text-[10px] font-black uppercase">Cancel</Button><Button disabled={!podFile} className="h-8 px-10 bg-emerald-600 text-white text-[10px] font-black uppercase">Synchronize POD</Button></div>
         </DialogContent>
       </Dialog>
     </div>
@@ -1016,108 +762,25 @@ export default function DashboardPage() {
   const executeTCode = React.useCallback((cmd: string) => {
     const input = cmd.toUpperCase().trim();
     if (!input) return;
-
     const authorizedTcodes = isBootstrapAdmin ? MASTER_TCODES.map(t => t.code) : (userProfile?.tcodes || []);
-
-    if (input === '/NEND' || input === '/NEX') {
-      localStorage.removeItem('sap_bootstrap_session');
-      localStorage.removeItem('sap_user_role');
-      localStorage.removeItem('sap_registry_id');
-      router.push('/login');
-      return;
-    }
-
-    if (input === '/N' || input === 'HOME') {
-      setActiveScreen('HOME');
-      setScreenStack(['HOME']);
-      setTCode('');
-      setStatusMsg({ text: 'Session Reset to Home', type: 'info' });
-      return;
-    }
-
-    let mode: 'REPLACE' | 'NEW_TAB' | 'NORMAL' = 'NORMAL';
-    let code = input;
-
-    if (input.startsWith('/N')) {
-      mode = 'REPLACE';
-      code = input.substring(2);
-    } else if (input.startsWith('/O')) {
-      mode = 'NEW_TAB';
-      code = input.substring(2);
-    }
-
-    if (!code) {
-      setStatusMsg({ text: 'Specify a valid transaction code', type: 'error' });
-      return;
-    }
-
+    if (input === '/NEND' || input === '/NEX') { localStorage.removeItem('sap_bootstrap_session'); localStorage.removeItem('sap_user_role'); localStorage.removeItem('sap_registry_id'); router.push('/login'); return; }
+    if (input === '/N' || input === 'HOME') { setActiveScreen('HOME'); setScreenStack(['HOME']); setTCode(''); setStatusMsg({ text: 'Session Reset to Home', type: 'info' }); return; }
+    let mode: 'REPLACE' | 'NEW_TAB' | 'NORMAL' = 'NORMAL'; let code = input;
+    if (input.startsWith('/N')) { mode = 'REPLACE'; code = input.substring(2); } else if (input.startsWith('/O')) { mode = 'NEW_TAB'; code = input.substring(2); }
+    if (!code) { setStatusMsg({ text: 'Specify a valid transaction code', type: 'error' }); return; }
     const exists = MASTER_TCODES.find(t => t.code === code);
-    if (!exists) {
-      setStatusMsg({ text: `Transaction ${code} does not exist`, type: 'error' });
-      setTCode('');
-      return;
-    }
-
-    if (!authorizedTcodes.includes(code)) {
-      setStatusMsg({ text: `No authorization for transaction ${code}`, type: 'error' });
-      setTCode('');
-      return;
-    }
-
-    if (mode === 'NEW_TAB') {
-      window.open(`${window.location.origin}${window.location.pathname}?tcode=${code}`, '_blank');
-      setTCode('');
-      setStatusMsg({ text: `Opening ${code} in new session...`, type: 'info' });
-    } else {
-      setScreenStack(['HOME', code]);
-      setActiveScreen(code);
-      
-      // VA01 Initialization: Default system date time
-      if (code === 'VA01') {
-        setFormData({
-          saleOrderDate: new Date().toISOString().slice(0, 16),
-          status: 'Active'
-        });
-      } else {
-        setFormData({});
-      }
-      
-      setTCode('');
-      setStatusMsg({ text: `Transaction ${code} executed`, type: 'info' });
-      setShowHistory(false);
-      setHistory(prev => {
-        const next = [input, ...prev.filter(h => h !== input)].slice(0, 10);
-        return next;
-      });
-    }
+    if (!exists) { setStatusMsg({ text: `Transaction ${code} does not exist`, type: 'error' }); setTCode(''); return; }
+    if (!authorizedTcodes.includes(code)) { setStatusMsg({ text: `No authorization for transaction ${code}`, type: 'error' }); setTCode(''); return; }
+    if (mode === 'NEW_TAB') { window.open(`${window.location.origin}${window.location.pathname}?tcode=${code}`, '_blank'); setTCode(''); setStatusMsg({ text: `Opening ${code} in new session...`, type: 'info' }); } else { setScreenStack(['HOME', code]); setActiveScreen(code); if (code === 'VA01') setFormData({ saleOrderDate: new Date().toISOString().slice(0, 16), status: 'Active' }); else setFormData({}); setTCode(''); setStatusMsg({ text: `Transaction ${code} executed`, type: 'info' }); setShowHistory(false); setHistory(prev => [input, ...prev.filter(h => h !== input)].slice(0, 10)); }
   }, [isBootstrapAdmin, userProfile, router]);
 
-  React.useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('tcode');
-    if (code) {
-      executeTCode(code);
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, [executeTCode]);
-
   const validateOrder = async (order: any) => {
-    const isDuplicate = allOrders.some(o => 
-      o.saleOrder?.toString().toUpperCase() === order.saleOrder?.toString().toUpperCase() && 
-      o.id !== order.id
-    );
+    const isDuplicate = allOrders.some(o => o.saleOrder?.toString().toUpperCase() === order.saleOrder?.toString().toUpperCase() && o.id !== order.id);
     if (isDuplicate) return { valid: false, reason: 'Duplicate Sale Order Number' };
-    
-    const findCust = (val: string) => accessibleCustomers.some(c => 
-      c.customerName?.toUpperCase() === val?.toUpperCase() || 
-      c.customerCode?.toUpperCase() === val?.toUpperCase() ||
-      (c.customerName + ' - ' + c.city)?.toUpperCase() === val?.toUpperCase()
-    );
-
+    const findCust = (val: string) => accessibleCustomers.some(c => c.customerName?.toUpperCase() === val?.toUpperCase() || c.customerCode?.toUpperCase() === val?.toUpperCase() || (c.customerName + ' - ' + c.city)?.toUpperCase() === val?.toUpperCase());
     if (!findCust(order.consignor)) return { valid: false, reason: 'Unknown Consignor (No record in XD03)' };
     if (!findCust(order.consignee)) return { valid: false, reason: 'Unknown Consignee (No record in XD03)' };
     if (!findCust(order.shipToParty)) return { valid: false, reason: 'Unknown Ship to Party (No record in XD03)' };
-
     return { valid: true };
   };
 
@@ -1126,19 +789,9 @@ export default function DashboardPage() {
       setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForPreview.id), { deliveryAddress: previewDeliveryAddress, updatedAt: new Date().toISOString() }, { merge: true });
       setIsAddressDirty(false); setIsAddressEditable(false); setStatusMsg({ text: 'Registry Synchronized (F8)', type: 'success' }); return;
     }
-    if (activeScreen === 'VA04') {
-      const o = allOrders?.find(ord => ord.saleOrder?.toString().toUpperCase() === formData.saleOrder?.toString().toUpperCase());
-      if (o) { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: 'CANCELLED' }, { merge: true }); setStatusMsg({ text: 'Order Cancelled', type: 'success' }); setFormData({}); }
-      return;
-    }
-    if (activeScreen === 'VA01') {
-      const validation = await validateOrder(formData);
-      if (!validation.valid) { setStatusMsg({ text: `Rejection: ${validation.reason}`, type: 'error' }); return; }
-    }
-    if (activeScreen === 'XD01') {
-      const isDuplicate = accessibleCustomers.some(c => c.customerCode === formData.customerCode && c.id !== formData.id);
-      if (isDuplicate) { setStatusMsg({ text: 'Error: Duplicate Customer Code', type: 'error' }); return; }
-    }
+    if (activeScreen === 'VA04') { const o = allOrders?.find(ord => ord.saleOrder?.toString().toUpperCase() === formData.saleOrder?.toString().toUpperCase()); if (o) { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: 'CANCELLED' }, { merge: true }); setStatusMsg({ text: 'Order Cancelled', type: 'success' }); setFormData({}); } return; }
+    if (activeScreen === 'VA01') { const validation = await validateOrder(formData); if (!validation.valid) { setStatusMsg({ text: `Rejection: ${validation.reason}`, type: 'error' }); return; } }
+    if (activeScreen === 'XD01') { const isDuplicate = accessibleCustomers.some(c => c.customerCode === formData.customerCode && c.id !== formData.id); if (isDuplicate) { setStatusMsg({ text: 'Error: Duplicate Customer Code', type: 'error' }); return; } }
     let col = ''; if (activeScreen.startsWith('OX')) col = 'plants'; else if (activeScreen.startsWith('FM')) col = 'companies'; else if (activeScreen.startsWith('XK')) col = 'vendors'; else if (activeScreen.startsWith('XD')) col = 'customers'; else if (activeScreen.startsWith('VA')) col = 'sales_orders'; else if (activeScreen.startsWith('SU')) col = 'user_registry';
     if (col) {
       const docId = formData.id || crypto.randomUUID();
@@ -1154,55 +807,20 @@ export default function DashboardPage() {
     const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = async (ev) => {
-      const text = ev.target?.result as string;
-      const rows = text.split('\n').slice(1);
+      const text = ev.target?.result as string; const rows = text.split('\n').slice(1);
       let successCount = 0; let failCount = 0;
-      
       if (activeScreen === 'VA01') {
         for (const row of rows) {
-          const cols = row.split(',');
-          if (cols.length < 8) continue;
-          const newOrder = { 
-            plantCode: cols[0]?.trim(), 
-            saleOrder: cols[1]?.trim(), 
-            consignor: cols[2]?.trim(), 
-            consignee: cols[4]?.trim(), 
-            shipToParty: cols[6]?.trim(), 
-            weight: cols[7]?.trim(), 
-            weightUom: cols[8]?.trim() || 'MT', 
-            status: 'Active', 
-            createdAt: new Date().toISOString(),
-            saleOrderDate: new Date().toISOString().slice(0, 16)
-          };
-          const validation = await validateOrder(newOrder);
-          if (validation.valid) {
-            const docId = crypto.randomUUID();
-            setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { ...newOrder, id: docId }, { merge: true });
-            successCount++;
-          } else { failCount++; }
+          const cols = row.split(','); if (cols.length < 8) continue;
+          const newOrder = { plantCode: cols[0]?.trim(), saleOrder: cols[1]?.trim(), consignor: cols[2]?.trim(), consignee: cols[4]?.trim(), shipToParty: cols[6]?.trim(), weight: cols[7]?.trim(), weightUom: cols[8]?.trim() || 'MT', status: 'Active', createdAt: new Date().toISOString(), saleOrderDate: new Date().toISOString().slice(0, 16) };
+          const validation = await validateOrder(newOrder); if (validation.valid) { const docId = crypto.randomUUID(); setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { ...newOrder, id: docId }, { merge: true }); successCount++; } else { failCount++; }
         }
       } else if (activeScreen === 'XD01') {
         for (const row of rows) {
-          const cols = row.split(',');
-          if (cols.length < 7) continue;
-          const customerCode = cols[0]?.trim();
-          const isDuplicate = accessibleCustomers.some(c => c.customerCode === customerCode);
-          if (isDuplicate) { failCount++; continue; }
-          const newCust = { 
-            customerCode, 
-            customerName: cols[1]?.trim(), 
-            customerType: cols[2]?.trim(), 
-            address: cols[3]?.trim(), 
-            city: cols[4]?.trim(), 
-            postalCode: cols[5]?.trim(), 
-            mobile: cols[6]?.trim(),
-            gstin: cols[7]?.trim() || '',
-            plantCodes: authorizedPlantsList,
-            updatedAt: new Date().toISOString()
-          };
-          const docId = crypto.randomUUID();
-          setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'customers', docId), { ...newCust, id: docId }, { merge: true });
-          successCount++;
+          const cols = row.split(','); if (cols.length < 7) continue;
+          const customerCode = cols[0]?.trim(); const isDuplicate = accessibleCustomers.some(c => c.customerCode === customerCode); if (isDuplicate) { failCount++; continue; }
+          const newCust = { customerCode, customerName: cols[1]?.trim(), customerType: cols[2]?.trim(), address: cols[3]?.trim(), city: cols[4]?.trim(), postalCode: cols[5]?.trim(), mobile: cols[6]?.trim(), gstin: cols[7]?.trim() || '', plantCodes: authorizedPlantsList, updatedAt: new Date().toISOString() };
+          const docId = crypto.randomUUID(); setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'customers', docId), { ...newCust, id: docId }, { merge: true }); successCount++;
         }
       }
       setStatusMsg({ text: `Bulk: ${successCount} Processed, ${failCount} Rejected`, type: successCount > 0 ? 'success' : 'error' });
@@ -1212,17 +830,9 @@ export default function DashboardPage() {
 
   const handleDownloadTemplate = () => {
     let headers = ""; let filename = "";
-    if (activeScreen === 'VA01') {
-      headers = "Plant,Sale Order,Consignor,Consignee Code,Consignee,Ship to Party Code,Ship to Party,Weight,WeightUom\nPL01,SO9999,CONSIGNOR-NAME,C-CODE,CONSIGNEE-NAME,S-CODE,SHIP-TO-NAME,25,MT";
-      filename = 'VA01_Template.csv';
-    } else if (activeScreen === 'XD01') {
-      headers = "Customer Code,Customer Name,Customer Type,Address,City,Postal Code,Mobile,GSTIN\nC1000,CLIENT-NAME,Consignor,STREET-ADDRESS,CITY-NAME,123456,9999999999,GSTIN12345";
-      filename = 'XD01_Template.csv';
-    }
-    if (!headers) return;
-    const blob = new Blob([headers], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+    if (activeScreen === 'VA01') { headers = "Plant,Sale Order,Consignor,Consignee Code,Consignee,Ship to Party Code,Ship to Party,Weight,WeightUom\nPL01,SO9999,CONSIGNOR-NAME,C-CODE,CONSIGNEE-NAME,S-CODE,SHIP-TO-NAME,25,MT"; filename = 'VA01_Template.csv'; } 
+    else if (activeScreen === 'XD01') { headers = "Customer Code,Customer Name,Customer Type,Address,City,Postal Code,Mobile,GSTIN\nC1000,CLIENT-NAME,Consignor,STREET-ADDRESS,CITY-NAME,123456,9999999999,GSTIN12345"; filename = 'XD01_Template.csv'; }
+    if (!headers) return; const blob = new Blob([headers], { type: 'text/csv' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
   };
 
   const getRegistryList = () => { if (activeScreen.startsWith('OX')) return accessiblePlants; if (activeScreen.startsWith('FM')) return accessibleCompanies; if (activeScreen.startsWith('XK')) return accessibleVendors; if (activeScreen.startsWith('XD')) return accessibleCustomers; if (activeScreen.startsWith('VA')) return allOrders; if (activeScreen.startsWith('SU')) return accessibleUsers; return []; };
@@ -1230,90 +840,31 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f0f3f9] text-[#333] font-mono overflow-hidden">
-      {/* --- Top Global Bar --- */}
-      <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50 print:hidden">
-        <div className="flex items-center gap-6">{['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(i => <button key={i} className="hover:text-blue-800 transition-colors uppercase">{i}</button>)}</div>
-        <div className="flex-1" />
-        <div className="flex items-center h-full">
-          <button onClick={() => router.push('/')} className="h-full px-3 hover:bg-[#e81123] hover:text-white transition-all"><X className="h-3.5 w-3.5" /></button>
-        </div>
-      </div>
-
-      {/* --- T-Code Toolbar --- */}
+      <div className="flex items-center bg-[#c5e0b4] border-b border-slate-400 px-3 h-8 text-[11px] font-semibold z-50 print:hidden"><div className="flex items-center gap-6">{['Menu', 'Edit', 'Favorites', 'Extras', 'System', 'Help'].map(i => <button key={i} className="hover:text-blue-800 transition-colors uppercase">{i}</button>)}</div><div className="flex-1" /><div className="flex items-center h-full"><button onClick={() => router.push('/')} className="h-full px-3 hover:bg-[#e81123] hover:text-white transition-all"><X className="h-3.5 w-3.5" /></button></div></div>
       <div className="flex flex-col bg-[#f0f0f0] border-b border-slate-300 shadow-sm z-40 print:hidden">
         <div className="flex items-center px-2 py-1 gap-4">
           <div className="flex items-center gap-2 shrink-0 pr-4 border-r border-slate-300">{logoAsset && <Image src={logoAsset.url} alt="SLMC" width={80} height={30} className="object-contain" unoptimized />}</div>
-          <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner relative">
-            <button onClick={() => executeTCode(tCode)} className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100">✓</button>
-            <input 
-              ref={tCodeRef} 
-              type="text" 
-              value={tCode} 
-              onChange={e => setTCode(e.target.value)} 
-              onKeyDown={(e) => { if (e.key === 'Enter') executeTCode(tCode); }}
-              onClick={() => history.length > 0 && setShowHistory(true)} 
-              onBlur={() => setTimeout(() => setShowHistory(false), 200)} 
-              className="w-48 outline-none text-xs px-1 font-bold tracking-wider" 
-              placeholder="T-CODE..." 
-            />
-            {showHistory && (<div className="absolute top-full left-0 w-full bg-white border border-slate-400 shadow-md z-[60]">{history.map((h, i) => <div key={i} onClick={() => executeTCode(h)} className="px-4 py-1.5 text-xs font-bold cursor-pointer hover:bg-blue-50">{h}</div>)}</div>)}
-          </div>
-          <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7">
-            <button onClick={handleSave} className="p-1 hover:bg-slate-200 rounded" title="Save (F8)"><Save className="h-4 w-4 text-slate-600" /></button>
-            <button onClick={handleBack} className="p-1 hover:bg-slate-200 rounded" title="Back (F3)"><Undo2 className="h-4 w-4 text-slate-600" /></button>
-            <button onClick={() => setFormData({})} className="p-1 hover:bg-slate-200 rounded" title="Clear (F12)"><XCircle className="h-4 w-4 text-slate-600" /></button>
-            {activeScreen === 'TR21' && selectedTripForPreview && (
-              <button onClick={() => setIsPdfPreviewOpen(true)} className="p-1 hover:bg-slate-200 rounded" title="CN Print Preview"><Printer className="h-4 w-4 text-blue-600" /></button>
-            )}
-          </div>
-          <div className="flex-1" />
-          <div className="flex items-center gap-3 pr-4">
-            {(activeScreen === 'VA01' || activeScreen === 'XD01') && (
-              <div className="flex items-center gap-2 mr-4">
-                <input type="file" ref={bulkInputRef} onChange={handleBulkUpload} className="hidden" accept=".csv" />
-                <button onClick={handleDownloadTemplate} className="px-3 h-7 bg-white border border-slate-300 rounded text-[9px] font-black uppercase">Template</button>
-                <button onClick={() => bulkInputRef.current?.click()} className="px-3 h-7 bg-[#1e3a8a] text-white rounded text-[9px] font-black uppercase shadow-sm">Bulk Upload</button>
-              </div>
-            )}
-            <button onClick={() => { localStorage.removeItem('sap_bootstrap_session'); router.push('/login'); }} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700 transition-all"><LogOut className="h-3.5 w-3.5" /> Log Off</button>
-          </div>
+          <div className="flex items-center bg-white border border-slate-400 p-0.5 shadow-inner relative"><button onClick={() => executeTCode(tCode)} className="px-1 text-[#008000] font-black text-xs hover:bg-slate-100">✓</button><input ref={tCodeRef} type="text" value={tCode} onChange={e => setTCode(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') executeTCode(tCode); }} onClick={() => history.length > 0 && setShowHistory(true)} onBlur={() => setTimeout(() => setShowHistory(false), 200)} className="w-48 outline-none text-xs px-1 font-bold tracking-wider" placeholder="T-CODE..." />{showHistory && (<div className="absolute top-full left-0 w-full bg-white border border-slate-400 shadow-md z-[60]">{history.map((h, i) => <div key={i} onClick={() => executeTCode(h)} className="px-4 py-1.5 text-xs font-bold cursor-pointer hover:bg-blue-50">{h}</div>)}</div>)}</div>
+          <div className="flex items-center gap-1.5 px-4 border-l border-slate-300 ml-2 h-7"><button onClick={handleSave} className="p-1 hover:bg-slate-200 rounded" title="Save (F8)"><Save className="h-4 w-4 text-slate-600" /></button><button onClick={handleBack} className="p-1 hover:bg-slate-200 rounded" title="Back (F3)"><Undo2 className="h-4 w-4 text-slate-600" /></button><button onClick={() => setFormData({})} className="p-1 hover:bg-slate-200 rounded" title="Clear (F12)"><XCircle className="h-4 w-4 text-slate-600" /></button>{activeScreen === 'TR21' && selectedTripForPreview && (<button onClick={() => setIsPdfPreviewOpen(true)} className="p-1 hover:bg-slate-200 rounded" title="CN Print Preview"><Printer className="h-4 w-4 text-blue-600" /></button>)}</div>
+          <div className="flex-1" /><div className="flex items-center gap-3 pr-4">{(activeScreen === 'VA01' || activeScreen === 'XD01') && (<div className="flex items-center gap-2 mr-4"><input type="file" ref={bulkInputRef} onChange={handleBulkUpload} className="hidden" accept=".csv" /><button onClick={handleDownloadTemplate} className="px-3 h-7 bg-white border border-slate-300 rounded text-[9px] font-black uppercase">Template</button><button onClick={() => bulkInputRef.current?.click()} className="px-3 h-7 bg-[#1e3a8a] text-white rounded text-[9px] font-black uppercase shadow-sm">Bulk Upload</button></div>)}<button onClick={() => { localStorage.removeItem('sap_bootstrap_session'); router.push('/login'); }} className="flex items-center gap-2 px-3 h-7 bg-slate-200 hover:bg-slate-300 rounded text-[10px] font-black uppercase tracking-widest text-slate-700 transition-all"><LogOut className="h-3.5 w-3.5" /> Log Off</button></div>
         </div>
       </div>
-
       <div className="flex-1 flex overflow-hidden">
-        {/* --- Sidebar Favorites --- */}
-        {activeScreen === 'HOME' && (
-          <div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden print:hidden shadow-sm">
-            <div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div>
-            <div className="flex-1 overflow-y-auto green-scrollbar">
-              {MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'WGPS24').map(t => (
-                <div key={t.code} onClick={() => executeTCode(t.code)} className="flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all"><span className="text-[10px] font-black uppercase tracking-tight text-[#1e3a8a]">{t.code} - {t.description}</span><div className="flex-1" /><t.icon className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-600" /></div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* --- Work Canvas --- */}
+        {activeScreen === 'HOME' && (<div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden print:hidden shadow-sm"><div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div><div className="flex-1 overflow-y-auto green-scrollbar">{MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'WGPS24').map(t => (<div key={t.code} onClick={() => executeTCode(t.code)} className="flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all"><span className="text-[10px] font-black uppercase tracking-tight text-[#1e3a8a]">{t.code} - {t.description}</span><div className="flex-1" /><t.icon className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-600" /></div>))}</div></div>)}
         <div className="flex-1 flex flex-col overflow-hidden bg-[#f2f2f2] print:bg-white">
           {activeScreen === 'HOME' ? (
-            <div className="flex-1 overflow-y-auto p-8 animate-fade-in">
-              <h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter mb-10">Sikka Logistics Management Control</h1>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-8 border border-slate-300 shadow-sm mb-12">
-                <div className="flex flex-col gap-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plant Filter</label><select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500" value={homePlantFilter} onChange={e => setHomePlantFilter(e.target.value)}><option value="ALL">ALL AUTHORIZED PLANTS</option>{accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div>
-                <div className="flex flex-col gap-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fiscal Period</label><input type="month" className="h-10 border border-slate-400 px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500" value={homeMonthFilter} onChange={e => setHomeMonthFilter(e.target.value)} /></div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-                {[{ l: 'OPEN ORDER', c: homeStats.open, cl: 'text-blue-600' }, { l: 'LOADING', c: homeStats.loading, cl: 'text-orange-600' }, { l: 'IN-TRANSIT', c: homeStats.transit, cl: 'text-emerald-600' }, { l: 'ARRIVED', c: homeStats.arrived, cl: 'text-indigo-600' }, { l: 'POD', c: homeStats.pod, cl: 'text-purple-600' }, { l: 'REJECT', c: homeStats.reject, cl: 'text-red-600' }, { l: 'CLOSED', c: homeStats.closed, cl: 'text-slate-600' }].map(w => (
-                  <div key={w.l} className="p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-3 bg-white hover:scale-105 transition-transform duration-300"><span className="text-[9px] font-black text-slate-400 uppercase text-center tracking-widest leading-none h-6 flex items-center">{w.l}</span><span className={cn("text-3xl font-black italic tracking-tighter", w.cl)}>{w.c}</span></div>
-                ))}
-              </div>
-            </div>
+            <div className="flex-1 overflow-y-auto p-8 animate-fade-in"><h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter mb-10">Sikka Logistics Management Control</h1><div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-8 border border-slate-300 shadow-sm mb-12"><div className="flex flex-col gap-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plant Filter</label><select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500" value={homePlantFilter} onChange={e => setHomePlantFilter(e.target.value)}><option value="ALL">ALL AUTHORIZED PLANTS</option>{accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div><div className="flex flex-col gap-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fiscal Period</label><input type="month" className="h-10 border border-slate-400 px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500" value={homeMonthFilter} onChange={e => setHomeMonthFilter(e.target.value)} /></div></div><div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">{[{ l: 'OPEN ORDER', c: homeStats.open, cl: 'text-blue-600' }, { l: 'LOADING', c: homeStats.loading, cl: 'text-orange-600' }, { l: 'IN-TRANSIT', c: homeStats.transit, cl: 'text-emerald-600' }, { l: 'ARRIVED', c: homeStats.arrived, cl: 'text-indigo-600' }, { l: 'POD', c: homeStats.pod, cl: 'text-purple-600' }, { l: 'REJECT', c: homeStats.reject, cl: 'text-red-600' }, { l: 'CLOSED', c: homeStats.closed, cl: 'text-slate-600' }].map(w => (<div key={w.l} className="p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-3 bg-white hover:scale-105 transition-transform duration-300"><span className="text-[9px] font-black text-slate-400 uppercase text-center tracking-widest leading-none h-6 flex items-center">{w.l}</span><span className={cn("text-3xl font-black italic tracking-tighter", w.cl)}>{w.c}</span></div>))}</div></div>
           ) : (
             <div className="flex flex-col w-full h-full overflow-hidden bg-[#f2f2f2]">
               {activeScreen === 'TR21' && viewMode === 'list' && (
                 <TripBoard 
                   orders={allOrders} trips={allTrips} vendors={accessibleVendors} plants={accessiblePlants} companies={accessibleCompanies} customers={accessibleCustomers} onStatusUpdate={setStatusMsg} viewMode={viewMode} setViewMode={setViewMode} trackingNode={trackingNode} setTrackingNode={setTrackingNode} settings={settings}
-                  isPdfPreviewOpen={isPdfPreviewOpen} setIsPdfPreviewOpen={setIsPdfPreviewOpen} selectedTripForPreview={selectedTripForPreview} setSelectedTripForPreview={setSelectedTripForPreview} previewDeliveryAddress={previewDeliveryAddress} setPreviewDeliveryAddress={setPreviewDeliveryAddress} isAddressEditable={isAddressEditable} setIsAddressEditable={setIsAddressEditable} isAddressDirty={isAddressDirty} setIsAddressDirty={setIsAddressDirty}
+                  onOpenPdfPreview={(t: any) => { 
+                    setSelectedTripForPreview(t); 
+                    const fullShipToAddr = [t.shipToMaster?.address, t.shipToMaster?.city, t.shipToMaster?.postalCode].filter(Boolean).join(', ');
+                    setPreviewDeliveryAddress(t.deliveryAddress || fullShipToAddr || t.order?.deliveryAddress || '');
+                    setIsAddressEditable(false); setIsAddressDirty(false); setIsPdfPreviewOpen(true); 
+                  }}
                 />
               )}
               {activeScreen === 'TR21' && viewMode === 'tracking' && <Tr21TrackingPage node={trackingNode} onBack={() => setViewMode('list')} />}
@@ -1322,67 +873,18 @@ export default function DashboardPage() {
               {activeScreen === 'SE38' && <Se38Report search={se38Search} onSearchChange={setSe38Search} />}
               {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               {!['TR21', 'TR24', 'WGPS24', 'SE38', 'ZCODE'].includes(activeScreen) && (
-                <div className="flex-1 flex flex-col overflow-y-auto green-scrollbar">
-                  <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10"><h2 className="text-[16px] font-bold text-slate-800 uppercase tracking-tight">{MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen}</h2></div>
-                  <div className="px-10 pb-20">
-                    {(activeScreen.endsWith('01') || formData.id || activeScreen === 'VA04') ? (
-                      <div className="max-w-full animate-slide-up">
-                        {activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}
-                        {activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
-                        {activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
-                        {activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
-                        {activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} trips={allTrips} screen={activeScreen} />}
-                        {activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} allTrips={allTrips} onPost={handleSave} onCancel={() => setFormData({})} />}
-                        {activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}
-                      </div>
-                    ) : (
-                      <div className="space-y-8 animate-fade-in">
-                        <div className="bg-white p-6 border-b-2 border-slate-300 shadow-sm flex items-center gap-6"><label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Record:</label><input className="h-9 w-full max-w-xl border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE OR IDENTIFIER AND PRESS ENTER..." /></div>
-                        <RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} />
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <div className="flex-1 flex flex-col overflow-y-auto green-scrollbar"><div className="bg-white border-b border-slate-300 px-8 py-3 mb-10"><h2 className="text-[16px] font-bold text-slate-800 uppercase tracking-tight">{MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen}</h2></div><div className="px-10 pb-20">{(activeScreen.endsWith('01') || formData.id || activeScreen === 'VA04') ? (<div className="max-w-full animate-slide-up">{activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}{activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} trips={allTrips} screen={activeScreen} />}{activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} allTrips={allTrips} onPost={handleSave} onCancel={() => setFormData({})} />}{activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}</div>) : (<div className="space-y-8 animate-fade-in"><div className="bg-white p-6 border-b-2 border-slate-300 shadow-sm flex items-center gap-6"><label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Record:</label><input className="h-9 w-full max-w-xl border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE OR IDENTIFIER AND PRESS ENTER..." /></div><RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} /></div>)}</div></div>
               )}
             </div>
           )}
         </div>
       </div>
+      <div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em] shrink-0 z-50 print:hidden shadow-[0_-2px_10px_rgba(0,0,0,0.2)]"><div className="flex items-center gap-8 overflow-hidden flex-1"><span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span><span className="shrink-0">{activeScreen}</span><span className="truncate">USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.fullName || 'IDENTIFYING...')}</span>{statusMsg.text !== 'Ready' && <span className={cn("truncate", statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span>}</div>{greeting && <div className="shrink-0 ml-4 hidden sm:block text-blue-400 italic">{greeting}</div>}</div>
 
-      {/* --- Footer Taskbar --- */}
-      <div className="h-7 bg-[#0f172a] flex items-center px-4 text-[9px] font-black text-white/90 uppercase tracking-[0.15em] shrink-0 z-50 print:hidden shadow-[0_-2px_10px_rgba(0,0,0,0.2)]">
-        <div className="flex items-center gap-8 overflow-hidden flex-1">
-          <span className="flex items-center gap-2.5 shrink-0"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />SYNC: ACTIVE</span>
-          <span className="shrink-0">{activeScreen}</span>
-          <span className="truncate">USER: {isBootstrapAdmin ? 'SUPER ADMIN' : (userProfile?.fullName || 'IDENTIFYING...')}</span>
-          {statusMsg.text !== 'Ready' && <span className={cn("truncate", statusMsg.type === 'error' ? "text-red-400" : "text-blue-400")}>EVENT: {statusMsg.text}</span>}
-        </div>
-        {greeting && <div className="shrink-0 ml-4 hidden sm:block text-blue-400 italic">{greeting}</div>}
-      </div>
-
-      {/* --- Adobe Reader Style Preview Hub --- */}
       {isPdfPreviewOpen && selectedTripForPreview && (
         <div className="fixed inset-0 z-[200] bg-[#525659] flex flex-col font-mono animate-fade-in overflow-hidden">
-           <div className="bg-[#c5e0b4] border-b border-slate-400 h-9 flex items-center justify-between px-4 shrink-0">
-             <div className="text-[11px] font-black uppercase tracking-widest text-[#1e3a8a]">PDF Preview Portal</div>
-             <button onClick={() => setIsPdfPreviewOpen(false)} className="text-slate-600 hover:text-red-600 transition-colors"><X className="h-4 w-4" /></button>
-           </div>
-           <div className="bg-[#323639] h-10 flex items-center justify-between px-8 shrink-0 shadow-lg">
-             <div className="flex items-center gap-6">
-                <span className="text-white text-[11px] font-bold">1 of 3</span>
-                <div className="h-4 w-px bg-white/20" />
-                <div className="flex items-center gap-3">
-                   <button className="text-white/70 hover:text-white"><ChevronLeft className="h-4 w-4" /></button>
-                   <span className="text-white text-[11px] font-bold w-12 text-center">100%</span>
-                   <button className="text-white/70 hover:text-white"><ChevronRight className="h-4 w-4" /></button>
-                </div>
-             </div>
-             <div className="flex items-center gap-6">
-                <button className="text-white/70 hover:text-white"><Search className="h-4 w-4" /></button>
-                <button onClick={() => window.print()} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Printer className="h-4 w-4" /></button>
-                <button disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Download className="h-4 w-4" /></button>
-             </div>
-           </div>
+           <div className="bg-[#c5e0b4] border-b border-slate-400 h-9 flex items-center justify-between px-4 shrink-0"><div className="text-[11px] font-black uppercase tracking-widest text-[#1e3a8a]">PDF Preview Portal</div><button onClick={() => setIsPdfPreviewOpen(false)} className="text-slate-600 hover:text-red-600 transition-colors"><X className="h-4 w-4" /></button></div>
+           <div className="bg-[#323639] h-10 flex items-center justify-between px-8 shrink-0 shadow-lg"><div className="flex items-center gap-6"><span className="text-white text-[11px] font-bold">1 of 3</span><div className="h-4 w-px bg-white/20" /><div className="flex items-center gap-3"><button className="text-white/70 hover:text-white"><ChevronLeft className="h-4 w-4" /></button><span className="text-white text-[11px] font-bold w-12 text-center">100%</span><button className="text-white/70 hover:text-white"><ChevronRight className="h-4 w-4" /></button></div></div><div className="flex items-center gap-6"><button className="text-white/70 hover:text-white"><Search className="h-4 w-4" /></button><button onClick={() => window.print()} disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Printer className="h-4 w-4" /></button><button disabled={isAddressDirty} className={cn("text-white/70 hover:text-white", isAddressDirty && "opacity-30 cursor-not-allowed")}><Download className="h-4 w-4" /></button></div></div>
            <div className="flex-1 overflow-auto p-12 flex justify-center custom-scrollbar">
              <div className="transition-transform duration-200">
                {[...Array(3)].map((_, i) => {
@@ -1394,58 +896,19 @@ export default function DashboardPage() {
                  return (
                    <div key={i} className={cn("w-[210mm] min-h-[297mm] p-[10mm] bg-white shadow-2xl mb-8 relative border border-black", i < 2 && "print:page-break-after-always")}>
                       <div className="flex justify-between items-start mb-6">
-                        <div className="flex gap-4">
-                          {selectedTripForPreview.carrier?.logo && <Image src={selectedTripForPreview.carrier.logo} alt="Logo" width={60} height={60} className="object-contain" unoptimized />}
-                          <div className="flex flex-col">
-                            <h1 className="text-[26px] font-black uppercase italic tracking-tighter leading-none">{selectedTripForPreview.carrier?.companyName || 'CARRIER NAME'}</h1>
-                            <p className="text-[10px] font-bold mt-2 uppercase">{selectedTripForPreview.carrier?.address}, {selectedTripForPreview.carrier?.city}</p>
-                            <div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>Mobile: {selectedTripForPreview.carrier?.mobile}</span><span>Email: {selectedTripForPreview.carrier?.email}</span></div>
-                            <div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>GSTIN: {selectedTripForPreview.carrier?.gstin}</span><span>PAN: {selectedTripForPreview.carrier?.pan || 'N/A'}</span></div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="border border-black px-4 py-1.5 inline-block mb-4"><span className="text-[12px] font-black uppercase">{copyLabel}</span></div>
-                          <p className="text-[16px] font-black uppercase">CN No: {selectedTripForPreview.cnNo}</p>
-                          <p className="text-[10px] font-bold uppercase mt-1">Date: {format(new Date(selectedTripForPreview.cnDate || new Date()), 'dd-MMM-yyyy')}</p>
-                        </div>
+                        <div className="flex gap-4">{selectedTripForPreview.carrier?.logo && <Image src={selectedTripForPreview.carrier.logo} alt="Logo" width={60} height={60} className="object-contain" unoptimized />}<div className="flex flex-col"><h1 className="text-[26px] font-black uppercase italic tracking-tighter leading-none">{selectedTripForPreview.carrier?.companyName || 'CARRIER NAME'}</h1><p className="text-[10px] font-bold mt-2 uppercase">{selectedTripForPreview.carrier?.address}, {selectedTripForPreview.carrier?.city}</p><div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>Mobile: {selectedTripForPreview.carrier?.mobile}</span><span>Email: {selectedTripForPreview.carrier?.email}</span></div><div className="flex gap-4 text-[10px] font-bold mt-1 uppercase"><span>GSTIN: {selectedTripForPreview.carrier?.gstin}</span><span>PAN: {selectedTripForPreview.carrier?.pan || 'N/A'}</span></div></div></div>
+                        <div className="text-right"><div className="border border-black px-4 py-1.5 inline-block mb-4"><span className="text-[12px] font-black uppercase">{copyLabel}</span></div><p className="text-[16px] font-black uppercase">CN No: {selectedTripForPreview.cnNo}</p><p className="text-[10px] font-bold uppercase mt-1">Date: {format(new Date(selectedTripForPreview.cnDate || new Date()), 'dd-MMM-yyyy')}</p></div>
                       </div>
-                      <div className="grid grid-cols-3 gap-0 mb-6 border border-black h-32">
-                         {[
-                           { title: 'CONSIGNOR', master: selectedTripForPreview.consignorMaster, fallback: selectedTripForPreview.order?.consignor },
-                           { title: 'CONSIGNEE', master: selectedTripForPreview.consigneeMaster, fallback: selectedTripForPreview.order?.consignee },
-                           { title: 'SHIP TO PARTY', master: selectedTripForPreview.shipToMaster, fallback: selectedTripForPreview.shipToParty }
-                         ].map((c, idx) => (
-                           <div key={idx} className="flex flex-col border-r last:border-0 border-black p-3">
-                              <p className="text-[10px] font-black uppercase text-center border-b border-black pb-1 mb-2">{c.title}</p>
-                              <div className="flex-1 flex flex-col items-center justify-center space-y-0.5 text-center">
-                                <p className="text-[11px] font-black uppercase truncate">{c.master?.customerName || c.fallback}</p>
-                                <p className="text-[9px] font-bold uppercase leading-relaxed text-slate-700 line-clamp-2">{c.master?.address || 'REGISTERED ADDRESS'}</p>
-                                <div className="mt-1 flex flex-col items-center space-y-0 text-center">
-                                   <span className="text-[9px] font-bold">Mobile: {c.master?.mobile || '-'}</span>
-                                   <span className="text-[9px] font-bold">GSTIN: {c.master?.gstin || 'N/A'}</span>
-                                </div>
-                              </div>
-                           </div>
-                         ))}
-                      </div>
+                      <div className="grid grid-cols-3 gap-0 mb-6 border border-black h-32">{[{ title: 'CONSIGNOR', master: selectedTripForPreview.consignorMaster, fallback: selectedTripForPreview.order?.consignor }, { title: 'CONSIGNEE', master: selectedTripForPreview.consigneeMaster, fallback: selectedTripForPreview.order?.consignee }, { title: 'SHIP TO PARTY', master: selectedTripForPreview.shipToMaster, fallback: selectedTripForPreview.shipToParty }].map((c, idx) => (<div key={idx} className="flex flex-col border-r last:border-0 border-black p-3"><p className="text-[10px] font-black uppercase text-center border-b border-black pb-1 mb-2">{c.title}</p><div className="flex-1 flex flex-col items-center justify-center space-y-0.5 text-center"><p className="text-[11px] font-black uppercase truncate">{c.master?.customerName || c.fallback}</p><p className="text-[9px] font-bold uppercase leading-relaxed text-slate-700 line-clamp-2">{c.master?.address || 'REGISTERED ADDRESS'}</p><div className="mt-1 flex flex-col items-center space-y-0 text-center"><span className="text-[9px] font-bold">Mobile: {c.master?.mobile || '-'}</span><span className="text-[9px] font-bold">GSTIN: {c.master?.gstin || 'N/A'}</span></div></div></div>))}</div>
                       <div className="flex-1">
                         <table className="w-full border-collapse border border-black">
                           <thead><tr className="bg-slate-100 text-[10px] font-black uppercase h-8"><th className="border border-black p-2 w-[120px]">Invoice</th><th className="border border-black p-2 w-[144px]">E-waybill No</th><th className="border border-black p-2 text-left w-[310px]">Description</th><th className="border border-black p-2 w-[96px]">Package</th><th className="border border-black p-2 w-[96px]">Weight</th></tr></thead>
                           <tbody>{tableItems.map((itm: any, idx: number) => (<tr key={idx} className="text-[10px] font-bold uppercase h-10 border-b border-black"><td className="p-2 text-center">{itm.invoice}</td><td className="p-2 text-center">{itm.ewaybill}</td><td className="p-2">{itm.description}</td><td className="p-2 text-center">{itm.package}</td><td className="p-2 text-center">{selectedTripForPreview.assignWeight}</td></tr>))}</tbody>
                           <tfoot className="bg-slate-50 font-black h-8"><tr className="border-t border-black"><td colSpan={3} className="p-2 text-right uppercase text-[10px]">Gross Total:</td><td className="p-2 text-center text-[11px] border-l border-black">{pkgDisplay}</td><td className="p-2 text-center text-[11px] border-l border-black">{selectedTripForPreview.assignWeight} {selectedTripForPreview.weightUom}</td></tr></tfoot>
                         </table>
-                        <div className="mt-4 border border-black">
-                           <div className="bg-slate-50 border-b border-black p-1"><p className="text-[10px] font-black uppercase">Delivery Address:</p></div>
-                           <div className="p-3 min-h-[60px] relative group">
-                              {isAddressEditable ? <textarea value={previewDeliveryAddress} onChange={e => { setPreviewDeliveryAddress(e.target.value); setIsAddressDirty(true); }} className="w-full h-full text-[10px] font-bold uppercase outline-none bg-yellow-50 resize-none" /> : <p className="text-[10px] font-bold uppercase leading-relaxed pr-10">{previewDeliveryAddress}</p>}
-                              <button onClick={() => setIsAddressEditable(true)} className="absolute top-2 right-2 p-1 text-[#1e3a8a] opacity-0 group-hover:opacity-100 print:hidden"><Edit3 className="h-3 w-3" /></button>
-                           </div>
-                        </div>
+                        <div className="mt-4 border border-black"><div className="bg-slate-50 border-b border-black p-1"><p className="text-[10px] font-black uppercase">Delivery Address:</p></div><div className="p-3 min-h-[60px] relative group">{isAddressEditable ? <textarea value={previewDeliveryAddress} onChange={e => { setPreviewDeliveryAddress(e.target.value); setIsAddressDirty(true); }} className="w-full h-full text-[10px] font-bold uppercase outline-none bg-yellow-50 resize-none" /> : <p className="text-[10px] font-bold uppercase leading-relaxed pr-10">{previewDeliveryAddress}</p>}<button onClick={() => setIsAddressEditable(true)} className="absolute top-2 right-2 p-1 text-[#1e3a8a] opacity-0 group-hover:opacity-100 print:hidden"><Edit3 className="h-3 w-3" /></button></div></div>
                       </div>
-                      <div className="mt-8 flex items-end justify-between px-2">
-                        <div className="flex-1 max-w-[65%] text-[8px] font-bold text-slate-500 uppercase italic">Notes – Terms and conditions as per company registry. Original copy for record.</div>
-                        <div className="text-right pb-10"><p className="text-[11px] font-black uppercase border-t border-black pt-2 px-6 inline-block">Authorized Signatory</p></div>
-                      </div>
+                      <div className="mt-8 flex items-end justify-between px-2"><div className="flex-1 max-w-[65%] text-[8px] font-bold text-slate-500 uppercase italic">Notes – Terms and conditions as per company registry. Original copy for record.</div><div className="text-right pb-10"><p className="text-[11px] font-black uppercase border-t border-black pt-2 px-6 inline-block">Authorized Signatory</p></div></div>
                    </div>
                  );
                })}
