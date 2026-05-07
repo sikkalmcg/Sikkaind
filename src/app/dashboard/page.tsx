@@ -300,6 +300,7 @@ function CustomerForm({ data, onChange, disabled, allPlants }: any) {
         <FormInput label="CUSTOMER CODE" value={data.customerCode} onChange={(v: string) => onChange({...data, customerCode: v})} disabled={disabled} />
         <FormInput label="CUSTOMER NAME" value={data.customerName} onChange={(v: string) => onChange({...data, customerName: v})} disabled={disabled} />
         <FormSelect label="CUSTOMER TYPE" value={data.customerType} options={["Consignor", "Consignee - Ship to Party"]} onChange={(v: string) => onChange({...data, customerType: v})} disabled={disabled} />
+        <FormInput label="GSTIN" value={data.gstin} onChange={(v: string) => onChange({...data, gstin: v})} disabled={disabled} />
       </SectionGrouping>
       <SectionGrouping title="LOCATION">
         <FormInput label="ADDRESS" value={data.address} onChange={(v: string) => onChange({...data, address: v})} disabled={disabled} />
@@ -760,6 +761,10 @@ export default function DashboardPage() {
       const validation = await validateOrder(formData);
       if (!validation.valid) { setStatusMsg({ text: `Rejection: ${validation.reason}`, type: 'error' }); return; }
     }
+    if (activeScreen === 'XD01') {
+      const isDuplicate = accessibleCustomers.some(c => c.customerCode === formData.customerCode && c.id !== formData.id);
+      if (isDuplicate) { setStatusMsg({ text: 'Error: Duplicate Customer Code', type: 'error' }); return; }
+    }
     let col = ''; if (activeScreen.startsWith('OX')) col = 'plants'; else if (activeScreen.startsWith('FM')) col = 'companies'; else if (activeScreen.startsWith('XK')) col = 'vendors'; else if (activeScreen.startsWith('XD')) col = 'customers'; else if (activeScreen.startsWith('VA')) col = 'sales_orders'; else if (activeScreen.startsWith('SU')) col = 'user_registry';
     if (col) {
       const docId = formData.id || crypto.randomUUID();
@@ -778,16 +783,42 @@ export default function DashboardPage() {
       const text = ev.target?.result as string;
       const rows = text.split('\n').slice(1);
       let successCount = 0; let failCount = 0;
-      for (const row of rows) {
-        const cols = row.split(',');
-        if (cols.length < 5) continue;
-        const newOrder = { plantCode: cols[0]?.trim(), saleOrder: cols[1]?.trim(), consignor: cols[2]?.trim(), consignee: cols[3]?.trim(), shipToParty: cols[4]?.trim(), weight: cols[5]?.trim(), weightUom: cols[6]?.trim() || 'MT', status: 'Active', createdAt: new Date().toISOString() };
-        const validation = await validateOrder(newOrder);
-        if (validation.valid) {
+      
+      if (activeScreen === 'VA01') {
+        for (const row of rows) {
+          const cols = row.split(',');
+          if (cols.length < 5) continue;
+          const newOrder = { plantCode: cols[0]?.trim(), saleOrder: cols[1]?.trim(), consignor: cols[2]?.trim(), consignee: cols[3]?.trim(), shipToParty: cols[4]?.trim(), weight: cols[5]?.trim(), weightUom: cols[6]?.trim() || 'MT', status: 'Active', createdAt: new Date().toISOString() };
+          const validation = await validateOrder(newOrder);
+          if (validation.valid) {
+            const docId = crypto.randomUUID();
+            setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { ...newOrder, id: docId }, { merge: true });
+            successCount++;
+          } else { failCount++; }
+        }
+      } else if (activeScreen === 'XD01') {
+        for (const row of rows) {
+          const cols = row.split(',');
+          if (cols.length < 7) continue;
+          const customerCode = cols[0]?.trim();
+          const isDuplicate = accessibleCustomers.some(c => c.customerCode === customerCode);
+          if (isDuplicate) { failCount++; continue; }
+          const newCust = { 
+            customerCode, 
+            customerName: cols[1]?.trim(), 
+            customerType: cols[2]?.trim(), 
+            address: cols[3]?.trim(), 
+            city: cols[4]?.trim(), 
+            postalCode: cols[5]?.trim(), 
+            mobile: cols[6]?.trim(),
+            gstin: cols[7]?.trim() || '',
+            plantCodes: authorizedPlantsList,
+            updatedAt: new Date().toISOString()
+          };
           const docId = crypto.randomUUID();
-          setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', docId), { ...newOrder, id: docId }, { merge: true });
+          setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'customers', docId), { ...newCust, id: docId }, { merge: true });
           successCount++;
-        } else { failCount++; }
+        }
       }
       setStatusMsg({ text: `Bulk: ${successCount} Processed, ${failCount} Rejected`, type: successCount > 0 ? 'success' : 'error' });
     };
@@ -795,10 +826,18 @@ export default function DashboardPage() {
   };
 
   const handleDownloadTemplate = () => {
-    const headers = "Plant,Sale Order,Consignor,Consignee,Ship to Party,Weight,WeightUom\nPL01,SO9999,CLIENT-A,CLIENT-B,SHIP-C,25,MT";
+    let headers = ""; let filename = "";
+    if (activeScreen === 'VA01') {
+      headers = "Plant,Sale Order,Consignor,Consignee,Ship to Party,Weight,WeightUom\nPL01,SO9999,CLIENT-A,CLIENT-B,SHIP-C,25,MT";
+      filename = 'VA01_Template.csv';
+    } else if (activeScreen === 'XD01') {
+      headers = "Customer Code,Customer Name,Customer Type,Address,City,Postal Code,Mobile,GSTIN\nC1000,CLIENT-NAME,Consignor,STREET-ADDRESS,CITY-NAME,123456,9999999999,GSTIN12345";
+      filename = 'XD01_Template.csv';
+    }
+    if (!headers) return;
     const blob = new Blob([headers], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'VA01_Template.csv'; a.click();
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
   };
 
   const getRegistryList = () => { if (activeScreen.startsWith('OX')) return accessiblePlants; if (activeScreen.startsWith('FM')) return accessibleCompanies; if (activeScreen.startsWith('XK')) return accessibleVendors; if (activeScreen.startsWith('XD')) return accessibleCustomers; if (activeScreen.startsWith('VA')) return allOrders; if (activeScreen.startsWith('SU')) return accessibleUsers; return []; };
@@ -847,7 +886,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex-1" />
           <div className="flex items-center gap-3 pr-4">
-            {activeScreen === 'VA01' && (
+            {(activeScreen === 'VA01' || activeScreen === 'XD01') && (
               <div className="flex items-center gap-2 mr-4">
                 <input type="file" ref={bulkInputRef} onChange={handleBulkUpload} className="hidden" accept=".csv" />
                 <button onClick={handleDownloadTemplate} className="px-3 h-7 bg-white border border-slate-300 rounded text-[9px] font-black uppercase">Template</button>
