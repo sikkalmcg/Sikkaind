@@ -410,7 +410,7 @@ function CancelOrderForm({ data, onChange, allOrders, allTrips, onPost, onCancel
 function TripBoard({ 
   orders, trips, vendors, plants, companies, customers, onStatusUpdate, 
   viewMode, setViewMode, trackingNode, setTrackingNode, settings,
-  onOpenPdfPreview
+  onOpenPdfPreview, gpsData
 }: any) {
   const db = useFirestore(); 
   const [activeTab, setActiveTab] = React.useState('Open Orders'); 
@@ -454,6 +454,13 @@ function TripBoard({
   const [isVehiclePopupOpen, setIsVehiclePopupOpen] = React.useState(false);
   const [selectedTripForVehicleUpdate, setSelectedTripForVehicleUpdate] = React.useState<any>(null);
   const [vehicleUpdateData, setVehicleUpdateData] = React.useState<any>({ vehicleNumber: '', driverMobile: '' });
+
+  const [isTrackModePopupOpen, setIsTrackModePopupOpen] = React.useState(false);
+  const [selectedTripForTrack, setSelectedTripForTrack] = React.useState<any>(null);
+  const [trackModeSettings, setTrackModeSettings] = React.useState<any>({ mode: 'GPS', driverNumber: '' });
+  const [isTrackLocationPopupOpen, setIsTrackLocationPopupOpen] = React.useState(false);
+  const [eta, setEta] = React.useState('');
+  const trackMapRef = React.useRef<HTMLDivElement>(null);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -700,6 +707,97 @@ function TripBoard({
     onStatusUpdate({ text: 'Vehicle Information Updated', type: 'success' });
   };
 
+  const handleTrackModeClick = (t: any) => {
+    setSelectedTripForTrack(t);
+    const isGpsActive = gpsData?.some((v: any) => v.vehicleNumber?.toUpperCase() === t.vehicleNumber?.toUpperCase());
+    setTrackModeSettings({ 
+      mode: t.trackMode || (isGpsActive ? 'GPS' : 'SIM'), 
+      driverNumber: t.driverMobile || '' 
+    });
+    setIsTrackModePopupOpen(true);
+  };
+
+  const handleTrackModePost = () => {
+    setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'trips', selectedTripForTrack.id), { 
+      trackMode: trackModeSettings.mode, 
+      driverMobile: trackModeSettings.driverNumber,
+      updatedAt: new Date().toISOString() 
+    }, { merge: true });
+    setIsTrackModePopupOpen(false);
+    onStatusUpdate({ text: 'Track Mode Settings Updated', type: 'success' });
+  };
+
+  const handleLocationTrackClick = (t: any) => {
+    setSelectedTripForTrack(t);
+    setIsTrackLocationPopupOpen(true);
+  };
+
+  React.useEffect(() => {
+    if (!isTrackLocationPopupOpen || !selectedTripForTrack || !window.google) return;
+
+    const renderTrackingMap = async () => {
+      const order = orders?.find((o: any) => o.id === selectedTripForTrack.saleOrderId);
+      const consignorMaster = customers?.find((c: any) => c.customerName === order?.consignor || (c.customerName + ' - ' + c.city) === order?.consignor);
+      const shipToMaster = customers?.find((c: any) => c.customerName === order?.shipToParty || (c.customerName + ' - ' + c.city) === order?.shipToParty);
+      const gps = gpsData?.find((v: any) => v.vehicleNumber?.toUpperCase() === selectedTripForTrack.vehicleNumber?.toUpperCase());
+
+      const geocoder = new window.google.maps.Geocoder();
+      const directionsService = new window.google.maps.DirectionsService();
+      const directionsRenderer = new window.google.maps.DirectionsRenderer({ 
+        suppressMarkers: true, 
+        polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 6 } 
+      });
+
+      const getLoc = (addr: string) => new Promise((resolve) => {
+        geocoder.geocode({ address: addr }, (res: any, status: any) => {
+          if (status === 'OK') resolve(res[0].geometry.location);
+          else resolve(null);
+        });
+      });
+
+      const start = await getLoc(consignorMaster?.postalCode || order?.from);
+      const end = await getLoc(shipToMaster?.postalCode || order?.destination);
+
+      if (trackMapRef.current) {
+        const map = new window.google.maps.Map(trackMapRef.current, {
+          zoom: 12,
+          center: gps ? { lat: parseFloat(gps.latitude), lng: parseFloat(gps.longitude) } : (start as any),
+          mapTypeControl: false,
+          streetViewControl: false
+        });
+        directionsRenderer.setMap(map);
+
+        if (start) new window.google.maps.Marker({ position: start as any, map, icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png', title: 'Origin' });
+        if (end) new window.google.maps.Marker({ position: end as any, map, icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png', title: 'Drop Point' });
+        
+        if (gps) {
+          const vehiclePos = { lat: parseFloat(gps.latitude), lng: parseFloat(gps.longitude) };
+          new window.google.maps.Marker({ 
+            position: vehiclePos, 
+            map, 
+            title: gps.vehicleNumber,
+            icon: { url: 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(40, 40) }
+          });
+
+          if (start && end) {
+            directionsService.route({
+              origin: vehiclePos,
+              destination: end as any,
+              travelMode: window.google.maps.TravelMode.DRIVING
+            }, (result: any, status: any) => {
+              if (status === 'OK') {
+                directionsRenderer.setDirections(result);
+                setEta(result.routes[0].legs[0].duration.text);
+              }
+            });
+          }
+        }
+      }
+    };
+
+    renderTrackingMap();
+  }, [isTrackLocationPopupOpen, selectedTripForTrack, gpsData, orders, customers]);
+
   return (
     <div className="flex flex-col h-full space-y-0">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-4 print:hidden flex items-center justify-between">
@@ -762,14 +860,19 @@ function TripBoard({
                   <td className="p-3 uppercase">{item.shipToParty}</td>
                   <td className="p-3 uppercase">{item.route}</td>
                   <td className="p-3">
-                    <div>
-                      {(activeTab === 'In-Transit' || activeTab === 'Arrived') ? (
-                        <button onClick={() => handleVehicleClick(item)} className="text-[#0056d2] font-black hover:underline uppercase transition-all">{item.vehicleNumber || 'SET VEHICLE'}</button>
-                      ) : (
-                        item.vehicleNumber
-                      )}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        {(item.trackMode === 'GPS' && (activeTab === 'Loading' || activeTab === 'In-Transit')) && (
+                          <button onClick={() => handleLocationTrackClick(item)} className="text-emerald-600 hover:text-emerald-700"><MapPin className="h-3.5 w-3.5" /></button>
+                        )}
+                        {(activeTab === 'In-Transit' || activeTab === 'Arrived') ? (
+                          <button onClick={() => handleVehicleClick(item)} className="text-[#0056d2] font-black hover:underline uppercase transition-all">{item.vehicleNumber || 'SET VEHICLE'}</button>
+                        ) : (
+                          item.vehicleNumber
+                        )}
+                      </div>
+                      <div className="text-slate-500">{item.driverMobile}</div>
                     </div>
-                    <div className="text-slate-500">{item.driverMobile}</div>
                   </td>
                   {activeTab !== 'Reject' && <td className="p-3"><div>{item.vendorName || '-'}</div><div className="text-slate-500 uppercase">{item.arrangeBy || '-'}</div></td>}
                   <td className="p-3 text-emerald-600">{item.assignWeight} {item.weightUom}</td>
@@ -793,33 +896,128 @@ function TripBoard({
                       ) : '-'}
                     </td>
                   )}
-                  <td className="p-3"><div className="flex gap-2">
-                    {activeTab === 'Loading' && <>
-                      <Button onClick={() => handleOutVehicle(item)} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Out</Button>
-                      <Button onClick={() => { setTripToUnassign(item); setIsUnassignDialogOpen(true); }} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unassign</Button>
-                      <Button onClick={() => handleAddCn(item)} size="sm" className="bg-blue-900 text-white text-[9px] font-black h-7 rounded-none uppercase">{item.cnNo ? 'CN Edit' : 'CN Entry'}</Button>
-                    </>}
-                    {activeTab === 'In-Transit' && <Button onClick={() => handleArrivedAction(item)} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Arrived</Button>}
-                    {activeTab === 'Arrived' && <>
-                      <Button onClick={() => handleUnloadAction(item)} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unload</Button>
-                      <Button onClick={() => handleRejectAction(item)} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Reject</Button>
-                    </>}
-                    {activeTab === 'Reject' && <>
-                      <Button onClick={() => { setTripToResent(item); setIsResentDialogOpen(true); }} disabled={!!item.srnNo} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Resent</Button>
-                      <Button onClick={() => { setSelectedTripForSrn(item); setSrnFormData({ srnNo: item.srnNo || '', srnDate: item.srnDate || format(new Date(), 'yyyy-MM-dd') }); setIsSrnPopupOpen(true); }} disabled={!!item.srnNo} size="sm" className="bg-amber-600 text-white text-[9px] font-black h-7 rounded-none uppercase">SRN</Button>
-                    </>}
-                    {activeTab === 'POD Verify' && <Button onClick={() => { setSelectedTripForPod(item); setPodFile(item.podAttachment || null); setIsPodPopupOpen(true); }} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Upload POD</Button>}
-                    {activeTab === 'Closed' && <>
-                      <Button onClick={() => handleDownloadPod(item)} disabled={!item.podAttachment} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Download</Button>
-                      <Button onClick={() => { setSelectedTripForPod(item); setPodFile(item.podAttachment || null); setIsPodPopupOpen(true); }} size="sm" className="bg-blue-900 text-white text-[9px] font-black h-7 rounded-none uppercase">Update POD</Button>
-                    </>}
-                  </div></td>
+                  <td className="p-3">
+                    <div className="flex items-center gap-2">
+                      {(activeTab === 'Loading' || activeTab === 'In-Transit') && (
+                        <button onClick={() => handleTrackModeClick(item)} className="p-1.5 bg-slate-100 hover:bg-blue-100 text-[#1e3a8a] transition-colors rounded-sm" title="Track Mode">
+                          <Radar className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {activeTab === 'Loading' && <>
+                        <Button onClick={() => handleOutVehicle(item)} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Out</Button>
+                        <Button onClick={() => { setTripToUnassign(item); setIsUnassignDialogOpen(true); }} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unassign</Button>
+                        <Button onClick={() => handleAddCn(item)} size="sm" className="bg-blue-900 text-white text-[9px] font-black h-7 rounded-none uppercase">{item.cnNo ? 'CN Edit' : 'CN Entry'}</Button>
+                      </>}
+                      {activeTab === 'In-Transit' && <Button onClick={() => handleArrivedAction(item)} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Arrived</Button>}
+                      {activeTab === 'Arrived' && <>
+                        <Button onClick={() => handleUnloadAction(item)} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Unload</Button>
+                        <Button onClick={() => handleRejectAction(item)} size="sm" className="bg-red-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Reject</Button>
+                      </>}
+                      {activeTab === 'Reject' && <>
+                        <Button onClick={() => { setTripToResent(item); setIsResentDialogOpen(true); }} disabled={!!item.srnNo} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Resent</Button>
+                        <Button onClick={() => { setSelectedTripForSrn(item); setSrnFormData({ srnNo: item.srnNo || '', srnDate: item.srnDate || format(new Date(), 'yyyy-MM-dd') }); setIsSrnPopupOpen(true); }} disabled={!!item.srnNo} size="sm" className="bg-amber-600 text-white text-[9px] font-black h-7 rounded-none uppercase">SRN</Button>
+                      </>}
+                      {activeTab === 'POD Verify' && <Button onClick={() => { setSelectedTripForPod(item); setPodFile(item.podAttachment || null); setIsPodPopupOpen(true); }} size="sm" className="bg-[#0056d2] text-white text-[9px] font-black h-7 rounded-none uppercase">Upload POD</Button>}
+                      {activeTab === 'Closed' && <>
+                        <Button onClick={() => handleDownloadPod(item)} disabled={!item.podAttachment} size="sm" className="bg-emerald-600 text-white text-[9px] font-black h-7 rounded-none uppercase">Download</Button>
+                        <Button onClick={() => { setSelectedTripForPod(item); setPodFile(item.podAttachment || null); setIsPodPopupOpen(true); }} size="sm" className="bg-blue-900 text-white text-[9px] font-black h-7 rounded-none uppercase">Update POD</Button>
+                      </>}
+                    </div>
+                  </td>
                 </tr>;
               }
             })}</tbody>
           </table>
         </div>
       </div>
+
+      <Dialog open={isTrackModePopupOpen} onOpenChange={setIsTrackModePopupOpen}>
+        <DialogContent className="max-w-[700px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl">
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4">
+            <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center justify-between">
+              <span>Track Mode Configuration</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-8 space-y-8">
+            <div className="bg-white p-6 border border-slate-200 shadow-sm">
+              <div className="grid grid-cols-1 gap-y-3 text-[10px] font-black uppercase">
+                <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-slate-400">Route:</span><span className="text-blue-700">{selectedTripForTrack?.route}</span></div>
+                <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-slate-400">Vehicle:</span><span className="text-slate-800">{selectedTripForTrack?.vehicleNumber}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Driver Mobile:</span><span className="text-slate-800">{selectedTripForTrack?.driverMobile}</span></div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <FormSelect label="TRACK MODE" value={trackModeSettings.mode} options={["GPS", "SIM"]} onChange={(v: string) => setTrackModeSettings({...trackModeSettings, mode: v})} />
+              <FormInput label="DRIVER NUMBER" value={trackModeSettings.driverNumber} onChange={(v: string) => setTrackModeSettings({...trackModeSettings, driverNumber: v})} />
+            </div>
+            {trackModeSettings.mode === 'SIM' && (
+              <div className="space-y-6 animate-fade-in border-t border-slate-300 pt-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-black uppercase text-slate-800 italic">Consent Status</h3>
+                  <Button className="h-8 bg-[#1e3a8a] text-white text-[9px] font-black uppercase px-6">Request Consent</Button>
+                </div>
+                <div className="bg-white border border-slate-200 p-6 space-y-4">
+                  <h4 className="text-[11px] font-black uppercase text-[#1e3a8a] border-b border-slate-100 pb-2">Consent Instructions</h4>
+                  <p className="text-[10px] font-bold text-slate-600 leading-relaxed uppercase">
+                    Please follow the steps below to provide consent for driver’s location tracking. Use the driver’s registered mobile number (displayed above) to complete the process.
+                  </p>
+                  <ul className="space-y-3 list-disc pl-4">
+                    <li className="text-[10px] font-black text-slate-700 uppercase leading-relaxed">For Jio, Missed call to 9982256700. Confirmation SMS will be received upon successful registration.</li>
+                    <li className="text-[10px] font-black text-slate-700 uppercase leading-relaxed">Airtel, Vodafone Idea Call 7303777719 & press 1. If you face any issues with the IVR call, please SMS "Y" to the number mentioned below.</li>
+                  </ul>
+                  <table className="w-full border-collapse border border-slate-200 mt-4">
+                    <thead className="bg-slate-50 text-[9px] font-black uppercase">
+                      <tr><th className="border border-slate-200 p-2">Network Operator</th><th className="border border-slate-200 p-2">SMS Number</th></tr>
+                    </thead>
+                    <tbody className="text-[10px] font-bold uppercase text-center">
+                      <tr><td className="border border-slate-200 p-2">Airtel</td><td className="border border-slate-200 p-2">SMS "Y" to 5114040</td></tr>
+                      <tr><td className="border border-slate-200 p-2">Vodafone Idea</td><td className="border border-slate-200 p-2">SMS "Y" to 55502</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="p-4 bg-white border-t border-slate-300 flex justify-end gap-4">
+            <Button onClick={() => setIsTrackModePopupOpen(false)} variant="outline" className="h-10 px-8 text-[11px] font-black uppercase rounded-none">Exit</Button>
+            <Button onClick={handleTrackModePost} className="h-10 px-12 bg-blue-600 text-white rounded-none text-[11px] font-black uppercase shadow-lg">Update</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isTrackLocationPopupOpen} onOpenChange={setIsTrackLocationPopupOpen}>
+        <DialogContent className="max-w-[1000px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl h-[85vh] flex flex-col">
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
+            <DialogTitle className="text-white text-xs font-black uppercase tracking-widest flex items-center justify-between w-full">
+              <div className="flex gap-8">
+                <span>Live Shipment Tracking</span>
+                <span className="opacity-60">|</span>
+                <span>Vehicle: {selectedTripForTrack?.vehicleNumber}</span>
+                <span className="opacity-60">|</span>
+                <span>ETA: {eta || 'Calculating...'}</span>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-4 flex-1 flex flex-col gap-4 overflow-hidden">
+            <div className="bg-white p-3 border border-slate-200 shadow-sm flex justify-between items-center shrink-0">
+              <div className="flex gap-8 text-[10px] font-black uppercase">
+                <div className="flex flex-col"><span className="text-slate-400">Ship To Party</span><span className="text-slate-800">{selectedTripForTrack?.shipToParty}</span></div>
+                <div className="flex flex-col"><span className="text-slate-400">Route</span><span className="text-blue-700">{selectedTripForTrack?.route}</span></div>
+              </div>
+              <div className="flex items-center gap-2 text-[9px] font-black text-emerald-600 uppercase bg-emerald-50 px-3 py-1 border border-emerald-100">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" /> Live Node Active
+              </div>
+            </div>
+            <div className="flex-1 bg-white border border-slate-300 relative shadow-inner">
+              <div ref={trackMapRef} className="w-full h-full" />
+            </div>
+          </div>
+          <div className="p-4 bg-white border-t border-slate-300 flex justify-between items-center shrink-0">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Synchronized via satellite hub – Auto refresh every 30s</p>
+            <Button onClick={() => setIsTrackLocationPopupOpen(false)} className="h-9 px-12 bg-slate-800 text-white rounded-none text-[11px] font-black uppercase">Exit View</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isUnassignDialogOpen} onOpenChange={setIsUnassignDialogOpen}>
         <DialogContent className="max-w-[400px] p-0 rounded-none border-none">
@@ -1073,48 +1271,13 @@ function Tr21TrackingPage({ node, onBack }: any) {
   return (<div className="h-full flex flex-col"><div className="bg-white p-4 border-b border-slate-300 flex items-center gap-4"><button onClick={onBack}><ArrowLeft className="h-5 w-5" /></button><h2 className="text-sm font-black uppercase italic">Logistical Tracking Node</h2></div><div className="flex-1 bg-slate-100 flex items-center justify-center p-20 text-center"><div className="space-y-6"><Radar className="h-12 w-12 text-[#1e3a8a] mx-auto animate-pulse" /><p className="text-xs font-black uppercase">Live Tracking Interface Synchronized for Trip: {node?.tripId}</p></div></div></div>);
 }
 
-function GpsTrackingHub({ settings, settingsRef }: any) {
+function GpsTrackingHub({ settings, settingsRef, gpsData, loading }: any) {
   const [activeTab, setActiveTab] = React.useState('GPS MAP');
-  const [gpsData, setGpsData] = React.useState<any[]>([]);
   const [selectedVehicle, setSelectedVehicle] = React.useState<any>(null);
-  const [loading, setLoading] = React.useState(true);
   const mapRef = React.useRef<HTMLDivElement>(null);
   const googleMap = React.useRef<any>(null);
   const markers = React.useRef<any>({});
   const infoWindow = React.useRef<any>(null);
-
-  const fetchGps = React.useCallback(async () => {
-    try {
-      const res = await fetch('/api/gps');
-      if (res.ok) {
-        const json = await res.json();
-        if (json?.data?.list) {
-          setGpsData(json.data.list);
-          setLoading(false);
-        }
-      }
-    } catch (e) {
-      console.error("GPS Fetch Error:", e);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    fetchGps();
-    const i = setInterval(fetchGps, 30000);
-    return () => clearInterval(i);
-  }, [fetchGps]);
-
-  React.useEffect(() => {
-    const scriptId = 'google-maps-script-gps';
-    if (!document.getElementById(scriptId)) {
-      const script = document.createElement('script');
-      script.id = scriptId;
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      document.head.appendChild(script);
-    }
-  }, []);
 
   React.useEffect(() => {
     if (!window.google || !mapRef.current || activeTab !== 'GPS MAP') return;
@@ -1132,7 +1295,7 @@ function GpsTrackingHub({ settings, settingsRef }: any) {
       infoWindow.current = new window.google.maps.InfoWindow();
     }
 
-    gpsData.forEach(v => {
+    gpsData.forEach((v: any) => {
       const pos = { lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) };
       const iconUrl = v.status === 'RUNNING' 
         ? (settings?.runningIcon || 'https://maps.google.com/mapfiles/ms/icons/green-dot.png')
@@ -1222,7 +1385,7 @@ function GpsTrackingHub({ settings, settingsRef }: any) {
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto green-scrollbar">
-                {gpsData.map((v, i) => (
+                {gpsData.map((v: any, i: number) => (
                   <div 
                     key={i} 
                     onClick={() => handleVehicleSelection(v)}
@@ -1372,6 +1535,8 @@ export default function DashboardPage() {
   const [se38Search, setSe38Search] = React.useState({ plant: '', from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') });
   const [viewMode, setViewMode] = React.useState<'list' | 'tracking'>('list'); 
   const [trackingNode, setTrackingNode] = React.useState<any>(null);
+  const [gpsData, setGpsData] = React.useState<any[]>([]);
+  const [isGpsLoading, setIsGpsLoading] = React.useState(true);
   
   const [isPdfPreviewOpen, setIsPdfPreviewOpen] = React.useState(false);
   const [selectedTripForPreview, setSelectedTripForPreview] = React.useState<any>(null);
@@ -1406,6 +1571,39 @@ export default function DashboardPage() {
 
   const logoAsset = placeholderData.placeholderImages.find(p => p.id === 'logo-old');
   const isReadOnly = activeScreen.endsWith('03');
+
+  const fetchGps = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/gps');
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.data?.list) {
+          setGpsData(json.data.list);
+          setIsGpsLoading(false);
+        }
+      }
+    } catch (e) {
+      console.error("GPS Fetch Error:", e);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchGps();
+    const i = setInterval(fetchGps, 30000); // Poll every 30s
+    return () => clearInterval(i);
+  }, [fetchGps]);
+
+  React.useEffect(() => {
+    const scriptId = 'google-maps-script-global';
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBDWcih2hNy8F3S0KR1A5dtv1I7HQfodiU&libraries=places,directions`;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+  }, []);
 
   React.useEffect(() => { const isAdmin = localStorage.getItem('sap_bootstrap_session') === 'true'; setIsBootstrapAdmin(isAdmin); }, []);
   
@@ -1524,7 +1722,7 @@ export default function DashboardPage() {
             <div className="flex flex-col w-full h-full overflow-hidden bg-[#f2f2f2]">
               {activeScreen === 'TR21' && viewMode === 'list' && (
                 <TripBoard 
-                  orders={allOrders} trips={allTrips} vendors={accessibleVendors} plants={accessiblePlants} companies={accessibleCompanies} customers={accessibleCustomers} onStatusUpdate={setStatusMsg} viewMode={viewMode} setViewMode={setViewMode} trackingNode={trackingNode} setTrackingNode={setTrackingNode} settings={settings}
+                  orders={allOrders} trips={allTrips} vendors={accessibleVendors} plants={accessiblePlants} companies={accessibleCompanies} customers={accessibleCustomers} onStatusUpdate={setStatusMsg} viewMode={viewMode} setViewMode={setViewMode} trackingNode={trackingNode} setTrackingNode={setTrackingNode} settings={settings} gpsData={gpsData}
                   onOpenPdfPreview={(t: any) => { 
                     setSelectedTripForPreview(t); 
                     const fullShipToAddr = [t.shipToMaster?.address, t.shipToMaster?.city, t.shipToMaster?.postalCode].filter(Boolean).join(', ');
@@ -1535,7 +1733,7 @@ export default function DashboardPage() {
               )}
               {activeScreen === 'TR21' && viewMode === 'tracking' && <Tr21TrackingPage node={trackingNode} onBack={() => setViewMode('list')} />}
               {activeScreen === 'TR24' && <Tr24TrackShipmentScreen />}
-              {activeScreen === 'WGPS24' && <GpsTrackingHub settings={settings} settingsRef={settingsRef} />}
+              {activeScreen === 'WGPS24' && <GpsTrackingHub settings={settings} settingsRef={settingsRef} gpsData={gpsData} loading={isGpsLoading} />}
               {activeScreen === 'SE38' && <Se38Report search={se38Search} onSearchChange={setSe38Search} />}
               {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               {!['TR21', 'TR24', 'WGPS24', 'SE38', 'ZCODE'].includes(activeScreen) && (
@@ -1612,6 +1810,66 @@ export default function DashboardPage() {
            </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ZCodeRegistry({ tcodes, onExecute }: any) {
+  const [q, setQ] = React.useState('');
+  const filtered = tcodes.filter((t: any) => t.code.includes(q.toUpperCase()) || t.description.toUpperCase().includes(q.toUpperCase()));
+  return (
+    <div className="flex-1 flex flex-col p-10 overflow-hidden font-mono">
+      <div className="bg-white border border-slate-300 p-8 shadow-sm flex flex-col h-full rounded-sm">
+        <div className="flex items-center gap-6 border-b border-slate-200 pb-6 mb-8 shrink-0">
+          <Grid2X2 className="h-6 w-6 text-[#1e3a8a]" />
+          <h2 className="text-xl font-black uppercase italic text-[#1e3a8a] tracking-tighter">ZCODE Registry: All Transaction Nodes</h2>
+          <div className="flex-1" />
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input value={q} onChange={e => setQ(e.target.value)} className="h-9 w-80 border border-slate-400 pl-9 pr-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" placeholder="Filter Registry..." />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto green-scrollbar">
+          <table className="w-full text-left border-collapse">
+            <thead className="sticky top-0 bg-[#f8fafc] z-10">
+              <tr className="text-[10px] font-black uppercase text-slate-500 border-b border-slate-300">
+                <th className="p-4 w-32 border-r border-slate-200">T-Code</th>
+                <th className="p-4 border-r border-slate-200">Description</th>
+                <th className="p-4 w-40">Module</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((t: any) => (
+                <tr key={t.code} onClick={() => onExecute(t.code)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer group transition-colors">
+                  <td className="p-4 border-r border-slate-200 text-[#0056d2] font-black text-xs">{t.code}</td>
+                  <td className="p-4 border-r border-slate-200 font-bold text-xs uppercase text-slate-700">{t.description}</td>
+                  <td className="p-4"><Badge variant="outline" className="text-[8px] font-black uppercase bg-slate-50 rounded-none border-slate-200 text-slate-400">{t.module}</Badge></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Se38Report({ search, onSearchChange }: any) {
+  return (
+    <div className="flex-1 flex flex-col p-10 font-mono">
+      <div className="bg-white border border-slate-300 p-8 shadow-sm rounded-sm">
+        <h2 className="text-xl font-black uppercase italic text-[#1e3a8a] mb-10 border-b border-slate-200 pb-4">SE38: Transactional Analytics</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+           <FormInput label="Plant Code" value={search.plant} onChange={(v: string) => onSearchChange({ ...search, plant: v })} placeholder="Enter Plant..." />
+           <FormInput label="From Date" type="date" value={search.from} onChange={(v: string) => onSearchChange({ ...search, from: v })} />
+           <FormInput label="To Date" type="date" value={search.to} onChange={(v: string) => onSearchChange({ ...search, to: v })} />
+        </div>
+        <div className="mt-12 flex justify-center border-t border-slate-100 pt-10">
+          <Button className="h-10 bg-[#1e3a8a] text-white font-black uppercase px-16 shadow-lg hover:bg-blue-900 transition-all flex items-center gap-3">
+             <PlayCircle className="h-5 w-5" /> Execute Analysis (F8)
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
