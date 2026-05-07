@@ -1491,6 +1491,239 @@ function RegistryList({ onSelectItem, listData, activeScreen }: any) {
   );
 }
 
+function Se38Report({ search, onSearchChange, trips, orders, customers, vendors, plants, companies, users, onExecuteShortcut }: any) {
+  const [view, setView] = React.useState<'filter' | 'result'>('filter');
+  const [results, setResults] = React.useState<any[]>([]);
+
+  const handleExecute = () => {
+    if (!search.plant) { alert('Plant is mandatory.'); return; }
+    if (!search.from) { alert('From Date is mandatory.'); return; }
+    if (!search.to) { alert('To Date is mandatory.'); return; }
+
+    const start = startOfDay(new Date(search.from));
+    const end = endOfDay(new Date(search.to));
+
+    const filtered = (trips || []).filter((t: any) => {
+      const tripDate = new Date(t.createdAt);
+      const matchPlant = t.plantCode === search.plant;
+      const matchDate = isWithinInterval(tripDate, { start, end });
+      const matchFleet = !search.fleetType || t.fleetType === search.fleetType;
+      const matchCust = !search.customer || t.shipToParty === search.customer;
+      const matchVendor = !search.vendor || t.vendorName === search.vendor;
+      return matchPlant && matchDate && matchFleet && matchCust && matchVendor;
+    });
+
+    const finalData = filtered.map((t: any) => {
+      const order = (orders || []).find((o: any) => o.id === t.saleOrderId);
+      const vendorMaster = (vendors || []).find((v: any) => v.vendorName === t.vendorName);
+      const carrier = (companies || []).find((c: any) => c.plantCodes?.includes(t.plantCode));
+      // In a real app we'd have createdBy linked to user registry
+      return { ...t, order, vendorMaster, carrier };
+    });
+
+    setResults(finalData);
+    setView('result');
+  };
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F8') {
+        e.preventDefault();
+        handleExecute();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [search, trips, orders]);
+
+  const handleExport = () => {
+    const headers = [
+      'Plant', 'Sale Order', 'Sale Order Date Time', 'Consignor', 'Consignee', 'Ship to Party', 'Destination',
+      'Trip ID', 'Trip Create Date Time', 'Vehicle Number', 'Driver Mobile', 'Carrier Name', 'CN Number',
+      'Invoice Number', 'E-waybill Number', 'Product', 'Unit', 'Unit UOM', 'Assign Qty', 'Weight UOM',
+      'Vendor Name', 'Vendor Firm', 'Vendor Mobile', 'Fleet Type', 'Payment Term', 'Employee', 'Rate', 'Freight Amount',
+      'Vehicle Out Date Time', 'Vehicle Arrived Date Time', 'Unload Date Time', 'Reject Date Time', 'POD Status',
+      'Vehicle Resent Date Time', 'SRN Number', 'SRN Date'
+    ];
+
+    const csvRows = results.map(r => [
+      r.plantCode, r.saleOrderNumber, r.order?.saleOrderDate || '', r.order?.consignor || '', r.order?.consignee || '', r.shipToParty, r.order?.destination || '',
+      r.tripId, r.createdAt, r.vehicleNumber, r.driverMobile, r.carrier?.companyName || '', r.cnNo || '',
+      r.cnItems?.[0]?.invoice || '', r.cnItems?.[0]?.ewaybill || '', r.order?.product || '', r.order?.unit || '', r.order?.unitUom || '',
+      r.assignWeight, r.weightUom, r.vendorName || '', r.vendorMaster?.vendorFirmName || '', r.vendorMaster?.mobile || '',
+      r.fleetType, r.paymentTerms || '', 'SYSTEM', r.rate || 0, r.freightAmount || 0,
+      r.outDate ? `${r.outDate} ${r.outTime}` : '', r.arrivedDate ? `${r.arrivedDate} ${r.arrivedTime}` : '',
+      r.unloadDate ? `${r.unloadDate} ${r.unloadTime}` : '', r.rejectionDate ? `${r.rejectionDate} ${r.rejectionTime}` : '',
+      r.podAttachment ? 'VERIFIED' : 'PENDING', r.resentDate || '', r.srnNo || '', r.srnDate || ''
+    ].map(v => `"${v}"`).join(','));
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    const fileName = `${search.plant}_${search.from}_TO_${search.to}.csv`;
+    link.setAttribute('download', fileName);
+    link.click();
+  };
+
+  if (view === 'result') {
+    return (
+      <div className="flex-1 flex flex-col h-full bg-[#f2f2f2] font-mono overflow-hidden">
+        <div className="bg-white border-b border-slate-300 px-8 py-2 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-4">
+             <button onClick={() => setView('filter')} className="p-1.5 hover:bg-slate-100 rounded-full transition-colors"><ArrowLeft className="h-4 w-4 text-[#1e3a8a]" /></button>
+             <h2 className="text-[14px] font-black uppercase italic text-[#1e3a8a]">SE38 - Analysis Result Node</h2>
+          </div>
+          <div className="flex gap-3">
+             <Button onClick={handleExport} className="h-8 bg-emerald-600 text-white text-[10px] font-black uppercase px-6 rounded-none shadow-sm"><Download className="h-3.5 w-3.5 mr-2" /> Export CSV</Button>
+             <Button onClick={() => setView('filter')} variant="outline" className="h-8 text-[10px] font-black uppercase px-6 rounded-none border-slate-300">Exit Result</Button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-auto bg-white m-4 border border-slate-300 shadow-sm green-scrollbar">
+          <table className="w-full text-left border-collapse text-[10px]">
+            <thead className="sticky top-0 z-20 bg-[#f8fafc] border-b border-slate-300">
+              <tr className="font-black uppercase text-slate-500 whitespace-nowrap">
+                {[
+                  'Plant', 'Sale Order', 'SO Date Time', 'Consignor', 'Consignee', 'Ship Party', 'Dest.',
+                  'Trip ID', 'Create Date', 'Vehicle', 'Mobile', 'Carrier', 'CN No', 'Invoice', 'Ewaybill',
+                  'Product', 'Unit', 'UOM', 'Qty', 'W-UOM', 'Vendor', 'Firm', 'V-Mobile', 'Fleet', 'Terms',
+                  'Emp', 'Rate', 'Freight', 'Out', 'Arrived', 'Unload', 'Reject', 'POD', 'Resent', 'SRN', 'SRN-D'
+                ].map(h => <th key={h} className="p-3 border-r border-slate-200">{h}</th>)}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-bold uppercase text-slate-700">
+              {results.map((r, i) => (
+                <tr key={i} className="hover:bg-blue-50/30 whitespace-nowrap">
+                  <td className="p-3 border-r border-slate-100">{r.plantCode}</td>
+                  <td className="p-3 border-r border-slate-100 text-[#0056d2] font-black">{r.saleOrderNumber}</td>
+                  <td className="p-3 border-r border-slate-100 text-slate-400">{r.order?.saleOrderDate || '-'}</td>
+                  <td className="p-3 border-r border-slate-100">{r.order?.consignor}</td>
+                  <td className="p-3 border-r border-slate-100">{r.order?.consignee}</td>
+                  <td className="p-3 border-r border-slate-100">{r.shipToParty}</td>
+                  <td className="p-3 border-r border-slate-100">{r.order?.destination}</td>
+                  <td className="p-3 border-r border-slate-100 font-black">{r.tripId}</td>
+                  <td className="p-3 border-r border-slate-100 text-slate-400">{format(new Date(r.createdAt), 'dd-MM-yy HH:mm')}</td>
+                  <td className="p-3 border-r border-slate-100">{r.vehicleNumber}</td>
+                  <td className="p-3 border-r border-slate-100">{r.driverMobile}</td>
+                  <td className="p-3 border-r border-slate-100">{r.carrier?.companyName}</td>
+                  <td className="p-3 border-r border-slate-100">{r.cnNo}</td>
+                  <td className="p-3 border-r border-slate-100">{r.cnItems?.[0]?.invoice}</td>
+                  <td className="p-3 border-r border-slate-100">{r.cnItems?.[0]?.ewaybill}</td>
+                  <td className="p-3 border-r border-slate-100">{r.order?.product || 'GOODS'}</td>
+                  <td className="p-3 border-r border-slate-100">{r.order?.unit || '-'}</td>
+                  <td className="p-3 border-r border-slate-100">{r.order?.unitUom || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 text-emerald-600">{r.assignWeight}</td>
+                  <td className="p-3 border-r border-slate-100">{r.weightUom}</td>
+                  <td className="p-3 border-r border-slate-100">{r.vendorName}</td>
+                  <td className="p-3 border-r border-slate-100">{r.vendorMaster?.vendorFirmName}</td>
+                  <td className="p-3 border-r border-slate-100">{r.vendorMaster?.mobile}</td>
+                  <td className="p-3 border-r border-slate-100">{r.fleetType}</td>
+                  <td className="p-3 border-r border-slate-100">{r.paymentTerms}</td>
+                  <td className="p-3 border-r border-slate-100">SYSTEM</td>
+                  <td className="p-3 border-r border-slate-100">{r.rate}</td>
+                  <td className="p-3 border-r border-slate-100 font-black">{r.freightAmount}</td>
+                  <td className="p-3 border-r border-slate-100">{r.outDate ? `${r.outDate} ${r.outTime}` : '-'}</td>
+                  <td className="p-3 border-r border-slate-100">{r.arrivedDate ? `${r.arrivedDate} ${r.arrivedTime}` : '-'}</td>
+                  <td className="p-3 border-r border-slate-100">{r.unloadDate ? `${r.unloadDate} ${r.unloadTime}` : '-'}</td>
+                  <td className="p-3 border-r border-slate-100 text-red-500">{r.rejectionDate ? `${r.rejectionDate} ${r.rejectionTime}` : '-'}</td>
+                  <td className="p-3 border-r border-slate-100">{r.podAttachment ? <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[8px] font-black uppercase rounded-none">VERIFIED</Badge> : <Badge variant="outline" className="text-red-400 border-red-100 text-[8px] font-black uppercase rounded-none">PENDING</Badge>}</td>
+                  <td className="p-3 border-r border-slate-100">{r.resentDate || '-'}</td>
+                  <td className="p-3 border-r border-slate-100 text-blue-700">{r.srnNo || '-'}</td>
+                  <td className="p-3 border-r border-slate-100">{r.srnDate || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex flex-col p-10 font-mono overflow-y-auto green-scrollbar">
+      <div className="bg-white border border-slate-300 p-8 shadow-sm rounded-sm animate-fade-in">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-6 mb-10">
+          <div className="flex items-center gap-4">
+             <FileText className="h-6 w-6 text-[#1e3a8a]" />
+             <h2 className="text-xl font-black uppercase italic text-[#1e3a8a] tracking-tighter">SE38: Transactional Analytics Report</h2>
+          </div>
+          <Button onClick={handleExecute} className="h-9 bg-[#1e3a8a] text-white text-[11px] font-black uppercase px-10 shadow-lg hover:bg-blue-900 transition-all flex items-center gap-3">
+             <PlayCircle className="h-4 w-4" /> Execute Analysis (F8)
+          </Button>
+        </div>
+        
+        <SectionGrouping title="PRIMARY SELECTION NODES">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-20 gap-y-6">
+            <FormSelect label="PLANT" value={search.plant} options={(plants || []).map((p: any) => p.plantCode)} onChange={(v: string) => onSearchChange({ ...search, plant: v })} placeholder="Select Plant..." />
+            <div className="flex items-center gap-8 group">
+              <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase tracking-tight">Period Range:</label>
+              <div className="flex items-center gap-3 w-[320px]">
+                <input type="date" value={search.from} onChange={(e) => onSearchChange({ ...search, from: e.target.value })} className="h-8 flex-1 border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase" />
+                <span className="text-[10px] font-black text-slate-400">TO</span>
+                <input type="date" value={search.to} onChange={(e) => onSearchChange({ ...search, to: e.target.value })} className="h-8 flex-1 border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase" />
+              </div>
+            </div>
+          </div>
+        </SectionGrouping>
+
+        <SectionGrouping title="ADDITIONAL FILTER CRITERIA">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-20 gap-y-6">
+            <FormSelect label="FLEET TYPE" value={search.fleetType} options={Array.from(new Set((trips || []).map((t: any) => t.fleetType).filter(Boolean)))} onChange={(v: string) => onSearchChange({ ...search, fleetType: v })} />
+            <FormSearchInput label="CUSTOMER" value={search.customer} options={(customers || []).map((c: any) => c.customerName)} onChange={(v: string) => onSearchChange({ ...search, customer: v })} />
+            <FormSearchInput label="VENDOR" value={search.vendor} options={(vendors || []).map((v: any) => v.vendorName)} onChange={(v: string) => onSearchChange({ ...search, vendor: v })} />
+          </div>
+        </SectionGrouping>
+
+        <div className="mt-20 flex justify-center items-center gap-4 text-slate-300">
+           <Info className="h-4 w-4" />
+           <p className="text-[10px] font-black uppercase tracking-[0.2em]">Note: Execute node analysis to generate high-density logistical reporting.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ZCodeRegistry({ tcodes, onExecute }: any) {
+  const [q, setQ] = React.useState('');
+  const filtered = tcodes.filter((t: any) => t.code.includes(q.toUpperCase()) || t.description.toUpperCase().includes(q.toUpperCase()));
+  return (
+    <div className="flex-1 flex flex-col p-10 overflow-hidden font-mono">
+      <div className="bg-white border border-slate-300 p-8 shadow-sm flex flex-col h-full rounded-sm">
+        <div className="flex items-center gap-6 border-b border-slate-200 pb-6 mb-8 shrink-0">
+          <Grid2X2 className="h-6 w-6 text-[#1e3a8a]" />
+          <h2 className="text-xl font-black uppercase italic text-[#1e3a8a] tracking-tighter">ZCODE Registry: All Transaction Nodes</h2>
+          <div className="flex-1" />
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input value={q} onChange={e => setQ(e.target.value)} className="h-9 w-80 border border-slate-400 pl-9 pr-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" placeholder="Filter Registry..." />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto green-scrollbar">
+          <table className="w-full text-left border-collapse">
+            <thead className="sticky top-0 bg-[#f8fafc] z-10">
+              <tr className="text-[10px] font-black uppercase text-slate-500 border-b border-slate-300">
+                <th className="p-4 w-32 border-r border-slate-200">T-Code</th>
+                <th className="p-4 border-r border-slate-200">Description</th>
+                <th className="p-4 w-40">Module</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((t: any) => (
+                <tr key={t.code} onClick={() => onExecute(t.code)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer group transition-colors">
+                  <td className="p-4 border-r border-slate-200 text-[#0056d2] font-black text-xs">{t.code}</td>
+                  <td className="p-4 border-r border-slate-200 font-bold text-xs uppercase text-slate-700">{t.description}</td>
+                  <td className="p-4"><Badge variant="outline" className="text-[8px] font-black uppercase bg-slate-50 rounded-none border-slate-200 text-slate-400">{t.module}</Badge></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- MAIN PAGE ---
 
 export default function DashboardPage() {
@@ -1510,7 +1743,7 @@ export default function DashboardPage() {
   const [homePlantFilter, setHomePlantFilter] = React.useState('ALL'); 
   const [homeMonthFilter, setHomeMonthFilter] = React.useState(format(new Date(), 'yyyy-MM')); 
   const [isBootstrapAdmin, setIsBootstrapAdmin] = React.useState(false);
-  const [se38Search, setSe38Search] = React.useState({ plant: '', from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') });
+  const [se38Search, setSe38Search] = React.useState({ plant: '', from: format(subDays(new Date(), 7), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd'), fleetType: '', customer: '', vendor: '' });
   const [viewMode, setViewMode] = React.useState<'list' | 'tracking'>('list'); 
   const [trackingNode, setTrackingNode] = React.useState<any>(null);
   const [gpsData, setGpsData] = React.useState<any[]>([]);
@@ -1712,7 +1945,7 @@ export default function DashboardPage() {
               {activeScreen === 'TR21' && viewMode === 'tracking' && <Tr21TrackingPage node={trackingNode} onBack={() => setViewMode('list')} />}
               {activeScreen === 'TR24' && <Tr24TrackShipmentScreen />}
               {activeScreen === 'WGPS24' && <GpsTrackingHub settings={settings} settingsRef={settingsRef} gpsData={gpsData} loading={isGpsLoading} />}
-              {activeScreen === 'SE38' && <Se38Report search={se38Search} onSearchChange={setSe38Search} />}
+              {activeScreen === 'SE38' && <Se38Report search={se38Search} onSearchChange={setSe38Search} trips={allTrips} orders={allOrders} customers={accessibleCustomers} vendors={accessibleVendors} plants={accessiblePlants} companies={accessibleCompanies} users={allUsers} />}
               {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               {!['TR21', 'TR24', 'WGPS24', 'SE38', 'ZCODE'].includes(activeScreen) && (
                 <div className="flex-1 flex flex-col overflow-y-auto green-scrollbar"><div className="bg-white border-b border-slate-300 px-8 py-3 mb-10"><h2 className="text-[16px] font-bold text-slate-800 uppercase tracking-tight">{MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen}</h2></div><div className="px-10 pb-20">{(activeScreen.endsWith('01') || formData.id || activeScreen === 'VA04') ? (<div className="max-w-full animate-slide-up">{activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}{activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} trips={allTrips} screen={activeScreen} />}{activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} allTrips={allTrips} onPost={handleSave} onCancel={() => setFormData({})} />}{activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}</div>) : (<div className="space-y-8 animate-fade-in"><div className="bg-white p-6 border-b-2 border-slate-300 shadow-sm flex items-center gap-6"><label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Record:</label><input className="h-9 w-full max-w-xl border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE OR IDENTIFIER AND PRESS ENTER..." /></div><RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} /></div>)}</div></div>
@@ -1788,66 +2021,6 @@ export default function DashboardPage() {
            </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function ZCodeRegistry({ tcodes, onExecute }: any) {
-  const [q, setQ] = React.useState('');
-  const filtered = tcodes.filter((t: any) => t.code.includes(q.toUpperCase()) || t.description.toUpperCase().includes(q.toUpperCase()));
-  return (
-    <div className="flex-1 flex flex-col p-10 overflow-hidden font-mono">
-      <div className="bg-white border border-slate-300 p-8 shadow-sm flex flex-col h-full rounded-sm">
-        <div className="flex items-center gap-6 border-b border-slate-200 pb-6 mb-8 shrink-0">
-          <Grid2X2 className="h-6 w-6 text-[#1e3a8a]" />
-          <h2 className="text-xl font-black uppercase italic text-[#1e3a8a] tracking-tighter">ZCODE Registry: All Transaction Nodes</h2>
-          <div className="flex-1" />
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input value={q} onChange={e => setQ(e.target.value)} className="h-9 w-80 border border-slate-400 pl-9 pr-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" placeholder="Filter Registry..." />
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto green-scrollbar">
-          <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 bg-[#f8fafc] z-10">
-              <tr className="text-[10px] font-black uppercase text-slate-500 border-b border-slate-300">
-                <th className="p-4 w-32 border-r border-slate-200">T-Code</th>
-                <th className="p-4 border-r border-slate-200">Description</th>
-                <th className="p-4 w-40">Module</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((t: any) => (
-                <tr key={t.code} onClick={() => onExecute(t.code)} className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer group transition-colors">
-                  <td className="p-4 border-r border-slate-200 text-[#0056d2] font-black text-xs">{t.code}</td>
-                  <td className="p-4 border-r border-slate-200 font-bold text-xs uppercase text-slate-700">{t.description}</td>
-                  <td className="p-4"><Badge variant="outline" className="text-[8px] font-black uppercase bg-slate-50 rounded-none border-slate-200 text-slate-400">{t.module}</Badge></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Se38Report({ search, onSearchChange }: any) {
-  return (
-    <div className="flex-1 flex flex-col p-10 font-mono">
-      <div className="bg-white border border-slate-300 p-8 shadow-sm rounded-sm">
-        <h2 className="text-xl font-black uppercase italic text-[#1e3a8a] mb-10 border-b border-slate-200 pb-4">SE38: Transactional Analytics</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-           <FormInput label="Plant Code" value={search.plant} onChange={(v: string) => onSearchChange({ ...search, plant: v })} placeholder="Enter Plant..." />
-           <FormInput label="From Date" type="date" value={search.from} onChange={(v: string) => onSearchChange({ ...search, from: v })} />
-           <FormInput label="To Date" type="date" value={search.to} onChange={(v: string) => onSearchChange({ ...search, to: v })} />
-        </div>
-        <div className="mt-12 flex justify-center border-t border-slate-100 pt-10">
-          <Button className="h-10 bg-[#1e3a8a] text-white font-black uppercase px-16 shadow-lg hover:bg-blue-900 transition-all flex items-center gap-3">
-             <PlayCircle className="h-5 w-5" /> Execute Analysis (F8)
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }
