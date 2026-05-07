@@ -745,23 +745,47 @@ function TripBoard({
         
         if (gps) {
           const vehiclePos = { lat: parseFloat(gps.latitude), lng: parseFloat(gps.longitude) };
-          new window.google.maps.Marker({ 
+          const vMarker = new window.google.maps.Marker({ 
             position: vehiclePos, 
             map, 
             title: gps.vehicleNumber,
             icon: { url: 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(40, 40) }
           });
 
+          // Live Hover Tooltip
+          const infoWindow = new window.google.maps.InfoWindow();
+          vMarker.addListener('mouseover', () => {
+            geocoder.geocode({ location: vehiclePos }, (results: any, status: any) => {
+              if (status === 'OK' && results[0]) {
+                const comps = results[0].address_components;
+                const street = comps.find((c: any) => c.types.includes('route'))?.long_name || '';
+                const area = comps.find((c: any) => c.types.includes('sublocality_level_1'))?.long_name || 
+                             comps.find((c: any) => c.types.includes('locality'))?.long_name || '';
+                const city = comps.find((c: any) => c.types.includes('administrative_area_level_2'))?.long_name || 
+                             comps.find((c: any) => c.types.includes('locality'))?.long_name || '';
+                
+                infoWindow.setContent(`<div style="padding:8px; font-family:monospace; font-weight:bold; text-transform:uppercase; font-size:10px;">${[street, area, city].filter(Boolean).join(', ')}</div>`);
+                infoWindow.open(map, vMarker);
+              }
+            });
+          });
+          vMarker.addListener('mouseout', () => infoWindow.close());
+
           if (start && end) {
             directionsService.route({
               origin: start as any,
               destination: end as any,
-              waypoints: [{ location: vehiclePos, stopover: false }],
+              waypoints: [{ location: vehiclePos, stopover: true }],
               travelMode: window.google.maps.TravelMode.DRIVING
             }, (result: any, status: any) => {
               if (status === 'OK') {
                 directionsRenderer.setDirections(result);
-                setEta(result.routes[0].legs[0].duration.text);
+                // ETA Calculation: Distance (m) / Speed (30km/h = 500m/min)
+                const remainingDistance = result.routes[0].legs[1]?.distance.value || 0;
+                const minutes = Math.round(remainingDistance / 500);
+                const h = Math.floor(minutes / 60);
+                const m = minutes % 60;
+                setEta(`${h > 0 ? h + 'h ' : ''}${m}m (Fixed 30KM/H)`);
               }
             });
           }
@@ -1540,6 +1564,7 @@ function Se38Report({ search, onSearchChange, trips, orders, customers, vendors,
     const start = startOfDay(new Date(search.from));
     const end = endOfDay(new Date(search.to));
 
+    // Data Source Rule: Fetch from TR21 records (trips)
     const filtered = (trips || []).filter((t: any) => {
       const tripDate = new Date(t.createdAt);
       const matchPlant = t.plantCode === search.plant;
@@ -1554,7 +1579,6 @@ function Se38Report({ search, onSearchChange, trips, orders, customers, vendors,
       const order = (orders || []).find((o: any) => o.id === t.saleOrderId);
       const vendorMaster = (vendors || []).find((v: any) => v.vendorName === t.vendorName);
       const carrier = (companies || []).find((c: any) => c.plantCodes?.includes(t.plantCode));
-      // In a real app we'd have createdBy linked to user registry
       return { ...t, order, vendorMaster, carrier };
     });
 
@@ -1692,14 +1716,11 @@ function Se38Report({ search, onSearchChange, trips, orders, customers, vendors,
         
         <SectionGrouping title="PRIMARY SELECTION NODES">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-20 gap-y-6">
-            <FormSelect label="PLANT" value={search.plant} options={(plants || []).map((p: any) => p.plantCode)} onChange={(v: string) => onSearchChange({ ...search, plant: v })} placeholder="Select Plant..." />
-            <div className="flex items-center gap-8 group">
-              <label className="text-[12px] font-bold text-slate-600 w-[180px] text-right shrink-0 uppercase tracking-tight">Period Range:</label>
-              <div className="flex items-center gap-3 w-[320px]">
-                <input type="date" value={search.from} onChange={(e) => onSearchChange({ ...search, from: e.target.value })} className="h-8 flex-1 border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase" />
-                <span className="text-[10px] font-black text-slate-400">TO</span>
-                <input type="date" value={search.to} onChange={(e) => onSearchChange({ ...search, to: e.target.value })} className="h-8 flex-1 border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase" />
-              </div>
+            {/* Filter Layout Position Update: From/To Dates under Plant */}
+            <div className="flex flex-col gap-6">
+              <FormSelect label="PLANT" value={search.plant} options={(plants || []).map((p: any) => p.plantCode)} onChange={(v: string) => onSearchChange({ ...search, plant: v })} placeholder="Select Plant..." />
+              <FormInput label="From Date" type="date" value={search.from} onChange={(v: string) => onSearchChange({ ...search, from: v })} />
+              <FormInput label="To Date" type="date" value={search.to} onChange={(v: string) => onSearchChange({ ...search, to: v })} />
             </div>
           </div>
         </SectionGrouping>
@@ -2004,7 +2025,7 @@ export default function DashboardPage() {
               {activeScreen === 'SE38' && <Se38Report search={se38Search} onSearchChange={setSe38Search} trips={allTrips} orders={allOrders} customers={accessibleCustomers} vendors={accessibleVendors} plants={accessiblePlants} companies={accessibleCompanies} users={allUsers} />}
               {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
               {!['TR21', 'TR24', 'WGPS24', 'SE38', 'ZCODE'].includes(activeScreen) && (
-                <div className="flex-1 flex flex-col overflow-y-auto green-scrollbar"><div className="bg-white border-b border-slate-300 px-8 py-3 mb-10"><h2 className="text-[16px] font-bold text-slate-800 uppercase tracking-tight">{MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen}</h2></div><div className="px-10 pb-20">{(activeScreen.endsWith('01') || formData.id || activeScreen === 'VA04') ? (<div className="max-w-full animate-slide-up">{activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}{activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} trips={allTrips} screen={activeScreen} />}{activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} allTrips={allTrips} onPost={handleSave} onCancel={() => setFormData({})} />}{activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}</div>) : (<div className="space-y-8 animate-fade-in"><div className="bg-white p-6 border-b-2 border-slate-300 shadow-sm flex items-center gap-6"><label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Record:</label><input className="h-9 w-full max-w-xl border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE OR IDENTIFIER AND PRESS ENTER..." /></div><RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} /></div>)}</div></div>
+                <div className="flex-1 flex flex-col overflow-y-auto green-scrollbar"><div className="bg-white border-b border-slate-300 px-8 py-3 mb-10"><h2 className="text-[16px] font-bold text-slate-800 uppercase tracking-tight">{MASTER_TCODES.find(t => t.code === activeScreen)?.description || activeScreen}</h2></div><div className="px-10 pb-20">{(activeScreen.endsWith('01') || formData.id || activeScreen === 'VA04') ? (<div className="max-w-full animate-slide-up">{activeScreen.startsWith('OX') && <PlantForm data={formData} onChange={setFormData} disabled={isReadOnly} />}{activeScreen.startsWith('FM') && <CompanyForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XK') && <VendorForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('XD') && <CustomerForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}{activeScreen.startsWith('VA') && activeScreen !== 'VA04' && <SalesOrderForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} allCustomers={accessibleCustomers} trips={allTrips} screen={activeScreen} />}{activeScreen === 'VA04' && <CancelOrderForm data={formData} onChange={setFormData} allOrders={allOrders} allTrips={allTrips} onPost={handleSave} onCancel={() => setFormData({})} />}{activeScreen.startsWith('SU') && <UserForm data={formData} onChange={setFormData} disabled={isReadOnly} allPlants={accessiblePlants} />}</div>) : (<div className="space-y-8 animate-fade-in"><div className="bg-white p-6 border-b-2 border-slate-300 shadow-sm flex items-center gap-6"><label className="text-[11px] font-black uppercase text-slate-500 w-40 text-right">Search Record:</label><input className="h-9 w-full max-xl border border-slate-400 px-4 text-xs font-black uppercase outline-none focus:ring-1 focus:ring-blue-500" value={searchId} onChange={e => setSearchId(e.target.value)} onKeyDown={handleSearchIdEnter} placeholder="ENTER CODE OR IDENTIFIER AND PRESS ENTER..." /></div><RegistryList onSelectItem={setFormData} listData={getRegistryList()} activeScreen={activeScreen} /></div>)}</div></div>
               )}
             </div>
           )}
