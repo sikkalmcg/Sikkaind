@@ -1197,7 +1197,8 @@ function TripBoard({
 
       <Dialog open={isSrnPopupOpen} onOpenChange={setIsSrnPopupOpen}>
         <DialogContent className="max-w-[600px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl">
-          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest">SRN Registration Hub</DialogTitle></DialogHeader>
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
+            <DialogTitle className="text-white text-xs font-black uppercase tracking-widest">SRN Registration Hub</DialogTitle></DialogHeader>
           <div className="p-8 space-y-6">
              <div className="bg-white p-6 border border-slate-200 shadow-sm mb-4">
                 <div className="grid grid-cols-2 gap-y-3 text-[10px] font-black uppercase">
@@ -1280,6 +1281,242 @@ function TripBoard({
 
 function Tr21TrackingPage({ node, onBack }: any) {
   return (<div className="h-full flex flex-col"><div className="bg-white p-4 border-b border-slate-300 flex items-center gap-4"><button onClick={onBack}><ArrowLeft className="h-5 w-5" /></button><h2 className="text-sm font-black uppercase italic">Logistical Tracking Node</h2></div><div className="flex-1 bg-slate-100 flex items-center justify-center p-20 text-center"><div className="space-y-6"><Radar className="h-12 w-12 text-[#1e3a8a] mx-auto animate-pulse" /><p className="text-xs font-black uppercase">Live Tracking Interface Synchronized for Trip: {node?.tripId}</p></div></div></div>);
+}
+
+function Tr24TrackShipmentScreen({ orders, trips, customers, gpsData }: any) {
+  const [view, setView] = React.useState<'search' | 'order_details' | 'trip_tracking'>('search');
+  const [searchSo, setSearchSo] = React.useState('');
+  const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
+  const [linkedTrips, setLinkedTrips] = React.useState<any[]>([]);
+  const [selectedTrip, setSelectedTrip] = React.useState<any>(null);
+  const [activeStep, setActiveStep] = React.useState(0);
+  const mapRef = React.useRef<HTMLDivElement>(null);
+
+  const handleTrack = () => {
+    const order = orders?.find((o: any) => o.saleOrder?.toUpperCase() === searchSo.toUpperCase());
+    if (order) {
+      setSelectedOrder(order);
+      const ts = trips?.filter((t: any) => t.saleOrderId === order.id) || [];
+      setLinkedTrips(ts);
+      setView('order_details');
+    } else {
+      alert("Registry Failure: Sale Order Not Found.");
+    }
+  };
+
+  const handleSelectTrip = (trip: any) => {
+    setSelectedTrip(trip);
+    setView('trip_tracking');
+    startAnimation(trip);
+  };
+
+  const startAnimation = (trip: any) => {
+    let target = 0;
+    if (trip.status === 'LOADING') target = 1;
+    else if (trip.status === 'IN-TRANSIT') target = 2;
+    else if (trip.status === 'ARRIVED') target = 3;
+    else if (trip.status === 'CLOSED') target = 4;
+    else if (trip.status === 'REJECTION') target = 4;
+
+    let current = 0;
+    setActiveStep(0);
+    const forwardInterval = setInterval(() => {
+      if (current < target) {
+        current++;
+        setActiveStep(current);
+      } else {
+        clearInterval(forwardInterval);
+        if (trip.status === 'REJECTION') {
+          setTimeout(() => {
+            const backwardInterval = setInterval(() => {
+              if (current > 0) {
+                current--;
+                setActiveStep(current);
+              } else {
+                clearInterval(backwardInterval);
+              }
+            }, 2000);
+          }, 2000);
+        }
+      }
+    }, 2000);
+  };
+
+  const renderMap = () => {
+    if (!window.google || !selectedTrip || !mapRef.current) return;
+    const geocoder = new window.google.maps.Geocoder();
+    const directionsService = new window.google.maps.DirectionsService();
+    const directionsRenderer = new window.google.maps.DirectionsRenderer({
+      suppressMarkers: true,
+      polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 6 }
+    });
+
+    const order = selectedOrder;
+    const consignorMaster = customers?.find((c: any) => c.customerName === order?.consignor || (c.customerName + ' - ' + c.city) === order?.consignor);
+    const shipToMaster = customers?.find((c: any) => c.customerName === order?.shipToParty || (c.customerName + ' - ' + c.city) === order?.shipToParty);
+    const gps = gpsData?.find((v: any) => v.vehicleNumber?.toUpperCase() === selectedTrip.vehicleNumber?.toUpperCase());
+
+    const getLoc = (addr: string) => new Promise((resolve) => {
+      geocoder.geocode({ address: addr }, (res, status) => {
+        if (status === 'OK') resolve(res[0].geometry.location);
+        else resolve(null);
+      });
+    });
+
+    Promise.all([
+      getLoc(consignorMaster?.postalCode || order?.from),
+      getLoc(shipToMaster?.postalCode || order?.destination)
+    ]).then(([startLoc, endLoc]: any) => {
+      const map = new window.google.maps.Map(mapRef.current!, {
+        center: gps ? { lat: parseFloat(gps.latitude), lng: parseFloat(gps.longitude) } : (startLoc || { lat: 20.5937, lng: 78.9629 }),
+        zoom: 12,
+        mapTypeControl: false,
+        streetViewControl: false
+      });
+      directionsRenderer.setMap(map);
+
+      if (startLoc) new window.google.maps.Marker({ position: startLoc, map, icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png' });
+      if (endLoc) new window.google.maps.Marker({ position: endLoc, map, icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' });
+      
+      if (gps) {
+        new window.google.maps.Marker({
+          position: { lat: parseFloat(gps.latitude), lng: parseFloat(gps.longitude) },
+          map,
+          icon: { url: 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(40, 40) }
+        });
+      }
+
+      if (startLoc && endLoc) {
+        const request: any = { origin: startLoc, destination: endLoc, travelMode: window.google.maps.TravelMode.DRIVING };
+        if (gps) request.waypoints = [{ location: { lat: parseFloat(gps.latitude), lng: parseFloat(gps.longitude) }, stopover: false }];
+        directionsService.route(request, (result, status) => {
+          if (status === 'OK') directionsRenderer.setDirections(result);
+        });
+      }
+    });
+  };
+
+  React.useEffect(() => { if (view === 'trip_tracking') renderMap(); }, [view, selectedTrip, gpsData]);
+
+  const steps = [
+    { label: 'Order Booked', icon: ShoppingCart },
+    { label: 'Loading', icon: Package },
+    { label: 'IN-Transit', icon: Truck },
+    { label: 'Arrived', icon: MapPin },
+    { label: selectedTrip?.status === 'REJECTION' ? 'Reject' : 'Delivered', icon: selectedTrip?.status === 'REJECTION' ? AlertTriangle : CheckCircle }
+  ];
+
+  if (view === 'search') {
+    return (
+      <div className="flex-1 flex flex-col font-mono bg-[#f2f2f2]">
+        <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10"><h2 className="text-[16px] font-bold text-slate-800 uppercase tracking-tight italic">TR24 – TRACK SHIPMENT PORTAL</h2></div>
+        <div className="max-w-4xl mx-auto w-full px-8">
+          <div className="bg-white border border-slate-300 p-12 space-y-10 shadow-sm animate-fade-in">
+            <div className="flex items-center gap-8">
+              <label className="text-[12px] font-black text-slate-500 w-[180px] text-right uppercase">Sale Order:</label>
+              <input value={searchSo} onChange={e => setSearchSo(e.target.value)} className="h-9 w-[320px] border border-slate-400 bg-white px-3 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase" placeholder="ENTER ORDER NO..." />
+            </div>
+            <div className="pl-[212px] flex gap-4">
+              <Button onClick={() => setSearchSo('')} className="h-9 px-8 bg-red-600 text-white rounded-none text-[10px] font-black uppercase">Cancel</Button>
+              <Button onClick={handleTrack} className="h-9 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg">Track</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'order_details') {
+    return (
+      <div className="flex-1 flex flex-col font-mono bg-[#f2f2f2]">
+        <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 flex items-center justify-between"><h2 className="text-[16px] font-bold text-slate-800 uppercase tracking-tight">Order Identification Node</h2><Button onClick={() => setView('search')} variant="outline" className="h-8 text-[9px] font-black uppercase border-slate-300 rounded-none">New Search</Button></div>
+        <div className="max-w-6xl mx-auto w-full px-8 space-y-8">
+          <div className="bg-white border border-slate-300 p-8 space-y-8 shadow-sm">
+            <div className="grid grid-cols-2 gap-x-12 gap-y-4">
+              <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Booked Date:</span><span className="text-[12px] font-black">{format(new Date(selectedOrder.saleOrderDate || selectedOrder.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
+              <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Weight:</span><span className="text-[12px] font-black text-emerald-600">{selectedOrder.weight} {selectedOrder.weightUom}</span></div>
+              <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Consignor:</span><span className="text-[12px] font-black uppercase truncate max-w-[200px]">{selectedOrder.consignor}</span></div>
+              <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Consignee:</span><span className="text-[12px] font-black uppercase truncate max-w-[200px]">{selectedOrder.consignee}</span></div>
+              <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Ship To Party:</span><span className="text-[12px] font-black uppercase truncate max-w-[200px]">{selectedOrder.shipToParty}</span></div>
+              <div className="flex justify-between border-b border-slate-50 pb-2"><span className="text-[10px] font-black text-slate-400 uppercase">Route:</span><span className="text-[12px] font-black text-blue-700 uppercase">{selectedOrder.from} → {selectedOrder.destination}</span></div>
+            </div>
+            
+            <div className="pt-6 border-t border-slate-100">
+              {linkedTrips.length > 0 ? (
+                <div className="space-y-4">
+                  <p className="text-[13px] font-black text-[#1e3a8a] uppercase leading-relaxed italic">
+                    Sale order {selectedOrder.saleOrder} against Trip ID {linkedTrips.map(t => t.tripId).join(', ')} has been generated successfully. Click on Trip ID for track your Shipment.
+                  </p>
+                  <div className="flex gap-4">
+                    {linkedTrips.map(t => (
+                      <button key={t.id} onClick={() => handleSelectTrip(t)} className="px-6 py-2 bg-blue-50 border border-blue-200 text-[#0056d2] font-black text-[11px] uppercase hover:bg-blue-600 hover:text-white transition-all">Trip {t.tripId}</button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[13px] font-black text-blue-800 uppercase italic">Currently your sale order {selectedOrder.saleOrder} against Trip ID not generated, we will share trip ID shortly… Thanks for visit.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex flex-col font-mono bg-[#f2f2f2] animate-fade-in overflow-y-auto pb-20">
+      <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between"><h2 className="text-[16px] font-bold text-slate-800 uppercase tracking-tight italic">TR24 – LIVE TRACKING NODE</h2><Button onClick={() => setView('order_details')} variant="outline" className="h-8 text-[9px] font-black uppercase border-slate-300 rounded-none">Back</Button></div>
+      <div className="max-w-6xl mx-auto w-full px-8 space-y-8">
+        <div className="bg-white border border-slate-300 p-10 space-y-12 shadow-md relative overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 opacity-80 border-b border-slate-100 pb-10">
+            <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship To Party</span><span className="text-[12px] font-black uppercase text-slate-800 truncate">{selectedTrip.shipToParty}</span></div>
+            <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[12px] font-black uppercase text-[#1e3a8a]">{selectedTrip.vehicleNumber}</span></div>
+            <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight Data</span><span className="text-[12px] font-black text-emerald-600">{selectedTrip.assignWeight} {selectedTrip.weightUom}</span></div>
+            <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Driver Mobile</span><span className="text-[12px] font-black">{selectedTrip.driverMobile}</span></div>
+          </div>
+
+          <div className="py-16 relative flex justify-between px-10">
+            {steps.map((s, i) => {
+              const isActive = i === activeStep;
+              const isPast = i < activeStep;
+              return (
+                <div key={s.label} className="flex flex-col items-center gap-6 group relative z-10">
+                  <div className={cn(
+                    "w-16 h-16 rounded-none border-2 flex items-center justify-center transition-all duration-700",
+                    isPast ? "bg-emerald-50 text-emerald-600 border-emerald-200" : isActive ? "bg-yellow-50 text-yellow-600 border-yellow-300 shadow-xl" : "bg-white text-slate-200 border-slate-100"
+                  )}>
+                    <s.icon className="h-8 w-8" />
+                  </div>
+                  <div className="text-center">
+                    <p className={cn("text-[10px] font-black uppercase tracking-widest", isPast ? "text-emerald-600" : isActive ? "text-yellow-600" : "text-slate-300")}>{s.label}</p>
+                    {(isPast || isActive) && <p className="text-[9px] text-slate-400 font-bold uppercase mt-2">{format(new Date(selectedTrip.createdAt), 'dd-MMM HH:mm')}</p>}
+                  </div>
+                </div>
+              );
+            })}
+            <div className="absolute top-[48px] left-[10%] right-[10%] h-[2px] bg-slate-100 -z-0" />
+            <div className="absolute top-[-15px] transition-all duration-[2000ms] ease-in-out z-20" style={{ left: `${(activeStep / (steps.length - 1)) * 80 + 10}%`, transform: 'translateX(-50%)' }}>
+               <div className="bg-white p-4 shadow-2xl border border-blue-100 animate-bounce">
+                  <Truck className={cn("h-12 w-12", selectedTrip.status === 'REJECTION' && activeStep < 4 ? "text-red-500 rotate-180" : "text-[#1e3a8a]")} />
+               </div>
+            </div>
+          </div>
+          
+          {selectedTrip.status === 'REJECTION' && (
+            <div className="bg-red-50 border-2 border-red-100 p-6 rounded-none flex items-center gap-6 animate-pulse">
+              <AlertTriangle className="h-8 w-8 text-red-600" />
+              <div>
+                <h3 className="text-[11px] font-black text-red-600 uppercase tracking-widest mb-1">Trip Rejection Notification</h3>
+                <p className="text-[13px] font-black text-red-800 uppercase italic">Reason: {selectedTrip.rejectionRemark || 'Operational Decision'}</p>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="h-[500px] bg-white border border-slate-300 shadow-lg"><div ref={mapRef} className="w-full h-full" /></div>
+        <div className="flex justify-between items-center px-4 italic"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sikka Satellite Synchronization Node: Active</p><Badge className="bg-blue-900 text-white rounded-none px-4">TR24 Registry</Badge></div>
+      </div>
+    </div>
+  );
 }
 
 function GpsTrackingHub({ settings, settingsRef, gpsData, loading }: any) {
@@ -1527,7 +1764,7 @@ function GpsTrackingHub({ settings, settingsRef, gpsData, loading }: any) {
   );
 }
 
-function Tr24TrackShipmentScreen() {
+function Tr24TrackShipmentScreenPlaceholder() {
   return (<div className="h-full flex flex-col items-center justify-center font-mono"><Radar className="h-10 w-10 text-[#1e3a8a] mb-6" /><h2 className="text-sm font-black uppercase">TR24 - LIVE TRACKER</h2></div>);
 }
 
@@ -2002,7 +2239,7 @@ export default function DashboardPage() {
         </div>
       </div>
       <div className="flex-1 flex overflow-hidden">
-        {activeScreen === 'HOME' && (<div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden print:hidden shadow-sm"><div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div><div className="flex-1 overflow-y-auto green-scrollbar">{MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'WGPS24').map(t => (<div key={t.code} onClick={() => executeTCode(t.code)} className="flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all"><span className="text-[10px] font-black uppercase tracking-tight text-[#1e3a8a]">{t.code} - {t.description}</span><div className="flex-1" /><t.icon className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-600" /></div>))}</div></div>)}
+        {activeScreen === 'HOME' && (<div className="w-72 bg-white border-r border-slate-300 hidden lg:flex flex-col overflow-hidden print:hidden shadow-sm"><div className="p-4 border-b border-slate-200 bg-[#dae4f1]/50"><h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1e3a8a] flex items-center gap-2"><Grid2X2 className="h-3.5 w-3.5" /> Favorites</h2></div><div className="flex-1 overflow-y-auto green-scrollbar">{MASTER_TCODES.filter(t => t.code.endsWith('01') || t.code === 'TR21' || t.code === 'VA04' || t.code === 'TR24' || t.code === 'WGPS24').map(t => (<div key={t.code} onClick={() => executeTCode(t.code)} className="flex items-center gap-4 px-5 py-3 hover:bg-blue-50 cursor-pointer group border-b border-slate-100 transition-all"><span className="text-[10px] font-black uppercase tracking-tight text-[#1e3a8a]">{t.code} - {t.description}</span><div className="flex-1" /><t.icon className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-600" /></div>))}</div></div>)}
         <div className="flex-1 flex flex-col overflow-hidden bg-[#f2f2f2] print:bg-white">
           {activeScreen === 'HOME' ? (
             <div className="flex-1 overflow-y-auto p-8 animate-fade-in"><h1 className="text-3xl font-black text-[#1e3a8a] uppercase italic tracking-tighter mb-10">Sikka Logistics Management Control</h1><div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-8 border border-slate-300 shadow-sm mb-12"><div className="flex flex-col gap-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plant Filter</label><select className="h-10 border border-slate-400 bg-white px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500" value={homePlantFilter} onChange={e => setHomePlantFilter(e.target.value)}><option value="ALL">ALL AUTHORIZED PLANTS</option>{accessiblePlants.map(p => <option key={p.id} value={p.plantCode}>{p.plantCode}</option>)}</select></div><div className="flex flex-col gap-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fiscal Period</label><input type="month" className="h-10 border border-slate-400 px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-500" value={homeMonthFilter} onChange={e => setHomeMonthFilter(e.target.value)} /></div></div><div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">{[{ l: 'OPEN ORDER', c: homeStats.open, cl: 'text-blue-600' }, { l: 'LOADING', c: homeStats.loading, cl: 'text-orange-600' }, { l: 'IN-TRANSIT', c: homeStats.transit, cl: 'text-emerald-600' }, { l: 'ARRIVED', c: homeStats.arrived, cl: 'text-indigo-600' }, { l: 'POD', c: homeStats.pod, cl: 'text-purple-600' }, { l: 'REJECT', c: homeStats.reject, cl: 'text-red-600' }, { l: 'CLOSED', c: homeStats.closed, cl: 'text-slate-600' }].map(w => (<div key={w.l} className="p-6 border border-slate-200 shadow-md flex flex-col items-center justify-center gap-3 bg-white hover:scale-105 transition-transform duration-300"><span className="text-[9px] font-black text-slate-400 uppercase text-center tracking-widest h-6 flex items-center">{w.l}</span><span className={cn("text-3xl font-black italic tracking-tighter", w.cl)}>{w.c}</span></div>))}</div></div>
@@ -2020,7 +2257,7 @@ export default function DashboardPage() {
                 />
               )}
               {activeScreen === 'TR21' && viewMode === 'tracking' && <Tr21TrackingPage node={trackingNode} onBack={() => setViewMode('list')} />}
-              {activeScreen === 'TR24' && <Tr24TrackShipmentScreen />}
+              {activeScreen === 'TR24' && <Tr24TrackShipmentScreen orders={allOrders} trips={allTrips} customers={accessibleCustomers} gpsData={gpsData} />}
               {activeScreen === 'WGPS24' && <GpsTrackingHub settings={settings} settingsRef={settingsRef} gpsData={gpsData} loading={isGpsLoading} />}
               {activeScreen === 'SE38' && <Se38Report search={se38Search} onSearchChange={setSe38Search} trips={allTrips} orders={allOrders} customers={accessibleCustomers} vendors={accessibleVendors} plants={accessiblePlants} companies={accessibleCompanies} users={allUsers} />}
               {activeScreen === 'ZCODE' && <ZCodeRegistry tcodes={MASTER_TCODES} onExecute={executeTCode} />}
@@ -2101,3 +2338,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

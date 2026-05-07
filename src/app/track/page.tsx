@@ -4,12 +4,10 @@ export const dynamic = 'force-dynamic';
 
 import * as React from 'react';
 import { 
-  Radar, Search, Package, Truck, CheckCircle, 
-  Loader2, MapPin, ArrowLeft, 
-  ShoppingCart, AlertTriangle, Clock
+  Radar, ShoppingCart, Package, Truck, MapPin, 
+  CheckCircle, Loader2, ArrowLeft, AlertTriangle, Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -20,13 +18,13 @@ const SHARED_HUB_ID = 'Sikkaind';
 
 export default function TrackPage() {
   const db = useFirestore();
-  const [refType, setRefType] = React.useState('');
-  const [refValue, setRefValue] = React.useState('');
+  const [searchSo, setSearchSo] = React.useState('');
   const [loading, setLoading] = React.useState(false);
-  const [view, setView] = React.useState<'search' | 'so_details' | 'track_view'>('search');
-  const [trackingData, setTrackingData] = React.useState<any>(null);
+  const [view, setView] = React.useState<'search' | 'order_details' | 'trip_tracking'>('search');
+  const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [linkedTrips, setLinkedTrips] = React.useState<any[]>([]);
-  const [activeStep, setActiveStep] = React.useState(-1);
+  const [selectedTrip, setSelectedTrip] = React.useState<any>(null);
+  const [activeStep, setActiveStep] = React.useState(0);
   const mapRef = React.useRef<HTMLDivElement>(null);
   const [gpsData, setGpsData] = React.useState<any[]>([]);
 
@@ -39,7 +37,6 @@ export default function TrackPage() {
   const { data: customers } = useCollection(customersQuery);
 
   React.useEffect(() => {
-    // Ensure Google Maps script is loaded for public page
     const scriptId = 'google-maps-script-public';
     if (!document.getElementById(scriptId)) {
       const script = document.createElement('script');
@@ -64,31 +61,28 @@ export default function TrackPage() {
     return () => clearInterval(i);
   }, []);
 
-  const handleTrackNow = () => {
-    if (!refValue) return;
+  const handleTrack = () => {
+    if (!searchSo) return;
     setLoading(true);
-    const val = refValue.trim().toUpperCase();
-    
     setTimeout(() => {
-      if (refType === 'Sale Order') {
-        const order = orders?.find((o: any) => o.saleOrder === val || o.id === val);
-        if (order) {
-          setTrackingData(order);
-          const tList = trips?.filter((t: any) => t.saleOrderId === order.id) || [];
-          setLinkedTrips(tList);
-          setView('so_details');
-        } else { alert("Registry Failure: Sale Order Not Found"); }
+      const val = searchSo.trim().toUpperCase();
+      const order = orders?.find((o: any) => o.saleOrder === val || o.id === val);
+      if (order) {
+        setSelectedOrder(order);
+        const tList = trips?.filter((t: any) => t.saleOrderId === order.id) || [];
+        setLinkedTrips(tList);
+        setView('order_details');
       } else {
-        const trip = trips?.find((t: any) => t.tripId === val || t.id === val);
-        if (trip) {
-          setTrackingData(trip);
-          setLinkedTrips([trip]);
-          setView('track_view');
-          startAnimation(trip);
-        } else { alert("Registry Failure: Trip ID Not Found"); }
+        alert("Registry Failure: Sale Order Not Found");
       }
       setLoading(false);
     }, 800);
+  };
+
+  const handleSelectTrip = (trip: any) => {
+    setSelectedTrip(trip);
+    setView('trip_tracking');
+    startAnimation(trip);
   };
 
   const startAnimation = (trip: any) => {
@@ -101,120 +95,83 @@ export default function TrackPage() {
 
     let current = 0;
     setActiveStep(0);
-    const interval = setInterval(() => {
+    const forwardInterval = setInterval(() => {
       if (current < target) {
         current++;
         setActiveStep(current);
       } else {
-        clearInterval(interval);
+        clearInterval(forwardInterval);
+        if (trip.status === 'REJECTION') {
+          setTimeout(() => {
+            const backwardInterval = setInterval(() => {
+              if (current > 0) {
+                current--;
+                setActiveStep(current);
+              } else {
+                clearInterval(backwardInterval);
+              }
+            }, 2000);
+          }, 2000);
+        }
       }
     }, 2000);
   };
 
   const renderMap = () => {
-    if (!window.google || !trackingData) return;
+    if (!window.google || !selectedTrip || !mapRef.current) return;
     const geocoder = new window.google.maps.Geocoder();
     const directionsService = new window.google.maps.DirectionsService();
     const directionsRenderer = new window.google.maps.DirectionsRenderer({
       suppressMarkers: true,
-      polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 5 }
-    });
-    
-    const order = trackingData.saleOrderId ? orders?.find((o: any) => o.id === trackingData.saleOrderId) : trackingData;
-    
-    const consignorMaster = customers?.find((c: any) => 
-      c.customerName?.toUpperCase() === order?.consignor?.toUpperCase() || 
-      (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.consignor?.toUpperCase()
-    );
-    const shipToMaster = customers?.find((c: any) => 
-      c.customerName?.toUpperCase() === order?.shipToParty?.toUpperCase() || 
-      (c.customerName + ' - ' + c.city)?.toUpperCase() === order?.shipToParty?.toUpperCase()
-    );
-
-    const gps = gpsData.find(v => v.vehicleNumber?.toUpperCase() === trackingData.vehicleNumber?.toUpperCase());
-
-    const p1 = new Promise((resolve) => {
-      if (consignorMaster?.postalCode) {
-        geocoder.geocode({ address: consignorMaster.postalCode }, (res, status) => {
-          if (status === 'OK') resolve(res[0].geometry.location);
-          else resolve(null);
-        });
-      } else resolve(null);
+      polylineOptions: { strokeColor: '#1e3a8a', strokeWeight: 6 }
     });
 
-    const p2 = new Promise((resolve) => {
-      if (shipToMaster?.postalCode) {
-        geocoder.geocode({ address: shipToMaster.postalCode }, (res, status) => {
-          if (status === 'OK') resolve(res[0].geometry.location);
-          else resolve(null);
-        });
-      } else resolve(null);
+    const order = selectedOrder;
+    const consignorMaster = customers?.find((c: any) => c.customerName === order?.consignor || (c.customerName + ' - ' + c.city) === order?.consignor);
+    const shipToMaster = customers?.find((c: any) => c.customerName === order?.shipToParty || (c.customerName + ' - ' + c.city) === order?.shipToParty);
+    const gps = gpsData?.find((v: any) => v.vehicleNumber?.toUpperCase() === selectedTrip.vehicleNumber?.toUpperCase());
+
+    const getLoc = (addr: string) => new Promise((resolve) => {
+      geocoder.geocode({ address: addr }, (res, status) => {
+        if (status === 'OK') resolve(res[0].geometry.location);
+        else resolve(null);
+      });
     });
 
-    Promise.all([p1, p2]).then(([startLoc, endLoc]: any) => {
-      if (!mapRef.current) return;
-      
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: gps ? { lat: gps.latitude, lng: gps.longitude } : { lat: 20.5937, lng: 78.9629 },
-        zoom: gps ? 12 : 5,
-        styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
+    Promise.all([
+      getLoc(consignorMaster?.postalCode || order?.from),
+      getLoc(shipToMaster?.postalCode || order?.destination)
+    ]).then(([startLoc, endLoc]: any) => {
+      const map = new window.google.maps.Map(mapRef.current!, {
+        center: gps ? { lat: parseFloat(gps.latitude), lng: parseFloat(gps.longitude) } : (startLoc || { lat: 20.5937, lng: 78.9629 }),
+        zoom: 12,
+        mapTypeControl: false,
+        streetViewControl: false
       });
       directionsRenderer.setMap(map);
 
-      if (startLoc) {
-        new window.google.maps.Marker({
-          position: startLoc,
-          map,
-          title: 'Start Point',
-          icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
-        });
-      }
-
-      if (endLoc) {
-        new window.google.maps.Marker({
-          position: endLoc,
-          map,
-          title: 'Drop Point',
-          icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
-        });
-      }
-
+      if (startLoc) new window.google.maps.Marker({ position: startLoc, map, icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png' });
+      if (endLoc) new window.google.maps.Marker({ position: endLoc, map, icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' });
+      
       if (gps) {
         new window.google.maps.Marker({
-          position: { lat: gps.latitude, lng: gps.longitude },
+          position: { lat: parseFloat(gps.latitude), lng: parseFloat(gps.longitude) },
           map,
-          title: gps.vehicleNumber,
-          icon: {
-            url: 'https://maps.google.com/mapfiles/ms/icons/truck.png',
-            scaledSize: new window.google.maps.Size(40, 40)
-          }
+          icon: { url: 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(40, 40) }
         });
       }
 
       if (startLoc && endLoc) {
-        const request: any = {
-          origin: startLoc,
-          destination: endLoc,
-          travelMode: window.google.maps.TravelMode.DRIVING,
-        };
-
-        if (gps) {
-          request.waypoints = [{
-            location: { lat: gps.latitude, lng: gps.longitude },
-            stopover: false
-          }];
-        }
-
+        const request: any = { origin: startLoc, destination: endLoc, travelMode: window.google.maps.TravelMode.DRIVING };
+        if (gps) request.waypoints = [{ location: { lat: parseFloat(gps.latitude), lng: parseFloat(gps.longitude) }, stopover: false }];
         directionsService.route(request, (result, status) => {
-          if (status === 'OK') {
-            directionsRenderer.setDirections(result);
-          }
+          if (status === 'OK') directionsRenderer.setDirections(result);
         });
       }
     });
   };
 
-  React.useEffect(() => { if (view === 'track_view' && trackingData) renderMap(); }, [view, trackingData, gpsData]);
+  React.useEffect(() => { if (view === 'trip_tracking') renderMap(); }, [view, selectedTrip, gpsData]);
 
   if (view === 'search') {
     return (
@@ -225,28 +182,16 @@ export default function TrackPage() {
              <h1 className="text-xl font-black text-slate-800 tracking-tighter uppercase italic">SIKKA LIVE TRACK SHIPMENT PLATFORM</h1>
            </div>
         </div>
-        <div className="max-w-4xl mx-auto w-full px-8 space-y-12">
+        <div className="max-w-4xl mx-auto w-full px-8">
           <div className="bg-white border border-slate-300 p-12 space-y-10 shadow-sm animate-fade-in">
-            <div className="space-y-6">
-              <div className="flex items-center gap-8">
-                <label className="text-[12px] font-black text-slate-500 w-[180px] text-right uppercase">Reference Type:</label>
-                <select value={refType} onChange={e => setRefType(e.target.value)} className="h-9 w-[320px] border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase">
-                  <option value="">SELECT OPTION...</option>
-                  <option value="Sale Order">Sale Order</option>
-                  <option value="Trip ID">Trip ID</option>
-                </select>
-              </div>
-              {refType && (
-                <div className="flex items-center gap-8 animate-fade-in">
-                  <label className="text-[12px] font-black text-slate-500 w-[180px] text-right uppercase">{refType}:</label>
-                  <input value={refValue} onChange={(e) => setRefValue(e.target.value)} className="h-9 w-[320px] border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase tracking-widest" placeholder={`ENTER ${refType.toUpperCase()}...`} />
-                </div>
-              )}
+            <div className="flex items-center gap-8">
+              <label className="text-[12px] font-black text-slate-500 w-[180px] text-right uppercase">Sale Order:</label>
+              <input value={searchSo} onChange={(e) => setSearchSo(e.target.value)} className="h-9 w-[320px] border border-slate-400 bg-white px-2 text-[12px] font-black outline-none focus:ring-1 focus:ring-blue-500 uppercase tracking-widest" placeholder="ENTER SALE ORDER..." />
             </div>
             <div className="pl-[212px] flex gap-4">
-               <Button onClick={() => setRefValue('')} variant="outline" className="h-9 px-8 rounded-none border-slate-300 text-[10px] font-black uppercase">Clear</Button>
-               <Button onClick={handleTrackNow} disabled={loading || !refType || !refValue} className="h-9 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg disabled:opacity-50">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Execute Tracking'}
+               <Button onClick={() => setSearchSo('')} variant="outline" className="h-9 px-8 rounded-none border-red-300 text-red-600 hover:bg-red-50 text-[10px] font-black uppercase">Cancel</Button>
+               <Button onClick={handleTrack} disabled={loading || !searchSo} className="h-9 px-12 bg-[#0056d2] text-white rounded-none text-[10px] font-black uppercase shadow-lg disabled:opacity-50">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Track'}
                </Button>
             </div>
           </div>
@@ -255,88 +200,40 @@ export default function TrackPage() {
     );
   }
 
-  if (view === 'so_details') {
+  if (view === 'order_details') {
     return (
       <div className="min-h-screen bg-[#f2f2f2] font-mono animate-fade-in">
         <div className="bg-white border-b border-slate-300 px-8 py-3 mb-10 flex items-center justify-between shadow-sm">
-           <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">SIKKA LIVE TRACK SHIPMENT PLATFORM</h2>
+           <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Order Details Node</h2>
            <Button onClick={() => setView('search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">New Search</Button>
         </div>
-        <div className="max-w-5xl mx-auto px-8 space-y-12">
+        <div className="max-w-5xl mx-auto px-8">
           <div className="bg-white border border-slate-300 p-10 space-y-10 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6 mb-10">
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Plant:</label><span className="text-[12px] font-black uppercase">{trackingData.plantCode}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Order Booked Date Time:</label><span className="text-[12px] font-black uppercase">{format(new Date(trackingData.saleOrderDate || trackingData.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Consignor:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignor}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Consignee:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.consignee}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Ship to Party:</label><span className="text-[12px] font-black uppercase truncate">{trackingData.shipToParty}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Order Quantity:</label><span className="text-[12px] font-black text-emerald-600">{trackingData.weight} {trackingData.weightUom}</span></div>
-              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Route:</label><span className="text-[12px] font-black text-[#1e3a8a] uppercase">{trackingData.from} → {trackingData.destination}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Order Date:</label><span className="text-[12px] font-black uppercase">{format(new Date(selectedOrder.saleOrderDate || selectedOrder.createdAt), 'dd-MMM-yyyy HH:mm')}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Consignor:</label><span className="text-[12px] font-black uppercase truncate">{selectedOrder.consignor}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Consignee:</label><span className="text-[12px] font-black uppercase truncate">{selectedOrder.consignee}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Ship to Party:</label><span className="text-[12px] font-black uppercase truncate">{selectedOrder.shipToParty}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Order Weight:</label><span className="text-[12px] font-black text-emerald-600">{selectedOrder.weight} {selectedOrder.weightUom}</span></div>
+              <div className="flex items-center gap-6 border-b border-slate-50 pb-2"><label className="text-[11px] font-black text-slate-400 w-40 uppercase tracking-tighter shrink-0">Route:</label><span className="text-[12px] font-black text-[#1e3a8a] uppercase">{selectedOrder.from} → {selectedOrder.destination}</span></div>
             </div>
 
-            {(!linkedTrips || linkedTrips.length === 0) && (
-              <div className="space-y-4">
-                <p className="text-[13px] font-black text-[#1e3a8a] uppercase leading-relaxed">
-                  Your sale order {trackingData.saleOrder} has been booked for dispatch. Once the vehicle is assigned, we will share the Trip ID for live updates.
-                </p>
-                {trackingData.delayRemark && (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200">
-                    <p className="text-[12px] font-black text-yellow-700 uppercase italic">"{trackingData.delayRemark}"</p>
+            <div className="pt-8 border-t border-slate-100">
+              {linkedTrips.length > 0 ? (
+                <div className="space-y-6">
+                  <p className="text-[13px] font-black text-[#1e3a8a] uppercase leading-relaxed italic">
+                    Sale order {selectedOrder.saleOrder} against Trip ID {linkedTrips.map(t => t.tripId).join(', ')} has been generated successfully. Click on Trip ID for track your Shipment.
+                  </p>
+                  <div className="flex flex-wrap gap-4">
+                    {linkedTrips.map(t => (
+                      <button key={t.id} onClick={() => handleSelectTrip(t)} className="px-8 py-2.5 bg-blue-50 border border-blue-200 text-[#0056d2] font-black text-[11px] uppercase hover:bg-blue-600 hover:text-white transition-all shadow-sm">Trip ID {t.tripId}</button>
+                    ))}
                   </div>
-                )}
-              </div>
-            )}
-
-            {linkedTrips && linkedTrips.length === 1 && (
-              <div className="space-y-4">
-                <p className="text-[13px] font-black text-[#1e3a8a] uppercase leading-relaxed">
-                  Sale order {trackingData.saleOrder} against generated Trip ID is{' '}
-                  <button 
-                    onClick={() => { setTrackingData(linkedTrips[0]); startAnimation(linkedTrips[0]); setView('track_view'); }}
-                    className="underline hover:text-blue-700 decoration-2 underline-offset-4"
-                  >
-                    {linkedTrips[0].tripId}
-                  </button>
-                  . Click on Trip ID to track your shipment.
-                </p>
-                {trackingData.delayRemark && (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200">
-                    <p className="text-[12px] font-black text-yellow-700 uppercase italic">"{trackingData.delayRemark}"</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {linkedTrips && linkedTrips.length > 1 && (
-              <div className="space-y-6">
-                <p className="text-[13px] font-black text-[#1e3a8a] uppercase leading-relaxed">
-                  Sale order {trackingData.saleOrder} against multiple Trip IDs:
-                </p>
-                <div className="space-y-3 pl-4">
-                  {linkedTrips.map((t: any) => (
-                    <div key={t.id} className="flex items-center gap-4">
-                      <button 
-                        onClick={() => { setTrackingData(t); startAnimation(t); setView('track_view'); }}
-                        className="text-[12px] font-black text-[#0056d2] uppercase hover:underline decoration-2 underline-offset-4"
-                      >
-                        Trip ID {t.tripId}
-                      </button>
-                      <span className="text-[12px] font-bold text-slate-500 uppercase tracking-tighter">
-                        – Assigned Qty – {t.assignWeight} {t.weightUom || 'MT'}
-                      </span>
-                    </div>
-                  ))}
                 </div>
-                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest pt-4 border-t border-slate-100">
-                  Click on Trip ID to track your shipment.
-                </p>
-                {trackingData.delayRemark && (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200">
-                    <p className="text-[12px] font-black text-yellow-700 uppercase italic">"{trackingData.delayRemark}"</p>
-                  </div>
-                )}
-              </div>
-            )}
+              ) : (
+                <p className="text-[13px] font-black text-blue-800 uppercase italic leading-relaxed">Currently your sale order {selectedOrder.saleOrder} against Trip ID not generated, we will share trip ID shortly… Thanks for visit.</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -348,55 +245,68 @@ export default function TrackPage() {
     { label: 'Loading', icon: Package },
     { label: 'IN-Transit', icon: Truck },
     { label: 'Arrived', icon: MapPin },
-    { label: trackingData.status === 'REJECTION' ? 'Reject' : 'Delivered', icon: trackingData.status === 'REJECTION' ? AlertTriangle : CheckCircle }
+    { label: selectedTrip?.status === 'REJECTION' ? 'Reject' : 'Delivered', icon: selectedTrip?.status === 'REJECTION' ? AlertTriangle : CheckCircle }
   ];
 
   return (
-    <div className="min-h-screen bg-[#f2f2f2] font-mono animate-fade-in">
+    <div className="min-h-screen bg-[#f2f2f2] font-mono animate-fade-in pb-20">
       <div className="bg-white border-b border-slate-300 px-8 py-3 mb-8 flex items-center justify-between shadow-sm">
-         <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">SIKKA LIVE TRACK SHIPMENT PLATFORM</h2>
-         <Button onClick={() => setView(linkedTrips.length > 1 ? 'so_details' : 'search')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">Back</Button>
+         <h2 className="text-[16px] font-bold text-slate-800 tracking-tight uppercase">Live Shipment Node Tracking</h2>
+         <Button onClick={() => setView('order_details')} variant="outline" className="h-8 text-[9px] font-black uppercase rounded-none border-slate-300">Back</Button>
       </div>
-      <div className="max-w-6xl mx-auto px-8 space-y-8 pb-20">
-        <div className="bg-white border border-slate-300 p-8 space-y-10 shadow-sm relative overflow-hidden">
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10 opacity-80 border-b border-slate-100 pb-8">
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Number</span><span className="text-[13px] font-black uppercase text-[#1e3a8a]">{trackingData.vehicleNumber}</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Driver Registry</span><span className="text-[13px] font-black">{trackingData.driverMobile}</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight Data</span><span className="text-[13px] font-black text-emerald-600">{trackingData.assignWeight} MT</span></div>
-              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Route</span><span className="text-[13px] font-black uppercase text-blue-600 truncate">{trackingData.route}</span></div>
+      <div className="max-w-6xl mx-auto px-8 space-y-8">
+        <div className="bg-white border border-slate-300 p-10 space-y-12 shadow-md relative overflow-hidden">
+           <div className="grid grid-cols-2 md:grid-cols-4 gap-x-12 gap-y-6 mb-8 opacity-80 border-b border-slate-100 pb-10">
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ship to Party</span><span className="text-[12px] font-black uppercase truncate">{selectedTrip.shipToParty}</span></div>
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Vehicle Node</span><span className="text-[12px] font-black uppercase text-[#1e3a8a]">{selectedTrip.vehicleNumber}</span></div>
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Weight Details</span><span className="text-[12px] font-black text-emerald-600">{selectedTrip.assignWeight} {selectedTrip.weightUom}</span></div>
+              <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Driver Mobile</span><span className="text-[12px] font-black">{selectedTrip.driverMobile}</span></div>
            </div>
-           <div className="py-12 relative flex justify-between px-8">
+           
+           <div className="py-20 relative flex justify-between px-10">
               {steps.map((s, i) => {
-                const statusColor = i < activeStep ? "text-emerald-600" : i === activeStep ? "text-yellow-600" : "text-red-500";
-                const iconColor = i < activeStep ? "bg-emerald-50 text-emerald-600 border-emerald-200" : i === activeStep ? "bg-yellow-50 text-yellow-600 border-yellow-300 shadow-md" : "bg-red-50 text-red-500 border-red-100";
+                const isActive = i === activeStep;
+                const isPast = i < activeStep;
                 return (
-                  <div key={s.label} className="flex flex-col items-center gap-4 group relative z-10">
-                    <div className={cn("w-14 h-14 rounded-none border-2 flex items-center justify-center transition-all duration-500", iconColor)}>
-                       <s.icon className="h-7 w-7" />
+                  <div key={s.label} className="flex flex-col items-center gap-6 group relative z-10">
+                    <div className={cn(
+                      "w-16 h-16 rounded-none border-2 flex items-center justify-center transition-all duration-700",
+                      isPast ? "bg-emerald-50 text-emerald-600 border-emerald-200" : isActive ? "bg-yellow-50 text-yellow-600 border-yellow-300 shadow-2xl" : "bg-white text-slate-200 border-slate-100"
+                    )}>
+                       <s.icon className="h-8 w-8" />
                     </div>
                     <div className="text-center">
-                      <p className={cn("text-[10px] font-black uppercase tracking-widest", statusColor)}>{s.label}</p>
-                      {i <= activeStep && (
-                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
-                          {format(new Date(trackingData.createdAt), 'dd-MMM-yy HH:mm')}
-                        </p>
-                      )}
+                      <p className={cn("text-[10px] font-black uppercase tracking-widest", isPast ? "text-emerald-600" : isActive ? "text-yellow-600" : "text-slate-300")}>{s.label}</p>
+                      {(isPast || isActive) && <p className="text-[9px] text-slate-400 font-bold uppercase mt-2">{format(new Date(selectedTrip.createdAt), 'dd-MMM HH:mm')}</p>}
                     </div>
                   </div>
                 );
               })}
-              <div className="absolute top-[40px] left-[10%] right-[10%] h-px bg-slate-200 -z-0" />
-              <div className="absolute top-[-5px] transition-all duration-[2000ms] ease-in-out" style={{ left: `${(activeStep / (steps.length - 1)) * 80 + 10}%`, transform: 'translateX(-50%)' }}>
-                 <div className="bg-white p-3 shadow-2xl border border-blue-100 animate-bounce">
-                    <Truck className={cn("h-11 w-11", trackingData.status === 'REJECTION' && activeStep === 4 ? "text-red-500 rotate-180" : "text-[#1e3a8a]")} />
+              <div className="absolute top-[52px] left-[10%] right-[10%] h-[2px] bg-slate-100 -z-0" />
+              <div className="absolute top-[-15px] transition-all duration-[2000ms] ease-in-out z-20" style={{ left: `${(activeStep / (steps.length - 1)) * 80 + 10}%`, transform: 'translateX(-50%)' }}>
+                 <div className="bg-white p-4 shadow-2xl border border-blue-100 animate-bounce">
+                    <Truck className={cn("h-12 w-12", selectedTrip.status === 'REJECTION' && activeStep < 4 ? "text-red-500 rotate-180" : "text-[#1e3a8a]")} />
                  </div>
               </div>
            </div>
-           {trackingData.status === 'REJECTION' && <div className="mt-8 bg-red-50 border border-red-200 p-4 text-center"><p className="text-[10px] font-black text-red-600 uppercase italic">REJECTION REASON: {trackingData.rejectionRemark}</p></div>}
+
+           {selectedTrip.status === 'REJECTION' && (
+             <div className="mt-8 bg-red-50 border-2 border-red-100 p-6 flex items-center gap-6">
+                <AlertTriangle className="h-8 w-8 text-red-600" />
+                <div>
+                   <h3 className="text-[11px] font-black text-red-600 uppercase tracking-widest mb-1">Logistics Rejection Node</h3>
+                   <p className="text-[13px] font-black text-red-800 uppercase italic">Reason: {selectedTrip.rejectionRemark || 'Administrative Exception'}</p>
+                </div>
+             </div>
+           )}
         </div>
-        <div className="h-[450px] bg-white border border-slate-300 shadow-sm"><div ref={mapRef} className="w-full h-full" /></div>
-        <div className="flex justify-between items-center px-4"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Sync: High-Density Tracking</p><Badge variant="outline" className="text-[8px] font-black bg-blue-50 border-blue-100 text-blue-800 rounded-none">Sikka Industries & Logistics</Badge></div>
+        <div className="h-[500px] bg-white border border-slate-300 shadow-xl overflow-hidden"><div ref={mapRef} className="w-full h-full" /></div>
+        <div className="flex justify-between items-center px-4 italic text-[#1e3a8a] font-black text-[10px] uppercase tracking-widest">
+           <span>Sikka Satellite Node Active – Live Coordinates Synchronized</span>
+           <span>Sikka Industries & Logistics</span>
+        </div>
       </div>
     </div>
   );
 }
+
