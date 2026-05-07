@@ -296,6 +296,7 @@ function VendorForm({ data, onChange, disabled, allPlants }: any) {
       <SectionGrouping title="IDENTIFICATION">
         <FormInput label="VENDOR NAME" value={data.vendorName} onChange={(v: string) => onChange({...data, vendorName: v})} disabled={disabled} />
         <FormInput label="VENDOR FIRM" value={data.vendorFirmName} onChange={(v: string) => onChange({...data, vendorFirmName: v})} disabled={disabled} />
+        <FormInput label="VENDOR CODE" value={data.vendorCode} disabled={true} placeholder="AUTO-GENERATED ON SAVE" />
       </SectionGrouping>
       <SectionGrouping title="DETAILS">
         <FormInput label="MOBILE" value={data.mobile} onChange={(v: string) => onChange({...data, mobile: v})} disabled={disabled} />
@@ -1190,7 +1191,8 @@ function TripBoard({
 
       <Dialog open={isPodPopupOpen} onOpenChange={setIsPodPopupOpen}>
         <DialogContent className="max-w-[800px] bg-[#f2f2f2] p-0 rounded-none border-none shadow-2xl overflow-hidden flex flex-col">
-          <DialogHeader className="bg-[#1e3a8a] px-6 py-4"><DialogTitle className="text-white text-xs font-black uppercase tracking-widest">POD Registry Portal</DialogTitle></DialogHeader>
+          <DialogHeader className="bg-[#1e3a8a] px-6 py-4 shrink-0">
+            <DialogTitle className="text-white text-xs font-black uppercase tracking-widest">POD Registry Portal</DialogTitle></DialogHeader>
           <div className="p-8 space-y-6 overflow-y-auto">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 bg-white p-4 border border-slate-200 shadow-sm">
               <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">Plant</span><span className="text-[11px] font-black uppercase">{selectedTripForPod?.plantCode}</span></div>
@@ -1897,6 +1899,25 @@ export default function DashboardPage() {
     if (activeScreen === 'VA04') { const o = allOrders?.find(ord => ord.saleOrder?.toString().toUpperCase() === formData.saleOrder?.toString().toUpperCase()); if (o) { setDocumentNonBlocking(doc(db, 'users', SHARED_HUB_ID, 'sales_orders', o.id), { status: 'CANCELLED' }, { merge: true }); setStatusMsg({ text: 'Order Cancelled', type: 'success' }); setFormData({}); } return; }
     if (activeScreen === 'VA01') { const validation = await validateOrder(formData); if (!validation.valid) { setStatusMsg({ text: `Rejection: ${validation.reason}`, type: 'error' }); return; } }
     if (activeScreen === 'XD01') { const isDuplicate = accessibleCustomers.some(c => c.customerCode === formData.customerCode && c.id !== formData.id); if (isDuplicate) { setStatusMsg({ text: 'Error: Duplicate Customer Code', type: 'error' }); return; } }
+    
+    // XK01 Vendor Code Auto-Generation
+    if (activeScreen === 'XK01' && !formData.id) {
+      const name = formData.vendorName || 'V';
+      const firstChar = name[0].toUpperCase();
+      let isUnique = false;
+      let generatedCode = '';
+      let attempts = 0;
+      
+      while (!isUnique && attempts < 10) {
+        const num = Math.floor(10000 + Math.random() * 90000);
+        generatedCode = `${firstChar}${num}`;
+        const exists = accessibleVendors.some(v => v.vendorCode === generatedCode);
+        if (!exists) isUnique = true;
+        attempts++;
+      }
+      formData.vendorCode = generatedCode;
+    }
+
     let col = ''; if (activeScreen.startsWith('OX')) col = 'plants'; else if (activeScreen.startsWith('FM')) col = 'companies'; else if (activeScreen.startsWith('XK')) col = 'vendors'; else if (activeScreen.startsWith('XD')) col = 'customers'; else if (activeScreen.startsWith('VA')) col = 'sales_orders'; else if (activeScreen.startsWith('SU')) col = 'user_registry';
     if (col) {
       const docId = formData.id || crypto.randomUUID();
@@ -1904,7 +1925,7 @@ export default function DashboardPage() {
       setDocumentNonBlocking(ref, { ...formData, id: docId, updatedAt: new Date().toISOString(), createdAt: formData.createdAt || new Date().toISOString() }, { merge: true });
       setStatusMsg({ text: 'Synchronized (F8)', type: 'success' }); setFormData({});
     }
-  }, [activeScreen, formData, db, allOrders, accessibleCustomers, selectedTripForPreview, previewDeliveryAddress]);
+  }, [activeScreen, formData, db, allOrders, accessibleCustomers, accessibleVendors, selectedTripForPreview, previewDeliveryAddress]);
 
   const handleBack = () => { if (screenStack.length > 1) { const newStack = [...screenStack]; newStack.pop(); const prev = newStack[newStack.length - 1]; setScreenStack(newStack); setActiveScreen(prev); setFormData({}); } };
   
@@ -2054,4 +2075,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
